@@ -46,6 +46,14 @@
 | vturn_accel_rc | 0.6s | 가속복귀 저역통과 시정수 | 검증됨 |
 | TARGET_LAT_A | 1.6 m/s^2 | 목표 횡가속도 기준 | - |
 
+## selfdrive/carrot/server/gdrive.py (CarrotWeb Drive 업로드)
+
+| 상수 | 현재값 | 용도 | 검증상태 |
+|---|---|---|---|
+| _HANDSHAKE_TIMEOUT | total=20s / sock_connect=10s / sock_read=15s | 토큰갱신·폴더조회생성·resumable세션오픈 전용 타임아웃(청크 PUT의 관대한 타임아웃과 분리) | NEEDS_VALIDATION (2026-08-18 신설, 실기기 네트워크 끊김 재현 검증 필요) |
+| _UPLOAD_TIMEOUT | total=1800s / sock_connect=30s / sock_read=300s | 실제 파일 청크(8MB) PUT 전송용 (핸드셰이크 요청에는 더 이상 안 씀) | 기존값 유지 |
+| UPLOAD_CHUNK_SIZE | 8MB | resumable 업로드 청크 크기 | - |
+
 ## 비전 리드 트래킹 노이즈 (신규 관찰, 특정 상수 아님)
 
 | 항목 | 관찰값 | 용도 | 검증상태 |
@@ -57,3 +65,5 @@
 - 2026-08-18: 최초 작성 (c3-ms-dev HEAD 8dbed620887b 기준)
 - 2026-08-18: x12seg 로그 분석 반영 (LEAD_ACQ_RAMP_TIME 첫 검증 사례,
   비전 리드 트래킹 노이즈 빈도 신규 관찰 항목 추가)
+- 2026-08-18: CarrotWeb gdrive._HANDSHAKE_TIMEOUT 신설 (Drive 업로드
+  진행률 번갈아 뜨는 버그 수정 관련, FINDINGS.md 참고)

@@ -98,6 +98,48 @@
     (참고: 운전자 gas override 비율도 cruiseEnabled 구간의 4.3%로 다소
     높음 — 체감 불만과 일치하는 정황.)
 
+## [FIXED] CarrotWeb Drive 전송 진행률이 번갈아 뜨다가 (1/1) 0%에서 멈춘 뒤 타임아웃 (2026-08-18, 미적용 상태였던 커밋 8dbed62 기준 / 수정 커밋: fix-gdrive-upload-race 브랜치 f72e68a, 패치 파일로 전달)
+- 증상: 로그탭에서 라우트 2개 선택 후 "Drive 전송" 시 상태 줄이
+  "업로드 중(2/2)... 82%"와 "업로드 중(1/1)... 0% (Google Drive 연결
+  확인 중...)" 사이를 번갈아 표시. (2/2) 쪽이 100% 완료돼 사라진 뒤에도
+  화면은 (1/1) 0% 상태에 멈춰 있다가, 한참 후 "업로드 실패(1/1): Drive
+  업로드 실패(네트워크/타임아웃): Timeout on reading data from socket"로
+  실패 표시됨. (스크린샷 3장으로 재현 순서 확인, 실제 rlog 로그 분석은
+  아님 — UI/서버 코드 리뷰로 원인 특정)
+- 원인 (두 가지가 겹침):
+  1. `logs.js`의 `btnDashcamUploadSelected`/`btnScreenrecordUploadSelected`
+     버튼에 업로드 중 비활성화 로직이 없고 `uploadSelectedFiles()`에도
+     재진입 가드가 없었음. 이전 업로드(예: 라우트 1개짜리, total=1)가
+     아직 안 끝난 상태(특히 핸드셰이크 단계에서 응답이 느려 0%에 멈춰
+     보일 때)에서 사용자가 다시 선택/전송하면(예: 전체선택 후 재전송,
+     total=2) 두 번째 독립된 업로드 루프가 새로 시작됨. 두 루프 모두
+     같은 `#logsStatus` DOM 한 줄을 `el.textContent = message`로 그냥
+     덮어쓰기 때문에, 두 루프의 폴링 주기(500ms)가 엇갈리며 서로의
+     메시지를 번갈아 지우는 것처럼 보임 — "번갈아 뜸"의 정체.
+  2. `gdrive.py`의 `upload_file_resumable()`이 토큰 갱신(`_get_access_token`)
+     / 폴더 조회·생성(`_ensure_folder`) / resumable 세션 여는 POST까지
+     전부 청크 업로드용 `aiohttp.ClientSession(timeout=_UPLOAD_TIMEOUT)`
+     (`sock_read=300s`)을 그대로 물려받아 사용했음. 이 세 요청은 원래
+     1~2초짜리 작은 JSON 왕복인데, 기기 쪽 네트워크가 일시적으로
+     끊기거나 응답이 늦으면 프론트에는 "Google Drive 연결 확인 중..."
+     0%로 최대 5분간 아무 진행도 없이 멈춘 것처럼 보이다가 뒤늦게
+     `Timeout on reading data from socket`으로 실패. 사용자 입장에서는
+     "멈춘 것 같다"고 느끼고 재시도(버튼 재클릭)하게 되는 유인이 되어
+     1번 문제와 맞물림.
+- 조치: FIXED (코드 완결, 실기기 검증은 아직).
+  - `logs.js`: `logsState.gdrive.uploading` 재진입 가드 추가 + 업로드
+    중 두 업로드 버튼 모두 disabled 처리, `try/finally`로 확실히 해제.
+  - `gdrive.py`: 핸드셰이크 전용 `_HANDSHAKE_TIMEOUT`(total=20s,
+    sock_connect=10s, sock_read=15s)을 신설해 토큰갱신/폴더조회·생성/
+    resumable 세션 오픈 요청에 개별 적용. 실제 청크 PUT 루프는 기존
+    관대한 타임아웃(`_UPLOAD_TIMEOUT`, sock_read=300s) 그대로 유지
+    (느린 회선에서도 대용량 전송이 끝까지 가야 하므로).
+- 검증 필요: 실기기에서 (a) 업로드 중 버튼 재클릭 시 토스트만 뜨고
+  두 번째 루프가 안 생기는지, (b) 의도적으로 네트워크를 끊은 상태에서
+  Drive 전송 시 20초 내외로 빨리 실패 메시지가 뜨는지 확인.
+- 근거 로그: 없음 (사용자 제공 스크린샷 3장 기반 코드 리뷰. rlog 분석
+  대상 아님).
+
 ## [NEEDS_VALIDATION] LeadBlend closer_jump(8m)/big_jump(15m) 게이트, CUTOUT_* (2026-08-16, 커밋 084a5b8)
 - 상태: route1/route2 특정 이벤트로 검증됨(closer_jump: route1 seg13 t=794s,
   big_jump: route1 t=1388~1390s / route2 t=825~827s). 표본이 각 1건씩이라
