@@ -9,7 +9,7 @@
 | 상수 | 현재값 | 용도 | 검증상태 |
 |---|---|---|---|
 | MARGIN_ACCEL_GATE_FULL / NONE | 1.5 / 1.0 | 여유거리 클수록 aLead 흔들림 무시 | NEEDS_VALIDATION |
-| LEAD_ACQ_RAMP_TIME | 5.0s | 리드 인식 후 선제감속 하한선 도달 시간 | NEEDS_VALIDATION (2026-08-18 로그로 검증 실패, 데이터 부족) |
+| LEAD_ACQ_RAMP_TIME | 5.0s | 리드 인식 후 선제감속 하한선 도달 시간 | NEEDS_VALIDATION (2026-08-18 x12seg 로그에서 첫 적합 사례 확보, seg10 t=657.39 — 매끈한 감속으로 긍정적. 표본 1건, 추가 검증 필요) |
 | LEAD_ACQ_MIN_V_EGO | 3.0 m/s | 이 속도 미만 미적용 | - |
 | LEAD_ACQ_CONFIRM_TIME | 0.2s | 블립 무시, 램프 시작 조건 | - |
 | LEAD_ACQ_LOSS_GRACE_TIME | 0.5s | 순간유실 허용 시간 | - |
@@ -46,6 +46,14 @@
 | vturn_accel_rc | 0.6s | 가속복귀 저역통과 시정수 | 검증됨 |
 | TARGET_LAT_A | 1.6 m/s^2 | 목표 횡가속도 기준 | - |
 
+## 비전 리드 트래킹 노이즈 (신규 관찰, 특정 상수 아님)
+
+| 항목 | 관찰값 | 용도 | 검증상태 |
+|---|---|---|---|
+| leadDRel 프레임당(≤0.3s) 급점프(≥8m) 발생빈도 | ~46건/722s (약 15초당 1회) | LeadBlend closer_jump/big_jump 게이트 발동 빈도 추정 | NEEDS_VALIDATION (2026-08-18 x12seg, 컨트롤 영향은 대부분 미미했으나 누적 확인 필요) |
+
 ---
 갱신 이력:
 - 2026-08-18: 최초 작성 (c3-ms-dev HEAD 8dbed620887b 기준)
+- 2026-08-18: x12seg 로그 분석 반영 (LEAD_ACQ_RAMP_TIME 첫 검증 사례,
+  비전 리드 트래킹 노이즈 빈도 신규 관찰 항목 추가)
