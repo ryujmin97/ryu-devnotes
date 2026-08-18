@@ -9,11 +9,13 @@
 ---
 
 ## c3-ms-dev
-- last_analyzed_commit: `8dbed620887b`
-- date: 2026-08-18
-- note: 8/16~8/17 커밋 전수 리뷰 완료 (long_mpc/radard/carrot_functions/
-  carrot_man 위주). 발견사항은 FINDINGS.md 참고. 이후 신규 커밋 없으면
-  "분석할 게 없다"고 바로 알려주면 됨.
+- last_analyzed_commit: `366009153812`
+- date: 2026-08-19
+- note: 8dbed620887b 이후 신규 커밋 1개(3660091, CarrotWeb gdrive 재진입/
+  핸드셰이크 타임아웃) 확인했으나 이미 FINDINGS.md에 기록된 이슈라 재분석
+  생략. 대신 x11seg 실주행 로그 분석 수행 — LEAD_ACQ_LOSS_GRACE_TIME
+  NEEDS_VALIDATION 갱신, 정지 리드 추종 클린 케이스 기록. 상세는
+  FINDINGS.md/PARAMS_REGISTRY.md 참고.
 
 ## c3-ms
 - last_analyzed_commit: (아직 분석 안 함)
