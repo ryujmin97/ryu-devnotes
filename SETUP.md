@@ -23,6 +23,10 @@ chmod +x /home/claude/devnotes/analyze_commits.sh
 ```
 
 ## 세션 시작 시 체크리스트
+0. **`/home/claude/devnotes/WIP.md` 존재 여부부터 확인.** 있으면 이전
+   세션이 한도/중단 등으로 끝까지 못 마친 작업이 있다는 뜻 — 그 내용부터
+   사용자에게 요약해서 알리고, 이어서 할지 확인 후 이어간다. 없으면
+   평소대로 진행.
 1. `/home/claude/devnotes/LAST_ANALYZED.md` 열어서 어디까지 분석했는지 확인
 2. "최신 커밋 분석" 요청이면:
    ```bash
@@ -46,6 +50,26 @@ chmod +x /home/claude/devnotes/analyze_commits.sh
 3. 커밋 분석을 했으면 → `LAST_ANALYZED.md`의 해당 브랜치 해시 갱신
 4. 갱신된 파일들을 `/mnt/user-data/outputs/`에 만들어서 전달
    (Claude는 push 권한이 없음 -- Master가 로컬에서 commit + push)
+
+## 코딩 작업 중 체크포인트 (세션 정상 종료가 아닌 "중단 지점 저장")
+Claude는 현재 세션의 5시간 사용량 잔여 %를 조회할 수 없다. 그래서
+"한도 도달을 감지해서 멈추기 전에 저장"은 불가능 -- 대신 아래 트리거
+발생 시 작업을 끝내지 말고 바로 체크포인트한다:
+1. 사용자가 "체크포인트" / "저장" / "여기까지" 요청
+2. 패치 하나의 구현/검증이 한 단계 완료된 시점
+3. 대화가 비정상적으로 길어져 한도 임박 가능성이 있다고 판단될 때
+
+체크포인트 절차:
+1. 진행 상황(완료 단계 / 다음 단계 / 관련 로그 분석 상태 / 코드 diff
+   요약)을 `/home/claude/devnotes/WIP.md`에 기록 (없으면 생성)
+2. `/mnt/user-data/outputs/`에 `WIP.md` 생성 → present_files 전달
+3. 코드 변경분이 있으면 현재 상태 그대로 patch 파일도 같이 생성
+   (`git am` 적용 안내 포함, WIP 단계라도 patch화)
+4. 위의 "세션 종료 시 체크리스트" 1~4번도 함께 수행 (FINDINGS 등)
+5. 사용자에게 "세션 종료"가 아니라 "중단 지점 저장"임을 명확히 알림
+
+다음 세션은 `WIP.md`가 있으면 그 지점부터 이어받고, 완료되면
+WIP.md에서 해당 항목을 제거하거나 완료 표시한다.
 
 ## Master 로컬 반영 방법 (PowerShell)
 ```powershell
