@@ -48,8 +48,20 @@ chmod +x /home/claude/devnotes/analyze_commits.sh
 1. 새로 발견한 이슈/검증 결과 → `FINDINGS.md`에 추가
 2. 튜닝 상수 값 변경/검증 완료 → `PARAMS_REGISTRY.md` 갱신
 3. 커밋 분석을 했으면 → `LAST_ANALYZED.md`의 해당 브랜치 해시 갱신
-4. 갱신된 파일들을 `/mnt/user-data/outputs/`에 만들어서 전달
-   (Claude는 push 권한이 없음 -- Master가 로컬에서 commit + push)
+4. **GH_TOKEN 자동 push (있으면 우선):**
+   ```bash
+   export GH_TOKEN="<지침 상단 값>"
+   python3 /home/claude/devnotes/toolkit/push_via_api.py \
+       --message "session: <한줄 요약>" \
+       FINDINGS.md=/home/claude/devnotes/FINDINGS.md \
+       LAST_ANALYZED.md=/home/claude/devnotes/LAST_ANALYZED.md \
+       PARAMS_REGISTRY.md=/home/claude/devnotes/PARAMS_REGISTRY.md
+   ```
+   실제로 바뀐 파일만 인자로 넘긴다. 성공 시 출력되는 커밋 SHA/URL을
+   사용자에게 보여준다. 토큰 값은 어떤 경우에도 출력하지 않는다.
+5. **GH_TOKEN 없거나 4번 실패 시 (폴백):** 갱신된 파일들을
+   `/mnt/user-data/outputs/`에 만들어서 전달 (Master가 로컬에서
+   commit + push, 아래 PowerShell 섹션 참고)
 
 ## 코딩 작업 중 체크포인트 (세션 정상 종료가 아닌 "중단 지점 저장")
 Claude는 현재 세션의 5시간 사용량 잔여 %를 조회할 수 없다. 그래서
@@ -71,7 +83,7 @@ Claude는 현재 세션의 5시간 사용량 잔여 %를 조회할 수 없다. �
 다음 세션은 `WIP.md`가 있으면 그 지점부터 이어받고, 완료되면
 WIP.md에서 해당 항목을 제거하거나 완료 표시한다.
 
-## Master 로컬 반영 방법 (PowerShell)
+## Master 로컬 반영 방법 (PowerShell) — GH_TOKEN 없을 때 폴백
 ```powershell
 # devnotes 갱신 파일을 받으면 (예: FINDINGS.md, LAST_ANALYZED.md)
 cd C:\dev\ryu-devnotes
