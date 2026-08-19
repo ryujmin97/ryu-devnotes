@@ -172,6 +172,46 @@
 - 근거 로그: `20260819_062438_000002c9--63f3712592` (x11seg, HEAD
   366009153812, dirty=False)
 
+## [VALIDATED] x16seg 라우트 종방향 전구간 클린 — harsh brake 전부 운전자 개입 (2026-08-19, HEAD 366009153812)
+- 16.44km / 955s (19093 프레임) 전체에서 `harsh_brake_events` 15건 발생했으나
+  전부 해당 프레임에서 `cruiseEnabled=False` 확인됨. 두 클러스터
+  (t=3242~3244 교차로 정지신호 앞 정지, t=3381~3396 도심 구간·오토바이
+  통행) 모두 dashcam 프레임으로 확인한 결과 신호대기/도심 저속 구간에서
+  운전자가 먼저 disengage 후 수동 제동한 것 — ADAS가 활성 상태에서
+  급제동을 유발한 사례는 이번 라우트에 0건.
+- cruise_engage_disengage_events 2건(disengage) 모두 위 두 지점과 일치,
+  재인게이지 1건(t=3284.8)도 정상적인 재출발.
+- 근거 로그: `20260819_114324_000002cb--6ef53b224d` (x16seg)
+
+## [VALIDATED] 근거리 컷인 유사 이벤트 매끈한 반응 (2026-08-19, x16seg t=2516.9~2519)
+- t=2516.93~2517.18 (0.25s, 0.5s 미만이라 lead_presence_segments엔
+  안 잡힘) 순간 leadStatus 유실 후 재포착 시 dRel이 12.1m→4.7m로
+  점프, leadVRel도 -0.5→+3.4로 튐 (근접 차량 재포착/컷인 유사 패턴).
+  이후 aEgo가 -0.2→-0.8 m/s²까지 약 2초에 걸쳐 매끄럽게 램프,
+  harsh_brake_events에 잡히지 않음. lead_cut_in_detector가 이 지점을
+  검출은 했지만 컨트롤 반응 자체는 튀지 않은 양호 사례.
+- 근거 로그: 위와 동일.
+
+## [NEEDS_VALIDATION] carrot_serv.py speed_n_sources min() 선택에 히스테리시스 없음 — src/desiredSpeed 잦은 플리커 (2026-08-19, x16seg)
+- 코드: `desired_speed, source = min(speed_n_sources, key=lambda x: x[0])`
+  (carrot_serv.py) — 매 프레임 후보(atc/road/vturn/route/model 등) 중
+  최솟값을 그대로 채택. 후보값들이 서로 근접해 있으면 프레임 노이즈만
+  으로도 `source`(및 `desiredSpeed` 그 자체)가 프레임 단위로 왕복.
+- 실측: 전체 85건의 src 전환 중 1초 이내 4건 이상 몰린 "플리커 클러스터"
+  5곳 확인 (t=3144.4~3145.8 10건/1.4s, t=3206.4~3206.8 4건/0.4s,
+  t=3223.4~3225.2 5건/1.8s, t=3236.2~3236.9 5건/0.7s, t=3404.4~3407.2
+  6건/2.8s). 대부분 완만한 커브가 이어지는 국도 구간(curvature
+  0.0005~0.0007, 거의 직선에 가까움)에서 road/route/vturn 캡값이
+  171~200 사이로 서로 근접할 때 발생. 예: t=3146.88 desiredSpeed=171
+  → t=3147.68 194 (0.8s만에 23km/h 왕복).
+- 실제 영향: 이번 라우트에서는 aEgo 변동폭이 -0.03~-0.47 m/s² 수준으로
+  작아 체감 저크는 미미함 (하류 슬루 리미터가 상당 부분 흡수하는 것으로
+  보임). 다만 후보값 간 격차가 더 벌어지는 상황에서는 `desiredSpeed`
+  자체가 소스 라벨과 함께 튀어 체감 저크로 이어질 수 있어 구조적
+  리스크로 기록. 최소값 선택에 짧은 dwell-time/hysteresis(예: N프레임
+  연속 우세해야 전환)를 추가하는 방안 검토 여지 있음.
+- 근거 로그: 위와 동일 (`source_transition_log` 결과 기반).
+
 ## [VALIDATED] 정지 선행차 추종 감속 — 클린 케이스 (2026-08-19, x11seg 라우트)
 - t=597~606s: 리드 정지(`leadVLead`→0 근처)에 맞춰 17.5→1.4 m/s까지
   8.9초 동안 매끈하게 감속(min_aEgo=-2.53 m/s²), `leadStatus=True` 끊김
