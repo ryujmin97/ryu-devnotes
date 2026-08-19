@@ -17,7 +17,7 @@
 
 ---
 
-## [FIXED] carrotweb 로그탭 라우트당 세그먼트 40개 -> 20개로 축소 (2026-08-20, HEAD 366009153812 기준, 패치 커밋 62b9c58 / 패치 파일로 전달)
+## [FIXED] carrotweb 로그탭 라우트당 세그먼트 40개 -> 20개로 축소 (2026-08-20, HEAD 366009153812 기준 → 패치 적용 후 c3-ms-dev HEAD f7b154638cf2, master가 git am + push 완료)
 - 증상: carrotweb 화면 로그탭에서 라우트 하나에 세그먼트(≈1분 단위)가
   40개씩 묶여서 저장됨 (라우트당 약 40분). 목록이 라우트 단위로 분류돼
   있어 원하는 라우트를 찾기 어렵고, 하나의 라우트가 너무 길다는 요청.
@@ -40,6 +40,10 @@
   NEEDS_VALIDATION 성격 후속 확인 남음. 빌드(scons)는 이 세션 환경에서
   미실행 — 문법/로직 리뷰만 수행, 실기기(comma 3X) 빌드·부팅 후 확인
   권장.
+- 반영 상태: 2026-08-20 master가 로컬(C:\dev\ryu)에서 `git am` 적용
+  (커밋 f7b154638cf2) 후 `git push origin c3-ms-dev` 완료
+  (3660091..f7b1546). 코드는 원격 브랜치에 반영됨 — 실기기 빌드/부팅
+  후 동작 확인만 NEEDS_VALIDATION으로 남음.
 
 ## [FIXED] radard KjException 크래시 — dPath numpy.float64 캐스팅 누락 (2026-08-17, 커밋 2c34855)
 - 증상: EnableRadarTracks<3 (Genesis DH 기본) 순수 비전 리드 경로에서 radard가
