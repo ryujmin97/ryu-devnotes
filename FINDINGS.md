@@ -148,6 +148,63 @@
   t_follow에 대해 apply_t_follow()를 정확히 1회만 호출하도록 정리.
 - 근거 로그: 시뮬레이션 재현 — OLD 로직 0.5초만에 0.00215로 수렴, 관측값과 일치.
 
+## [INVESTIGATING] curve_exit_no_accel_scan v1의 3번째 오탐 패턴 확인 + v2 필터 추가 (2026-08-20, 260819-7)
+- 배경: 260819-6 세션에서 "커브 탈출 후 재가속 지연" 가설 검증 중
+  v1 스캐너가 (1)선행차 추종 감속, (2)S자 연속커브 재진입을 커브탈출로
+  오판하는 오탐 2종을 확인. 이번 세션에서 `curve_exit_no_accel_scan_v2`를
+  `toolkit/analysis_helpers.py`에 추가(leadStatus 필터 + 직선 지속시간
+  0.8s 재상승 체크)해 260819-7(고속도로 위주, 32.7km/1319.9s, avg
+  89.3km/h) 로그로 재스캔.
+- 결과: v1 4건 → v2 3건으로 감소(1건은 선행차 근접 필터로 제외).
+  남은 3건 중 2건은 정차 직전 저속(0.96~5.29m/s) 구간이라 무관. **나머지
+  1건(seg20, t=1256.45, vEgo=31.65m/s=114km/h, leadStatus=False)을 프레임
+  단위로 대조한 결과, v2도 놓친 3번째 오탐 패턴을 신규 확인**: 커브 탈출
+  직후 vTurnSpeed/desiredSpeed 자체는 빠르게 회복(149→200 kph, 약 3.7s)해
+  전혀 제약이 아니었는데도 aEgo가 ~5초간 -0.3~+0.16 사이에서 정체 —
+  원인은 `controlsd.py` line 214의 `desired_kph = min(CS.vCruiseCluster,
+  carrotMan.desiredSpeed)`: 이 구간의 vCruiseCluster(사용자 설정
+  크루즈속도)가 120km/h였고 vEgo가 이미 113.9km/h로 그 근처였음 —
+  즉 "가속 안 함"이 아니라 "이미 목표속도 근처라 가속할 여지가 거의
+  없었던" 정상 상황. v2는 desiredSpeed/vTurnSpeed만 보고 vCruiseCluster
+  대비 실제 여유폭은 안 보므로 이런 케이스를 오탐으로 남김.
+- 다음 세션 조치 제안: `curve_exit_no_accel_scan_v3`에 필터 3 추가 —
+  탈출 시점 `min(vCruise, desiredSpeed) - vEgo` 여유폭이 작으면
+  (예: <3~5km/h) 애초에 가속할 이유가 없는 상황이므로 후보에서 제외.
+  이 필터까지 반영한 뒤에도 후보가 남는지 route1~7 전체 재스캔 필요
+  (사용자 핵심 관심사, 우선순위 높음 — WIP.md 참고).
+- 부가 확인(코드 리딩): `carrot_man.py` vturn_speed()가 a94a58b 커밋에서
+  "과속방지턱과 동일한 물리공식" 기반으로 재설계되며 저역통과 필터
+  상수가 `vturn_decel_rc=0.15s / vturn_accel_rc=0.15s`(둘 다 빠름)로
+  바뀌어 있음 — PARAMS_REGISTRY의 기존 "0.25s/0.6s 검증됨" 기록은
+  ab156ea 시점(더 이전 리비전)의 값이라 **현재 코드와 불일치, 최신화
+  필요**(하단 PARAMS_REGISTRY.md 갱신 이력 참고). 코드 주석도 "탈출 즉시
+  자연스럽게 제약 해제"라고 명시하고 있어 이번 로그 관찰과 논리적으로
+  합치함(진짜 지연은 vturn_speed 쪽이 아니라 vCruiseCluster 캡 때문).
+
+## [INVESTIGATING] 조여드는 커브 중간에 vturn 감속 진행 중 운전자 브레이크 개입 (2026-08-20, 260819-7, 표본 1건)
+- seg6, t=434.70, 고속도로(vCruise=90km/h 크루즈 중). t=429.41부터
+  src가 route→model→vturn으로 넘어가며 곡률이 서서히 증가(curv 0.0004→
+  0.026, t=429~437.6, 약 8.6초에 걸쳐 지속 증가)하는 커브에서 vturn이
+  매끈하게 감속(vEgo 23.3→19.5m/s, desiredSpeed 90→47kph로 계속 하강)
+  중이었음. t=434.65에 시스템 자체 aEgo가 -3.41m/s²까지 도달한 직후
+  (0.05s 뒤) 운전자가 브레이크 개입 — cruiseEnabled은 t=434.70 프레임까지
+  True로 남아있다가(brakePressed는 이미 True) t=434.76에 False로 전환.
+  개입 후 운전자는 vEgo 11.8m/s(42km/h)까지 감속했는데, 이 시점 커브는
+  아직 안 끝났고(곡률은 t=437.6까지 계속 증가) vturn도 그 무렵엔
+  31~34kph까지 더 낮아져 있었음 — 즉 운전자가 "커브가 아직 안 끝났는데
+  vturn 감속 속도가 곡률 조여드는 속도를 못 따라간다"고 느꼈을 가능성.
+- 판단 보류 이유: 표본 1건, 개입 시점 aEgo(-3.41→-2.82m/s²)가 이미 상당히
+  강한 감속이라 "부족해서" 개입했다기보다 개인 운전 성향(더 일찍/강하게
+  선호)일 가능성도 배제 못함. vturn_lookahead_horizon_s=4.5s가 이 커브
+  (조임 시작~정점 약 8.6s)에 비해 충분한지 여부는 이 표본만으로 결론
+  못 내림.
+- 다음 세션 조치 제안: (a) 유사 패턴(진행 중인 vturn 감속 중 운전자
+  추가 브레이크 개입) 추가 표본 수집 — route1~7 전체에
+  `cruise_engage_disengage_events` + 직전 5초 src=vturn 여부로 스캔하는
+  헬퍼 함수 신설 검토, (b) 표본이 쌓이면 vturn_lookahead_horizon_s 상향
+  또는 vturn_decel_rate(현재 1.2 m/s², 방지턱 기본값 그대로 사용 중)
+  조정 필요성 검토.
+
 ## [FIXED] vturn 슬루 리미터 min/max 반전 (2026-08-16, 커밋 ab156ea)
 - 증상: 커브 감속(vTurnSpeed)이 "변화율 상한"이 아니라 "최소 변화량 강제"로
   동작 → 20Hz 루프에서 프레임당 -10%/+8% 복리 누적, 1초 안에 -88%/+366%까지
