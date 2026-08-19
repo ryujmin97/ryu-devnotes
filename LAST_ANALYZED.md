@@ -66,6 +66,19 @@
   조향 vs 운전자 수동 조작) — 탐지기 개선 여지 기록. 상세는
   FINDINGS.md/PARAMS_REGISTRY.md 참고.
 
+  2026-08-20 (5차): 신규 커밋 없음(HEAD f7b154638cf2 그대로) — 라우트
+  260819-4(x20seg, route ID `ba55f880d1` seg5~24, 19.0km/1200.2s,
+  route3b의 직접 연속분) 분석. 코드 변경 없음(관찰/분석만).
+  harsh_brake 22건 전부 단일 정차 이벤트(disengage/re-engage로 교차
+  검증) — ADAS 활성 중 급제동 0건 5개 라우트 연속 재확인.
+  turn_speed_violation/cut-in/steering_oscillation 전부 0건.
+  LEAD_ACQ_LOSS_GRACE_TIME: 단기 유실 8건 중 세그먼트 경계 아티팩트는
+  1건뿐, 나머지 7건은 진짜 유실(0.5s 초과 5건 포함) — 재검토 판단에
+  실사례 비중 근거 추가. 신규 관찰: dRel/vRel 대형 불연속 점프 26건이
+  LeadBlend 게이트 임계값을 훨씬 초과함에도 급제동 없이 무해하게
+  해소(260819-2 seg24의 문제 사례와 대조되는 반례). 상세는
+  FINDINGS.md/PARAMS_REGISTRY.md 참고.
+
 ## c3-ms
 - last_analyzed_commit: (아직 분석 안 함)
 - date: -
