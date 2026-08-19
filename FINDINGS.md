@@ -17,6 +17,30 @@
 
 ---
 
+## [FIXED] carrotweb 로그탭 라우트당 세그먼트 40개 -> 20개로 축소 (2026-08-20, HEAD 366009153812 기준, 패치 커밋 62b9c58 / 패치 파일로 전달)
+- 증상: carrotweb 화면 로그탭에서 라우트 하나에 세그먼트(≈1분 단위)가
+  40개씩 묶여서 저장됨 (라우트당 약 40분). 목록이 라우트 단위로 분류돼
+  있어 원하는 라우트를 찾기 어렵고, 하나의 라우트가 너무 길다는 요청.
+- 원인: `system/loggerd/logger.cc`의 `constexpr int
+  MAX_SEGMENTS_PER_ROUTE = 40;` — `LoggerState::next()`에서 이 값에
+  도달하면(`route_part + 1 >= MAX_SEGMENTS_PER_ROUTE`) 새 라우트로
+  회전(rotate)하며, 이 로직이 라우트당 세그먼트 개수를 결정하는 유일한
+  지점.
+- 조치: 상수를 40 -> 20으로 변경 (수정됨). 회전 로직 자체(`route_part`
+  리셋, END_OF_ROUTE 센티널 처리)는 손대지 않았으므로 라우트 경계마다
+  정상적인 START_OF_ROUTE~END_OF_ROUTE qlog/rlog 시퀀스가 유지됨.
+  `system/loggerd/tests/test_logger.cc`의 관련 주석(40+40+20 → 라우트
+  분포 예시)도 20 기준으로 갱신 — 테스트 로직 자체는 라우트 경계를
+  동적으로 추적해서 판정하므로 상수값에 의존하지 않아 수정 불필요.
+  `selfdrive/carrot/server/routes_logs.py`의 `DASHCAM_ROUTE_LIMIT_DEFAULT
+  = 40`은 같은 숫자지만 "로그탭에 한 번에 나열할 라우트 개수"로 이번
+  건과 무관 — 변경하지 않음 (혼동 방지용으로 기록).
+- 근거 로그: 코드 변경만, 실기기 반영 후 라우트 폴더 분포(세그먼트
+  20개씩 끊기는지)와 carrotweb 로그탭 표시 확인 필요 →
+  NEEDS_VALIDATION 성격 후속 확인 남음. 빌드(scons)는 이 세션 환경에서
+  미실행 — 문법/로직 리뷰만 수행, 실기기(comma 3X) 빌드·부팅 후 확인
+  권장.
+
 ## [FIXED] radard KjException 크래시 — dPath numpy.float64 캐스팅 누락 (2026-08-17, 커밋 2c34855)
 - 증상: EnableRadarTracks<3 (Genesis DH 기본) 순수 비전 리드 경로에서 radard가
   KjException으로 죽음 → radarState dead → soft disable → engage 해제.
