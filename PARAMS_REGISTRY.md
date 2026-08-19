@@ -76,6 +76,11 @@
 - 2026-08-20: 260819-2 로그 분석 — LEAD_ACQ_LOSS_GRACE_TIME 근거였던 순간유실
   사례 중 상당수가 extract_log.py 세그먼트 경계 아티팩트로 확인돼
   "재검토 필요"로 하향/보류 조정 (상세: FINDINGS.md)
+- 2026-08-20: 260819-3 로그(route3a+3b) 분석 — extract_log.py 세그먼트
+  경계 아티팩트 버그 13건 추가 재확인(값 변경 없음, "재검토 필요"
+  상태 유지). harsh_brake/turn_speed_violation 계속 클린 재확인.
+  저속 리드 대체 패턴 극단 사례(36m 점프) 추가 확보했으나 해당 구간
+  cruiseEnabled=False라 제어 영향 없음(상세: FINDINGS.md)
 
 갱신 이력:
 - 2026-08-18: 최초 작성 (c3-ms-dev HEAD 8dbed620887b 기준)
