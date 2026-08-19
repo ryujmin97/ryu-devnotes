@@ -64,7 +64,7 @@
 
 | 상수 | 현재값 | 용도 | 검증상태 |
 |---|---|---|---|
-| MAX_SEGMENTS_PER_ROUTE | 20 (기존 40) | 라우트당 최대 세그먼트 개수, 도달 시 새 라우트로 회전 (라우트당 최대 길이: 세그먼트 1개=1분 기준 약 20분, 기존 40분) | **NEEDS_VALIDATION — 실기기 미반영 의심** (2026-08-20, 260819-5 로그에서 route `ba55f880d1`가 seg0~39까지 40개 단위로 이어짐 확인, 20개 단위 rotate 미관측 — 코드는 원격에 반영됐으나 디바이스가 재빌드/재부팅 안 됐을 가능성. 상세: FINDINGS.md [INVESTIGATING]) |
+| MAX_SEGMENTS_PER_ROUTE | 20 (기존 40) | 라우트당 최대 세그먼트 개수, 도달 시 새 라우트로 회전 (라우트당 최대 길이: 세그먼트 1개=1분 기준 약 20분, 기존 40분) | NEEDS_VALIDATION (2026-08-20, 260819-5 로그에서 route `ba55f880d1`가 seg0~39까지 40개 단위로 이어진 걸 실기기 미반영으로 오판했다가 정정 — 해당 로그(8/19 12:41~13:00)가 패치 커밋 f7b154638cf2(8/20 00:57)보다 이전이라 40개 동작이 정상. 진짜 검증은 패치 커밋 이후 기록된 로그로 다시 필요. 상세: FINDINGS.md [WONTFIX](정정 기록)) |
 
 ## 비전 리드 트래킹 노이즈 (신규 관찰, 특정 상수 아님)
 
@@ -80,10 +80,12 @@
   경계 아티팩트 버그 13건 추가 재확인(값 변경 없음, "재검토 필요"
   상태 유지). harsh_brake/turn_speed_violation 계속 클린 재확인.
 - 2026-08-20: 260819-5 로그(route5a+5b) 분석 — MAX_SEGMENTS_PER_ROUTE
-  실기기 미반영 의심 반증 확보(NEEDS_VALIDATION으로 하향, 상세
-  FINDINGS.md). LEAD_ACQ_LOSS_GRACE_TIME real 유실 route5b 다수
-  확인됐으나 전부 cruiseEnabled=False라 표본 부적합 처리. 비전 원거리
-  리드 노이즈 패턴 재확인(값 변경 없음).
+  실기기 미반영 "반증"으로 처음 기록했다가 정정: 로그가 패치 커밋보다
+  이전 시점이라 40개 동작이 정상이었음(오판, 상세 FINDINGS.md). 검증
+  상태는 NEEDS_VALIDATION 그대로(패치 이후 로그로 재확인 필요).
+  LEAD_ACQ_LOSS_GRACE_TIME real 유실 route5b 다수 확인됐으나 전부
+  cruiseEnabled=False라 표본 부적합 처리. 비전 원거리 리드 노이즈
+  패턴 재확인(값 변경 없음).
   저속 리드 대체 패턴 극단 사례(36m 점프) 추가 확보했으나 해당 구간
   cruiseEnabled=False라 제어 영향 없음(상세: FINDINGS.md)
 - 2026-08-20: 260819-4 로그(route3b 연속분, seg5~24) 분석 — 이번
