@@ -387,6 +387,43 @@
   turn_speed_violations/steering_oscillation/lead_cut_in 전부 0건.
 - 근거 로그: 위와 동일.
 
+## [기타 확인] 라우트 260819-4 (x20seg, route3b 연속분) 분석 — 신규 이슈 없음, 벤치마크 데이터 추가 확보 (2026-08-20, HEAD f7b154638cf2, 신규 커밋 없음)
+- route ID `ba55f880d1` seg5~seg24 (20개) — 260819-3에서 이미 분석한
+  route3b(`ba55f880d1` seg0~4 추정, x5seg)의 **직접 연속분**. 같은
+  부팅 세션의 뒷부분. 19.0km/1200.2s, avg 57.0km/h, ADAS 활성 97.3%.
+- **harsh_brake_events**: 원본 22건 → 전부 t=1251.3~1262.1(10.8s) 단일
+  정차 이벤트(25.75km/h→0)에 집중. `cruise_engage_disengage_events`로
+  교차검증: t=1250.8 disengage(brakePressed=True 시작) →
+  t=1283.6 re-engage(vEgo=4.9 시점, 정차 후 재출발). 전 구간
+  cruiseEnabled=False 확인 — ADAS 활성 중 급제동 0건 계속 재확인
+  (지금까지 4개 라우트 연속 클린).
+- **turn_speed_violations/lead_cut_in/steering_oscillation**: 전부 0건.
+- **speed_n_sources(src) 플리커**: 330 transitions/1200s(평균 3.6s당
+  1회), A→B→A 챠터 37.6%(124/330) — 기존 이슈(PARAMS_REGISTRY
+  NEEDS_VALIDATION) 재확인, 신규 아님. 우세 쌍은 여전히
+  model↔vturn(140건), road↔vturn(91건).
+- **LEAD_ACQ_LOSS_GRACE_TIME 관련**: leadStatus gap 16건 중 8건이
+  2s 미만 단기 유실. 이 중 **세그먼트 경계 아티팩트는 1건뿐**(t=1195.67,
+  dur=0.358s) — 나머지 7건은 세그먼트 중간에서 발생한 실제 순간유실로,
+  0.5s 초과 사례가 5건(0.603s, 0.606s, 0.902s, 1.562s, 1.599s) 포함.
+  extract_log.py 경계 리셋 버그와 무관한 진짜 유실 표본이 이번
+  라우트에서는 대다수(7/8) — 과거 "재검토 필요" 판단에 실사례 비중이
+  낮지 않다는 근거 추가.
+- **신규 관찰 — dRel/vRel 불연속 점프 26건, 이번엔 전부 무해하게
+  해소**: t=1181.72(src=model, dRel 41.3→18.3m, -23.0m 단일프레임
+  점프, vRel -0.9→+0.63로 부호 반전, cruiseEnabled=True)와
+  t=1182.87(dRel 17.8→21.0m, vRel 2.19→3.9) 등 26건의 대형 점프
+  확인. 모두 LeadBlend 문서상 CLOSER_JUMP_DIST(8m)/BIG_JUMP_DIST(15m)
+  게이트보다 훨씬 큰데도 **급제동 반응 없이 aEgo가 오히려 양수
+  유지**(가속 지속) — 260819-2 seg24에서 확인된 "vRel-only 불연속 →
+  운전자 급브레이크" 문제 사례와 달리 이번엔 dRel도 함께 점프하고
+  방향이 즉시 멀어지는 쪽(vRel 양전환)이라 위협으로 해석되지 않고
+  자연 해소된 것으로 보임. src=model/vturn/route/bump/road 전반에서
+  관찰(특정 소스 국한 아님) — 레이더/비전 트랙 ID 전환의 일반적
+  잡음으로 추정. NEEDS_VALIDATION 항목(LeadBlend vRel-only 게이트)에
+  "무해한 경우도 다수" 반례 데이터로 추가.
+- 코드 변경 없음(관찰/분석만). 다음 세션 참고용 벤치마크 누적.
+
 ## [기타 확인] 라우트 260819-3 (x20seg, 2세션 분할) 분석 — 신규 이슈 없음, 기존 발견 재확인 (2026-08-20, HEAD f7b154638cf2, 신규 커밋 없음)
 - 업로드 zip에 서로 다른 route ID(부팅 세션) 2개가 섞여 있어 분리 추출:
   - route3a (`6ef53b224d`, x15seg, 15.58km/894.9s, avg 62.7km/h, ADAS
