@@ -1,10 +1,32 @@
 # WIP — 중단 지점 (체크포인트, 세션 종료 아님)
 
-- 저장 시각: 2026-08-20 (2차, 사용자 "저장" 요청)
-- HEAD (c3-ms-dev): `f7b154638cf2` — ryu 코드 변경 없음. devnotes 쪽에
-  신규 toolkit 스크립트 1개 추가.
+- 저장 시각: 2026-08-20 (3차, 사용자 "저장" 요청)
+- HEAD (c3-ms-dev): `f7b154638cf2` — ryu 코드 변경 없음. devnotes
+  `toolkit/extract_dashcam_frames.py`는 2차 체크포인트 이후 파일 자체
+  변경 없음 (실데이터 검증만 이번에 완료, 코드 수정 아님).
 
-## 이번 세션(2차)에서 완료된 것 (이미 push됨, 재작업 불필요)
+## 이번 세션(3차)에서 완료된 것 — 코드 변경 없어 push 대상 아님
+- **`extract_dashcam_frames.py` 실데이터 검증 완료**: 사용자가 테스트로
+  올려준 세그(segmentNum=35, t=2155.67~2215.57s, route 260819-1의 뒷부분
+  세그로 추정 — FINDINGS.md의 `--2`/`--3`(t≈205~278s) 이벤트와는 다른
+  세그)로 기능 검증:
+  - `qRoadEncodeIdx` 1200 프레임 전부 인덱싱 확인
+  - target_t 3건 매칭 오차 10~27ms (경고 임계 0.15s 대비 충분히 정밀)
+  - ffmpeg 프레임 추출 정상 (실제 도로 장면 육안 확인 — 신호등/선행차량/
+    표지판 선명)
+  - `make_side_by_side()` 라벨 합성도 정상
+  - → **스크립트 자체는 실증 완료. 정차열 리드 대체 가설 검증은 아직
+    실제 대상 세그(`--2`/`--3`) 미확보로 미착수.**
+- **세션 간 원본 업로드 관련 방침 확정** (사용자 질문에 대한 답):
+  프로젝트 파일 업로드를 안 쓰는 구조라 `/mnt/user-data/uploads`는
+  대화(채팅창) 종료 시 소실 — 새 세션마다 원본 rlog/qcamera 재업로드
+  필요함을 확인. 용량 절감을 위해: **대시캠 프레임 검증처럼 영상 확인이
+  필요한 항목은, 결과로 나온 비교 이미지(jpg, 수십KB)를 devnotes에
+  커밋해두고 원본은 재업로드하지 않는 방식으로 진행하기로 함.** 원본
+  로그 자체(rlog/qcamera, 수 MB~수십 MB)는 개인 주행 영상이라
+  퍼블릭 devnotes에 커밋하지 않음 — 검증에 필요한 최소 결과물만 남김.
+
+## 지난 세션(2차)에서 완료된 것 (이미 push됨, 재작업 불필요)
 - **`devnotes/toolkit/extract_dashcam_frames.py` 신규 작성** — 정차열
   리드 대체 가설 검증용 dashcam(qcamera.ts) 프레임 추출/동기화 스크립트.
   - `cereal/log.capnp`의 `qRoadEncodeIdx`(EncodeIndex) 이벤트를 이용:
@@ -15,9 +37,7 @@
     (매칭오차 0.15s 초과 시 경고), `extract_frames_for_times()`
     (manifest.json 생성), `make_side_by_side()` (전/후 프레임 라벨 붙여
     합성, PIL).
-  - `python3 -m py_compile` 통과, `qRoadEncodeIdx` 필드명 스키마 확인 완료.
-    **실제 qcamera.ts 데이터로는 아직 테스트 안 함** — 사용자가 세그먼트
-    업로드하면 최우선으로 돌려서 검증.
+  - 커밋: https://github.com/ryujmin97/ryu-devnotes/commit/5e511b8bef22d51f294bad4e9880c70ef195da8c
 
 ## 지난 세션(1차)에서 완료된 것 (이미 push됨, 재작업 불필요)
 - 라우트 `260819-1`(x20seg, 25.6km/1200s, ADAS 활성 97.3%) 실주행 로그
@@ -43,10 +63,13 @@
 
 ## 다음 세션(또는 이어서)에서 착수할 것 — 우선순위 1
 **정차열 리드 대체 가설 검증 — 실행 대기 중.**
-- 준비 완료: `extract_dashcam_frames.py` 작성/문법검증 끝.
+- 준비 완료: `extract_dashcam_frames.py` 작성 + **실데이터 검증까지 완료**
+  (다른 세그로 스모크 테스트, 매칭 오차 10~27ms 확인 — 3차 체크포인트
+  참고). 로직은 신뢰 가능, 이제 대상 세그만 있으면 바로 실행 가능.
 - 필요: 사용자가 라우트 260819-1의 `--2`(및 가능하면 `--1`,`--3`,`--4`)
   세그먼트를 `qcamera.ts` + `rlog.zst` 포함해서 업로드하기로 함
-  (아직 미업로드).
+  (아직 미업로드 — 매 세션 재업로드 필요함을 확인/합의함, 3차 체크포인트
+  참고).
 - 업로드되면 바로 실행할 커맨드 (타겟 시각은 FINDINGS.md L399-407 표):
   ```bash
   cd /home/claude/devnotes/toolkit
