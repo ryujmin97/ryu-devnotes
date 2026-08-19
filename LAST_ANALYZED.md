@@ -133,6 +133,26 @@
   전부 고속 개활도로/완만한 커브 상황 무해 재확인. 상세는 FINDINGS.md/
   PARAMS_REGISTRY.md 참고.
 
+  2026-08-20 (9차, 260819-8, 사용자 "체크포인트" 요청): 신규 커밋
+  없음(HEAD f7b154638cf2 그대로) — 라우트 260819-8 분석. route8a
+  (`f7e0bb3abd` seg24~39, x16seg, 260819-7 직접 연속분, 27.27km/959.9s,
+  avg 102.3km/h) + route8b(신규 `da28883b75` seg0~4, x5seg,
+  5.93km/272.0s, 시내 저속 혼합). 코드 변경 없음(관찰/분석만).
+  **route8a는 harsh_brake/turn_speed_violation/steering_oscillation/
+  cut-in/curve_exit_v2 전부 0건 — 지금까지 중 처음으로 전 카테고리
+  클린한 순수 고속도로 라우트.** 커브 콘텐츠 자체가 거의 없어(curvature
+  threshold 초과 39/19145 프레임) 커브 관련 가설 2건(탈출 후 재가속
+  지연/진입 중 과소감속) 모두 이번 세션엔 진전 없음. route8b harsh_brake
+  16건은 disengage 직후 저속 정차 감속으로 기존 패턴과 동일(신규 아님).
+  LEAD_ACQ_LOSS_GRACE_TIME: route8a에서 기존 최대(2.46s)를 크게 넘는
+  긴 유실(최대 222.85s) 다수 확인했으나 harsh_brake 등 다른 지표가
+  전부 0건이라 고속도로 선행차 부재로 판단, 무해. MAX_SEGMENTS_PER_ROUTE
+  관련 참고 관찰 추가(route `f7e0bb3abd`가 정확히 40세그먼트 후 boot
+  변경과 함께 종료 — 캡 발동인지 우연한 재부팅 겹침인지 로그만으론
+  구분 불가, 여전히 패치 이전 시점이라 미검증). 상세는 FINDINGS.md
+  참고. **사용자 요청으로 이번 세션은 여기서 체크포인트 저장** —
+  WIP.md 참고.
+
 ## c3-ms
 - last_analyzed_commit: (아직 분석 안 함)
 - date: -
