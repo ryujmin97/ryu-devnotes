@@ -48,9 +48,11 @@
 | 상수 | 현재값 | 용도 | 검증상태 |
 |---|---|---|---|
 | vturn_lookahead_horizon_s | 4.5s | 커브 조기감속 예측구간 | 검증됨 |
-| vturn_decel_rc | 0.25s | 감속 저역통과 시정수 | 검증됨 |
-| vturn_accel_rc | 0.6s | 가속복귀 저역통과 시정수 | 검증됨 |
-| TARGET_LAT_A | 1.6 m/s^2 | 목표 횡가속도 기준 | - |
+| vturn_decel_rc | **0.15s** (정정, 기존 0.25s는 구버전 값) | 감속 저역통과 시정수(모델 노이즈 제거용, 감속 프로파일 자체는 물리공식이 결정) | 검증됨(2026-08-20, 260819-7 세션 코드 직접 확인 — a94a58b 커밋에서 물리공식 기반으로 재설계되며 값도 변경됨, 기존 표는 ab156ea 시점 값이라 최신화) |
+| vturn_accel_rc | **0.15s** (정정, 기존 0.6s는 구버전 값) | 가속복귀 저역통과 시정수 | 검증됨(상동, 260819-7 세션 정정) |
+| TARGET_LAT_A | 1.6 m/s^2 | 목표 횡가속도 기준(autoCurveSpeedAggressiveness로 배율 적용) | - |
+| vturn_safe_time | 1.0s | 목표속도 여유 도달 시간(방지턱 AutoNaviSpeedBumpTime과 동일 기본값) | - (2026-08-20 신규 발견, 260819-7) |
+| vturn_decel_rate | 1.2 m/s² | 방지턱 물리공식 기반 커브 감속률(AutoNaviSpeedDecelRate=120 동일값) | NEEDS_VALIDATION (2026-08-20 신규 발견, 260819-7 — 조여드는 커브 중 운전자 개입 표본 1건에서 이 값이 곡률 증가 속도 대비 충분한지 의문 제기됨, FINDINGS.md [INVESTIGATING] 참고) |
 
 ## selfdrive/carrot/server/gdrive.py (CarrotWeb Drive 업로드)
 
@@ -104,6 +106,18 @@
   재진입을 커브탈출로 오판) 다수 발생해 이번 로그로는 가설 확증/반증
   둘 다 못함. 도구 개선 방향(leadStatus 필터, 직선 지속시간 조건)
   제안만 하고 코드 작업은 미착수(상세: FINDINGS.md)
+- 2026-08-20: 260819-7 로그(고속도로 위주, 32.7km/1319.9s) 분석 —
+  `curve_exit_no_accel_scan_v2` 신설(leadStatus 필터+직선유지 조건),
+  4건→3건으로 감소했으나 남은 1건도 프레임 대조 결과 3번째 오탐 패턴
+  (vCruiseCluster 캡으로 이미 목표속도 근처라 가속 여지가 애초에 없었던
+  경우)으로 판명 — 가설 검증 여전히 미완료, v3 개선 방향(목표속도 여유폭
+  필터) 제안. vturn_decel_rc/accel_rc 값 정정(0.25/0.6→0.15/0.15,
+  코드 직접 확인). vturn_decel_rate=1.2m/s²/vturn_safe_time=1.0s 신규
+  등록. 그 외: harsh_brake 12건 중 11건 disengage 인접(운전자 개입) 확인,
+  1건은 진행 중인 vturn 감속 커브 도중 개입한 새 패턴(표본 1건,
+  INVESTIGATING). turn_speed_violation 0건. LEAD_ACQ_LOSS_GRACE_TIME
+  0.5s 초과 6건 모두 고속 개활도로/완만한 커브 상황 무해 재확인. 상세는
+  FINDINGS.md 참고.
 
 갱신 이력:
 - 2026-08-18: 최초 작성 (c3-ms-dev HEAD 8dbed620887b 기준)
