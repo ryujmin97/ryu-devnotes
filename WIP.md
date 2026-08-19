@@ -5,6 +5,43 @@
 
 ---
 
+## 완료된 것 (2026-08-20, 이번 세션 — 260819-8 로그 분석, 사용자 "체크포인트" 요청)
+- 커밋 분석: HEAD f7b154638cf2 그대로, 신규 커밋 없음(확인만). 코드
+  변경 없음(관찰/분석만).
+- 라우트 260819-8 분석 완료 — route8a(`f7e0bb3abd` seg24~39, x16seg,
+  260819-7 직접 연속분, 27.27km/959.9s, avg 102.3km/h, cruiseEnabled
+  100%) + route8b(신규 `da28883b75` seg0~4, x5seg, 5.93km/272.0s, 시내
+  저속 혼합, cruiseEnabled 83.5%).
+- **route8a: harsh_brake/turn_speed_violation/steering_oscillation/
+  cut-in/curve_exit_no_accel_v2 전부 0건 — 지금까지 분석한 라우트 중
+  처음으로 모든 카테고리가 완전히 클린한 순수 고속도로 구간.** 다만
+  desiredCurvature가 threshold 초과 39/19145 프레임뿐(사실상 직선)이라
+  기존 커브 가설 2건(v3 여유폭 필터 적용한 재스캔 / 커브 진입 중
+  과소감속 추가 표본 수집)은 이번 로그로는 표본을 못 얻어 **진전 없이
+  그대로 이월**.
+- route8b: harsh_brake 16건 전부 t=2683.36 disengage 직후 저속 정차
+  감속 — 기존 disengage-인접 오탐 패턴과 동일(신규 아님).
+  curve_exit_no_accel_v2 후보 1건은 vEgo=0.04m/s(정차 완료 시점)라
+  가설과 무관해 배제.
+- LEAD_ACQ_LOSS_GRACE_TIME: route8a에서 기존 최대(2.46s)를 크게 웃도는
+  긴 유실 다수 확인(최대 222.85s) — 같은 라우트의 다른 이벤트 카테고리가
+  전부 0건이라 고속도로 선행차 부재로 판단, 무해 재확인.
+  PARAMS_REGISTRY 판단 변경 없음.
+- speed_n_sources 플리커 재확인(route8a 25건/52건, route8b 40건/61건) —
+  신규 아님.
+- MAX_SEGMENTS_PER_ROUTE 관련 참고 관찰 추가: route `f7e0bb3abd`가
+  260819-6 seg0~260819-8 seg39까지 정확히 40세그먼트 이어진 뒤 boot ID
+  변경과 함께 종료 — 캡 발동인지 우연한 재부팅 겹침인지 로그만으론
+  구분 불가(route ID는 통상 boot마다 새로 생성되는 구조). 여전히 로그
+  시각이 패치 커밋 이전이라 NEEDS_VALIDATION 유지.
+- FINDINGS.md/LAST_ANALYZED.md/PARAMS_REGISTRY.md 갱신 완료.
+  `toolkit/` 코드 변경 없음(이번 세션은 기존 헬퍼만 사용).
+- **이 항목은 사용자 요청 "체크포인트"에 따른 것 — 아래 미해결 항목
+  (특히 6번 v3 필터, 7번 진입 중 과소감속 스캔 헬퍼)은 이번 세션에도
+  착수하지 못했고 그대로 이월. 다음 세션은 커브 콘텐츠가 있는 로그
+  확보 시 6/7번부터 재개할 것 (이번처럼 순수 고속도로/직선 위주 로그는
+  두 가설 검증에 표본을 못 준다는 점 참고).**
+
 ## 완료된 것 (2026-08-20, 이번 세션 — 260819-7 로그 분석, 사용자 "체크포인트 저장" 요청)
 - 커밋 분석: HEAD f7b154638cf2 그대로, 신규 커밋 없음(확인만).
 - 라우트 260819-7 분석 완료 — route `f7e0bb3abd` seg2~23(route6b 직접
@@ -189,10 +226,13 @@
    재스캔으로 표본 확보.
 
 ## 참고 — 코드 diff 상태
+260819-8 세션: 코드 변경 없음(devnotes toolkit도 이번엔 수정 없이 기존
+함수만 사용, ryu 레포도 변경 없음).
 260819-7 세션: `toolkit/analysis_helpers.py`에 `curve_exit_no_accel_scan_v2`
 함수 추가(devnotes 레포, ryu 코드 변경 아님 — push 시 FINDINGS 등과
 함께 devnotes 커밋에 포함됨). ryu 레포 자체는 이번 세션 변경 없음.
 위 1번(extract_log.py 패치)은 여전히 코드
 작성 전, 방향만 제안된 상태. 6번은 (a)까지는 완료, v3(여유폭 필터)는
 아직 코드 작성 전. 7번(진입 중 과소감속 스캔 헬퍼)도 아직 코드 작성
-전, 방향만 제안된 상태.
+전, 방향만 제안된 상태. (260819-8 세션도 위 두 항목에 진전 없음 —
+순수 고속도로 로그라 표본 부족.)
