@@ -16,6 +16,12 @@
   생략. 대신 x11seg 실주행 로그 분석 수행 — LEAD_ACQ_LOSS_GRACE_TIME
   NEEDS_VALIDATION 갱신, 정지 리드 추종 클린 케이스 기록. 상세는
   FINDINGS.md/PARAMS_REGISTRY.md 참고.
+  같은 날 x16seg(16.44km/955s) 라우트 추가 분석 — 종방향 harsh brake
+  15건 전부 운전자 개입(cruiseEnabled=False) 확인해 ADAS 활성구간
+  급제동 0건, 근접 컷인 유사 이벤트 매끈한 반응 확인, carrot_serv.py
+  speed_n_sources min() 히스테리시스 부재로 인한 src/desiredSpeed
+  플리커 신규 발견, LEAD_ACQ_LOSS_GRACE_TIME 5번째 초과 샘플 확보.
+  코드 변경 없음(관찰/분석만).
 
 ## c3-ms
 - last_analyzed_commit: (아직 분석 안 함)
