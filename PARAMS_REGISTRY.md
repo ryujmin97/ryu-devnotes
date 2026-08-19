@@ -129,3 +129,8 @@
   (x11seg 로그 실측 플리커 4건 근거, FINDINGS.md 참고)
 - 2026-08-20: system/loggerd/logger.cc MAX_SEGMENTS_PER_ROUTE 40 -> 20
   신설 (carrotweb 로그탭 라우트 세그먼트 수 축소 요청, FINDINGS.md 참고)
+- 2026-08-20: 260819-8 로그 분석 — 값 변경 없음. LEAD_ACQ_LOSS_GRACE_TIME/
+  MAX_SEGMENTS_PER_ROUTE 둘 다 NEEDS_VALIDATION 유지(고속도로 라우트에서
+  긴 유실 다수 확인됐으나 전부 무해 재확인, MAX_SEGMENTS_PER_ROUTE는
+  route ID 종료가 캡 발동인지 재부팅 우연인지 불명확한 참고 관찰만
+  추가). 상세는 FINDINGS.md 참고.
