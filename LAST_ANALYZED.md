@@ -27,6 +27,15 @@
   적용 + push 완료, HEAD 반영. 실기기 검증(라우트 20개 단위 분할 확인,
   carrotweb 로그탭 표시 확인)은 아직 NEEDS_VALIDATION — FINDINGS.md
   참고.
+  2026-08-20 (같은 날, 2차): 신규 커밋 없음(HEAD f7b154638cf2 그대로) —
+  라우트 260819-1(x20seg, 25.6km/1200s) 실주행 로그 분석 수행. 코드
+  변경 없음(관찰/분석만). 주요 발견 2건: (1) LEAD_ACQ_LOSS_GRACE_TIME
+  0.5s 초과 사례 6~7건 신규 확보(유실시간 최대 2.46s로 확대) + 정차열
+  중 dRel 8~12.5m 감소 재포착 신규 패턴(리드 대체 의심). (2)
+  speed_n_sources 플리커가 국도뿐 아니라 고속 커브 전반에서 재현
+  (A→B→A 패턴 49건). harsh brake/turn violation/steering
+  oscillation/cut-in은 전부 클린. 상세는 FINDINGS.md/PARAMS_REGISTRY.md
+  참고.
 
 ## c3-ms
 - last_analyzed_commit: (아직 분석 안 함)
