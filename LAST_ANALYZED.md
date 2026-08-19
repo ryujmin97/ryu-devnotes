@@ -54,6 +54,18 @@
   저속(<7m/s) 정체구간, speed_n_sources 플리커 330건(기존 이슈 재확인,
   신규 아님). 상세는 FINDINGS.md/PARAMS_REGISTRY.md 참고.
 
+  2026-08-20 (4차): 신규 커밋 없음(HEAD f7b154638cf2 그대로) — 라우트
+  260819-3 분석. zip 안에 route ID가 다른 두 부팅 세션이 섞여있어
+  route3a(6ef53b224d, x15seg, 15.58km/894.9s)/route3b(ba55f880d1,
+  x5seg, 3.53km/301.5s)로 분리 추출. 코드 변경 없음(관찰/분석만).
+  harsh_brake ADAS 활성 중 0건 계속 재확인, turn_speed_violation 0건.
+  extract_log.py 세그먼트 경계 아티팩트 13건 추가 재확인(패치 미적용
+  상태 그대로). 저속 리드 대체 패턴 36m 점프 극단 사례 확보했으나
+  해당 구간 cruiseEnabled=False(운전자 수동 주차)라 제어 영향 없음.
+  steering_oscillation_detector 오탐 2건 유형 확인(급커브 단일 S자
+  조향 vs 운전자 수동 조작) — 탐지기 개선 여지 기록. 상세는
+  FINDINGS.md/PARAMS_REGISTRY.md 참고.
+
 ## c3-ms
 - last_analyzed_commit: (아직 분석 안 함)
 - date: -
