@@ -81,6 +81,13 @@
   상태 유지). harsh_brake/turn_speed_violation 계속 클린 재확인.
   저속 리드 대체 패턴 극단 사례(36m 점프) 추가 확보했으나 해당 구간
   cruiseEnabled=False라 제어 영향 없음(상세: FINDINGS.md)
+- 2026-08-20: 260819-4 로그(route3b 연속분, seg5~24) 분석 — 이번
+  라우트는 경계 아티팩트가 8건 중 1건뿐이라 실사례 비중(7/8)이 높음,
+  0.5s 초과 실유실 5건 확보(0.6~1.6s) — "재검토 필요"이지만 실사례
+  존재 자체는 재확인됨. LeadBlend CLOSER_JUMP_DIST/BIG_JUMP_DIST
+  게이트 관련: 게이트 임계값을 초과하는 대형 dRel/vRel 점프 26건이
+  이번엔 전부 무해하게 해소(급제동 없음) — vRel-only 불연속이 항상
+  위험으로 이어지진 않는다는 반례 데이터 추가(상세: FINDINGS.md)
 
 갱신 이력:
 - 2026-08-18: 최초 작성 (c3-ms-dev HEAD 8dbed620887b 기준)
