@@ -60,6 +60,12 @@
 | _UPLOAD_TIMEOUT | total=1800s / sock_connect=30s / sock_read=300s | 실제 파일 청크(8MB) PUT 전송용 (핸드셰이크 요청에는 더 이상 안 씀) | 기존값 유지 |
 | UPLOAD_CHUNK_SIZE | 8MB | resumable 업로드 청크 크기 | - |
 
+## system/loggerd/logger.cc
+
+| 상수 | 현재값 | 용도 | 검증상태 |
+|---|---|---|---|
+| MAX_SEGMENTS_PER_ROUTE | 20 (기존 40) | 라우트당 최대 세그먼트 개수, 도달 시 새 라우트로 회전 (라우트당 최대 길이: 세그먼트 1개=1분 기준 약 20분, 기존 40분) | FIXED (2026-08-20, carrotweb 로그탭에서 라우트가 너무 길어지는 문제로 축소, 패치 파일로 전달 — 실기기 반영/재확인 필요) |
+
 ## 비전 리드 트래킹 노이즈 (신규 관찰, 특정 상수 아님)
 
 | 항목 | 관찰값 | 용도 | 검증상태 |
@@ -75,3 +81,5 @@
   진행률 번갈아 뜨는 버그 수정 관련, FINDINGS.md 참고)
 - 2026-08-19: LEAD_ACQ_LOSS_GRACE_TIME NEEDS_VALIDATION으로 갱신
   (x11seg 로그 실측 플리커 4건 근거, FINDINGS.md 참고)
+- 2026-08-20: system/loggerd/logger.cc MAX_SEGMENTS_PER_ROUTE 40 -> 20
+  신설 (carrotweb 로그탭 라우트 세그먼트 수 축소 요청, FINDINGS.md 참고)
