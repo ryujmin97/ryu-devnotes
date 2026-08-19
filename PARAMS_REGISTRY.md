@@ -12,7 +12,7 @@
 | LEAD_ACQ_RAMP_TIME | 5.0s | 리드 인식 후 선제감속 하한선 도달 시간 | NEEDS_VALIDATION (2026-08-18 x12seg 로그에서 첫 적합 사례 확보, seg10 t=657.39 — 매끈한 감속으로 긍정적. 표본 1건, 추가 검증 필요) |
 | LEAD_ACQ_MIN_V_EGO | 3.0 m/s | 이 속도 미만 미적용 | - |
 | LEAD_ACQ_CONFIRM_TIME | 0.2s | 블립 무시, 램프 시작 조건 | - |
-| LEAD_ACQ_LOSS_GRACE_TIME | 0.5s | 순간유실 허용 시간 | NEEDS_VALIDATION (2026-08-19 x11seg 로그: 실측 플리커 4건 전부 0.5s 초과(~0.7~1.0s), FINDINGS.md 참고 — 값 상향 검토 필요) |
+| LEAD_ACQ_LOSS_GRACE_TIME | 0.5s | 순간유실 허용 시간 | NEEDS_VALIDATION (x11seg 4건 + x16seg 1건, 누적 5건 전부 0.5s 초과(~0.7~1.0s) — 값 상향 검토 필요) |
 | LEAD_ACQ_TTC_DANGER | 2.5s | TTC 이하면 frac=1.0 즉시 | NEEDS_VALIDATION |
 | LEAD_ACQ_TTC_CAUTION | 6.0s | TTC 이상이면 TTC 성분 미개입 | NEEDS_VALIDATION |
 
@@ -36,6 +36,12 @@
 | lcAggressiveMaxTime | 8.0s | 차선변경 중 좁은 tFollow 유지 안전상한 (runaway guard) | FIXED/검증됨 (route1 422→0건, route2 363→0건) |
 | tFollowLaneChangeHoldTime | 1.0s | 차선변경 종료 후 좁은 tFollow 고정 유지 | - |
 | tFollowLaneChangeBlendTime | 1.5s | 이후 정상값으로 복귀하는 시간 | - |
+
+## selfdrive/carrot/carrot_serv.py
+
+| 상수/구조 | 현재값 | 용도 | 검증상태 |
+|---|---|---|---|
+| speed_n_sources min() 선택 | 히스테리시스 없음 (매 프레임 단순 min) | atc/road/vturn/route/model 등 후보 중 크루즈 목표속도 소스 선택 | NEEDS_VALIDATION (2026-08-19 x16seg 로그: 완만한 커브 구간에서 후보값 근접 시 src/desiredSpeed 잦은 플리커 확인, FINDINGS.md 참고 — dwell-time 추가 검토) |
 
 ## selfdrive/carrot/carrot_man.py
 
