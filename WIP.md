@@ -5,7 +5,24 @@
 
 ---
 
-## 완료된 것 (2026-08-20, 이번 세션 — 260819-3 로그 분석)
+## 완료된 것 (2026-08-20, 이번 세션 — 260819-4 로그 분석, 사용자 "체크포인트 저장" 요청)
+- 라우트 260819-4 분석 완료: route ID `ba55f880d1` seg5~24 (x20seg,
+  19.0km/1200.2s) — 260819-3에서 분석한 route3b(같은 route ID, seg0~4
+  추정)의 직접 연속분. HEAD f7b154638cf2(신규 커밋 없음), 코드 변경
+  없음(관찰/분석만).
+- 주요 결과: harsh_brake 22건 전부 단일 정차 이벤트(disengage/
+  re-engage 교차검증 완료) — ADAS 활성 중 급제동 0건 5개 라우트
+  연속 재확인. turn_speed_violation/cut-in/steering_oscillation
+  전부 0건. LEAD_ACQ_LOSS_GRACE_TIME 단기유실 8건 중 세그먼트 경계
+  아티팩트 1건뿐, 나머지 7건 진짜 유실(0.5s 초과 5건) — 실사례 비중
+  근거 추가. 신규: dRel/vRel 대형 불연속 점프 26건이 LeadBlend 게이트
+  임계값(CLOSER_JUMP_DIST 8m/BIG_JUMP_DIST 15m) 초과함에도 급제동 없이
+  무해 해소 — 260819-2 seg24 문제사례와 대조되는 반례 데이터 확보.
+- FINDINGS.md/LAST_ANALYZED.md/PARAMS_REGISTRY.md 갱신 완료.
+- **이 항목은 사용자 요청 "체크포인트 저장"에 따른 것 — 아래 미해결
+  항목은 이번 세션에서도 착수하지 않았고 그대로 다음으로 이월됨.**
+
+## 완료된 것 (2026-08-20, 260819-3 로그 분석)
 - 라우트 260819-3 분석 완료. zip 안에 route ID가 다른 두 부팅
   세션이 섞여 있어 분리 추출:
   - route3a (`6ef53b224d`, x15seg, 15.58km/894.9s, avg 62.7km/h,
