@@ -112,6 +112,27 @@
   기록분)는 이번에도 미확보(로그 시각이 패치보다 이전). 상세는
   FINDINGS.md 참고.
 
+  2026-08-20 (8차, 260819-7): 신규 커밋 없음(HEAD f7b154638cf2 그대로) —
+  라우트 260819-7 분석. route `f7e0bb3abd` seg2~23(x22seg, route6b의
+  직접 연속분, 32.73km/1319.9s, avg 89.3km/h — 이번 로그부터 처음으로
+  고속도로 위주 구간 확보). 코드 변경 없음(관찰/분석만, 단
+  `toolkit/analysis_helpers.py`에 `curve_exit_no_accel_scan_v2` 함수
+  추가는 완료). **주 목적: "커브 탈출 후 재가속 지연" 가설 재검증.**
+  v2(leadStatus 필터+직선유지 조건) 스캔으로 오탐 1건 추가 배제했으나,
+  남은 후보를 프레임 대조한 결과 3번째 오탐 패턴(vCruiseCluster 캡으로
+  이미 목표속도 근접, 가속할 여지 자체가 없었던 상황) 신규 확인 — 가설은
+  이번에도 확증/반증 못함, v3 개선 방향(목표속도 여유폭 필터) 제안.
+  부가: 커브 진입 중(아직 안 끝난 상태) vturn 감속이 진행 중인데 운전자가
+  브레이크로 개입한 신규 패턴 1건 발견(표본 1건, INVESTIGATING) — 곡률
+  조임 속도 대비 vturn_decel_rate/lookahead가 충분한지 의문 제기.
+  코드 리딩 중 PARAMS_REGISTRY의 vturn_decel_rc/accel_rc 값이 구버전
+  기록(0.25/0.6)이라 현재 코드(0.15/0.15, a94a58b 재설계 반영)와
+  불일치함을 확인해 정정. 그 외: harsh_brake 12건 중 11건은 기존 패턴과
+  동일(disengage 인접), 1건은 위 신규 패턴. turn_speed_violation 0건,
+  steering_oscillation 0건. LEAD_ACQ_LOSS_GRACE_TIME 0.5s 초과 6건
+  전부 고속 개활도로/완만한 커브 상황 무해 재확인. 상세는 FINDINGS.md/
+  PARAMS_REGISTRY.md 참고.
+
 ## c3-ms
 - last_analyzed_commit: (아직 분석 안 함)
 - date: -
