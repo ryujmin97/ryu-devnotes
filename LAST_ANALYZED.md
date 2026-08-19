@@ -94,6 +94,24 @@
   전부 cruiseEnabled=False 구간이라 표본 부적합. dRel/vRel 원거리
   요동 노이즈 재확인. 상세는 FINDINGS.md 참고.
 
+  2026-08-20 (7차, 260819-6): 신규 커밋 없음(HEAD f7b154638cf2 그대로) —
+  라우트 260819-6 분석. route6a(`dc8bdc7d4d` seg5~22, x18seg, route5b
+  직접 연속분, 8.57km/1043.2s)+route6b(신규 `f7e0bb3abd` seg0~1,
+  x2seg, 0.4km/121.6s). 코드 변경 없음(관찰/분석만). **주 목적: 사용자가
+  제기한 "커브 탈출 후 재가속 지연" 가설을 `curve_exit_no_accel_scan`
+  으로 검증 시도했으나, 후보로 뽑힌 이벤트를 프레임 단위로 대조한
+  결과 전부 오탐(선행차 추종 정차 감속 또는 S자 연속커브 재진입을
+  "커브 탈출"로 오판)으로 확인 — 가설을 확증도 반증도 못함. 스캔
+  도구에 leadStatus 필터/직선 지속시간 조건 추가하는 개선 방향
+  제안(코드 미착수).** 그 외: harsh_brake ADAS 활성 중 0건 8개 라우트
+  연속 재확인, turn_speed_violation 0건. LEAD_ACQ_LOSS_GRACE_TIME
+  스캔에서 6~36초짜리 긴 유실 다수 신규 발견했으나 개별 대조 결과
+  전부 무해(개활도로 선행차 소실 또는 저속 코너 시야이탈, vturn이
+  코너 중엔 이미 저속 유지 중이라 리스크 없음) — PARAMS_REGISTRY
+  판단 변경 없음. MAX_SEGMENTS_PER_ROUTE 검증용 로그(패치 커밋 이후
+  기록분)는 이번에도 미확보(로그 시각이 패치보다 이전). 상세는
+  FINDINGS.md 참고.
+
 ## c3-ms
 - last_analyzed_commit: (아직 분석 안 함)
 - date: -
