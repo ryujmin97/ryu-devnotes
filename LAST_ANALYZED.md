@@ -37,6 +37,23 @@
   oscillation/cut-in은 전부 클린. 상세는 FINDINGS.md/PARAMS_REGISTRY.md
   참고.
 
+  2026-08-20 (3차): 라우트 260819-2(x20seg, 10.29km/1199.9s, 시내/정체
+  위주, avg 30.9km/h) 실주행 로그 분석. 코드 변경 없음(관찰/분석만).
+  주요 발견 2건: (1) extract_log.py가 세그먼트 파일마다 leadStatus를
+  False로 강제 초기화하는 버그 확인 — 순간유실 16건 전부 세그먼트 경계와
+  타임스탬프 완전 일치(diff=0.000s), 실제 리드 유실 아닌 도구 아티팩트.
+  LEAD_ACQ_LOSS_GRACE_TIME 관련 과거 누적 증거 재검토 필요 (PARAMS_REGISTRY
+  하향 조정). (2) seg24 t=1505.78~1507.88: 고속(112km/h) 순항 중 새 리드
+  포착 후 leadDRel은 연속인데 leadVRel/leadVLead만 한 프레임 만에 불연속
+  점프(-4.6→-26.2m/s) — 시스템 감속(-4.61m/s²까지 매끈히 상승)이 운전자
+  급브레이크(-7.46m/s²) 개입으로 이어짐. TTC가 DANGER(2.5s) 문턱을 못
+  넘은 채 반응 강도가 유지된 점, LeadBlend 게이트가 dRel 점프만 감지해
+  이런 vRel-only 불연속을 놓칠 수 있는 점 신규 확인 — NEEDS_VALIDATION.
+  그 외: harsh_brake 45건 전부 운전자 브레이크 개입 중(cruiseEnabled 무관),
+  turn_speed_violation 0건, steering oscillation 0건, cut-in 12건 전부
+  저속(<7m/s) 정체구간, speed_n_sources 플리커 330건(기존 이슈 재확인,
+  신규 아님). 상세는 FINDINGS.md/PARAMS_REGISTRY.md 참고.
+
 ## c3-ms
 - last_analyzed_commit: (아직 분석 안 함)
 - date: -
