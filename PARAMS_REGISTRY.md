@@ -12,7 +12,7 @@
 | LEAD_ACQ_RAMP_TIME | 5.0s | 리드 인식 후 선제감속 하한선 도달 시간 | NEEDS_VALIDATION (2026-08-18 x12seg 로그에서 첫 적합 사례 확보, seg10 t=657.39 — 매끈한 감속으로 긍정적. 표본 1건, 추가 검증 필요) |
 | LEAD_ACQ_MIN_V_EGO | 3.0 m/s | 이 속도 미만 미적용 | - |
 | LEAD_ACQ_CONFIRM_TIME | 0.2s | 블립 무시, 램프 시작 조건 | - |
-| LEAD_ACQ_LOSS_GRACE_TIME | 0.5s | 순간유실 허용 시간 | NEEDS_VALIDATION (x11seg 4건 + x16seg 1건 + x20seg(260819-1) 6~7건, 누적 11~12건. 유실시간 분포 ~0.5~2.46s로 확대 — 상향(1.0~1.5s 검토) 우선순위 상승. x20seg에서 정차열 중 dRel 8~12.5m 감소 재포착 신규 패턴 발견, 리드 대체 의심) |
+| LEAD_ACQ_LOSS_GRACE_TIME | 0.5s | 순간유실 허용 시간 | **재검토 필요** (2026-08-20, 260819-2 분석 중 extract_log.py가 세그먼트 경계마다 leadStatus를 인위적으로 False 리셋하는 도구 버그 확인 — 해당 라우트 순간유실 16건 전부 세그먼트 경계와 diff=0.000s로 정확히 일치, 실제 유실 아닌 추출 아티팩트. 과거 누적 증거(x11seg 4건+x16seg 1건+x20seg(260819-1) 6~7건)도 세그먼트 경계 여부 재대조 필요 — 특히 0.3s 이하 짧은 유실은 아티팩트 의심, 1s+ 긴 유실은 실사례 가능성 유지. 상세는 FINDINGS.md 참고, extract_log.py 수정 제안은 미적용 상태) |
 | LEAD_ACQ_TTC_DANGER | 2.5s | TTC 이하면 frac=1.0 즉시 | NEEDS_VALIDATION |
 | LEAD_ACQ_TTC_CAUTION | 6.0s | TTC 이상이면 TTC 성분 미개입 | NEEDS_VALIDATION |
 
@@ -73,6 +73,10 @@
 | leadDRel 프레임당(≤0.3s) 급점프(≥8m) 발생빈도 | ~46건/722s (약 15초당 1회) | LeadBlend closer_jump/big_jump 게이트 발동 빈도 추정 | NEEDS_VALIDATION (2026-08-18 x12seg, 컨트롤 영향은 대부분 미미했으나 누적 확인 필요) |
 
 ---
+- 2026-08-20: 260819-2 로그 분석 — LEAD_ACQ_LOSS_GRACE_TIME 근거였던 순간유실
+  사례 중 상당수가 extract_log.py 세그먼트 경계 아티팩트로 확인돼
+  "재검토 필요"로 하향/보류 조정 (상세: FINDINGS.md)
+
 갱신 이력:
 - 2026-08-18: 최초 작성 (c3-ms-dev HEAD 8dbed620887b 기준)
 - 2026-08-18: x12seg 로그 분석 반영 (LEAD_ACQ_RAMP_TIME 첫 검증 사례,
