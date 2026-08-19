@@ -9,8 +9,8 @@
 ---
 
 ## c3-ms-dev
-- last_analyzed_commit: `366009153812`
-- date: 2026-08-19
+- last_analyzed_commit: `f7b154638cf2`
+- date: 2026-08-20
 - note: 8dbed620887b 이후 신규 커밋 1개(3660091, CarrotWeb gdrive 재진입/
   핸드셰이크 타임아웃) 확인했으나 이미 FINDINGS.md에 기록된 이슈라 재분석
   생략. 대신 x11seg 실주행 로그 분석 수행 — LEAD_ACQ_LOSS_GRACE_TIME
@@ -22,6 +22,11 @@
   speed_n_sources min() 히스테리시스 부재로 인한 src/desiredSpeed
   플리커 신규 발견, LEAD_ACQ_LOSS_GRACE_TIME 5번째 초과 샘플 확보.
   코드 변경 없음(관찰/분석만).
+  2026-08-20: f7b1546(system/loggerd MAX_SEGMENTS_PER_ROUTE 40->20,
+  carrotweb 로그탭 라우트당 세그먼트 수 축소 요청 대응) master가 patch
+  적용 + push 완료, HEAD 반영. 실기기 검증(라우트 20개 단위 분할 확인,
+  carrotweb 로그탭 표시 확인)은 아직 NEEDS_VALIDATION — FINDINGS.md
+  참고.
 
 ## c3-ms
 - last_analyzed_commit: (아직 분석 안 함)
