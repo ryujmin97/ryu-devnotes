@@ -255,6 +255,89 @@ def curve_exit_no_accel_scan(rows, curvature_thresh=0.002, straight_thresh=0.000
 
 
 # ---------------------------------------------------------------------------
+# 4b) 커브 탈출 - 무가속 구간 스캔 v2 (260819-6 세션 오탐 대응 개선판)
+# ---------------------------------------------------------------------------
+def curve_exit_no_accel_scan_v2(rows, curvature_thresh=0.002, straight_thresh=0.0005,
+                                 min_curve_duration_s=0.5, no_accel_window_s=2.0,
+                                 accel_thresh=0.15, min_straight_hold_s=0.8,
+                                 lead_exclude_dist_m=60.0):
+    """
+    curve_exit_no_accel_scan의 v1 대비 개선점 (260819-6 세션 오탐 분석 근거):
+    1) leadStatus 필터: 커브 탈출 시점에 선행차가 잡혀있고 leadDRel이
+       lead_exclude_dist_m 이내면 후보에서 제외 (감속이 선행차 추종 때문일
+       가능성이 높음 -- v1에서 이 패턴으로 2건 오탐 확인됨).
+    2) 직선 지속시간 강화: straight_thresh 진입 이후 min_straight_hold_s
+       동안 계속 |curvature| < curvature_thresh(재상승 안 함)를 유지해야
+       "진짜 탈출"로 인정. 유지 못하면(S자 연속커브 재진입) 후보에서 제외
+       -- v1에서 이 패턴으로 1건 오탐 확인됨.
+
+    리턴: v1과 동일 스키마 + "leadStatus_at_exit","leadDRel_at_exit" 추가.
+    """
+    n = len(rows)
+    curv = [abs(_f(r, "desiredCurvature", 0.0) or 0.0) for r in rows]
+    times = [_f(r, "t", 0.0) for r in rows]
+    aEgo = [_f(r, "aEgo", 0.0) for r in rows]
+    vEgo = [_f(r, "vEgo", 0.0) for r in rows]
+    segs = [r.get("seg") for r in rows]
+    lead = [_b(r, "leadStatus") for r in rows]
+    dRel = [_f(r, "leadDRel") for r in rows]
+
+    results = []
+    in_curve = False
+    curve_start_t = None
+    i = 0
+    while i < n:
+        c = curv[i]
+        if not in_curve and c >= curvature_thresh:
+            in_curve = True
+            curve_start_t = times[i]
+        elif in_curve and c < straight_thresh:
+            curve_dur = times[i] - curve_start_t
+            in_curve = False
+            if curve_dur >= min_curve_duration_s:
+                t_exit = times[i]
+                seg_exit = segs[i]
+
+                # -- 개선 1: leadStatus 필터
+                if lead[i] and dRel[i] is not None and dRel[i] <= lead_exclude_dist_m:
+                    i += 1
+                    continue
+
+                # -- 개선 2: 직선 지속시간 재확인 (재상승 여부)
+                j0 = i
+                hold_ok = True
+                while j0 < n and segs[j0] == seg_exit and (times[j0] - t_exit) <= min_straight_hold_s:
+                    if curv[j0] >= curvature_thresh:
+                        hold_ok = False
+                        break
+                    j0 += 1
+                if not hold_ok:
+                    i += 1
+                    continue
+
+                j = i
+                max_a = aEgo[i] if aEgo[i] is not None else 0.0
+                t_window_end = t_exit
+                while j < n and segs[j] == seg_exit and (times[j] - t_exit) <= no_accel_window_s:
+                    if aEgo[j] is not None:
+                        max_a = max(max_a, aEgo[j])
+                    t_window_end = times[j]
+                    j += 1
+                if max_a < accel_thresh:
+                    results.append({
+                        "seg": seg_exit,
+                        "t_curve_end": round(t_exit, 2),
+                        "t_window_end": round(t_window_end, 2),
+                        "max_aEgo_in_window": round(max_a, 3),
+                        "vEgo_at_exit": round(vEgo[i], 2) if vEgo[i] is not None else None,
+                        "leadStatus_at_exit": lead[i],
+                        "leadDRel_at_exit": round(dRel[i], 1) if dRel[i] is not None else None,
+                    })
+        i += 1
+    return results
+
+
+# ---------------------------------------------------------------------------
 # 5) 목표속도 추종 오차 분석
 # ---------------------------------------------------------------------------
 def speed_tracking_error(rows, target_field="desiredSpeed", window_s=1.0):
