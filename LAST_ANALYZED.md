@@ -79,6 +79,20 @@
   해소(260819-2 seg24의 문제 사례와 대조되는 반례). 상세는
   FINDINGS.md/PARAMS_REGISTRY.md 참고.
 
+  2026-08-20 (6차, 260819-5): 신규 커밋 없음(HEAD f7b154638cf2 그대로) —
+  라우트 260819-5 분석. route5a(`ba55f880d1` seg25~39, x15seg,
+  route3b/260819-4 직접 연속분)+route5b(신규 `dc8bdc7d4d` seg0~4,
+  x5seg). 코드 변경 없음(관찰/분석만). **중요 발견: route
+  `ba55f880d1`가 seg0(260819-3)~seg39(260819-5)까지 끊김 없이 40개
+  세그먼트로 이어진 뒤 새 route로 rotate — MAX_SEGMENTS_PER_ROUTE=20
+  패치(f7b154638cf2)가 실기기에 반영되지 않은 것으로 보이는 반증
+  확보** (FINDINGS.md [INVESTIGATING] 신규 항목, 실기기 재빌드/재부팅
+  여부 확인 필요). 그 외: harsh_brake ADAS 활성 중 0건 7개 라우트
+  연속 재확인, turn_speed_violation 0건, LEAD_ACQ_LOSS_GRACE_TIME
+  route5a real 1건(무해 해소), route5b는 real 유실 다수 확인됐으나
+  전부 cruiseEnabled=False 구간이라 표본 부적합. dRel/vRel 원거리
+  요동 노이즈 재확인. 상세는 FINDINGS.md 참고.
+
 ## c3-ms
 - last_analyzed_commit: (아직 분석 안 함)
 - date: -
