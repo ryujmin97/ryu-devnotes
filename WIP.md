@@ -41,20 +41,51 @@
 ## 진행 중이던 코드 작업
 없음 (ryu 코드 변경 없음, devnotes 문서/증거 이미지만 갱신).
 
+## 이번 세션(5차)에서 완료된 것 — 비전→레이더 크로스오버 분석 (신규 트랙)
+- 사용자 요청: "고속도로에서 카메라가 멀리 서행 앞차를 먼저 인식(파란
+  박스)했는데 감속은 레이더 확인(빨간 박스) 시점부터 시작되는 느낌 —
+  향후 이 패치를 재업로드 없이 요청할 수 있게 8개 zip 전체를 분석해
+  push해달라"는 요청 처리.
+- `toolkit/extract_log.py`에 `leadRadar`/`leadModelProb` 컬럼 추가
+  (radarState.leadOne.radar/modelProb), `toolkit/analysis_helpers.py`에
+  `vision_to_radar_crossover()` 함수 신규 작성.
+- **260819-1~8 전체(8개 zip, x20세그 내외 × 8 = 160세그 안팎) 스캔
+  완료**, 매 zip 분석 완료 즉시 push(토큰/컨텍스트 절약 목적).
+  결과: `VISION_RADAR_CROSSOVER.md` + `evidence/crossover/
+  crossover_260819-{1..8}.json` + `crossover_ALL_summary.json`.
+  (원본 route.csv는 매 zip 처리 직후 삭제, 커밋 안 함 — 이벤트 요약
+  JSON만 남김, 방침 유지.)
+- 종합: crossover 108건 중 highway(≥54km/h) 65건. 갭 중앙값 2.0s,
+  최대 10.45s. dRel 변화는 closing 24건/flat 15건/opening 26건으로
+  혼재 — `leadRadar=False`만으로는 "위험한 접근" 판별 불충분, closing
+  rate 게이팅 필요함을 확인.
+- **최우선 후보 5건 확정** (다음 단계 aEgo 대조용, 상세는
+  VISION_RADAR_CROSSOVER.md "8개 전체 종합" 참고):
+  1. 260819-6 seg15 (갭 7.80s, 94.6m 좁혀짐)
+  2. 260819-6 seg5 (갭 7.00s, 91.9m 좁혀짐)
+  3. 260819-7 seg14 (갭 2.26s, 71.5m 좁혀짐, closing rate 최대)
+  4. 260819-7 seg8 (갭 1.70s, 59.0m 좁혀짐)
+  5. 260819-5 seg34 (갭 2.25s, 51.1m 좁혀짐)
+
 ## 다음 세션에서 이어갈 후보 (우선순위 순)
-1. **"교차로 빈 lead 오탐지" 근본원인 조사**: 이번에 확인된 패턴이
-   `LEAD_ACQ_LOSS_GRACE_TIME` 조정만으로 해결될 문제가 아니라,
-   정차 중 빈 교차로 지오메트리에서의 lead qualification/게이팅
-   상위 로직 이슈일 가능성 있음 — long_mpc.py/LeadBlend 쪽에서
-   정차(vEgo≈0) + 전방 실제 리드 부재(교차로) 상황을 구분해서
-   게이팅할 수 있는지 검토 필요. 아직 코드 조사 미착수.
-2. **src flicker 실제 영향 정량화**: seg4~8/11~12/18~19의 vturn↔road/
+1. **비전→레이더 크로스오버 aEgo 대조 (최우선, 새 트랙)**: 위 5건
+   시각/세그가 이미 VISION_RADAR_CROSSOVER.md에 있으므로, 해당
+   zip(260819-5, -6, -7 중 필요한 것만 1~2개)만 재업로드 받아 그 구간
+   aEgo를 프레임 단위로 확인 → "비전-only 구간 동안 실제로 감속을
+   안 하고 있었는지" 확정. 확정되면 long_mpc.py의 `LEAD_ACQ_*`가
+   `radar=False` 상태에서 이미 반응하는지 코드 확인 → "vision-only +
+   closing rate 게이팅" 선제 감속 패치 설계.
+2. **"교차로 빈 lead 오탐지" 근본원인 조사**: 정차 중 빈 교차로
+   지오메트리에서 횡단 차량을 리드로 오탐지하는 패턴(4차 체크포인트
+   확인) — long_mpc.py/LeadBlend에서 정차(vEgo≈0) + 실제 리드 부재
+   상황을 구분해 게이팅할 수 있는지 검토. 아직 코드 조사 미착수.
+3. **src flicker 실제 영향 정량화**: seg4~8/11~12/18~19의 vturn↔road/
    model/route 플리커 클러스터 구간에서 desiredSpeed 왕복폭과 실제
    aEgo/저크 반영 여부(하류 슬루 리미터 흡수량) 미분석.
-3. **MAX_SEGMENTS_PER_ROUTE 관찰 검증**: route `f7e0bb3abd`가 정확히
+4. **MAX_SEGMENTS_PER_ROUTE 관찰 검증**: route `f7e0bb3abd`가 정확히
    40세그먼트에서 boot 변경과 함께 종료된 것이 캡 발동인지 우연한
    재부팅 겹침인지 코드 레벨 확인 필요 (패치 이전 시점 로그라 미검증).
-4. (기존 on-the-horizon 항목) LEAD_ACQ_RAMP_TIME=5.0s,
+5. (기존 on-the-horizon 항목) LEAD_ACQ_RAMP_TIME=5.0s,
    LEAD_ACQ_TTC_DANGER=2.5s 검증용 고속 근접 리드 lock-on 로그 여전히
    필요. CarrotWeb 로그탭 UI 버그도 미해결.
 
