@@ -1,5 +1,52 @@
 # WIP — 중단 지점 (체크포인트, 세션 종료 아님)
 
+- 저장 시각: 2026-08-20 (14차, 사용자 "저장" 요청 — **screenrecord clip
+  버그 2건 설계 합의 완료, 패치 작성은 다음 단계**)
+
+## 14차 갱신 — screenrecord clip 버그 2건 설계 합의 (패치 작성 전, 체크포인트)
+- **문제 1 (롤오버 중복 생성)**: FINDINGS.md
+  `[RISK_IDENTIFIED, NEEDS_VALIDATION] screenrecord clip(commit
+  \`0f7575f\`)` 항목 그대로 — `stop_locked()`가 20분 자동 세그먼트
+  롤오버(`update_screen()`)에서도 호출되어, 정지 버튼을 안 눌러도
+  20분마다 clip이 계속 쌓임.
+- **문제 2 (초 단위 타임스탬프 충돌)**: 같은 항목의 부가 엣지케이스 —
+  clip 파일명이 정지 시각 초 단위라, 같은 초에 정지가 두 번 겹치면
+  `-y` 때문에 앞 clip이 소리 없이 덮어써질 수 있음.
+- **합의된 해결 방향** (이번 대화에서 사용자와 논의 확정, 아직 코드
+  미작성):
+  1. `stop_locked(bool auto_rollover = false)`로 시그니처 변경.
+     `toggle()`/`stop()`(사용자 경로)은 기본값(`false`, 수동 정지)
+     그대로 호출, `update_screen()`의 20분 롤오버 경로만
+     `stop_locked(true)`로 명시 호출. 함수 끝의
+     `extract_trailing_clip()` 호출을 `if (!auto_rollover &&
+     !finished_path.empty())`로 감싸 롤오버 시 clip 생성 자체를
+     스킵. `closeEncoder()`/`image_queue.clear()` 등 나머지는 두
+     경로 모두 그대로 실행(파일 finalize는 롤오버 때도 필요).
+  2. 타임스탬프 해상도는 **초 단위 그대로 유지** — 분 단위로 낮추는
+     대안은 사용자가 제기했으나, (a) 버킷이 60배 커져 충돌 확률이
+     오히려 늘고 (b) clip 목적 자체가 "이벤트 발생 시각과 가장 가까운
+     세그먼트를 초 단위로 찾기"라 분 단위는 검색 정밀도를 해친다는
+     이유로 기각. 대신 `extract_trailing_clip()`이 ffmpeg
+     `QProcess::startDetached` 호출 직전(동기 구간)에 `stat()`으로
+     동일 경로 존재 여부를 확인해, 충돌 시에만
+     `..._clip_2.mp4`, `..._clip_3.mp4`처럼 접미사를 붙이는 방식으로
+     변경(`<sys/stat.h>`는 이미 include됨). 정상 케이스(충돌 없음)는
+     기존과 동일하게 `YYMMDD_HHMMSS_clip.mp4` 그대로 유지.
+- 대상 파일: `selfdrive/ui/qt/screenrecorder/screenrecorder.cc`,
+  `screenrecorder.h`(`stop_locked` 시그니처).
+
+## 다음 세션(또는 이 세션 재개)에서 이어갈 것 (14차, 신규 최우선)
+1. **위 합의안대로 패치 작성** — `stop_locked(bool auto_rollover =
+   false)` 시그니처 변경 + `update_screen()` 호출부 수정 +
+   `extract_trailing_clip()` 내 `stat()` 충돌 체크 추가. `py_compile`
+   상당하는 C++ 문법 확인(컨테이너에 빌드 툴체인 없음, 코드 리뷰
+   위주) 후 컨테이너 ryu 클론에서 커밋 생성 → `git format-patch -1`
+   → `git am` 시뮬레이션 검증.
+2. 패치 완료 후 FINDINGS.md의 `[RISK_IDENTIFIED, NEEDS_VALIDATION]
+   screenrecord clip` 항목을 `[PATCH_WRITTEN]`으로 갱신.
+3. 13차(model 게이팅) 실측 검증은 여전히 별도 트랙으로 대기 중(위
+   13차 섹션 참고).
+
 - 저장 시각: 2026-08-20 (13차, 사용자 "저장" 요청 — **model 게이팅
   재설계 패치 실차 `git am` 적용 + push 완료 확인**, commit `119b101`
   (`0f7575f..119b101`). 실측 검증만 남음.
