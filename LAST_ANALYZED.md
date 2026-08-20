@@ -9,6 +9,21 @@
 ---
 
 ## c3-ms-dev
+- last_analyzed_commit (20차 계속): `a4b5550` (HEAD, 신규 커밋 없음 —
+  20차 계속은 toolkit 도구 1~4/5 첫 실전 실행 세션)
+- date: 2026-08-21 (20차 계속)
+- note: (20차 계속) 신규 로그(`c8fef594d3`, 18분, 18세그)로 도구
+  1~4/5를 실제 route CSV에 처음 돌려봄. **1/5**: 세그먼트 경계
+  아티팩트 0건 확인(수정 정상 동작). **3/5**: 곡선 노이즈 21건 중
+  대부분(seg6 등)은 aEgo 무변화로 무해 확인됐으나, seg12 t=798은
+  물리적으로 일관된 진짜 리드 접근으로 확인 — would_trigger 휴리스틱이
+  노이즈/진짜위험을 구분 못 함, 다중 프레임 체크 보강 필요.
+  **4/5(신규 도구 첫 실행)**: `all_source_pairs_flicker_summary()`로
+  전체 쌍 자동 스캔 — road<->vturn(107건)이 model<->vturn(70건)보다
+  우세, road<->route(34건)도 최초 정량화. cut-in 5건/ttc_danger 5건
+  전부 cruiseEnabled=False라 무해. 상세는 FINDINGS.md 20차 계속 참고.
+
+## c3-ms-dev
 - last_analyzed_commit (23차): `a4b5550` (HEAD, 신규 커밋 없음 —
   23차는 22차-2 패치의 실차 첫 실측 검증 세션)
 - date: 2026-08-21 (23차)

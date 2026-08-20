@@ -1542,3 +1542,69 @@
   `work/sim_vision_rate.py`(grace 로직 재현), `vision_to_radar_
   crossover(highway_v_ego=0.0)` routeA 0건/routeB 20건, 프레임별
   raw dRel/vRel 대조(seg12 t=812~818, t=796~800).
+
+## [VALIDATED + NEEDS_REFINEMENT] 신규 실주행 로그(260821, 18분, HEAD a4b5550) — 도구 1~4/5 첫 실전 실행 결과 (2026-08-21, 20차 계속)
+
+**로그 개요**: 18세그(20260821_062954~064654), 21601 rows, 18분/11.64km,
+평균 38.8km/h(도심), cruise 85.3%, harsh_brake 43건, disengage 5건.
+`extract_log.py` 신버전(`segment_state_carryover_fix: true`)으로 추출.
+
+### 도구 1/5 실측 확인 — segment_boundary_lead_loss_artifacts 0건
+`segment_boundary_lead_loss_artifacts()`로 감사한 결과 가짜 유실
+아티팩트 0건 — 세그먼트 경계 carryover 수정이 실제 로그에서도 정상
+동작 확인.
+
+### 도구 3/5 실측 — 곡선 노이즈 21건 중 대부분 무해, 단 1건은 진짜 위험
+`curve_lead_dRel_jump_events()`: 곡선(vturn) 프레임 7774개(6.81분)
+중 급점프 21건, 그중 14건이 `would_trigger_ttc_danger` 플래그.
+**aEgo 실측 대조 결과**:
+- seg6 t=443.5~456 (점프 8건 클러스터): aEgo가 -0.1~-0.3 범위에서만
+  움직이고 실제 급감속 없음 — **무해한 노이즈로 확인, 23차 가설과
+  일치**.
+- **seg12 t=797.8~799.5 (점프 2건, 진입+이탈)**: 점프 사이 구간에서
+  dRel이 34.1m→24.2m으로 여러 프레임에 걸쳐 물리적으로 일관되게
+  좁혀지고 vRel도 동시에 -4~-4.9m/s로 일치 — **진짜 리드 접근**이었고
+  실제로 aEgo가 -1.9m/s²까지 적절히 감속 반응함(정상 동작).
+  `would_trigger_ttc_danger`가 이 케이스에도 True를 찍었지만, 이건
+  노이즈가 아니라 정상적인 위험 반응이 발생한 것 — **단일 프레임
+  점프만 보는 현재 휴리스틱은 "노이즈성 튐"과 "진짜 리드 접근"을
+  구분 못 함**.
+- **NEEDS_REFINEMENT**: `curve_lead_dRel_jump_events()`의
+  `would_trigger_ttc_danger` 판정에 "점프 이후 N프레임 동안 dRel이
+  물리적으로 일관되게(vRel과 부호/크기가 맞게) 감소하는지" 후속 체크를
+  추가하면 진짜 위험과 노이즈를 구분 가능할 것으로 보임 — 다음 세션
+  설계 후보.
+
+### 도구 4/5 첫 실전 실행 — road<->vturn이 이 로그의 최다 플리커 쌍
+`all_source_pairs_flicker_summary(min_count=3)` 결과 (건수순):
+| 쌍 | 건수 | 왕복 | 분당 | dwell(중앙값/최대) |
+|---|---|---|---|---|
+| road<->vturn | 107 | 102 | 5.94 | 1.45s/109.3s |
+| model<->vturn | 70 | 65 | 3.89 | 1.1s/150.25s |
+| route<->vturn | 47 | 41 | 2.61 | 1.02s/239.51s |
+| road<->route | 34 | 29 | 1.89 | 0.35s/663.14s |
+| cam<->model | 18 | 16 | 1.0 | 0.75s/453.35s |
+(나머지 model<->route/cam<->vturn/bump<->vturn/bump<->route/gas<->vturn는
+n<12, 부차적)
+
+**중요**: 이 로그에서는 `road<->vturn`이 `model<->vturn`보다 더 빈번
+(107 vs 70) — 260819-1/260819-4 세션에서 model<->vturn이 우세 쌍이던
+것과 다름(도로 상황·주행 스타일 차이로 추정, 절대적 우선순위 아님).
+**`road<->route`(34건, 1.89/min)는 이번이 처음으로 정량화된 수치** —
+9~13차 패치(vturn<->model 게이팅)는 이 쌍을 전혀 다루지 않으므로
+여전히 미해결 상태로 남아있음이 실측으로 확인됨.
+
+### cut-in 오탐 재확인 (기존 4차 발견과 동일 패턴)
+`lead_cut_in_detector(close_dist_m=15)` 5건 전부 `cruiseEnabled=False`
+(운전자 수동 조작 중) 구간, vEgo 1.5~5km/h 저속 — ADAS가 관여하지 않는
+저속/정차 근처 상황이라 종방향 제어 튜닝 관점에서는 무관(기존 "정차 중
+교차로 오탐지" 계열과 동일 패턴, 신규 아님).
+
+### 다음 세션 이어갈 것
+1. `road<->vturn`/`road<->route` 쌍의 min() 히스테리시스 설계 착수
+   (도구 4/5로 실측 규모 확인됨, 이제 실제 설계 단계로 넘어갈 수 있음).
+2. `curve_lead_dRel_jump_events()`의 would_trigger 판정 정교화(다중
+   프레임 물리적 일관성 체크 추가) — 설계 후 재검증.
+3. 도구 2/5(`ttc_danger_events`) 5건(전부 seg19, 저속 4~5km/h) —
+   **확인 완료: 전부 `cruiseEnabled=False`(수동 운전 중)**, cut-in과
+   동일하게 ADAS 종방향 제어와 무관, 튜닝 관점에서 무해.
