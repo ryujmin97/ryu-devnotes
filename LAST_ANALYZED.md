@@ -9,6 +9,24 @@
 ---
 
 ## c3-ms-dev
+- last_analyzed_commit (23차): `a4b5550` (HEAD, 신규 커밋 없음 —
+  23차는 22차-2 패치의 실차 첫 실측 검증 세션)
+- date: 2026-08-21 (23차)
+- note: (23차) routeA(`8417c66e7e`, 20분)/routeB(`c8fef594d3`,
+  36분) 신규 로그로 개선안 3번(vision closing-rate grace) 실차
+  검증. **grace 로직 정상 동작 확인**(14건 blip-preserved,
+  `toolkit/sim_vision_rate.py` 재현 시뮬레이터로 검증, devnotes에
+  편입). 단 22차가 겨냥한 정확한 증상(카메라 인식→레이더 락온
+  급감속)의 재현 사례는 이번 로그에 없어 "패치가 실제로 증상을
+  줄이는지"는 아직 직접 검증 못함. **신규 발견**: 곡선(`src=vturn`)
+  구간에서 vision dRel이 여러 물체 사이를 널뛰며 노이즈성 DANGER
+  TTC를 유발할 수 있음(routeB seg12 t=815/817) — 1/2/4번안(TTC
+  문턱 완화/closing-rate 게이트/MPC에 직접 주입) 설계 전 이 노이즈
+  필터링을 먼저 검토해야 함. 별개로 seg12 t=798 급감속은 곡선
+  구간 레이더 타깃 전환 이슈로 재분류(vision closing-rate 크로스
+  체크와 무관). 상세는 FINDINGS.md 23차 참고.
+
+## c3-ms-dev (구버전 기록)
 - last_analyzed_commit: `a4b5550` (HEAD, 22차-2에서 작성한 vision
   closing-rate leadStatus grace 버그 수정 패치를 사용자가 실차에서
   `git am` 적용 + `git push` 완료 확인 — `1f9f852..a4b5550`, 원격
