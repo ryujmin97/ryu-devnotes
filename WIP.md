@@ -1,8 +1,9 @@
 # WIP — 중단 지점 (체크포인트, 세션 종료 아님)
 
-- 저장 시각: 2026-08-20 (6차, 코딩 세션 시작 직후 체크포인트)
+- 저장 시각: 2026-08-20 (6차, 사용자 요청으로 MIN_TIME 튜닝 후 체크포인트)
 - HEAD (c3-ms-dev): `f7b154638cf2` — **로컬 워킹 카피에서 1개 커밋
-  `60286ff` 추가됨 (아직 GitHub `ryu`에 push 안 됨, patch 파일로 전달).**
+  `2a513ec`(amend됨, 구 SHA `60286ff`는 폐기) 추가됨 (아직 GitHub
+  `ryu`에 push 안 됨, patch 파일로 전달).**
 
 ## 이번 세션(6차)에서 완료된 것 — 비전-only 원거리 리드 closing-rate 패치
 - 사용자 요청: "고속도로에서 카메라(파란박스)가 멀리 서행 앞차를 인식한
@@ -19,14 +20,16 @@
   실제 위험이 가려져 개입 못 함. LEAD_ACQ 로직 자체는 "source 무관"하게
   이미 vision/radar 동일 적용되지만, **입력값(vRel) 품질이 소스별로
   다른 게 진짜 원인**이었음.
-- **패치 구현 완료** (`long_mpc.py`, commit `60286ff`): dRel 프레임간
+- **패치 구현 완료** (`long_mpc.py`, commit `2a513ec`): dRel 프레임간
   미분 기반 독립 접근속도 추정(저역통과, TAU=1.0s) 신설 → vision-only +
-  1초 이상 연속추적 시에만 기존 vRel-TTC와 min()으로 결합. 순수 floor라
+  0.5초 이상 연속추적 시에만 기존 vRel-TTC와 min()으로 결합 (MIN_TIME
+  최초 1.0s → 사용자 피드백으로 0.5s 단축, TAU는 유지). 순수 floor라
   감속 완화 방향 작동 없음. VisionTrack.vRel 자체는 미변경(리스크 격리).
   문법 체크(`py_compile`) 통과.
 - push 대상 devnotes: `FINDINGS.md`, `PARAMS_REGISTRY.md`, `WIP.md`.
 - ryu 패치: `/mnt/user-data/outputs/0001-long_mpc-vision-only-closing-rate.patch`
-  (git am 적용 필요, 아직 미적용/미push).
+  (git am 적용 필요, 아직 미적용/미push. amend됐으므로 이전 버전 patch는
+  폐기하고 이 최신본만 적용할 것).
 
 ## 다음 세션에서 이어갈 것 (최우선)
 1. **aEgo 실측 대조 (미완료)** — `VISION_RADAR_CROSSOVER.md` 최우선
