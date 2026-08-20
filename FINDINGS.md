@@ -764,17 +764,20 @@
   추정될 수 있는) `vRel`로 TTC를 계산하므로, 실제 접근속도가 편향되어
   있으면 TTC 임계값을 넘지 못해 선제감속이 개입하지 않는다 — 레이더가
   락온해 정확한 vRel로 바뀌는 프레임에야 TTC가 급락하며 뒤늦게 반응.
-- **패치 (long_mpc.py, commit `60286ff`, 아직 ryu에 push 안 됨 — patch
+- **패치 (long_mpc.py, commit `2a513ec`, 아직 ryu에 push 안 됨 — patch
   파일로 전달, 사용자가 `git am`으로 적용 예정)**: `radarstate.leadOne`의
   `vRel`과는 별개로 `dRel`을 프레임 간 미분해 독립적인 접근속도 추정치를
   저역통과 필터(시정수 `VISION_CLOSING_RATE_TAU=1.0s`)로 누적. 레이더
   미락온 상태(`leadOne.radar == False`)에서만 갱신하고,
-  `VISION_CLOSING_RATE_MIN_TIME=1.0s` 이상 연속 추적된 뒤에만 신뢰.
-  이렇게 구한 TTC를 기존 vRel 기반 TTC와 `min()`으로 합쳐 더 위험한
-  쪽을 `frac_ttc`에 반영 — 기존 LEAD_ACQ 로직과 동일하게 순수 floor라
-  감속을 절대 완화시키지 않음. `VisionTrack.vRel` 자체는 건드리지
-  않아(다른 곳에서도 쓰이는 핵심 추적값이라 변경 리스크 회피) 영향
-  범위를 long_mpc.py 내부로 한정.
+  `VISION_CLOSING_RATE_MIN_TIME=0.5s`(최초 1.0s에서 사용자 피드백으로
+  단축) 이상 연속 추적된 뒤에만 신뢰. 이렇게 구한 TTC를 기존 vRel 기반
+  TTC와 `min()`으로 합쳐 더 위험한 쪽을 `frac_ttc`에 반영 — 기존
+  LEAD_ACQ 로직과 동일하게 순수 floor라 감속을 절대 완화시키지 않음.
+  `VisionTrack.vRel` 자체는 건드리지 않아(다른 곳에서도 쓰이는 핵심
+  추적값이라 변경 리스크 회피) 영향 범위를 long_mpc.py 내부로 한정.
+  ⚠️ TAU=1.0s는 그대로라 0.5s 시점엔 저역통과 필터가 실제 접근속도의
+  약 39%까지만 수렴한 상태 — danger 판정이 다소 보수적으로 나올 수
+  있음, 실측 후 추가 단축 또는 TAU 조정 여지 있음.
 - **미해결/다음 단계**:
   1. **aEgo 실측 대조 미완료** — 이번 세션엔 신규 로그 업로드가 없어
      코드 설계만 진행. `VISION_RADAR_CROSSOVER.md` 최우선 후보 5건
