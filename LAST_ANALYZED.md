@@ -21,9 +21,10 @@
   블로킹, watchdog(5s) 초과로 SIGKILL+재시작. `extract_trailing_clip()`
   호출을 `std::thread(...).detach()`로 분리하는 패치를 사용자가
   실차에서 `git am` 적용 + `git push` 완료 확인(원격 커밋 `7b4a160`).
-  실측 검증(정지 버튼 시 화면정지/스플래시 미발생, `_clip.mp4` 정상
-  생성, swaglog에 watchdog timeout 재발 없음)은 다음 세션 과제로
-  유지. 상세는 FINDINGS.md/WIP.md 19차 참고.
+  **실측 검증까지 같은 세션에서 완료**: swaglog watchdog 로그 0건,
+  `_clip.mp4` 2건 정상 생성, 정지 버튼 화면 즉각 반응(스플래시 재현
+  안 됨) — 3항목 전부 통과로 이슈 완전히 해소. 상세는 FINDINGS.md
+  "[VALIDATED]"/WIP.md 19차 참고.
 
 - last_analyzed_commit (17차 기록): `591f219` (HEAD, 신규 커밋 없음 — 17차도 코드
   분석이 아니라 실주행 로그 재검증)
