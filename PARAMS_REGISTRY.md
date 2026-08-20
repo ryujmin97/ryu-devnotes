@@ -16,7 +16,7 @@
 | LEAD_ACQ_TTC_DANGER | 2.5s | TTC 이하면 frac=1.0 즉시 | NEEDS_VALIDATION |
 | LEAD_ACQ_TTC_CAUTION | 6.0s | TTC 이상이면 TTC 성분 미개입 | NEEDS_VALIDATION |
 | VISION_CLOSING_RATE_TAU | 1.0s | vision-only dRel 미분 접근속도 저역통과 시정수 | NEEDS_VALIDATION (2026-08-20 신규, 코드만 완료·aEgo 실측 대조 미완료) |
-| VISION_CLOSING_RATE_MIN_TIME | 1.0s | 이 시간 이상 연속추적 후에만 dRel 미분 TTC 신뢰 | NEEDS_VALIDATION (상동) |
+| VISION_CLOSING_RATE_MIN_TIME | **0.5s** (정정, 최초 1.0s에서 단축) | 이 시간 이상 연속추적 후에만 dRel 미분 TTC 신뢰 | NEEDS_VALIDATION (2026-08-20, 사용자 피드백으로 1.0s→0.5s 단축 — TAU=1.0s는 유지라 0.5s 시점엔 필터가 약 39%만 수렴한 상태, danger 판정이 다소 보수적일 수 있음. 실측 후 추가 단축/TAU 조정 여지) |
 
 ## selfdrive/controls/radard.py
 
@@ -138,8 +138,10 @@
   추가). 상세는 FINDINGS.md 참고.
 - 2026-08-20 (신규 세션): VISION_CLOSING_RATE_TAU/MIN_TIME 신설 —
   vision-only 원거리 리드 closing-rate 크로스체크 패치(commit
-  `60286ff`, 미push 상태 patch 파일로 전달). 8개 zip 크로스오버
+  `2a513ec`, 미push 상태 patch 파일로 전달). 8개 zip 크로스오버
   분석(VISION_RADAR_CROSSOVER.md) 최우선 후보 5건 + 사용자 실주행
   체감 보고("카메라 인식 시점부터 감속 없다가 레이더 확인 순간부터
   감속") 기반 설계. aEgo 실측 대조는 아직 미완료 — 다음 세션에서 최우선
   후보 5건 세그 재업로드받아 검증 필요(FINDINGS.md 신규 항목 참고).
+  같은 세션 내 사용자 피드백으로 MIN_TIME 1.0s→0.5s 단축(반응 지연이
+  길다는 판단, TAU=1.0s는 유지).
