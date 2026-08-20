@@ -1,0 +1,71 @@
+{
+  "label": "260819-5",
+  "n_rows": 23996,
+  "trip_summary": {
+    "n_frames": 23996,
+    "duration_s": 1199.7,
+    "distance_km": 12.92,
+    "avg_speed_kmh": 38.8,
+    "cruise_enabled_ratio": 0.806,
+    "brake_pressed_ratio": 0.035,
+    "gas_pressed_ratio": 0.008,
+    "n_decel_blocks": 28,
+    "n_harsh_brake_events": 29,
+    "n_cruise_disengage_events": 2
+  },
+  "n_crossover_events": 4,
+  "events": [
+    {
+      "seg": "20260819_124327_000002cc--ba55f880d1--27",
+      "t_vision_start": 1731.32,
+      "t_radar_confirm": 1734.321,
+      "gap_s": 3.001,
+      "dRel_at_vision_start": 116.2925033569336,
+      "dRel_at_radar_confirm": 110.9000015258789,
+      "dRel_closed_m": 5.39,
+      "vRel_at_vision_start": -1.3690681457519531,
+      "vEgo_at_vision_start": 26.101810455322266,
+      "modelProb_at_vision_start": 0.5660185217857361,
+      "highway": true
+    },
+    {
+      "seg": "20260819_124527_000002cc--ba55f880d1--29",
+      "t_vision_start": 1822.377,
+      "t_radar_confirm": 1838.068,
+      "gap_s": 15.692,
+      "dRel_at_vision_start": 76.2972412109375,
+      "dRel_at_radar_confirm": 103.9000015258789,
+      "dRel_closed_m": -27.6,
+      "vRel_at_vision_start": 4.896398544311523,
+      "vEgo_at_vision_start": 13.391558647155762,
+      "modelProb_at_vision_start": 0.9504799246788025,
+      "highway": false
+    },
+    {
+      "seg": "20260819_124627_000002cc--ba55f880d1--30",
+      "t_vision_start": 1883.567,
+      "t_radar_confirm": 1886.371,
+      "gap_s": 2.804,
+      "dRel_at_vision_start": 108.19428253173828,
+      "dRel_at_radar_confirm": 107.5,
+      "dRel_closed_m": 0.69,
+      "vRel_at_vision_start": -0.398009717464447,
+      "vEgo_at_vision_start": 23.217227935791016,
+      "modelProb_at_vision_start": 0.502593994140625,
+      "highway": true
+    },
+    {
+      "seg": "20260819_125027_000002cc--ba55f880d1--34",
+      "t_vision_start": 2121.919,
+      "t_radar_confirm": 2124.168,
+      "gap_s": 2.249,
+      "dRel_at_vision_start": 87.96678161621094,
+      "dRel_at_radar_confirm": 36.900001525878906,
+      "dRel_closed_m": 51.07,
+      "vRel_at_vision_start": -2.966674327850342,
+      "vEgo_at_vision_start": 20.035255432128906,
+      "modelProb_at_vision_start": 0.7022238373756409,
+      "highway": true
+    }
+  ]
+}
