@@ -9,12 +9,12 @@
 ---
 
 ## c3-ms-dev
-- last_analyzed_commit: `4c15987`
+- last_analyzed_commit: `1fca82f`
 - date: 2026-08-20
-- note: 4c15987 = 7차 세션에서 만든 vturn_lookahead_horizon_s 4.5s→6.5s
-  패치(로컬 커밋 `1827c1e`)가 `git am`+`git push`로 반영된 커밋
-  (`b403d52..4c15987`). 신규 분석 대상 아님(우리가 만든 패치), 참고용
-  기록만.
+- note: `1fca82f` = 8차 세션에서 만든 vturn_lookahead_horizon_s
+  6.5s→8.0s 패치(로컬 커밋 `c4e3093`)가 `git am`+`git push`로 반영된
+  커밋 (`4c15987..1fca82f`). 1차(4.5s→6.5s, `4c15987`)에 이은 2단계
+  확대. 신규 분석 대상 아님(우리가 만든 패치), 참고용 기록만.
 - note: 8dbed620887b 이후 신규 커밋 1개(3660091, CarrotWeb gdrive 재진입/
   핸드셰이크 타임아웃) 확인했으나 이미 FINDINGS.md에 기록된 이슈라 재분석
   생략. 대신 x11seg 실주행 로그 분석 수행 — LEAD_ACQ_LOSS_GRACE_TIME
