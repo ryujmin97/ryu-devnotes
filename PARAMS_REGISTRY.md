@@ -44,8 +44,8 @@
 | 상수/구조 | 현재값 | 용도 | 검증상태 |
 |---|---|---|---|
 | speed_n_sources min() 선택 | 히스테리시스는 여전히 없음. **model 후보만** desiredCurvature 기반 게이팅 추가(아래 두 행) | atc/road/vturn/route/model 등 후보 중 크루즈 목표속도 소스 선택 | NEEDS_VALIDATION (2026-08-19 x16seg + 2026-08-20 x20seg(260819-1) 로그: 국도 완만한 커브뿐 아니라 73~113km/h 고속 커브 구간 전반에서 vturn↔road/model/route 재현, x20seg에서 A→B→A 플리커 49건 확인, 우세 쌍 vturn↔model. 2026-08-20(9차): vturn↔model 쌍에 한해 model 후보를 desiredCurvature 기반으로 게이팅하는 패치 작성(미적용/미검증). atc/road/route 등 다른 쌍의 히스테리시스는 여전히 미해결로 남음, FINDINGS.md 참고) |
-| model_turn_straight_thresh | 0.002 rad/m | desiredCurvature가 이 미만이면 "거의 직선" 프레임 (기존 로그분석 threshold와 동일값 재사용) | NEEDS_VALIDATION (2026-08-20 신규 도입, 패치만 생성, 실차 미적용) |
-| model_turn_straight_hold_sec | 0.6s | 이 시간 이상 연속 직선이어야 model 후보를 min()에서 배제 | NEEDS_VALIDATION (2026-08-20 신규 도입, 실측 플리커 클러스터 지속시간 0.4~2.8s 대비 짧은 쪽으로 초기값 설정, 실차 미적용) |
+| model_turn_straight_thresh | 0.002 rad/m | desiredCurvature가 이 미만이면 "거의 직선" 프레임 (기존 로그분석 threshold와 동일값 재사용) | NEEDS_VALIDATION (2026-08-20 도입, 실차 적용 완료(`2226db7`), 실측 검증 아직) |
+| model_turn_straight_hold_sec | 0.6s | 이 시간 이상 연속 직선이어야 model 후보를 min()에서 배제 | NEEDS_VALIDATION (2026-08-20 도입, 실차 적용 완료(`2226db7`), 실측 검증 아직) |
 
 ## selfdrive/carrot/carrot_man.py
 
