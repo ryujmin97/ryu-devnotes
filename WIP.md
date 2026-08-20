@@ -1,9 +1,9 @@
 # WIP — 중단 지점 (체크포인트, 세션 종료 아님)
 
-- 저장 시각: 2026-08-20 (6차, 사용자 요청으로 MIN_TIME 튜닝 후 체크포인트)
-- HEAD (c3-ms-dev): `f7b154638cf2` — **로컬 워킹 카피에서 1개 커밋
-  `2a513ec`(amend됨, 구 SHA `60286ff`는 폐기) 추가됨 (아직 GitHub
-  `ryu`에 push 안 됨, patch 파일로 전달).**
+- 저장 시각: 2026-08-20 (6차, 실차 적용+push 확인 후 체크포인트)
+- HEAD (c3-ms-dev): **`b403d52`** (사용자가 `git am` + `git push` 완료,
+  `f7b1546..b403d52` 확인됨 — 이전 로컬 amend 해시 `2a513ec`/구 `60286ff`는
+  참고용, 실제 유효 해시는 `b403d52`).
 
 ## 이번 세션(6차)에서 완료된 것 — 비전-only 원거리 리드 closing-rate 패치
 - 사용자 요청: "고속도로에서 카메라(파란박스)가 멀리 서행 앞차를 인식한
@@ -20,25 +20,27 @@
   실제 위험이 가려져 개입 못 함. LEAD_ACQ 로직 자체는 "source 무관"하게
   이미 vision/radar 동일 적용되지만, **입력값(vRel) 품질이 소스별로
   다른 게 진짜 원인**이었음.
-- **패치 구현 완료** (`long_mpc.py`, commit `2a513ec`): dRel 프레임간
-  미분 기반 독립 접근속도 추정(저역통과, TAU=1.0s) 신설 → vision-only +
-  0.5초 이상 연속추적 시에만 기존 vRel-TTC와 min()으로 결합 (MIN_TIME
-  최초 1.0s → 사용자 피드백으로 0.5s 단축, TAU는 유지). 순수 floor라
-  감속 완화 방향 작동 없음. VisionTrack.vRel 자체는 미변경(리스크 격리).
-  문법 체크(`py_compile`) 통과.
-- push 대상 devnotes: `FINDINGS.md`, `PARAMS_REGISTRY.md`, `WIP.md`.
-- ryu 패치: `/mnt/user-data/outputs/0001-long_mpc-vision-only-closing-rate.patch`
-  (git am 적용 필요, 아직 미적용/미push. amend됐으므로 이전 버전 patch는
-  폐기하고 이 최신본만 적용할 것).
+- **패치 구현 + 실차 적용 완료** (`long_mpc.py`, commit `b403d52`): dRel
+  프레임간 미분 기반 독립 접근속도 추정(저역통과, TAU=1.0s) 신설 →
+  vision-only + 0.5초 이상 연속추적 시에만 기존 vRel-TTC와 min()으로
+  결합 (MIN_TIME 최초 1.0s → 사용자 피드백으로 0.5s 단축, TAU는 유지).
+  순수 floor라 감속 완화 방향 작동 없음. VisionTrack.vRel 자체는
+  미변경(리스크 격리). 문법 체크(`py_compile`) 통과 후 사용자가 실차에서
+  `git am` 적용 + `git push` 완료 확인(`f7b1546..b403d52`).
+- push 완료: devnotes(`FINDINGS.md`, `PARAMS_REGISTRY.md`,
+  `LAST_ANALYZED.md`, `WIP.md`) + ryu(`b403d52`) 양쪽 모두 반영됨.
 
 ## 다음 세션에서 이어갈 것 (최우선)
-1. **aEgo 실측 대조 (미완료)** — `VISION_RADAR_CROSSOVER.md` 최우선
-   후보 5건 세그 폴더(260819-6 seg15/seg5, 260819-7 seg14/seg8,
-   260819-5 seg34) 재업로드받아 패치 적용 전/후 aEgo 비교, 특히
+1. **aEgo 실측 대조 (미완료, patch는 이미 `b403d52`로 실차 적용됨)** —
+   `VISION_RADAR_CROSSOVER.md` 최우선 후보 5건 세그 폴더(260819-6
+   seg15/seg5, 260819-7 seg14/seg8, 260819-5 seg34) 재업로드받아 (이
+   세그들은 패치 이전 시점 로그이므로) 패치 적용 전/후 aEgo 비교, 특히
    vision-only 구간에서 실제로 조기 감속이 시작되는지 확인.
-2. 실차 검증: 디바이스에 patch 적용(`git am`) 후 유사 고속도로 원거리
-   서행차 상황 재주행, VISION_CLOSING_RATE_TAU/MIN_TIME(둘 다 1.0s)
-   튜닝 필요 여부 판단.
+2. **패치 적용 이후(`b403d52` 이후) 신규 실주행 로그로 직접 검증** —
+   유사 고속도로 원거리 서행차 상황을 재주행한 새 로그가 있으면, 위 1번의
+   "적용 전 로그 재해석"보다 이쪽이 더 확실한 근거. VISION_CLOSING_RATE_
+   TAU(1.0s)/MIN_TIME(0.5s, 이번 세션에 1.0s→0.5s 단축됨) 추가 튜닝
+   필요 여부 판단.
 3. opening/flat 크로스오버 케이스(65건 중 63%)에서 이 패치가 불필요
    개입 안 하는지 확인 — 설계상 dRel 미분이 양수면 자동 제외되지만
    실측 미확인.
