@@ -486,6 +486,34 @@
   흡수량) 정량화 필요.
 - 근거 로그: 위와 동일 (`source_transition_log` 결과 기반).
 
+### → [PATCH_WRITTEN, 미검증] vturn↔model 쌍 한정 — model 후보를 desiredCurvature 기반으로 게이팅 (2026-08-20, 9차)
+- 우세 쌍(vturn↔model, model↔vturn 140건, 260819-4 세션 집계)의 근본원인:
+  `desire_helper.py`의 `_make_model_turn_speed()`는 모델 예측 미래속도를
+  그대로 저역통과 필터링한 값일 뿐 곡률 판단이 없음 — vturn/route는 이미
+  각자 곡률/거리 기반으로 "지금 커브인지 직선인지" 판단해서 직선이면
+  즉시 무제한(250 근접)으로 복귀하는데, model 후보는 그 판단이 없어서
+  실제로는 이미 직선에 들어섰는데도 필터 지연으로 낮은 값을 잠깐 더 들고
+  있다가 vturn/route가 이미 250으로 복귀한 뒤 뒤늦게 따라 올라옴 — 그
+  사이 min() 후보가 왕복하며 플리커로 관측됨.
+- **대응**: `carrot_serv.py`에서 vturn이 이미 갖고 있는 "회전 종료" 판단
+  근거를 model 후보와 공유. `modelV2.action.desiredCurvature`(lateral
+  제어기가 실제로 쓰는 최종 곡률)가 `model_turn_straight_hold_sec`(0.6s)
+  이상 연속으로 `model_turn_straight_thresh`(0.002, 기존 로그분석
+  threshold와 동일값) 미만이면 "확정 직선"으로 보고 그 프레임의 model
+  후보를 `speed_n_sources`에서 제외(하한선이 아니라 완전 배제). 곡률이
+  다시 threshold를 넘으면 카운터가 즉시 리셋되어 model 후보가 지연 없이
+  바로 복귀 — 실제 커브 진입 반응은 늦추지 않는 비대칭 설계.
+- 범위 한정: 이번 패치는 vturn↔model 쌍만 다룸. atc/road/route 등을
+  포함한 나머지 쌍의 min() 히스테리시스 부재는 여전히 미해결(위
+  NEEDS_VALIDATION 항목, PARAMS_REGISTRY.md 참고).
+- 패치: `selfdrive/carrot/carrot_serv.py` (미커밋, `git am` 대기 중).
+  `py_compile` 통과. **실차 검증 전** — 특히 S자 커브처럼 정점 사이에
+  짧은 직선 구간이 끼는 경우 hold_sec(0.6s) 값이 과도하게 model을
+  배제하지 않는지, 그리고 실제로 vturn↔model 플리커 클러스터가
+  줄어드는지 다음 세션에서 로그로 확인 필요.
+- 근거: 위 플리커 항목과 동일 (`source_transition_log`, x20seg
+  260819-1), 260819-4 세션 우세 쌍 집계(model↔vturn 140건).
+
 ## [기타 확인] harsh_brake_events 전부 정차/저속 구간, ADAS 활성 중 급제동 0건 (2026-08-20, x20seg 라우트 260819-1)
 - 원본 7건 전부 seg1 t=134~146s(vEgo 3.7~7.8 m/s, 저속/정차 부근)에
   집중, `remove_driver_intervention` 적용 후 0건 — 전부 운전자
