@@ -9,7 +9,19 @@
 ---
 
 ## c3-ms-dev
-- last_analyzed_commit: `119b101` (HEAD, 13차에서 `git am`+push로 반영
+- last_analyzed_commit: `591f219` (HEAD, 15차에서 `git am`+push로 반영
+  확인 — `119b101..591f219`, 14차에서 작성한 screenrecord clip
+  롤오버/타임스탬프 충돌 패치)
+- date: 2026-08-20
+- note: (15차, 코드 변경 없음, devnotes 갱신만) 14차에서 작성한
+  screenrecord clip 패치(`stop_locked(auto_rollover)` 플래그 +
+  `extract_trailing_clip()` stat() 충돌 체크)를 사용자가 실차에서
+  `git am` 적용 + `git push` 완료 확인(원격 커밋 `591f219`, 원격
+  fetch로 diff 동일 재확인). 실측 검증(20분+ 주행 시 롤오버에서 clip
+  미생성 확인, 정지 버튼 clip은 정상 생성 확인)은 다음 세션 과제로
+  유지.
+
+- last_analyzed_commit (13차 기록): `119b101` (HEAD, 13차에서 `git am`+push로 반영
   확인 — `0f7575f..119b101`, 12차에서 작성한 model 게이팅 재설계 패치.
   screenrecord clip(2번 위험, 10차 WIP)은 이번에도 미착수)
 - date: 2026-08-20
