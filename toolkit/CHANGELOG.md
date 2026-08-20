@@ -3,7 +3,26 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
-## 2026-08-21
+## 2026-08-21 (2)
+- **[도구 후보 1번 완료]** `extract_log.py` 세그먼트 경계 아티팩트
+  근본 수정 + 감사 도구 추가.
+  - `extract_log.py`: `process_segment()`가 이전 세그먼트의
+    carState/controlsState/leadStatus 상태를 이어받도록 수정
+    (`carry_cs`/`carry_ctrl`/`carry_lead` 인자, 리턴값
+    `(rows, last_cs, last_ctrl, last_lead)` 튜플로 변경). 이전에는
+    세그먼트마다 leadStatus를 강제 False 리셋해 세그먼트 경계에서
+    가짜 "순간유실" row가 찍히는 구조적 버그가 있었음 (22차 발견).
+    `meta.json`에 `segment_state_carryover_fix: true` 필드 추가.
+  - `analysis_helpers.py`: `segment_boundary_lead_loss_artifacts()`
+    신규 — 구버전으로 뽑은 과거 CSV에서 세그먼트 경계와
+    diff=0에 가까운 leadStatus False 구간을 자동 탐지해 "아티팩트
+    의심" 여부를 표시. 합성 데이터로 단위 검증 완료(경계 정합
+    케이스 정탐, 세그먼트 전체 유실 케이스는 제외 확인).
+  - **다음 단계**: `LEAD_ACQ_LOSS_GRACE_TIME` 재검토 시 이 함수로
+    과거 누적 증거(x11/x16/x20seg) 먼저 필터링, 남는 순수 유실만
+    분석. `PARAMS_REGISTRY.md`도 갱신 필요(다음 세션 로그 분석 시).
+
+## 2026-08-21 (1)
 - `toolkit/README.md`, `toolkit/CHANGELOG.md` 신설 — 기존 6개 스크립트
   (decode_rlog, extract_log, analysis_helpers, extract_dashcam_frames,
   sim_vision_rate, push_via_api)를 표준 인덱스 문서로 정리. 세션 시작

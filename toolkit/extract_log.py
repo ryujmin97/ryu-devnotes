@@ -23,6 +23,17 @@ CSV 컬럼:
 여기에는 추출 당시의 repo commit hash / branch / commit 날짜·메시지,
 route_dir, 추출 시각, 총 row 수가 기록된다.
 이 값들로 "이 로그가 어느 코드 상태에서 뽑힌 건지"를 나중에도 추적할 수 있다.
+
+2026-08-21 수정: 세그먼트 경계에서 carState/controlsState/leadStatus
+상태를 이제 다음 세그먼트로 이어받는다 (이전에는 세그먼트마다
+leadStatus=False로 강제 리셋되어, 실제로는 리드가 유지되고 있었는데도
+새 세그먼트 시작 시 첫 radarState 이벤트 전까지 가짜 "순간유실" row가
+찍히는 구조적 버그가 있었음 -- 세그먼트 경계와 diff=0.000s로 정확히
+일치하는 leadStatus False 다수로 확인됨, FINDINGS.md 22차 참고). 이
+버전으로 추출한 CSV는 meta.json에 `segment_state_carryover_fix: true`가
+찍힌다 -- 과거 CSV(이 필드 없음)의 순간유실 이벤트는
+`analysis_helpers.segment_boundary_lead_loss_artifacts()`로 먼저
+아티팩트 여부를 걸러낼 것.
 """
 import argparse
 import csv
@@ -94,11 +105,26 @@ def get_repo_git_info(repo_dir):
     return info
 
 
-def process_segment(rlog_path, seg_name, repo_dir, max_mb, commit_short=""):
-    last_cs = {}
-    last_ctrl = {"desiredCurvature": None}
-    last_lead = {"leadStatus": False, "leadDRel": "", "leadVRel": "", "leadVLead": "",
-                 "leadRadar": "", "leadModelProb": ""}
+def process_segment(rlog_path, seg_name, repo_dir, max_mb, commit_short="",
+                     carry_cs=None, carry_ctrl=None, carry_lead=None):
+    """
+    carry_cs/carry_ctrl/carry_lead: 이전 세그먼트에서 넘어온 마지막 상태.
+    None이면 이 세그먼트가 라우트의 첫 세그먼트라는 뜻으로 기본값 사용.
+
+    2026-08-21 수정: 과거에는 세그먼트마다 last_lead를 무조건
+    {"leadStatus": False, ...}로 리셋했음 -> 실제로는 리드가 계속
+    잡혀 있었는데도 새 세그먼트 시작 시 첫 radarState 이벤트가 올
+    때까지 leadStatus=False인 row가 몇 개 찍히는 구조적 아티팩트가
+    발생했음 (세그먼트 경계와 diff=0.000s로 정확히 일치하는 "순간유실"
+    다수 발견, FINDINGS.md 22차 참고). 이제 세그먼트 간 상태를 이어받아
+    이 문제를 원천 차단한다. 리턴값도 (rows, 최종상태) 튜플로 변경.
+    """
+    last_cs = dict(carry_cs) if carry_cs is not None else {}
+    last_ctrl = dict(carry_ctrl) if carry_ctrl is not None else {"desiredCurvature": None}
+    last_lead = dict(carry_lead) if carry_lead is not None else {
+        "leadStatus": False, "leadDRel": "", "leadVRel": "", "leadVLead": "",
+        "leadRadar": "", "leadModelProb": "",
+    }
     rows = []
     for evt in iter_events(rlog_path, repo_dir=repo_dir, max_output_mb=max_mb):
         w = evt.which()
@@ -134,7 +160,7 @@ def process_segment(rlog_path, seg_name, repo_dir, max_mb, commit_short=""):
                 **last_cs, **last_ctrl, **last_lead,
                 "src": str(cm.desiredSource), "desiredSpeed": cm.desiredSpeed, "vTurnSpeed": cm.vTurnSpeed,
             })
-    return rows
+    return rows, last_cs, last_ctrl, last_lead
 
 
 def main():
@@ -160,10 +186,14 @@ def main():
         sys.exit(1)
 
     all_rows = []
+    carry_cs, carry_ctrl, carry_lead = None, None, None
     for seg in seg_dirs:
         rlog_path = os.path.join(args.route_dir, seg, "rlog.zst")
-        rows = process_segment(rlog_path, seg, args.repo, args.max_mb,
-                                commit_short=git_info["commit_short"] or "")
+        rows, carry_cs, carry_ctrl, carry_lead = process_segment(
+            rlog_path, seg, args.repo, args.max_mb,
+            commit_short=git_info["commit_short"] or "",
+            carry_cs=carry_cs, carry_ctrl=carry_ctrl, carry_lead=carry_lead,
+        )
         all_rows.extend(rows)
         print(f"done {seg}: {len(rows)} rows ({len(all_rows)} total)")
 
@@ -180,6 +210,7 @@ def main():
         "n_segments": len(seg_dirs),
         "n_rows": len(all_rows),
         "extracted_at": datetime.now(timezone.utc).isoformat(),
+        "segment_state_carryover_fix": True,
     }
     meta_path = args.out_csv + ".meta.json"
     with open(meta_path, "w") as f:

@@ -28,7 +28,7 @@ CHANGELOG.md를 같이 갱신**한다 (세션 종료 체크리스트에 포함�
 분석 요청은 여기서부터 시작.
 **입력**: `route_dir` (세그먼트별 `rlog.zst` 포함 폴더들의 상위 폴더)
 **출력**: `<out.csv>` + `<out.csv>.meta.json` (추출 당시 repo commit
-hash/branch/커밋 날짜·메시지/dirty 여부/추출 시각/row 수 — "이 로그가
+hash/branch/커밋 날짜·메시지/dirty 여부/추출 시각/row 수 —"이 로그가
 어느 코드 상태에서 뽑힌 건지" 추적용)
 **CSV 컬럼**: `t, seg, commit, vEgo, aEgo, brakePressed, gasPressed,
 cruiseEnabled, vCruise, steeringAngleDeg, desiredCurvature, leadStatus,
@@ -39,6 +39,14 @@ leadRadar, leadModelProb`
 python3 extract_log.py /home/claude/work/route /home/claude/work/route.csv \
     --repo /home/claude/ryu [--max-mb 400]
 ```
+**2026-08-21 수정**: 세그먼트 경계에서 carState/controlsState/leadStatus
+상태를 다음 세그먼트로 이어받는다. 이전 버전은 세그먼트마다
+leadStatus를 강제로 False 리셋해, 실제로는 리드가 유지되고 있었는데도
+새 세그먼트 시작 시 가짜 "순간유실" row가 찍히는 구조적 버그가 있었음
+(세그먼트 경계와 diff=0.000s로 정확히 일치, FINDINGS.md 22차). 이
+버전으로 뽑은 CSV는 `meta.json`에 `segment_state_carryover_fix: true`가
+찍힌다. **이 필드가 없는 과거 CSV**는 `analysis_helpers.
+segment_boundary_lead_loss_artifacts()`로 먼저 감사할 것.
 
 ## analysis_helpers.py
 **목적**: `extract_log.py`로 뽑은 CSV를 후처리하는 함수 모음. 대부분의
@@ -64,6 +72,11 @@ python3 extract_log.py /home/claude/work/route /home/claude/work/route.csv \
 - `lead_cut_in_detector(rows, close_dist_m)` — cut-in 탐지
 - `trip_summary(rows)` — 트립 요약 통계
 - `steering_oscillation_detector(rows, ...)` — 조향 발진(플리커) 탐지
+- `segment_boundary_lead_loss_artifacts(rows, max_gap_s, tail_lookback_s)`
+  — (2026-08-21 신규) 구버전 `extract_log.py`로 뽑은 CSV의 세그먼트
+  경계 leadStatus 가짜 유실 아티팩트 후보를 탐지. `meta.json`에
+  `segment_state_carryover_fix: true`가 있는 신버전 CSV에는 이
+  아티팩트가 없으므로 실행 불필요 — `load_meta()`로 먼저 확인.
 
 ## extract_dashcam_frames.py
 **목적**: `qcamera.ts` 프레임을 rlog의 `qRoadEncodeIdx` 이벤트와

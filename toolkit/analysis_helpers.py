@@ -737,6 +737,93 @@ def steering_oscillation_detector(rows, min_reversals=3, window_s=2.0, angle_del
     return blocks
 
 
+# ---------------------------------------------------------------------------
+# 12) 세그먼트 경계 leadStatus 아티팩트 탐지 (extract_log.py 구버전 CSV 감사용)
+# ---------------------------------------------------------------------------
+def segment_boundary_lead_loss_artifacts(rows, max_gap_s=0.06, tail_lookback_s=0.5):
+    """
+    extract_log.py 2026-08-21 수정 이전 버전으로 뽑은 CSV를 감사(audit)하는
+    용도. 그 버전은 세그먼트가 바뀔 때마다 leadStatus를 무조건 False로
+    리셋했기 때문에, 실제로는 리드가 계속 유지되고 있었는데도 새 세그먼트
+    시작 시 첫 radarState 이벤트 전까지 가짜 "순간유실" row가 찍히는 구조적
+    버그가 있었다 (PARAMS_REGISTRY.md LEAD_ACQ_LOSS_GRACE_TIME 항목,
+    FINDINGS.md 22차 참고).
+
+    새 버전(meta.json에 segment_state_carryover_fix=true)으로 뽑은 CSV에는
+    이 아티팩트가 없으므로 이 함수를 돌릴 필요가 없다 -- load_meta()로
+    먼저 확인할 것.
+
+    판정 로직: 각 세그먼트 경계에서
+      - 이전 세그먼트 마지막 row가 leadStatus=True 였고
+      - 새 세그먼트 시작 시 leadStatus=False 인 row가 하나 이상 나온 뒤
+        다시 leadStatus=True로 복귀하며
+      - 그 복귀 시점까지의 dRel/vRel 변화가 리드가 실제로 사라졌다
+        보기엔 비연속적(gap)이면
+    "세그먼트 경계 아티팩트 의심"으로 표시. diff_from_boundary_s가
+    0에 가까울수록(특히 <= max_gap_s) 아티팩트일 확률이 높다.
+
+    리턴: [{
+        "seg_from", "seg_to", "t_boundary_prev_true", "t_boundary_new_true",
+        "false_span_s", "diff_from_boundary_s", "prev_dRel", "next_dRel",
+        "suspected_artifact"(bool)
+    }]
+    실제 유실인지/아티팩트인지 최종 판단은 사람이 dRel 연속성 등을 보고
+    한다 -- 이 함수는 "재검토 우선순위가 높은 후보"를 추려주는 용도.
+    """
+    # 세그먼트별로 순서를 유지한 채 그룹화
+    seg_order = []
+    seg_rows = {}
+    for r in rows:
+        seg = r.get("seg")
+        if seg not in seg_rows:
+            seg_rows[seg] = []
+            seg_order.append(seg)
+        seg_rows[seg].append(r)
+
+    results = []
+    for i in range(1, len(seg_order)):
+        prev_seg, cur_seg = seg_order[i - 1], seg_order[i]
+        prev_rows, cur_rows = seg_rows[prev_seg], seg_rows[cur_seg]
+        if not prev_rows or not cur_rows:
+            continue
+
+        prev_last = prev_rows[-1]
+        if not _b(prev_last, "leadStatus"):
+            continue  # 이전 세그먼트 끝에 리드가 없었으면 경계 아티팩트 대상 아님
+
+        t_boundary = _f(cur_rows[0], "t")
+        prev_dRel = _f(prev_last, "leadDRel")
+
+        # 새 세그먼트 시작부터 leadStatus=False가 이어지는 구간 찾기
+        j = 0
+        while j < len(cur_rows) and not _b(cur_rows[j], "leadStatus"):
+            j += 1
+        if j == 0:
+            continue  # 바로 True로 시작 -> 아티팩트 없음
+        if j >= len(cur_rows):
+            continue  # 세그먼트 전체가 leadStatus=False -> 진짜 유실일 가능성이 높아 제외
+
+        t_first_false = _f(cur_rows[0], "t")
+        t_new_true = _f(cur_rows[j], "t")
+        next_dRel = _f(cur_rows[j], "leadDRel")
+        false_span_s = round(t_new_true - t_first_false, 3) if (t_new_true is not None and t_first_false is not None) else None
+        diff_from_boundary_s = round(t_first_false - t_boundary, 3) if (t_first_false is not None and t_boundary is not None) else None
+
+        suspected = diff_from_boundary_s is not None and abs(diff_from_boundary_s) <= max_gap_s
+
+        results.append({
+            "seg_from": prev_seg, "seg_to": cur_seg,
+            "t_boundary_prev_true": round(_f(prev_last, "t"), 3) if _f(prev_last, "t") is not None else None,
+            "t_boundary_new_true": round(t_new_true, 3) if t_new_true is not None else None,
+            "false_span_s": false_span_s,
+            "diff_from_boundary_s": diff_from_boundary_s,
+            "prev_dRel": round(prev_dRel, 2) if prev_dRel is not None else None,
+            "next_dRel": round(next_dRel, 2) if next_dRel is not None else None,
+            "suspected_artifact": suspected,
+        })
+    return results
+
+
 if __name__ == "__main__":
     import sys
     if len(sys.argv) < 2:

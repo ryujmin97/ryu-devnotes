@@ -1,40 +1,38 @@
 # WIP — 중단 지점 (체크포인트, 세션 종료 아님)
 
-- 저장 시각: 2026-08-21 (20차, toolkit 인프라 정비 — README/CHANGELOG
-  신설 + push_via_api.py를 Git Trees API로 교체(파일수 무관 커밋
-  1개). **인프라 작업은 push까지 완료.** 코드/로그 분석은 착수 전,
-  다음 도구 후보 목록만 논의 완료 — 사용자 선택 대기.)
+- 저장 시각: 2026-08-21 (20차, 도구 후보 1/5 완료 — `extract_log.py`
+  세그먼트 경계 leadStatus 아티팩트 근본 수정 + 감사 도구
+  `segment_boundary_lead_loss_artifacts()` 추가, push 완료. 2~5번
+  순차 진행 예정, 완료마다 저장.)
 
-## 20차 완료분 — toolkit 인프라 정비 (push까지 완료, 재작업 불필요)
-- `toolkit/README.md` 신설: 기존 6개 스크립트(decode_rlog, extract_log,
-  analysis_helpers, extract_dashcam_frames, sim_vision_rate,
-  push_via_api) 목적/입출력/의존성/사용예시 표준 인덱스화.
-- `toolkit/CHANGELOG.md` 신설: 소급 기록 + 이후 변경 이력 추적 시작.
-- `SETUP.md`에 "세션 시작 시 toolkit/README.md 먼저 확인", "세션 종료
-  시 toolkit 변경분도 CHANGELOG/README 갱신" 체크리스트 항목 추가.
-- `push_via_api.py`: Contents API 반복 PUT(파일당 1커밋) →
-  Git Trees API(blob→base_tree 위 새 tree→commit 1개→ref 갱신)로
-  교체. **실제 push로 검증**: 구버전은 파일 3개 push 시 커밋 3개
-  생성됐던 것을, 신버전은 파일 3개를 커밋 1개로 정확히 묶는 것 확인
-  (재clone 후 git log로 확인). CLI 인터페이스는 동일 유지, 기존
-  호출부 수정 불필요. commit: `f233a87`(README/CHANGELOG+SETUP),
-  `2f09a8d`(Trees API 교체).
+## 20차 진행 로그 — toolkit 인프라 정비 + 도구 후보 1/5 완료
 
-## 다음 세션에서 이어갈 것 (20차 갱신 — 신규 도구 후보, 우선순위 논의만 완료)
-PARAMS_REGISTRY.md/FINDINGS.md 근거로 실제 병목인 도구 후보 5개 논의함.
-사용자가 어느 것부터 만들지 아직 선택 안 함 — 다음 세션 시작 시 먼저 확인.
-1. **[최우선 후보] `extract_log.py` 세그먼트 경계 아티팩트 검증
-   도구** — `LEAD_ACQ_LOSS_GRACE_TIME` 재검토가 "진짜 유실 vs 추출
-   아티팩트" 구분 안 돼서 막혀있음(22차). 세그먼트 경계와
-   diff=0.000s 일치하는 leadStatus False 자동 필터링 함수 필요.
-   과거 누적 증거(x11/x16/x20seg) 재대조에 필요.
-2. 패치 전/후 회귀 리포트 생성기 — route A/B CSV 넣으면 플리커율/
-   harsh_brake/TTC danger/aEgo·jerk 통계 자동 diff. 지금은 세션마다
-   수작업(17/19/23차 반복).
+### 도구 1/5 완료 — extract_log.py 세그먼트 경계 아티팩트 (근본 수정 + 감사 도구)
+- `extract_log.py`: `process_segment()`가 이전 세그먼트의
+  carState/controlsState/leadStatus를 이어받도록 수정 — 세그먼트마다
+  leadStatus=False 강제 리셋하던 구조적 버그(22차 발견) 원천 차단.
+  `meta.json.segment_state_carryover_fix=true`로 신버전 여부 확인 가능.
+- `analysis_helpers.py`: `segment_boundary_lead_loss_artifacts()` 신규
+  — 구버전 CSV의 세그먼트 경계 가짜 유실 후보를 자동 탐지. 합성
+  데이터로 단위 검증 완료.
+- `PARAMS_REGISTRY.md`의 `LEAD_ACQ_LOSS_GRACE_TIME` 항목에 진행상황 반영.
+- **아직 미실행**: 이 감사 함수로 실제 과거 CSV(x11/x16/x20seg)를
+  재대조하는 것은 다음 "실주행 로그 분석" 세션에서 — 이번 세션은
+  toolkit 자체 정비만 진행.
+
+## 이전 완료분: 인프라 정비 (19차→20차 사이, push까지 완료, 재작업 불필요)
+- `toolkit/README.md`/`CHANGELOG.md` 신설, `SETUP.md` 체크리스트 연결.
+- `push_via_api.py`를 Git Trees API로 교체(파일수 무관 커밋 1개),
+  실제 push로 검증 완료.
+- commit: `f233a87`, `2f09a8d`, `26195d5`(이전 WIP 체크포인트).
+
+## 다음 세션/다음 단계에서 이어갈 것 (도구 후보 2~5번, 순차 진행 중)
+2. **[다음 착수]** 패치 전/후 회귀 리포트 생성기 — route A/B CSV 넣으면
+   플리커율/harsh_brake/TTC danger/aEgo·jerk 통계 자동 diff.
 3. 곡선(vturn) 구간 dRel 노이즈 필터/탐지 함수 — 23차 신규 발견,
    1/2/4번안(VISION_CLOSING_RATE_TAU 개선) 설계 전 선행검토 필요.
-4. min() 소스 선택 히스테리시스 범용 스캐너 — 지금 vturn↔model
-   쌍만 특별 취급, road/route 등 나머지 쌍은 여전히 미해결.
+4. min() 소스 선택 히스테리시스 범용 스캐너 — vturn↔model 쌍만 특별
+   취급 중, road/route 등 나머지 쌍은 여전히 미해결.
 5. 희귀 이벤트(고속 근접추종 TTC DANGER) 배치 스캐너 — 최소 TTC
    5.68s로 아직 DANGER 케이스 0건, 여러 CSV 일괄 스캔 도구 없음.
 
