@@ -1,61 +1,65 @@
 # WIP — 중단 지점 (체크포인트, 세션 종료 아님)
 
-- 저장 시각: 2026-08-20 (10차, screenrecord "이벤트 클립(지난 1분 저장)"
-  기능 — 설계 조사만 완료, **코드/패치 없음**, 사용자 트리거 방식
-  결정 대기 중)
+- 저장 시각: 2026-08-20 (10차 갱신, screenrecord "정지 시 마지막 1분
+  clip 자동 생성" — 링버퍼 방식 대신 **정지 후 ffmpeg 사후 추출** 방식으로
+  전환, **패치 작성 + git am 검증 완료**, 실차 `git am`/push 대기)
 
-## 10차 신규 — screenrecord 이벤트 클립(지난 1분 별도 mp4) 기능 설계 (코드 없음, 결정 대기)
-- 사용자 요청: 화면녹화 중 이벤트 발생 시, 메인 녹화를 끊지 않고
-  "트리거 시점 기준 지난 1분" 구간만 별도 mp4로 저장하고 싶다.
-  파일명에 트리거 시각(`YYMMDD_HHMMSS`, 예: 2026-08-20 13:23:03 →
-  `260820_132303`) 포함 요청. 업로드/로그찾기 편의 목적.
-- **코드 조사 완료**:
-  - `selfdrive/ui/qt/screenrecorder/screenrecorder.cc` — 토글 하나뿐,
-    시작 시 OMX 하드웨어 인코더가 화면을 바로 디스크 mp4로 스트리밍
-    인코딩. "과거 N초 메모리 보관" 개념 없음. `update_screen()`이
-    20분마다 자동 재시작(`need_restart`)하는 기존 로직 있음(파일 분할
-    선례로 참고할 만함).
-  - `omx_encoder.cc` — `handle_out_buf()`에서 인코딩된 패킷이 나올
-    때마다 `av_write_frame()`으로 메인 mp4(`AVFormatContext ofmt_ctx`)에
-    바로 씀. libavformat 기반이라 두 번째 `AVFormatContext`를 별도로
-    열어 같은 패킷을 동시에 mux하는 것도 구조적으로 가능해 보임.
-  - `UI_FREQ=20`Hz(`selfdrive/ui/ui.h`), 키프레임 간격
-    `nPFrames=15`(약 0.8초마다 I-frame, `omx_encoder.cc:412`).
-  - raw RGBA 60초 버퍼는 계산상 ~4.8GB로 불가능. **인코딩된 h264(2Mbps)
-    60초 링버퍼는 ~15MB로 메모리상 충분히 가능** — 이 방식으로 설계
-    방향 확정(메인 녹화 파일은 끊지 않고, `handle_out_buf`에서 최근
-    ~65초 패킷을 별도 링버퍼에 같이 저장 → 트리거 시 가장 가까운
-    키프레임부터 현재까지 뽑아 두 번째 `AVFormatContext`로 별도 mp4에
-    mux).
-  - 실제 클립 길이는 키프레임 간격 때문에 정확히 60.000초가 아니라
-    약 60.0~60.8초 범위가 됨 — 사용자에게 고지, 정확히 60.0초가
-    필요하면 첫 GOP 트랜스코딩이 필요해 복잡도 상승(보류, 필요시
-    재검토).
-  - 저장 위치는 기존 `SCREEN_RECORDING_DIRS`(`/data/media/0/videos` 등,
-    `routes_logs.py`) 대상 폴더로 하면 carrotweb 로그탭 화면녹화
-    목록에 자동으로 같이 뜸. 파일명 안 `260820_132303_clip.mp4` 형식
-    제안.
-  - 참고: `annotated_camera.cc`에 이미 `carrotMan`발 `carrotCmd ==
-    "RECORD"` + `START`/`STOP`/`TOGGLE` 커맨드 채널이 있음(스티어링휠
-    버튼 등에서 이미 사용 중) → 여기에 `"CLIP"` 커맨드 추가하는 방식도
-    트리거 옵션으로 가능.
-- **사용자에게 트리거 방식 질문 후 응답 대기 중** (옵션: ①녹화버튼
-  롱프레스 ②화면에 새 버튼 추가 ③carrotMan 커맨드 채널에 CLIP 추가
-  ④여러 개 동시 지원). **패치는 사용자 확인 후 진행 — 아직 코드 작성
-  전혀 안 함.**
-- devnotes 변경 사항: 이 WIP.md 항목만 신규 추가. FINDINGS.md /
-  PARAMS_REGISTRY.md / LAST_ANALYZED.md는 이번 체크포인트 시점에는
-  변경 없음(코드/커밋 분석 아직 없어서).
+## 10차 갱신 — screenrecord 정지 시 마지막 1분 clip 자동 생성 (패치 완료, 실차 적용 대기)
+- 최초 설계(링버퍼, 아래 "10차 최초 설계" 참고)는 사용자가 더 간단한
+  대안으로 대체: **"정지 버튼 누르면 기존처럼 메인 mp4가 정상
+  종료되고, 그 직후 해당 파일에서 마지막 1분만 잘라 별도 clip으로
+  생성"** — 메모리/구현 복잡도 모두 낮음.
+- **구현**: `screenrecorder.cc::stop_locked()`에서 `closeEncoder()`로
+  메인 mp4가 finalize된 직후, 그 경로를 `ffmpeg -y -sseof -60 -i
+  <원본> -c copy <clip>` (QProcess::startDetached, non-blocking,
+  fire-and-forget)로 백그라운드 실행해 마지막 ~60초를 stream copy로
+  추출. `OmxEncoder::get_last_video_path()` 신설(finalize된 파일 경로
+  조회용).
+  - clip 파일명: `<YYMMDD_HHMMSS>_clip.mp4` (정지 시각 기준, `_clip`
+    접미사) — 목록에서 구분 용이.
+  - 저장 위치: 메인과 같은 폴더(`/data/media/0/videos`) → carrotweb
+    로그탭 화면녹화 목록에 자동으로 같이 뜸.
+  - 녹화 길이가 1분 미만이어도 항상 clip 생성(전체 길이만큼 잘림,
+    스킵 안 함) — 사용자 요청대로 구분 용이 우선.
+  - `-c copy`(재인코딩 없음)라 실제 클립 길이는 키프레임 간격 때문에
+    정확히 60.000초가 아니라 약 60.0~60.8초 범위(고지 완료).
+  - ffmpeg 실패(바이너리 없음/원본 파일 문제)해도 메인 녹화 파일에는
+    영향 없음(독립 프로세스, fire-and-forget).
+- **검증**: 컨테이너 `ryu` 클론에서 실제 커밋 생성(base `2226db7`,
+  로컬 커밋 해시는 세션마다 재현 시 달라질 수 있음 — 패치 내용은
+  동일) → `git format-patch -1`로 추출 → 임시 브랜치에서 `git am`
+  적용 시뮬레이션 통과 확인. C++ 컴파일 자체는 컨테이너에 빌드
+  툴체인이 없어 불가 — 코드 리뷰 + `git apply --check`/`git am`
+  검증까지만.
+- **패치 파일**: `/mnt/user-data/outputs/0001-screenrecord-1-clip.patch`
+  (`git format-patch` 형식, `git am`으로 적용). **아직 실차 미적용 —
+  다음 세션(또는 이 세션) 최우선으로 사용자 `git am` + push 확인 필요.**
+- ⚠️ **직전 세션 유실 이력**: 이 패치는 실제로 한 번 더 앞서 작성된
+  적이 있으나(동일 diff, 커밋 해시만 다름) 그 세션이 devnotes push
+  전에 종료되어 WIP.md/PARAMS_REGISTRY.md에 반영이 안 된 채 유실됨.
+  이번 세션에서 대화 내용에 남아있던 전체 diff를 그대로 재현하고
+  다시 검증해 이 항목으로 정리함. **앞으로는 코드 커밋 직후 바로
+  devnotes push까지 한 번에 끝내는 것을 우선한다** (검증만 하고 push를
+  미루지 않기).
 
-## 다음 세션(또는 이 세션 재개)에서 이어갈 것 (10차, 최우선·신규)
-1. 사용자의 트리거 방식 선택 답변 받기.
-2. 선택된 방식에 맞춰 링버퍼 구현(`omx_encoder.h/.cc`) + 트리거 배선
-   (버튼 및/또는 `carrot_man.py` CLIP 커맨드) 패치 작성.
-3. `py_compile`/문법 체크 가능한 범위까지 검증(C++ 쪽은 컨테이너에
-   빌드 툴체인이 없어 `git apply --check`/코드 리뷰 수준까지만 가능 —
-   실제 컴파일·실차 검증은 사용자 쪽에서).
-4. 파일명 타임스탬프 포맷(`YYMMDD_HHMMSS_clip.mp4`) 및 저장 경로
-   확정 반영.
+## 다음 세션(또는 이 세션 재개)에서 이어갈 것 (10차, 최우선)
+1. 사용자가 실차에서 `0001-screenrecord-1-clip.patch`를 `git am`으로
+   적용 + 빌드 + push.
+2. 실차 검증: 녹화 정지 → 메인 mp4 정상 생성 확인 → 같은 폴더에
+   `<시각>_clip.mp4`가 뒤이어 생기는지, 길이가 대략 60~61초인지,
+   1분 미만 녹화에서도 정상 생성되는지 확인.
+3. ffmpeg 디바이스 내 실제 경로/버전 확인(PATH 상 `ffmpeg`로 바로
+   실행 가능한지, 안 되면 절대경로로 수정 필요할 수 있음 — 미확인).
+
+## 10차 최초 설계 (참고용, 위 ffmpeg 방식으로 대체됨 — 채택 안 함)
+- 최초 검토안: 링버퍼 방식 — `handle_out_buf`에서 최근 ~65초 h264
+  패킷(인코딩된 상태로 ~15MB, raw RGBA는 ~4.8GB라 불가)을 별도
+  링버퍼에 같이 저장, 트리거 시 두 번째 `AVFormatContext`로 mux.
+  트리거 채널 후보로 `annotated_camera.cc`의 기존 `carrotCmd ==
+  "RECORD"` 커맨드 채널에 `"CLIP"` 추가하는 방식도 검토했었음.
+  → 사용자가 "정지 버튼 + 사후 ffmpeg 추출"이 더 간단하다고 판단해
+  이 방식은 폐기, 채택 안 함. (트리거가 이벤트가 아니라 "정지" 하나로
+  단순화됨.)
 
 - 저장 시각: 2026-08-20 (9차, vturn↔model 플리커 게이팅 패치 실차 적용
   + push 완료 확인 — `git am` commit `2226db7`)
