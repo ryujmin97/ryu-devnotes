@@ -39,6 +39,7 @@ FIELDNAMES = [
     "vEgo", "aEgo", "brakePressed", "gasPressed", "cruiseEnabled", "vCruise",
     "steeringAngleDeg", "desiredCurvature",
     "leadStatus", "leadDRel", "leadVRel", "leadVLead",
+    "leadRadar", "leadModelProb",
     "src", "desiredSpeed", "vTurnSpeed",
 ]
 
@@ -96,7 +97,8 @@ def get_repo_git_info(repo_dir):
 def process_segment(rlog_path, seg_name, repo_dir, max_mb, commit_short=""):
     last_cs = {}
     last_ctrl = {"desiredCurvature": None}
-    last_lead = {"leadStatus": False, "leadDRel": "", "leadVRel": "", "leadVLead": ""}
+    last_lead = {"leadStatus": False, "leadDRel": "", "leadVRel": "", "leadVLead": "",
+                 "leadRadar": "", "leadModelProb": ""}
     rows = []
     for evt in iter_events(rlog_path, repo_dir=repo_dir, max_output_mb=max_mb):
         w = evt.which()
@@ -115,9 +117,16 @@ def process_segment(rlog_path, seg_name, repo_dir, max_mb, commit_short=""):
         elif w == "radarState":
             lo = evt.radarState.leadOne
             if lo.status:
-                last_lead = {"leadStatus": True, "leadDRel": lo.dRel, "leadVRel": lo.vRel, "leadVLead": lo.vLeadK}
+                # radar=False + status=True 는 "레이더 미확인, 비전(모델)만으로
+                # 리드 판정" 상태 -- carrot LeadBlend/long_mpc가 참고하는
+                # 것과 동일한 원시 신호. modelProb은 비전 모델의 리드 확신도.
+                last_lead = {
+                    "leadStatus": True, "leadDRel": lo.dRel, "leadVRel": lo.vRel, "leadVLead": lo.vLeadK,
+                    "leadRadar": lo.radar, "leadModelProb": lo.modelProb,
+                }
             else:
-                last_lead = {"leadStatus": False, "leadDRel": "", "leadVRel": "", "leadVLead": ""}
+                last_lead = {"leadStatus": False, "leadDRel": "", "leadVRel": "", "leadVLead": "",
+                             "leadRadar": "", "leadModelProb": ""}
         elif w == "carrotMan":
             cm = evt.carrotMan
             rows.append({
