@@ -505,19 +505,24 @@
   사용자가 `git am` 적용 + `git push` 완료 확인
   (`ryu` commit `1f9f852`, `7b4a160..1f9f852`).
 
-## [22차-2, PATCH_WRITTEN, NOT_YET_APPLIED] 개선안 3번 코드 작성 완료 — 실차 적용 대기
-- 사용자 지시: "3안은 무조건 적용하고, 1,2안은 좀더 생각해봐(레이더가
-  인식했을때의 로직을 적용하면 안되나)".
-- **3번 패치 완료**: `long_mpc.py` L529-577, 로컬 커밋 `34227e9`
-  (base `1f9f852`). `py_compile` 통과. 실제 버그였음을 코드 재검토로
-  확인 — ramp bookkeeping의 grace 로직(L517-524)과 별개로 vision
-  closing-rate 블록이 leadStatus=False 프레임마다 무조건 리셋해서
-  grace를 무력화하고 있었음. radar 락온(즉시 리셋)/grace 초과 진짜
-  유실(리셋)/grace 이내 blip(유지) 3갈래로 분기하도록 재작성.
-  **패치 파일**: `/mnt/user-data/outputs/
-  0001-long_mpc-vision-closing-rate-leadStatus.patch` — 사용자
-  `git am` 적용 대기.
-- **1/2번 보류 + 사용자의 "레이더 로직 재사용" 제안 검토**:
+## [22차-3, VALIDATED_APPLIED] 개선안 3번 실차 적용 확인 — 실측 검증은 다음 세션 과제
+- 22차-2에서 작성한 패치(로컬 `34227e9`)를 사용자가 실차에서
+  `git am` + `git push` 완료(원격 `a4b5550`), fetch로 diff 동일
+  재확인 완료.
+- **다음 세션 최우선 과제**: 신규 실주행 로그로 실측 검증 —
+  1. `_vision_dRel_rate`가 leadStatus 짧은 blip 이후에도 리셋 안
+     되고 유지되는지 (로그에서 `leadStatus` False 프레임 직후 값
+     확인)
+  2. 카메라 인식→레이더 락온 순간 급감속 패턴(22차 route1/route2
+     사례 같은 것)이 이번 패치로 완화됐는지
+  3. 오탐(불필요한 조기 개입) 부작용 없는지
+- 개선안 1/2번 자리를 대신할 "레이더 락온 취급을 vision_dRel_rate
+  수렴 후에도 그대로 적용" 설계(process_lead()의 lead.vLead 보정
+  주입)는 여전히 설계 단계 — 다음 세션에서 상세화 예정, 사용자
+  승인 필요.
+- 사용자 지시(22차-2): "3안은 무조건 적용하고, 1,2안은 좀더
+  생각해봐(레이더가 인식했을때의 로직을 적용하면 안되나)".
+- **1/2번 보류 + 사용자의 "레이더 로직 재사용" 제안 검토(22차-2, 미착수)**:
   `process_lead()`(L453-483)가 `lead.vLead`(절대속도)를 그대로
   MPC의 lead 예측 궤적(`extrapolate_lead`)에 사용한다는 것 확인.
   현재 `_vision_dRel_rate`는 오직 TTC floor(L582-628, virtual
