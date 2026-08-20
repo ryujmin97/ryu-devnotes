@@ -1,5 +1,49 @@
 # WIP — 중단 지점 (체크포인트, 세션 종료 아님)
 
+- 저장 시각: 2026-08-20 (13차, 사용자 "저장" 요청 — **model 게이팅
+  재설계 패치 실차 `git am` 적용 + push 완료 확인**, commit `119b101`
+  (`0f7575f..119b101`). 실측 검증만 남음.
+
+## 13차 갱신 — model 게이팅 desiredCurvature -> model_turn_speed 추세 재설계 (패치 완료, 실차 적용 확인)
+- 이 패치는 12차(직전 세션)에서 이미 설계/작성됐으나 그 세션이
+  WIP.md 갱신 전에 끝나 여기 반영이 누락되어 있었음(FINDINGS.md/
+  PARAMS_REGISTRY.md/LAST_ANALYZED.md에는 12차 기록이 이미 있었음 —
+  WIP.md만 유실). 이번 세션에서 사용자가 실차 적용 결과를 보고,
+  devnotes 전체를 최신 상태로 동기화.
+- **배경**: 9차(아래 옛 섹션 참고)에서 도입한 `desiredCurvature`
+  (현재 곡률) 기반 model 게이팅이, 커브 진입 직전 직선 구간에서
+  model의 사전감속(lookahead) 기여까지 억제할 위험이 있다는 게
+  11차 코드 재검토로 확인됨(FINDINGS.md `[RISK_IDENTIFIED]` 참고).
+- **재설계**: `desiredCurvature` 대신 `model_turn_speed` 자기 자신의
+  추세(최근 hold_sec 동안 노이즈 허용폭(0.3km/h)을 넘는 감소가
+  한 번도 없었는지)로 "트레일링(커브를 이미 빠져나와 복귀 중)"만
+  판별해 배제. 커브 접근 중 사전감속 시도(=하강 중)는 단 한 프레임의
+  유의미한 하강만 있어도 즉시 카운터 리셋되어 배제되지 않음(비대칭
+  설계 유지). 상수: `model_turn_speed_noise_tol`(0.3km/h),
+  `model_turn_straight_hold_sec`(0.6s, 기존값 유지) — `carrot_serv.py`.
+- **패치 파일**: `/mnt/user-data/outputs/0001-carrot_serv-model-desiredCurvature-model_turn_speed.patch`.
+  **실차 `git am` 적용 + push 완료** (commit `119b101`, `C:\dev\ryu`).
+- **알려진 한계(실측 필요)**: 장시간 정속 커브(model_turn_speed가 낮은
+  값에서 정체)에서 model이 조기 배제되지 않는지 — vturn/route가 동일
+  커브를 이미 커버하므로 위험은 낮다고 판단하나 실측 필요.
+- 상세 근거/구현 diff는 FINDINGS.md "[PATCH_APPLIED, NEEDS_VALIDATION]
+  model 게이팅을 desiredCurvature -> model_turn_speed 추세 기반으로
+  재설계" 참고.
+
+## 다음 세션(또는 이 세션 재개)에서 이어갈 것 (13차, 신규 최우선)
+1. **model_turn_speed 추세 게이팅 실측 검증** — 유사 구간(국도 완만한
+   커브 연속, 260819-4 세션 model↔vturn 우세 구간) 재주행,
+   `source_transition_log`로 vturn↔model 플리커 감소 확인 + 커브
+   진입 직전 model 사전감속이 더 이상 억제되지 않는지(9차 패치 대비
+   개선 확인) 함께 확인.
+2. **장시간 정속 커브 부작용 확인** — model_turn_speed가 낮은 값에서
+   오래 정체되는 구간(고속 완만한 커브 장거리)에서 model이 조기
+   배제되는지, 그 경우 vturn/route가 대신 적절한 값을 주고 있는지.
+3. 10차(screenrecord clip)는 아래 섹션대로 여전히 실측 검증 대기,
+   9차 옛 항목(desiredCurvature 기반)은 13차로 완전히 대체됨 —
+   아래 9차 섹션은 기록 보존용으로만 남기고 "다음 세션 이어갈 것"
+   에서는 제거.
+
 - 저장 시각: 2026-08-20 (10차 갱신, screenrecord "정지 시 마지막 1분
   clip 자동 생성" — **실차 `git am` 적용 + push 완료 확인**, commit
   `0f7575f` (`2226db7..0f7575f`). 실측 검증만 남음.
@@ -92,18 +136,18 @@
   실패했으나(이미 적용된 상태라 정상적인 실패, `git am --abort`로
   정리 안내) push 자체는 1차 적용분으로 정상 반영됨.
 
-## 다음 세션에서 이어갈 것 (9차 최우선, 신규)
-1. **model_turn_straight_gate 실측 검증** (적용은 완료, `2226db7`) —
-   유사 구간(국도 완만한 커브 연속, 특히 260819-4 세션 model↔vturn
-   우세 구간) 재주행, `source_transition_log`로 vturn↔model A→B→A
-   전환 빈도가 실제로 줄어드는지 확인.
-2. **S자 커브 부작용 확인** — 정점 사이 짧은 직선 구간에서
-   hold_sec(0.6s)이 과도하게 model을 배제하지 않는지, model이 배제된
-   구간에서 vturn/route가 대신 적절한 값을 주고 있는지(플리커만
-   줄고 감속 자체가 늦어지지 않는지) 확인.
+## [SUPERSEDED, 13차로 대체됨] 9차 시점 "다음 세션에서 이어갈 것" — 기록 보존용, 재작업 불필요
+> 아래 1~2번은 desiredCurvature 기반 게이팅(9차, `2226db7`) 검증
+> 계획이었으나, 그 게이팅 자체가 11차 코드 재검토로 위험 확인되어
+> 12~13차에서 model_turn_speed 추세 기반으로 완전히 대체됨. 실측
+> 검증은 위 "13차, 신규 최우선" 섹션 항목으로 이어감.
+1. ~~model_turn_straight_gate 실측 검증~~ → 13차 패치로 대체, 검증
+   대상 자체가 바뀜.
+2. ~~S자 커브 부작용 확인~~ → 13차 재설계로 해당 위험 자체가 제거됨
+   (사전감속 억제 위험), 대신 "장시간 정속 커브" 새 한계로 재검토 필요.
 3. **atc/road/route 등 나머지 쌍은 여전히 미해결** — 이번 패치는
    vturn↔model 쌍만 다룸. 전체 min() 히스테리시스 재설계는 별도
-   과제로 유지(PARAMS_REGISTRY.md 참고).
+   과제로 유지(PARAMS_REGISTRY.md 참고). (이 항목만 유효, 계속 유지)
 
 ## 8차 완료분 — vturn 지평선 2단계 확대 4.5s → 6.5s → 8.0s (모두 push 완료)
 - 사용자 요청(7차): "곡선 진입 전 사전 감속시간이 부족해서 충분히
