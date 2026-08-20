@@ -9,6 +9,26 @@
 ---
 
 ## c3-ms-dev
+- last_analyzed_commit (22차-2, 코드 작성): `34227e9` (로컬 커밋,
+  base `1f9f852`. **실차 미적용** — patch 파일
+  `/mnt/user-data/outputs/0001-long_mpc-vision-closing-rate-leadStatus.patch`
+  전달, 사용자 `git am` 적용 대기.)
+- note: (22차-2) 사용자가 22차에서 제안한 개선안 3번(leadStatus 짧은
+  깜빡임에 `_vision_dRel_rate` 리셋 안 하고 LEAD_ACQ_LOSS_GRACE_TIME
+  grace 적용)을 "무조건 적용" 지시 → `long_mpc.py` L529-577 재작성
+  완료. 기존 코드가 ramp bookkeeping의 grace 로직(L517-524)과 별개로
+  vision closing-rate 블록(L534-543)에서 leadStatus=False 프레임마다
+  무조건 리셋해 grace를 무력화하던 걸 확인, radar 락온/grace 초과
+  진짜 유실/grace 이내 blip 3갈래로 분기하도록 수정. `py_compile`
+  통과. 개선안 1/2번(TTC 캐션 문턱 완화, closing-rate 절대값 게이트)은
+  사용자가 "좀더 생각해보라"며 보류, 대신 "레이더 인식 시 로직을
+  그대로 적용하면 안 되나" 제안 → `process_lead()`가 `lead.vLead`
+  (절대속도)를 그대로 MPC 예측에 쓴다는 걸 확인, radard.py가
+  레이더 락온 시 "이미 안정적인 실측값이므로 그대로 사용"하는 것과
+  같은 취급을 vision_dRel_rate 수렴 후에도 적용(= MPC 예측 자체에
+  보정된 v_lead를 반영, 현재는 TTC floor로만 간접 사용 중)하는 4번안
+  아이디어로 재구성해 다음 세션에 상세 설계 제안 예정 — **코드 미착수**.
+
 - last_analyzed_commit (22차 기록): `1f9f852` (HEAD, 신규 커밋 없음 —
   22차도 코드 분석이 아니라 route1/route2(21차와 동일 로그, dashcam
   zip 재업로드) 재스캔 + 영상 프레임 대조)
