@@ -1293,3 +1293,35 @@
   `system/manager/process.py` `check_watchdog()`/`process_config.py`
   `NativeProcess("ui", ..., watchdog_max_dt=5)`,
   `selfdrive/ui/qt/screenrecorder/screenrecorder.cc` 리뷰+패치.
+
+## [VALIDATED] route1 (`a5f42c2218`, x19seg) — 커브/vturn 패치 후 첫 실주행, 종방향 클린 (2026-08-20, 21차, HEAD `1f9f852`)
+- **배경**: `vturn_lookahead_horizon_s`(4.5s→8.0s), `vturn_decel_rate`/
+  `vturn_safe_time`(물리공식 기반 재설계), `model_turn_speed_noise_tol`/
+  `model_turn_straight_hold_sec`(13차 model 게이팅) 등 커브/종방향 관련
+  패치들을 반영한 이후 **최초 실주행 로그**. 7.69km/1140s(19.0분),
+  평균 24.3km/h(시내 위주, 최고 80.9km/h), ADAS 활성 90.0%.
+- **harsh_brake_events**: 원본 41건이나 `cruiseEnabled` 교차검증 및
+  `remove_driver_intervention` 필터 모두 **0건** — 전부 정차/신호대기 등
+  운전자 개입 구간(디스인게이지 5회와 시간대 일치). ADAS 활성 중 급제동
+  계속 0건 기조 유지.
+- **turn_speed_violations**: 0건 — 커브 통과 중 vTurnSpeed 초과 사례 없음.
+- **vturn↔model 플리커**: 49건/19.0분 = **2.58/min** — 17차 검증치
+  (2.16~2.58/min, 베이스라인 7.0/min 대비 63~69%감소) 범위 내로 재확인,
+  13차 model 게이팅 패치 계속 안정적.
+- **steering_oscillation_detector**: 2건, 둘 다 `cruiseEnabled=False`
+  구간(seg16, t=1143~1150, 운전자가 직접 조향 중인 저속 회전) — 시스템
+  이슈 아님, 오탐 패턴 재확인.
+- **curve_exit_no_accel_scan_v2**: 11건 후보, 대부분 vEgo≈0(교차로 정차)
+  또는 경미한 감속(-0.03~-0.7 m/s²) — 기존 "정차/저속 시내 회전 오탐"
+  패턴과 동일, 신규 이슈 아님.
+- **raw `vTurnSpeed` CSV 필드 특이사항(기능 버그 아님, 분석 시 주의사항)**:
+  src가 vturn이 아닐 때(예: bump/model 선택 중) raw vTurnSpeed 값이
+  부호를 반전하며(-52→+44 등) 큰 폭으로 진동하는 구간 관찰(t=1190~1196,
+  seg17). 그러나 src=vturn으로 실제 선택된 구간에서는 desiredSpeed가
+  vTurnSpeed(항상 양수로 정규화된 값)를 프레임 단위로 정확히 추종했고
+  aEgo/vEgo 실측은 매끈함 — **미선택 상태의 raw 후보값 노이즈일 뿐 실제
+  제어에는 영향 없음**. 향후 세션에서 vTurnSpeed 부호를 곡률 방향
+  지표로 해석하지 말 것(부호-곡률 방향 1:1 대응 아님, 확인됨).
+- 근거: `work/route1.csv`(HEAD `1f9f852`), `harsh_brake_events`/
+  `turn_speed_violations`/`source_transition_log`/
+  `steering_oscillation_detector`/`curve_exit_no_accel_scan_v2` 결과.
