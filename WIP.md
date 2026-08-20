@@ -1,11 +1,11 @@
 # WIP — 중단 지점 (체크포인트, 세션 종료 아님)
 
-- 저장 시각: 2026-08-20 (9차, vturn↔model 플리커 게이팅 패치 신규 작성,
-  아직 미적용/미검증)
-- HEAD (c3-ms-dev): **`1fca82f`** (8차와 동일, 이번 세션 커밋 없음 —
-  9차 패치는 아직 로컬 diff 상태로만 존재).
+- 저장 시각: 2026-08-20 (9차, vturn↔model 플리커 게이팅 패치 실차 적용
+  + push 완료 확인 — `git am` commit `2226db7`)
+- HEAD (c3-ms-dev): **`2226db7`** — `1fca82f..2226db7` push 완료
+  확인됨(원격 fetch로 재확인). 코드 변경은 완결, 실측 검증만 남음.
 
-## 9차 완료분 — vturn↔model 플리커: model 후보 desiredCurvature 게이팅 (패치 작성만 완료, 미적용)
+## 9차 완료분 — vturn↔model 플리커: model 후보 desiredCurvature 게이팅 (실차 적용 + push 완료)
 - 사용자 요청: "desiredCurvature가 일정 시간 이상 직선을 유지하면 model
   후보를 min()에서 일시 배제(또는 하한선) — vturn/route가 이미 갖고
   있는 '회전 종료' 판단 근거를 model에도 공유하는 방식으로 가자."
@@ -20,22 +20,24 @@
   완전 배제(하한선 아님). 곡률이 threshold를 다시 넘으면 카운터
   즉시 리셋 → model 후보 지연 없이 복귀(비대칭 설계, 커브 진입 반응은
   안 늦춤).
-- `py_compile` 통과. **실차 미적용** — 아직 `git am` 안 함.
+- `py_compile` 통과. **실차 적용 + push 완료** (`git am`, commit
+  `2226db7`).
 - 커밋 이력 보존 방식으로 재작성: 컨테이너 ryu 클론에서 실제 커밋
   생성(`ab703fb`, base `1fca82f`) 후 `git format-patch -1`로 재추출
   (기존에 `git diff`로만 뽑았던 1차 시도는 커밋 없는 순수 diff라 폐기 —
   사용자 지적으로 항상 커밋 이력이 남도록 수정). `git am` 적용
   시뮬레이션(임시 브랜치)으로 검증 완료, `py_compile` 재확인.
 - 패치 파일: `/mnt/user-data/outputs/model_turn_straight_gate.patch`
-  (`git format-patch` 형식, `git am`으로 적용 — 로컬에 실제 커밋으로
-  남음). present_files로 전달됨. devnotes(FINDINGS.md/PARAMS_REGISTRY.md/
-  WIP.md)는 이번 세션에서 갱신, GH_TOKEN으로 push 완료.
+  (`git format-patch` 형식). 사용자가 `git am` 1차 시도로 이미
+  적용+push 완료(`2226db7`). 이후 실수로 동일 패치 재적용 시도가
+  실패했으나(이미 적용된 상태라 정상적인 실패, `git am --abort`로
+  정리 안내) push 자체는 1차 적용분으로 정상 반영됨.
 
 ## 다음 세션에서 이어갈 것 (9차 최우선, 신규)
-1. **model_turn_straight_gate.patch 실차 적용** (`git am`) 후 유사
-   구간(국도 완만한 커브 연속, 특히 260819-4 세션 model↔vturn 우세
-   구간) 재주행, `source_transition_log`로 vturn↔model A→B→A 전환
-   빈도가 실제로 줄어드는지 확인.
+1. **model_turn_straight_gate 실측 검증** (적용은 완료, `2226db7`) —
+   유사 구간(국도 완만한 커브 연속, 특히 260819-4 세션 model↔vturn
+   우세 구간) 재주행, `source_transition_log`로 vturn↔model A→B→A
+   전환 빈도가 실제로 줄어드는지 확인.
 2. **S자 커브 부작용 확인** — 정점 사이 짧은 직선 구간에서
    hold_sec(0.6s)이 과도하게 model을 배제하지 않는지, model이 배제된
    구간에서 vturn/route가 대신 적절한 값을 주고 있는지(플리커만
