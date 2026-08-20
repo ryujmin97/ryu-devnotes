@@ -1208,3 +1208,73 @@
   파일 0건), 저메모리 알럿 스크린샷(16:18, MEM 97%), 코드 리뷰
   (`screenrecorder.cc` `stop_locked()`/`extract_trailing_clip()`,
   `system/tombstoned.py` 크래시 덤프 경로 확인).
+
+## [PATCH_WRITTEN, NEEDS_VALIDATION] screenrecord ui watchdog timeout — 원인 확정(크래시 아님) + 패치 작성 완료 (2026-08-20, 19차)
+
+- **18차 가설이 실차 swaglog로 확정됨.** 사용자가 `/data/log/`
+  (정확한 경로: `Paths.swaglog_root()` = `/data/log/`, 18차에서
+  `/data/media/0/realdata`로 잘못 안내했던 것 정정)에서 사건 시각대
+  (`swaglog.0000000914`~`916`, 2026-08-19 15:41~15:45 KST) 로그를
+  확인.
+- **`swaglog.0000000915`에 결정적 증거**: manager가
+  `"Watchdog timeout for ui (exitcode None) restarting (started=True)"`
+  기록 후 `killing ui` / `sending signal 9 to ui` / `ui is dead with -9`
+  / `starting process ui` 순으로 이어짐. **`exitcode None`** — 프로세스가
+  스스로 종료(크래시/SIGSEGV)한 게 **아니라**, manager가 살아있는(응답
+  없는) 프로세스를 강제로 SIGKILL했다는 뜻. 즉 18차 "fork 관련 크래시"
+  가설은 틀렸고, 정확히는 **"UI 메인 스레드가 5초 이상 응답
+  없음(워치독 타임아웃)"**이 원인.
+- **코드로 메커니즘 확정**: `common/watchdog.cc`의 `watchdog_kick()`은
+  `selfdrive/ui/ui.cc`의 `UIState::update()`(Qt 메인 스레드의
+  `QTimer`, `UI_FREQ`마다)에서만 호출됨 → UI 메인 스레드가 블로킹되면
+  kick이 끊기고, `system/manager/process.py`의
+  `check_watchdog()`(`watchdog_max_dt=5`, `process_config.py`의
+  `NativeProcess("ui", ...)` 설정)가 5초 안에 새 kick 파일이 갱신
+  안 되면 `restart()` → SIGKILL. `ScreenRecoder::toggle()`/
+  `stop_locked()`는 정지 버튼 클릭 시 이 **동일한 UI 메인 스레드에서
+  동기 실행**됨.
+  - `extract_trailing_clip()`의 `QProcess::startDetached("ffmpeg", ...)`
+    는 이름은 "detached"지만, 내부적으로 `posix_spawn`/`vfork` 기반이라
+    **자식이 `exec()`를 마칠 때까지 호출한 스레드(=UI 메인 스레드)를
+    블로킹**하는 특성이 있음(fork()처럼 즉시 반환하는 게 아님). 방금
+    큰 mp4(최대 291MB)를 다 쓴 직후 스토리지가 바쁜 상태에서 ffmpeg
+    바이너리+동적 라이브러리(libavcodec/libavformat 등) exec가 수 초
+    걸리면 → UI 메인 스레드가 그만큼 멈춤 → watchdog 5초 초과 →
+    SIGKILL+재시작.
+  - 이게 사용자가 본 "정지 버튼 → 화면 정지 → comma 부팅 스플래시
+    2초 → 복귀"의 정체(=`ui` 프로세스 강제종료+재기동 화면).
+  - `ui`가 SIGKILL되는 시점이 ffmpeg `exec()` 완료 이전이라 **clip
+    파일이 단 하나도 안 남는 이유**도 동시에 설명됨.
+  - 반복되는 크래시-재기동마다 GPU/카메라/OMX 자원을 다시 잡는 게
+    누적되면 장시간 주행에서 메모리 사용률이 오르는 것(18차 "메모리
+    부족 97%" 알럿)도 정합적으로 설명됨 — 단 이 마지막 연결고리는
+    여전히 정성적 추정, 정량 검증은 안 됨.
+
+- **패치 (base `591f219`)**: `stop_locked()`에서
+  `extract_trailing_clip(finished_path)` 직접 호출을
+  `std::thread([this, finished_path]{ extract_trailing_clip(finished_path); }).detach();`
+  로 감싸 **UI 메인 스레드에서 완전히 분리**. ffmpeg exec가 아무리
+  오래 걸려도 그 대기는 별도 스레드에서만 일어나고 UI 메인 스레드는
+  `stop_locked()`에서 즉시 반환 → watchdog kick이 끊기지 않음. 그 외
+  로직(파일명 충돌 접미사 처리, `-c copy` stream copy, 20분 롤오버 시
+  clip 스킵 등)은 전부 미변경.
+- `git am` 적용 시뮬레이션(임시 클론, base `591f219`) 통과 확인.
+  C++ 컴파일 자체는 컨테이너에 툴체인이 없어 불가 — 코드 리뷰 +
+  `git am` 검증까지만(기존 패치들과 동일한 검증 수준).
+- **패치 파일**: `/mnt/user-data/outputs/0001-screenrecord-ffmpeg-clip-offthread.patch`
+  (`git format-patch` 형식). **실차 미적용** — 사용자 `git am` 적용
+  대기.
+- **다음 세션(또는 이 세션 재개)에서 이어갈 것**:
+  1. 실차 `git am` 적용 + push 대기.
+  2. 적용 후 실측: 정지 버튼 눌렀을 때 화면 정지/comma 스플래시가
+     더 이상 안 뜨는지, `_clip.mp4` 파일이 CarrotWeb 로그탭에 정상적으로
+     나타나는지, 같은 `/data/log/swaglog.*`에서 그 시각대에 더 이상
+     "Watchdog timeout for ui" 로그가 안 남는지 확인.
+  3. (우선순위 낮음, 별개 트랙) "장시간 반복 시 메모리 상승" 연결고리
+     자체는 이 패치로 크래시-재기동이 없어지면 자연히 해소될 것으로
+     예상되나, 정량 확인은 다음 실측 로그로.
+- 근거: `/data/log/swaglog.0000000914~916`(사용자 터미널 캡처),
+  `common/watchdog.cc`, `selfdrive/ui/ui.cc` `UIState::update()`,
+  `system/manager/process.py` `check_watchdog()`/`process_config.py`
+  `NativeProcess("ui", ..., watchdog_max_dt=5)`,
+  `selfdrive/ui/qt/screenrecorder/screenrecorder.cc` 리뷰+패치.
