@@ -21,10 +21,15 @@
   즉시 리셋 → model 후보 지연 없이 복귀(비대칭 설계, 커브 진입 반응은
   안 늦춤).
 - `py_compile` 통과. **실차 미적용** — 아직 `git am` 안 함.
+- 커밋 이력 보존 방식으로 재작성: 컨테이너 ryu 클론에서 실제 커밋
+  생성(`ab703fb`, base `1fca82f`) 후 `git format-patch -1`로 재추출
+  (기존에 `git diff`로만 뽑았던 1차 시도는 커밋 없는 순수 diff라 폐기 —
+  사용자 지적으로 항상 커밋 이력이 남도록 수정). `git am` 적용
+  시뮬레이션(임시 브랜치)으로 검증 완료, `py_compile` 재확인.
 - 패치 파일: `/mnt/user-data/outputs/model_turn_straight_gate.patch`
-  (present_files로 전달됨). devnotes(FINDINGS.md/PARAMS_REGISTRY.md/
-  WIP.md)는 이번 세션에서 갱신, GH_TOKEN으로 push 예정(세션 종료
-  체크리스트 참고).
+  (`git format-patch` 형식, `git am`으로 적용 — 로컬에 실제 커밋으로
+  남음). present_files로 전달됨. devnotes(FINDINGS.md/PARAMS_REGISTRY.md/
+  WIP.md)는 이번 세션에서 갱신, GH_TOKEN으로 push 완료.
 
 ## 다음 세션에서 이어갈 것 (9차 최우선, 신규)
 1. **model_turn_straight_gate.patch 실차 적용** (`git am`) 후 유사
