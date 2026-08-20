@@ -9,9 +9,19 @@
 ---
 
 ## c3-ms-dev
-- last_analyzed_commit: `0f7575f` (HEAD 기준 동일, 로컬 신규 커밋 `7cdc20b`는
-  아직 실차 미적용 — git am 대기 중이라 HEAD로 취급하지 않음)
+- last_analyzed_commit: `119b101` (HEAD, 13차에서 `git am`+push로 반영
+  확인 — `0f7575f..119b101`, 12차에서 작성한 model 게이팅 재설계 패치.
+  screenrecord clip(2번 위험, 10차 WIP)은 이번에도 미착수)
 - date: 2026-08-20
+- note: (13차, 사용자 "저장" 체크포인트 요청) 12차에서 작성한
+  model_turn_speed 추세 기반 게이팅 패치를 사용자가 실차에서 `git am`
+  적용 + `git push` 완료 확인(원격 커밋 `119b101`, 로컬 재현 커밋
+  `7cdc20b`와 diff 내용 동일). 코드 변경 없음(이번 세션은 devnotes
+  갱신만). 실측 검증(장시간 정속 커브에서 model 조기 배제 여부)은
+  다음 세션 최우선 과제로 유지.
+
+- last_analyzed_commit (12차 기록): `0f7575f` (HEAD 기준 동일, 로컬 신규 커밋 `7cdc20b`는
+  아직 실차 미적용 — git am 대기 중이라 HEAD로 취급하지 않음)
 - note: (12차, 같은 세션 이어감) 11차에서 발견한 위험 2건 중 model
   게이팅 건에 대해 사용자가 개선 방향 1번(model_turn_speed 자체 추세
   기반) 채택 지시 → 패치 작성 완료(`7cdc20b`, base `0f7575f`).
