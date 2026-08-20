@@ -506,8 +506,9 @@
 - 범위 한정: 이번 패치는 vturn↔model 쌍만 다룸. atc/road/route 등을
   포함한 나머지 쌍의 min() 히스테리시스 부재는 여전히 미해결(위
   NEEDS_VALIDATION 항목, PARAMS_REGISTRY.md 참고).
-- 패치: `selfdrive/carrot/carrot_serv.py` (미커밋, `git am` 대기 중).
-  `py_compile` 통과. **실차 검증 전** — 특히 S자 커브처럼 정점 사이에
+- 패치: `selfdrive/carrot/carrot_serv.py`. `py_compile` 통과, **실차 적용
+  + push 완료** (`git am`, commit `2226db7`, `1fca82f..2226db7`).
+  **실측 검증 전** — 특히 S자 커브처럼 정점 사이에
   짧은 직선 구간이 끼는 경우 hold_sec(0.6s) 값이 과도하게 model을
   배제하지 않는지, 그리고 실제로 vturn↔model 플리커 클러스터가
   줄어드는지 다음 세션에서 로그로 확인 필요.
