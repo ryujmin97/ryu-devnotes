@@ -1209,12 +1209,27 @@
   (`screenrecorder.cc` `stop_locked()`/`extract_trailing_clip()`,
   `system/tombstoned.py` 크래시 덤프 경로 확인).
 
-## [PATCH_APPLIED, NEEDS_VALIDATION] screenrecord ui watchdog timeout — 원인 확정(크래시 아님) + 패치 실차 적용 완료 (2026-08-20, 19차)
+## [VALIDATED] screenrecord ui watchdog timeout — 원인 확정 + 패치 실차 검증 완료 (2026-08-20, 19차)
 
-> **19차 갱신(같은 세션 이어감)**: 아래 패치를 사용자가 실차에서
-> `git am` 적용 + `git push` 완료 확인 — commit **`7b4a160`**
-> (`591f219..7b4a160`). 남은 건 실측 검증뿐(아래 "다음 세션에서
-> 이어갈 것" 참고).
+> **19차 최종 갱신(같은 세션 이어감)**: 패치를 사용자가 실차에서
+> `git am` 적용 + `git push` 완료(commit **`7b4a160`**,
+> `591f219..7b4a160`) 후, 실측 검증 3항목 **전부 통과**:
+> 1. `/data/log/swaglog.0000000957~962`(패치 적용 커밋 `7b4a160`
+>    세션, 19:14~19:23) 전체에서 `watchdog` grep 0건 — 워치독
+>    타임아웃 재발 없음.
+> 2. 정지 버튼을 19:18경/19:22경 두 차례 누른 시점 모두 CarrotWeb
+>    로그탭에 `260820_191859_clip....mp4`(15.4MB),
+>    `260820_192207_clip....mp4`(15.1MB)가 정상 생성 확인(사용자
+>    스크린샷).
+> 3. 사용자 확인: 정지 버튼 누를 때 화면 정지/comma 스플래시 없이
+>    **"바로 반응"** — 패치 전 증상(화면 정지 → 스플래시 2초 →
+>    복귀) 재현 안 됨.
+>
+> 3항목 모두 부합해 이 이슈는 **해소로 확정**. "장시간 반복 시
+> 메모리 상승" 연결고리(18차 관찰, 정성적 추정)만 정량 확인 안 된
+> 채로 낮은 우선순위 관찰 사항으로 남음 — 크래시-재기동 자체가
+> 없어졌으므로 자연 해소로 판단, 향후 장시간 주행 로그에서 메모리
+> 추이가 이상 없는지 정도만 참고로 지켜보면 충분.
 
 
 - **18차 가설이 실차 swaglog로 확정됨.** 사용자가 `/data/log/`
@@ -1270,16 +1285,9 @@
 - **패치 파일**: `/mnt/user-data/outputs/0001-screenrecord-ffmpeg-clip-offthread.patch`
   (`git format-patch` 형식). **실차 `git am` 적용 + push 완료**
   (commit `7b4a160`, `C:\dev\ryu`).
-- **다음 세션(또는 이 세션 재개)에서 이어갈 것 (실측만 남음)**:
-  1. 정지 버튼 눌렀을 때 화면 정지/comma 스플래시가 더 이상 안 뜨는지
-     확인.
-  2. `_clip.mp4` 파일이 CarrotWeb 로그탭에 정상적으로 생성/표시되는지
-     확인.
-  3. `/data/log/swaglog.*`에서 정지 버튼을 누른 시각대에 더 이상
-     "Watchdog timeout for ui" 로그가 안 남는지 확인.
-  4. (우선순위 낮음, 별개 트랙) "장시간 반복 시 메모리 상승" 연결고리
-     자체는 이 패치로 크래시-재기동이 없어지면 자연히 해소될 것으로
-     예상되나, 정량 확인은 다음 실측 로그로.
+- **검증 완료 (2026-08-20, 실차)**: 정지 버튼 화면정지/스플래시
+  재현 없음, `_clip.mp4` 정상 생성 2건, swaglog watchdog 로그 0건.
+  이 이슈는 완전히 해소됨(WIP.md에서도 제거).
 - 근거: `/data/log/swaglog.0000000914~916`(사용자 터미널 캡처),
   `common/watchdog.cc`, `selfdrive/ui/ui.cc` `UIState::update()`,
   `system/manager/process.py` `check_watchdog()`/`process_config.py`
