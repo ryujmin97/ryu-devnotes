@@ -1,11 +1,12 @@
 # WIP — 중단 지점 (체크포인트, 세션 종료 아님)
 
-- 저장 시각: 2026-08-20 (7차, vturn 지평선 패치 완료 후 체크포인트)
-- HEAD (c3-ms-dev): **`b403d52`** (GitHub 반영 완료) — **로컬 워킹
-  카피에서 그 위에 1개 커밋 `1827c1e` 추가됨 (아직 GitHub `ryu`에
-  push 안 됨, patch 파일로 전달, 사용자가 `git am` 적용 예정).**
+- 저장 시각: 2026-08-20 (8차 세션 시작, 7차 vturn 지평선 패치 push
+  완료 확인)
+- HEAD (c3-ms-dev): **`4c15987`** — 7차에서 만든 vturn 지평선 패치가
+  `git am` + `git push` 완료 확인됨 (`b403d52..4c15987`). 아래 7차
+  섹션의 "미push" 표기는 해소됨, 실차 검증만 남음.
 
-## 이번 세션(7차)에서 완료된 것 — vturn 커브 사전감속 지평선 확대
+## 7차 완료분 — vturn 커브 사전감속 지평선 확대 (push 완료, `4c15987`)
 - 사용자 요청: "곡선 진입 전 사전 감속시간이 부족해서 충분히 감속이
   안된 상태에서 곡선에 진입하다보니 곡선내에서 급감속이 있었음. 원인
   찾고 vturn_lookahead_horizon_s를 2초 정도 더 늘려서 해결" (신규
@@ -21,18 +22,15 @@
   접근 중 정점이 뒤늦게 지평선 안으로 들어오는 순간 필요속도가 급락 →
   물리공식(v_i²=v_f²+2ad) 자체는 정확해도 "그 순간 보이는 거리"가 짧아
   감속 시작이 늦어지는 구조적 문제.
-- **패치 구현 완료** (`carrot_man.py`, commit `1827c1e`): 
-  `vturn_lookahead_horizon_s` 4.5s → 6.5s (사용자 요청 +2s). 모델 예측
-  궤적(ModelConstants.T_IDXS) 최대 10.0s 범위 안이라 안전. 문법 체크
-  (`py_compile`) 통과.
-- push 대상 devnotes: `FINDINGS.md`, `PARAMS_REGISTRY.md`, `WIP.md`.
-- ryu 패치: `/mnt/user-data/outputs/0001-carrot_man-vturn-4.5s-6.5s.patch`
-  (git am 적용 필요, `b403d52` 위에 쌓는 패치 — 반드시 이전 세션의
-  long_mpc 패치가 이미 적용된 상태에서 적용할 것, 이미 push 완료된
-  분기라 순서 문제 없음).
+- **패치 구현 완료 + 실기기 반영 완료** (`carrot_man.py`, commit
+  `4c15987`, `git am`+`git push` 확인됨): `vturn_lookahead_horizon_s`
+  4.5s → 6.5s (사용자 요청 +2s). 모델 예측 궤적(ModelConstants.T_IDXS)
+  최대 10.0s 범위 안이라 안전. 문법 체크(`py_compile`) 통과.
+- devnotes push: 이번 세션(8차)에서 FINDINGS.md/PARAMS_REGISTRY.md/
+  WIP.md의 "미push"/`1827c1e` 표기를 `4c15987`/push 완료로 갱신.
 
-## 다음 세션에서 이어갈 것 (7차 신규, 최우선)
-1. **vturn 지평선 실차 검증** — 패치(`1827c1e`) 적용 후 유사 조여드는
+## 다음 세션에서 이어갈 것 (7차 신규, 최우선 — 여전히 미해소)
+1. **vturn 지평선 실차 검증** — 패치(`4c15987`, push 완료) 적용 후 유사 조여드는
    커브 구간 재주행, aEgo 프로파일 및 운전자 개입 여부 재확인.
 2. **6.5s < 8.6s 한계 재확인** — 근거 사례의 조임 지속시간(8.6s)보다
    여전히 짧음. 검증 결과 부족하면 추가 확대(8~9s대) 또는
