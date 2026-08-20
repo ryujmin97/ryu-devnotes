@@ -103,8 +103,10 @@ python3 extract_dashcam_frames.py <segment_dir> --repo /home/claude/ryu \
 저장 경로 (수동 clone/commit/push 불필요).
 **주의**: 토큰은 반드시 환경변수로만 받고, 어떤 경우에도 stdout/stderr에
 출력하지 않는다. fine-grained PAT(해당 repo 1개, Contents Read/write)
-전제. 현재 파일 1개당 1 커밋 — 여러 파일을 한 커밋으로 묶으려면 Git
-Trees API 사용이 필요 (TODO, 아직 미구현).
+전제. **Git Trees API 사용 (2026-08-21~)** — blob 생성 → base_tree 위에
+새 tree 생성 → commit 1개 생성 → ref 갱신 순서로 처리하므로, 파일이
+몇 개든 항상 커밋 1개로 묶인다 (이전 버전은 Contents API PUT을 파일마다
+반복해 파일 수만큼 커밋이 생겼음).
 **사용**:
 ```bash
 export GH_TOKEN="..."

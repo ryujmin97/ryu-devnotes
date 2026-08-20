@@ -8,6 +8,11 @@
   (decode_rlog, extract_log, analysis_helpers, extract_dashcam_frames,
   sim_vision_rate, push_via_api)를 표준 인덱스 문서로 정리. 세션 시작
   체크리스트에 "toolkit/README.md 먼저 확인" 항목 추가 (SETUP.md).
+- `push_via_api.py` — Contents API 반복 PUT(파일당 1커밋) 방식에서
+  Git Trees API(blob → base_tree 위 새 tree → commit 1개 → ref 갱신)
+  방식으로 교체. 여러 파일을 push해도 커밋 1개로 묶임. CLI
+  인터페이스(`--message`, `remote=local` 매핑)는 동일하게 유지 —
+  기존 호출부 수정 불필요.
 
 ## 소급 기록 (정확한 날짜 불명 — 세션 로그 기준 대략적 순서)
 - `decode_rlog.py` — rlog/qlog capnp 디코더 최초 작성 (capnp import
