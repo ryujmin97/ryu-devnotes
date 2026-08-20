@@ -927,7 +927,7 @@
   L1020-1036(게이팅 적용부, 패치 전 기준), cereal/log.capnp
   L983(`Action.desiredCurvature` 필드 확인).
 
-### → [PATCH_WRITTEN, 미검증] model 게이팅을 desiredCurvature -> model_turn_speed 추세 기반으로 재설계 (2026-08-20, 12차)
+### → [PATCH_APPLIED, NEEDS_VALIDATION] model 게이팅을 desiredCurvature -> model_turn_speed 추세 기반으로 재설계 (2026-08-20, 12차 작성 / 13차 실차 적용 확인)
 
 - 위 위험 항목의 개선 방향 1번(model_turn_speed 자체 추세 기반) 채택,
   패치 작성 완료.
@@ -940,11 +940,13 @@
   후보를 배제. 반대로 유의미한 하락이 한 프레임이라도 있으면(=커브
   접근 중 사전감속 시도) 카운터 즉시 리셋 — 진입측 사전감속은 건드리지
   않는 비대칭 설계는 그대로 유지.
-- `py_compile` 통과, 컨테이너 ryu 클론에서 커밋 생성(`7cdc20b`, base
-  `0f7575f`) 후 `git format-patch -1`로 추출, 임시 브랜치에서 `git am`
-  적용 시뮬레이션 통과 확인.
+- `py_compile` 통과, 컨테이너 ryu 클론에서 커밋 생성(로컬 커밋
+  `7cdc20b`, base `0f7575f`) 후 `git format-patch -1`로 추출, 임시
+  브랜치에서 `git am` 적용 시뮬레이션 통과 확인.
 - 패치 파일: `/mnt/user-data/outputs/0001-carrot_serv-model-desiredCurvature-model_turn_speed.patch`
-  (`git format-patch` 형식, 실차 미적용 — 사용자 `git am` 적용 대기).
+  (`git format-patch` 형식). **실차 `git am` 적용 + push 완료**
+  — 원격 반영 커밋 `119b101`(`0f7575f..119b101`, 로컬 재현이라
+  해시는 `7cdc20b`와 다르지만 diff 내용 동일, 원격 fetch로 재확인함).
 - **알려진 한계(실측 필요)**: 장시간 정속 커브(model_turn_speed가 낮은
   값에서 거의 정체)에서 노이즈 허용폭(0.3km/h) 이내로만 흔들리면
   "감소 없음"으로 판정되어 0.6s 후 model이 배제될 수 있음. 다만 그런
