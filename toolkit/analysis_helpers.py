@@ -60,6 +60,83 @@ def compare_runs_by_commit(csv_paths):
 
 
 
+# ---------------------------------------------------------------------------
+# 0) 비전(카메라) 인식 -> 레이더 확인 크로스오버 (2026-08-20, leadRadar/
+#    leadModelProb 컬럼 추가 후 신규 작성)
+# ---------------------------------------------------------------------------
+def vision_to_radar_crossover(rows, min_gap_s=0.3, highway_v_ego=15.0):
+    """
+    "leadStatus=True 이면서 leadRadar=False (비전 모델만으로 리드 판정,
+    아직 레이더 미확인) 상태"가 시작된 시점부터, 같은 리드가 이어지다가
+    leadRadar=True 로 바뀌는(레이더 확인) 시점까지의 갭을 찾는다.
+
+    사용자가 체감한 "카메라가 파란 박스로 먼저 잡았는데 감속은 레이더
+    빨간 박스 뜰 때부터 시작되는 느낌"을 정량화하기 위한 함수 -- 이
+    갭 동안 현재 코드가 실제로 얼마나 감속/미감속했는지는 aEgo 컬럼으로
+    별도 대조해야 한다(이 함수는 갭 자체의 존재/길이/거리만 탐지).
+
+    주의: leadRadar가 True/False로 프레임마다 흔들리는(레이더가 스팟성으로
+    반짝이는) 경우가 있어, min_gap_s 이상 연속으로 leadRadar=False가
+    유지된 경우만 "진짜 비전-only 구간"으로 센다(단발성 레이더 미스는
+    제외). 리드가 leadStatus=False로 끊기면(새 리드) 그 크로스오버는
+    미완결로 버린다.
+
+    리턴: [{
+        "seg", "t_vision_start", "t_radar_confirm", "gap_s",
+        "dRel_at_vision_start", "dRel_at_radar_confirm", "dRel_closed_m",
+        "vRel_at_vision_start", "vEgo_at_vision_start", "modelProb_at_vision_start",
+        "highway": bool (vEgo_at_vision_start >= highway_v_ego 기준),
+    }, ...]
+    """
+    events = []
+    state = None  # {"t_start", "seg", "dRel0", "vRel0", "vEgo0", "prob0", "last_radar_false_t"}
+
+    for r in rows:
+        status = _b(r, "leadStatus") if r.get("leadStatus") != "" else False
+        radar_raw = r.get("leadRadar", "")
+        t = _f(r, "t")
+        if t is None:
+            continue
+
+        if not status or radar_raw == "":
+            # 리드 자체가 끊김 -> 진행 중이던 크로스오버는 폐기(리드 유지 전제가 깨짐)
+            state = None
+            continue
+
+        is_radar = str(radar_raw).strip().lower() in ("1", "true", "t", "yes")
+
+        if not is_radar:
+            if state is None:
+                state = {
+                    "t_start": t, "seg": r.get("seg", ""),
+                    "dRel0": _f(r, "leadDRel"), "vRel0": _f(r, "leadVRel"),
+                    "vEgo0": _f(r, "vEgo"), "prob0": _f(r, "leadModelProb"),
+                }
+            # 비전-only 구간 계속 유지 중 -> 대기
+        else:
+            if state is not None and (t - state["t_start"]) >= min_gap_s:
+                dRel_now = _f(r, "leadDRel")
+                events.append({
+                    "seg": state["seg"],
+                    "t_vision_start": round(state["t_start"], 3),
+                    "t_radar_confirm": round(t, 3),
+                    "gap_s": round(t - state["t_start"], 3),
+                    "dRel_at_vision_start": state["dRel0"],
+                    "dRel_at_radar_confirm": dRel_now,
+                    "dRel_closed_m": (
+                        round(state["dRel0"] - dRel_now, 2)
+                        if state["dRel0"] is not None and dRel_now is not None else None
+                    ),
+                    "vRel_at_vision_start": state["vRel0"],
+                    "vEgo_at_vision_start": state["vEgo0"],
+                    "modelProb_at_vision_start": state["prob0"],
+                    "highway": (state["vEgo0"] or 0) >= highway_v_ego,
+                })
+            state = None  # 레이더 확인됐으니 이 크로스오버는 종료(다음 비전-only 구간은 새 이벤트)
+
+    return events
+
+
 def _f(row, key, default=None):
     v = row.get(key, "")
     if v == "" or v is None:
