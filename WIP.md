@@ -1,11 +1,27 @@
 # WIP — 중단 지점 (체크포인트, 세션 종료 아님)
 
-- 저장 시각: 2026-08-21 (20차, 도구 후보 3/5 완료 — 곡선(vturn)
-  구간 leadDRel 급점프 노이즈 탐지 도구
-  `curve_lead_dRel_jump_events()`/`curve_noise_summary()` 추가, push
-  완료. 4~5번 순차 진행 예정, 완료마다 저장.)
+- 저장 시각: 2026-08-21 (20차 계속, 도구 후보 4/5 완료 — min() 소스
+  선택 히스테리시스 범용 스캐너 `source_pair_flicker_stats()`/
+  `all_source_pairs_flicker_summary()` 추가, push 대기. 5번은 실제
+  route CSV가 있어야 실행 가능한 단계라 로그 업로드 대기 중.)
 
-## 20차 진행 로그 — toolkit 인프라 정비 + 도구 후보 1~3/5 완료
+## 20차 진행 로그 — toolkit 인프라 정비 + 도구 후보 1~4/5 완료
+
+### 도구 4/5 완료 — min() 소스 선택 히스테리시스 범용 스캐너
+- `analysis_helpers.py`: `source_pair_flicker_stats(rows, src_a, src_b)`
+  신규 — 임의의 두 소스 사이 전환 건수/분당 비율/A→B→A 왕복(연속,
+  사이에 제3소스 없을 때만 카운트)/체류시간(dwell) 통계.
+  `all_source_pairs_flicker_summary(rows, min_count=3)` 신규 — rows에
+  등장하는 모든 src 쌍을 자동 스캔해 건수 내림차순 정렬, "우세 쌍"을
+  더 이상 수동으로 안 찾아도 됨(road↔route 등 이제껏 한 번도 별도
+  집계 안 된 쌍도 자동으로 드러남).
+- 합성 데이터로 왕복 카운트(연속 역방향 전환만 카운트, 제3소스 개입
+  시 카운트 안 됨)/dwell 통계/min_count 필터 전부 단위 검증 완료.
+- `toolkit/README.md`/`CHANGELOG.md` 갱신 완료.
+- **아직 미실행**: 실제 route CSV(x20seg 260819-1 등 기존 로그 또는
+  신규 로그)로 돌려서 road↔route 등 기존에 안 세어본 쌍의 실제
+  플리커 규모를 처음으로 정량화하는 것은 다음 로그 분석 세션에서
+  (5번 작업과 함께 실행 예정, 실제 CSV 필요).
 
 ### 도구 3/5 완료 — 곡선(vturn) 구간 leadDRel 급점프 노이즈 탐지
 - `analysis_helpers.py`: `curve_lead_dRel_jump_events()`,

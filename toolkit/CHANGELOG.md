@@ -87,3 +87,11 @@
 > 위 소급 기록은 각 파일이 "언제 어떤 이유로" 생겼는지 대략적 맥락만
 > 남긴 것 — 정확한 세션 차수/날짜는 FINDINGS.md의 해당 이슈 항목을
 > 참고. 이 시점 이후로는 실제 작업 날짜 기준으로 기록한다.
+
+## 2026-08-21 (20차)
+- `analysis_helpers.py`: `source_pair_flicker_stats()` /
+  `all_source_pairs_flicker_summary()` 신규 — 도구 후보 4/5,
+  min() 소스 선택 히스테리시스를 임의의 소스 쌍에 대해 범용 정량화
+  (기존 vturn↔model 쌍 특별 취급을 대체, road↔route 등 미집계 쌍도
+  자동 커버). 합성 데이터로 왕복 카운트/dwell/min_count 필터 단위
+  검증 완료. 실제 route CSV 재대조는 다음 로그 분석 세션에서.

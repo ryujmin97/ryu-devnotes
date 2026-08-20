@@ -67,6 +67,15 @@ segment_boundary_lead_loss_artifacts()`로 먼저 감사할 것.
 - `turn_speed_violations(rows, ...)` — 커브 속도 위반 탐지
 - `source_transition_log(rows)` — 속도 소스 전환 로그 (필드명
   `from_src`/`to_src`, `src_to` 아님— 헷갈리기 쉬우니 주의)
+- `source_pair_flicker_stats(rows, src_a, src_b, transitions=None)` —
+  (2026-08-21 신규) 임의의 두 소스(예: `road`,`route`) 사이의 플리커를
+  정량화 — 전환 건수/분당 비율/A→B→A 왕복(연속, 사이에 제3소스 없을 때만)
+  건수/체류시간(dwell) 통계. 지금까지 vturn↔model 등 특정 쌍만 세션마다
+  수동으로 세던 것을 대체.
+- `all_source_pairs_flicker_summary(rows, min_count=3)` — (2026-08-21
+  신규) rows에 등장하는 모든 src 조합에 대해 위 함수를 자동 스캔,
+  건수 내림차순 정렬로 리턴 — "우세 쌍이 뭔지" 자동 파악용
+  (road↔route 등 이제껏 따로 집계 안 된 쌍도 여기서 함께 드러남).
 - `cruise_engage_disengage_events(rows)` — 크루즈 on/off 이벤트
 - `harsh_brake_events(rows, ...)` — 급제동 이벤트
 - `lead_cut_in_detector(rows, close_dist_m)` — cut-in 탐지

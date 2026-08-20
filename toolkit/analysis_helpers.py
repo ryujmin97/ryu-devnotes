@@ -536,6 +536,110 @@ def source_transition_log(rows):
 
 
 # ---------------------------------------------------------------------------
+# 7-1) min() 소스 선택 히스테리시스 — 임의의 두 소스 쌍 플리커 정량화 (범용 스캐너)
+# ---------------------------------------------------------------------------
+def source_pair_flicker_stats(rows, src_a, src_b, transitions=None):
+    """
+    src_a<->src_b 두 소스 사이의 전환만 골라 플리커를 정량화.
+
+    지금까지(9~20차) vturn<->model/road/route 등 특정 쌍의 플리커 건수를
+    세션마다 손으로 골라 세었던 걸 대체하는 범용 함수 — 임의의 두 소스명을
+    넣으면 동일한 지표를 계산해준다. transitions를 미리 계산해뒀으면
+    (예: all_source_pairs_flicker_summary에서 재사용) 넘겨서 재계산을 피할 수 있음.
+
+    "A->B->A 왕복"은 해당 쌍 내에서 연속된 두 전환이 정확히 역방향일 때만
+    카운트한다 (즉 그 사이에 제3의 소스가 끼면 왕복으로 안 침 — 진짜 진동만
+    잡기 위함). dwell(체류 시간)은 그 쌍에 속한 연속 전환들 사이의 시간차.
+
+    리턴: {
+        "pair": "A<->B",
+        "transition_count": int,   # A->B + B->A 전체
+        "round_trip_count": int,   # A->B->A 또는 B->A->B (연속, 사이에 다른 src 없음)
+        "route_duration_min": float or None,
+        "rate_per_min": float or None,   # transition_count / route_duration_min
+        "dwell_stats": {"min","median","max","n"} or None,  # 초 단위
+        "events": [...]  # source_transition_log 형식 그대로, 이 쌍만 필터링
+    }
+    """
+    if transitions is None:
+        transitions = source_transition_log(rows)
+
+    pair_set = {src_a, src_b}
+    relevant = [t for t in transitions if {t["from_src"], t["to_src"]} == pair_set]
+
+    round_trip_count = 0
+    dwells = []
+    for i in range(len(relevant) - 1):
+        cur, nxt = relevant[i], relevant[i + 1]
+        dt = nxt["t"] - cur["t"]
+        dwells.append(dt)
+        # 정확히 역방향 전환이 곧바로 이어지면 왕복(A->B->A)으로 카운트
+        if cur["from_src"] == nxt["to_src"] and cur["to_src"] == nxt["from_src"]:
+            round_trip_count += 1
+
+    ts = [_f(r, "t") for r in rows if _f(r, "t") is not None]
+    duration_min = (max(ts) - min(ts)) / 60.0 if ts else None
+
+    dwell_stats = None
+    if dwells:
+        sd = sorted(dwells)
+        n = len(sd)
+        dwell_stats = {
+            "min": round(sd[0], 2),
+            "median": round(sd[n // 2], 2),
+            "max": round(sd[-1], 2),
+            "n": n,
+        }
+
+    return {
+        "pair": f"{src_a}<->{src_b}",
+        "transition_count": len(relevant),
+        "round_trip_count": round_trip_count,
+        "route_duration_min": round(duration_min, 2) if duration_min is not None else None,
+        "rate_per_min": (
+            round(len(relevant) / duration_min, 2)
+            if duration_min and duration_min > 0 else None
+        ),
+        "dwell_stats": dwell_stats,
+        "events": relevant,
+    }
+
+
+def all_source_pairs_flicker_summary(rows, min_count=3):
+    """
+    rows에 등장하는 모든 src 값에 대해 가능한 모든 쌍(A<->B)의 플리커를
+    자동 스캔해 건수 내림차순으로 정렬해 리턴. "우세 쌍이 뭔지" 세션마다
+    수동으로 찾던 과정(예: 260819-4 세션의 model<->vturn 140건 수동 집계)을
+    자동화 — road<->route 등 이제껏 따로 집계된 적 없는 쌍도 여기서 함께 나온다.
+
+    min_count: 이 건수 미만인 쌍은 결과에서 제외(노이즈성 1~2건 전환 제거용).
+
+    리턴: [source_pair_flicker_stats(...), ...] (transition_count 내림차순),
+          각 항목의 "events" 키는 용량 절약을 위해 제거하고 대신 전체를
+          별도로 얻고 싶으면 source_pair_flicker_stats()를 그 쌍에 대해
+          직접 재호출.
+    """
+    transitions = source_transition_log(rows)
+    srcs = set()
+    for t in transitions:
+        srcs.add(t["from_src"])
+        srcs.add(t["to_src"])
+    srcs = sorted(srcs)
+
+    results = []
+    for i in range(len(srcs)):
+        for j in range(i + 1, len(srcs)):
+            stats = source_pair_flicker_stats(rows, srcs[i], srcs[j], transitions=transitions)
+            if stats["transition_count"] >= min_count:
+                stats = dict(stats)
+                stats.pop("events", None)
+                results.append(stats)
+
+    results.sort(key=lambda s: s["transition_count"], reverse=True)
+    return results
+
+
+# ---------------------------------------------------------------------------
 # 8) 크루즈 on/off 이벤트
 # ---------------------------------------------------------------------------
 def cruise_engage_disengage_events(rows):
