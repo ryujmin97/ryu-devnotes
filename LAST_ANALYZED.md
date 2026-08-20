@@ -9,6 +9,26 @@
 ---
 
 ## c3-ms-dev
+- last_analyzed_commit (22차 기록): `1f9f852` (HEAD, 신규 커밋 없음 —
+  22차도 코드 분석이 아니라 route1/route2(21차와 동일 로그, dashcam
+  zip 재업로드) 재스캔 + 영상 프레임 대조)
+- date: 2026-08-20 (22차)
+- note: (22차) 사용자 재제보 "카메라 인식→레이더 락온 순간 급감속"
+  패턴을 `vision_to_radar_crossover(highway_v_ego=0.0)`로 저속 포함
+  재스캔 + radar_confirm 전후 aEgo 프로파일 자동 대조 → route2 seg5
+  t=1647.00(고속 100km/h대 커브, aEgo 0→-2.28 m/s²/1.8s)과 route1
+  seg9 t=1077.81(시내 68km/h, 완만한 버전) 2건 재현 확인, 둘 다
+  레이더 락온 순간 vRel이 -8.0/-8.4m/s로 유사하게 점프. **원인 확정**:
+  `b403d52`의 dRel 미분 추정치 자체는 실제값에 근접하지만, 원거리
+  (63~120m)에서는 TTC=dRel/rate가 물리적으로 LEAD_ACQ_TTC_CAUTION
+  (6.0s)을 못 넘어 무시됨(구조적 한계) + `leadStatus` 짧은 깜빡임마다
+  `_vision_dRel_rate`가 리셋되는 부작용도 신규 확인. 개선안 3가지
+  제안(캐션 문턱 완화/closing-rate 절대값 게이트/리셋에 grace 적용) —
+  **사용자 결정 대기, 코드 미작성**. `extract_dashcam_frames.py`로
+  route2 t=1644.75/1646.95/1648.36 프레임 확보, `evidence/
+  vision_radar_ttc_limit/`에 3장 저장. 상세는 FINDINGS.md/
+  PARAMS_REGISTRY.md 22차 참고.
+
 - last_analyzed_commit: `1f9f852` (HEAD, 20차 CarrotWeb 로그탭
   새로고침 버튼 패치 실차 `git am`+push로 반영 확인 —
   `7b4a160..1f9f852`. 커밋 분석 트랙과는 별개, UI 기능 추가.)
