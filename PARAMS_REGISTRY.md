@@ -15,6 +15,8 @@
 | LEAD_ACQ_LOSS_GRACE_TIME | 0.5s | 순간유실 허용 시간 | **재검토 필요** (2026-08-20, 260819-2 분석 중 extract_log.py가 세그먼트 경계마다 leadStatus를 인위적으로 False 리셋하는 도구 버그 확인 — 해당 라우트 순간유실 16건 전부 세그먼트 경계와 diff=0.000s로 정확히 일치, 실제 유실 아닌 추출 아티팩트. 과거 누적 증거(x11seg 4건+x16seg 1건+x20seg(260819-1) 6~7건)도 세그먼트 경계 여부 재대조 필요 — 특히 0.3s 이하 짧은 유실은 아티팩트 의심, 1s+ 긴 유실은 실사례 가능성 유지. 상세는 FINDINGS.md 참고, extract_log.py 수정 제안은 미적용 상태) |
 | LEAD_ACQ_TTC_DANGER | 2.5s | TTC 이하면 frac=1.0 즉시 | NEEDS_VALIDATION |
 | LEAD_ACQ_TTC_CAUTION | 6.0s | TTC 이상이면 TTC 성분 미개입 | NEEDS_VALIDATION |
+| VISION_CLOSING_RATE_TAU | 1.0s | vision-only dRel 미분 접근속도 저역통과 시정수 | NEEDS_VALIDATION (2026-08-20 신규, 코드만 완료·aEgo 실측 대조 미완료) |
+| VISION_CLOSING_RATE_MIN_TIME | 1.0s | 이 시간 이상 연속추적 후에만 dRel 미분 TTC 신뢰 | NEEDS_VALIDATION (상동) |
 
 ## selfdrive/controls/radard.py
 
@@ -134,3 +136,10 @@
   긴 유실 다수 확인됐으나 전부 무해 재확인, MAX_SEGMENTS_PER_ROUTE는
   route ID 종료가 캡 발동인지 재부팅 우연인지 불명확한 참고 관찰만
   추가). 상세는 FINDINGS.md 참고.
+- 2026-08-20 (신규 세션): VISION_CLOSING_RATE_TAU/MIN_TIME 신설 —
+  vision-only 원거리 리드 closing-rate 크로스체크 패치(commit
+  `60286ff`, 미push 상태 patch 파일로 전달). 8개 zip 크로스오버
+  분석(VISION_RADAR_CROSSOVER.md) 최우선 후보 5건 + 사용자 실주행
+  체감 보고("카메라 인식 시점부터 감속 없다가 레이더 확인 순간부터
+  감속") 기반 설계. aEgo 실측 대조는 아직 미완료 — 다음 세션에서 최우선
+  후보 5건 세그 재업로드받아 검증 필요(FINDINGS.md 신규 항목 참고).
