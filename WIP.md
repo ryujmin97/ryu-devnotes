@@ -1,51 +1,36 @@
 # WIP — 중단 지점 (체크포인트, 세션 종료 아님)
 
-- 저장 시각: 2026-08-20 (14차, 사용자 "저장" 요청 — **screenrecord clip
-  버그 2건 설계 합의 완료, 패치 작성은 다음 단계**)
+- 저장 시각: 2026-08-20 (14차 갱신, screenrecord clip 버그 2건 —
+  **패치 작성 + `git am` 시뮬레이션 검증 완료, 실차 적용 대기**)
 
-## 14차 갱신 — screenrecord clip 버그 2건 설계 합의 (패치 작성 전, 체크포인트)
-- **문제 1 (롤오버 중복 생성)**: FINDINGS.md
-  `[RISK_IDENTIFIED, NEEDS_VALIDATION] screenrecord clip(commit
-  \`0f7575f\`)` 항목 그대로 — `stop_locked()`가 20분 자동 세그먼트
-  롤오버(`update_screen()`)에서도 호출되어, 정지 버튼을 안 눌러도
-  20분마다 clip이 계속 쌓임.
-- **문제 2 (초 단위 타임스탬프 충돌)**: 같은 항목의 부가 엣지케이스 —
-  clip 파일명이 정지 시각 초 단위라, 같은 초에 정지가 두 번 겹치면
-  `-y` 때문에 앞 clip이 소리 없이 덮어써질 수 있음.
-- **합의된 해결 방향** (이번 대화에서 사용자와 논의 확정, 아직 코드
-  미작성):
-  1. `stop_locked(bool auto_rollover = false)`로 시그니처 변경.
-     `toggle()`/`stop()`(사용자 경로)은 기본값(`false`, 수동 정지)
-     그대로 호출, `update_screen()`의 20분 롤오버 경로만
-     `stop_locked(true)`로 명시 호출. 함수 끝의
-     `extract_trailing_clip()` 호출을 `if (!auto_rollover &&
-     !finished_path.empty())`로 감싸 롤오버 시 clip 생성 자체를
-     스킵. `closeEncoder()`/`image_queue.clear()` 등 나머지는 두
-     경로 모두 그대로 실행(파일 finalize는 롤오버 때도 필요).
-  2. 타임스탬프 해상도는 **초 단위 그대로 유지** — 분 단위로 낮추는
-     대안은 사용자가 제기했으나, (a) 버킷이 60배 커져 충돌 확률이
-     오히려 늘고 (b) clip 목적 자체가 "이벤트 발생 시각과 가장 가까운
-     세그먼트를 초 단위로 찾기"라 분 단위는 검색 정밀도를 해친다는
-     이유로 기각. 대신 `extract_trailing_clip()`이 ffmpeg
-     `QProcess::startDetached` 호출 직전(동기 구간)에 `stat()`으로
-     동일 경로 존재 여부를 확인해, 충돌 시에만
-     `..._clip_2.mp4`, `..._clip_3.mp4`처럼 접미사를 붙이는 방식으로
-     변경(`<sys/stat.h>`는 이미 include됨). 정상 케이스(충돌 없음)는
-     기존과 동일하게 `YYMMDD_HHMMSS_clip.mp4` 그대로 유지.
-- 대상 파일: `selfdrive/ui/qt/screenrecorder/screenrecorder.cc`,
-  `screenrecorder.h`(`stop_locked` 시그니처).
+## 14차 갱신 — screenrecord clip 버그 2건 패치 완료 (실차 적용 대기)
+- 문제 1(20분 자동 롤오버에서도 clip 반복 생성)/문제 2(초 단위
+  타임스탬프 충돌) 모두 설계 합의대로 구현 완료.
+- **구현**: `stop_locked(bool auto_rollover = false)` 시그니처 변경,
+  롤오버 호출부만 `stop_locked(true)`로 clip 추출 스킵.
+  `extract_trailing_clip()`에 `stat()` 충돌 체크 + `_clip_2`,
+  `_clip_3`... 접미사 폴백 추가(정상 케이스는 기존과 동일).
+- 컨테이너 ryu 클론에서 커밋 생성(base `119b101`, HEAD 반영), 별도
+  임시 브랜치에서 `git am` 적용 시뮬레이션 통과 확인.
+- **패치 파일**: `/mnt/user-data/outputs/0001-screenrecord-clip-rollover-fix.patch`
+  (`git format-patch` 형식). **실차 미적용** — 사용자 `git am` 적용
+  대기.
+- 상세 근거/구현 diff는 FINDINGS.md "[PATCH_WRITTEN, NEEDS_VALIDATION]
+  screenrecord clip(commit `0f7575f`) ... 14차 패치 작성" 참고.
 
-## 다음 세션(또는 이 세션 재개)에서 이어갈 것 (14차, 신규 최우선)
-1. **위 합의안대로 패치 작성** — `stop_locked(bool auto_rollover =
-   false)` 시그니처 변경 + `update_screen()` 호출부 수정 +
-   `extract_trailing_clip()` 내 `stat()` 충돌 체크 추가. `py_compile`
-   상당하는 C++ 문법 확인(컨테이너에 빌드 툴체인 없음, 코드 리뷰
-   위주) 후 컨테이너 ryu 클론에서 커밋 생성 → `git format-patch -1`
-   → `git am` 시뮬레이션 검증.
-2. 패치 완료 후 FINDINGS.md의 `[RISK_IDENTIFIED, NEEDS_VALIDATION]
-   screenrecord clip` 항목을 `[PATCH_WRITTEN]`으로 갱신.
-3. 13차(model 게이팅) 실측 검증은 여전히 별도 트랙으로 대기 중(위
-   13차 섹션 참고).
+## 다음 세션(또는 이 세션 재개)에서 이어갈 것 (14차, 최우선)
+1. **실차 `git am` 적용 + push 대기** — 위 패치 파일.
+2. 적용 후 실측: (a) 화면녹화 켜둔 채 20분+ 주행 시 자동 롤오버에서
+   clip이 더 이상 생성되지 않는지, (b) 정지 버튼으로는 여전히 정상
+   생성되는지, (c) 토글 연타로 같은 초에 정지가 겹치는 상황 재현이
+   가능하면 `_clip_2.mp4` 폴백이 실제로 동작하는지 확인.
+3. 10차(screenrecord clip 원 기능)/13차(model 게이팅) 실측 검증도
+   여전히 별도 트랙으로 대기 중(아래 각 섹션 참고).
+
+## [이전 기록] 14차 설계 합의 시점 메모 (패치 작성 완료로 해소, 보존용)
+- 합의된 방향(위 "14차 갱신"에 그대로 구현됨): stop_locked에
+  auto_rollover 플래그 추가, 타임스탬프 해상도는 초 단위 유지 +
+  stat() 충돌 체크로 접미사 부여(분 단위 대안은 기각).
 
 - 저장 시각: 2026-08-20 (13차, 사용자 "저장" 요청 — **model 게이팅
   재설계 패치 실차 `git am` 적용 + push 완료 확인**, commit `119b101`
