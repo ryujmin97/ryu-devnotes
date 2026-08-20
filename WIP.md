@@ -69,12 +69,13 @@
 
 ## 다음 세션에서 이어갈 후보 (우선순위 순)
 1. **비전→레이더 크로스오버 aEgo 대조 (최우선, 새 트랙)**: 위 5건
-   시각/세그가 이미 VISION_RADAR_CROSSOVER.md에 있으므로, 해당
-   zip(260819-5, -6, -7 중 필요한 것만 1~2개)만 재업로드 받아 그 구간
-   aEgo를 프레임 단위로 확인 → "비전-only 구간 동안 실제로 감속을
-   안 하고 있었는지" 확정. 확정되면 long_mpc.py의 `LEAD_ACQ_*`가
-   `radar=False` 상태에서 이미 반응하는지 코드 확인 → "vision-only +
-   closing rate 게이팅" 선제 감속 패치 설계.
+   세그 폴더명이 이미 `VISION_RADAR_CROSSOVER.md`(및 highway 65건
+   전체는 `evidence/crossover/highway_events_seg_lookup.md`)에 있으므로,
+   **zip 전체가 아니라 해당 세그 폴더 1~5개만** 재업로드 받아 그
+   구간 aEgo를 프레임 단위로 확인 → "비전-only 구간 동안 실제로
+   감속을 안 하고 있었는지" 확정. 확정되면 long_mpc.py의
+   `LEAD_ACQ_*`가 `radar=False` 상태에서 이미 반응하는지 코드
+   확인 → "vision-only + closing rate 게이팅" 선제 감속 패치 설계.
 2. **"교차로 빈 lead 오탐지" 근본원인 조사**: 정차 중 빈 교차로
    지오메트리에서 횡단 차량을 리드로 오탐지하는 패턴(4차 체크포인트
    확인) — long_mpc.py/LeadBlend에서 정차(vEgo≈0) + 실제 리드 부재
