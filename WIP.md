@@ -491,7 +491,19 @@
    재부팅 겹침인지 코드 레벨 확인 필요 (패치 이전 시점 로그라 미검증).
 5. (기존 on-the-horizon 항목) LEAD_ACQ_RAMP_TIME=5.0s,
    LEAD_ACQ_TTC_DANGER=2.5s 검증용 고속 근접 리드 lock-on 로그 여전히
-   필요. CarrotWeb 로그탭 UI 버그도 미해결.
+   필요.
+
+## [완료, 9차] CarrotWeb 로그탭 새로고침 버튼 추가
+- 사용자 요청: git pull 등으로 파일이 추가돼도 로그탭이 자동 반영되지
+  않아 항상 화면을 당겨서 새로고침해야 했던 문제.
+- `selfdrive/carrot/web/index.html`(btnLogsRefresh 마크업 +
+  logs.css/js 캐시 쿼리 v=2→v=3), `js/logs.js`(`logsRefreshCurrent()`
+  신설 — activeTab에 따라 loadDashcamRoutes/loadScreenrecordVideos
+  재호출, 연타 방지 + 로딩 스핀, bindLogsEvents 클릭 바인딩),
+  `css/logs.css`(`.logs-refresh-btn` 스타일 + 스핀 애니메이션).
+- `node --check` 문법 검증 통과. 패치 `0001-carrotweb-logs.patch`
+  사용자가 `git am` 적용 + `git push` 완료 확인
+  (`ryu` commit `1f9f852`, `7b4a160..1f9f852`).
 
 ## 다음 세션 시작 시
 이 WIP.md가 존재하면 위 "다음 세션에서 이어갈 후보" 중 사용자가
