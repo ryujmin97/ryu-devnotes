@@ -1325,3 +1325,46 @@
 - 근거: `work/route1.csv`(HEAD `1f9f852`), `harsh_brake_events`/
   `turn_speed_violations`/`source_transition_log`/
   `steering_oscillation_detector`/`curve_exit_no_accel_scan_v2` 결과.
+
+## [VALIDATED] route2 (`4fe653914c`, x19seg) — 같은 세션 연속분, 고속(100km/h+) 커브 최초 실측 확보 (2026-08-20, 21차, HEAD `1f9f852`)
+- route1 직후 연속 주행(같은 부팅, 이어지는 라우트). 11.47km/1140s
+  (19.0분), 평균 36.2km/h, **최고 114.4km/h**, vEgo≥54km/h 프레임
+  29.5% — route1과 달리 **고속도로 구간 포함**, ADAS 활성 76.5%.
+- **harsh_brake_events**: 원본 35건 → ADAS 활성 중/운전자개입 제거 후
+  **0건** (route1과 동일 패턴). turn_speed_violations 0건.
+- **vturn↔model 플리커**: 41건/19.0분 = **2.16/min** — route1과 함께
+  17차 검증 범위(2.16~2.58/min) 내 재확인.
+- **steering_oscillation_detector**: 2건, **이번엔 둘 다
+  `cruiseEnabled=True`**(route1과 반대) — 상세 프레임 대조 결과
+  `desiredCurvature` 부호가 실제로 반전되는 완만한 S자 도로 구간과
+  정확히 일치(t=1915.5~1917 부근), 최대 조향각 11.7도로 경미 — 시스템
+  오동작이 아니라 **실제 도로 형상을 매끈하게 추종한 정상 동작**으로
+  판단.
+- **[핵심] 고속 vturn 구간 실측 최초 확보** — vEgo≥54km/h로 시작하는
+  vturn 블록 25개(전체 80개 중) 발견, 이 중 대표 2개 상세 분석:
+  1. t=1607.1~1613.8(6.7s): 101.0→91.0km/h, 최대 감속 -1.31 m/s²,
+     저크 없이 매끈하게 감속. 이후 88.3~114km/h 구간을 오가며 여러
+     차례 자연스러운 재가속/재감속 반복 — 급감속/과도출렁임 없음.
+  2. t=1492.9~1554.4(61.4s, **연속 vturn 최장 블록**): 76.8→114.3km/h로
+     가속하는 완만한 고속 커브 구간에서 **61초 내내 src 전환 0회**
+     (플리커 전무) — PARAMS_REGISTRY의 "장시간 정속 커브 부작용(13차
+     알려진 한계, 그동안 시내 로그로는 검증 불가)"이 **처음으로 실측
+     데이터를 확보했고, 결과는 클린**(플리커 없음, overspeed 없음).
+     단, 이 구간 후반(t≈1546~1554, 114→78km/h 감속)은 재검토 결과
+     **커브 감속이 아니라 leadStatus=True 전방차 추종에 의한 감속**
+     (desiredSpeed는 145~150으로 vEgo보다 훨씬 높게 유지된 채 src=vturn
+     그대로) — src=vturn 유지 중이라고 해서 해당 구간 aEgo 변화가 전부
+     "커브 감속"은 아님, 향후 분석 시 leadStatus/leadDRel 교차 확인
+     필수라는 방법론 상 유의점으로 기록.
+  - **결론**: vturn_lookahead_horizon_s=8.0s/vturn_decel_rate=1.2/
+    vturn_safe_time=1.0s 물리공식 기반 감속이 실제 100km/h대 고속
+    커브에서도 저크 없이 매끈하게 동작함을 정성적으로 첫 확인. 다만
+    "8.0s가 8.6s 목표보다 근소히 짧다"는 정량적 지평선 자체의 미세
+    검증(NEEDS_VALIDATION)은 이번 로그에 해당 조임 패턴(급격히
+    좁혀지는 커브)이 없어 여전히 완전 해소는 아님 — PARTIALLY_VALIDATED로
+    격상 검토 가능.
+- **raw vTurnSpeed 부호反전**: route1과 동일 패턴 재확인(예:
+  t=1606.5 전후 +249→-246, 이후 desiredSpeed는 항상 |vTurnSpeed| 추종).
+  route1 항목 참고, 신규 아님.
+- 근거: `work/route2.csv`(HEAD `1f9f852`), 동일 toolkit 함수 세트 +
+  고속 vturn 블록 수동 프레임 대조(t=1492~1632, t=1884~1918).
