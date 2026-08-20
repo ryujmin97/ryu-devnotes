@@ -1040,6 +1040,110 @@ def regression_report_markdown(report, before_label="before", after_label="after
     return "\n".join(lines)
 
 
+# ---------------------------------------------------------------------------
+# 15) 곡선(vturn) 구간 leadDRel 급점프 노이즈 탐지
+# ---------------------------------------------------------------------------
+def curve_lead_dRel_jump_events(rows, jump_thresh_m=8.0, max_dt_s=0.35,
+                                 curve_src_values=("vturn",), ttc_danger_thresh=2.5):
+    """
+    23차(2026-08-21)에서 발견된 패턴 탐지용: 곡선 구간(`src`가
+    curve_src_values, 기본 "vturn")에서 모델이 서로 다른 물체(차선/
+    구조물/실제 다른 차량)를 순간순간 리드로 오인해 leadDRel이 프레임
+    간 큰 폭(예: 60m→32m→29m)으로 튀는 현상. 이게 vision closing-rate
+    필터(`VISION_CLOSING_RATE_TAU`, sim_vision_rate.py 참고)에 노이즈성
+    DANGER 스파이크를 유발할 수 있음 -- 개선안 1/2/4번 설계 전 선행검토용.
+
+    max_dt_s: 이 시간 이내의 연속 프레임 쌍만 비교(세그먼트 경계 등
+    비정상 dt 제외, extract_log.py 2026-08-21 수정 이후 CSV 권장).
+
+    리턴: [{"seg","t","dRel_prev","dRel_now","jump_m","dt_s",
+            "implied_rate_mps","vEgo","would_trigger_ttc_danger"}]
+    implied_rate_mps = jump_m / dt_s (프레임 간 급점프를 순간
+    접근/이탈 속도로 환산한 값 -- 실제 vRel이 아니라 dRel 미분
+    노이즈의 크기를 가늠하기 위한 참고치).
+    would_trigger_ttc_danger: dRel_now/implied_rate_mps로 계산한 TTC가
+    ttc_danger_thresh 이하인지 (실제로 DANGER 문턱을 넘길 만한
+    노이즈인지 1차 필터링용).
+    """
+    n = len(rows)
+    t = [_f(r, "t") for r in rows]
+    src = [r.get("src") for r in rows]
+    dRel = [_f(r, "leadDRel") for r in rows]
+    lead = [_b(r, "leadStatus") for r in rows]
+    vEgo = [_f(r, "vEgo") for r in rows]
+    seg = [r.get("seg") for r in rows]
+
+    events = []
+    for i in range(1, n):
+        if src[i] not in curve_src_values:
+            continue
+        if not (lead[i] and lead[i - 1]):
+            continue
+        if t[i] is None or t[i - 1] is None or dRel[i] is None or dRel[i - 1] is None:
+            continue
+        dt = t[i] - t[i - 1]
+        if not (0 < dt <= max_dt_s):
+            continue
+        jump = dRel[i] - dRel[i - 1]
+        if abs(jump) < jump_thresh_m:
+            continue
+        implied_rate = jump / dt
+        ttc = None
+        would_danger = False
+        if implied_rate < 0 and dRel[i] > 0:
+            ttc = dRel[i] / (-implied_rate)
+            would_danger = ttc <= ttc_danger_thresh
+        events.append({
+            "seg": seg[i], "t": round(t[i], 2),
+            "dRel_prev": round(dRel[i - 1], 2), "dRel_now": round(dRel[i], 2),
+            "jump_m": round(jump, 2), "dt_s": round(dt, 3),
+            "implied_rate_mps": round(implied_rate, 2),
+            "vEgo": round(vEgo[i], 2) if vEgo[i] is not None else None,
+            "would_trigger_ttc_danger": would_danger,
+        })
+    return events
+
+
+def curve_noise_summary(rows, jump_thresh_m=8.0, max_dt_s=0.35,
+                         curve_src_values=("vturn",), ttc_danger_thresh=2.5):
+    """
+    curve_lead_dRel_jump_events()를 요약 통계로 압축.
+    "곡선 구간에서 이 노이즈가 실제로 얼마나 자주 DANGER 문턱을
+    넘길 만한 크기로 발생하는가"를 한눈에 보는 용도.
+
+    리턴: {"n_curve_frames","n_jump_events","n_would_trigger_danger",
+           "jump_events_per_min_in_curve", "events"(상세 리스트)}
+    """
+    events = curve_lead_dRel_jump_events(
+        rows, jump_thresh_m=jump_thresh_m, max_dt_s=max_dt_s,
+        curve_src_values=curve_src_values, ttc_danger_thresh=ttc_danger_thresh,
+    )
+    n_curve_frames = sum(1 for r in rows if r.get("src") in curve_src_values)
+    # 곡선 구간 체류 시간(초) 근사: 프레임 수 * 평균 dt 대신, 실제 t 스팬으로 추정
+    curve_rows = [r for r in rows if r.get("src") in curve_src_values]
+    curve_times = [_f(r, "t") for r in curve_rows if _f(r, "t") is not None]
+    curve_duration_min = 0.0
+    if len(curve_times) >= 2:
+        # 연속 구간이 아닐 수 있으므로 dt<1.0인 구간만 누적
+        curve_times_sorted = sorted(curve_times)
+        for i in range(1, len(curve_times_sorted)):
+            dt = curve_times_sorted[i] - curve_times_sorted[i - 1]
+            if 0 < dt < 1.0:
+                curve_duration_min += dt / 60.0
+
+    n_danger = sum(1 for e in events if e["would_trigger_ttc_danger"])
+    return {
+        "n_curve_frames": n_curve_frames,
+        "curve_duration_min": round(curve_duration_min, 2),
+        "n_jump_events": len(events),
+        "n_would_trigger_danger": n_danger,
+        "jump_events_per_min_in_curve": (
+            round(len(events) / curve_duration_min, 2) if curve_duration_min > 0 else None
+        ),
+        "events": events,
+    }
+
+
 if __name__ == "__main__":
     import sys
     if len(sys.argv) < 2:

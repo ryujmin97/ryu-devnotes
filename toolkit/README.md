@@ -91,6 +91,13 @@ segment_boundary_lead_loss_artifacts()`로 먼저 감사할 것.
 - `regression_report_markdown(report, before_label, after_label)` —
   `regression_report()` 결과를 FINDINGS.md에 바로 붙여넣을 수 있는
   마크다운 표로 변환.
+- `curve_lead_dRel_jump_events(rows, jump_thresh_m, max_dt_s,
+  curve_src_values, ttc_danger_thresh)` — (2026-08-21 신규) 곡선
+  구간(`src="vturn"`)에서 모델이 다른 물체를 리드로 오인해 leadDRel이
+  프레임 간 급점프하는 노이즈 탐지(23차 발견 패턴). `VISION_CLOSING_
+  RATE_TAU` 개선안(1/2/4번) 설계 전 선행검토용.
+- `curve_noise_summary(rows, ...)` — 위 함수 결과를 요약 통계(곡선
+  구간 체류시간 대비 점프 빈도, DANGER 문턱 넘김 건수)로 압축.
 
 **회귀 리포트 사용 예시**:
 ```python

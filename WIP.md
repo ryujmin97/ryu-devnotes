@@ -1,10 +1,21 @@
 # WIP — 중단 지점 (체크포인트, 세션 종료 아님)
 
-- 저장 시각: 2026-08-21 (20차, 도구 후보 2/5 완료 — 패치 전/후
-  회귀 리포트 생성기(`regression_report`) + TTC danger
-  탐지/배치스캐너 추가, push 완료. 3~5번 순차 진행 예정, 완료마다 저장.)
+- 저장 시각: 2026-08-21 (20차, 도구 후보 3/5 완료 — 곡선(vturn)
+  구간 leadDRel 급점프 노이즈 탐지 도구
+  `curve_lead_dRel_jump_events()`/`curve_noise_summary()` 추가, push
+  완료. 4~5번 순차 진행 예정, 완료마다 저장.)
 
-## 20차 진행 로그 — toolkit 인프라 정비 + 도구 후보 1~2/5 완료
+## 20차 진행 로그 — toolkit 인프라 정비 + 도구 후보 1~3/5 완료
+
+### 도구 3/5 완료 — 곡선(vturn) 구간 leadDRel 급점프 노이즈 탐지
+- `analysis_helpers.py`: `curve_lead_dRel_jump_events()`,
+  `curve_noise_summary()` 신규 — 23차 발견 패턴(곡선에서 모델이 다른
+  물체를 리드로 오인해 dRel 급점프, TTC DANGER 오탐 유발 가능) 정량화.
+- 합성 데이터로 23차 실제 패턴 재현 검증 완료(위험/회복 방향 점프
+  정확히 분류).
+- `PARAMS_REGISTRY.md`의 `VISION_CLOSING_RATE_TAU` 항목에 진행상황 반영.
+- **아직 미실행**: 실제 routeA/routeB CSV 및 향후 로그로 발생 빈도
+  측정, 1/2/4번안 필터링 방식 설계는 다음 로그 분석 세션에서.
 
 ### 도구 2/5 완료 — 패치 전/후 회귀 리포트 생성기
 - `analysis_helpers.py`: `ttc_danger_events()`, `scan_routes_for_ttc_danger()`,
@@ -32,14 +43,14 @@
 - `toolkit/README.md`/`CHANGELOG.md` 신설, `SETUP.md` 체크리스트 연결.
 - `push_via_api.py`를 Git Trees API로 교체(파일수 무관 커밋 1개),
   실제 push로 검증 완료.
-- commit: `f233a87`, `2f09a8d`, `26195d5`, `da2d389`(도구 1/5).
+- commit: `f233a87`, `2f09a8d`, `26195d5`, `da2d389`(도구 1/5),
+  `8d8a901`(도구 2/5).
 
-## 다음 세션/다음 단계에서 이어갈 것 (도구 후보 3~5번, 순차 진행 중)
-3. **[다음 착수]** 곡선(vturn) 구간 dRel 노이즈 필터/탐지 함수 — 23차
-   신규 발견, 1/2/4번안(VISION_CLOSING_RATE_TAU 개선) 설계 전
-   선행검토 필요.
-4. min() 소스 선택 히스테리시스 범용 스캐너 — vturn↔model 쌍만 특별
-   취급 중, road/route 등 나머지 쌍은 여전히 미해결.
+## 다음 세션/다음 단계에서 이어갈 것 (도구 후보 4~5번, 순차 진행 중)
+4. **[다음 착수]** min() 소스 선택 히스테리시스 범용 스캐너 —
+   vturn↔model 쌍만 특별 취급 중, road/route 등 나머지 쌍은 여전히
+   미해결. `source_transition_log()`를 임의의 두 소스 쌍에 대해
+   범용화.
 5. 희귀 이벤트(고속 근접추종 TTC DANGER) 배치 스캐너 — 2번에서
    `scan_routes_for_ttc_danger()`로 기반은 마련됨. 5번에서는 이걸
    실제 여러 라우트 CSV에 돌려서 DANGER 케이스 유무를 확인하는
