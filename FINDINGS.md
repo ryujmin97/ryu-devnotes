@@ -878,3 +878,89 @@
      원거리 예측 신뢰도 이슈를 더 주의 깊게 봐야 함.
   4. `vturn_safe_time`(1.0s)/`vturn_decel_rate`(1.2 m/s², 방지턱 기본값)는
      이번에도 건드리지 않음 — 지평선만 넓혀도 부족하면 다음 단계로 검토.
+
+## [RISK_IDENTIFIED, NEEDS_VALIDATION] model_turn_straight_gate(commit `2226db7`) — desiredCurvature 게이팅이 "커브 진입 전 model 사전감속"까지 억제할 위험 (2026-08-20, 코드 재검토)
+
+- **배경**: 9차 세션에서 vturn↔model 플리커(A→B→A 49건) 대응으로
+  `carrot_serv.py`에 `model_turn_straight_thresh`/`hold_sec` 게이트를
+  추가(`2226db7`, 실차 적용+push 완료). 의도는 "커브를 이미 빠져나왔는데
+  model만 필터 지연으로 낮은 값을 뒤늦게 들고 있는" 케이스만 걸러내는
+  것.
+- **재검토 결과, 새로 발견한 위험**: 게이트 조건이 참조하는
+  `modelV2.action.desiredCurvature`는 lateral 제어기가 **지금 이 순간**
+  실제로 쓰는 곡률(현재값)이다. 반면 배제 대상인 `modelTurnSpeed`는
+  `desire_helper._make_model_turn_speed()`에서
+  `np.interp(modelTurnSpeedFactor, modeldata.velocity.t, modeldata.velocity.x)`로
+  계산되는 **모델 예측 궤적의 미래 시점 속도**(저역통과 필터링됨) —
+  즉 명시적으로 "앞을 미리 보는" lookahead 값이다.
+- 커브 진입 직전에는 보통 desiredCurvature가 threshold 미만인 직선
+  구간이 hold_sec(0.6s)보다 길게 존재한다 — **바로 이 구간에서 model이
+  "저 앞에 커브가 있다"며 미리 속도를 낮추려는 순간, 이 게이트가 model
+  후보를 `speed_n_sources`에서 제외**한다. vturn/route는 자체 lookahead
+  (vturn은 최근 8.0s로 확대, 1fca82f)로 커브를 별도로 잡지만, model
+  후보가 원래 보완하려던 "vturn/route가 못 잡는 케이스, 또는 더 이른
+  시점의 예측"이라는 이점이 이 게이트로 무력화될 수 있다.
+- 커밋 메시지의 "실제 커브 진입 반응은 안 늦춤"이라는 주장은 vturn/route
+  기준으로는 맞지만(둘 다 자체 lookahead로 독립 동작), **model 후보
+  자체의 진입-전 기여도는 검토되지 않은 채** 패치가 나갔다.
+- **영향 범위 미확정**: vturn/route가 이미 대부분의 커브를 자체
+  lookahead로 커버하고 있다면 model의 사전감속 기여분이 원래도 작아
+  실질적 영향이 미미할 수 있음 — 반대로 vturn/route보다 model이 먼저
+  반응하던 케이스가 있었다면(플리커 분석에서 model↔vturn이 우세 쌍으로
+  나온 것 자체가 model이 자주 min()을 차지했다는 뜻이므로 가능성 있음)
+  체감 가능한 사전감속 지연/누락으로 나타날 수 있음. **로그 재분석
+  필요** — `2226db7` 적용 이후 로그에서 커브 진입 전 구간의
+  `desiredSource`/`vTurnSpeed`/model 후보 배제 여부와 실제 aEgo 프로파일
+  대조.
+- **개선 방향(패치 미작성, 사용자 확인 대기)**:
+  1. `desiredCurvature`(현재값) 대신 `model_turn_speed` 자체의 추세를
+     보는 방식 — "최근 hold_sec 동안 model_turn_speed가 감소한 적 없이
+     계속 높거나 회복 중"일 때만 배제하면, 하강 중(=사전감속 시도 중)인
+     케이스는 건드리지 않고 트레일링 케이스만 잡을 수 있음.
+  2. 또는 vturn/route가 이미 "직선"으로 판단 중인지(예: vturn_speed가
+     이미 거의 무제한)까지 같이 참조해서, "vturn/route도 이미 직선으로
+     보는데 model만 낮다"는 조합일 때만 배제.
+- 근거: `desire_helper.py` L84-88(`_make_model_turn_speed`), `carrot_serv.py`
+  L1020-1036(게이팅 적용부), cereal/log.capnp L983(`Action.desiredCurvature`
+  필드 확인).
+
+## [RISK_IDENTIFIED, NEEDS_VALIDATION] screenrecord clip(commit `0f7575f`) — 20분 자동 세그먼트 롤오버에서도 clip이 반복 생성됨 (2026-08-20, 코드 재검토)
+
+- **배경**: 10차 세션에서 "정지 버튼 누르면 마지막 1분을 별도 clip으로
+  추출" 기능 추가(`0f7575f`, 실차 적용+push 완료). `screenrecorder.cc::
+  stop_locked()`에서 `closeEncoder()` 직후 `extract_trailing_clip()`
+  호출.
+- **재검토 결과, 새로 발견한 문제**: `update_screen()`에 이미 있던 기존
+  로직 — 녹화 시작 후 20분(`1000*60*20`ms) 경과 시 `need_restart=true`
+  → `stop_locked(); start_locked();`로 세그먼트를 자동 롤오버하는
+  구조가 있는데, 새 clip 추출 코드가 `stop_locked()` 안에 들어가 있어서
+  **이 자동 롤오버에서도 동일하게 clip이 생성**된다.
+  - 즉 사용자가 정지 버튼을 누르지 않고 화면녹화를 계속 켜둔 채
+    장시간(수 시간) 주행하면, 20분마다 자동으로 `_clip.mp4`가 하나씩
+    쌓이고 그때마다 ffmpeg 프로세스가 백그라운드로 실행됨 — 커밋
+    메시지/WIP.md에 적힌 원래 의도("정지 버튼 누를 때만")와 실제 동작이
+    다름.
+  - 부가 엣지케이스: clip 파일명이 초 단위 타임스탬프(`YYMMDD_HHMMSS`)라,
+    `-y`(덮어쓰기) 옵션과 겹쳐 같은 초에 stop이 두 번 발생하면(토글
+    연타 등, 확률은 낮음) 앞선 clip이 소리 없이 덮어써질 수 있음.
+- **발열/부하 평가**: ffmpeg는 `-c copy`(재인코딩 없음, stream copy)라
+  1회 호출당 CPU 부하는 낮고 짧음 — 재인코딩이 아니므로 급격한 발열
+  유발 구조는 아님. `closeEncoder()`(OMX HW 인코더 종료)가 ffmpeg
+  실행보다 먼저 동기적으로 끝나 HW 인코더와 리소스를 다투지도 않음.
+  다만 `QProcess::startDetached`는 우선순위/코어 지정이 없는
+  fire-and-forget 프로세스라 `set_core_affinity`로 관리되는
+  camerad/modeld/controlsd와 스케줄링을 다툴 여지는 있고, 위 20분
+  반복 버그 때문에 **장시간 녹화 세션 내내 이 부하가 주기적으로
+  반복**되는 게 문제 — 단발성 발열까지는 아니어도 불필요한 주기적
+  백그라운드 I/O/CPU 버스트가 누적됨. 저장공간도 의도치 않게 계속
+  소모됨(수 시간 녹화 시 clip 파일 다수 누적).
+- **개선 방향(패치 미작성, 사용자 확인 대기)**: `stop_locked()` 내부에서
+  20분 자동 롤오버로 인한 호출인지, 사용자의 명시적 정지(toggle/stop
+  API)로 인한 호출인지 구분하는 플래그 필요 — clip 추출은 후자에서만
+  실행.
+- 근거: `screenrecorder.cc` L98(`toggle`)/L114(`start`)/L119(`stop`)/
+  L157(`stop_locked`)/L260-282(`update_screen` 20분 롤오버).
+- ffmpeg 바이너리가 실제 comma 기기(AGNOS)에 설치돼 있는지는 여전히
+  레포 내 근거 없음(`routes_logs.py` 주석에 "ffmpeg 기능은 포함 안 함"만
+  존재) — WIP.md 기존 미검증 항목과 동일, 재확인만 하고 새로 해소된 건
+  아님.
