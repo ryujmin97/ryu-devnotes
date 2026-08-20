@@ -912,17 +912,47 @@
   필요** — `2226db7` 적용 이후 로그에서 커브 진입 전 구간의
   `desiredSource`/`vTurnSpeed`/model 후보 배제 여부와 실제 aEgo 프로파일
   대조.
-- **개선 방향(패치 미작성, 사용자 확인 대기)**:
-  1. `desiredCurvature`(현재값) 대신 `model_turn_speed` 자체의 추세를
-     보는 방식 — "최근 hold_sec 동안 model_turn_speed가 감소한 적 없이
-     계속 높거나 회복 중"일 때만 배제하면, 하강 중(=사전감속 시도 중)인
-     케이스는 건드리지 않고 트레일링 케이스만 잡을 수 있음.
-  2. 또는 vturn/route가 이미 "직선"으로 판단 중인지(예: vturn_speed가
-     이미 거의 무제한)까지 같이 참조해서, "vturn/route도 이미 직선으로
-     보는데 model만 낮다"는 조합일 때만 배제.
+- **개선 방향(제안 1번 채택, 패치 작성 완료)**:
+  1. ✅ **채택**: `desiredCurvature`(현재값) 대신 `model_turn_speed` 자체의
+     추세를 보는 방식 — "최근 hold_sec 동안 model_turn_speed가 (노이즈
+     허용폭을 넘어) 감소한 적 없이 계속 높거나 회복 중"일 때만 배제하면,
+     하강 중(=사전감속 시도 중)인 케이스는 건드리지 않고 트레일링
+     케이스만 잡을 수 있음.
+  2. (미채택, 참고용) vturn/route가 이미 "직선"으로 판단 중인지(예:
+     vturn_speed가 이미 거의 무제한)까지 같이 참조해서, "vturn/route도
+     이미 직선으로 보는데 model만 낮다"는 조합일 때만 배제하는 방식도
+     검토했으나, 1번이 더 단순하고 model 자체의 상태만으로 판단 가능해
+     우선 채택.
 - 근거: `desire_helper.py` L84-88(`_make_model_turn_speed`), `carrot_serv.py`
-  L1020-1036(게이팅 적용부), cereal/log.capnp L983(`Action.desiredCurvature`
-  필드 확인).
+  L1020-1036(게이팅 적용부, 패치 전 기준), cereal/log.capnp
+  L983(`Action.desiredCurvature` 필드 확인).
+
+### → [PATCH_WRITTEN, 미검증] model 게이팅을 desiredCurvature -> model_turn_speed 추세 기반으로 재설계 (2026-08-20, 12차)
+
+- 위 위험 항목의 개선 방향 1번(model_turn_speed 자체 추세 기반) 채택,
+  패치 작성 완료.
+- **구현**: `carrot_serv.py`에서 `model_turn_straight_thresh`(desiredCurvature
+  기준)를 제거하고, `model_turn_speed_prev`(직전 프레임 값)/
+  `model_turn_speed_noise_tol`(0.3km/h, 노이즈 허용폭)을 신설.
+  `model_turn_speed >= model_turn_speed_prev - noise_tol`(즉 유의미한
+  하락이 없음)이 `model_turn_straight_hold_sec`(0.6s, 기존값 유지) 이상
+  연속되면 "트레일링(커브를 이미 빠져나와 복귀 중)"으로 확정해 model
+  후보를 배제. 반대로 유의미한 하락이 한 프레임이라도 있으면(=커브
+  접근 중 사전감속 시도) 카운터 즉시 리셋 — 진입측 사전감속은 건드리지
+  않는 비대칭 설계는 그대로 유지.
+- `py_compile` 통과, 컨테이너 ryu 클론에서 커밋 생성(`7cdc20b`, base
+  `0f7575f`) 후 `git format-patch -1`로 추출, 임시 브랜치에서 `git am`
+  적용 시뮬레이션 통과 확인.
+- 패치 파일: `/mnt/user-data/outputs/0001-carrot_serv-model-desiredCurvature-model_turn_speed.patch`
+  (`git format-patch` 형식, 실차 미적용 — 사용자 `git am` 적용 대기).
+- **알려진 한계(실측 필요)**: 장시간 정속 커브(model_turn_speed가 낮은
+  값에서 거의 정체)에서 노이즈 허용폭(0.3km/h) 이내로만 흔들리면
+  "감소 없음"으로 판정되어 0.6s 후 model이 배제될 수 있음. 다만 그런
+  상황에서는 vturn/route가 이미 같은 커브를 자체 lookahead로 커버하고
+  있을 가능성이 높아(그렇지 않다면애초에 model_turn_speed가 낮게 유지될
+  이유가 적음) 실질적 위험은 낮다고 판단하나, 다음 세션에서 정속 커브
+  구간 로그로 model 배제 여부와 실제 vturn/route 값을 대조 검증 필요.
+- 근거: 위 RISK_IDENTIFIED 항목과 동일.
 
 ## [RISK_IDENTIFIED, NEEDS_VALIDATION] screenrecord clip(commit `0f7575f`) — 20분 자동 세그먼트 롤오버에서도 clip이 반복 생성됨 (2026-08-20, 코드 재검토)
 
