@@ -138,7 +138,7 @@
   추가). 상세는 FINDINGS.md 참고.
 - 2026-08-20 (신규 세션): VISION_CLOSING_RATE_TAU/MIN_TIME 신설 —
   vision-only 원거리 리드 closing-rate 크로스체크 패치(commit
-  `2a513ec`, 미push 상태 patch 파일로 전달). 8개 zip 크로스오버
+  `b403d52`, 실차 `git am` + push 완료). 8개 zip 크로스오버
   분석(VISION_RADAR_CROSSOVER.md) 최우선 후보 5건 + 사용자 실주행
   체감 보고("카메라 인식 시점부터 감속 없다가 레이더 확인 순간부터
   감속") 기반 설계. aEgo 실측 대조는 아직 미완료 — 다음 세션에서 최우선
