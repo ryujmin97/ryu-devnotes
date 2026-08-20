@@ -15,8 +15,8 @@
 | LEAD_ACQ_LOSS_GRACE_TIME | 0.5s | 순간유실 허용 시간 | **재검토 필요** (2026-08-20, 260819-2 분석 중 extract_log.py가 세그먼트 경계마다 leadStatus를 인위적으로 False 리셋하는 도구 버그 확인 — 해당 라우트 순간유실 16건 전부 세그먼트 경계와 diff=0.000s로 정확히 일치, 실제 유실 아닌 추출 아티팩트. 과거 누적 증거(x11seg 4건+x16seg 1건+x20seg(260819-1) 6~7건)도 세그먼트 경계 여부 재대조 필요 — 특히 0.3s 이하 짧은 유실은 아티팩트 의심, 1s+ 긴 유실은 실사례 가능성 유지. 상세는 FINDINGS.md 참고, extract_log.py 수정 제안은 미적용 상태) |
 | LEAD_ACQ_TTC_DANGER | 2.5s | TTC 이하면 frac=1.0 즉시 | NEEDS_VALIDATION |
 | LEAD_ACQ_TTC_CAUTION | 6.0s | TTC 이상이면 TTC 성분 미개입 | NEEDS_VALIDATION |
-| VISION_CLOSING_RATE_TAU | 1.0s | vision-only dRel 미분 접근속도 저역통과 시정수 | PARTIALLY_VALIDATED (2026-08-20 신규 도입, **17차: 패치 후 첫 실주행 로그 2건(각 19분)로 첫 실측 — closing 크로스오버 6건 전부 레이더 확인 순간 급격한 aEgo 불연속 없이 매끈하게 이어짐, 과거 증상(레이더 락온 시점 급반응)과 다른 패턴 확인. 단 260819-6 seg15급 초장거리(7~8초/90m대) 극단 사례는 이번 로그에 없어 그 등급 재검증은 못함** — FINDINGS.md 17차 참고) |
-| VISION_CLOSING_RATE_MIN_TIME | **0.5s** (정정, 최초 1.0s에서 단축) | 이 시간 이상 연속추적 후에만 dRel 미분 TTC 신뢰 | PARTIALLY_VALIDATED (2026-08-20, 사용자 피드백으로 1.0s→0.5s 단축 — TAU=1.0s는 유지라 0.5s 시점엔 필터가 약 39%만 수렴한 상태, danger 판정이 다소 보수적일 수 있음. **17차: 실측 결과 danger 판정이 과소하다는 징후는 없었음(위 행과 동일 근거), 추가 단축 필요성 판단은 초장거리 극단 사례 재확보 후 재검토**) |
+| VISION_CLOSING_RATE_TAU | 1.0s | vision-only dRel 미분 접근속도 저역통과 시정수 | PARTIALLY_VALIDATED, **알려진 한계 확인(22차)** (2026-08-20 신규 도입, **17차: 패치 후 첫 실주행 로그 2건(각 19분)로 첫 실측 — closing 크로스오버 6건 전부 레이더 확인 순간 급격한 aEgo 불연속 없이 매끈하게 이어짐**. **22차: 사용자가 재차 제보한 "카메라 인식→레이더 락온 순간 급감속" 패턴을 route1/route2(17차와 동일 로그) 재스캔으로 2건 재현 확인 — dRel 미분 자체는 실제 접근속도(-8~-8.4m/s)에 근접하게 수렴하지만, dRel≈63~120m 원거리에서는 TTC=dRel/rate가 물리적으로 LEAD_ACQ_TTC_CAUTION(6.0s)을 못 넘어 frac_ttc=0으로 무시됨 — TAU 자체보다 TTC 캐션 문턱의 구조적 한계로 재분류. FINDINGS.md 22차 참고, 개선안 3가지 제안(미착수)**) |
+| VISION_CLOSING_RATE_MIN_TIME | **0.5s** (정정, 최초 1.0s에서 단축) | 이 시간 이상 연속추적 후에만 dRel 미분 TTC 신뢰 | PARTIALLY_VALIDATED, **알려진 한계 확인(22차)** (2026-08-20, 사용자 피드백으로 1.0s→0.5s 단축. **22차: `leadStatus`가 한 프레임이라도 False로 끊기면 `_vision_dRel_rate`가 즉시 0으로 리셋되는 부작용 신규 확인 — 짧은 깜빡임(0.15~0.4s)이 반복되는 구간에서 유효 누적 추적시간이 물리적 추적시간보다 짧아짐. LEAD_ACQ_LOSS_GRACE_TIME과 동일한 grace를 리셋 조건에도 적용하는 개선안 제안(미착수), FINDINGS.md 22차 참고**) |
 
 ## selfdrive/controls/radard.py
 
