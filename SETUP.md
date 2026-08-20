@@ -27,6 +27,9 @@ chmod +x /home/claude/devnotes/analyze_commits.sh
    세션이 한도/중단 등으로 끝까지 못 마친 작업이 있다는 뜻 — 그 내용부터
    사용자에게 요약해서 알리고, 이어서 할지 확인 후 이어간다. 없으면
    평소대로 진행.
+0-1. **로그 분석/시뮬레이션/새 스크립트 작성이 필요한 요청이면
+   `toolkit/README.md`부터 읽는다.** 이미 있는 도구로 되는지 먼저
+   확인 후, 없을 때만 새로 작성한다 — 중복 스크립트 생성 방지.
 1. `/home/claude/devnotes/LAST_ANALYZED.md` 열어서 어디까지 분석했는지 확인
 2. "최신 커밋 분석" 요청이면:
    ```bash
@@ -48,6 +51,9 @@ chmod +x /home/claude/devnotes/analyze_commits.sh
 1. 새로 발견한 이슈/검증 결과 → `FINDINGS.md`에 추가
 2. 튜닝 상수 값 변경/검증 완료 → `PARAMS_REGISTRY.md` 갱신
 3. 커밋 분석을 했으면 → `LAST_ANALYZED.md`의 해당 브랜치 해시 갱신
+3-1. **새 toolkit 스크립트를 만들었거나 기존 스크립트에 함수를
+   추가/변경했으면** → `toolkit/README.md`에 섹션 추가/갱신 +
+   `toolkit/CHANGELOG.md`에 날짜/한줄요약 추가.
 4. **GH_TOKEN 자동 push (있으면 우선):**
    ```bash
    export GH_TOKEN="<지침 상단 값>"
@@ -57,8 +63,11 @@ chmod +x /home/claude/devnotes/analyze_commits.sh
        LAST_ANALYZED.md=/home/claude/devnotes/LAST_ANALYZED.md \
        PARAMS_REGISTRY.md=/home/claude/devnotes/PARAMS_REGISTRY.md
    ```
-   실제로 바뀐 파일만 인자로 넘긴다. 성공 시 출력되는 커밋 SHA/URL을
-   사용자에게 보여준다. 토큰 값은 어떤 경우에도 출력하지 않는다.
+   (3-1에서 toolkit 파일이 바뀌었으면 그 파일들도 같은 방식으로
+   `toolkit/README.md=/home/claude/devnotes/toolkit/README.md` 형태로
+   인자에 추가) 실제로 바뀐 파일만 인자로 넘긴다. 성공 시 출력되는
+   커밋 SHA/URL을 사용자에게 보여준다. 토큰 값은 어떤 경우에도
+   출력하지 않는다.
 5. **GH_TOKEN 없거나 4번 실패 시 (폴백):** 갱신된 파일들을
    `/mnt/user-data/outputs/`에 만들어서 전달 (Master가 로컬에서
    commit + push, 아래 PowerShell 섹션 참고)
