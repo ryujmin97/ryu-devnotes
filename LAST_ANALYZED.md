@@ -13,6 +13,15 @@
   새로고침 버튼 패치 실차 `git am`+push로 반영 확인 —
   `7b4a160..1f9f852`. 커밋 분석 트랙과는 별개, UI 기능 추가.)
 - date: 2026-08-20 (20차)
+- note: (21차, 별도 트랙 — 실주행 로그 분석) HEAD `1f9f852` 기준,
+  어제 세션에서 적용된 커브/vturn 관련 패치들(vturn_lookahead_horizon_s
+  8.0s, vturn_decel_rate/safe_time 물리공식, model 게이팅) 첫 실주행
+  로그 2개 라우트(route1 `a5f42c2218`, route2 `4fe653914c`, 각
+  x19seg/19.0분) 분석 완료 — 종방향 전부 클린(harsh_brake ADAS중
+  0/0, turn_speed_violation 0/0), route2에서 100km/h대 고속 vturn
+  감속 실측 최초 확보(저크 없이 매끈). 상세는 FINDINGS.md 21차 참고,
+  PARAMS_REGISTRY.md vturn_lookahead_horizon_s/vturn_decel_rate
+  PARTIALLY_VALIDATED로 격상.
 - note: (19차) 18차에서 사용자가 제보한 "정지 버튼 -> ui 크래시 의심"
   이슈, 실차 `/data/log/swaglog.0000000915`로 원인 확정: 크래시가
   아니라 `Watchdog timeout for ui (exitcode None) restarting` —
