@@ -1,10 +1,44 @@
 # WIP — 중단 지점 (체크포인트, 세션 종료 아님)
 
-- 저장 시각: 2026-08-20 (18차, "원인분석후 저장" 요청 — screenrecord
-  정지 버튼 크래시 의심 이슈 원인 분석 완료, **코드 변경(패치) 아직
-  없음** — 실차 크래시 로그 확보가 먼저 필요한 상태.
+- 저장 시각: 2026-08-20 (19차, screenrecord ui watchdog timeout —
+  **원인 확정(크래시 아님, watchdog kill) + 패치 작성 + `git am`
+  시뮬레이션 검증 완료, 실차 적용 대기**.)
 
-## 18차 갱신 — screenrecord 정지 시 ui 크래시 의심 + clip 미생성 + 메모리부족 (원인 분석만, 패치 미착수)
+## 19차 갱신 — screenrecord ui watchdog timeout 원인 확정 + 패치 완료 (18차 이어받음, [PATCH_WRITTEN, NEEDS_VALIDATION]로 해소)
+- 18차에서 세운 "fork 크래시" 가설은 사용자가 확보한 실차
+  `/data/log/swaglog.0000000915`로 **반증됨** — 로그에
+  `"Watchdog timeout for ui (exitcode None) restarting"`이 명확히
+  찍혀 있음. `exitcode None` = SIGSEGV 등 자체 크래시가 아니라
+  manager가 응답 없는 프로세스를 강제 SIGKILL한 것.
+- **확정 원인**: `stop_locked()`(UI 메인 스레드에서 동기 실행)가
+  `extract_trailing_clip()`을 직접 호출 → 그 안의
+  `QProcess::startDetached("ffmpeg", ...)`가 `posix_spawn`/`vfork`
+  기반이라 exec 완료까지 호출 스레드(UI 메인)를 블로킹 → 큰 mp4
+  직후 스토리지 바쁠 때 exec가 수 초 걸리면 UI watchdog(5s) 초과 →
+  `ui` SIGKILL+재시작. 정지 버튼 누를 때마다 본 화면정지+스플래시,
+  clip 파일 0건 둘 다 이걸로 설명됨.
+- **패치 완료**: `extract_trailing_clip()` 호출을 `std::thread(...).detach()`
+  로 감싸 UI 메인 스레드에서 완전히 분리 (base `591f219`). `git am`
+  시뮬레이션 검증 통과.
+- **패치 파일**: `/mnt/user-data/outputs/0001-screenrecord-ffmpeg-clip-offthread.patch`.
+  **실차 미적용** — 사용자 `git am` 적용 대기.
+- 상세는 FINDINGS.md "[PATCH_WRITTEN, NEEDS_VALIDATION] screenrecord
+  ui watchdog timeout ... 19차" 참고.
+
+## 다음 세션(또는 이 세션 재개)에서 이어갈 것 (19차, 최우선 — 18차 항목을 대체)
+1. **실차 `git am` 적용 + push 대기** — 위 패치 파일.
+2. 적용 후 실측: 정지 버튼 눌렀을 때 화면 정지/comma 스플래시가 더
+   이상 안 뜨는지, `_clip.mp4`가 CarrotWeb 로그탭에 정상적으로
+   나타나는지, `/data/log/swaglog.*`에 같은 시각대 "Watchdog timeout
+   for ui" 로그가 더 이상 안 남는지 확인.
+3. "장시간 반복 시 메모리 상승" 연결고리(18차 관찰)는 이 패치로
+   크래시-재기동이 없어지면 자연 해소 예상 — 우선순위 낮음, 다음
+   실측 로그로 정량 확인.
+4. 17차에서 남은 미해소 항목(260819-6 seg15급 초장거리 재확보, 장시간
+   정속 커브 로그, road/route min() 히스테리시스)은 이번 세션과
+   무관하게 그대로 대기.
+
+## [18차 기록, 19차로 해소됨 — 보존용] screenrecord 정지 시 ui 크래시 의심 + clip 미생성 + 메모리부족 (원인 분석만, 패치 미착수)
 - 사용자 제보: 최신 브랜치(`591f219`) 적용 후 (1) 녹화 정지 버튼 누르면
   화면 멈춤+comma 로고 2초+복귀, (2) CarrotWeb 로그탭에 `_clip` 파일이
   하나도 안 생김, (3) 주행 종료 시 "메모리 부족 97%" 알럿.
@@ -24,26 +58,20 @@
   의심 ... 18차" 참고. 증거 프레임 4장(`evidence/screenrecord_crash/`)
   push 완료.
 
-## 다음 세션에서 이어갈 것 (18차 갱신 — 신규 최우선, 패치 전 확인 필요)
-1. **실차 크래시 로그 확보 (패치 착수 전 필수)** — 사용자가 SSH/adb로
-   기기에 접속 가능하면:
-   - `ls -la /var/crash/` (apport 크래시 덤프, 정지 버튼 누른 시각
-     근처 파일 있는지 — 있으면 `ui` 바이너리 관련인지 확인)
-   - manager cloudlog(swaglog, `Paths.swaglog_root()` 경로, 보통
-     `/data/media/0/realdata`나 `/tmp` 하위) 중 같은 시각에 `ui`
-     프로세스 kill/restart 로그가 있는지
-   - 위 로그를 텍스트로 붙여넣거나 파일로 업로드해주면 fork 가설
-     확정/반증 가능. **영상 재업로드보다 이 로그가 훨씬 결정적** —
-     추가 실주행 영상은 지금 당장은 불필요.
-2. 가설이 확정되면: `ui` 프로세스에서 ffmpeg를 직접 fork하지 않고,
-   clip 추출 요청을 마커/파라미터 파일로 남겨 별도 경량 프로세스가
-   처리하도록 구조 변경하는 패치 설계 착수 (FINDINGS.md "당장 취할
-   수 있는 안전한 방향" 참고).
-3. 위 이슈와 별개로, 13차(model 게이팅)/6차(vision closing-rate)는
-   이미 실측 검증 완료 상태 유지 — 재작업 불필요.
+## [SUPERSEDED, 19차로 대체됨] 18차 시점 "다음 세션에서 이어갈 것" — 기록 보존용, 재작업 불필요
+> 아래 계획은 "실차 크래시 로그부터 확보"였으나, 사용자가 그 로그를
+> 이미 확보해 19차에서 원인 확정 + 패치까지 완료됨. 실측 검증은 위
+> "19차, 최우선" 섹션 항목으로 이어감.
+1. ~~실차 크래시 로그 확보~~ → 확보 완료, 19차에서 원인 확정.
+2. ~~가설 확정 후 패치 설계~~ → 19차에서 패치 작성 완료(다른 방향
+   채택: 마커/파라미터 파일 방식 대신 `std::thread` 분리로 단순
+   해결 — UI 프로세스가 fork 자체를 하는 게 문제가 아니라 blocking
+   spawn이 UI 메인 스레드를 막는 게 문제였음).
+3. 13차(model 게이팅)/6차(vision closing-rate)는 이미 실측 검증
+   완료 상태 유지 — 재작업 불필요. (이 항목만 유효)
 4. 17차에서 남은 미해소 항목(260819-6 seg15급 초장거리 재확보, 장시간
-   정속 커브 로그, road/route min() 히스테리시스)은 이번 세션과
-   무관하게 그대로 대기.
+   정속 커브 로그, road/route min() 히스테리시스)은 여전히 대기.
+   (이 항목만 유효)
 
 - 저장 시각: 2026-08-20 (17차, 정상 zip 재업로드로 16차 재검증 +
   vision-only closing-rate 크로스체크(`b403d52`) 최초 실측 검증
