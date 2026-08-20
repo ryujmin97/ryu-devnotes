@@ -3,6 +3,23 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+## 2026-08-21 (3)
+- **[도구 후보 2번 완료]** 패치 전/후 회귀 리포트 생성기.
+  - `analysis_helpers.py`: `ttc_danger_events()` 신규 — 레이더 기반
+    raw TTC(dRel/-vRel) 문턱 이하 구간 탐지. `scan_routes_for_ttc_danger()`
+    신규 — 여러 CSV 일괄 스캔(도구 후보 5번의 배치 스캐너 역할 일부 겸함).
+  - `regression_report()` / `regression_report_markdown()` 신규 —
+    harsh_brake율/커브속도위반율/소스 플리커율(쌍 지정 가능, 기본
+    vturn/model)/TTC DANGER 건수/jerk 통계를 patch 전후 CSV 2개로
+    자동 diff, 분당 비율로 정규화. 세션마다(17/19/23차) 손으로 세던
+    회귀 확인 작업을 대체.
+  - 합성 데이터로 기능 검증 완료: flicker rate 감소/harsh_brake 감소
+    시나리오에서 delta_pct가 방향/크기 모두 기대대로 계산됨,
+    TTC danger 이벤트 탐지도 별도 케이스로 정탐 확인.
+  - **다음 단계**: 실제 patch 전/후 route CSV 쌍이 생기면(예: 다음
+    실주행 로그 분석 세션) 이 도구로 FINDINGS.md 갱신 시 표를 바로
+    붙여넣을 수 있음 — 아직 실 데이터로는 미실행.
+
 ## 2026-08-21 (2)
 - **[도구 후보 1번 완료]** `extract_log.py` 세그먼트 경계 아티팩트
   근본 수정 + 감사 도구 추가.

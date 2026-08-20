@@ -77,6 +77,30 @@ segment_boundary_lead_loss_artifacts()`로 먼저 감사할 것.
   경계 leadStatus 가짜 유실 아티팩트 후보를 탐지. `meta.json`에
   `segment_state_carryover_fix: true`가 있는 신버전 CSV에는 이
   아티팩트가 없으므로 실행 불필요 — `load_meta()`로 먼저 확인.
+- `ttc_danger_events(rows, ttc_thresh, min_closing_vrel, min_duration_s)`
+  — (2026-08-21 신규) 레이더 기반 raw TTC(=dRel/-vRel)가 문턱 이하로
+  내려가는 구간 탐지. `LEAD_ACQ_TTC_DANGER` 등 위험 문턱 검증용.
+- `scan_routes_for_ttc_danger(csv_paths, ttc_thresh, min_closing_vrel)`
+  — (2026-08-21 신규) 여러 route.csv를 한 번에 스캔해
+  `ttc_danger_events()` 결과를 합침. "희귀 이벤트 배치 스캐너" 용도.
+- `regression_report(rows_before, rows_after, before_label, after_label,
+  src_pair, ttc_thresh)` — (2026-08-21 신규) 패치 전/후 route CSV를
+  받아 harsh_brake율/커브속도위반율/소스 플리커율(지정 쌍)/TTC
+  DANGER 건수/jerk 통계를 자동 계산+비교(delta_pct). 대부분 분당
+  비율로 정규화해 라우트 길이가 달라도 비교 가능.
+- `regression_report_markdown(report, before_label, after_label)` —
+  `regression_report()` 결과를 FINDINGS.md에 바로 붙여넣을 수 있는
+  마크다운 표로 변환.
+
+**회귀 리포트 사용 예시**:
+```python
+from analysis_helpers import load_csv, regression_report, regression_report_markdown
+
+before = load_csv("/home/claude/work/route_before.csv")
+after = load_csv("/home/claude/work/route_after.csv")
+report = regression_report(before, after, before_label="패치전(commit abc123)", after_label="패치후(commit def456)")
+print(regression_report_markdown(report, "패치전(commit abc123)", "패치후(commit def456)"))
+```
 
 ## extract_dashcam_frames.py
 **목적**: `qcamera.ts` 프레임을 rlog의 `qRoadEncodeIdx` 이벤트와

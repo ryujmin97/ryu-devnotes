@@ -824,6 +824,222 @@ def segment_boundary_lead_loss_artifacts(rows, max_gap_s=0.06, tail_lookback_s=0
     return results
 
 
+# ---------------------------------------------------------------------------
+# 13) TTC(Time-To-Collision) 위험 구간 탐지
+# ---------------------------------------------------------------------------
+def ttc_danger_events(rows, ttc_thresh=2.5, min_closing_vrel=0.1, min_duration_s=0.0):
+    """
+    레이더 기반 raw TTC = leadDRel / (-leadVRel) (vRel<0, 즉 접근 중일 때만
+    정의됨)가 ttc_thresh 이하로 내려가는 구간을 찾는다.
+    LEAD_ACQ_TTC_DANGER(기본 2.5s) 등 위험 문턱 검증용 -- 실제 DANGER
+    케이스가 로그에 있는지 여러 CSV를 일괄 스캔할 때 사용.
+
+    min_closing_vrel(m/s): 이 값보다 느리게 접근하는 경우는 노이즈로 보고
+    제외 (정지 상태에서 vRel이 미세하게 음수로 흔들리는 것 방지).
+
+    리턴: [{"seg","t_start","t_end","duration","min_ttc","dRel_at_min_ttc",
+            "vRel_at_min_ttc","vEgo_at_min_ttc"}]
+    """
+    n = len(rows)
+    t = [_f(r, "t") for r in rows]
+    lead = [_b(r, "leadStatus") for r in rows]
+    dRel = [_f(r, "leadDRel") for r in rows]
+    vRel = [_f(r, "leadVRel") for r in rows]
+    vEgo = [_f(r, "vEgo") for r in rows]
+    seg = [r.get("seg") for r in rows]
+
+    events = []
+    cur = None
+    for i in range(n):
+        ttc = None
+        if lead[i] and dRel[i] is not None and vRel[i] is not None and vRel[i] <= -min_closing_vrel:
+            ttc = dRel[i] / (-vRel[i])
+        danger = ttc is not None and ttc <= ttc_thresh
+        if danger:
+            if cur is None:
+                cur = {"seg": seg[i], "t_start": t[i], "t_end": t[i],
+                       "min_ttc": ttc, "dRel_at_min_ttc": dRel[i],
+                       "vRel_at_min_ttc": vRel[i], "vEgo_at_min_ttc": vEgo[i]}
+            else:
+                cur["t_end"] = t[i]
+                if ttc < cur["min_ttc"]:
+                    cur["min_ttc"] = ttc
+                    cur["dRel_at_min_ttc"] = dRel[i]
+                    cur["vRel_at_min_ttc"] = vRel[i]
+                    cur["vEgo_at_min_ttc"] = vEgo[i]
+        else:
+            if cur is not None:
+                events.append(cur)
+                cur = None
+    if cur is not None:
+        events.append(cur)
+
+    result = []
+    for e in events:
+        dur = e["t_end"] - e["t_start"]
+        if dur >= min_duration_s:
+            e["duration"] = round(dur, 2)
+            e["min_ttc"] = round(e["min_ttc"], 2)
+            if e["dRel_at_min_ttc"] is not None:
+                e["dRel_at_min_ttc"] = round(e["dRel_at_min_ttc"], 2)
+            if e["vRel_at_min_ttc"] is not None:
+                e["vRel_at_min_ttc"] = round(e["vRel_at_min_ttc"], 2)
+            if e["vEgo_at_min_ttc"] is not None:
+                e["vEgo_at_min_ttc"] = round(e["vEgo_at_min_ttc"], 2)
+            result.append(e)
+    return result
+
+
+def scan_routes_for_ttc_danger(csv_paths, ttc_thresh=2.5, min_closing_vrel=0.1):
+    """
+    여러 route.csv 경로를 한 번에 스캔해 ttc_danger_events()를 합쳐 리턴.
+    "희귀 이벤트(고속 근접추종 TTC DANGER) 배치 스캐너" 용도 -- 지금까지
+    한 건도 못 찾은 DANGER 케이스를 여러 라우트에 걸쳐 한 번에 찾을 때 사용.
+
+    리턴: {"<csv_path>": [이벤트...], ...} + "_summary": {"n_routes","n_events_total"}
+    """
+    out = {}
+    total = 0
+    for path in csv_paths:
+        rows = load_csv(path)
+        events = ttc_danger_events(rows, ttc_thresh=ttc_thresh, min_closing_vrel=min_closing_vrel)
+        out[path] = events
+        total += len(events)
+    out["_summary"] = {"n_routes": len(csv_paths), "n_events_total": total}
+    return out
+
+
+# ---------------------------------------------------------------------------
+# 14) 패치 전/후 회귀 리포트
+# ---------------------------------------------------------------------------
+def _jerk_stats(rows):
+    """운전자 개입 제외 후 aEgo의 프레임간 변화율(jerk, m/s^3) 통계."""
+    clean = remove_driver_intervention(rows)
+    t = [_f(r, "t") for r in clean]
+    a = [_f(r, "aEgo") for r in clean]
+    jerks = []
+    for i in range(1, len(clean)):
+        if t[i] is None or t[i - 1] is None or a[i] is None or a[i - 1] is None:
+            continue
+        dt = t[i] - t[i - 1]
+        if 0 < dt < 1.0:  # 세그먼트 경계 등 비정상 dt 제외
+            jerks.append((a[i] - a[i - 1]) / dt)
+    if not jerks:
+        return {"max_abs_jerk": None, "jerk_std": None, "n_samples": 0}
+    mean_j = sum(jerks) / len(jerks)
+    var = sum((j - mean_j) ** 2 for j in jerks) / len(jerks)
+    return {
+        "max_abs_jerk": round(max(abs(j) for j in jerks), 3),
+        "jerk_std": round(var ** 0.5, 3),
+        "n_samples": len(jerks),
+    }
+
+
+def _route_metrics(rows, src_pair=("vturn", "model"), ttc_thresh=2.5):
+    """단일 라우트 CSV(rows)에 대한 회귀 리포트용 표준 지표 세트."""
+    summary = trip_summary(rows)
+    duration_min = summary.get("duration_s", 0) / 60.0 if summary else 0.0
+
+    harsh = harsh_brake_events(rows)
+    violations = turn_speed_violations(rows)
+    transitions = source_transition_log(rows)
+    pair_transitions = [
+        tr for tr in transitions
+        if {tr["from_src"], tr["to_src"]} == set(src_pair)
+    ]
+    ttc_events = ttc_danger_events(rows, ttc_thresh=ttc_thresh)
+    jerk = _jerk_stats(rows)
+
+    def _per_min(count):
+        return round(count / duration_min, 2) if duration_min > 0 else None
+
+    return {
+        "duration_min": round(duration_min, 1),
+        "distance_km": summary.get("distance_km"),
+        "n_harsh_brake_events": len(harsh),
+        "harsh_brake_per_min": _per_min(len(harsh)),
+        "n_turn_speed_violations": len(violations),
+        "turn_speed_violation_per_min": _per_min(len(violations)),
+        "n_src_transitions_total": len(transitions),
+        "src_transitions_total_per_min": _per_min(len(transitions)),
+        f"n_src_flicker_{src_pair[0]}_{src_pair[1]}": len(pair_transitions),
+        f"src_flicker_{src_pair[0]}_{src_pair[1]}_per_min": _per_min(len(pair_transitions)),
+        "n_ttc_danger_events": len(ttc_events),
+        "ttc_danger_events": ttc_events,  # 상세 내역, 표본 0건 확인 등에 필요
+        "max_abs_jerk": jerk["max_abs_jerk"],
+        "jerk_std": jerk["jerk_std"],
+    }
+
+
+def regression_report(rows_before, rows_after, before_label="before", after_label="after",
+                       src_pair=("vturn", "model"), ttc_thresh=2.5):
+    """
+    패치 전/후 route CSV(rows_before/rows_after, load_csv() 결과)를 받아
+    표준 지표(플리커율/harsh_brake율/turn_speed_violation율/TTC danger
+    건수/jerk 통계)를 자동으로 계산 + diff. 세션마다 "회귀 없음"을 손으로
+    세던 걸 대체하는 용도(17/19/23차 반복 패턴).
+
+    비교 가능하도록 대부분 지표는 분당(per_min) 비율로 정규화한다
+    (전/후 라우트 길이가 다를 수 있으므로 절대 건수만 비교하면 오해 소지).
+
+    src_pair: 플리커 추적할 소스 쌍 (기본 vturn/model -- 지금까지 가장
+    많이 검증된 쌍). 다른 쌍(road/route 등) 검증 시 인자로 바꿔서 재사용.
+
+    리턴: {"before": {...}, "after": {...}, "delta_pct": {지표별 변화율(%)}}
+    delta_pct는 양수 = after가 더 큼(악화 여부는 지표에 따라 사람이 판단
+    -- 예: harsh_brake_per_min 증가는 나쁜 신호, 이건 함수가 자동 판단 안 함).
+    """
+    before = _route_metrics(rows_before, src_pair=src_pair, ttc_thresh=ttc_thresh)
+    after = _route_metrics(rows_after, src_pair=src_pair, ttc_thresh=ttc_thresh)
+
+    delta_pct = {}
+    for key in before:
+        bv, av = before.get(key), after.get(key)
+        if isinstance(bv, (int, float)) and isinstance(av, (int, float)):
+            if bv == 0:
+                delta_pct[key] = None if av == 0 else float("inf")
+            else:
+                delta_pct[key] = round((av - bv) / abs(bv) * 100, 1)
+
+    return {before_label: before, after_label: after, "delta_pct": delta_pct}
+
+
+def regression_report_markdown(report, before_label="before", after_label="after"):
+    """
+    regression_report()의 리턴값을 FINDINGS.md/PARAMS_REGISTRY.md에 바로
+    붙여넣기 좋은 마크다운 표로 변환. ttc_danger_events 상세 리스트는
+    표에서 제외(건수만 표시) -- 필요하면 report[label]["ttc_danger_events"]
+    를 따로 확인.
+    """
+    before = report[before_label]
+    after = report[after_label]
+    delta = report["delta_pct"]
+
+    rows_order = [
+        ("duration_min", "라우트 길이(분)"),
+        ("distance_km", "거리(km)"),
+        ("harsh_brake_per_min", "harsh_brake/분"),
+        ("turn_speed_violation_per_min", "커브속도위반/분"),
+        ("src_transitions_total_per_min", "소스전환(전체)/분"),
+        (None, None),  # placeholder replaced below for pair-specific key
+        ("n_ttc_danger_events", "TTC DANGER 건수"),
+        ("max_abs_jerk", "최대|jerk| (m/s^3)"),
+        ("jerk_std", "jerk 표준편차"),
+    ]
+    pair_key = next((k for k in before if k.startswith("src_flicker_") and k.endswith("_per_min")), None)
+    if pair_key:
+        rows_order[5] = (pair_key, f"{pair_key.replace('src_flicker_', '').replace('_per_min', '')} 플리커/분")
+
+    lines = [f"| 지표 | {before_label} | {after_label} | 변화율 |", "|---|---|---|---|"]
+    for key, label in rows_order:
+        if key is None:
+            continue
+        bv, av, dv = before.get(key), after.get(key), delta.get(key)
+        dv_str = "N/A" if dv is None else ("+inf" if dv == float("inf") else f"{dv:+.1f}%")
+        lines.append(f"| {label} | {bv} | {av} | {dv_str} |")
+    return "\n".join(lines)
+
+
 if __name__ == "__main__":
     import sys
     if len(sys.argv) < 2:

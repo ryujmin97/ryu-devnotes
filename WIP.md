@@ -1,11 +1,20 @@
 # WIP — 중단 지점 (체크포인트, 세션 종료 아님)
 
-- 저장 시각: 2026-08-21 (20차, 도구 후보 1/5 완료 — `extract_log.py`
-  세그먼트 경계 leadStatus 아티팩트 근본 수정 + 감사 도구
-  `segment_boundary_lead_loss_artifacts()` 추가, push 완료. 2~5번
-  순차 진행 예정, 완료마다 저장.)
+- 저장 시각: 2026-08-21 (20차, 도구 후보 2/5 완료 — 패치 전/후
+  회귀 리포트 생성기(`regression_report`) + TTC danger
+  탐지/배치스캐너 추가, push 완료. 3~5번 순차 진행 예정, 완료마다 저장.)
 
-## 20차 진행 로그 — toolkit 인프라 정비 + 도구 후보 1/5 완료
+## 20차 진행 로그 — toolkit 인프라 정비 + 도구 후보 1~2/5 완료
+
+### 도구 2/5 완료 — 패치 전/후 회귀 리포트 생성기
+- `analysis_helpers.py`: `ttc_danger_events()`, `scan_routes_for_ttc_danger()`,
+  `regression_report()`, `regression_report_markdown()` 신규.
+- route CSV 2개(전/후) 넣으면 harsh_brake율/커브속도위반율/소스
+  플리커율(쌍 지정)/TTC DANGER 건수/jerk 통계를 자동 diff, 분당
+  비율 정규화, 마크다운 표로 바로 출력.
+- 합성 데이터로 기능 검증 완료(방향/크기 기대대로 계산 확인).
+- **아직 미실행**: 실제 patch 전/후 route CSV로 돌려보는 것은 다음
+  실주행 로그 분석 세션에서.
 
 ### 도구 1/5 완료 — extract_log.py 세그먼트 경계 아티팩트 (근본 수정 + 감사 도구)
 - `extract_log.py`: `process_segment()`가 이전 세그먼트의
@@ -17,24 +26,24 @@
   데이터로 단위 검증 완료.
 - `PARAMS_REGISTRY.md`의 `LEAD_ACQ_LOSS_GRACE_TIME` 항목에 진행상황 반영.
 - **아직 미실행**: 이 감사 함수로 실제 과거 CSV(x11/x16/x20seg)를
-  재대조하는 것은 다음 "실주행 로그 분석" 세션에서 — 이번 세션은
-  toolkit 자체 정비만 진행.
+  재대조하는 것은 다음 "실주행 로그 분석" 세션에서.
 
 ## 이전 완료분: 인프라 정비 (19차→20차 사이, push까지 완료, 재작업 불필요)
 - `toolkit/README.md`/`CHANGELOG.md` 신설, `SETUP.md` 체크리스트 연결.
 - `push_via_api.py`를 Git Trees API로 교체(파일수 무관 커밋 1개),
   실제 push로 검증 완료.
-- commit: `f233a87`, `2f09a8d`, `26195d5`(이전 WIP 체크포인트).
+- commit: `f233a87`, `2f09a8d`, `26195d5`, `da2d389`(도구 1/5).
 
-## 다음 세션/다음 단계에서 이어갈 것 (도구 후보 2~5번, 순차 진행 중)
-2. **[다음 착수]** 패치 전/후 회귀 리포트 생성기 — route A/B CSV 넣으면
-   플리커율/harsh_brake/TTC danger/aEgo·jerk 통계 자동 diff.
-3. 곡선(vturn) 구간 dRel 노이즈 필터/탐지 함수 — 23차 신규 발견,
-   1/2/4번안(VISION_CLOSING_RATE_TAU 개선) 설계 전 선행검토 필요.
+## 다음 세션/다음 단계에서 이어갈 것 (도구 후보 3~5번, 순차 진행 중)
+3. **[다음 착수]** 곡선(vturn) 구간 dRel 노이즈 필터/탐지 함수 — 23차
+   신규 발견, 1/2/4번안(VISION_CLOSING_RATE_TAU 개선) 설계 전
+   선행검토 필요.
 4. min() 소스 선택 히스테리시스 범용 스캐너 — vturn↔model 쌍만 특별
    취급 중, road/route 등 나머지 쌍은 여전히 미해결.
-5. 희귀 이벤트(고속 근접추종 TTC DANGER) 배치 스캐너 — 최소 TTC
-   5.68s로 아직 DANGER 케이스 0건, 여러 CSV 일괄 스캔 도구 없음.
+5. 희귀 이벤트(고속 근접추종 TTC DANGER) 배치 스캐너 — 2번에서
+   `scan_routes_for_ttc_danger()`로 기반은 마련됨. 5번에서는 이걸
+   실제 여러 라우트 CSV에 돌려서 DANGER 케이스 유무를 확인하는
+   실행 단계로 마무리 예정(최소 TTC 5.68s 기록 갱신 여부 확인).
 
 ## 19차 완료분 — screenrecord ui watchdog timeout (원인 확정 -> 패치 -> 실차 검증까지 전부 완료, 재작업 불필요)
 - 18차 "fork 크래시" 가설은 실차 swaglog로 반증되고, 진짜 원인은
