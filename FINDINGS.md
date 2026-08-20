@@ -956,7 +956,7 @@
   구간 로그로 model 배제 여부와 실제 vturn/route 값을 대조 검증 필요.
 - 근거: 위 RISK_IDENTIFIED 항목과 동일.
 
-## [PATCH_WRITTEN, NEEDS_VALIDATION] screenrecord clip(commit `0f7575f`) — 20분 자동 세그먼트 롤오버에서도 clip이 반복 생성됨 (2026-08-20, 코드 재검토 -> 14차 패치 작성)
+## [PATCH_APPLIED, NEEDS_VALIDATION] screenrecord clip(commit `0f7575f`) — 20분 자동 세그먼트 롤오버에서도 clip이 반복 생성됨 (2026-08-20, 코드 재검토 -> 14차 패치 작성 -> 15차 실차 적용 확인)
 
 - **배경**: 10차 세션에서 "정지 버튼 누르면 마지막 1분을 별도 clip으로
   추출" 기능 추가(`0f7575f`, 실차 적용+push 완료). `screenrecorder.cc::
@@ -1002,8 +1002,9 @@
   실제 커밋 생성(로컬 해시 `a349e3c`, base `119b101`) 후 추출, 별도
   임시 브랜치(base `119b101`)에서 `git am` 적용 검증 완료(clean
   apply). C++ syntax-only 체크(빌드 툴체인 없음, `stat()` 루프 로직만
-  분리 컴파일로 확인)만 가능. **실차 미적용** — 사용자 `git am` 적용
-  대기.
+  분리 컴파일로 확인)만 가능. **실차 `git am` 적용 + push 완료**
+  (원격 반영 커밋 `591f219`, `119b101..591f219`, 원격 fetch로 diff
+  동일함 재확인).
 - 근거: `screenrecorder.cc` L98(`toggle`)/L114(`start`)/L119(`stop`)/
   L157(`stop_locked`)/L260-282(`update_screen` 20분 롤오버).
 - ffmpeg 바이너리가 실제 comma 기기(AGNOS)에 설치돼 있는지는 여전히
