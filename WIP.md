@@ -1,10 +1,11 @@
 # WIP — 중단 지점 (체크포인트, 세션 종료 아님)
 
 - 저장 시각: 2026-08-20 (19차, screenrecord ui watchdog timeout —
-  **원인 확정(크래시 아님, watchdog kill) + 패치 작성 + `git am`
-  시뮬레이션 검증 완료, 실차 적용 대기**.)
+  **원인 확정(크래시 아님, watchdog kill) + 패치 실차 `git am` 적용 +
+  push 완료 확인**, commit `7b4a160` (`591f219..7b4a160`). 실측
+  검증만 남음.)
 
-## 19차 갱신 — screenrecord ui watchdog timeout 원인 확정 + 패치 완료 (18차 이어받음, [PATCH_WRITTEN, NEEDS_VALIDATION]로 해소)
+## 19차 갱신 — screenrecord ui watchdog timeout 원인 확정 + 패치 실차 적용 확인 (18차 이어받음, [PATCH_APPLIED, NEEDS_VALIDATION]로 해소)
 - 18차에서 세운 "fork 크래시" 가설은 사용자가 확보한 실차
   `/data/log/swaglog.0000000915`로 **반증됨** — 로그에
   `"Watchdog timeout for ui (exitcode None) restarting"`이 명확히
@@ -17,24 +18,23 @@
   직후 스토리지 바쁠 때 exec가 수 초 걸리면 UI watchdog(5s) 초과 →
   `ui` SIGKILL+재시작. 정지 버튼 누를 때마다 본 화면정지+스플래시,
   clip 파일 0건 둘 다 이걸로 설명됨.
-- **패치 완료**: `extract_trailing_clip()` 호출을 `std::thread(...).detach()`
+- **패치**: `extract_trailing_clip()` 호출을 `std::thread(...).detach()`
   로 감싸 UI 메인 스레드에서 완전히 분리 (base `591f219`). `git am`
-  시뮬레이션 검증 통과.
-- **패치 파일**: `/mnt/user-data/outputs/0001-screenrecord-ffmpeg-clip-offthread.patch`.
-  **실차 미적용** — 사용자 `git am` 적용 대기.
-- 상세는 FINDINGS.md "[PATCH_WRITTEN, NEEDS_VALIDATION] screenrecord
+  시뮬레이션 검증 통과 후 **실차 `git am` 적용 + `git push` 완료**
+  (commit `7b4a160`, `C:\dev\ryu`).
+- 상세는 FINDINGS.md "[PATCH_APPLIED, NEEDS_VALIDATION] screenrecord
   ui watchdog timeout ... 19차" 참고.
 
-## 다음 세션(또는 이 세션 재개)에서 이어갈 것 (19차, 최우선 — 18차 항목을 대체)
-1. **실차 `git am` 적용 + push 대기** — 위 패치 파일.
-2. 적용 후 실측: 정지 버튼 눌렀을 때 화면 정지/comma 스플래시가 더
-   이상 안 뜨는지, `_clip.mp4`가 CarrotWeb 로그탭에 정상적으로
-   나타나는지, `/data/log/swaglog.*`에 같은 시각대 "Watchdog timeout
-   for ui" 로그가 더 이상 안 남는지 확인.
-3. "장시간 반복 시 메모리 상승" 연결고리(18차 관찰)는 이 패치로
+## 다음 세션(또는 이 세션 재개)에서 이어갈 것 (19차, 최우선 — 실측만 남음)
+1. 정지 버튼 눌렀을 때 화면 정지/comma 스플래시가 더 이상 안 뜨는지
+   확인.
+2. `_clip.mp4`가 CarrotWeb 로그탭에 정상적으로 생성/표시되는지 확인.
+3. `/data/log/swaglog.*`에서 정지 버튼을 누른 시각대에 더 이상
+   "Watchdog timeout for ui" 로그가 안 남는지 확인.
+4. "장시간 반복 시 메모리 상승" 연결고리(18차 관찰)는 이 패치로
    크래시-재기동이 없어지면 자연 해소 예상 — 우선순위 낮음, 다음
    실측 로그로 정량 확인.
-4. 17차에서 남은 미해소 항목(260819-6 seg15급 초장거리 재확보, 장시간
+5. 17차에서 남은 미해소 항목(260819-6 seg15급 초장거리 재확보, 장시간
    정속 커브 로그, road/route min() 히스테리시스)은 이번 세션과
    무관하게 그대로 대기.
 
