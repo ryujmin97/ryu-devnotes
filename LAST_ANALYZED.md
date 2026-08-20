@@ -9,9 +9,10 @@
 ---
 
 ## c3-ms-dev
-- last_analyzed_commit: `7b4a160` (HEAD, 19차 패치 실차 `git am`+push로
-  반영 확인 — `591f219..7b4a160`)
-- date: 2026-08-20 (19차)
+- last_analyzed_commit: `1f9f852` (HEAD, 20차 CarrotWeb 로그탭
+  새로고침 버튼 패치 실차 `git am`+push로 반영 확인 —
+  `7b4a160..1f9f852`. 커밋 분석 트랙과는 별개, UI 기능 추가.)
+- date: 2026-08-20 (20차)
 - note: (19차) 18차에서 사용자가 제보한 "정지 버튼 -> ui 크래시 의심"
   이슈, 실차 `/data/log/swaglog.0000000915`로 원인 확정: 크래시가
   아니라 `Watchdog timeout for ui (exitcode None) restarting` —
