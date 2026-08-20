@@ -9,7 +9,7 @@
 ---
 
 ## c3-ms-dev
-- last_analyzed_commit: `f7b154638cf2`
+- last_analyzed_commit: `b403d52`
 - date: 2026-08-20
 - note: 8dbed620887b 이후 신규 커밋 1개(3660091, CarrotWeb gdrive 재진입/
   핸드셰이크 타임아웃) 확인했으나 이미 FINDINGS.md에 기록된 이슈라 재분석
@@ -152,6 +152,13 @@
   구분 불가, 여전히 패치 이전 시점이라 미검증). 상세는 FINDINGS.md
   참고. **사용자 요청으로 이번 세션은 여기서 체크포인트 저장** —
   WIP.md 참고.
+
+  2026-08-20 (6차): 신규 커밋 1개 — `b403d52` (long_mpc.py, vision-only
+  원거리 리드 closing-rate 크로스체크, VISION_CLOSING_RATE_TAU=1.0s/
+  MIN_TIME=0.5s 신설). 사용자가 실차 `git am` + push 완료 확인
+  (`f7b1546..b403d52`). 코드 상세는 FINDINGS.md "[PATCH_APPLIED,
+  NEEDS_VALIDATION] 비전-only 원거리 리드 closing-rate 크로스체크"
+  참고. **aEgo 실측 대조는 아직 미완료 — 다음 세션 최우선 과제.**
 
 ## c3-ms
 - last_analyzed_commit: (아직 분석 안 함)
