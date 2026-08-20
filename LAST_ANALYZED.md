@@ -9,7 +9,23 @@
 ---
 
 ## c3-ms-dev
-- last_analyzed_commit: `591f219` (HEAD, 15차에서 `git am`+push로 반영
+- last_analyzed_commit: `591f219` (HEAD, 신규 커밋 없음 — 16차는 코드
+  분석이 아니라 패치 후 첫 실주행 로그 분석)
+- date: 2026-08-20 (16차)
+- note: (16차) 사용자가 dashcam zip 2개(route `4fe653914c` 15:56~16:14,
+  route `a5f42c2218` 15:37~15:55, 둘 다 extract_log.py 메타로 repo
+  HEAD `591f219`/patch 커밋 이후 기록 확인)를 업로드 — "이번에 패치된
+  내용 위주로 분석" 요청. 두 zip 모두 중간 구간 손상(zstd CRC 불일치,
+  route1은 세그5~14, route2는 세그7~9 유실)되어 손상분 제외한 정상
+  구간만(9분/16분) 분석. 핵심 결과: 13차 model_turn_speed 게이팅
+  패치(`119b101`) 반영 후 vturn↔model 플리커가 베이스라인 대비
+  약 57~60% 감소(7.0/min → 2.78~3.0/min), turn_speed_violation 0건,
+  ADAS 활성 중 harsh_brake 사실상 0건(1/62) 유지. road↔vturn/
+  route↔vturn 등 나머지 쌍은 여전히 미해결 재확인. 장시간 정속 커브
+  케이스(13차 알려진 한계)는 이번 로그(시내 위주)로 미검증. 코드 변경
+  없음. 상세는 FINDINGS.md/PARAMS_REGISTRY.md 16차 참고.
+
+- last_analyzed_commit (15차 기록): `591f219` (HEAD, 15차에서 `git am`+push로 반영
   확인 — `119b101..591f219`, 14차에서 작성한 screenrecord clip
   롤오버/타임스탬프 충돌 패치)
 - date: 2026-08-20
