@@ -9,8 +9,21 @@
 ---
 
 ## c3-ms-dev
-- last_analyzed_commit: `0f7575f`
+- last_analyzed_commit: `0f7575f` (HEAD 기준 동일, 로컬 신규 커밋 `7cdc20b`는
+  아직 실차 미적용 — git am 대기 중이라 HEAD로 취급하지 않음)
 - date: 2026-08-20
+- note: (12차, 같은 세션 이어감) 11차에서 발견한 위험 2건 중 model
+  게이팅 건에 대해 사용자가 개선 방향 1번(model_turn_speed 자체 추세
+  기반) 채택 지시 → 패치 작성 완료(`7cdc20b`, base `0f7575f`).
+  `desiredCurvature`(현재 곡률) 기준 게이팅을 제거하고, model_turn_speed
+  값 자체가 hold_sec(0.6s) 동안 노이즈 허용폭(0.3km/h)을 넘는 감소
+  없이 유지/반등할 때만 "트레일링"으로 판단해 배제하도록 재설계.
+  `py_compile` 통과, `git am` 적용 시뮬레이션 통과. **실차 미적용** —
+  패치 파일 `/mnt/user-data/outputs/0001-carrot_serv-model-desiredCurvature-model_turn_speed.patch`
+  전달, 사용자 `git am` 적용 대기. screenrecord clip 건(2번 위험)은
+  이번 세션에서 미착수, 다음 세션 후보로 유지.
+
+- last_analyzed_commit (11차 기록): `0f7575f`
 - note: (11차, 코드 리뷰 세션) `1fca82f..0f7575f` 신규 커밋 2개(`2226db7`
   model_turn_straight_gate, `0f7575f` screenrecord clip) 전체 diff
   재검토. 코드 변경 없음(리뷰만) — 두 커밋 모두 이미 실차 적용+push
@@ -20,10 +33,6 @@
      사전감속"까지 억제할 수 있음(현재값 vs 예측값 혼동).
   2. `0f7575f`의 clip 추출이 20분 자동 세그먼트 롤오버에서도 반복
      실행됨(정지 버튼 전용이 아님).
-  사용자 요청으로 이번 세션은 패치 없이 devnotes 기록만 진행, 패치는
-  보류 상태로 다음 세션 후보에 등록(WIP.md 미갱신, 코드 변경 자체가
-  없어 새 WIP 항목 불필요 — 다음 세션 시작 시 FINDINGS.md 두 항목을
-  후보로 확인).
 
 - last_analyzed_commit (10차 이전 기록): `1fca82f`
 - note: `1fca82f` = 8차 세션에서 만든 vturn_lookahead_horizon_s
