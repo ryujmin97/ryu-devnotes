@@ -956,7 +956,7 @@
   구간 로그로 model 배제 여부와 실제 vturn/route 값을 대조 검증 필요.
 - 근거: 위 RISK_IDENTIFIED 항목과 동일.
 
-## [RISK_IDENTIFIED, NEEDS_VALIDATION] screenrecord clip(commit `0f7575f`) — 20분 자동 세그먼트 롤오버에서도 clip이 반복 생성됨 (2026-08-20, 코드 재검토)
+## [PATCH_WRITTEN, NEEDS_VALIDATION] screenrecord clip(commit `0f7575f`) — 20분 자동 세그먼트 롤오버에서도 clip이 반복 생성됨 (2026-08-20, 코드 재검토 -> 14차 패치 작성)
 
 - **배경**: 10차 세션에서 "정지 버튼 누르면 마지막 1분을 별도 clip으로
   추출" 기능 추가(`0f7575f`, 실차 적용+push 완료). `screenrecorder.cc::
@@ -986,10 +986,24 @@
   반복**되는 게 문제 — 단발성 발열까지는 아니어도 불필요한 주기적
   백그라운드 I/O/CPU 버스트가 누적됨. 저장공간도 의도치 않게 계속
   소모됨(수 시간 녹화 시 clip 파일 다수 누적).
-- **개선 방향(패치 미작성, 사용자 확인 대기)**: `stop_locked()` 내부에서
-  20분 자동 롤오버로 인한 호출인지, 사용자의 명시적 정지(toggle/stop
-  API)로 인한 호출인지 구분하는 플래그 필요 — clip 추출은 후자에서만
-  실행.
+- **개선 방향(패치 작성 완료, 14차)**: `stop_locked(bool auto_rollover
+  = false)`로 시그니처 변경 — 사용자 경로(`toggle()`/`stop()`)는 기본값
+  그대로, `update_screen()`의 20분 롤오버 경로만 `stop_locked(true)`로
+  명시 호출. `extract_trailing_clip()` 호출을 `if (!auto_rollover &&
+  !finished_path.empty())`로 감싸 롤오버 시 clip 생성 자체를 스킵.
+  타임스탬프 충돌(부가 엣지케이스)은 해상도를 유지한 채
+  `extract_trailing_clip()`이 ffmpeg 호출 직전(동기 구간)에
+  `stat()`으로 대상 경로 존재 여부를 확인해, 충돌 시에만
+  `_clip_2.mp4`, `_clip_3.mp4`... 접미사를 붙이는 방식으로 해결
+  (분 단위로 낮추는 대안은 버킷이 60배 커져 오히려 충돌 확률이 늘고
+  검색 정밀도를 해쳐 기각).
+- **패치 파일**: `/mnt/user-data/outputs/0001-screenrecord-clip-rollover-fix.patch`
+  (`git format-patch` 형식, base `119b101`). 컨테이너 ryu 클론에서
+  실제 커밋 생성(로컬 해시 `a349e3c`, base `119b101`) 후 추출, 별도
+  임시 브랜치(base `119b101`)에서 `git am` 적용 검증 완료(clean
+  apply). C++ syntax-only 체크(빌드 툴체인 없음, `stat()` 루프 로직만
+  분리 컴파일로 확인)만 가능. **실차 미적용** — 사용자 `git am` 적용
+  대기.
 - 근거: `screenrecorder.cc` L98(`toggle`)/L114(`start`)/L119(`stop`)/
   L157(`stop_locked`)/L260-282(`update_screen` 20분 롤오버).
 - ffmpeg 바이너리가 실제 comma 기기(AGNOS)에 설치돼 있는지는 여전히
