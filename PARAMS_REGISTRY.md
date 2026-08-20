@@ -15,8 +15,8 @@
 | LEAD_ACQ_LOSS_GRACE_TIME | 0.5s | 순간유실 허용 시간 | **재검토 필요** (2026-08-20, 260819-2 분석 중 extract_log.py가 세그먼트 경계마다 leadStatus를 인위적으로 False 리셋하는 도구 버그 확인 — 해당 라우트 순간유실 16건 전부 세그먼트 경계와 diff=0.000s로 정확히 일치, 실제 유실 아닌 추출 아티팩트. 과거 누적 증거(x11seg 4건+x16seg 1건+x20seg(260819-1) 6~7건)도 세그먼트 경계 여부 재대조 필요 — 특히 0.3s 이하 짧은 유실은 아티팩트 의심, 1s+ 긴 유실은 실사례 가능성 유지. 상세는 FINDINGS.md 참고, extract_log.py 수정 제안은 미적용 상태) |
 | LEAD_ACQ_TTC_DANGER | 2.5s | TTC 이하면 frac=1.0 즉시 | NEEDS_VALIDATION |
 | LEAD_ACQ_TTC_CAUTION | 6.0s | TTC 이상이면 TTC 성분 미개입 | NEEDS_VALIDATION |
-| VISION_CLOSING_RATE_TAU | 1.0s | vision-only dRel 미분 접근속도 저역통과 시정수 | NEEDS_VALIDATION (2026-08-20 신규, 코드만 완료·aEgo 실측 대조 미완료) |
-| VISION_CLOSING_RATE_MIN_TIME | **0.5s** (정정, 최초 1.0s에서 단축) | 이 시간 이상 연속추적 후에만 dRel 미분 TTC 신뢰 | NEEDS_VALIDATION (2026-08-20, 사용자 피드백으로 1.0s→0.5s 단축 — TAU=1.0s는 유지라 0.5s 시점엔 필터가 약 39%만 수렴한 상태, danger 판정이 다소 보수적일 수 있음. 실측 후 추가 단축/TAU 조정 여지) |
+| VISION_CLOSING_RATE_TAU | 1.0s | vision-only dRel 미분 접근속도 저역통과 시정수 | PARTIALLY_VALIDATED (2026-08-20 신규 도입, **17차: 패치 후 첫 실주행 로그 2건(각 19분)로 첫 실측 — closing 크로스오버 6건 전부 레이더 확인 순간 급격한 aEgo 불연속 없이 매끈하게 이어짐, 과거 증상(레이더 락온 시점 급반응)과 다른 패턴 확인. 단 260819-6 seg15급 초장거리(7~8초/90m대) 극단 사례는 이번 로그에 없어 그 등급 재검증은 못함** — FINDINGS.md 17차 참고) |
+| VISION_CLOSING_RATE_MIN_TIME | **0.5s** (정정, 최초 1.0s에서 단축) | 이 시간 이상 연속추적 후에만 dRel 미분 TTC 신뢰 | PARTIALLY_VALIDATED (2026-08-20, 사용자 피드백으로 1.0s→0.5s 단축 — TAU=1.0s는 유지라 0.5s 시점엔 필터가 약 39%만 수렴한 상태, danger 판정이 다소 보수적일 수 있음. **17차: 실측 결과 danger 판정이 과소하다는 징후는 없었음(위 행과 동일 근거), 추가 단축 필요성 판단은 초장거리 극단 사례 재확보 후 재검토**) |
 
 ## selfdrive/controls/radard.py
 
@@ -45,8 +45,8 @@
 |---|---|---|---|
 | speed_n_sources min() 선택 | 히스테리시스는 여전히 없음. **model 후보만** model_turn_speed 추세 기반 게이팅 적용(아래 두 행, 13차 재설계) | atc/road/vturn/route/model 등 후보 중 크루즈 목표속도 소스 선택 | NEEDS_VALIDATION — 나머지 쌍(atc/road/route) (2026-08-19 x16seg + 2026-08-20 x20seg(260819-1) 로그: 국도 완만한 커브뿐 아니라 73~113km/h 고속 커브 구간 전반에서 vturn↔road/model/route 재현, x20seg에서 A→B→A 플리커 49건 확인, 우세 쌍 vturn↔model. **16차(2026-08-20): 패치 후 실주행 로그에서 vturn↔model 플리커는 유의미하게 감소(아래 행 참고)했으나, road↔vturn/route↔vturn은 여전히 비슷하거나 더 큰 빈도로 재현 — model 쌍 외에는 여전히 미해결.** FINDINGS.md 참고) |
 | model_turn_straight_thresh | (12차, `7cdc20b`로 제거됨) | desiredCurvature 기준 게이팅 — 진입 전 사전감속 억제 위험으로 폐기 | SUPERSEDED (2026-08-20, model_turn_speed 추세 기반으로 대체, 아래 항목 참고) |
-| model_turn_speed_noise_tol | 0.3 km/h | model_turn_speed 프레임간 미세 흔들림을 "감소"로 오판하지 않기 위한 허용폭 | PARTIALLY_VALIDATED (2026-08-20, 12차 도입, 13차 실차 적용(commit `119b101`), **16차: 패치 후 첫 실주행 로그(9분+16분, 시내 위주)로 vturn↔model 플리커 빈도 확인 — 7.0/min(패치 전 베이스라인) → 2.78~3.0/min, 약 57~60% 감소, turn_speed_violation 0건. 단 model_turn_speed 원시값이 로그에 없어 게이팅 시점 자체는 간접 확인만 가능, 장시간 정속 커브 케이스는 이번 로그(시내 위주)에 없어 미검증으로 남음** — FINDINGS.md 16차 참고) |
-| model_turn_straight_hold_sec | 0.6s | 이 시간 이상 연속으로 model_turn_speed가 (노이즈 허용폭 넘는) 감소 없이 유지/반등해야 "트레일링"으로 보고 model 후보를 min()에서 배제 | PARTIALLY_VALIDATED (2026-08-20, 12차 재설계 — 판단 기준만 desiredCurvature에서 model_turn_speed 추세로 변경, 값 0.6s는 유지. 13차 실차 적용, commit `119b101`. **16차: 실주행 플리커 감소 확인(위 행과 동일 근거), 장시간 정속 커브 부작용은 여전히 미검증**) |
+| model_turn_speed_noise_tol | 0.3 km/h | model_turn_speed 프레임간 미세 흔들림을 "감소"로 오판하지 않기 위한 허용폭 | PARTIALLY_VALIDATED (2026-08-20, 12차 도입, 13차 실차 적용(commit `119b101`). **17차(재업로드 정상 zip, 19세그 전체 두 라우트, 각 19분): vturn↔model 플리커 2.16~2.58/min — 패치 전 베이스라인(7.0/min) 대비 63~69% 감소로 재확인(16차 부분데이터 추정 57~60%보다 뚜렷). ADAS 활성 중 harsh_brake 1/35·0/41로 계속 거의 0건.** model_turn_speed 원시값이 로그에 없어 게이팅 시점 자체는 간접 확인만 가능, 장시간 정속 커브 케이스는 이번 로그(시내~국도 혼합)에도 없어 미검증으로 남음 — FINDINGS.md 17차 참고) |
+| model_turn_straight_hold_sec | 0.6s | 이 시간 이상 연속으로 model_turn_speed가 (노이즈 허용폭 넘는) 감소 없이 유지/반등해야 "트레일링"으로 보고 model 후보를 min()에서 배제 | PARTIALLY_VALIDATED (2026-08-20, 12차 재설계 — 판단 기준만 desiredCurvature에서 model_turn_speed 추세로 변경, 값 0.6s는 유지. 13차 실차 적용, commit `119b101`. **17차: 실주행 플리커 감소 재확인(위 행과 동일 근거, 63~69%), 장시간 정속 커브 부작용은 여전히 미검증**) |
 
 ## selfdrive/carrot/carrot_man.py
 
