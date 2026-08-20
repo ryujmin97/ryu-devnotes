@@ -1011,3 +1011,57 @@
   레포 내 근거 없음(`routes_logs.py` 주석에 "ffmpeg 기능은 포함 안 함"만
   존재) — WIP.md 기존 미검증 항목과 동일, 재확인만 하고 새로 해소된 건
   아님.
+
+## [VALIDATED, 부분 확인] model_turn_speed 추세 게이팅(commit `119b101`) — 패치 후 첫 실주행 로그로 vturn↔model 플리커 감소 확인 (2026-08-20, 16차)
+- **업로드**: dashcam zip 2개 (route `4fe653914c` 15:56~16:14, route
+  `a5f42c2218` 15:37~15:55). extract_log.py 메타 확인 결과 **두 로그
+  모두 repo HEAD `591f21930d00`(commit_date 14:56:54) 상태에서 기록** —
+  기록 시각(15:37~16:14)이 패치 커밋 시각보다 뒤라 **13차 model 게이팅
+  패치(`119b101`)가 실제로 반영된 상태의 첫 실주행 로그**로 확인됨.
+- ⚠️ **업로드 zip 파일 손상**: 두 zip 모두 중간 구간이 손상됨(zstd
+  CRC/zip local-header 불일치) — route `4fe653914c`는 세그 5~14(10개,
+  약 10분) 유실, route `a5f42c2218`는 세그 7~9(3개, 약 3분) 유실. 손상
+  구간을 제외한 정상 세그(각각 9개/16개, 실주행 9분/16분 분량)만
+  추출해 분석. 다음 세션에서 같은 구간 재분석 필요하면 재업로드 요청
+  (원인은 업로드/전송 과정 추정, 코드 이슈 아님).
+- **vturn↔model 전환 빈도 (핵심 검증 지표)**: route1(9분 실주행)
+  25건(양방향 합), route2(16분) 48건 → 각각 2.78/min, 3.0/min.
+  260819-4 세션 베이스라인(패치 전, x20seg/1200s, model↔vturn 140건)의
+  7.0/min 대비 **약 57~60% 감소**. 도로 유형(이번은 시내/저속 위주
+  avg 20~44km/h, 베이스라인은 avg 57km/h 고속 국도)이 달라 완전
+  통제비교는 아니지만, 방향성은 패치 의도(트레일링만 배제, 진입 반응은
+  유지)와 일치.
+- **다른 min() 히스테리시스 쌍은 여전히 미해결 재확인**: A→B→A
+  플리커 세부 분해 결과 road↔vturn(route1 7건/route2 41건),
+  route↔vturn(route1 4건/route2 31건)이 여전히 model↔vturn(route1
+  14건/route2 30건)과 비슷하거나 더 큰 비중 — PARAMS_REGISTRY.md의
+  "atc/road/route 등 나머지 쌍은 미해결" 판단 그대로 재확인, 신규 아님.
+- **커브 진입 전 사전감속 억제(11차 위험) 간접 확인**: `turn_speed_violations`
+  (vEgo > vTurnSpeed+0.5) 0건(양쪽 다) — 커브 구간에서 시스템이 필요
+  속도보다 빠르게 통과한 사례 없음. 단, CSV에 `model_turn_speed`
+  원시값이 없어 "게이팅이 실제로 언제 배제/포함됐는지"는 로그만으로는
+  직접 확인 불가 — 간접 지표(플리커 감소 + overspeed 0건)까지만 확인,
+  완전한 VALIDATED는 아님.
+- **장시간 정속 커브 부작용(13차 알려진 한계)**: 이번 두 로그는 시내
+  위주 주행이라 장거리 고속 완만한 커브 구간 자체가 거의 없음(교차로
+  회전 위주) — 이 한계는 이번 로그로 검증 못 함, 여전히 과제로 남음.
+- **일반 종방향 지표 (참고, 신규 이슈 없음)**: harsh_brake_events
+  route1 21건/route2 41건 — cruiseEnabled=True(ADAS 활성) 상태에서
+  발생한 건 route1 1건뿐(route2 0건). 그 1건(t=1393.5, seg0)은
+  dashcam 프레임 대조 결과 교차로 진입 전 콘 설치 차선 축소 구간에서
+  근접 선행차(38.9m, closing -4.2m/s)를 vturn(45km/h 제한)이 이미
+  -1.4~1.5 m/s²로 매끈히 감속 중이던 상황에 운전자가 브레이크를 겹쳐
+  밟은 경미한 사례 — 시스템 급제동 아님, ADAS 활성 중 급제동 사실상
+  0건 기조 유지. turn_speed_violation/steering_oscillation 전부 0건
+  (route2 steering_oscillation만 2건, 저속 급회전 구간 오탐 추정).
+  curve_exit_no_accel_v2 후보(route2 11건)는 대부분 vEgo≈0(교차로
+  정차) 또는 경미한 감속(-0.3~-0.7 m/s²)로 8차/9차 세션에서 이미 확인된
+  "정차/저속 시내 회전 오탐" 패턴과 동일, 신규 이슈 아님.
+- **screenrecord clip 롤오버 패치(commit `591f219`, 14/15차)는 이번
+  로그로 검증 불가**: 이 업로드는 주행 rlog/qcamera(운전 로그)이고,
+  screenrecord clip은 별도의 화면 UI 녹화 기능(`/data/media/0/videos`)이라
+  겹치지 않음 — 실측 검증은 여전히 "화면녹화 켜둔 채 20분+ 주행" 형태로
+  별도 확인 필요(WIP.md 참고).
+- 근거 로그: `work/r1.csv`(9분, HEAD `591f219`), `work/r2.csv`(16분,
+  HEAD `591f219`), `source_transition_log`/`harsh_brake_events`/
+  `turn_speed_violations`/`curve_exit_no_accel_scan_v2` 결과.
