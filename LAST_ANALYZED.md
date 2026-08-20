@@ -9,7 +9,25 @@
 ---
 
 ## c3-ms-dev
-- last_analyzed_commit: `591f219` (HEAD, 신규 커밋 없음 — 17차도 코드
+- last_analyzed_commit: `591f219` (HEAD, 신규 커밋 없음 — 19차는 코드
+  분석이 아니라 실차 버그 리포트(screenrecord watchdog timeout) 원인
+  분석 + 패치 작성. 로컬 재현 커밋 `3748263`은 실차 미적용이라 HEAD로
+  취급 안 함)
+- date: 2026-08-20 (19차)
+- note: (19차) 18차에서 사용자가 제보한 "정지 버튼 -> ui 크래시 의심"
+  이슈, 실차 `/data/log/swaglog.0000000915`로 원인 확정: 크래시가
+  아니라 `Watchdog timeout for ui (exitcode None) restarting` —
+  `stop_locked()`(UI 메인 스레드)가 직접 호출하는
+  `extract_trailing_clip()`의 `QProcess::startDetached("ffmpeg", ...)`
+  가 posix_spawn/vfork 기반이라 exec 완료까지 UI 메인 스레드를
+  블로킹, watchdog(5s) 초과로 SIGKILL+재시작. `extract_trailing_clip()`
+  호출을 `std::thread(...).detach()`로 분리하는 패치 작성 완료,
+  `git am` 시뮬레이션(base `591f219`) 통과. **실차 미적용** — 패치
+  파일 `0001-screenrecord-ffmpeg-clip-offthread.patch` 전달, 사용자
+  `git am` 적용 대기. 코드 변경 없음(컨테이너 로컬 커밋만, 실차 HEAD
+  그대로). 상세는 FINDINGS.md/WIP.md 19차 참고.
+
+- last_analyzed_commit (17차 기록): `591f219` (HEAD, 신규 커밋 없음 — 17차도 코드
   분석이 아니라 실주행 로그 재검증)
 - date: 2026-08-20 (17차)
 - note: (17차) 16차에서 손상됐던 zip 2개를 사용자가 정상본으로
