@@ -9,8 +9,23 @@
 ---
 
 ## c3-ms-dev
-- last_analyzed_commit: `1fca82f`
+- last_analyzed_commit: `0f7575f`
 - date: 2026-08-20
+- note: (11차, 코드 리뷰 세션) `1fca82f..0f7575f` 신규 커밋 2개(`2226db7`
+  model_turn_straight_gate, `0f7575f` screenrecord clip) 전체 diff
+  재검토. 코드 변경 없음(리뷰만) — 두 커밋 모두 이미 실차 적용+push
+  완료된 상태에서, 로직 재검토로 기존에 기록 안 됐던 위험 2건을 새로
+  발견해 FINDINGS.md에 `[RISK_IDENTIFIED, NEEDS_VALIDATION]`로 추가:
+  1. `2226db7`의 desiredCurvature 게이팅이 "커브 진입 전 model
+     사전감속"까지 억제할 수 있음(현재값 vs 예측값 혼동).
+  2. `0f7575f`의 clip 추출이 20분 자동 세그먼트 롤오버에서도 반복
+     실행됨(정지 버튼 전용이 아님).
+  사용자 요청으로 이번 세션은 패치 없이 devnotes 기록만 진행, 패치는
+  보류 상태로 다음 세션 후보에 등록(WIP.md 미갱신, 코드 변경 자체가
+  없어 새 WIP 항목 불필요 — 다음 세션 시작 시 FINDINGS.md 두 항목을
+  후보로 확인).
+
+- last_analyzed_commit (10차 이전 기록): `1fca82f`
 - note: `1fca82f` = 8차 세션에서 만든 vturn_lookahead_horizon_s
   6.5s→8.0s 패치(로컬 커밋 `c4e3093`)가 `git am`+`git push`로 반영된
   커밋 (`4c15987..1fca82f`). 1차(4.5s→6.5s, `4c15987`)에 이은 2단계
