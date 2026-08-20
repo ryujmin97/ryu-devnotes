@@ -1209,7 +1209,13 @@
   (`screenrecorder.cc` `stop_locked()`/`extract_trailing_clip()`,
   `system/tombstoned.py` 크래시 덤프 경로 확인).
 
-## [PATCH_WRITTEN, NEEDS_VALIDATION] screenrecord ui watchdog timeout — 원인 확정(크래시 아님) + 패치 작성 완료 (2026-08-20, 19차)
+## [PATCH_APPLIED, NEEDS_VALIDATION] screenrecord ui watchdog timeout — 원인 확정(크래시 아님) + 패치 실차 적용 완료 (2026-08-20, 19차)
+
+> **19차 갱신(같은 세션 이어감)**: 아래 패치를 사용자가 실차에서
+> `git am` 적용 + `git push` 완료 확인 — commit **`7b4a160`**
+> (`591f219..7b4a160`). 남은 건 실측 검증뿐(아래 "다음 세션에서
+> 이어갈 것" 참고).
+
 
 - **18차 가설이 실차 swaglog로 확정됨.** 사용자가 `/data/log/`
   (정확한 경로: `Paths.swaglog_root()` = `/data/log/`, 18차에서
@@ -1262,15 +1268,16 @@
   C++ 컴파일 자체는 컨테이너에 툴체인이 없어 불가 — 코드 리뷰 +
   `git am` 검증까지만(기존 패치들과 동일한 검증 수준).
 - **패치 파일**: `/mnt/user-data/outputs/0001-screenrecord-ffmpeg-clip-offthread.patch`
-  (`git format-patch` 형식). **실차 미적용** — 사용자 `git am` 적용
-  대기.
-- **다음 세션(또는 이 세션 재개)에서 이어갈 것**:
-  1. 실차 `git am` 적용 + push 대기.
-  2. 적용 후 실측: 정지 버튼 눌렀을 때 화면 정지/comma 스플래시가
-     더 이상 안 뜨는지, `_clip.mp4` 파일이 CarrotWeb 로그탭에 정상적으로
-     나타나는지, 같은 `/data/log/swaglog.*`에서 그 시각대에 더 이상
+  (`git format-patch` 형식). **실차 `git am` 적용 + push 완료**
+  (commit `7b4a160`, `C:\dev\ryu`).
+- **다음 세션(또는 이 세션 재개)에서 이어갈 것 (실측만 남음)**:
+  1. 정지 버튼 눌렀을 때 화면 정지/comma 스플래시가 더 이상 안 뜨는지
+     확인.
+  2. `_clip.mp4` 파일이 CarrotWeb 로그탭에 정상적으로 생성/표시되는지
+     확인.
+  3. `/data/log/swaglog.*`에서 정지 버튼을 누른 시각대에 더 이상
      "Watchdog timeout for ui" 로그가 안 남는지 확인.
-  3. (우선순위 낮음, 별개 트랙) "장시간 반복 시 메모리 상승" 연결고리
+  4. (우선순위 낮음, 별개 트랙) "장시간 반복 시 메모리 상승" 연결고리
      자체는 이 패치로 크래시-재기동이 없어지면 자연히 해소될 것으로
      예상되나, 정량 확인은 다음 실측 로그로.
 - 근거: `/data/log/swaglog.0000000914~916`(사용자 터미널 캡처),
