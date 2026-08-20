@@ -505,20 +505,37 @@
   사용자가 `git am` 적용 + `git push` 완료 확인
   (`ryu` commit `1f9f852`, `7b4a160..1f9f852`).
 
-## [22차, NEEDS_DECISION] "카메라 인식→레이더 락온 급감속" 근본원인 확정, 패치 방향 3안 — 사용자 결정 대기
-- FINDINGS.md/PARAMS_REGISTRY.md 22차 항목 참고. 요약: `b403d52`가
-  막지 못한 중간 케이스(dRel 미분은 대체로 맞지만 원거리라 TTC
-  캐션 문턱을 물리적으로 못 넘는 경우) 원인 확정, 재현 사례 2건
-  (route2 t=1647, route1 t=1077) 확보 + 영상 프레임 대조 완료.
-- **다음 세션 시작 시 사용자에게 먼저 물어볼 것**: 개선안 3가지 중
-  어느 방향으로 패치할지(또는 추가 사례 더 모을지) 결정 필요:
-  1. vision-only 전용 TTC 캐션 문턱 완화(6.0s→10~12s 등)
-  2. closing-rate 절대값 자체를 게이트로 추가(예: -5.5~-6.0m/s
-     이상이면 거리 무관 frac_ttc 강제)
-  3. `leadStatus` 짧은 깜빡임에도 `_vision_dRel_rate` 리셋 안 하고
-     LEAD_ACQ_LOSS_GRACE_TIME과 동일 grace 적용(가장 단순, 부작용
-     적어 보임 — 1순위 후보로 제안했었음)
-- 코드 변경 없음(ryu 커밋 없음). devnotes만 갱신.
+## [22차-2, PATCH_WRITTEN, NOT_YET_APPLIED] 개선안 3번 코드 작성 완료 — 실차 적용 대기
+- 사용자 지시: "3안은 무조건 적용하고, 1,2안은 좀더 생각해봐(레이더가
+  인식했을때의 로직을 적용하면 안되나)".
+- **3번 패치 완료**: `long_mpc.py` L529-577, 로컬 커밋 `34227e9`
+  (base `1f9f852`). `py_compile` 통과. 실제 버그였음을 코드 재검토로
+  확인 — ramp bookkeeping의 grace 로직(L517-524)과 별개로 vision
+  closing-rate 블록이 leadStatus=False 프레임마다 무조건 리셋해서
+  grace를 무력화하고 있었음. radar 락온(즉시 리셋)/grace 초과 진짜
+  유실(리셋)/grace 이내 blip(유지) 3갈래로 분기하도록 재작성.
+  **패치 파일**: `/mnt/user-data/outputs/
+  0001-long_mpc-vision-closing-rate-leadStatus.patch` — 사용자
+  `git am` 적용 대기.
+- **1/2번 보류 + 사용자의 "레이더 로직 재사용" 제안 검토**:
+  `process_lead()`(L453-483)가 `lead.vLead`(절대속도)를 그대로
+  MPC의 lead 예측 궤적(`extrapolate_lead`)에 사용한다는 것 확인.
+  현재 `_vision_dRel_rate`는 오직 TTC floor(L582-628, virtual
+  obstacle cap)를 통해서만 간접적으로 쓰이고, MPC 자체의 lead
+  예측(`lead_xv_0`)에는 전혀 반영 안 됨 — 즉 TTC floor가 트리거
+  안 되면 MPC는 여전히 (낙관적인) vision vRel 기준으로 리드가 계속
+  거리를 벌린다고 예측한 채로 8s 지평선을 풀게 됨.
+  radard.py L668-675 확인: 레이더 락온 시엔 `lead_one_raw`를
+  블렌딩/지연 없이 "이미 안정적인 실측값이므로 그대로 사용" —
+  **사용자 제안은 이 취급을 vision_dRel_rate가 MIN_TIME 이상
+  수렴한 뒤에도 동일하게 적용하자는 것**으로 재해석 가능: 즉
+  `process_lead()` 호출 전에, `_vision_dRel_rate`가 신뢰 가능하고
+  현재 `lead.vRel`보다 더 위험한 쪽(더 빠른 접근)을 가리킬 때
+  `v_lead = min(lead.vLead, v_ego + self._vision_dRel_rate)`처럼
+  보정된 값을 MPC 예측 자체에 주입 — TTC floor(거리 기반 하한선)
+  방식보다 물리적으로 더 근본적인 수정이 될 수 있음. **다음
+  세션에서 상세 설계 + 부작용(오탐 시 과감속 리스크) 검토 후 제안
+  예정, 코드 미착수(사용자 승인 필요).**
 
 ## 다음 세션 시작 시
 이 WIP.md가 존재하면 위 "다음 세션에서 이어갈 후보" 중 사용자가
