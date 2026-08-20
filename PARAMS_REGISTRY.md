@@ -45,8 +45,8 @@
 |---|---|---|---|
 | speed_n_sources min() 선택 | 히스테리시스는 여전히 없음. **model 후보만** desiredCurvature 기반 게이팅 추가(아래 두 행) | atc/road/vturn/route/model 등 후보 중 크루즈 목표속도 소스 선택 | NEEDS_VALIDATION (2026-08-19 x16seg + 2026-08-20 x20seg(260819-1) 로그: 국도 완만한 커브뿐 아니라 73~113km/h 고속 커브 구간 전반에서 vturn↔road/model/route 재현, x20seg에서 A→B→A 플리커 49건 확인, 우세 쌍 vturn↔model. 2026-08-20(9차): vturn↔model 쌍에 한해 model 후보를 desiredCurvature 기반으로 게이팅하는 패치 작성(미적용/미검증). atc/road/route 등 다른 쌍의 히스테리시스는 여전히 미해결로 남음, FINDINGS.md 참고) |
 | model_turn_straight_thresh | (12차, `7cdc20b`로 제거됨) | desiredCurvature 기준 게이팅 — 진입 전 사전감속 억제 위험으로 폐기 | SUPERSEDED (2026-08-20, model_turn_speed 추세 기반으로 대체, 아래 항목 참고) |
-| model_turn_speed_noise_tol | 0.3 km/h | model_turn_speed 프레임간 미세 흔들림을 "감소"로 오판하지 않기 위한 허용폭 | PATCH_WRITTEN, NEEDS_VALIDATION (2026-08-20, 12차 도입, `7cdc20b`, 실차 미적용 — 패치 파일만 존재, git am 대기) |
-| model_turn_straight_hold_sec | 0.6s | 이 시간 이상 연속으로 model_turn_speed가 (노이즈 허용폭 넘는) 감소 없이 유지/반등해야 "트레일링"으로 보고 model 후보를 min()에서 배제 | PATCH_WRITTEN, NEEDS_VALIDATION (2026-08-20, 12차 재설계 — 판단 기준만 desiredCurvature에서 model_turn_speed 추세로 변경, 값 0.6s는 유지. `7cdc20b`, 실차 미적용) |
+| model_turn_speed_noise_tol | 0.3 km/h | model_turn_speed 프레임간 미세 흔들림을 "감소"로 오판하지 않기 위한 허용폭 | PATCH_APPLIED, NEEDS_VALIDATION (2026-08-20, 12차 도입, 13차 실차 `git am`+push 완료 확인 — commit `119b101`, `0f7575f..119b101`. 실측 검증만 남음) |
+| model_turn_straight_hold_sec | 0.6s | 이 시간 이상 연속으로 model_turn_speed가 (노이즈 허용폭 넘는) 감소 없이 유지/반등해야 "트레일링"으로 보고 model 후보를 min()에서 배제 | PATCH_APPLIED, NEEDS_VALIDATION (2026-08-20, 12차 재설계 — 판단 기준만 desiredCurvature에서 model_turn_speed 추세로 변경, 값 0.6s는 유지. 13차 실차 적용+push 완료, commit `119b101`) |
 
 ## selfdrive/carrot/carrot_man.py
 
