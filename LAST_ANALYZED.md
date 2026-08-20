@@ -9,6 +9,25 @@
 ---
 
 ## c3-ms-dev
+- last_analyzed_commit: `a4b5550` (HEAD, 22차-2에서 작성한 vision
+  closing-rate leadStatus grace 버그 수정 패치를 사용자가 실차에서
+  `git am` 적용 + `git push` 완료 확인 — `1f9f852..a4b5550`, 원격
+  fetch로 diff 동일 재확인. 개선안 3번 완전 반영.)
+- date: 2026-08-20 (22차-3)
+- note: (22차-3, 코드 변경 없음, devnotes 갱신만) 22차-2에서 작성한
+  로컬 커밋 `34227e9`(base `1f9f852`)가 사용자 실차에서 그대로
+  `git am`+`git push`로 반영됨(원격 `a4b5550`). 원격 fetch 후 로컬
+  커밋과 diff 없음(내용 완전 동일) 확인. **실측 검증은 다음
+  세션 과제로 유지** — route1/route2와 유사하게 leadStatus가
+  짧게 깜빡이는 vision-only 구간이 있는 신규 로그로,
+  `_vision_dRel_rate`가 grace 이내에서 리셋되지 않고 유지되는지
+  + 카메라 인식→레이더 락온 급감속 재현 빈도가 줄었는지 확인 필요.
+  개선안 1/2번(TTC 캐션 문턱 완화 / closing-rate 절대값 게이트) 대신
+  "레이더 락온 시 취급을 vision_dRel_rate 수렴 후에도 동일 적용"
+  (`process_lead()`의 `lead.vLead`에 보정값 주입) 방향은 여전히
+  설계 단계, 코드 미착수.
+
+## c3-ms-dev (구버전 기록)
 - last_analyzed_commit (22차-2, 코드 작성): `34227e9` (로컬 커밋,
   base `1f9f852`. **실차 미적용** — patch 파일
   `/mnt/user-data/outputs/0001-long_mpc-vision-closing-rate-leadStatus.patch`
