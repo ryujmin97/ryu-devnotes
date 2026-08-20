@@ -743,3 +743,48 @@
   후속 조치 불필요, 기록 목적.
 - 근거 로그: `20260819_152557_...--f7e0bb3abd--24`~`--39` (route8a),
   `20260819_154157_...--da28883b75--0`~`--4` (route8b).
+
+## [PATCH_APPLIED, NEEDS_VALIDATION] 비전-only 원거리 리드 closing-rate 크로스체크 (2026-08-20)
+
+- **증상 (사용자 실주행 체감 보고)**: 고속도로에서 멀리 서행/정지 중인
+  앞차를 카메라가 먼저 인식(파란박스)한 시점부터는 감속이 없다가, SCC
+  레이더가 인식(빨간박스)하는 순간부터 감속이 시작되는 느낌.
+- **근거**: `VISION_RADAR_CROSSOVER.md`의 8개 zip 전체 crossover 분석
+  (108건, highway 65건) — 특히 `260819-6` seg15/seg5 두 사례에서
+  modelProb 0.54~0.56의 약한 확신 상태가 7~8초간 유지되다가 레이더
+  확인 시점에 dRel이 90m 이상 좁혀져 있던 것이 발견됨 (상세는
+  `VISION_RADAR_CROSSOVER.md` "8개 전체 종합" 참고). 이번 사용자 보고와
+  정확히 일치하는 패턴.
+- **코드 원인**: `radard.py`의 `VisionTrack.update()`는
+  `self.cnt < 20 or self.prob < 0.97` 조건이 참인 동안(원거리·저확신
+  구간에서는 거의 항상 참) `vRel`을 모델이 예측한 순간 속도차이
+  (`lead_msg.v[0] - model_v_ego`)에서 그대로 가져오고, dRel 미분 기반
+  실측 접근속도는 `prob>=0.97`이 되어야만 섞인다. 그런데
+  `long_mpc.py`의 `LEAD_ACQ_TTC_*` 선제감속 로직은 이 (낙관적으로
+  추정될 수 있는) `vRel`로 TTC를 계산하므로, 실제 접근속도가 편향되어
+  있으면 TTC 임계값을 넘지 못해 선제감속이 개입하지 않는다 — 레이더가
+  락온해 정확한 vRel로 바뀌는 프레임에야 TTC가 급락하며 뒤늦게 반응.
+- **패치 (long_mpc.py, commit `60286ff`, 아직 ryu에 push 안 됨 — patch
+  파일로 전달, 사용자가 `git am`으로 적용 예정)**: `radarstate.leadOne`의
+  `vRel`과는 별개로 `dRel`을 프레임 간 미분해 독립적인 접근속도 추정치를
+  저역통과 필터(시정수 `VISION_CLOSING_RATE_TAU=1.0s`)로 누적. 레이더
+  미락온 상태(`leadOne.radar == False`)에서만 갱신하고,
+  `VISION_CLOSING_RATE_MIN_TIME=1.0s` 이상 연속 추적된 뒤에만 신뢰.
+  이렇게 구한 TTC를 기존 vRel 기반 TTC와 `min()`으로 합쳐 더 위험한
+  쪽을 `frac_ttc`에 반영 — 기존 LEAD_ACQ 로직과 동일하게 순수 floor라
+  감속을 절대 완화시키지 않음. `VisionTrack.vRel` 자체는 건드리지
+  않아(다른 곳에서도 쓰이는 핵심 추적값이라 변경 리스크 회피) 영향
+  범위를 long_mpc.py 내부로 한정.
+- **미해결/다음 단계**:
+  1. **aEgo 실측 대조 미완료** — 이번 세션엔 신규 로그 업로드가 없어
+     코드 설계만 진행. `VISION_RADAR_CROSSOVER.md` 최우선 후보 5건
+     (`260819-6` seg15/seg5, `260819-7` seg14/seg8, `260819-5` seg34)
+     세그 폴더를 재업로드받아 패치 적용 전/후 aEgo 프로파일 비교 필요.
+  2. 실차 검증(디바이스에서 `git am` 적용 후 동일/유사 고속도로 원거리
+     서행차 구간 재주행) 아직 없음 — 파라미터(TAU/MIN_TIME 둘 다 1.0s)는
+     추정치이며 튜닝 여지 있음.
+  3. `leadRadar=False` 크로스오버 65건 중 실제 closing은 37%뿐(나머지는
+     벌어지거나 무변화)이라는 기존 분석 결과상, 이 패치가 opening/flat
+     케이스에서 불필요하게 개입하지 않는지도 확인 필요 — dRel 미분이
+     양수(벌어짐)면 `_vision_dRel_rate < -0.1` 조건에서 걸러지므로 설계상
+     안전하지만 실측 확인 전까지는 NEEDS_VALIDATION.
