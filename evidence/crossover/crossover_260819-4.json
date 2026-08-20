@@ -1,0 +1,123 @@
+{
+  "label": "260819-4",
+  "n_rows": 24004,
+  "trip_summary": {
+    "n_frames": 24004,
+    "duration_s": 1200.2,
+    "distance_km": 19.0,
+    "avg_speed_kmh": 57.0,
+    "cruise_enabled_ratio": 0.973,
+    "brake_pressed_ratio": 0.024,
+    "gas_pressed_ratio": 0.008,
+    "n_decel_blocks": 47,
+    "n_harsh_brake_events": 22,
+    "n_cruise_disengage_events": 1
+  },
+  "n_crossover_events": 8,
+  "events": [
+    {
+      "seg": "20260819_123127_000002cc--ba55f880d1--15",
+      "t_vision_start": 983.223,
+      "t_radar_confirm": 986.019,
+      "gap_s": 2.796,
+      "dRel_at_vision_start": 80.6050033569336,
+      "dRel_at_radar_confirm": 69.5999984741211,
+      "dRel_closed_m": 11.01,
+      "vRel_at_vision_start": -0.03812122344970703,
+      "vEgo_at_vision_start": 9.56791877746582,
+      "modelProb_at_vision_start": 0.5532639622688293,
+      "highway": false
+    },
+    {
+      "seg": "20260819_123427_000002cc--ba55f880d1--18",
+      "t_vision_start": 1163.916,
+      "t_radar_confirm": 1164.317,
+      "gap_s": 0.401,
+      "dRel_at_vision_start": 55.19874954223633,
+      "dRel_at_radar_confirm": 60.5,
+      "dRel_closed_m": -5.3,
+      "vRel_at_vision_start": 3.071078300476074,
+      "vEgo_at_vision_start": 12.501795768737793,
+      "modelProb_at_vision_start": 0.5176622867584229,
+      "highway": false
+    },
+    {
+      "seg": "20260819_123427_000002cc--ba55f880d1--18",
+      "t_vision_start": 1164.371,
+      "t_radar_confirm": 1166.719,
+      "gap_s": 2.348,
+      "dRel_at_vision_start": 46.60499954223633,
+      "dRel_at_radar_confirm": 67.19999694824219,
+      "dRel_closed_m": -20.59,
+      "vRel_at_vision_start": 2.4300336837768555,
+      "vEgo_at_vision_start": 12.810402870178223,
+      "modelProb_at_vision_start": 0.7454910278320312,
+      "highway": false
+    },
+    {
+      "seg": "20260819_123427_000002cc--ba55f880d1--18",
+      "t_vision_start": 1169.37,
+      "t_radar_confirm": 1171.368,
+      "gap_s": 1.998,
+      "dRel_at_vision_start": 68.65071105957031,
+      "dRel_at_radar_confirm": 66.9000015258789,
+      "dRel_closed_m": 1.75,
+      "vRel_at_vision_start": -0.1092488244175911,
+      "vEgo_at_vision_start": 15.918534278869629,
+      "modelProb_at_vision_start": 0.874667227268219,
+      "highway": true
+    },
+    {
+      "seg": "20260819_123427_000002cc--ba55f880d1--18",
+      "t_vision_start": 1181.718,
+      "t_radar_confirm": 1182.867,
+      "gap_s": 1.149,
+      "dRel_at_vision_start": 18.292499542236328,
+      "dRel_at_radar_confirm": 21.0,
+      "dRel_closed_m": -2.71,
+      "vRel_at_vision_start": 0.6260185241699219,
+      "vEgo_at_vision_start": 16.03508186340332,
+      "modelProb_at_vision_start": 0.9791457653045654,
+      "highway": true
+    },
+    {
+      "seg": "20260819_124027_000002cc--ba55f880d1--24",
+      "t_vision_start": 1517.425,
+      "t_radar_confirm": 1519.619,
+      "gap_s": 2.194,
+      "dRel_at_vision_start": 113.5425033569336,
+      "dRel_at_radar_confirm": 111.5,
+      "dRel_closed_m": 2.04,
+      "vRel_at_vision_start": -0.43046078085899353,
+      "vEgo_at_vision_start": 26.41838836669922,
+      "modelProb_at_vision_start": 0.543893039226532,
+      "highway": true
+    },
+    {
+      "seg": "20260819_124027_000002cc--ba55f880d1--24",
+      "t_vision_start": 1544.727,
+      "t_radar_confirm": 1547.522,
+      "gap_s": 2.795,
+      "dRel_at_vision_start": 109.9175033569336,
+      "dRel_at_radar_confirm": 110.0999984741211,
+      "dRel_closed_m": -0.18,
+      "vRel_at_vision_start": -2.144611358642578,
+      "vEgo_at_vision_start": 26.316526412963867,
+      "modelProb_at_vision_start": 0.5094898343086243,
+      "highway": true
+    },
+    {
+      "seg": "20260819_124027_000002cc--ba55f880d1--24",
+      "t_vision_start": 1551.024,
+      "t_radar_confirm": 1552.62,
+      "gap_s": 1.596,
+      "dRel_at_vision_start": 87.0328598022461,
+      "dRel_at_radar_confirm": 80.4000015258789,
+      "dRel_closed_m": 6.63,
+      "vRel_at_vision_start": -4.333627223968506,
+      "vEgo_at_vision_start": 23.160818099975586,
+      "modelProb_at_vision_start": 0.9419485926628113,
+      "highway": true
+    }
+  ]
+}
