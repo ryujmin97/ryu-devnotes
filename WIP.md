@@ -1,5 +1,62 @@
 # WIP — 중단 지점 (체크포인트, 세션 종료 아님)
 
+- 저장 시각: 2026-08-20 (10차, screenrecord "이벤트 클립(지난 1분 저장)"
+  기능 — 설계 조사만 완료, **코드/패치 없음**, 사용자 트리거 방식
+  결정 대기 중)
+
+## 10차 신규 — screenrecord 이벤트 클립(지난 1분 별도 mp4) 기능 설계 (코드 없음, 결정 대기)
+- 사용자 요청: 화면녹화 중 이벤트 발생 시, 메인 녹화를 끊지 않고
+  "트리거 시점 기준 지난 1분" 구간만 별도 mp4로 저장하고 싶다.
+  파일명에 트리거 시각(`YYMMDD_HHMMSS`, 예: 2026-08-20 13:23:03 →
+  `260820_132303`) 포함 요청. 업로드/로그찾기 편의 목적.
+- **코드 조사 완료**:
+  - `selfdrive/ui/qt/screenrecorder/screenrecorder.cc` — 토글 하나뿐,
+    시작 시 OMX 하드웨어 인코더가 화면을 바로 디스크 mp4로 스트리밍
+    인코딩. "과거 N초 메모리 보관" 개념 없음. `update_screen()`이
+    20분마다 자동 재시작(`need_restart`)하는 기존 로직 있음(파일 분할
+    선례로 참고할 만함).
+  - `omx_encoder.cc` — `handle_out_buf()`에서 인코딩된 패킷이 나올
+    때마다 `av_write_frame()`으로 메인 mp4(`AVFormatContext ofmt_ctx`)에
+    바로 씀. libavformat 기반이라 두 번째 `AVFormatContext`를 별도로
+    열어 같은 패킷을 동시에 mux하는 것도 구조적으로 가능해 보임.
+  - `UI_FREQ=20`Hz(`selfdrive/ui/ui.h`), 키프레임 간격
+    `nPFrames=15`(약 0.8초마다 I-frame, `omx_encoder.cc:412`).
+  - raw RGBA 60초 버퍼는 계산상 ~4.8GB로 불가능. **인코딩된 h264(2Mbps)
+    60초 링버퍼는 ~15MB로 메모리상 충분히 가능** — 이 방식으로 설계
+    방향 확정(메인 녹화 파일은 끊지 않고, `handle_out_buf`에서 최근
+    ~65초 패킷을 별도 링버퍼에 같이 저장 → 트리거 시 가장 가까운
+    키프레임부터 현재까지 뽑아 두 번째 `AVFormatContext`로 별도 mp4에
+    mux).
+  - 실제 클립 길이는 키프레임 간격 때문에 정확히 60.000초가 아니라
+    약 60.0~60.8초 범위가 됨 — 사용자에게 고지, 정확히 60.0초가
+    필요하면 첫 GOP 트랜스코딩이 필요해 복잡도 상승(보류, 필요시
+    재검토).
+  - 저장 위치는 기존 `SCREEN_RECORDING_DIRS`(`/data/media/0/videos` 등,
+    `routes_logs.py`) 대상 폴더로 하면 carrotweb 로그탭 화면녹화
+    목록에 자동으로 같이 뜸. 파일명 안 `260820_132303_clip.mp4` 형식
+    제안.
+  - 참고: `annotated_camera.cc`에 이미 `carrotMan`발 `carrotCmd ==
+    "RECORD"` + `START`/`STOP`/`TOGGLE` 커맨드 채널이 있음(스티어링휠
+    버튼 등에서 이미 사용 중) → 여기에 `"CLIP"` 커맨드 추가하는 방식도
+    트리거 옵션으로 가능.
+- **사용자에게 트리거 방식 질문 후 응답 대기 중** (옵션: ①녹화버튼
+  롱프레스 ②화면에 새 버튼 추가 ③carrotMan 커맨드 채널에 CLIP 추가
+  ④여러 개 동시 지원). **패치는 사용자 확인 후 진행 — 아직 코드 작성
+  전혀 안 함.**
+- devnotes 변경 사항: 이 WIP.md 항목만 신규 추가. FINDINGS.md /
+  PARAMS_REGISTRY.md / LAST_ANALYZED.md는 이번 체크포인트 시점에는
+  변경 없음(코드/커밋 분석 아직 없어서).
+
+## 다음 세션(또는 이 세션 재개)에서 이어갈 것 (10차, 최우선·신규)
+1. 사용자의 트리거 방식 선택 답변 받기.
+2. 선택된 방식에 맞춰 링버퍼 구현(`omx_encoder.h/.cc`) + 트리거 배선
+   (버튼 및/또는 `carrot_man.py` CLIP 커맨드) 패치 작성.
+3. `py_compile`/문법 체크 가능한 범위까지 검증(C++ 쪽은 컨테이너에
+   빌드 툴체인이 없어 `git apply --check`/코드 리뷰 수준까지만 가능 —
+   실제 컴파일·실차 검증은 사용자 쪽에서).
+4. 파일명 타임스탬프 포맷(`YYMMDD_HHMMSS_clip.mp4`) 및 저장 경로
+   확정 반영.
+
 - 저장 시각: 2026-08-20 (9차, vturn↔model 플리커 게이팅 패치 실차 적용
   + push 완료 확인 — `git am` commit `2226db7`)
 - HEAD (c3-ms-dev): **`2226db7`** — `1fca82f..2226db7` push 완료
