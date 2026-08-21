@@ -42,28 +42,28 @@
   체크와 무관). 상세는 FINDINGS.md 23차 참고.
 
 ## c3-ms-dev
-- last_analyzed_commit (24차): `a4b5550` (HEAD, 신규 커밋 없음 —
-  24차는 하루치 실주행 로그 15개 zip 대량 배치 분석 세션)
-- date: 2026-08-21 (24차)
-- note: (24차) 22~23차 vision closing-rate grace 버그 수정 적용 후
-  첫 하루치(오전~오후, 약 3시간) 실주행 로그 일괄 분석. 실질 처리
-  10개 라우트(route3~route11, 2개는 ADAS 미관여로 스킵) 전체 완료.
-  **종방향 안전 지표(harsh_brake/turn_speed_violation/ttc_danger,
-  ADAS 관여 기준) 10개 라우트 전부 0건** — a4b5550 HEAD 상태에서
-  하루치 실주행 기준 종방향 안전 회귀 없음 확인. **b403d52(vision
-  closing-rate) 최초 프레임단위 실측 검증 완료**(route5) — 6차 원
-  제보 증상과 정반대로 vision-only 상태에서 이미 선제 감속 확인,
-  PARAMS_REGISTRY.md VISION_CLOSING_RATE_TAU 항목 갱신 완료.
-  `route_summary.py` vision_radar_crossover highway 판별 필드명
-  버그 발견+수정(route4). curve_noise_refined 억제율 라우트 유형별
-  분화(고속도로 87.5~100% vs 저속추종/시내혼합 55.6~62.5%, 낮은
-  케이스는 프레임 대조로 오탐 아닌 정상 포착으로 확인) 및
-  source_pair 우세 쌍의 도로유형 의존성(고속도로=road<->vturn 압도,
-  시내혼합=model<->vturn 역전/동률) 계속 축적. 상세는 FINDINGS.md
-  24차 종합 요약 참고. **미완료**: 15개 zip 중 3개(`d45a15f8fc`
-  12:55, `7ffb3e693c` 13:15, `6d6e114aa3` 14:01)는 이번 세션에
-  업로드되지 않아 미분석 — 다음 세션에서 재업로드받아 이어서 분석
-  필요.
+- last_analyzed_commit (24차 최종): `a4b5550` (HEAD, 신규 커밋 없음
+  — 24차는 하루치 실주행 로그 15개 zip 대량 배치 분석 세션, 이번
+  갱신으로 24차 완전 종료)
+- date: 2026-08-21 (24차 최종)
+- note: (24차 최종) 22~23차 vision closing-rate grace 버그 수정
+  적용 후 첫 하루치(06:29~14:20, 약 7.9시간 구간, 총 주행 약
+  230km) 실주행 로그 15개 zip **전체 처리 완료**(실질 분석 13개,
+  ADAS 미관여 스킵 2개). **종방향 안전 지표(harsh_brake/turn_speed_
+  violation/ttc_danger, ADAS 관여 기준) 13개 실질 라우트 전부
+  0건** — a4b5550 HEAD가 고속도로/시내/극심한 정체 전 도로유형에
+  걸쳐 종방향 안전 회귀 없음 최종 확인. **b403d52(vision
+  closing-rate) 프레임단위 실측 검증 완료**(route5, PARAMS_REGISTRY.md
+  갱신 완료) — 6차 원 제보 증상과 정반대 결과. 신규 source 라벨
+  2건(`bump`=APN 과속방지턱, `gas`=가속페달 오버라이드) 관찰 —
+  둘 다 기존 코드의 정상 동작, 이번 배치에서 처음 로그에 등장했을
+  뿐. source_pair 우세 쌍의 도로유형 의존성(고속도로=road<->vturn
+  압도, 시내혼합=역전/동률, 정체=재우세하나 다변화)이 15개 라우트
+  전체에 걸쳐 일관되게 확인 — 도로유형별 분기 설계 필요성 최종
+  뒷받침. 상세는 FINDINGS.md 24차 최종 종합 참고. **다음 우선
+  과제**: 고속도로 급접근(harsh) 케이스 표본 미확보(b403d52 "온건한
+  접근" 검증에 그침), route3 highway 판별 버그 영향 재확인(낮은
+  우선순위).
 
 ## c3-ms-dev (구버전 기록)
 - last_analyzed_commit: `a4b5550` (HEAD, 22차-2에서 작성한 vision

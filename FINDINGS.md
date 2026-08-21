@@ -1882,3 +1882,112 @@ route2/route12) 전체 완료. 총 주행: 대략 190~200km(시내+고속도로
      `7ffb3e693c` 13:15, `6d6e114aa3` 14:01) — 15개 zip 중 이번
      세션에 업로드 안 됨, 재업로드 받으면 route13/14/15로 이어서
      분석.
+
+## [VALIDATED] 24차 계속 — 남은 3개 라우트(route13/14/15) 처리 + 15개 zip 배치 분석 최종 완료 (2026-08-21)
+사용자가 24차 체크포인트에서 요청한 재업로드 3개(`d45a15f8fc`,
+`7ffb3e693c`, `6d6e114aa3`)를 받아 순서대로 처리, 15개 zip 배치
+분석을 최종 완료.
+
+### route13 (`d45a15f8fc`, x20seg, 12:55~13:15, 20분/14.51km, 시내)
+- 평균 43.6km/h, cruise_ratio 0.982, decel_blocks 67건. harsh_brake
+  (ADAS) 0건, turn_speed_violation 0건, ttc_danger(adas) 0건 — 클린
+  유지.
+- steering_oscillation 5건(최대각 8.5~131.4도) — 131.4도 건은 교차로
+  U턴/급회전 추정, 반전 3~4회로 짧은 폭(0.65~2.5s), 기존 패턴과
+  구분 안 됨.
+- curve_noise_refined: raw jump 3건(표본 작음) -> would_trigger 3건
+  -> refined 1건(vrel_consistent/physically_consistent=True, 진짜
+  접근 프로파일).
+- vision_radar_crossover 7건, highway 0건(시내 위주라 예상대로 낮음).
+- **신규 source 관찰**: `bump<->vturn`(16건), `bump<->route`(12건),
+  `bump<->model`(8건) — `bump`는 `carrot_serv.py`의 APN route
+  서브타입(`xSpdType==22`, 과속방지턱 경고)으로 기존 코드에 이미
+  존재하던 소스, 이번 라우트가 처음으로 과속방지턱 구간을 지나며
+  로그에 등장한 것뿐 신규 이슈 아님. source_pair 우세는
+  `model<->vturn`(136건, 압도적).
+
+### route14 (`7ffb3e693c`, x20seg, 13:15~13:35, 20분/10.26km, 시내 정체)
+- 평균 30.8km/h, cruise_ratio 0.795(디스인게이지 6회), brake_pressed
+  15.4%, gas_pressed 7.9% — 수동 개입 비중 높은 구간. harsh_brake
+  (전체 52건은 전부 비ADAS), **ADAS 관여 harsh_brake 0건**,
+  turn_speed_violation 0건.
+- ttc_danger 1건이나 `count_adas=0`(cruiseEnabled=False, 수동 제동
+  중 발생) — ADAS 무관, min_ttc=2.25s/vRel=-11.2m/s로 급접근 상황을
+  운전자가 직접 대응한 것으로 추정.
+- curve_noise_refined: raw 24 -> would_trigger 14 -> refined 5건
+  (억제율 64.3%).
+- cut_in 2건(seg19, vEgo 8.1~8.3m/s, dRel 11.8~12.3m, 신규 패턴 아님).
+- **신규 source 관찰**: `gas`(`gas<->route` 16건, `gas<->vturn` 9건,
+  `gas<->model` 6건, `bump<->gas` 3건) — `gas`는 `carrot_serv.py`의
+  가속페달 오버라이드 메커니즘(운전자가 gas 페달을 밟아 desired_
+  speed를 일시 상향하는 기존 기능)으로, 시내 정체 구간에서 운전자가
+  빈번하게 속도 오버라이드를 사용한 결과로 해석, 코드 이슈 아님.
+
+### route15 (`6d6e114aa3`, x20seg, 14:01~14:20, 20분/4.67km, 극심한 정체)
+- 평균 **14.0km/h**, cruise_ratio **0.141**(대부분 수동 운전),
+  brake_pressed 31%, gas_pressed 21.1% — 15개 라우트 중 가장 정체가
+  심한 구간(distance 4.67km/20분).
+- harsh_brake(전체 137건, 전부 비ADAS) — **ADAS 관여 harsh_brake
+  0건**, turn_speed_violation 0건 — cruise_ratio가 낮아도 ADAS
+  활성 구간 자체는 여전히 클린.
+- ttc_danger 4건 전부 `count_adas=0`(수동 운전 중 정체 제동) — ADAS
+  무관, min_ttc 0.99~2.28s 범위로 정체 상황에서 운전자 직접 대응.
+- cut_in 20건, 전부 vEgo 0~6.6m/s 저속(대부분 0.0, 정차 상태) — DH
+  레이더 구조적 오탐(radarTrackId=0==leadOne, MANDO_RADAR 부재)
+  패턴과 완전 일치, 극심한 정체 구간에서 예상대로 빈발. 신규 이슈
+  아님.
+- curve_noise_refined: raw 22 -> would_trigger 12 -> refined 1건
+  (억제율 91.7%, 저속 정체 구간이라 곡선 자체가 거의 없음).
+- source_pair 우세: `road<->vturn`(181건, 15개 라우트 중 최다) >
+  `model<->vturn`(130건) — 저속 정체 구간에서도 road<->vturn이
+  여전히 우세, 다만 model<->vturn도 상당한 비중 유지.
+
+## [VALIDATED] 24차 — 15개 zip 배치 분석 최종 완료 종합 (2026-08-21)
+15개 zip 전체 처리 완료(실질 분석 13개, ADAS 미관여로 스킵 2개:
+route2/route12). 하루치(06:29~14:20, 약 7.9시간 구간에 걸친 15개
+라우트, 총 주행거리 약 230km) 전체 분석 완료.
+
+- **종방향 안전 지표(harsh_brake/turn_speed_violation/ttc_danger,
+  전부 ADAS 관여 기준) 13개 실질 라우트 전부 0건** — a4b5550 HEAD
+  (22~23차 vision closing-rate grace 버그 수정 포함) 상태로 하루치
+  전체(고속도로/시내/극심한 정체 전 유형 포함) 종방향 안전 회귀
+  없음 최종 확인. 정체 구간(route14/15)처럼 cruise_ratio가 낮고
+  수동 개입이 잦은 조건에서도 ADAS가 관여한 구간 자체는 일관되게
+  클린.
+- **b403d52(vision closing-rate) 프레임단위 실측 검증**(route5,
+  PARAMS_REGISTRY.md 갱신 완료) — 6차 원 제보 증상과 정반대로
+  vision-only 상태에서 이미 선제 감속 확인.
+- **신규 source 라벨 2건 관찰(`bump`, `gas`) — 둘 다 기존 코드에
+  이미 존재하던 정상 동작**(`bump`=APN 과속방지턱 경고,
+  `gas`=가속페달 속도 오버라이드), 이번 배치에서 처음 로그에
+  등장했을 뿐 신규 버그나 이슈 아님. source_pair_flicker 분석 시
+  이 두 소스도 함께 고려 필요(기존 road/route/model/vturn/cam 5종
+  외에 실제로는 bump/gas까지 최소 7종의 min() 경쟁자가 존재).
+- **curve_noise_refined 억제율 최종 범위 55.6%~100%**: 고속도로
+  완만 곡선(route4~7)은 87.5~100%, 저속추종/시내혼합(route8/11)은
+  55.6~62.5%, 정체 구간(route15)은 91.7%(곡선 자체가 적어 표본
+  작음) — 낮은 억제율 케이스들은 전부 프레임 대조로 오탐 아닌 정상
+  위험 포착 확인.
+- **source_pair 우세 쌍의 도로유형 의존성 최종 확인**: 고속도로
+  연속(route4~9)=road<->vturn 압도적(49~112건), 시내+고속 혼합
+  (route10)=model<->vturn 역전, 시내 위주(route11)=동률, 정체
+  (route14/15)=road<->vturn 재우세하나 model<->vturn/gas/bump 등
+  다변화 — 단일 히스테리시스로는 전 도로유형 대응 어려움, 도로
+  유형별(또는 속도 구간별) 분기 설계 필요성이 15개 라우트 전체에
+  걸쳐 일관되게 뒷받침됨.
+- **DH 레이더 구조적 오탐(radarTrackId=0==leadOne cut_in) 패턴**은
+  정체 구간(route15, 20건)에서 예상대로 최다 발생 — 기존 이해와
+  완전 일치, 저속/정차 시 이 오탐 패턴은 근본적으로 무해(리드 부재
+  상황에서의 라벨링 오류일 뿐 실제 제어 이상 유발 안 함)한 것으로
+  누적 확인.
+- **다음 세션 우선 과제**:
+  1. route3의 `vision_radar_crossover count_highway_est=0`이 버그
+     영향인지 재확인 필요 여부(낮은 우선순위, 완전 배제는 못했으나
+     route3 자체가 시내 위주라 실제로도 낮았을 가능성 높음).
+  2. `source_pair_flicker` 분석 대상에 `bump`/`gas`를 정식 편입할지
+     검토(현재 도구는 자동으로 관측된 모든 페어를 집계하므로 이미
+     반영되고 있음, 다만 FINDINGS/PARAMS_REGISTRY 등 문서화 시
+     5종이 아닌 최소 7종으로 갱신 필요).
+  3. 15개 라우트 중 고속도로 급접근(harsh) 케이스가 표본에 없어
+     b403d52의 "온건한 접근" 검증에 그침 — 급접근 실측은 여전히
+     미확보, 향후 로그에서 우선 확보 대상.
