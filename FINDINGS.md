@@ -28,22 +28,26 @@
   20.0~20.8초). 관련 주석(.cc 2곳 + .h 1곳)도 "1분"->"20초"로 동기화.
   로직/파일명 규칙/충돌 처리(스탬프 충돌 시 `_clip_2` 접미사)는
   변경 없음.
-- 조치 2 (carrotweb UI 필터): `selfdrive/carrot/web/js/logs.js`에
+- 조치 2 (carrotweb UI, **수정됨 — 아래 참고**): `selfdrive/carrot/web/js/logs.js`에
   `isScreenrecordClip()`(파일명이 `_clip(_N)?.mp4`로 끝나는지 정규식
-  판별) + `getVisibleScreenrecordVideos()` + `screenrecordToggleClipOnly()`
-  추가, `renderScreenrecordList()`/`screenrecordSelectAll()`이 필터
-  적용된 목록만 대상으로 동작하도록 수정(안 보이는 항목이 전체선택에
-  같이 딸려가지 않게). `index.html`에 `btnScreenrecordClipOnly`
-  토글 버튼 추가, `logs.css`에 `.smallBtn.is-active` 강조 스타일 추가.
-  `node --check` 통과.
+  판별) + `screenrecordSelectClipsOnly()` 추가. **최초 구현은 목록을
+  필터링(clip 아닌 항목을 숨김)했으나, 사용자가 "목록은 다 보이고
+  clip 파일 체크박스만 선택되게 해달라"고 의도를 정정** — 필터링
+  로직(`screenrecordClipOnly` 상태/`getVisibleScreenrecordVideos()`)을
+  제거하고, 버튼 클릭 시 clip 파일들의 체크박스만 토글 선택(이미 전부
+  선택돼 있으면 해제)하는 `screenrecordSelectClipsOnly()`로 교체.
+  `index.html` 버튼 라벨 "Clip만"->"Clip 선택"으로 변경, `logs.css`의
+  미사용 `.smallBtn.is-active` 강조 스타일 제거. `node --check` 통과.
 - 검증: `git am` 컨텍스트 검증(temp branch, base `8114a46`) 통과,
   am 적용 후에도 `node --check` 재통과. **실차 검증(실제 clip 파일
   길이 20초대 확인, carrotweb에서 필터 버튼 동작 확인)은 아직 미실시
   — 다음 세션 과제.**
-- 커밋: `c1e79ed`(clip 60->20s), `cebfa87`(carrotweb 필터 버튼),
-  둘 다 base `8114a46`(c3-ms-dev HEAD) 위. **origin에는 아직 미push**
-  (Claude는 `ryu` 리포에 push 권한 없음 — 항상 patch + 사용자 수동
-  `git am`).
+- 커밋: `c1e79ed`(clip 60->20s), `cebfa87`(carrotweb 필터→선택 버튼
+  최초 구현), `f6a22b8`(의도 정정: 필터 제거, clip 선택 전용으로
+  교체) — 전부 base `8114a46`(c3-ms-dev HEAD) 위. 앞 두 개는 사용자가
+  `c3-ms-dev`/`c3-ms-test` 둘 다 push 완료(`8114a46..dfa2f4f`,
+  `725d19f..e9000b3`). **세 번째(의도 정정) patch는 아직 미적용 —
+  두 브랜치 모두에 추가로 `git am` 필요.**
 - 반영 대상: 사용자 요청대로 **`c3-ms-dev`와 `c3-ms-test` 둘 다**.
   두 patch는 `screenrecorder.cc/h`, `carrot/web/*` 파일만 건드리고
   `long_mpc.py`는 건드리지 않으므로(34차 A/B 실험은 `long_mpc.py`

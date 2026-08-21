@@ -1,8 +1,33 @@
 # WIP — 중단 지점 (체크포인트, 세션 종료 아님)
 
-- 저장 시각: 2026-08-22 (35차 — screenrecord clip 60s->20s +
+- 저장 시각: 2026-08-22 (35차 계속 — carrotweb Clip 버튼 동작을
+  "필터"에서 "clip 파일 선택"으로 정정, patch 0003 전달, 적용 대기)
+
+## 35차 계속 — carrotweb Clip 버튼 의도 정정 (필터 아님, 선택 전용)
+- **정정 배경**: 35차 최초 구현("Clip만" 버튼 = 목록 필터링, clip 아닌
+  항목 숨김)을 사용자가 실제 의도와 다르다고 정정 — "목록은 전부
+  표시하고, clip 파일들의 체크박스만 선택되게" 해달라는 것이었음.
+- **조치**: `screenrecordClipOnly` 필터 상태/`getVisibleScreenrecordVideos()`
+  제거, `screenrecordSelectClipsOnly()`(clip 파일 체크박스만 토글
+  선택/해제)로 교체. 버튼 라벨 "Clip만"->"Clip 선택". 상세는
+  FINDINGS.md 35차 항목(수정됨 표시) 참고. 커밋 `f6a22b8`(local,
+  base `ec5767f`, 즉 최초 carrotweb 커밋 위에 얹은 델타).
+- **전달**: `0003-carrotweb-logs-clip-select-not-filter.patch`를
+  `/mnt/user-data/outputs/`에 생성, `git am` 검증(temp branch) +
+  `node --check` 통과.
+- **다음 세션(또는 다음 메시지)에서 이어갈 것 — 최우선**:
+  1. 사용자가 `c3-ms-dev`/`c3-ms-test` 두 브랜치 모두에
+     `0003-carrotweb-logs-clip-select-not-filter.patch` `git am` +
+     `git push` 적용.
+  2. 실차 검증: `_clip.mp4` 실제 길이 20초대 확인, carrotweb "Clip
+     선택" 버튼 클릭 시 목록은 그대로 다 보이고 clip 파일 체크박스만
+     선택되는지 확인(다시 누르면 해제).
+  3. 검증 통과 후 → 34차(c3-ms-dev vs c3-ms-test A/B 실차 비교) 복귀.
+
+## 35차 (완료, 위 "35차 계속"으로 정정됨) — screenrecord clip 20초 축소 + carrotweb Clip 필터
+- **저장 시각(당시)**: 2026-08-22 — screenrecord clip 60s->20s +
   carrotweb "Clip만" 필터 버튼, 두 브랜치(c3-ms-dev/c3-ms-test) 적용·push
-  완료, 실차 검증만 남음)
+  완료, 실차 검증만 남음
 
 ## 35차 (패치 완료, 적용 대기) — screenrecord clip 20초 축소 + carrotweb Clip 필터
 - **요청**: (1) 정지 clip 길이 60초 -> 20초(용량 절감), (2) carrotweb
