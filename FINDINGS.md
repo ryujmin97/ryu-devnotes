@@ -1726,3 +1726,30 @@ route4 이후부터는 정상값.
 - source_pair 우세: road<->vturn 104건(압도적), cam<->road 8건,
   cam<->vturn 4건 — 고속도로 완만한 곡선 연속 구간에서 road<->vturn
   플리커가 특히 심함(20분에 104건 = 5.2/min).
+
+### route5 (`83e6b133f5`, x20seg, 10:53~11:12, 20분/35.23km, **고속도로 연속**)
+- trip: 평균 105.7km/h, cruise_ratio 1.0, harsh_brake(전체) 0건 — route4와
+  같은 고속도로 주행 연속분으로 보임.
+- 전 항목 클린: turn_speed_violation/steering_oscillation/cut_in/
+  ttc_danger 전부 0. curve_noise 100% 억제(raw 10 -> refined 0).
+- vision_radar_crossover 19건, **19건 전부 highway**.
+
+#### [VALIDATED, 실측 최초] b403d52 vision-only closing-rate 패치 — 레이더 락온 전 조기 감속 실제 확인
+seg6 t=2817.53~2819.53 구간(가장 큰 폭 접근, dRel_closed 41.4m/1.99s)을
+프레임 단위로 대조:
+- t=2817.53: `leadRadar=False`(vision-only), modelProb 0.89, leadDRel
+  71.5m, leadVRel -4.37 — 이 시점 aEgo는 아직 거의 0(-0.06~0.05, 평시
+  크루즈 상태).
+- **t=2818.53부터 aEgo가 vision-only 상태에서 이미 감속 시작**
+  (-0.90 → -1.31 → -1.08...), **`leadRadar`가 `True`로 바뀌는 건
+  t=2819.53로, 이보다 1초 먼저 감속이 시작됨.**
+- 이후 레이더 락온 후에도 감속은 매끄럽게 이어짐(-0.94~-1.45 범위,
+  급격한 단절 없음), 최대 감속도 약 -1.45m/s²로 온건한 수준.
+- **의의**: 6차에서 사용자가 제보한 원 증상(\"카메라 인식 시점부터는
+  감속 없다가 레이더 인식 순간부터 감속 시작되는 느낌\")이 이번
+  실측에서 **정반대로 확인** — 패치 의도대로 vision-only 구간에서
+  이미 선제 감속이 걸리고 있음. 17차(경향 확인)에 이은 **최초의
+  명확한 프레임 단위 실측 증거**. `VISION_CLOSING_RATE_TAU`/
+  `MIN_TIME`(1.0s/0.5s) 튜닝이 유효하게 작동 중인 것으로 판단.
+- source_pair 우세: road<->vturn 99건, cam<->vturn 15건, cam<->road 4건
+  — route4와 유사 패턴 유지.
