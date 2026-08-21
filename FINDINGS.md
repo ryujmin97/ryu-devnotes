@@ -17,6 +17,41 @@
 
 ---
 
+## [FIXED] screenrecord 정지 clip 길이 60초 -> 20초, carrotweb 로그탭에 "Clip만" 필터 버튼 추가 (2026-08-22, 35차)
+- 배경: 정지 버튼을 누르면 `extract_trailing_clip()`이 마지막 60초를
+  별도 `_clip.mp4`로 잘라 저장(19차/커밋 `7b4a160`부터 동작). 사용자가
+  "60초는 너무 길다, 용량 절감을 위해 20초로 줄여달라" + "carrotweb
+  로그탭 화면녹화 목록에서 clip 파일만 골라 보이게 하는 버튼" 요청.
+- 조치 1 (clip 길이): `selfdrive/ui/qt/screenrecorder/screenrecorder.cc`의
+  `extract_trailing_clip()` ffmpeg 인자 `-sseof -60` -> `-sseof -20`
+  (stream copy라 키프레임 간격만큼 오차 있음, 실제 길이 약
+  20.0~20.8초). 관련 주석(.cc 2곳 + .h 1곳)도 "1분"->"20초"로 동기화.
+  로직/파일명 규칙/충돌 처리(스탬프 충돌 시 `_clip_2` 접미사)는
+  변경 없음.
+- 조치 2 (carrotweb UI 필터): `selfdrive/carrot/web/js/logs.js`에
+  `isScreenrecordClip()`(파일명이 `_clip(_N)?.mp4`로 끝나는지 정규식
+  판별) + `getVisibleScreenrecordVideos()` + `screenrecordToggleClipOnly()`
+  추가, `renderScreenrecordList()`/`screenrecordSelectAll()`이 필터
+  적용된 목록만 대상으로 동작하도록 수정(안 보이는 항목이 전체선택에
+  같이 딸려가지 않게). `index.html`에 `btnScreenrecordClipOnly`
+  토글 버튼 추가, `logs.css`에 `.smallBtn.is-active` 강조 스타일 추가.
+  `node --check` 통과.
+- 검증: `git am` 컨텍스트 검증(temp branch, base `8114a46`) 통과,
+  am 적용 후에도 `node --check` 재통과. **실차 검증(실제 clip 파일
+  길이 20초대 확인, carrotweb에서 필터 버튼 동작 확인)은 아직 미실시
+  — 다음 세션 과제.**
+- 커밋: `c1e79ed`(clip 60->20s), `cebfa87`(carrotweb 필터 버튼),
+  둘 다 base `8114a46`(c3-ms-dev HEAD) 위. **origin에는 아직 미push**
+  (Claude는 `ryu` 리포에 push 권한 없음 — 항상 patch + 사용자 수동
+  `git am`).
+- 반영 대상: 사용자 요청대로 **`c3-ms-dev`와 `c3-ms-test` 둘 다**.
+  두 patch는 `screenrecorder.cc/h`, `carrot/web/*` 파일만 건드리고
+  `long_mpc.py`는 건드리지 않으므로(34차 A/B 실험은 `long_mpc.py`
+  단일 파일 변경) `c3-ms-test`에도 컨텍스트 충돌 없이 그대로 `git am`
+  될 것으로 예상 — 단, 두 브랜치 각각에 실제로 적용됐는지는 사용자
+  확인 필요.
+- 근거 로그: 없음(코드 리뷰 기반 변경, 로그 분석 아님).
+
 ## [INVESTIGATING] extract_log.py 세그먼트 경계마다 leadStatus 인위적 False 발생 — LEAD_ACQ_LOSS_GRACE_TIME 과거 증거 재검토 필요 (2026-08-20, 라우트 260819-2 분석 중 발견)
 - 증상: 260819-2 라우트(x20seg, 1199.9s/10.29km)에서 leadStatus True→False→True
   '순간 유실' 16건을 탐지했는데, **16건 전부 예외 없이 세그먼트 파일 전환

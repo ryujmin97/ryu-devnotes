@@ -1,6 +1,30 @@
 # WIP — 중단 지점 (체크포인트, 세션 종료 아님)
 
-- 저장 시각: 2026-08-22 (34차 — c3-ms-test A/B 실험 브랜치 생성·push 완료)
+- 저장 시각: 2026-08-22 (35차 — screenrecord clip 60s->20s +
+  carrotweb "Clip만" 필터 버튼, 패치 완료·전달, 사용자 적용/push 대기)
+
+## 35차 (패치 완료, 적용 대기) — screenrecord clip 20초 축소 + carrotweb Clip 필터
+- **요청**: (1) 정지 clip 길이 60초 -> 20초(용량 절감), (2) carrotweb
+  로그탭 화면녹화 목록에서 clip 파일만 필터링하는 버튼. 두 브랜치
+  (`c3-ms-dev`, `c3-ms-test`) 모두 반영 + push까지 요청.
+- **구현**: 커밋 2개, base `8114a46`(c3-ms-dev HEAD) —
+  `c1e79ed`(clip 60->20s), `cebfa87`(carrotweb Clip만 필터 버튼).
+  상세는 FINDINGS.md 35차 항목 참고. `git am` 검증(temp branch) +
+  `node --check` 통과.
+- **전달**: `0001-screenrecorder-clip-60-20.patch`,
+  `0002-carrotweb-logs-Clip-clip.patch`를 `/mnt/user-data/outputs/`에
+  생성, `git am` 안내 함께 전달함(아래 참고).
+- **다음 세션(또는 다음 메시지)에서 이어갈 것 — 최우선**:
+  1. 사용자가 `c3-ms-dev` 로컬(`C:\dev\ryu`)에 두 patch `git am` 적용
+     + `git push origin c3-ms-dev` 확인.
+  2. `c3-ms-test` 로컬(별도 워크트리/클론)에도 같은 두 patch를 `git am`
+     적용(long_mpc.py 무관 변경이라 충돌 없을 것으로 예상하나 실제
+     결과 확인 필요) + `git push origin c3-ms-test` 확인.
+  3. 실차 검증: 정지 버튼 눌러 생성된 `_clip.mp4` 실제 길이가
+     20초대인지 확인, carrotweb 로그탭 화면녹화 탭에서 "Clip만"
+     버튼 토글 시 clip 파일만 남는지 확인.
+  4. 검증 통과 후 → 34차(c3-ms-dev vs c3-ms-test vision closing-rate
+     A/B 실차 비교, 아래 34차 섹션) 원래 과제로 복귀.
 
 ## 34차 (완료) — c3-ms-test 브랜치: 클램프+중앙값 필터 제거 A/B 실차 비교용
 - **배경**: 33차까지 문턱 재설계(-2.2/-5.0)는 완료·push됨(`c3-ms-dev` HEAD
