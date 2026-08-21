@@ -41,6 +41,30 @@
   구간 레이더 타깃 전환 이슈로 재분류(vision closing-rate 크로스
   체크와 무관). 상세는 FINDINGS.md 23차 참고.
 
+## c3-ms-dev
+- last_analyzed_commit (24차): `a4b5550` (HEAD, 신규 커밋 없음 —
+  24차는 하루치 실주행 로그 15개 zip 대량 배치 분석 세션)
+- date: 2026-08-21 (24차)
+- note: (24차) 22~23차 vision closing-rate grace 버그 수정 적용 후
+  첫 하루치(오전~오후, 약 3시간) 실주행 로그 일괄 분석. 실질 처리
+  10개 라우트(route3~route11, 2개는 ADAS 미관여로 스킵) 전체 완료.
+  **종방향 안전 지표(harsh_brake/turn_speed_violation/ttc_danger,
+  ADAS 관여 기준) 10개 라우트 전부 0건** — a4b5550 HEAD 상태에서
+  하루치 실주행 기준 종방향 안전 회귀 없음 확인. **b403d52(vision
+  closing-rate) 최초 프레임단위 실측 검증 완료**(route5) — 6차 원
+  제보 증상과 정반대로 vision-only 상태에서 이미 선제 감속 확인,
+  PARAMS_REGISTRY.md VISION_CLOSING_RATE_TAU 항목 갱신 완료.
+  `route_summary.py` vision_radar_crossover highway 판별 필드명
+  버그 발견+수정(route4). curve_noise_refined 억제율 라우트 유형별
+  분화(고속도로 87.5~100% vs 저속추종/시내혼합 55.6~62.5%, 낮은
+  케이스는 프레임 대조로 오탐 아닌 정상 포착으로 확인) 및
+  source_pair 우세 쌍의 도로유형 의존성(고속도로=road<->vturn 압도,
+  시내혼합=model<->vturn 역전/동률) 계속 축적. 상세는 FINDINGS.md
+  24차 종합 요약 참고. **미완료**: 15개 zip 중 3개(`d45a15f8fc`
+  12:55, `7ffb3e693c` 13:15, `6d6e114aa3` 14:01)는 이번 세션에
+  업로드되지 않아 미분석 — 다음 세션에서 재업로드받아 이어서 분석
+  필요.
+
 ## c3-ms-dev (구버전 기록)
 - last_analyzed_commit: `a4b5550` (HEAD, 22차-2에서 작성한 vision
   closing-rate leadStatus grace 버그 수정 패치를 사용자가 실차에서

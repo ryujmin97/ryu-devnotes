@@ -1807,3 +1807,78 @@ seg6 t=2817.53~2819.53 구간(가장 큰 폭 접근, dRel_closed 41.4m/1.99s)을
   road<->vturn이 압도적 1위였는데, 시내+고속 혼합 구간에서는 양상이
   다름을 시사(20차 계속 세션의 관찰 — "도로 상황에 따라 우세 쌍이
   달라진다"와 일치).
+
+### route11 (`3f3884d185`, x17seg, 13:35~13:51, 16.8분/13.18km, 시내 위주)
+- 평균 47.0km/h, cruise_ratio 0.882, decel_blocks 38건. harsh_brake(전체
+  35건은 disengage/저속 구간, ADAS 관여 harsh_brake **0건**),
+  turn_speed_violation 0건, ttc_danger(adas) **0건** — 종방향 안전 지표
+  전부 클린 유지(11개 라우트 연속).
+- steering_oscillation 3건(각도 18.1~37.4도, 반전 3회, 폭 1.4~2.0s) —
+  교차로 회전 패턴과 구분 안 됨, 이상 징후로 단정 안 함.
+- cut_in 5건 — 4건이 seg16(13176~13183s, vEgo 0.08~1.37m/s 극저속
+  주정차 구간) 밀집, 기존에 알려진 "radarTrackId=0==leadOne 구조적
+  오탐"(DH 레이더 아키텍처 특성, MANDO_RADAR 부재) 패턴과 일치, 신규
+  이슈 아님.
+- curve_noise_refined: raw jump 41건 -> would_trigger 18건 ->
+  **refined_danger 8건**(억제율 55.6%, 지금까지 중 가장 낮은 축 —
+  route8의 62.5%와 유사한 범주). refined 8건 대부분
+  vrel_consistent=True/physically_consistent=True 조합으로 "진짜
+  접근" 프로파일에 부합(seg4 구간에 4건 밀집, t=12439.58~12446.73 —
+  같은 선행차 추종 시퀀스로 추정, route8과 동일하게 refined 로직이
+  실제 위험을 잘 포착한 사례로 판단). 시각 미검증.
+- vision_radar_crossover 32건, highway 23건 — 시내+고속 혼합 구간
+  치고 highway 비중이 route10(7/18)보다 높음(23/32), 이 라우트가
+  고속도로 구간 비중이 더 컸던 것으로 추정.
+- source_pair 우세: `model<->vturn`(87건, 5.18/min) ≈ `road<->vturn`
+  (87건, 5.18/min) **동률** — route10의 역전(model 우세) 이후 이번엔
+  두 쌍이 정확히 동수. 시내+고속 혼합 구간에서 road/model 우세가
+  안정적이지 않고 라우트마다 뒤바뀌는 패턴 계속 축적 중(별도
+  히스테리시스 설계 필요성 뒷받침 근거 추가).
+
+### route12 (`54c822209b`, 1세그, 14:20, 9.8초) — 스킵
+전체 9.8초, `cruise_enabled_ratio=0.0`(ADAS 비활성 내내), brake_pressed
+100%, vEgo 평균 0.5km/h(거의 정지) — route2(`8417c66e7e`)와 동일하게
+ADAS 미관여 극단문 로그, 분석 가치 없음. cut_in 1건(vEgo 0.29m/s
+극저속, leadDRel 3.24m — 정차 중 근접 오탐, 무해). 15개 zip 중
+마지막 라우트로 24차 배치 분석 **전체 완료**.
+
+## [진행중] 24차 종합 요약 — 15개 zip 배치 분석 완료 (2026-08-21, 24차 마무리)
+실질 처리 라우트 10개(route3~route12, 2개는 ADAS 미관여로 스킵:
+route2/route12) 전체 완료. 총 주행: 대략 190~200km(시내+고속도로
+혼합), 약 3시간 분량.
+- **종방향 안전 지표 전체 클린**: harsh_brake(ADAS)/turn_speed_
+  violation/ttc_danger(adas) 전부 route3~route11 **10개 라우트
+  전부 0건**. a4b5550 HEAD(22~23차 vision closing-rate grace 버그
+  수정 포함) 상태에서 하루치 실주행 기준 종방향 안전 회귀 없음
+  확인.
+- **b403d52(vision closing-rate) 최초 프레임단위 실측 검증**(route5)
+  — 6차 원 제보 증상과 정반대로, vision-only 상태에서 이미 선제
+  감속 확인. `VISION_CLOSING_RATE_TAU`/`MIN_TIME`(1.0s/0.5s) 유효
+  작동 확인.
+- **`route_summary.py` vision_radar_crossover highway 판별 버그
+  발견+수정**(route4에서 발견, `v_ego_kmh`→`highway` 필드명 수정) —
+  route3는 재확인 결과 시내 위주라 실제로도 낮았을 가능성 높음(완전
+  배제는 못하나 route4 이후 정상 집계로 이후 분석에 영향 없음).
+- **curve_noise_refined 억제율 라우트별 변동(55.6%~100%)**: route4~7
+  (고속도로 완만 곡선)은 87.5~100%로 높고, route8/route11(저속
+  추종/시내 혼합)은 55.6~62.5%로 낮음 — 프레임 대조 결과 낮은 억제율
+  케이스들은 전부 오탐이 아니라 refined 로직이 실제 위험(선행차
+  저속 추종)을 올바르게 포착한 것으로 확인, 긍정적 신호.
+- **source_pair 우세 쌍이 도로 유형에 강하게 의존**: 고속도로 연속
+  구간(route4~9)은 road<->vturn이 압도적(49~112건), 시내+고속 혼합
+  구간(route10/11)은 model<->vturn이 역전 우세이거나(route10)
+  동률(route11) — 20차부터 계속 관찰된 패턴, road/route/model 각각
+  별도 히스테리시스 설계 필요성을 뒷받침하는 근거로 10개 라우트에
+  걸쳐 일관되게 축적됨.
+- **DH 레이더 구조적 오탐(radarTrackId=0==leadOne cut_in) 재확인**:
+  route11 seg16에서도 동일 패턴 관찰, 기존 알려진 이슈와 일치, 신규
+  아님.
+- **다음 우선 과제**(WIP.md에서 이관):
+  1. `PARAMS_REGISTRY.md`의 `VISION_CLOSING_RATE_TAU` 항목을 route5
+     실측 검증 결과로 갱신 (아직 미반영).
+  2. `LAST_ANALYZED.md` 최종 갱신 (c3-ms-dev HEAD `a4b5550` 기준
+     실주행 로그 검증 완료 표시).
+  3. 아직 업로드되지 않은 나머지 3개 라우트(`d45a15f8fc` 12:55,
+     `7ffb3e693c` 13:15, `6d6e114aa3` 14:01) — 15개 zip 중 이번
+     세션에 업로드 안 됨, 재업로드 받으면 route13/14/15로 이어서
+     분석.

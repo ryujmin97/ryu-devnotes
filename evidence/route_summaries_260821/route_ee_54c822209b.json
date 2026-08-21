@@ -1,0 +1,80 @@
+{
+  "label": "route12_54c822209b_14:20_1seg",
+  "meta": {
+    "commit": "a4b55504cf07d1d363969168d5c08d55502730e6",
+    "commit_short": "a4b55504cf07",
+    "branch": "c3-ms-dev",
+    "commit_date": "2026-08-20T20:50:13+09:00",
+    "commit_subject": "long_mpc: vision closing-rate 크로스체크가 leadStatus 짧은 깜빡임마다 리셋되던 버그 수정",
+    "dirty": false,
+    "repo_dir": "/home/claude/ryu",
+    "route_dir": "/home/claude/work/route54c8",
+    "out_csv": "/home/claude/work/route54c8.csv",
+    "n_segments": 1,
+    "n_rows": 196,
+    "extracted_at": "2026-08-21T08:35:43.340002+00:00",
+    "segment_state_carryover_fix": true
+  },
+  "n_rows": 196,
+  "trip_summary": {
+    "n_frames": 196,
+    "duration_s": 9.8,
+    "distance_km": 0.0,
+    "avg_speed_kmh": 0.5,
+    "cruise_enabled_ratio": 0.0,
+    "brake_pressed_ratio": 1.0,
+    "gas_pressed_ratio": 0.0,
+    "n_decel_blocks": 0,
+    "n_harsh_brake_events": 0,
+    "n_cruise_disengage_events": 0
+  },
+  "n_rows_adas": 0,
+  "harsh_brake_events": {
+    "count": 0,
+    "events": []
+  },
+  "turn_speed_violations": {
+    "count": 0,
+    "events": []
+  },
+  "steering_oscillation": {
+    "count": 0,
+    "events": []
+  },
+  "cut_in": {
+    "count": 1,
+    "events": [
+      {
+        "seg": "20260821_142017_000002ee--54c822209b--0",
+        "t": 14901.017836737,
+        "leadDRel": 3.241300582885742,
+        "leadVRel": -0.3324432969093323,
+        "vEgo": 0.28677645325660706
+      }
+    ]
+  },
+  "segment_boundary_artifacts": {
+    "skipped": "신버전 CSV, 아티팩트 없음"
+  },
+  "source_pair_flicker": [],
+  "ttc_danger": {
+    "count_total": 0,
+    "count_adas": 0,
+    "events": []
+  },
+  "curve_noise_refined": {
+    "n_curve_frames": 196,
+    "curve_duration_min": 0.16,
+    "n_jump_events": 0,
+    "n_would_trigger_danger": 0,
+    "n_refined_danger": 0,
+    "noise_suppression_rate": null,
+    "jump_events_per_min_in_curve": 0.0,
+    "events": []
+  },
+  "vision_radar_crossover": {
+    "count_total": 0,
+    "count_highway_est": 0,
+    "events": []
+  }
+}
