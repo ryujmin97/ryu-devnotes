@@ -1,7 +1,8 @@
 # WIP — 중단 지점 (체크포인트, 세션 종료 아님)
 
 - 저장 시각: 2026-08-22 (35차 — screenrecord clip 60s->20s +
-  carrotweb "Clip만" 필터 버튼, 패치 완료·전달, 사용자 적용/push 대기)
+  carrotweb "Clip만" 필터 버튼, 두 브랜치(c3-ms-dev/c3-ms-test) 적용·push
+  완료, 실차 검증만 남음)
 
 ## 35차 (패치 완료, 적용 대기) — screenrecord clip 20초 축소 + carrotweb Clip 필터
 - **요청**: (1) 정지 clip 길이 60초 -> 20초(용량 절감), (2) carrotweb
@@ -15,12 +16,13 @@
   `0002-carrotweb-logs-Clip-clip.patch`를 `/mnt/user-data/outputs/`에
   생성, `git am` 안내 함께 전달함(아래 참고).
 - **다음 세션(또는 다음 메시지)에서 이어갈 것 — 최우선**:
-  1. 사용자가 `c3-ms-dev` 로컬(`C:\dev\ryu`)에 두 patch `git am` 적용
-     + `git push origin c3-ms-dev` 확인.
-  2. `c3-ms-test` 로컬(별도 워크트리/클론)에도 같은 두 patch를 `git am`
-     적용(long_mpc.py 무관 변경이라 충돌 없을 것으로 예상하나 실제
-     결과 확인 필요) + `git push origin c3-ms-test` 확인.
-  3. 실차 검증: 정지 버튼 눌러 생성된 `_clip.mp4` 실제 길이가
+  1. ~~사용자가 `c3-ms-dev` 로컬에 두 patch `git am` 적용 + push~~ →
+     **완료**. `git am` 컨텍스트 충돌 없이 그대로 적용, `git push
+     origin c3-ms-dev` 확인(`8114a46..dfa2f4f`).
+  2. ~~`c3-ms-test`에도 같은 두 patch 적용 + push~~ → **완료**.
+     예상대로 `long_mpc.py` 무관이라 충돌 없이 적용, `git push origin
+     c3-ms-test` 확인(`725d19f..e9000b3`).
+  3. **[남음]** 실차 검증: 정지 버튼 눌러 생성된 `_clip.mp4` 실제 길이가
      20초대인지 확인, carrotweb 로그탭 화면녹화 탭에서 "Clip만"
      버튼 토글 시 clip 파일만 남는지 확인.
   4. 검증 통과 후 → 34차(c3-ms-dev vs c3-ms-test vision closing-rate

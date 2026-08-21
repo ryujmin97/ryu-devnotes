@@ -9,6 +9,18 @@
 ---
 
 ## c3-ms-dev
+- last_analyzed_commit (35차): `dfa2f4f` (HEAD, 신규 커밋 2개 —
+  `c1e79ed`(screenrecord clip 60s->20s) + 자체 해시로 재커밋된
+  carrotweb Clip 필터 버튼 커밋. 둘 다 `git am`으로 컨텍스트 충돌
+  없이 적용, `git push origin c3-ms-dev` 완료 확인(`8114a46..dfa2f4f`).
+  같은 두 patch가 `c3-ms-test`에도 충돌 없이 적용되어 push 완료
+  (`725d19f..e9000b3`) — 코드 분석 대상 아님(우리가 만든 UI/설정
+  패치), 참고용 기록만.
+- date: 2026-08-22 (35차)
+- note: (35차) 실차 검증 남음 — clip 실제 길이 20초대 확인, carrotweb
+  "Clip만" 필터 버튼 동작 확인. 상세는 FINDINGS.md/WIP.md 35차 참고.
+
+## c3-ms-dev
 - last_analyzed_commit (33차): `8114a46` (HEAD, 신규 커밋 2개 —
   `c53c2fd`(26차 patch 실제 반영: 곡선 노이즈 클램프+중앙값 필터 +
   VISION_CLOSING_RATE 절대값 게이트 신설, 구문턱 -5.5/-10.0으로
