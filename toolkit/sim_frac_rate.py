@@ -1,16 +1,18 @@
-import sys, csv
+import sys, csv, os
 from collections import deque
 sys.path.insert(0, '/home/claude/devnotes/toolkit')
 from analysis_helpers import load_csv
 
 # --- 26차 패치 설계값 (WIP.md 기술 내용 그대로 재현) ---
+# 28차: GATE_CAUTION/GATE_DANGER는 환경변수로 override 가능하게 함
+# (문턱 재설계 스윕을 파일 수정 없이 반복 실행하기 위함, 29차)
 VISION_CLOSING_RATE_TAU            = 1.0   # s, 기존 저역통과 시정수
 VISION_CLOSING_RATE_MIN_TIME       = 0.5   # s
 LEAD_ACQ_LOSS_GRACE_TIME           = 0.5   # s
 VISION_CLOSING_RATE_MAX_PLAUSIBLE  = 30.0  # m/s, 클램프 상한(접근 방향만)
 VISION_CLOSING_RATE_MEDIAN_WINDOW  = 3     # frames
-VISION_CLOSING_RATE_GATE_CAUTION   = -5.5  # m/s
-VISION_CLOSING_RATE_GATE_DANGER    = -10.0 # m/s
+VISION_CLOSING_RATE_GATE_CAUTION   = float(os.environ.get('SIM_GATE_CAUTION', -5.5))  # m/s
+VISION_CLOSING_RATE_GATE_DANGER    = float(os.environ.get('SIM_GATE_DANGER', -10.0))  # m/s
 
 
 def _f(row, key, default=None):

@@ -3,6 +3,12 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+## 2026-08-21 (29차)
+- **`sim_frac_rate.py` 수정**: `VISION_CLOSING_RATE_GATE_CAUTION`/
+  `GATE_DANGER`를 `SIM_GATE_CAUTION`/`SIM_GATE_DANGER` 환경변수로
+  override 가능하게 함(기본값은 기존과 동일 -5.5/-10.0). 문턱
+  재설계 후보 스윕을 파일 수정 없이 반복 실행하기 위함.
+
 ## 2026-08-21 (28차)
 - **`sim_frac_rate.py` 신규**: 26차 patch(`5cc0900`)의 `frac_rate`
   게이트(클램프+중앙값+저역통과 → CAUTION/DANGER 정규화) 프레임 단위

@@ -167,10 +167,14 @@ GATE_CAUTION`(-5.5)~`GATE_DANGER`(-10.0) 선형 정규화 — 를 CSV 위에서
 **사용**:
 ```bash
 python3 sim_frac_rate.py /home/claude/work/route.csv [t_lo] [t_hi]
+# 29차: 문턱 후보 스윕 (파일 수정 없이)
+SIM_GATE_CAUTION=-3.0 SIM_GATE_DANGER=-8.0 python3 sim_frac_rate.py /home/claude/work/route.csv
 ```
 **28차 결과**: 세그7/세그12 실측 두 사례 모두 `frac_rate` 전 구간
 0.000(전혀 미발동) 확정 — 문턱값(-5.5)이 실측 피크(-3.2~-3.5)보다
 구조적으로 높음. FINDINGS.md 28차 항목 참고.
+**29차**: `SIM_GATE_CAUTION`/`SIM_GATE_DANGER` 환경변수 override
+추가(기본값은 -5.5/-10.0로 기존과 동일). 문턱 재설계 스윕용.
 
 ## sim_vision_rate.py
 **목적**: `LEAD_ACQ` 상태머신(비전 전용 리드 감속 트리거, grace time
