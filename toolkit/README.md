@@ -153,6 +153,25 @@ python3 extract_dashcam_frames.py <segment_dir> --repo /home/claude/ryu \
     --times 205.53,207.99,208.69,210.48 --out-dir /home/claude/work/frames --context 2
 ```
 
+## sim_frac_rate.py
+**목적**: (2026-08-21, 28차 신규) 26차 patch(`5cc0900`, 아직 origin
+미push)의 `frac_rate` 게이트 로직 — 클램프(30m/s, 접근 방향만) +
+3프레임 중앙값 + 기존 TAU=1.0s 저역통과 → `VISION_CLOSING_RATE_
+GATE_CAUTION`(-5.5)~`GATE_DANGER`(-10.0) 선형 정규화 — 를 CSV 위에서
+프레임 단위로 정확히 재현. `sim_vision_rate.py`(a4b5550의 grace-aware
+리셋 버그 검증용)와는 다른 목적이니 혼동 주의.
+**입력**: `extract_log.py`로 뽑은 route CSV.
+**출력**: 세그먼트별 `max_frac_rate`/`min_filt_rate` 요약 + (t범위
+지정 시) 프레임별 상세 테이블(`filt_rate`, 클램프/중앙값 없는 참고용
+`raw_rate_lp`, `frac_rate`, 게이트 활성 여부).
+**사용**:
+```bash
+python3 sim_frac_rate.py /home/claude/work/route.csv [t_lo] [t_hi]
+```
+**28차 결과**: 세그7/세그12 실측 두 사례 모두 `frac_rate` 전 구간
+0.000(전혀 미발동) 확정 — 문턱값(-5.5)이 실측 피크(-3.2~-3.5)보다
+구조적으로 높음. FINDINGS.md 28차 항목 참고.
+
 ## sim_vision_rate.py
 **목적**: `LEAD_ACQ` 상태머신(비전 전용 리드 감속 트리거, grace time
 등)을 실제 코드 수정 없이 CSV 로그 위에서 시뮬레이션 — 패치 전/후
