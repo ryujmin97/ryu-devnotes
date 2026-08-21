@@ -1696,3 +1696,33 @@ ttc_danger/curve_noise_refined/vision_radar_crossover 전부 포함)로
   시내 위주.
 - source_pair 우세: road<->vturn(52건, 2.6/min) > route<->vturn(37건)
   > model<->vturn(24건) — 20차 계속과 동일하게 road<->vturn이 최다.
+
+### 도구 버그 수정 — `route_summary.py` vision_radar_crossover highway 판별 필드명 오류
+`vision_to_radar_crossover()`가 실제로 반환하는 필드는 `highway`(bool)인데
+`route_summary.py`는 존재하지 않는 `v_ego_kmh`/`vEgo_kmh`를 참조해 항상
+`count_highway_est=0`으로 나오는 버그 발견(route4에서 명백한 고속도로
+구간인데 0건 나와서 발견). `e.get("highway")`로 수정 완료 — **route3의
+`count_highway_est=0`도 이 버그 영향을 받았을 가능성 있음(재확인 필요,
+route3는 시내 위주라 실제로도 낮았을 가능성 높지만 완전히 배제는 못함)**.
+route4 이후부터는 정상값.
+
+### route4 (`b1820329bd`, x20seg, 10:33~10:52, 20분/34.16km, **고속도로**)
+- trip: 평균 **102.5km/h**, cruise_ratio **1.0**(구간 내내 이탈 없음),
+  brake/gas 개입 0%, harsh_brake(전체) 0건.
+- **전 항목 클린**: harsh_brake 0, turn_speed_violation 0,
+  steering_oscillation 0, cut_in 0, ttc_danger 0(adas 포함).
+- curve_noise: jump 9건 -> would_trigger 5건 -> **refined_danger 0건**
+  (100% 억제) — 고속도로 완만한 곡선이라 애초에 곡선 체류시간 자체가
+  짧음.
+- vision_radar_crossover **11건, highway 11건 전부**(버그 수정 후
+  최초로 정상 집계된 고속도로 크로스오버 수치) — 그 중 seg4
+  t=1543.3~1545.4 이벤트(dRel_closed_m=+35.29, 표면상 급접근처럼
+  보임)를 프레임 단위로 대조: 실제로는 leadDRel이 105m→69m로
+  **0.2초 만에 뚝 떨어진 뒤 그대로 안정화**되는 노이즈성 스냅(곡선
+  구간 아닌데도 동일 패턴 발생 — vturn 한정 문제가 아닐 수 있음을
+  시사)이었고, 이후 leadVRel은 계속 0~+3.1(정지~약한 opening)로
+  유지, aEgo도 -0.16~+0.45 범위의 정상 미세 조정만 있었음 — **오탐성
+  크로스오버, 실제 위험 아니고 시스템도 과잉반응 안 함** 확인.
+- source_pair 우세: road<->vturn 104건(압도적), cam<->road 8건,
+  cam<->vturn 4건 — 고속도로 완만한 곡선 연속 구간에서 road<->vturn
+  플리커가 특히 심함(20분에 104건 = 5.2/min).
