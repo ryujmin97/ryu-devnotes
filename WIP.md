@@ -1,9 +1,21 @@
 # WIP — 중단 지점 (체크포인트, 세션 종료 아님)
 
-- 저장 시각: 2026-08-21 (21차, seg6/seg12 dashcam 프레임 시각 검증
-  완료 — 20차 계속의 "다음 세션 최우선 1번" 항목 해소. 상세는
-  FINDINGS.md "[VALIDATED, 시각 검증 완료 — 21차]" 참고. 다음
-  우선순위는 아래 "다음 세션에서 이어갈 것" 참고.)
+- 저장 시각: 2026-08-21 (21차 계속, 사용자 "중간중간 저장" 요청 —
+  would_trigger_ttc_danger 개선 함수 설계+검증 완료 상태에서
+  체크포인트. 코드 반영은 보류 상태, 아래 "다음 세션에서 이어갈 것"
+  참고.)
+
+## 21차 계속 — would_trigger_ttc_danger 개선 (다중 프레임 일관성 체크) 설계+검증 완료
+- `curve_lead_dRel_jump_consistency()`, `curve_noise_summary_refined()`
+  신규 (`analysis_helpers.py`). window=1.5s, monotonic_frac_thresh=0.6.
+- 시각 검증 5건(seg6 노이즈 4건 + seg12 진짜위험 1건) 전부 정확히
+  분류 확인. raw danger 12건 → refined 1건(억제율 91.7%).
+- **표본이 작아(5건) 과적합 위험** — seg12 t=800.05(육안 브레이크등
+  확인, 미검증) 같은 복잡 케이스는 아직 놓침. 실제 트리거 로직
+  코드 반영은 보류, 더 검증 쌓인 뒤 진행.
+- 상세는 FINDINGS.md/toolkit/CHANGELOG.md의 "21차" 항목 참고.
+  push 대상: FINDINGS.md, WIP.md, toolkit/analysis_helpers.py,
+  toolkit/README.md, toolkit/CHANGELOG.md (ryu 코드 변경 없음).
 
 ## 21차 — seg6/seg12 dashcam 프레임 시각 검증 완료 (20차 1번 항목 해소)
 - 사용자가 seg6/seg12 폴더 재업로드 → `extract_dashcam_frames.py`로
@@ -38,12 +50,12 @@
   항목 참고. push 대상: FINDINGS.md, PARAMS_REGISTRY.md,
   LAST_ANALYZED.md, WIP.md (코드 변경 없음, 분석 결과만).
 
-## 다음 세션에서 이어갈 것 (21차 갱신 — 1번 해소로 순번 당김)
-1. **[최우선] curve_lead_dRel_jump_events would_trigger 휴리스틱 개선**
-   — 21차 시각 검증으로 "곡선 가장자리 대형/정차차량 혼입"이라는
-   구체적 메커니즘이 확정됐으므로, 이제 설계 착수 가능. 점프 이후
-   N프레임 동안 dRel/vRel이 물리적으로 일관되게 접근하는지 후속
-   체크 추가하는 방향으로 설계.
+## 다음 세션에서 이어갈 것 (21차 계속 갱신)
+1. **[진행중] would_trigger_ttc_danger 개선 — 더 많은 시각 검증 사례
+   확보 후 파라미터 재검증** — 현재 5건으로만 튜닝됨. 특히 seg12
+   t=800.05(브레이크등 점등 육안 확인됐으나 프레임 대조 명시적
+   검증 안 함) 같은 리드 재획득 섞인 케이스 재검토. 검증이 충분히
+   쌓이면 실제 트리거 로직(long_mpc.py 등) 코드 반영 여부 결정.
 2. **road<->vturn / road<->route 쌍의 min() 히스테리시스 설계 착수**
    — 실측 규모(107건/34건)가 확인됐으니 이제 실제 설계 단계로.
    9~13차 model 게이팅 패치와 유사한 접근(추세 기반 배제) 검토,

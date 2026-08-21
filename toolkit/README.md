@@ -107,6 +107,21 @@ segment_boundary_lead_loss_artifacts()`로 먼저 감사할 것.
   RATE_TAU` 개선안(1/2/4번) 설계 전 선행검토용.
 - `curve_noise_summary(rows, ...)` — 위 함수 결과를 요약 통계(곡선
   구간 체류시간 대비 점프 빈도, DANGER 문턱 넘김 건수)로 압축.
+- `curve_lead_dRel_jump_consistency(rows, jump_thresh_m, max_dt_s,
+  curve_src_values, ttc_danger_thresh, consistency_window_s=1.5,
+  monotonic_frac_thresh=0.6, revert_frac_thresh=0.5)` — (2026-08-21,
+  21차 신규) `curve_lead_dRel_jump_events()`의 개선판. 점프 이후
+  1.5초 동안 dRel이 물리적으로 일관되게(같은 방향, leadVRel 부호도
+  일치) 움직이는지 후속 체크를 추가해 "노이즈성 플리커"와 "진짜
+  접근"을 구분. seg6/seg12 dashcam 시각 검증 5건(노이즈 4건+진짜위험
+  1건)으로 파라미터 튜닝 및 검증 완료 — 5건 전부 정확히 분류.
+  `refined_would_trigger_danger` 필드가 최종 판정. **표본이 작아
+  추가 검증 필요**(자세한 한계는 함수 docstring 참고).
+- `curve_noise_summary_refined(rows, ...)` — `curve_noise_summary()`의
+  refined 버전. raw `would_trigger_ttc_danger` 대비
+  `refined_would_trigger_danger` 억제 비율(`noise_suppression_rate`)을
+  포함. 260821 로그 seg6/12 대조 결과 raw 12건 → refined 1건
+  (억제율 91.7%).
 
 **회귀 리포트 사용 예시**:
 ```python

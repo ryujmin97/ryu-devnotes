@@ -1248,6 +1248,178 @@ def curve_noise_summary(rows, jump_thresh_m=8.0, max_dt_s=0.35,
     }
 
 
+def curve_lead_dRel_jump_consistency(rows, jump_thresh_m=8.0, max_dt_s=0.35,
+                                      curve_src_values=("vturn",), ttc_danger_thresh=2.5,
+                                      consistency_window_s=1.5, monotonic_frac_thresh=0.6,
+                                      revert_frac_thresh=0.5):
+    """
+    21차(2026-08-21) seg6/seg12 dashcam 시각 검증 결과를 근거로 설계된
+    `curve_lead_dRel_jump_events()`의 후속 개선. 단일 프레임 점프만
+    보는 `would_trigger_ttc_danger`는 "노이즈성 플리커"와 "진짜 접근"을
+    구분 못 함(23차/20차에서 확인된 한계) -- 이 함수는 점프 이후
+    consistency_window_s초 동안의 dRel/leadVRel 추이를 추가로 봐서
+    구분을 시도한다.
+
+    21차 시각 증거로 확인된 두 패턴:
+    - **노이즈(seg6)**: 곡선 가장자리 버스/정차차량이 리드 후보로
+      순간 혼입 -> 큰 폭 점프 직후 짧게(약 0.1~0.3s) 비슷한 크기로
+      반대 방향 재점프가 발생하며 원래 값 근처로 복귀하는 "플리커".
+    - **진짜 접근(seg12 t=797.79)**: 레이더 락온 직후 짧은 정착
+      구간(~0.3~0.4s) 동안은 오히려 vRel이 잠깐 양수로 흔들리는
+      노이즈가 있었지만, 그 이후 지속적으로 dRel이 줄고 vRel도
+      음수로 수렴 -- 짧은 윈도우(0.6s)로는 이 정착 지연 때문에 오히려
+      "일관성 없음"으로 오판되는 것을 실측으로 확인함(윈도우를 1.5s로
+      늘려야 정착 구간을 지나 진짜 추세가 드러남).
+
+    판정 로직 (이벤트 인덱스 i, 점프 방향 sign(jump_m)):
+    - window: t[i] ~ t[i]+consistency_window_s 구간의 동일 세그먼트 프레임들.
+    - reverted: window 내에 jump_m과 반대 부호이고 크기가
+      abs(jump_m)*revert_frac_thresh 이상인 "복귀성 재점프"가 있으면 True
+      (플리커의 강한 신호).
+    - monotonic_frac: window 내 연속 프레임 dRel 변화 중 jump_m과 같은
+      부호인 비율.
+    - vrel_consistent: window 내 leadVRel 평균의 부호가 jump_m 부호와
+      일치하는지(jump_m<0, 즉 접근이면 평균 vRel<0 기대).
+    - physically_consistent = (not reverted) and monotonic_frac >=
+      monotonic_frac_thresh and vrel_consistent is True
+    - refined_would_trigger_danger = would_trigger_ttc_danger and
+      physically_consistent
+
+    **알려진 한계 (21차 시점, 다음 세션 검증 필요)**:
+    - 파라미터(window=1.5s, monotonic_frac_thresh=0.6)는 seg6 노이즈
+      4건 + seg12 t=797.79 진짜위험 1건, 총 5건의 시각 검증 사례로만
+      튜닝됨 -- 표본이 작음. 더 많은 시각 검증 사례로 재확인 필요.
+    - 같은 로그의 seg12 t=800.05(브레이크등 점등 육안 확인, 진짜
+      감속 반응으로 추정되나 이 케이스는 아직 시각 미검증) 같은
+      "리드 재획득/후보 전환이 섞인" 복잡한 케이스는 현재 파라미터로
+      여전히 놓침(refined=False) -- 리드 재획득(dRel 급증 후 재추적)
+      패턴은 별도 처리가 필요할 수 있음.
+
+    리턴: curve_lead_dRel_jump_events()와 동일한 dict 리스트에 아래 키 추가:
+      "reverted", "monotonic_frac", "vrel_consistent",
+      "physically_consistent", "refined_would_trigger_danger"
+    """
+    events = curve_lead_dRel_jump_events(
+        rows, jump_thresh_m=jump_thresh_m, max_dt_s=max_dt_s,
+        curve_src_values=curve_src_values, ttc_danger_thresh=ttc_danger_thresh,
+    )
+    if not events:
+        return events
+
+    t = [_f(r, "t") for r in rows]
+    dRel = [_f(r, "leadDRel") for r in rows]
+    vRel = [_f(r, "leadVRel") for r in rows]
+    seg = [r.get("seg") for r in rows]
+
+    for ev in events:
+        i = None
+        for idx in range(len(rows)):
+            if seg[idx] == ev["seg"] and t[idx] is not None and abs(t[idx] - ev["t"]) < 0.005:
+                i = idx
+                break
+        if i is None:
+            ev.update({"reverted": None, "monotonic_frac": None,
+                       "vrel_consistent": None, "physically_consistent": None,
+                       "refined_would_trigger_danger": ev["would_trigger_ttc_danger"]})
+            continue
+
+        jump_sign = 1 if ev["jump_m"] > 0 else -1
+        window_end_t = t[i] + consistency_window_s
+        window_idx = [i]
+        j = i + 1
+        while j < len(rows) and t[j] is not None and t[j] <= window_end_t and seg[j] == ev["seg"]:
+            window_idx.append(j)
+            j += 1
+
+        reverted = False
+        same_sign_diffs = 0
+        total_diffs = 0
+        for k in range(1, len(window_idx)):
+            a, b = window_idx[k - 1], window_idx[k]
+            if dRel[a] is None or dRel[b] is None:
+                continue
+            d = dRel[b] - dRel[a]
+            total_diffs += 1
+            if d * jump_sign > 0:
+                same_sign_diffs += 1
+            if d * jump_sign < 0 and abs(d) >= abs(ev["jump_m"]) * revert_frac_thresh:
+                reverted = True
+
+        monotonic_frac = (same_sign_diffs / total_diffs) if total_diffs > 0 else None
+
+        vrel_vals = [vRel[k] for k in window_idx if vRel[k] is not None]
+        vrel_consistent = None
+        if vrel_vals:
+            avg_vrel = sum(vrel_vals) / len(vrel_vals)
+            vrel_consistent = (avg_vrel * jump_sign) > 0
+
+        physically_consistent = (
+            not reverted
+            and monotonic_frac is not None and monotonic_frac >= monotonic_frac_thresh
+            and vrel_consistent is True
+        )
+        ev.update({
+            "reverted": reverted,
+            "monotonic_frac": round(monotonic_frac, 2) if monotonic_frac is not None else None,
+            "vrel_consistent": vrel_consistent,
+            "physically_consistent": physically_consistent,
+            "refined_would_trigger_danger": bool(ev["would_trigger_ttc_danger"] and physically_consistent),
+        })
+    return events
+
+
+def curve_noise_summary_refined(rows, jump_thresh_m=8.0, max_dt_s=0.35,
+                                 curve_src_values=("vturn",), ttc_danger_thresh=2.5,
+                                 consistency_window_s=1.5, monotonic_frac_thresh=0.6,
+                                 revert_frac_thresh=0.5):
+    """
+    curve_noise_summary()의 refined 버전. 21차에서 추가한
+    `curve_lead_dRel_jump_consistency()`를 사용해 raw
+    would_trigger_ttc_danger 건수 대비 refined_would_trigger_danger
+    (물리적 일관성 체크 통과) 건수를 비교한다 -- "이 개선이 실제로
+    얼마나 노이즈를 걸러내는지" 한눈에 보는 용도.
+
+    리턴: curve_noise_summary()와 동일한 키 + "n_refined_danger"
+    (물리적 일관성까지 통과한 건수), "noise_suppression_rate"
+    (1 - n_refined_danger/n_would_trigger_danger, raw danger 대비
+    억제 비율).
+    """
+    events = curve_lead_dRel_jump_consistency(
+        rows, jump_thresh_m=jump_thresh_m, max_dt_s=max_dt_s,
+        curve_src_values=curve_src_values, ttc_danger_thresh=ttc_danger_thresh,
+        consistency_window_s=consistency_window_s,
+        monotonic_frac_thresh=monotonic_frac_thresh,
+        revert_frac_thresh=revert_frac_thresh,
+    )
+    n_curve_frames = sum(1 for r in rows if r.get("src") in curve_src_values)
+    curve_rows = [r for r in rows if r.get("src") in curve_src_values]
+    curve_times = [_f(r, "t") for r in curve_rows if _f(r, "t") is not None]
+    curve_duration_min = 0.0
+    if len(curve_times) >= 2:
+        curve_times_sorted = sorted(curve_times)
+        for i in range(1, len(curve_times_sorted)):
+            dt = curve_times_sorted[i] - curve_times_sorted[i - 1]
+            if 0 < dt < 1.0:
+                curve_duration_min += dt / 60.0
+
+    n_danger = sum(1 for e in events if e["would_trigger_ttc_danger"])
+    n_refined = sum(1 for e in events if e["refined_would_trigger_danger"])
+    return {
+        "n_curve_frames": n_curve_frames,
+        "curve_duration_min": round(curve_duration_min, 2),
+        "n_jump_events": len(events),
+        "n_would_trigger_danger": n_danger,
+        "n_refined_danger": n_refined,
+        "noise_suppression_rate": (
+            round(1 - n_refined / n_danger, 3) if n_danger > 0 else None
+        ),
+        "jump_events_per_min_in_curve": (
+            round(len(events) / curve_duration_min, 2) if curve_duration_min > 0 else None
+        ),
+        "events": events,
+    }
+
+
 if __name__ == "__main__":
     import sys
     if len(sys.argv) < 2:

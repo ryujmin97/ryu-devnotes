@@ -1608,6 +1608,30 @@
   `compare_seg12_{entry,exit}.jpg`) push 완료. 원본 qcamera.ts/rlog.zst는
   미커밋(개인 주행 영상, 방침 유지).
 
+#### [VALIDATED (표본 5건), 21차 계속] would_trigger_ttc_danger 개선 — 다중 프레임 물리 일관성 체크
+- 위 시각 검증 결과를 근거로 `curve_lead_dRel_jump_consistency()`
+  신규 작성 — 점프 이후 1.5초 동안 dRel/leadVRel이 물리적으로
+  일관되게(같은 방향, vRel 부호 일치) 움직이는지 후속 체크 추가.
+- **파라미터 튜닝 근거**: 처음 window=0.6s로 시도했을 때 seg12
+  t=797.79(진짜위험)가 레이더 락온 직후 짧은 정착 구간(~0.3~0.4s
+  동안 vRel이 잠깐 양수로 흔들림) 때문에 오탐(refined=False)되는
+  것을 발견 — window를 1.5s로 늘려서 정착 구간을 지나 진짜 추세가
+  드러나도록 수정. monotonic_frac_thresh=0.6.
+- **검증 결과 (260821 로그 seg6/12 부분)**: seg6 노이즈 4건(444.49/
+  451.84/453.69/453.89/454.09 — 정정: 454.09는 raw danger였으나
+  refined에서 정확히 False) 전부 refined=False로 정확히 억제,
+  seg12 t=797.79(진짜위험) 1건만 refined=True로 정확히 보존 — 시각
+  검증된 5건 전부 정확히 분류.
+- raw would_trigger_ttc_danger 12건 → refined_would_trigger_danger
+  1건 (억제율 91.7%, `curve_noise_summary_refined()`).
+- **NEEDS_VALIDATION (표본 작음)**: 튜닝에 쓴 시각 검증 사례가
+  5건뿐이라 과적합 위험 있음. 특히 같은 로그의 seg12 t=800.05(육안상
+  브레이크등 점등 확인, 진짜 감속 반응으로 추정되나 아직 프레임
+  대조로 명시적 검증은 안 함)가 "리드 재획득 섞인" 복잡 패턴이라
+  현재 파라미터로는 놓침(refined=False) — 다음 세션에 더 많은 시각
+  검증 사례를 모아 재확인 필요. 함수 자체를 실제 트리거 로직에
+  반영(코드 패치)하는 건 이 검증이 더 쌓인 뒤로 보류.
+
 ### 도구 4/5 첫 실전 실행 — road<->vturn이 이 로그의 최다 플리커 쌍
 `all_source_pairs_flicker_summary(min_count=3)` 결과 (건수순):
 | 쌍 | 건수 | 왕복 | 분당 | dwell(중앙값/최대) |
