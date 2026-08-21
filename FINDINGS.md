@@ -1793,3 +1793,17 @@ seg6 t=2817.53~2819.53 구간(가장 큰 폭 접근, dRel_closed 41.4m/1.99s)을
   이벤트, 상세 미검토 — 패턴상 route8 계열과 유사할 가능성).
   crossover 5건 전부 highway. source_pair: road<->vturn 89건 압도적.
 - 새로운 이상 징후 없음, 기존 route4~8과 동일 경향 재확인.
+
+### route10 (`f3db6ca89d`, x20seg, 12:35~12:54, 20분/20.1km, 시내+고속 혼합)
+- 평균 60.3km/h(지금까지 중 가장 느림, 시내 비중 높음), cruise_ratio
+  0.98, decel_blocks 66건(잦은 감속-저속 구간 반복 시사).
+- harsh_brake(ADAS)/turn_speed_violation/steering_oscillation/
+  ttc_danger(adas) 전부 0, cut_in 3건. curve_noise raw 5 -> refined
+  1건(저속 8.24m/s 구간, vrel_consistent/physically_consistent=True).
+- crossover 18건, highway 7건(시내/고속 혼합이라 route4~9보다 highway
+  비중 낮음, 첫 정상 집계된 시내+고속 혼합 사례).
+- **source_pair 우세 역전**: `model<->vturn` **101건**(6.06/min)이
+  `road<->vturn`(49건)을 처음으로 앞섬 — 지금까지(route3~9) 전부
+  road<->vturn이 압도적 1위였는데, 시내+고속 혼합 구간에서는 양상이
+  다름을 시사(20차 계속 세션의 관찰 — "도로 상황에 따라 우세 쌍이
+  달라진다"와 일치).
