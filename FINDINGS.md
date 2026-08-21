@@ -1764,3 +1764,11 @@ seg6 t=2817.53~2819.53 구간(가장 큰 폭 접근, dRel_closed 41.4m/1.99s)을
   동일하게 **오탐성 크로스오버는 시스템이 과잉반응 안 함**을 재확인.
 - source_pair 우세: road<->vturn 112건(20분 기준 5.6/min, 지금까지
   고속도로 구간 중 최다) > cam<->vturn 9 > cam<->road 6.
+
+### route7 (`1723e8b850`, x20seg, 11:33~11:52, 20분/34.35km, 고속도로 연속)
+- route4~6과 동일 패턴: harsh_brake/violation/oscillation/cut_in/
+  ttc_danger 전부 0. curve_noise raw 14 -> refined 1(seg0 t=4857.58,
+  vrel_consistent/physically_consistent=True — 진짜 접근 프로파일,
+  vEgo 31m/s 고속 구간, 시각 미검증). crossover 19건 전부 highway.
+- source_pair: road<->vturn 49건으로 route4~6(99~112건) 대비 절반
+  이하로 감소 — 이 구간 도로 곡률/차로 구성이 더 단순했을 가능성.
