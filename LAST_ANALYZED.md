@@ -9,6 +9,31 @@
 ---
 
 ## c3-ms-dev
+- last_analyzed_commit (33차): `8114a46` (HEAD, 신규 커밋 2개 —
+  `c53c2fd`(26차 patch 실제 반영: 곡선 노이즈 클램프+중앙값 필터 +
+  VISION_CLOSING_RATE 절대값 게이트 신설, 구문턱 -5.5/-10.0으로
+  origin 최초 push) + `8114a46`(33차: 문턱을 30/31차 확정값
+  -2.2/-5.0으로 재설계). 둘 다 사용자가 로컬(`c:\dev\ryu`)에서
+  커밋 후 이번 세션에서 `git push origin c3-ms-dev` 완료 확인
+  (`a4b5550..8114a46`, fetch로 diff 최종 상태
+  GATE_CAUTION=-2.2/GATE_DANGER=-5.0 재확인).
+- date: 2026-08-21 (33차)
+- note: (33차) 32차에서 사용자 확인 대기였던 두 갈래 중 (a) 문턱
+  재설계 진행 확정 → 컨테이너가 origin 새 clone이라 26차 로컬
+  커밋(5cc0900, 미push 상태였음)이 없어 devnotes 기록으로 역설계
+  재구성한 2단계 커밋(26차 재현 + 문턱 델타)으로 패치 생성 →
+  전달한 delta patch는 `git am` 컨텍스트 불일치로 실패(예상된
+  리스크) → PowerShell 정규식 치환으로 수동 반영 → 사용자가 실제
+  커밋(`c53c2fd`/`8114a46`)까지 완료 후 push. **VISION_CLOSING_RATE_
+  GATE_CAUTION/DANGER, MAX_PLAUSIBLE, MEDIAN_WINDOW 4개 신규 상수
+  PARAMS_REGISTRY.md에 PARTIALLY_VALIDATED로 추가.** (b) "지속적
+  곡선 dRel-vRel 불일치 드리프트" 결함은 이번 세션 범위 밖, 다음
+  세션 과제로 유지(FINDINGS.md 32차 참고). **다음 최우선**: 신규
+  로그로 이 게이트가 실제 acados MPC 파이프라인에서 원거리 반응
+  지연을 개선하는지 첫 실측 검증 — 지금까지는 전부
+  `sim_frac_rate.py` 시뮬레이션 기반.
+
+## c3-ms-dev
 - last_analyzed_commit (20차 계속): `a4b5550` (HEAD, 신규 커밋 없음 —
   20차 계속은 toolkit 도구 1~4/5 첫 실전 실행 세션)
 - date: 2026-08-21 (20차 계속)
