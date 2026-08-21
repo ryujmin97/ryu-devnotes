@@ -1772,3 +1772,17 @@ seg6 t=2817.53~2819.53 구간(가장 큰 폭 접근, dRel_closed 41.4m/1.99s)을
   vEgo 31m/s 고속 구간, 시각 미검증). crossover 19건 전부 highway.
 - source_pair: road<->vturn 49건으로 route4~6(99~112건) 대비 절반
   이하로 감소 — 이 구간 도로 곡률/차로 구성이 더 단순했을 가능성.
+
+### route8 (`203f99d429`, x20seg, 11:53~12:12, 20분/30.71km, 고속도로+약간 감속)
+- 평균 92.1km/h(route4~7보다 낮음), cruise_ratio 0.974(1회 짧은
+  disengage), brake_pressed 1.8%. harsh_brake(ADAS) 0, turn_speed_
+  violation 0, cut_in 0, ttc_danger(adas) 0. steering_oscillation 3건.
+- curve_noise: raw 8 -> **refined 3건**(억제율 62.5%, 지금까지 중
+  가장 낮음) — 전부 seg8 t=6543~6580 구간, 프레임 대조 결과 **진짜
+  선행 저속차 추종 상황**(dRel 100m→38m까지 점진 접근, leadVRel
+  지속 음수, aEgo -0.11~-1.10 범위의 매끈한 감속, 저크/harsh_brake
+  없음) — 곡선 노이즈 오탐이 아니라 3건 전부 하나의 연속된 정상
+  추종 이벤트가 refined 로직에 올바르게 포착된 것으로 판단(=오히려
+  좋은 신호, 위험 상황을 제대로 감지).
+- vision_radar_crossover 17건, highway 14건.
+- source_pair 우세: road<->vturn 58건 > route<->vturn 19 > cam<->vturn 13.
