@@ -1665,3 +1665,34 @@ n<12, 부차적)
 3. 도구 2/5(`ttc_danger_events`) 5건(전부 seg19, 저속 4~5km/h) —
    **확인 완료: 전부 `cruiseEnabled=False`(수동 운전 중)**, cut-in과
    동일하게 ADAS 종방향 제어와 무관, 튜닝 관점에서 무해.
+
+## [진행중] 24차 — a4b5550 HEAD 첫 실주행 로그 대량 배치(15개 zip, 하루치) 분석 (2026-08-21, 24차)
+사용자가 최신 커밋(`a4b5550`, 22차-2/23차 vision closing-rate grace 버그
+수정 포함) 적용 후 첫 실주행 하루치 로그(오전~오후, 15개 zip) 전체를
+일괄 업로드. 라우트 하나 분석 끝날 때마다 즉시 push하는 방식으로 진행.
+`route_summary.py`(표준 분석 스위트, harsh_brake/turn_speed_violation/
+steering_oscillation/cut_in/segment_boundary/source_pair_flicker/
+ttc_danger/curve_noise_refined/vision_radar_crossover 전부 포함)로
+일괄 처리, 결과 JSON은 `evidence/route_summaries_260821/`에 보존.
+
+**중복 확인**: 첫 2개 zip(`c8fef594d3` 18세그, `8417c66e7e` x3seg)은
+각각 20차/23차에서 이미 분석된 로그와 이벤트가 정확히 일치(완전 중복)
+하거나 ADAS 비활성 저속 이동(2분)이라 분석 무의미 — 재작업 생략.
+
+### route3 (`dda0d533ce`, x20seg, 10:13~10:32, 20분/14.17km)
+- trip: 평균 42.5km/h, cruise_ratio 0.843, harsh_brake(전체) 23건
+- **ADAS 관여 harsh_brake 0건, turn_speed_violation 0건, ttc_danger
+  11건 전부 cruiseEnabled=False(수동)** — 종방향 안전 지표 전부 클린.
+- steering_oscillation 7건 — 각도 최대 5.3~139.6도, 반전 3~4회 폭 짧음
+  (0.95~2.25s), 대부분 교차로 회전으로 추정(급커브 조향 정상 패턴과
+  구분 안 됨, dashcam 대조 안 함 — 이상 징후로 단정 안 함).
+- curve_noise_refined: raw jump 26건 → would_trigger 15건 →
+  **refined_danger 2건**(seg18 t=1166.78, seg19 t=1249.98 — 둘 다
+  vrel_consistent/physically_consistent=True, monotonic_frac 0.62/0.73,
+  기존 seg12 검증 패턴과 유사한 \"진짜 접근\" 프로파일). 억제율 86.7%
+  (raw 15 -> refined 2), 21차 검증 때(91.7~92.9%)보다 다소 낮음 —
+  표본 확대 시 자연스러운 변동 범위로 보이나 시각 검증은 안 됨.
+- vision_radar_crossover 24건, highway(>=54km/h) 0건 — 이 구간은
+  시내 위주.
+- source_pair 우세: road<->vturn(52건, 2.6/min) > route<->vturn(37건)
+  > model<->vturn(24건) — 20차 계속과 동일하게 road<->vturn이 최다.
