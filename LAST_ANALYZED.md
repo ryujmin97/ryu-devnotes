@@ -9,6 +9,16 @@
 ---
 
 ## c3-ms-dev
+- last_analyzed_commit (35차 계속 2): `4fe22cd` (HEAD, c3-ms-dev 기준.
+  patch 0004(logs.js 캐시 버스터 v3->v4)까지 `git am` 충돌 없이 적용
+  + push 완료(`f9241db..4fe22cd`). 같은 patch가 `c3-ms-test`에도
+  적용되어 push 완료(`331d49a..4d2f6a5`) — 참고용 기록만.
+- date: 2026-08-22 (35차 계속 2)
+- note: (35차 계속 2) 실차 검증 남음 — 강제 새로고침(캐시 무시) 후
+  carrotweb에서 "Clip 선택" 버튼 정상 동작 확인, clip 실제 길이
+  20초대 확인. 상세는 FINDINGS.md/WIP.md 35차 계속 2 참고.
+
+## c3-ms-dev
 - last_analyzed_commit (35차 계속): `f9241db` (HEAD, c3-ms-dev 기준.
   patch 0003(carrotweb Clip 버튼 필터->선택 정정)까지 `git am` 충돌
   없이 적용 + push 완료(`dfa2f4f..f9241db`). 같은 patch가
