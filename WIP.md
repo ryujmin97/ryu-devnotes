@@ -1,7 +1,7 @@
 # WIP — 중단 지점 (체크포인트, 세션 종료 아님)
 
-- 저장 시각: 2026-08-22 (35차 계속 — carrotweb Clip 버튼 동작을
-  "필터"에서 "clip 파일 선택"으로 정정, patch 0003 전달, 적용 대기)
+- 저장 시각: 2026-08-22 (35차 계속 — carrotweb Clip 버튼 필터->선택
+  정정 patch(0003)까지 두 브랜치 적용·push 완료, 실차 검증만 남음)
 
 ## 35차 계속 — carrotweb Clip 버튼 의도 정정 (필터 아님, 선택 전용)
 - **정정 배경**: 35차 최초 구현("Clip만" 버튼 = 목록 필터링, clip 아닌
@@ -16,12 +16,12 @@
   `/mnt/user-data/outputs/`에 생성, `git am` 검증(temp branch) +
   `node --check` 통과.
 - **다음 세션(또는 다음 메시지)에서 이어갈 것 — 최우선**:
-  1. 사용자가 `c3-ms-dev`/`c3-ms-test` 두 브랜치 모두에
-     `0003-carrotweb-logs-clip-select-not-filter.patch` `git am` +
-     `git push` 적용.
-  2. 실차 검증: `_clip.mp4` 실제 길이 20초대 확인, carrotweb "Clip
-     선택" 버튼 클릭 시 목록은 그대로 다 보이고 clip 파일 체크박스만
-     선택되는지 확인(다시 누르면 해제).
+  1. ~~사용자가 두 브랜치 모두에 patch 0003 적용~~ → **완료**.
+     `c3-ms-dev`(`dfa2f4f..f9241db`), `c3-ms-test`(`e9000b3..331d49a`)
+     둘 다 `git am` 충돌 없이 적용 + push 확인.
+  2. **[남음]** 실차 검증: `_clip.mp4` 실제 길이 20초대 확인, carrotweb
+     "Clip 선택" 버튼 클릭 시 목록은 그대로 다 보이고 clip 파일
+     체크박스만 선택되는지 확인(다시 누르면 해제).
   3. 검증 통과 후 → 34차(c3-ms-dev vs c3-ms-test A/B 실차 비교) 복귀.
 
 ## 35차 (완료, 위 "35차 계속"으로 정정됨) — screenrecord clip 20초 축소 + carrotweb Clip 필터

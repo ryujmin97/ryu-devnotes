@@ -9,6 +9,17 @@
 ---
 
 ## c3-ms-dev
+- last_analyzed_commit (35차 계속): `f9241db` (HEAD, c3-ms-dev 기준.
+  patch 0003(carrotweb Clip 버튼 필터->선택 정정)까지 `git am` 충돌
+  없이 적용 + push 완료(`dfa2f4f..f9241db`). 같은 patch가
+  `c3-ms-test`에도 적용되어 push 완료(`e9000b3..331d49a`) — 참고용
+  기록만.
+- date: 2026-08-22 (35차 계속)
+- note: (35차 계속) 실차 검증 남음 — clip 실제 길이 20초대 확인,
+  carrotweb "Clip 선택" 버튼이 목록을 필터링하지 않고 clip 파일
+  체크박스만 선택하는지 확인. 상세는 FINDINGS.md/WIP.md 35차 참고.
+
+## c3-ms-dev
 - last_analyzed_commit (35차): `dfa2f4f` (HEAD, 신규 커밋 2개 —
   `c1e79ed`(screenrecord clip 60s->20s) + 자체 해시로 재커밋된
   carrotweb Clip 필터 버튼 커밋. 둘 다 `git am`으로 컨텍스트 충돌
