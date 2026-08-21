@@ -2,8 +2,12 @@
 
 - 저장 시각: 2026-08-21 (33차 — 32차에서 사용자 확인 대기 중이던
   두 갈래 중 (a) 문턱 재설계 패치 진행으로 결정, 패치 완성·전달함.
-  (b) "지속적 곡선 dRel-vRel 불일치 드리프트" 결함은 32차 권고대로
-  이번 세션엔 다루지 않고 별도 과제로 유지.)
+  `git am` 컨텍스트 불일치로 실패해 PowerShell 정규식 치환으로
+  수동 반영, 사용자 로컬(`c:\dev\ryu`, c3-ms-dev)에 커밋 `8114a46`
+  완료 확인(`Select-String`으로 259/260/716/717줄 반영 확인).
+  **아직 origin push 전, 실차 실측 검증 전.** (b) "지속적 곡선
+  dRel-vRel 불일치 드리프트" 결함은 32차 권고대로 이번 세션엔
+  다루지 않고 별도 과제로 유지.)
 
 ## 33차 (완료) — VISION_CLOSING_RATE_GATE 문턱 재설계 패치 완성·전달
 - **컨테이너 제약 확인**: 이번 세션 컨테이너는 origin에서 새로
@@ -32,16 +36,23 @@
   (파일: `selfdrive/controls/lib/longitudinal_mpc_lib/long_mpc.py`,
   `VISION_CLOSING_RATE_MEDIAN_WINDOW` 상수 선언 바로 아래 블록)
 - **전달**: `0001-long_mpc-VISION_CLOSING_RATE_GATE-5.5-10.0-2.2-5.0.patch`
-  를 `/mnt/user-data/outputs/`에 생성, `git am` 안내 + 위 수동 대안
-  함께 전달함.
+  를 `/mnt/user-data/outputs/`에 생성, `git am` 안내 + 수동 대안
+  함께 전달함. **실제로는 `git am` 컨텍스트 불일치로 실패**(예상된
+  리스크, 위 "적용 시 주의" 참고) → PowerShell 정규식 치환(`-replace`)
+  으로 두 상수값만 안전하게 변경 → 사용자가 `Select-String`으로
+  259/260줄(선언부) + 716/717줄(사용처) 반영 확인 → 커밋 완료
+  (로컬 `8114a46`, `c3-ms-dev`). **origin push는 아직 사용자가
+  안 함 — 다음 메시지/세션에서 `git push` 확인 필요.**
 - **검증 상태**: `py_compile` 통과. 실측 검증(30/31/32차 시뮬레이션
   기반)은 이미 충분(FINDINGS.md 31차) — 단 이 패치가 실제
   acados MPC 파이프라인에 통합된 후의 실차 반응(a_target 프로파일)
   검증은 아직 미실시, 다음 세션 최우선 과제.
 
 ## 다음 세션(또는 다음 메시지)에서 이어갈 것 (33차 기준, 최우선)
-1. 사용자가 `git am`(또는 수동 편집)으로 패치를 로컬(`c:\dev\ryu`)에
-   적용 후 실차 드라이브.
+0. **origin push 확인**: 로컬 커밋 `8114a46`(c3-ms-dev)이 아직
+   `git push origin c3-ms-dev`로 반영됐는지 미확인 — 다음 메시지
+   시작 시 먼저 확인.
+1. 사용자가 실차 드라이브로 신규 로그 확보.
 2. 신규 로그로 문턱 재설계(-2.2/-5.0)가 원거리 반응 지연을 실제
    MPC 출력(a_target)에서 개선하는지 실측 검증 — 지금까지는 전부
    `sim_frac_rate.py` 시뮬레이션 기반, 실제 acados 파이프라인
