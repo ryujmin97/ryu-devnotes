@@ -1,0 +1,267 @@
+{
+  "label": "route9_000002e8_280302e8ed_1215",
+  "meta": {
+    "commit": "a4b55504cf07d1d363969168d5c08d55502730e6",
+    "commit_short": "a4b55504cf07",
+    "branch": "c3-ms-dev",
+    "commit_date": "2026-08-20T20:50:13+09:00",
+    "commit_subject": "long_mpc: vision closing-rate 크로스체크가 leadStatus 짧은 깜빡임마다 리셋되던 버그 수정",
+    "dirty": false,
+    "repo_dir": "/home/claude/ryu",
+    "route_dir": "/home/claude/work/route9",
+    "out_csv": "/home/claude/work/route9.csv",
+    "n_segments": 20,
+    "n_rows": 24030,
+    "extracted_at": "2026-08-21T07:06:23.030413+00:00",
+    "segment_state_carryover_fix": true
+  },
+  "n_rows": 24030,
+  "trip_summary": {
+    "n_frames": 24030,
+    "duration_s": 1201.5,
+    "distance_km": 30.66,
+    "avg_speed_kmh": 91.9,
+    "cruise_enabled_ratio": 0.985,
+    "brake_pressed_ratio": 0.005,
+    "gas_pressed_ratio": 0.006,
+    "n_decel_blocks": 33,
+    "n_harsh_brake_events": 0,
+    "n_cruise_disengage_events": 0
+  },
+  "n_rows_adas": 23675,
+  "harsh_brake_events": {
+    "count": 0,
+    "events": []
+  },
+  "turn_speed_violations": {
+    "count": 0,
+    "events": []
+  },
+  "steering_oscillation": {
+    "count": 0,
+    "events": []
+  },
+  "cut_in": {
+    "count": 1,
+    "events": [
+      {
+        "seg": "20260821_121548_000002e8--280302e8ed--0",
+        "t": 7383.97023494,
+        "leadDRel": 11.081562042236328,
+        "leadVRel": -4.061863899230957,
+        "vEgo": 0.0
+      }
+    ]
+  },
+  "segment_boundary_artifacts": {
+    "skipped": "신버전 CSV, 아티팩트 없음"
+  },
+  "source_pair_flicker": [
+    {
+      "pair": "road<->vturn",
+      "transition_count": 89,
+      "round_trip_count": 87,
+      "route_duration_min": 20.02,
+      "rate_per_min": 4.44,
+      "dwell_stats": {
+        "min": 0.05,
+        "median": 1.53,
+        "max": 197.45,
+        "n": 88
+      }
+    },
+    {
+      "pair": "cam<->road",
+      "transition_count": 5,
+      "round_trip_count": 4,
+      "route_duration_min": 20.02,
+      "rate_per_min": 0.25,
+      "dwell_stats": {
+        "min": 0.1,
+        "median": 44.2,
+        "max": 463.6,
+        "n": 4
+      }
+    },
+    {
+      "pair": "cam<->vturn",
+      "transition_count": 3,
+      "round_trip_count": 2,
+      "route_duration_min": 20.02,
+      "rate_per_min": 0.15,
+      "dwell_stats": {
+        "min": 0.35,
+        "median": 1.42,
+        "max": 1.42,
+        "n": 2
+      }
+    }
+  ],
+  "ttc_danger": {
+    "count_total": 0,
+    "count_adas": 0,
+    "events": []
+  },
+  "curve_noise_refined": {
+    "n_curve_frames": 6325,
+    "curve_duration_min": 5.32,
+    "n_jump_events": 5,
+    "n_would_trigger_danger": 2,
+    "n_refined_danger": 1,
+    "noise_suppression_rate": 0.5,
+    "jump_events_per_min_in_curve": 0.94,
+    "events": [
+      {
+        "seg": "20260821_121848_000002e8--280302e8ed--3",
+        "t": 7598.84,
+        "dRel_prev": 46.3,
+        "dRel_now": 85.36,
+        "jump_m": 39.06,
+        "dt_s": 0.054,
+        "implied_rate_mps": 721.86,
+        "vEgo": 23.41,
+        "would_trigger_ttc_danger": false,
+        "reverted": false,
+        "monotonic_frac": 0.7,
+        "vrel_consistent": true,
+        "physically_consistent": true,
+        "refined_would_trigger_danger": false
+      },
+      {
+        "seg": "20260821_121848_000002e8--280302e8ed--3",
+        "t": 7602.23,
+        "dRel_prev": 100.28,
+        "dRel_now": 108.7,
+        "jump_m": 8.42,
+        "dt_s": 0.049,
+        "implied_rate_mps": 170.52,
+        "vEgo": 24.64,
+        "would_trigger_ttc_danger": false,
+        "reverted": false,
+        "monotonic_frac": 0.0,
+        "vrel_consistent": false,
+        "physically_consistent": false,
+        "refined_would_trigger_danger": false
+      },
+      {
+        "seg": "20260821_122048_000002e8--280302e8ed--5",
+        "t": 7684.97,
+        "dRel_prev": 60.0,
+        "dRel_now": 31.2,
+        "jump_m": -28.8,
+        "dt_s": 0.047,
+        "implied_rate_mps": -618.57,
+        "vEgo": 27.5,
+        "would_trigger_ttc_danger": true,
+        "reverted": false,
+        "monotonic_frac": 0.62,
+        "vrel_consistent": true,
+        "physically_consistent": true,
+        "refined_would_trigger_danger": true
+      },
+      {
+        "seg": "20260821_123348_000002e8--280302e8ed--18",
+        "t": 8518.13,
+        "dRel_prev": 54.5,
+        "dRel_now": 41.64,
+        "jump_m": -12.86,
+        "dt_s": 0.047,
+        "implied_rate_mps": -275.01,
+        "vEgo": 25.99,
+        "would_trigger_ttc_danger": true,
+        "reverted": false,
+        "monotonic_frac": 0.07,
+        "vrel_consistent": false,
+        "physically_consistent": false,
+        "refined_would_trigger_danger": false
+      },
+      {
+        "seg": "20260821_123348_000002e8--280302e8ed--18",
+        "t": 8520.58,
+        "dRel_prev": 40.01,
+        "dRel_now": 53.8,
+        "jump_m": 13.79,
+        "dt_s": 0.051,
+        "implied_rate_mps": 268.22,
+        "vEgo": 24.86,
+        "would_trigger_ttc_danger": false,
+        "reverted": false,
+        "monotonic_frac": 0.74,
+        "vrel_consistent": true,
+        "physically_consistent": true,
+        "refined_would_trigger_danger": false
+      }
+    ]
+  },
+  "vision_radar_crossover": {
+    "count_total": 5,
+    "count_highway_est": 5,
+    "events": [
+      {
+        "seg": "20260821_121648_000002e8--280302e8ed--1",
+        "t_vision_start": 7460.667,
+        "t_radar_confirm": 7461.967,
+        "gap_s": 1.3,
+        "dRel_at_vision_start": 118.3550033569336,
+        "dRel_at_radar_confirm": 121.4000015258789,
+        "dRel_closed_m": -3.04,
+        "vRel_at_vision_start": -1.3931770324707031,
+        "vEgo_at_vision_start": 33.8829460144043,
+        "modelProb_at_vision_start": 0.6446726322174072,
+        "highway": true
+      },
+      {
+        "seg": "20260821_121648_000002e8--280302e8ed--1",
+        "t_vision_start": 7492.369,
+        "t_radar_confirm": 7494.518,
+        "gap_s": 2.149,
+        "dRel_at_vision_start": 112.4800033569336,
+        "dRel_at_radar_confirm": 120.9000015258789,
+        "dRel_closed_m": -8.42,
+        "vRel_at_vision_start": -2.9537086486816406,
+        "vEgo_at_vision_start": 34.046207427978516,
+        "modelProb_at_vision_start": 0.8298369646072388,
+        "highway": true
+      },
+      {
+        "seg": "20260821_121848_000002e8--280302e8ed--3",
+        "t_vision_start": 7601.825,
+        "t_radar_confirm": 7602.23,
+        "gap_s": 0.405,
+        "dRel_at_vision_start": 100.4175033569336,
+        "dRel_at_radar_confirm": 108.69999694824219,
+        "dRel_closed_m": -8.28,
+        "vRel_at_vision_start": -0.3876075744628906,
+        "vEgo_at_vision_start": 24.41924476623535,
+        "modelProb_at_vision_start": 0.5506073832511902,
+        "highway": true
+      },
+      {
+        "seg": "20260821_121848_000002e8--280302e8ed--3",
+        "t_vision_start": 7619.225,
+        "t_radar_confirm": 7622.736,
+        "gap_s": 3.511,
+        "dRel_at_vision_start": 55.15696716308594,
+        "dRel_at_radar_confirm": 52.099998474121094,
+        "dRel_closed_m": 3.06,
+        "vRel_at_vision_start": -1.5700170993804932,
+        "vEgo_at_vision_start": 21.53724479675293,
+        "modelProb_at_vision_start": 0.9826493263244629,
+        "highway": true
+      },
+      {
+        "seg": "20260821_122048_000002e8--280302e8ed--5",
+        "t_vision_start": 7732.628,
+        "t_radar_confirm": 7734.686,
+        "gap_s": 2.058,
+        "dRel_at_vision_start": 114.9800033569336,
+        "dRel_at_radar_confirm": 122.19999694824219,
+        "dRel_closed_m": -7.22,
+        "vRel_at_vision_start": -2.271167755126953,
+        "vEgo_at_vision_start": 34.04511260986328,
+        "modelProb_at_vision_start": 0.5574237704277039,
+        "highway": true
+      }
+    ]
+  }
+}

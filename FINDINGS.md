@@ -1786,3 +1786,10 @@ seg6 t=2817.53~2819.53 구간(가장 큰 폭 접근, dRel_closed 41.4m/1.99s)을
   좋은 신호, 위험 상황을 제대로 감지).
 - vision_radar_crossover 17건, highway 14건.
 - source_pair 우세: road<->vturn 58건 > route<->vturn 19 > cam<->vturn 13.
+
+### route9 (`280302e8ed`, x20seg, 12:15~12:34, 20분/30.66km, 고속도로)
+- harsh_brake/turn_speed_violation/steering_oscillation/ttc_danger(adas)
+  전부 0, cut_in 1건(무해 추정). curve_noise raw 2 -> refined 1(단일
+  이벤트, 상세 미검토 — 패턴상 route8 계열과 유사할 가능성).
+  crossover 5건 전부 highway. source_pair: road<->vturn 89건 압도적.
+- 새로운 이상 징후 없음, 기존 route4~8과 동일 경향 재확인.
