@@ -1753,3 +1753,14 @@ seg6 t=2817.53~2819.53 구간(가장 큰 폭 접근, dRel_closed 41.4m/1.99s)을
   `MIN_TIME`(1.0s/0.5s) 튜닝이 유효하게 작동 중인 것으로 판단.
 - source_pair 우세: road<->vturn 99건, cam<->vturn 15건, cam<->road 4건
   — route4와 유사 패턴 유지.
+
+### route6 (`866476e5c3`, x20seg, 11:13~11:32, 20분/34.18km, 고속도로 연속)
+- route4/5와 동일 패턴의 클린 고속도로 구간: harsh_brake/turn_speed_
+  violation/steering_oscillation/cut_in/ttc_danger 전부 0, curve_noise
+  100% 억제(raw 15 -> refined 0). crossover 20건, 20건 전부 highway.
+- 최대 폭 접근 이벤트(seg4 t=3899.1, dRel_closed 64.7m/2.74s) 프레임
+  대조: dRel이 89→50m대로 스냅되는 노이즈성 변화이며 leadVRel은 계속
+  양수(opening, 0.4~2.7), aEgo도 거의 0(-0.15~0.23) 유지 — route4와
+  동일하게 **오탐성 크로스오버는 시스템이 과잉반응 안 함**을 재확인.
+- source_pair 우세: road<->vturn 112건(20분 기준 5.6/min, 지금까지
+  고속도로 구간 중 최다) > cam<->vturn 9 > cam<->road 6.
