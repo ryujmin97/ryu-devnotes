@@ -3,6 +3,17 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+## 2026-08-22 (46차 계속)
+- **`analysis_helpers.py`에 `curve_apex_vs_gap_delta()` 신규**: 커브
+  이벤트별 "조향각 정점(apex) 시점" vs "vEgo-desiredSpeed 최대 초과폭
+  (max gap) 발생 시점"의 delta 계산. **계기**: route2(f3db6ca89d) 32건
+  분석에서 "정점 감속 부족"으로 분류했던 사례의 79%가 실제로는 max gap이
+  apex보다 평균 1.26초 먼저 발생 — (1)사전감속 부족과 (2)정점 감속
+  부족이 별개 증상이 아니라 하나의 연속 문제일 가능성 발견(FINDINGS.md
+  "route2 32건 커브 이벤트 재분류" 참고). 원래 세션 스크래치 스크립트
+  (`work/curve_gap_vs_apex_scan.py`)의 로직을 그대로 옮김 — route2.csv
+  회귀검증으로 32건/초과24건 동일 결과 확인.
+
 ## 2026-08-22 (44차)
 - **`analysis_helpers.py`에 `dRel_jump_ego_maneuver_overlap()` 신규**:
   `curve_lead_dRel_jump_events()`가 찾은 dRel 급점프 이벤트 각각에

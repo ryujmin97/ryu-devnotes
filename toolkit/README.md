@@ -132,6 +132,18 @@ carryover도 동일하게 적용됨. **이 컬럼들이 없는 과거 CSV(42차 
   `refined_would_trigger_danger` 억제 비율(`noise_suppression_rate`)을
   포함. 260821 로그 seg6/12 대조 결과 raw 12건 → refined 1건
   (억제율 91.7%).
+- `curve_apex_vs_gap_delta(rows, entry_thresh=5.0, exit_thresh=3.0,
+  unrestricted_ds=180.0, min_event_rows=3)` — (2026-08-22, 46차 계속
+  신규) `|steeringAngleDeg|>=entry_thresh` 진입/`<exit_thresh` 이탈로
+  커브 이벤트 분리 후, 이벤트별 "조향각 정점(apex) 시점" vs
+  "vEgo(kph)-desiredSpeed 최대 초과폭(max gap) 발생 시점"의 시간차
+  (`delta_gap_minus_apex`, 음수=gap이 apex보다 먼저)를 계산. "정점
+  감속 부족"이 실제로는 사전감속 부족의 연장인지 구분하는 용도 —
+  route2(f3db6ca89d) 32건에서 초과 24건 중 79%가 gap을 apex보다 평균
+  1.26초 먼저 찍는 것으로 확인(FINDINGS.md 46차 계속 항목 참고).
+  호출부에서 `max_gap > 0`으로 먼저 필터링해 "실제 초과 사례"만 볼 것
+  (특히 route1류 고속도로에서는 잡음성 조향 이벤트가 섞여 max_gap이
+  크게 음수로 나오는 경우가 많음).
 - `dRel_jump_ego_maneuver_overlap(rows, events, blinker_window_s=1.0,
   curvature_reversal_window_s=1.0, curvature_reversal_thresh=0.0005)` —
   (2026-08-22, 44차 신규) `curve_lead_dRel_jump_events()`가 찾은 각

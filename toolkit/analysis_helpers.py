@@ -1498,6 +1498,85 @@ def dRel_jump_ego_maneuver_overlap(rows, events=None, blinker_window_s=1.0,
     return events
 
 
+def curve_apex_vs_gap_delta(rows, entry_thresh=5.0, exit_thresh=3.0,
+                             unrestricted_ds=180.0, min_event_rows=3):
+    """
+    (2026-08-22, 46차 계속) 커브 이벤트별로 "실제 조향각 정점(apex) 시점"과
+    "vEgo(kph)-desiredSpeed 최대 초과폭(max gap) 발생 시점"의 시간차를
+    계산 -- "정점 감속 부족"이 실제로는 apex 이전(사전감속 구간 후반)에서
+    이미 벌어진 문제의 연장인지, 진짜 apex에서 못 따라간 것인지 구분하는
+    용도. route2(f3db6ca89d) 32건 분석에서 79%가 gap이 apex보다 평균
+    1.26초 먼저 발생하는 것으로 확인(FINDINGS.md "route2 32건 커브
+    이벤트 재분류" 참고).
+
+    이벤트 분리: |steeringAngleDeg| >= entry_thresh 진입 / < exit_thresh
+    이탈. min_event_rows 미만인 짧은 잡음성 이벤트는 제외.
+    desiredSpeed >= unrestricted_ds(기본 180, 사실상 무제한)인 프레임은
+    gap 계산에서 제외(직선 구간이 이벤트에 섞여 들어온 경우 방지).
+
+    리턴: 이벤트별 dict 리스트. 각 dict:
+      entry_t, exit_t, apex_t, apex_steer,
+      max_gap(양수=초과, 음수=미달), gap_t, gap_ds, gap_vego,
+      delta_gap_minus_apex(음수=gap이 apex보다 먼저 발생)
+    max_gap 계산 가능한 유효 프레임이 없는 이벤트(전 구간
+    desiredSpeed>=unrestricted_ds)는 결과에서 제외됨.
+
+    참고: route1(고속도로 단일커브)처럼 이벤트 자체가 드문 도로에서는
+    잡음성 조향(차선변경 등)이 entry_thresh를 넘어 이벤트로 잡히고
+    max_gap이 크게 음수로 나오는 경우가 많음 -- 호출부에서
+    `max_gap > 0`으로 먼저 필터링해 "실제 초과 사례"만 볼 것.
+    """
+    events = []
+    in_curve = False
+    cur = []
+    for r in rows:
+        steer = abs(_f(r, "steeringAngleDeg", 0.0))
+        if not in_curve and steer >= entry_thresh:
+            in_curve = True
+            cur = [r]
+        elif in_curve:
+            cur.append(r)
+            if steer < exit_thresh:
+                in_curve = False
+                if len(cur) >= min_event_rows:
+                    events.append(cur)
+                cur = []
+    if in_curve and len(cur) >= min_event_rows:
+        events.append(cur)
+
+    results = []
+    for ev in events:
+        apex_row = max(ev, key=lambda r: abs(_f(r, "steeringAngleDeg", 0.0)))
+        apex_t = _f(apex_row, "t")
+        apex_steer = _f(apex_row, "steeringAngleDeg")
+
+        gap_candidates = []
+        for r in ev:
+            ds = _f(r, "desiredSpeed")
+            vego = _f(r, "vEgo")
+            if ds is None or vego is None or ds <= 0 or ds >= unrestricted_ds:
+                continue
+            vego_kph = vego * 3.6
+            gap_candidates.append((vego_kph - ds, _f(r, "t"), ds, vego_kph))
+        if not gap_candidates:
+            continue
+        max_gap, gap_t, gap_ds, gap_vego = max(gap_candidates, key=lambda x: x[0])
+
+        results.append({
+            "entry_t": _f(ev[0], "t"),
+            "exit_t": _f(ev[-1], "t"),
+            "apex_t": apex_t,
+            "apex_steer": apex_steer,
+            "max_gap": max_gap,
+            "gap_t": gap_t,
+            "gap_ds": gap_ds,
+            "gap_vego": gap_vego,
+            "delta_gap_minus_apex": gap_t - apex_t,
+            "seg": ev[0].get("seg", ""),
+        })
+    return results
+
+
 if __name__ == "__main__":
     import sys
     if len(sys.argv) < 2:
