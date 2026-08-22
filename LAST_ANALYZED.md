@@ -9,6 +9,10 @@
 ---
 
 ## c3-ms-dev
+- last_analyzed_commit (48차): `c368c422` (HEAD, 신규 커밋 분석 아님 —
+  48차는 route6/7/8 실주행 로그 분석 세션(curve_exit_no_accel_scan v3
+  계속 검증). 신규 커밋 없음, HEAD 46차와 동일. 상세는 FINDINGS.md/
+  WIP.md 48차 항목 참고.
 - last_analyzed_commit (46차, 진행중): `c368c422` (HEAD, 신규 커밋 분석 아님 —
   46차는 "곡선구간 가감속 부족" 제보 실주행 로그 분석 세션. route1
   (`203f99d429` seg8) 완료 — FINDINGS.md 46차 항목 참고. **route2
