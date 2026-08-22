@@ -2239,7 +2239,7 @@ vRel과 무관하게 물리적으로 불가능한 속도로 드리프트하는 �
 ### 28차 원본 기록 (아래는 위 30차로 일부 정정됨 — min_filt_rate
 자체는 정확하지만 "대표 신호"로서의 해석이 30차에서 정정됨)
 
-## [PATCH_WRITTEN, NEEDS_VALIDATION] 옆차선 차량이 SCC 단일점 레이더(track_scc, trackId=0)로 락온되며 LeadBlend 안전장치를 전부 우회 → 급감속 (2026-08-22, 37차, 업로드 "옆차선_차량_인식_감속.zip" 6세그먼트, 패치는 37차 계속 3에서 작성)
+## [PATCH_APPLIED, NEEDS_VALIDATION] 옆차선 차량이 SCC 단일점 레이더(track_scc, trackId=0)로 락온되며 LeadBlend 안전장치를 전부 우회 → 급감속 (2026-08-22, 37차, 업로드 "옆차선_차량_인식_감속.zip" 6세그먼트, 패치는 37차 계속 3에서 작성·양쪽 브랜치 적용)
 
 - **사용자 제보**: "옆차선의 차량이 내차 레이더에 가끔 잡혔다 끊어지면서 내차가
   급감속 하는 경우가 있었어."
@@ -2380,12 +2380,16 @@ vRel과 무관하게 물리적으로 불가능한 속도로 드리프트하는 �
      문법 통과. 패치 파일 `0001-radard-SCC-dPath-LeadBlend-37.patch`
      `/mnt/user-data/outputs/`에 전달.
 - **다음 단계(미완료)**:
-  1. 사용자가 `git am`으로 `C:\dev\ryu`(c3-ms-dev)에 적용 + push.
-  2. 실차 검증: 원래 옆차선/측면차량 오탐 재현 시나리오에서
+  1. ~~사용자가 `git am`으로 `C:\dev\ryu`(c3-ms-dev)에 적용 + push~~ →
+     **완료**. 처음엔 `c3-ms-test`(당시 체크아웃 브랜치)에 적용됨
+     (`b5a1209`) — 34차 A/B 비교 오염 방지를 위해 `c3-ms-dev`에도
+     `cherry-pick`(→ `21effa1`) 후 양쪽 push 완료 확인:
+     `c3-ms-dev`(`4fe22cd..21effa1`), `c3-ms-test`(`4d2f6a5..b5a1209`).
+  2. **[남음]** 실차 검증: 원래 옆차선/측면차량 오탐 재현 시나리오에서
      `leadTrackId=0`인데도 `dPath` 게이트에 걸려 리드로 채택 안 되는지,
      또는 채택되더라도 `sccFallback=True`로 `LeadBlend`(특히
      `CUTOUT_DPATH_THRESH`)가 작동해 급감속으로 이어지지 않는지 확인.
-  3. **회귀 검증도 필요**: `SCC_FALLBACK_DPATH_GATE=2.0m` 게이트가
+  3. **[남음] 회귀 검증도 필요**: `SCC_FALLBACK_DPATH_GATE=2.0m` 게이트가
      정상적인 동일차로 SCC 폴백(전체 트랙 시간의 74~82%를 차지하는
      주 사용 경로)을 과도하게 거르지 않는지, 즉 게이트 도입 후에도
      정상 추종이 평소와 동일하게 유지되는지 실차에서 함께 확인 필요.
