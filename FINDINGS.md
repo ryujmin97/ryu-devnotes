@@ -17,6 +17,23 @@
 
 ---
 
+## [NEEDS_VALIDATION] 레이더 락온 앞차추종 중 안전한 거리(TTC 15s대)에서도 앞차 가속도 흔들림에 그대로 반응 — 거리비율 기반 MARGIN_ACCEL_GATE의 사각지대 (2026-08-22, 38차)
+- **증상**: 사용자 보고 — "레이더 락온상태로 앞차추종 주행시 앞차의 가속도변화에 민감하게 반응함. 위험한 상태가 아니면 반응을 둔하게 해달라."
+- **로그**: `앞차_민감.zip`, route `20260821_124048_000002e9--f3db6ca89d--5` (60초, leadStatus/leadRadar=True 99.4%, HEAD 당시 `21effa1`/일부 구간 `113947353a00` 표기 — 커밋 해시 불일치는 추출 시점 clone 차이로 추정, 코드 자체는 c3-ms-dev 최신).
+- **분석**: 표준 `extract_log.py` 컬럼에 leadOne.aLeadK/longitudinalPlan.aTarget이 없어 이번 세션 전용 스크립트로 확장 추출(6002 rows). frame-to-frame 변화율 상관계수(lag=0) 0.05로 낮아 단순 동행이 아님을 먼저 확인 후, 0.6s 슬라이딩 윈도 swing 비교로 "리드 가속도 변화는 작은데 aTarget 변화는 큰" 후보 12건 도출, 프레임 대조로 2개 연속구간 확정:
+  - t=8911.06~8911.95 (0.89s): dRel 74→66m대, TTC 넉넉.
+  - t=8935.26~8938.95 (3.69s, 가장 뚜렷): dRel 60.8→48.7m, vRel -1.9→-3.8m/s로 확대되며 aLeadK가 -2.7까지 떨어지자 aTarget이 -2.78m/s², aEgo가 실제로 -2.8m/s²대까지 추종 감속.
+  - 정량화: TTC>6.0s(안전권)인데 aTarget<-1.0m/s²(뚜렷한 감속)인 프레임 460/5966(7.7%), 최악 사례 t=8937.31 dRel=51.9m vRel=-3.30m/s **TTC=15.7s** aLeadK=-1.74 aTarget=-2.78 aEgo=-2.73 — TTC 기준으론 명백히 안전한데 강한 감속 반응.
+- **근본원인**: `long_mpc.py`에 이미 `margin_accel_weight(dRel, desired_distance)`(dRel/desired_distance 비율 기반, MARGIN_ACCEL_GATE_FULL=1.5/NONE=1.0, PARAMS_REGISTRY에 NEEDS_VALIDATION으로 등록만 되어있고 실측 검증 안 된 상태)가 존재하지만, `desired_distance = v_ego^2/(2*comfort_brake) + t_follow*v_ego + stop_distance - v_lead^2/(2*comfort_brake)` 자체가 고속에서 커지기 때문에, 문제 구간(t=8935, vEgo≈28.4m/s, dRel=59.6m)에서 직접 계산한 ratio≈0.81로 이미 GATE_NONE(1.0) 밑 — 즉 "damping이 걸려야 할 여유 구간"인데도 weight=1(무감쇠)로 고정되어 있었음. **거리비율만으론 실제 위험도(TTC)를 반영 못 해 고속 구간에서 사실상 상시 무감쇠**였던 것이 사각지대.
+- **조치(패치 작성, 미적용 — Master `git am` 대기)**: `ttc_accel_weight(dRel, v_ego, v_lead)` 신설(TTC = dRel/(v_ego-v_lead), closing<=0.1이면 위험요소 없다고 보고 weight=0), 기존 `margin_accel_weight`와 `min()`으로 결합해 "거리 여유 AND TTC 여유"가 모두 있을 때만 aLead 감쇠하도록 `process_lead()` 수정. TTC 임계값은 기존 `LEAD_ACQ_TTC_CAUTION`(6.0s, 24차 이전부터 있는 값)을 무감쇠 경계로 재사용, 완전감쇠 경계는 신규 `LEAD_ACCEL_TTC_GATE_FULL=12.0s`. dRel/vRel(실측 kinematic state)은 기존 설계 원칙대로 전혀 건드리지 않음 — 위험 시 반응 지연 없음.
+- **검증(로직 단위, work/verify_ttc_gate.py — 세션 종료 시 삭제됨, 재작성 필요시 decode_rlog.py 기반)**: 동일 route를 rlog에서 직접 재파싱해 기존(dist-only)/신규(dist+ttc) weight 비교 — 이 route는 60초 전체에서 TTC<12s로 떨어진 프레임이 한 건도 없었음(전부 "여유 있는 정상 추종"이었다는 뜻과 일치), 신규 로직 적용 시 aLead가 전 구간 0으로 완전 감쇠 → 보고된 민감반응이 이 로그 기준으론 전부 해소되는 방향으로 확인. **단, 위험 프레임(TTC<2.5s) 표본이 이 route에 아예 없어 "위험 시엔 그대로 통과"가 실측으로는 검증 안 됨** — 수식상으로만 확인(closing>0.1 and ttc<=GATE_NONE=6.0 → ttc_w=1.0 클리핑).
+- **패치 파일**: `0001-long_mpc-TTC-aLead-damping.patch` (base `21effa1`, `git am` 충돌 없이 검증됨, ast 문법 통과).
+- **다음 세션 최우선**:
+  1. `git am` 적용 + push 확인.
+  2. 실차 검증: (a) 이번 로그와 유사한 "안전 거리 + 앞차 완만한 가감속" 상황에서 승차감 개선 체감 확인, (b) **회귀 검증 필수** — 실제 위험한 cut-in/급접근(TTC<6s) 상황에서 반응 지연 없이 그대로 감속하는지 확인 (이번 로그엔 그런 프레임이 없어서 미검증).
+  3. LEAD_ACCEL_TTC_GATE_FULL=12.0s 값 자체가 적절한지(너무 일찍/많이 damping 걸리는 건 아닌지) 실차 승차감 기준으로 재조정 필요할 수 있음.
+- 근거: `앞차_민감.zip` (route `20260821_124048_000002e9--f3db6ca89d--5`).
+
 ## [VALIDATED] frac_rate(vision-only closing-rate 절대값 게이트, -2.2/-5.0) 실차 acados MPC 파이프라인 첫 실측 검증 성공 (2026-08-22, 36차)
 - **배경**: 33차에서 문턱 재설계(-5.5/-10.0 → -2.2/-5.0)가 사용자 로컬(`c3-ms-dev`, 커밋 `8114a46`)에 반영됐으나, 그동안 전부 `sim_frac_rate.py` 시뮬레이션 기반 검증뿐이었고 실제 acados MPC 파이프라인에 통합된 후의 실차 반응(`_lead_acq_timer`/`frac_rate` 활성화 및 그 결과 a_target/aEgo 반응) 검증은 계속 미실시 상태였음.
 - **신규 로그**: 사용자가 카메라 인식 테스트 목적으로 촬영한 `카메라인식.zip`(route `245733747e`, seg10/11/14/15, HEAD `4fe22cd`)와 정지차량 접근 테스트 `정치차량.zip`(route `b89011cb42`, seg7, 동일 HEAD) 제공.
