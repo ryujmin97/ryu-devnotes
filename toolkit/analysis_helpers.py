@@ -646,8 +646,18 @@ def speed_tracking_error(rows, target_field="desiredSpeed", window_s=1.0):
     vEgo와 target_field(기본 desiredSpeed, 필요시 vCruise) 간의 오차를
     프레임별로 계산하고, window_s 구간별 평균/최대 오차를 요약해 리턴.
 
+    **단위 주의(2026-08-23, 51차 버그 수정)**: CSV의 vEgo는 m/s
+    (carState 원본 그대로), desiredSpeed/vTurnSpeed/vCruise는 km/h
+    (carrotMan 메시지 원본, int(...)로 로깅됨) — 서로 단위가 다르다.
+    이 함수는 내부적으로 vEgo를 *3.6 해서 km/h로 맞춘 뒤 비교한다.
+    error/target/frames의 "vEgo"/"error"는 모두 km/h 기준.
+    (구버전은 vEgo(m/s)를 변환 없이 비교해 오차값이 사실상 무의미했음
+    — turn_speed_violations()도 동일 버그로 함께 수정, PARAMS_REGISTRY
+    /FINDINGS.md 51차 항목 참고.)
+
     리턴: {"frames": [{"t","seg","vEgo","target","error"}...],
            "summary": [{"seg","t_start","t_end","mean_abs_error","max_abs_error"}...]}
+    ("vEgo"/"error"는 km/h 단위)
     """
     frames = []
     for r in rows:
@@ -656,7 +666,8 @@ def speed_tracking_error(rows, target_field="desiredSpeed", window_s=1.0):
         t = _f(r, "t")
         if v is None or tgt is None or t is None:
             continue
-        frames.append({"t": t, "seg": r.get("seg"), "vEgo": v, "target": tgt, "error": v - tgt})
+        v_kph = v * 3.6
+        frames.append({"t": t, "seg": r.get("seg"), "vEgo": v_kph, "target": tgt, "error": v_kph - tgt})
 
     summary = []
     cur = None
@@ -685,12 +696,22 @@ def speed_tracking_error(rows, target_field="desiredSpeed", window_s=1.0):
 # ---------------------------------------------------------------------------
 # 6) 커브 진입 시 권장속도(vTurnSpeed) 초과 탐지
 # ---------------------------------------------------------------------------
-def turn_speed_violations(rows, margin=0.5, min_duration_s=0.3):
+def turn_speed_violations(rows, margin=2.0, min_duration_s=0.3):
     """
-    vEgo > vTurnSpeed + margin (m/s) 인 구간을 찾는다.
+    vEgo > vTurnSpeed + margin (km/h) 인 구간을 찾는다.
     vTurnSpeed가 비어있는(0 또는 미제공) 프레임은 건너뜀.
 
+    **단위 버그 수정(2026-08-23, 51차)**: 구버전은 vEgo(m/s)를 변환 없이
+    vTurnSpeed(km/h)와 직접 비교해 사실상 항상 미발동(false negative)
+    상태였음 — vEgo가 km/h로 환산해도 vTurnSpeed보다 낮은 정상 상황에서도
+    m/s 값 자체는 항상 vTurnSpeed(km/h, 보통 30~250대)보다 작아 조건식이
+    거의 발동 불가능한 구조였다. 이 버전은 vEgo를 *3.6 km/h로 환산 후
+    비교한다. margin도 기존 0.5(단위 불명확)에서 2.0 km/h로 재정의
+    (turn_speed_violations()를 참조하던 route_summary.py 등 과거 결과는
+    재검증 필요 — PARAMS_REGISTRY.md/FINDINGS.md 51차 항목 참고).
+
     리턴: [{"seg","t_start","t_end","duration","max_over","vEgo_peak","vTurnSpeed_at_peak"}]
+    (vEgo_peak은 km/h 단위로 리턴됨 — 구버전은 m/s였음)
     """
     n = len(rows)
     t = [_f(r, "t") for r in rows]
@@ -703,17 +724,19 @@ def turn_speed_violations(rows, margin=0.5, min_duration_s=0.3):
     for i in range(n):
         if t[i] is None or v[i] is None or vt[i] is None or vt[i] <= 0:
             over = False
+            v_kph = None
         else:
-            over = v[i] > vt[i] + margin
+            v_kph = v[i] * 3.6
+            over = v_kph > abs(vt[i]) + margin
         if over:
             if cur is None:
                 cur = {"seg": seg[i], "t_start": t[i], "t_end": t[i],
-                       "max_over": v[i] - vt[i], "vEgo_peak": v[i], "vTurnSpeed_at_peak": vt[i]}
+                       "max_over": v_kph - abs(vt[i]), "vEgo_peak": v_kph, "vTurnSpeed_at_peak": vt[i]}
             else:
                 cur["t_end"] = t[i]
-                if (v[i] - vt[i]) > cur["max_over"]:
-                    cur["max_over"] = v[i] - vt[i]
-                    cur["vEgo_peak"] = v[i]
+                if (v_kph - abs(vt[i])) > cur["max_over"]:
+                    cur["max_over"] = v_kph - abs(vt[i])
+                    cur["vEgo_peak"] = v_kph
                     cur["vTurnSpeed_at_peak"] = vt[i]
         else:
             if cur is not None:
@@ -730,6 +753,110 @@ def turn_speed_violations(rows, margin=0.5, min_duration_s=0.3):
             b["max_over"] = round(b["max_over"], 2)
             result.append(b)
     return result
+
+
+def source_target_violations(rows, src_name, target_field="desiredSpeed", margin=2.0, min_duration_s=0.3):
+    """
+    turn_speed_violations()의 일반화 버전. vTurnSpeed 고정이 아니라
+    임의의 desiredSource(src_name)가 선택돼 있는 구간에서 vEgo가
+    target_field(기본 desiredSpeed, km/h) + margin(km/h)을 초과하는 블록을 찾는다.
+
+    예: route(내비 경로) 감속 후보의 실제 준수 여부를 보려면
+        source_target_violations(rows, "route")
+
+    **단위 주의**: CSV의 vEgo는 m/s, desiredSpeed/vTurnSpeed는 km/h —
+    이 함수는 내부적으로 vEgo를 *3.6 해서 km/h로 맞춰 비교한다
+    (turn_speed_violations()와 동일한 51차 단위 수정 적용, 처음부터
+    올바른 단위로 작성됨).
+    src_name이 아닌 프레임, target_field가 비어있거나(<=0) 프레임은 건너뜀
+    (해당 구간에서는 위반 판정을 하지 않고 블록을 끊는다 — turn_speed_violations와
+    동일한 규칙).
+
+    리턴: [{"seg","t_start","t_end","duration","max_over","vEgo_peak","target_at_peak"}]
+    (vEgo_peak은 km/h 단위)
+    """
+    n = len(rows)
+    t = [_f(r, "t") for r in rows]
+    v = [_f(r, "vEgo") for r in rows]
+    tgt = [_f(r, target_field) for r in rows]
+    src = [r.get("src") for r in rows]
+    seg = [r.get("seg") for r in rows]
+
+    blocks = []
+    cur = None
+    for i in range(n):
+        active = src[i] == src_name
+        if not active or t[i] is None or v[i] is None or tgt[i] is None or tgt[i] <= 0:
+            over = False
+            v_kph = None
+        else:
+            v_kph = v[i] * 3.6
+            over = v_kph > tgt[i] + margin
+        if over:
+            if cur is None:
+                cur = {"seg": seg[i], "t_start": t[i], "t_end": t[i],
+                       "max_over": v_kph - tgt[i], "vEgo_peak": v_kph, "target_at_peak": tgt[i]}
+            else:
+                cur["t_end"] = t[i]
+                if (v_kph - tgt[i]) > cur["max_over"]:
+                    cur["max_over"] = v_kph - tgt[i]
+                    cur["vEgo_peak"] = v_kph
+                    cur["target_at_peak"] = tgt[i]
+        else:
+            if cur is not None:
+                blocks.append(cur)
+                cur = None
+    if cur is not None:
+        blocks.append(cur)
+
+    result = []
+    for b in blocks:
+        dur = b["t_end"] - b["t_start"]
+        if dur >= min_duration_s:
+            b["duration"] = round(dur, 2)
+            b["max_over"] = round(b["max_over"], 2)
+            result.append(b)
+    return result
+
+
+def route_target_jump_events(rows, jump_thresh_kph=8.0, max_dt_s=0.5):
+    """
+    src=='route'(내비 경로 감속 후보) 구간에서 desiredSpeed(=이 구간에서는
+    route_speed 산출값과 동일)가 짧은 시간 안에 큰 폭으로 튀는 지점을 찾는다.
+    carrot_navi_route()의 역순 시간지연(time_delay/time_wait) 스무딩이
+    매 프레임 재계산되며 GPS 경로점/곡률 추정 노이즈로 불연속을 만드는지
+    확인하는 용도(vturn 쪽의 curve_noise_summary_refined()에 대응하는
+    route 버전).
+
+    연속 두 프레임이 같은 seg 내에서 dt<=max_dt_s이고
+    |Δ desiredSpeed| >= jump_thresh_kph 이면 이벤트로 기록.
+    src가 route가 아닌 프레임을 만나면 연속성이 끊긴 것으로 보고 리셋.
+
+    리턴: [{"seg","t","dt","d_desiredSpeed","before","after"}]
+    """
+    events = []
+    prev = None
+    for r in rows:
+        if r.get("src") != "route":
+            prev = None
+            continue
+        t = _f(r, "t")
+        v = _f(r, "desiredSpeed")
+        seg = r.get("seg")
+        if t is None or v is None:
+            prev = None
+            continue
+        if prev is not None and prev["seg"] == seg:
+            dt = t - prev["t"]
+            dv = v - prev["v"]
+            if 0 < dt <= max_dt_s and abs(dv) >= jump_thresh_kph:
+                events.append({
+                    "seg": seg, "t": round(t, 2), "dt": round(dt, 2),
+                    "d_desiredSpeed": round(dv, 2),
+                    "before": round(prev["v"], 1), "after": round(v, 1),
+                })
+        prev = {"t": t, "v": v, "seg": seg}
+    return events
 
 
 # ---------------------------------------------------------------------------

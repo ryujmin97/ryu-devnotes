@@ -942,3 +942,41 @@ b) 레이더 락온 순간 vRel 불연속 점프(재현 2건 모두 -8.0~-8.4m/s
 ## 다음 세션 시작 시
 이 WIP.md에 "25차 착수" 섹션이 있으면 무조건 그 지점(영상 업로드
 대기)부터 이어감. 사용자가 아직 영상을 안 올렸다면 다시 요청.
+
+## 51차 — route 감속 실측 착수 중 turn_speed_violations() 단위버그 발견·수정, 토큰 예산으로 중간 체크포인트
+
+**진행 상황**: vturn apex 조기화 아이디어는 사용자가 보류, "route 감속
+코딩"으로 전환. route(내비 경로) 감속 실측 검증 착수 → f3db6ca89d(7세그,
+seg6/7/15~19) 분석 완료. 상세는 FINDINGS.md 51차 참고.
+
+**핵심 결과 요약**:
+1. route overshoot 위반 0건이지만 이 표본은 route가 거의 안 눌린 케이스
+   (결론력 약함) — route1(203f99d429 seg8, 이미 업로드됨, 급조임 커브)로
+   재검증 필요.
+2. route desiredSpeed 급점프 2건(0.1초 내 32km/h 하락) — 구조적 문제인지
+   확인 필요.
+3. **[중요] turn_speed_violations()/speed_tracking_error() 단위 불일치
+   버그 발견·수정** — vEgo(m/s)를 km/h 필드와 변환 없이 비교하던 구조라
+   과거 "위반 0건" 결론들이 대부분 false negative였을 가능성. 수정판으로
+   f3db6ca89d 재스캔하니 vturn overshoot 14건 신규 발견(과거엔 안 잡혔음).
+
+**코드 변경**: `devnotes/toolkit/analysis_helpers.py`만 변경(3개 함수:
+`turn_speed_violations` 단위 수정, `speed_tracking_error` 단위 수정,
+`source_target_violations`/`route_target_jump_events` 신규 추가).
+`ryu` 패치 없음.
+
+## 다음 세션(또는 다음 메시지)에서 이어갈 것
+1. **최우선**: route1(203f99d429 seg8, 곡선.zip에 이미 있음)으로 route
+   감속 재검증 — 급조임 커브에서 route가 실제로 binding하는지, overshoot
+   없는지.
+2. **최우선**: vturn overshoot 14건(버그 수정 후 재현) 개별 조사 —
+   어느 지점, 왜 목표속도를 못 따라갔는지 프레임 단위 확인.
+3. turn_speed_violations() 버그로 "0건" 결론 났던 과거 route들
+   (24차 route4~11, 41차 route1/route2 등) 원본 로그 재확보되는 대로
+   수정판 재스캔 — 안전 결론 자체가 뒤집힐 수 있는 사안이라 우선순위 높음.
+4. route desiredSpeed 급점프 2건이 우연인지 구조적 문제인지 추가 표본으로 확인.
+
+## 다음 세션 시작 시
+이 WIP.md에 "51차" 섹션이 있으면 무조건 이 지점부터 이어감. 사용자가
+"체크포인트"라고만 말하면 이 섹션 상태 그대로 유지, 추가 진행 있으면
+새 섹션으로 덧붙임.

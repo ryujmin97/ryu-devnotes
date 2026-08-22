@@ -3451,3 +3451,93 @@ MPC의 리드 궤적 예측(`extrapolate_lead`)에서 완전히 사라짐**. MPC
   `/mnt/user-data/outputs/`에 생성, `git am` 안내와 함께 전달함.
 - **코드 변경 있음**(`carrot_serv.py`, ryu 로컬 커밋 `74e8e90`,
   origin에는 미push — ryu는 항상 수동 patch 절차).
+
+## 51차 (2026-08-23) — route(내비 경로) 감속 실측 착수, turn_speed_violations()/speed_tracking_error() 단위 불일치 버그 발견·수정 (중요)
+
+- **배경**: 사용자가 vturn apex 조기화 아이디어를 보류하고 "route 감속
+  코딩으로 가자"고 방향 전환 — APN 경로설정 시 동작하는 `carrot_navi_route()`
+  (지도 300m 앞 곡률 샘플 + 역순 시간지연 스무딩)가 가장 효과적인 커브
+  주행 로직 같다는 판단. 사용자 선택: "실제 로그로 route 감속 동작부터
+  검증".
+- **코드 리뷰**: `carrot_navi_route()`(`carrot_man.py` 379~483행) —
+  `NavDestination` 설정 시에만 활성화, 경로 300m를 10m 간격 리샘플 후
+  지점별 곡률→목표속도(`V_CURVE_LOOKUP_BP/VALS`) 산출, 먼 지점에서
+  가까운 지점 순으로 역순 스캔하며 `autoNaviSpeedDecelRate` 가속한계로
+  감속 가능 여부를 매 구간 체크(방지턱과 유사하나 vturn의 `v²=v_f²+2ad`
+  물리공식과는 다른 시간지연 방식). vturn(비전, ~8초 예측)과 달리 실제
+  지도 경로 300m를 그대로 써서 거리 자체는 더 김.
+- **로그 확보**: 업로드 2건(`곡선.zip`=203f99d429 seg8 재업로드,
+  `곡선_로그(2).zip`=203f99d429 seg8 중복 + **f3db6ca89d seg6/7/15~19
+  신규 7세그**, 중첩zip 포함). f3db6ca89d를 선택(기존 route_summary
+  JSON 기준 route<->model/road/gas 4개 쌍 모두 등장, route 사용 비중
+  가장 다양). `extract_log.py`로 8401행 CSV 추출(commit `f94a7d2`,
+  50차 model 게이트 패치 반영된 HEAD). `src=='route'` 프레임 323개
+  (전체의 3.8%).
+- **신규 toolkit 함수 2개** (`analysis_helpers.py`):
+  - `source_target_violations(rows, src_name, target_field="desiredSpeed", ...)`
+    — `turn_speed_violations()`의 일반화판, 임의 소스의 목표속도 위반 스캔
+  - `route_target_jump_events(rows, ...)` — route desiredSpeed 자체의
+    단시간 급점프(불연속) 탐지, vturn 쪽 `curve_noise_summary_refined()`에
+    대응하는 route 버전
+- **[중요, 신규 발견] 단위 불일치 버그**: 기존 `turn_speed_violations()`와
+  `speed_tracking_error()`(기본 `target_field="desiredSpeed"`)가
+  **`vEgo`(m/s, carState 원본)를 변환 없이 `vTurnSpeed`/`desiredSpeed`
+  (km/h, carrotMan 메시지 원본 — `carrot_serv.py` L1148/1151
+  `int(vturn_speed)`/`int(desired_speed)`)와 직접 비교**하고 있었음.
+  vEgo(m/s)는 수치상 거의 항상 km/h 스케일 목표값보다 작아, 위반 조건식이
+  **사실상 발동 불가능한 구조**(false negative)였음. 이번 세션 신규 함수
+  (`source_target_violations`)도 처음엔 동일 버그로 작성했다가 route
+  위반 0건이라는 비정상적으로 깔끔한 결과와 desiredSpeed와 vEgo의 원값
+  비교(vEgo=27.7 vs desiredSpeed=138 등, 단위가 다름이 육안으로 확인됨)를
+  보고 발견.
+  - **수정**: 세 함수(`turn_speed_violations`, `speed_tracking_error`,
+    `source_target_violations`) 모두 `vEgo * 3.6`으로 km/h 환산 후 비교하도록
+    수정. `turn_speed_violations`/`source_target_violations`의 `margin`
+    기본값도 단위 불명확했던 0.5 → 2.0km/h로 재정의(리턴 필드 `vEgo_peak`도
+    이제 km/h). 세 함수 모두 합성 데이터로 재검증 완료(정상 발동 확인).
+  - **[NEEDS_VALIDATION, 다음 세션 최우선] 파급 범위**: 지금까지 여러
+    세션(24차 route4~11, 41차 route1/route2, route_summary.py를 통한
+    모든 route_summaries_260821 JSON 등)에서 "turn_speed_violations 0건"
+    으로 보고돼 "커브 속도 위반 없음"의 근거로 쓰였던 결론들이, 실제
+    안전을 반영한 게 아니라 이 버그로 인한 미탐지였을 가능성이 있음.
+    **원본 로그(zip/CSV)가 남아있는 대로 수정판으로 전부 재스캔 필요**
+    — 특히 24차/41차에서 "안전지표 전부 0건"으로 결론 내렸던 라우트들.
+- **재검증 결과** (f3db6ca89d 7세그, `remove_driver_intervention` 적용,
+  버그 수정판 함수 사용):
+  - **route(내비 경로) overshoot 위반: 0건** — 이 표본에서는 route가
+    실제 제약으로 작동한 구간이 거의 없었음(desiredSpeed가 대체로
+    vEgo보다 훨씬 높은 느슨한 상한으로만 작동, 예: desiredSpeed=121km/h
+    vEgo=95.8km/h). **route 자체의 "정상 준수 여부" 검증치고는 route가
+    거의 안 눌린 표본이라 결론력이 약함** — 실제로 급조임 커브에서
+    route가 binding하는 표본(예: route1 203f99d429 seg8, 46/50차에서
+    다룬 급조임 지점)으로 별도 재검증 필요.
+  - **route desiredSpeed 급점프 이벤트: 2건** — seg6 t=8998.43~8998.48
+    구간 0.1초 내 172→149→140km/h로 급락. vEgo(약 100km/h)가 두 값
+    모두보다 낮아 안전에 직접 영향은 없었으나, `carrot_navi_route()`의
+    GPS 경로점 리샘플/곡률 추정(3점법, 40m 간격) 또는 역순 스무딩
+    로직 자체가 순간적으로 불안정할 수 있음을 시사 — vturn의 곡선 노이즈
+    문제와 유사한 성격일 가능성, 추가 표본 필요.
+  - **vturn overshoot 위반(버그 수정 후 신규 재현): 14건** — 과거
+    "0건" 결론과 정반대. 최대 초과폭 18.11km/h(4.05초 지속,
+    `20260821_125148_..--16` seg, t=9595.08~9599.12,
+    vEgo_peak=41.84km/h vs vTurnSpeed=27.0km/h), 그 외 8~15km/h대
+    초과가 다수(지속시간 1.6~4.05초). **route 검증에서 파생된 사이드
+    이펙트지만 우선순위상 route보다 더 시급해 보임** — 이 route는
+    50차에서 model 게이트 패치가 적용된 HEAD(`f94a7d2`)로 추출된
+    로그라, 이 패치와 무관하게 vturn 자체가 커브 진입 시 목표속도를
+    수 초간 초과하는 패턴이 있다는 뜻.
+- **harsh_brake_events: 0건** (참고, 이 함수는 원래 aEgo/브레이크 기반이라
+  단위 버그와 무관 — 정상 작동 확인됨).
+- **코드 변경**: devnotes toolkit만(`analysis_helpers.py`), `ryu` 패치
+  없음. 로컬 수정 완료, 이번 체크포인트에서 push 예정.
+- **다음 세션(또는 다음 메시지) 최우선**:
+  1. 이번에 발견된 vturn 14건 위반을 개별 조사(어느 커브, 감속 프로파일이
+     왜 못 따라갔는지 — 저역통과 필터 지연? 물리공식 자체 한계?).
+  2. route1(203f99d429 seg8, 이미 업로드됨)로 route 감속을 재검증 —
+     이번 f3db6ca89d 표본은 route가 거의 안 눌려 결론력이 약했음, seg8은
+     46/50차에서 다룬 급조임 커브라 route가 실제 binding할 가능성 높음.
+  3. **turn_speed_violations() 버그로 인한 과거 세션 "0건" 결론 재검증**
+     — 원본 로그 재확보 가능한 대로 순차 재스캔(우선순위: 24차/41차
+     "안전지표 전부 0건" 요약이 나왔던 route들).
+  4. route desiredSpeed 급점프(2건, 이번 표본)가 우연인지 구조적 문제인지
+     추가 표본으로 확인.

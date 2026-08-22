@@ -64,7 +64,7 @@
 
 | 상수 | 현재값 | 용도 | 검증상태 |
 |---|---|---|---|
-| vturn_lookahead_horizon_s | **8.0s** (정정, 4.5s→6.5s→8.0s 2단계 확대) | 커브 조기감속 예측구간 | PARTIALLY_VALIDATED (2026-08-20, 21차: route1/route2 실주행에서 최초로 100km/h대 고속 vturn 감속 블록 다수 확보 — 저크 없이 매끈한 감속 확인(예: 101→91km/h/6.7s, 최대 -1.31m/s²), overspeed 0건. 단 8.0s가 8.6s 목표보다 근소히 짧다는 지평선 자체의 정량 검증은 이번 로그에 해당 급조임 패턴이 없어 미해소 — FINDINGS.md 21차 참고) |
+| vturn_lookahead_horizon_s | **8.0s** (정정, 4.5s→6.5s→8.0s 2단계 확대) | 커브 조기감속 예측구간 | PARTIALLY_VALIDATED (2026-08-20, 21차: route1/route2 실주행에서 최초로 100km/h대 고속 vturn 감속 블록 다수 확보 — 저크 없이 매끈한 감속 확인(예: 101→91km/h/6.7s, 최대 -1.31m/s²), overspeed 0건. 단 8.0s가 8.6s 목표보다 근소히 짧다는 지평선 자체의 정량 검증은 이번 로그에 해당 급조임 패턴이 없어 미해소 — FINDINGS.md 21차 참고). **[NEEDS_VALIDATION, 51차, 2026-08-23] 이 행의 "overspeed 0건"은 `turn_speed_violations()` 단위 불일치 버그(vEgo m/s vs vTurnSpeed km/h 미변환 비교, 사실상 항상 미발동)로 뽑힌 결과라 신뢰 불가 — 버그 수정판으로 재스캔 필요. 참고로 수정판으로 f3db6ca89d(다른 route)를 스캔하니 vturn overshoot 14건(최대 18.11km/h, 4.05초 지속)이 새로 나옴. FINDINGS.md 51차 참고.** |
 | vturn_decel_rc | **0.15s** (정정, 기존 0.25s는 구버전 값) | 감속 저역통과 시정수(모델 노이즈 제거용, 감속 프로파일 자체는 물리공식이 결정) | 검증됨(2026-08-20, 260819-7 세션 코드 직접 확인 — a94a58b 커밋에서 물리공식 기반으로 재설계되며 값도 변경됨, 기존 표는 ab156ea 시점 값이라 최신화) |
 | vturn_accel_rc | **0.15s** (정정, 기존 0.6s는 구버전 값) | 가속복귀 저역통과 시정수 | 검증됨(상동, 260819-7 세션 정정) |
 | TARGET_LAT_A | 1.6 m/s^2 | 목표 횡가속도 기준(autoCurveSpeedAggressiveness로 배율 적용) | - |
