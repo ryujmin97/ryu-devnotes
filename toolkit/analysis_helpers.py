@@ -415,6 +415,114 @@ def curve_exit_no_accel_scan_v2(rows, curvature_thresh=0.002, straight_thresh=0.
 
 
 # ---------------------------------------------------------------------------
+# 4c) 커브 탈출 - 무가속 구간 스캔 v3 (260819-7 세션 vCruiseCluster 캡 오탐 대응)
+# ---------------------------------------------------------------------------
+def curve_exit_no_accel_scan_v3(rows, curvature_thresh=0.002, straight_thresh=0.0005,
+                                 min_curve_duration_s=0.5, no_accel_window_s=2.0,
+                                 accel_thresh=0.15, min_straight_hold_s=0.8,
+                                 lead_exclude_dist_m=60.0, cap_margin_thresh_kph=5.0):
+    """
+    curve_exit_no_accel_scan_v2 대비 개선점 (260819-7 세션, FINDINGS.md
+    "[INVESTIGATING] curve_exit_no_accel_scan v1의 3번째 오탐 패턴" 항목 근거):
+
+    3) vCruiseCluster 캡 여유폭 필터: 탈출 시점의
+       min(vCruiseCluster, desiredSpeed) - vEgo(kph 환산) 여유폭이
+       cap_margin_thresh_kph 미만이면, vTurnSpeed/desiredSpeed 자체가
+       이미 회복됐어도 controlsd.py `desired_kph = min(CS.vCruiseCluster,
+       carrotMan.desiredSpeed)` 캡 때문에 애초에 가속할 여지가 거의 없는
+       정상 상황이므로 후보에서 제외한다.
+
+       주의: 반드시 "vCruiseCluster" 필드를 써야 함 -- "vCruise"는 이름은
+       비슷하지만 controlsd.py가 실제로 캡에 쓰는 값이 아닌 별개 필드
+       (extract_log.py 47차 참고). vCruiseCluster가 로그에 없는(구버전
+       CSV) row는 이 필터를 건너뛰고 v2와 동일하게 처리한다(캡 오탐
+       제외를 못하므로 과탐 방향으로만 치우침 -- 안전 쪽 fallback).
+
+    리턴: v2와 동일 스키마 + "vCruiseCluster_at_exit", "cap_margin_kph_at_exit" 추가.
+    (margin 계산이 불가능했던 row는 두 필드 모두 None.)
+    """
+    n = len(rows)
+    curv = [abs(_f(r, "desiredCurvature", 0.0) or 0.0) for r in rows]
+    times = [_f(r, "t", 0.0) for r in rows]
+    aEgo = [_f(r, "aEgo", 0.0) for r in rows]
+    vEgo = [_f(r, "vEgo", 0.0) for r in rows]
+    segs = [r.get("seg") for r in rows]
+    lead = [_b(r, "leadStatus") for r in rows]
+    dRel = [_f(r, "leadDRel") for r in rows]
+    vCruiseCluster = [_f(r, "vCruiseCluster") for r in rows]
+    desiredSpeed = [_f(r, "desiredSpeed") for r in rows]
+
+    results = []
+    in_curve = False
+    curve_start_t = None
+    i = 0
+    while i < n:
+        c = curv[i]
+        if not in_curve and c >= curvature_thresh:
+            in_curve = True
+            curve_start_t = times[i]
+        elif in_curve and c < straight_thresh:
+            curve_dur = times[i] - curve_start_t
+            in_curve = False
+            if curve_dur >= min_curve_duration_s:
+                t_exit = times[i]
+                seg_exit = segs[i]
+
+                # -- 개선 1 (v2): leadStatus 필터
+                if lead[i] and dRel[i] is not None and dRel[i] <= lead_exclude_dist_m:
+                    i += 1
+                    continue
+
+                # -- 개선 2 (v2): 직선 지속시간 재확인 (재상승 여부)
+                j0 = i
+                hold_ok = True
+                while j0 < n and segs[j0] == seg_exit and (times[j0] - t_exit) <= min_straight_hold_s:
+                    if curv[j0] >= curvature_thresh:
+                        hold_ok = False
+                        break
+                    j0 += 1
+                if not hold_ok:
+                    i += 1
+                    continue
+
+                # -- 개선 3 (v3, 신규): vCruiseCluster 캡 여유폭 필터
+                vcc = vCruiseCluster[i]
+                dspd = desiredSpeed[i]
+                cap_margin = None
+                if vcc is not None and dspd is not None and vEgo[i] is not None:
+                    target_kph = min(vcc, dspd)
+                    cap_margin = target_kph - (vEgo[i] * 3.6)
+                    if cap_margin < cap_margin_thresh_kph:
+                        i += 1
+                        continue
+                # vcc/dspd 중 하나라도 없으면(구버전 CSV) 필터 스킵 -- v2와
+                # 동일하게 처리(안전 쪽 fallback, 위 docstring 참고).
+
+                j = i
+                max_a = aEgo[i] if aEgo[i] is not None else 0.0
+                t_window_end = t_exit
+                while j < n and segs[j] == seg_exit and (times[j] - t_exit) <= no_accel_window_s:
+                    if aEgo[j] is not None:
+                        max_a = max(max_a, aEgo[j])
+                    t_window_end = times[j]
+                    j += 1
+                if max_a < accel_thresh:
+                    results.append({
+                        "seg": seg_exit,
+                        "t_curve_end": round(t_exit, 2),
+                        "t_window_end": round(t_window_end, 2),
+                        "max_aEgo_in_window": round(max_a, 3),
+                        "vEgo_at_exit": round(vEgo[i], 2) if vEgo[i] is not None else None,
+                        "leadStatus_at_exit": lead[i],
+                        "leadDRel_at_exit": round(dRel[i], 1) if dRel[i] is not None else None,
+                        "vCruiseCluster_at_exit": round(vcc, 1) if vcc is not None else None,
+                        "cap_margin_kph_at_exit": round(cap_margin, 1) if cap_margin is not None else None,
+                    })
+        i += 1
+    return results
+
+
+# ---------------------------------------------------------------------------
 # 5) 목표속도 추종 오차 분석
 # ---------------------------------------------------------------------------
 def speed_tracking_error(rows, target_field="desiredSpeed", window_s=1.0):

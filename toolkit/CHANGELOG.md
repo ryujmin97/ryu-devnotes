@@ -187,3 +187,17 @@
   없어 "model 게이팅" 관련 분석(진입전 사전감속 부족 원인 조사)이 불가능
   했음. 세그먼트 경계 carryover도 다른 필드와 동일하게 적용. 하위호환:
   기존(46차 이전) CSV는 이 컬럼이 항상 빈 문자열 — 재추출 필요.
+
+## 2026-08-23 (47차)
+- `extract_log.py`: `vCruiseCluster`(carState.vCruiseCluster) 컬럼 신규
+  추가 — 기존 `vCruise` 필드와는 별개 값인데 이름이 비슷해 혼동 유발
+  가능성 있었음. `controlsd.py` line 214의 `min(CS.vCruiseCluster,
+  desiredSpeed)` 캡이 실제로 참조하는 게 이 필드. 하위호환: 46차 이전
+  CSV는 이 컬럼 없음 — vCruiseCluster 캡 관련 분석 시 재추출 필요.
+- `analysis_helpers.py`: `curve_exit_no_accel_scan_v3` 신규 — v2(leadStatus
+  필터+직선지속시간 재확인) 위에 vCruiseCluster 캡 여유폭 필터 추가
+  (탈출 시점 `min(vCruiseCluster,desiredSpeed)-vEgo(kph)` < 5kph면 후보
+  제외). route1/2/3(46차 로그) 재실행으로 문법/로직 검증 완료했으나,
+  이 3개 로그로는 v3 필터가 실제로 뭔가를 걸러내는지까지는 확인 못함
+  (route1/3은 v1 단계부터 0건 — 세그 내 커브 미탈출, route2는 v2
+  단계에서 이미 4건 전부 필터링됨). FINDINGS.md 47차 항목 참고.

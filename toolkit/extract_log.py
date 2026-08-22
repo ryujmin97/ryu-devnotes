@@ -14,7 +14,7 @@ route_dir 예시 구조:
 
 CSV 컬럼:
     t, seg, commit,
-    vEgo, aEgo, brakePressed, gasPressed, cruiseEnabled, vCruise,
+    vEgo, aEgo, brakePressed, gasPressed, cruiseEnabled, vCruise, vCruiseCluster,
     steeringAngleDeg, desiredCurvature,
     leadStatus, leadDRel, leadVRel, leadVLead,
     src, desiredSpeed, vTurnSpeed
@@ -48,6 +48,7 @@ from decode_rlog import iter_events
 FIELDNAMES = [
     "t", "seg", "commit",
     "vEgo", "aEgo", "brakePressed", "gasPressed", "cruiseEnabled", "vCruise",
+    "vCruiseCluster",
     "steeringAngleDeg", "desiredCurvature",
     "leadStatus", "leadDRel", "leadVRel", "leadVLead",
     "leadRadar", "leadModelProb",
@@ -67,6 +68,11 @@ FIELDNAMES = [
 # dRel 급점프가 "vision 노이즈"인지 "ego 차선변경으로 인한 리드 타겟
 # 스왑"인지 구분할 근거 없이는 오판할 수 있음 (FINDINGS.md 42차 재검토
 # 계기, B seg10 이벤트에서 사용자가 차선변경 가능성 제기).
+# 2026-08-23 추가(47차): carState.vCruiseCluster(controlsd.py line 214
+# `min(CS.vCruiseCluster, desiredSpeed)`가 실제로 참조하는 필드) 신규
+# 추가 -- 기존 "vCruise" 필드와는 별개의 값인데 이름이 비슷해 혼동
+# 유발 가능성 있음. curve_exit_no_accel_scan_v3의 vCruiseCluster 캡
+# 여유폭 필터는 반드시 이 필드를 써야 함(vCruise 아님).
 
 
 def get_repo_git_info(repo_dir):
@@ -159,6 +165,7 @@ def process_segment(rlog_path, seg_name, repo_dir, max_mb, commit_short="",
                 "brakePressed": cs.brakePressed, "gasPressed": cs.gasPressed,
                 "cruiseEnabled": cs.cruiseState.enabled,
                 "vCruise": cs.vCruise,
+                "vCruiseCluster": cs.vCruiseCluster,
                 "steeringAngleDeg": cs.steeringAngleDeg,
                 "leftBlinker": cs.leftBlinker, "rightBlinker": cs.rightBlinker,
             }

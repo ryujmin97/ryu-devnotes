@@ -1,5 +1,36 @@
 # WIP — 중단 지점 (체크포인트, 세션 종료 아님)
 
+- 저장 시각: 2026-08-23 (47차, 체크포인트 — 46차 마지막 "2)cam/road/
+  vCruiseCluster 캡 가설" 착수. **[중요 발견] route3(866476e5c3--18)의
+  "vturn 이상함"과 미해결 steer 잔존값 미스터리가 둘 다 수동 차선변경
+  (rightBlinker)으로 설명 가능함을 확인** — 사용자가 실차 화면녹화
+  캡처(11:31경 "차선을 변경합니다" 표시, 우로 굽은 커브에서 우측
+  차선변경)를 제보하며 "차선변경으로 곡선이 심해져 vturn이 튄 것 아니냐"
+  가설 제기 → t=4784~4792 프레임 단위 재추적으로 확인: rightBlinker
+  True(t=4785.03~4788.63) 구간과 desiredCurvature 급등(피크 0.00213)
+  +vTurnSpeed 급락(129→103)이 거의 동시 발생, `laneChangeState`는 내내
+  `off`(자동 차선변경 아닌 수동 차로이동으로 판단). 상세는 FINDINGS.md
+  "[RESOLVED 가능성 높음] vturn 급감/조기해제와 steer 잔존값" 항목 참고.
+  **표본 1건 기준, 확정 아님** — 다음 세션 후보로 `lane_change_curvature_
+  artifact_scan` 검증 함수 추가 여부 검토(FINDINGS.md 다음 단계 참고).
+  **[병행 작업] `curve_exit_no_accel_scan_v3` 구현 완료** —
+  vCruiseCluster 캡 여유폭 필터(<5kph 제외) 추가, `extract_log.py`에도
+  `vCruiseCluster` 컬럼 신규 추가(기존 `vCruise`와 별개 필드였음, 46차
+  이전 CSV는 이 필드 없음 유의). route1/2/3 재실행: route1/3은 v1부터
+  0건(세그 내 커브 미탈출, 기존 한계와 동일), route2는 v1=4건이 v2
+  단계에서 전부 필터링(S자 연속커브 재진입)돼 v3 신규 필터까지 도달한
+  후보가 없었음 — **v3 코드 자체는 문법/로직 검증 완료했으나 실제로
+  뭔가를 걸러내는지는 이번 로그로 확인 못함.** 상세는 FINDINGS.md 47차
+  항목(toolkit/CHANGELOG.md 47차 항목도 동기화) 참고.
+  **다음(사용자 결정 대기)**: (a) v3 필터를 실제 검증할 수 있는 로그
+  (고속도로 단일 커브, 탈출 시 vCruiseCluster 캡에 걸릴 만한 상황) 추가
+  확보, (b) `lane_change_curvature_artifact_scan` 검증 함수 착수 여부,
+  (c) 46차 원래 "2)cam/road/vCruiseCluster 캡 가설" 자체(탈출 후 가속
+  지연이 vCruiseCluster 캡 때문인지)는 아직 별도 검증 필요 — 이번 47차
+  발견은 그와는 다른 축(vturn 급변의 원인)임에 유의, 혼동하지 말 것.
+  코드 변경 있음(`extract_log.py`/`analysis_helpers.py`), patch는
+  ryu 절차대로 별도 전달 예정.
+
 - 저장 시각: 2026-08-22 (46차, 진행중 — 사용자 요청으로 세그먼트 1개
   완료 시마다 체크포인트) "곡선구간 가감속 부족"(진입전 사전감속 부족/
   정점 감속 부족/탈출후 가속지연 3가지 증상) 제보로 패치이전 로그 3개
