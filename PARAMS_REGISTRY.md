@@ -34,8 +34,9 @@
 | LEAD_LOST_GRACE_TIME | 0.6s | 리드 순간유실 홀드 시간 | - |
 | CUTOUT_DPATH_THRESH | 2.0m | 컷아웃 판정 dPath 임계값 | NEEDS_VALIDATION |
 | CUTOUT_VREL_GATE | -0.5 m/s | 컷아웃 판정 vRel 게이트 | NEEDS_VALIDATION |
-| (신규 후보) track_scc yRel 게이트 | 없음(미구현) | `get_lead()`에서 `track_scc`(SCC 단일점, trackId=0) 채택 시 차로내 위치 검증 부재 — 옆차선 오탐 4건 근본원인(37차, ROOT_CAUSE_IDENTIFIED). 제안값 1.75~2.0m(반차로 폭) | NEEDS_VALIDATION, 패치 미작성 |
-| (참고) radar=True → LeadBlend 전면 우회 | `RadarD.update()` line ~660 | `lead_one_raw['radar']`가 True(비전매칭/track_scc 폴백 구분 없이 Track이면 항상 True)면 CUTOUT_*/closer_jump/TTC 스무딩 전부 미적용. track_scc 폴백만 별도 취급하는 방향 검토 중(37차) | NEEDS_VALIDATION |
+| SCC_FALLBACK_DPATH_GATE | 2.0m | `get_lead()`에서 `track_scc`(SCC 단일점, trackId=0) 채택 전 dPath(차선중심 대비, 곡률/차선폭 보정 포함) 기준 차로내 위치 게이트. 넘으면 폴백 미채택 — 옆차선/경로이탈 오탐 4건 근본원인 대응(37차). yRel 대신 dPath 채택 이유는 FINDINGS.md 37차 항목 참고 | PATCH_WRITTEN, 로직 단위 합성검증(7케이스) 통과, 실차 미검증. CUTOUT_DPATH_THRESH와 동일값(2.0) 채택 — 별도 상수로 관리, 값 연동 아님 |
+| sccFallback 플래그 (Track.get_RadarState) | bool | track_scc 유래 채택인지 표시. True면 `RadarD.update()`에서 `radar=True`라도 LeadBlend 우회 안 함(cutout/danger-passthrough 계속 적용) | PATCH_WRITTEN, 실차 미검증 |
+| (해결됨, 참고) radar=True → LeadBlend 전면 우회 | `RadarD.update()` line ~685 | ~~구 조건 `lead_one_raw.get('radar')`~~ → **패치 후**: `lead_one_raw.get('radar') and not lead_one_raw.get('sccFallback')`. track_scc 폴백 리드만 LeadBlend를 계속 타도록 분리 완료(37차 계속 3) | PATCH_WRITTEN, 실차 미검증 |
 
 ## selfdrive/carrot/carrot_functions.py
 

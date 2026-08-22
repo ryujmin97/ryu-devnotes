@@ -2239,7 +2239,7 @@ vRel과 무관하게 물리적으로 불가능한 속도로 드리프트하는 �
 ### 28차 원본 기록 (아래는 위 30차로 일부 정정됨 — min_filt_rate
 자체는 정확하지만 "대표 신호"로서의 해석이 30차에서 정정됨)
 
-## [ROOT_CAUSE_IDENTIFIED, NEEDS_VALIDATION] 옆차선 차량이 SCC 단일점 레이더(track_scc, trackId=0)로 락온되며 LeadBlend 안전장치를 전부 우회 → 급감속 (2026-08-22, 37차, 업로드 "옆차선_차량_인식_감속.zip" 6세그먼트)
+## [PATCH_WRITTEN, NEEDS_VALIDATION] 옆차선 차량이 SCC 단일점 레이더(track_scc, trackId=0)로 락온되며 LeadBlend 안전장치를 전부 우회 → 급감속 (2026-08-22, 37차, 업로드 "옆차선_차량_인식_감속.zip" 6세그먼트, 패치는 37차 계속 3에서 작성)
 
 - **사용자 제보**: "옆차선의 차량이 내차 레이더에 가끔 잡혔다 끊어지면서 내차가
   급감속 하는 경우가 있었어."
@@ -2345,6 +2345,50 @@ vRel과 무관하게 물리적으로 불가능한 속도로 드리프트하는 �
 - **근거 로그**: work/csv_per_seg/*.csv, work/frames/*(이번 세션 임시
   추출, devnotes에는 미포함 — 원본 정책상 route.csv/대시캠 프레임
   미커밋 원칙 유지).
+
+- **패치 작성 완료(37차 계속 3, 2026-08-22)**: 위 패치 방향 1안(yRel
+  게이트)과 2안(플래그 분리)을 결합해 구현. `C:\dev\ryu` base
+  `4fe22cd`(c3-ms-dev HEAD, 35차 계속2 캐시버스터 커밋) 위 단일 커밋.
+  1. `get_lead()`에서 `track_scc` 채택 직전 `abs(track_scc.dPath) <
+     SCC_FALLBACK_DPATH_GATE(=2.0m)` 게이트 추가 — 넘으면(차로 밖)
+     폴백 자체를 채택하지 않음. **yRel 대신 dPath 사용**(37차 결론:
+     `Track.d_path()`가 `md.laneLines` 기반 차선중심 대비 위치라
+     곡률/차선폭 보정 포함, `track_scc`도 `Track` 인스턴스라 동일
+     계산을 받음 — 단순 yRel로는 `7ffb3e693c--10`(yRel -1.4~-1.5m,
+     값 자체가 작음)을 못 거르는 문제를 dPath가 보완할 것으로 기대).
+     이 게이트는 `track`이 이미 있었는지(기존 저확신 매칭)와 무관하게
+     항상 적용 — 초안에서 "track이 이미 있으면 게이트 스킵"으로 잘못
+     구현했던 버그를 합성테스트로 발견/수정(아래 참고).
+  2. `Track.get_RadarState()`에 `sccFallback` bool 플래그 추가.
+     `RadarD.update()`의 `radar=True` 즉시반영 분기 조건을
+     `lead_one_raw.get('radar') and not lead_one_raw.get('sccFallback')`
+     로 변경 — `track_scc` 유래 리드는 `radar=True`라도 더 이상
+     `LeadBlend`를 우회하지 않고 기존 cutout/danger-passthrough
+     로직을 그대로 탐(37차 cut-in/cut-out 영향 분석 결론과 일치:
+     위험한 변화는 즉시 반영 유지, 완만한 변화만 ~0.35s 스무딩).
+  3. **로직 단위 합성검증(work/test_scc_gate.py, 7케이스 전부 PASS)**:
+     옆차선 3건 재현(dPath 5.5~6.0 가정) → 폴백 거절 확인, 재분류
+     케이스(dPath 2.3 가정) → 거절 확인, 정상 동일차로(dPath 0.3) →
+     정상 채택+플래그 확인, 경계값(1.99/2.01) → 정확히 게이트 경계에서
+     분기, **기존 track 존재+저확신+옆차선 폴백 케이스에서 초안 버그
+     (게이트 우회) 발견 및 수정**. 단, 이는 로직 단위 합성검증이며
+     **실제 acados/radard 파이프라인 실행이나 실차 로그 재현은
+     아직 미검증** — dPath 실측값도 옆차선 3건은 당시 yRel만 기록돼
+     있어 정확한 dPath 값이 아닌 추정 시나리오임에 유의(수치상 워낙
+     명백해 게이트 관여 필요성 자체가 낮았던 케이스들).
+  4. `git am` 검증(temp branch, base `4fe22cd`) + `python3 -m ast`
+     문법 통과. 패치 파일 `0001-radard-SCC-dPath-LeadBlend-37.patch`
+     `/mnt/user-data/outputs/`에 전달.
+- **다음 단계(미완료)**:
+  1. 사용자가 `git am`으로 `C:\dev\ryu`(c3-ms-dev)에 적용 + push.
+  2. 실차 검증: 원래 옆차선/측면차량 오탐 재현 시나리오에서
+     `leadTrackId=0`인데도 `dPath` 게이트에 걸려 리드로 채택 안 되는지,
+     또는 채택되더라도 `sccFallback=True`로 `LeadBlend`(특히
+     `CUTOUT_DPATH_THRESH`)가 작동해 급감속으로 이어지지 않는지 확인.
+  3. **회귀 검증도 필요**: `SCC_FALLBACK_DPATH_GATE=2.0m` 게이트가
+     정상적인 동일차로 SCC 폴백(전체 트랙 시간의 74~82%를 차지하는
+     주 사용 경로)을 과도하게 거르지 않는지, 즉 게이트 도입 후에도
+     정상 추종이 평소와 동일하게 유지되는지 실차에서 함께 확인 필요.
 
 
 ---
