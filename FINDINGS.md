@@ -3362,3 +3362,51 @@ MPC의 리드 궤적 예측(`extrapolate_lead`)에서 완전히 사라짐**. MPC
   lag_s 분포 확인 → 체감될 만큼(예: 0.5s+) 크면 `vturn_accel_rc` 값
   하향 튜닝 검토, 작으면(구조가 이미 즉시 반응) "체감 지연"은 다른
   원인(vCruiseCluster 캡 등 48차 근접 후보처럼)일 가능성 재확인.
+
+## 50차 (2026-08-23) — 곡선 사전감속 "가시거리 부족" 가설 실측 기각, vTurnSpeed 부호는 버그 아님(방향 인코딩) 확인
+
+- **배경**: 49차 이후 사용자가 새 가설 제기 — "곡선 진입전 사전감속
+  구간이 짧아서 최대 곡률지점(apex)에 감속이 완료되지 않고, 이 때문에
+  정점 원복도 늦어지는 것 아니냐". `vturn_lookahead_horizon_s`(현재
+  8.0s, T_IDXS max_val=10.0s 천장 대비 이미 2s 남짓 여유)를 얼마나
+  올려야 하는지 실측으로 검증.
+- **route2(`f3db6ca89d`, 곡선_여러개.zip, 5세그) 재추출 후 15건 유효
+  이벤트 실측 결과 — "가시거리 부족" 가설 기각**: 각 이벤트의 실제
+  진입속도/apex 목표속도(vTurnSpeed)로 물리 필요거리(ramp+safe_dist,
+  decel_rate=1.2/safe_time=1.0 고정)와 8.0s horizon 가시거리(등속
+  근사)를 비교한 결과, **15건 전부 deficit(부족분)이 0 이하(가시거리가
+  필요거리보다 항상 김, 최대 -107m 여유)**. 즉 horizon 자체가 부족해서
+  물리적으로 못 보는 상황은 route2 표본에서 확인 안 됨.
+  → `vturn_lookahead_horizon_s`/`vturn_safe_time` 상향은 이번 표본
+  기준 근거 부족, 우선순위 하향 권고.
+- **replay_vturn2.py(신규, work/ scratch)로 modelV2 raw 배열에서
+  필터-전 required_speed_kph(argmin, 부호 없는 크기)를 프레임 단위
+  재현** — seg15 이벤트(apex t=9505.7, 우회전 apex_steer=-75.9)
+  구간에서 raw_turnSpeed가 apex 전후로도 정상적으로 낮은 값(29~53
+  km/h대)을 유지, 필터-전 신호 자체의 지연/결손은 없음을 확인.
+- **[신규 확인, 버그 아님] CSV의 `vTurnSpeed`가 src="model" 전환
+  구간에서 음수(-64~-70)로 나타나는 현상 원인 규명 완료**: 코드
+  재확인 결과 `vturn_speed()`(carrot_man.py) 마지막 줄
+  `return turnSpeed * curv_direction`에서 **방향(좌/우회전)을 부호로
+  의도적으로 인코딩**함(`curv_direction = np.sign(lookahead_rate[apex_idx])`
+  등). seg15 이벤트는 우회전(`apex_steer=-75.9`)이라 부호가 음수인 게
+  정상 — `msg.carrotMan.vTurnSpeed = int(vturn_speed)`로 이 부호 있는
+  값이 그대로 로깅됨(carrot_serv.py L1123). 즉 **min() 소스 비교에는
+  `abs(vturn_speed)`가 쓰이고(L1019), CSV `vTurnSpeed` 컬럼은 항상
+  방향 부호 포함 원값이라 src가 "model"로 넘어간 뒤에도 vturn 자체의
+  마지막 필터 출력값이 계속 로깅되는 것 — 실제 min() 승자와 무관한
+  진단용 채널.** 향후 이 필드로 "어떤 소스가 실제로 이겼는지"를
+  판단하려면 반드시 `src` 컬럼을 기준으로 하고 `vTurnSpeed` 절대값은
+  참고용으로만 쓸 것(분석 함수 작성 시 주의사항으로 기록).
+- **결론**: 46차부터 이어진 "사전감속 구간 부족" 가설은 route1/2
+  실측 기준 근거가 약해짐 — horizon/safe_time 상향보다는 (1) 다른
+  route(고속도로 장거리 진입) 표본 추가 확보, 또는 (2) 46차에서
+  발견됐던 `abs(vturn_speed)<120` model 게이트가 원거리 불안정
+  구간에서 더 안정적인 model 신호를 차단하는 쪽 재검토가 더 유망한
+  방향으로 보임(46차 NEEDS_VALIDATION 항목과 연결).
+- **코드 변경 없음**(분석/스크래치 스크립트만, toolkit 미편입 —
+  `work/replay_vturn2.py`, 필요시 다음 세션에서 정식 toolkit 함수로
+  승격 검토).
+- **다음 단계**: 사용자 결정 대기 — (a) 46차 model 게이트 가설
+  재조사 착수, (b) 고속도로 장거리 진입 로그 추가로 horizon 부족
+  가설 재검증, (c) 다른 스레드로 전환.
