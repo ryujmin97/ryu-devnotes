@@ -522,6 +522,122 @@ def curve_exit_no_accel_scan_v3(rows, curvature_thresh=0.002, straight_thresh=0.
     return results
 
 
+def curve_exit_no_accel_scan_v4(rows, curvature_thresh=0.002, straight_thresh=0.0005,
+                                 min_curve_duration_s=0.5, no_accel_window_s=2.0,
+                                 accel_thresh=0.15, min_straight_hold_s=0.8,
+                                 lead_exclude_dist_m=60.0, cap_margin_thresh_kph=6.5,
+                                 min_vego_at_exit_mps=1.0):
+    """
+    curve_exit_no_accel_scan_v3 대비 개선점 (2026-08-23, 48차, route6/7/8
+    실전 검증 근거 — FINDINGS.md "48차" 항목 참고):
+
+    4) vEgo 최소속도 필터: `vEgo_at_exit`가 `min_vego_at_exit_mps` 미만이면
+       (사실상 정차) 곡률 임계값이 우연히 넘은 경우를 배제한다. 정차 중
+       조향각/곡률 계산이 튀는 건 "커브"가 아니므로 애초에 v3 스캐너의
+       대상이 아니다 (48차 route7 seg18 t=1176.94, vEgo≈0 오탐으로 신규
+       발견).
+
+    5) `cap_margin_thresh_kph` 기본값을 5.0 -> 6.5로 상향. 48차에서
+       route7 seg12(t=833.54, margin=6.0)/seg14(t=949.09, margin=5.8)
+       두 근접 후보를 CSV 원본(vTurnSpeed/src 필드)으로 직접 대조한 결과,
+       **두 건 모두 vTurnSpeed 자체는 이미 완전히 해제(각각 -201/-187,
+       즉 200km/h 안팎으로 사실상 무제한)된 상태였고, desiredSpeed를
+       최종 제한하는 건 오직 vCruiseCluster(운전자 설정 순항속도) 캡
+       뿐**이었음이 확인됨 — 즉 vturn_speed()의 lookahead/필터 로직과는
+       처음부터 무관한, 순수 "여유폭이 작아서 완만히만 가속하는" 정상
+       상황. 문턱 5.0은 이런 경계 사례(5.8~6.0)를 걸러내기엔 살짝
+       빡빡했던 것으로 판단, 6.5로 상향해 route7의 두 근접 후보를 v4
+       단계에서 정식 제외한다.
+
+    이 두 변경을 적용한 결과 route6(ADAS 미관여 제외)/7/8 3개 route
+    전부 0건으로 수렴함(48차 실측 확인, FINDINGS.md 참고).
+
+    리턴: v3와 동일 스키마.
+    """
+    n = len(rows)
+    curv = [abs(_f(r, "desiredCurvature", 0.0) or 0.0) for r in rows]
+    times = [_f(r, "t", 0.0) for r in rows]
+    aEgo = [_f(r, "aEgo", 0.0) for r in rows]
+    vEgo = [_f(r, "vEgo", 0.0) for r in rows]
+    segs = [r.get("seg") for r in rows]
+    lead = [_b(r, "leadStatus") for r in rows]
+    dRel = [_f(r, "leadDRel") for r in rows]
+    vCruiseCluster = [_f(r, "vCruiseCluster") for r in rows]
+    desiredSpeed = [_f(r, "desiredSpeed") for r in rows]
+
+    results = []
+    in_curve = False
+    curve_start_t = None
+    i = 0
+    while i < n:
+        c = curv[i]
+        if not in_curve and c >= curvature_thresh:
+            in_curve = True
+            curve_start_t = times[i]
+        elif in_curve and c < straight_thresh:
+            curve_dur = times[i] - curve_start_t
+            in_curve = False
+            if curve_dur >= min_curve_duration_s:
+                t_exit = times[i]
+                seg_exit = segs[i]
+
+                # -- v4 신규: 정차(사실상 vEgo=0) 상태 배제
+                if vEgo[i] is None or vEgo[i] < min_vego_at_exit_mps:
+                    i += 1
+                    continue
+
+                # -- v2: leadStatus 필터
+                if lead[i] and dRel[i] is not None and dRel[i] <= lead_exclude_dist_m:
+                    i += 1
+                    continue
+
+                # -- v2: 직선 지속시간 재확인 (재상승 여부)
+                j0 = i
+                hold_ok = True
+                while j0 < n and segs[j0] == seg_exit and (times[j0] - t_exit) <= min_straight_hold_s:
+                    if curv[j0] >= curvature_thresh:
+                        hold_ok = False
+                        break
+                    j0 += 1
+                if not hold_ok:
+                    i += 1
+                    continue
+
+                # -- v3, v4에서 문턱만 상향(5.0 -> 6.5): vCruiseCluster 캡 여유폭 필터
+                vcc = vCruiseCluster[i]
+                dspd = desiredSpeed[i]
+                cap_margin = None
+                if vcc is not None and dspd is not None and vEgo[i] is not None:
+                    target_kph = min(vcc, dspd)
+                    cap_margin = target_kph - (vEgo[i] * 3.6)
+                    if cap_margin < cap_margin_thresh_kph:
+                        i += 1
+                        continue
+
+                j = i
+                max_a = aEgo[i] if aEgo[i] is not None else 0.0
+                t_window_end = t_exit
+                while j < n and segs[j] == seg_exit and (times[j] - t_exit) <= no_accel_window_s:
+                    if aEgo[j] is not None:
+                        max_a = max(max_a, aEgo[j])
+                    t_window_end = times[j]
+                    j += 1
+                if max_a < accel_thresh:
+                    results.append({
+                        "seg": seg_exit,
+                        "t_curve_end": round(t_exit, 2),
+                        "t_window_end": round(t_window_end, 2),
+                        "max_aEgo_in_window": round(max_a, 3),
+                        "vEgo_at_exit": round(vEgo[i], 2) if vEgo[i] is not None else None,
+                        "leadStatus_at_exit": lead[i],
+                        "leadDRel_at_exit": round(dRel[i], 1) if dRel[i] is not None else None,
+                        "vCruiseCluster_at_exit": round(vcc, 1) if vcc is not None else None,
+                        "cap_margin_kph_at_exit": round(cap_margin, 1) if cap_margin is not None else None,
+                    })
+        i += 1
+    return results
+
+
 # ---------------------------------------------------------------------------
 # 5) 목표속도 추종 오차 분석
 # ---------------------------------------------------------------------------

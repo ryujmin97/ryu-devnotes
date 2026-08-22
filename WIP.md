@@ -1,5 +1,25 @@
 # WIP — 중단 지점 (체크포인트, 세션 종료 아님)
 
+- 저장 시각: 2026-08-23 (48차 계속, **"탈출 후 무가속" 조사 스레드
+  사실상 종결**) — `vturn_speed()`(carrot_man.py) 코드 리딩 완료 +
+  route7 근접 후보 2건(seg12/seg14)을 CSV 원본(`vTurnSpeed`/`src`)으로
+  직접 대조. **두 건 모두 vTurnSpeed가 이미 완전히 해제(200km/h
+  안팎)된 상태였고, 유일한 실질 제약은 vCruiseCluster(운전자 순항속도)
+  캡뿐이었음 확정** — vturn 코드와는 처음부터 무관. `curve_exit_no_
+  accel_scan_v4` 신규 구현(정차 오탐 배제 + cap_margin_thresh_kph
+  5.0→6.5 상향) → route7/route8 둘 다 0건으로 수렴 확인.
+  **결론: route1~8 누적 8개 route에서 "탈출 후 진짜 무가속" 버그
+  확정 사례 0건, 근접 후보들도 vturn과 무관함이 확정됨 — 현재 코드에
+  이 버그가 있다는 근거 없음. ryu 코드 변경 없음(toolkit 분석 함수만
+  추가).** 이론적 사각지대(8초 lookahead 내 연속 커브 시 argmin이
+  다음 커브로 넘어가는 경우)는 남아있으나 능동 스캔 우선순위는
+  하향, 구체적 제보/영상이 나오면 재조사. 상세는 FINDINGS.md 48차
+  계속 항목 참고.
+  **다음 세션 시작할 것**: 이 스레드는 종결. 46차 WIP에 남아있던
+  다른 열린 항목(2번 cam/road/vCruiseCluster 캡 가설 원 검증, 3번
+  route3 steer 잔존값 규명) 중 하나로 전환하거나, 사용자가 새 제보를
+  가져오면 그것부터.
+
 - 저장 시각: 2026-08-23 (48차, 체크포인트 — 사용자가 신규 로그 3개
   (route6=`8417c66e7e` x3seg/route7=`c8fef594d3` x18seg/route8=
   `dda0d533ce` x20seg) 추가 업로드해 curve_exit_no_accel_scan v3

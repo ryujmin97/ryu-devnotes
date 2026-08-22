@@ -72,9 +72,13 @@ carryover도 동일하게 적용됨. **이 컬럼들이 없는 과거 CSV(42차 
 - `remove_driver_intervention(rows, ...)` — 운전자 개입 구간 제외
 - `clean_decel_blocks(rows, ...)` — 감속 블록 정제
 - `lead_presence_segments(rows, ...)` — 리드 존재 구간 세그먼트화
-- `curve_exit_no_accel_scan(rows, ...)` / `_v2` / `_v3` — 커브 탈출 후
-  미가속 스캔 (v3: vCruiseCluster 캡 여유폭 필터 추가, "vCruise" 아닌
-  "vCruiseCluster" 필드 필수 — extract_log.py 47차 이후 CSV만 지원)
+- `curve_exit_no_accel_scan(rows, ...)` / `_v2` / `_v3` / `_v4` — 커브
+  탈출 후 미가속 스캔 (v3: vCruiseCluster 캡 여유폭 필터 추가, "vCruise"
+  아닌 "vCruiseCluster" 필드 필수 — extract_log.py 47차 이후 CSV만
+  지원. **v4(48차, 최신 권장)**: 정차상태 오탐 배제 +
+  `cap_margin_thresh_kph` 5.0→6.5 상향 — route6/7/8 실측으로 v3의
+  근접 후보들이 실제로는 vTurnSpeed 완전 해제 후 순수 vCruiseCluster
+  캡 제한이었음을 확인, v4 적용 시 0건으로 수렴. FINDINGS.md 48차 참고)
 - `speed_tracking_error(rows, ...)` — 목표속도 추종 오차
 - `turn_speed_violations(rows, ...)` — 커브 속도 위반 탐지
 - `source_transition_log(rows)` — 속도 소스 전환 로그 (필드명

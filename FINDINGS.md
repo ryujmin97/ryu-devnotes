@@ -3269,3 +3269,52 @@ MPC의 리드 궤적 예측(`extrapolate_lead`)에서 완전히 사라짐**. MPC
      정도로 살짝 올려 이번 route7의 두 경계 사례까지 필터링되는지
      시뮬레이션으로 먼저 확인 후 결정(패치 전 시뮬레이션 우선
      원칙 유지).
+
+## [RESOLVED] vturn_speed() 코드 리딩 + route7 근접 후보 2건 CSV 원본 대조 — "탈출 후 무가속" 근접 사례들이 vturn과 무관한 순수 vCruiseCluster 캡 상황이었음을 확정 (2026-08-23, 48차 계속)
+
+- **배경**: 48차 v3 검증에서 남았던 근접 후보 2건(route7 seg12
+  t=833.54/seg14 t=949.09, cap_margin 5.8~6.0kph)의 성격을 규명하기
+  위해 `vturn_speed()`(carrot_man.py L953) 코드를 정독하고, 두 시점의
+  CSV 원본 필드(`vTurnSpeed`, `src`, `desiredSpeed`, `vCruiseCluster`)를
+  직접 대조.
+- **vturn_speed() 구조 확인**: 모델이 예측한 전방 궤적
+  (`vturn_lookahead_horizon_s=8.0초` 이내) 모든 지점에 대해 방지턱과
+  동일한 `v²=v_f²+2ad` 물리공식으로 지점별 필요속도를 계산한 뒤 **그중
+  최솟값(argmin)**을 최종 turnSpeed로 채택. "탈출 이벤트"를 별도로
+  판정하는 로직 자체가 없고(주석에 명시: "매 프레임 전방예측 기반
+  거리로 재계산되므로 벗어나는 즉시 자연스럽게 풀린다"), 저역통과
+  필터(`vturn_decel_rc=vturn_accel_rc=0.15`)는 감속/가속 방향 대칭이라
+  방향성 비대칭 지연은 없음. 이론적으로 남는 유일한 사각지대는 "8초
+  lookahead 안에 다음 커브가 걸리면 argmin이 그 다음 커브로 넘어가
+  현재 커브를 벗어나도 계속 낮게 유지될 수 있다"(S자 대응 위해 의도된
+  동작)는 점.
+- **CSV 원본 대조 결과(핵심 발견)**: route7 두 근접 후보 모두
+  **`vTurnSpeed` 자체가 이미 완전히 해제된 상태**(seg12 t=833.54:
+  -201, seg14 t=949.09: -187 — 부호는 좌/우 방향, 크기가 200km/h
+  안팎이면 사실상 무제한)였음. desiredSpeed도 114~187km/h로 높았음.
+  **유일한 실질 제약은 vCruiseCluster=70.0(운전자 설정 순항속도)** —
+  vEgo가 이미 64km/h라 여유폭 5.8~6.0km/h밖에 없어 완만한 가속만
+  나온 것. **즉 이 두 근접 후보는 vturn_speed()의 lookahead/필터
+  로직과는 애초에 무관했고, v3의 `cap_margin_thresh_kph=5.0` 문턱이
+  이런 5.8~6.0대 경계 사례를 못 걸렀을 뿐**이었음이 확정됨.
+- **조치**: `curve_exit_no_accel_scan_v4` 신규 구현 —
+  (1) `vEgo_at_exit` 최소속도 필터(정차 상태 오탐 배제),
+  (2) `cap_margin_thresh_kph` 5.0→6.5 상향. route7/route8 재실행
+  결과 **둘 다 0건으로 수렴**(route6은 ADAS 미관여로 분석 대상 제외).
+  상세는 toolkit/CHANGELOG.md 48차 항목 참고.
+- **종합 결론**: route1~8, 8개 route 누적 스캔에서 "탈출 후 진짜
+  무가속 버그"는 확정 사례 0건이며, 유일하게 근접했던 후보들도
+  코드 리딩+데이터 대조로 vturn과 무관함이 확정됨. **(c)안(증상
+  자체 재평가) 결론 확정 — 현재 코드(`c368c422`)에 "탈출 후 가속지연"
+  버그가 존재한다는 근거가 8개 route 전체에서 발견되지 않음.**
+  단, 이론적 사각지대(8초 lookahead 내 연속 커브 시 argmin이 다음
+  커브로 넘어가는 경우)는 코드상 여전히 존재 — 향후 이 패턴에 정확히
+  해당하는 실제 제보/영상이 나오면 재조사 대상으로 유지하되, 능동적
+  로그 스캔으로 더 찾는 건 낮은 우선순위로 하향.
+- **코드 변경**: `ryu` 저장소는 변경 없음(vturn_speed() 자체는 버그
+  아님으로 결론). `devnotes/toolkit/analysis_helpers.py`에
+  `curve_exit_no_accel_scan_v4` 함수만 신규 추가(분석 도구 개선).
+- **다음 단계**: 이 조사 스레드는 사실상 종결. 다음 세션은 46차
+  WIP에 남아있던 다른 열린 항목(2번 cam/road/vCruiseCluster 캡 가설
+  원 검증, 3번 route3 steer 잔존값 규명 등, 필요 시 WIP.md 확인)으로
+  전환 검토.

@@ -201,3 +201,16 @@
   이 3개 로그로는 v3 필터가 실제로 뭔가를 걸러내는지까지는 확인 못함
   (route1/3은 v1 단계부터 0건 — 세그 내 커브 미탈출, route2는 v2
   단계에서 이미 4건 전부 필터링됨). FINDINGS.md 47차 항목 참고.
+
+## 2026-08-23 (48차)
+- `analysis_helpers.py`: `curve_exit_no_accel_scan_v4` 신규 — route6/7/8
+  실전 검증(48차)에서 드러난 v3의 사각지대 2건 보완:
+  (1) `vEgo_at_exit` 최소속도 필터(`min_vego_at_exit_mps=1.0`) 추가 —
+  정차 상태에서 곡률 임계값이 우연히 넘는 오탐(route7 seg18) 배제.
+  (2) `cap_margin_thresh_kph` 기본값 5.0→6.5 상향 — route7 seg12/seg14
+  두 근접 후보를 CSV 원본(`vTurnSpeed`/`src` 필드)으로 직접 대조한 결과
+  vTurnSpeed 자체는 이미 완전 해제(200km/h 안팎) 상태였고 순수
+  vCruiseCluster 캡만 제한 요인이었음이 확인돼, 문턱을 살짝 올려 이런
+  경계 사례까지 v4 단계에서 제외하도록 조정. 이 두 변경 적용 후
+  route7/route8 둘 다 0건으로 수렴 확인(route6은 ADAS 미관여로 분석
+  제외). FINDINGS.md 48차 항목 참고.
