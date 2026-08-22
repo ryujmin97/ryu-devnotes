@@ -52,7 +52,16 @@ FIELDNAMES = [
     "leadStatus", "leadDRel", "leadVRel", "leadVLead",
     "leadRadar", "leadModelProb",
     "src", "desiredSpeed", "vTurnSpeed",
+    "leftBlinker", "rightBlinker",
+    "laneChangeState", "laneChangeDirection",
 ]
+# 2026-08-22 추가: 차선변경 발생 여부를 CSV만으로 판별하기 위해
+# carState.leftBlinker/rightBlinker(운전자 의도)와
+# lateralPlan.laneChangeState/laneChangeDirection(실제 궤적 계획 상태:
+# off/preLaneChange/laneChangeStarting/laneChangeFinishing)을 추가.
+# dRel 급점프가 "vision 노이즈"인지 "ego 차선변경으로 인한 리드 타겟
+# 스왑"인지 구분할 근거 없이는 오판할 수 있음 (FINDINGS.md 42차 재검토
+# 계기, B seg10 이벤트에서 사용자가 차선변경 가능성 제기).
 
 
 def get_repo_git_info(repo_dir):
@@ -106,7 +115,7 @@ def get_repo_git_info(repo_dir):
 
 
 def process_segment(rlog_path, seg_name, repo_dir, max_mb, commit_short="",
-                     carry_cs=None, carry_ctrl=None, carry_lead=None):
+                     carry_cs=None, carry_ctrl=None, carry_lead=None, carry_lat=None):
     """
     carry_cs/carry_ctrl/carry_lead: 이전 세그먼트에서 넘어온 마지막 상태.
     None이면 이 세그먼트가 라우트의 첫 세그먼트라는 뜻으로 기본값 사용.
@@ -119,11 +128,16 @@ def process_segment(rlog_path, seg_name, repo_dir, max_mb, commit_short="",
     다수 발견, FINDINGS.md 22차 참고). 이제 세그먼트 간 상태를 이어받아
     이 문제를 원천 차단한다. 리턴값도 (rows, 최종상태) 튜플로 변경.
     """
-    last_cs = dict(carry_cs) if carry_cs is not None else {}
+    last_cs = dict(carry_cs) if carry_cs is not None else {
+        "leftBlinker": "", "rightBlinker": "",
+    }
     last_ctrl = dict(carry_ctrl) if carry_ctrl is not None else {"desiredCurvature": None}
     last_lead = dict(carry_lead) if carry_lead is not None else {
         "leadStatus": False, "leadDRel": "", "leadVRel": "", "leadVLead": "",
         "leadRadar": "", "leadModelProb": "",
+    }
+    last_lat = dict(carry_lat) if carry_lat is not None else {
+        "laneChangeState": "", "laneChangeDirection": "",
     }
     rows = []
     for evt in iter_events(rlog_path, repo_dir=repo_dir, max_output_mb=max_mb):
@@ -137,9 +151,16 @@ def process_segment(rlog_path, seg_name, repo_dir, max_mb, commit_short="",
                 "cruiseEnabled": cs.cruiseState.enabled,
                 "vCruise": cs.vCruise,
                 "steeringAngleDeg": cs.steeringAngleDeg,
+                "leftBlinker": cs.leftBlinker, "rightBlinker": cs.rightBlinker,
             }
         elif w == "controlsState":
             last_ctrl = {"desiredCurvature": evt.controlsState.desiredCurvature}
+        elif w == "lateralPlan":
+            lp = evt.lateralPlan
+            last_lat = {
+                "laneChangeState": str(lp.laneChangeState),
+                "laneChangeDirection": str(lp.laneChangeDirection),
+            }
         elif w == "radarState":
             lo = evt.radarState.leadOne
             if lo.status:
@@ -157,10 +178,10 @@ def process_segment(rlog_path, seg_name, repo_dir, max_mb, commit_short="",
             cm = evt.carrotMan
             rows.append({
                 "t": t, "seg": seg_name, "commit": commit_short,
-                **last_cs, **last_ctrl, **last_lead,
+                **last_cs, **last_ctrl, **last_lead, **last_lat,
                 "src": str(cm.desiredSource), "desiredSpeed": cm.desiredSpeed, "vTurnSpeed": cm.vTurnSpeed,
             })
-    return rows, last_cs, last_ctrl, last_lead
+    return rows, last_cs, last_ctrl, last_lead, last_lat
 
 
 def main():
@@ -186,13 +207,13 @@ def main():
         sys.exit(1)
 
     all_rows = []
-    carry_cs, carry_ctrl, carry_lead = None, None, None
+    carry_cs, carry_ctrl, carry_lead, carry_lat = None, None, None, None
     for seg in seg_dirs:
         rlog_path = os.path.join(args.route_dir, seg, "rlog.zst")
-        rows, carry_cs, carry_ctrl, carry_lead = process_segment(
+        rows, carry_cs, carry_ctrl, carry_lead, carry_lat = process_segment(
             rlog_path, seg, args.repo, args.max_mb,
             commit_short=git_info["commit_short"] or "",
-            carry_cs=carry_cs, carry_ctrl=carry_ctrl, carry_lead=carry_lead,
+            carry_cs=carry_cs, carry_ctrl=carry_ctrl, carry_lead=carry_lead, carry_lat=carry_lat,
         )
         all_rows.extend(rows)
         print(f"done {seg}: {len(rows)} rows ({len(all_rows)} total)")

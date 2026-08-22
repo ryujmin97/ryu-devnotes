@@ -3,6 +3,21 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+## 2026-08-22 (43차)
+- **`extract_log.py` 컬럼 추가**: `leftBlinker`/`rightBlinker`
+  (carState, 운전자 방향지시등 의도), `laneChangeState`/
+  `laneChangeDirection`(lateralPlan, 실제 궤적계획상 off/
+  preLaneChange/laneChangeStarting/laneChangeFinishing 상태) 4개
+  신규. 세그먼트 경계 carryover도 기존 leadStatus 패턴과 동일하게
+  적용(`carry_lat` 추가) — 세그 경계에서 값이 반짝 리셋되는 아티팩트
+  방지. **계기**: 42차에서 "vision dRel 점프 노이즈"로 결론낸 route B
+  seg10 t=1895.6~1896.25 이벤트를, 사용자가 "그 시점이 본인 차선변경
+  시점과 겹친다"고 재검토 요청 — 기존 CSV엔 차선변경 여부를 판별할
+  컬럼이 아예 없어 그 가능성을 검증 못 하고 있었음(도구 공백). 이
+  컬럼들로 ego 차선변경 시작/진행/종료 구간과 dRel 점프 시각을 직접
+  대조 가능해짐. **주의**: 42차 CSV(구버전 extract_log.py로 추출)는
+  이 컬럼이 없으므로, B seg10 재검증은 로그 재추출부터 다시 해야 함.
+
 ## 2026-08-22 (42차 계속)
 - **`verify_and_extract_frames.py` 신규**: `extract_dashcam_frames.py`는
   세그먼트 폴더를 직접 지정받아야 했던 것을, route_dir(여러 세그먼트)

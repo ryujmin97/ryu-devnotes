@@ -33,7 +33,8 @@ hash/branch/커밋 날짜·메시지/dirty 여부/추출 시각/row 수 —"이 
 **CSV 컬럼**: `t, seg, commit, vEgo, aEgo, brakePressed, gasPressed,
 cruiseEnabled, vCruise, steeringAngleDeg, desiredCurvature, leadStatus,
 leadDRel, leadVRel, leadVLead, src, desiredSpeed, vTurnSpeed,
-leadRadar, leadModelProb`
+leadRadar, leadModelProb, leftBlinker, rightBlinker, laneChangeState,
+laneChangeDirection`
 **사용**:
 ```bash
 python3 extract_log.py /home/claude/work/route /home/claude/work/route.csv \
@@ -47,6 +48,15 @@ leadStatus를 강제로 False 리셋해, 실제로는 리드가 유지되고 있
 버전으로 뽑은 CSV는 `meta.json`에 `segment_state_carryover_fix: true`가
 찍힌다. **이 필드가 없는 과거 CSV**는 `analysis_helpers.
 segment_boundary_lead_loss_artifacts()`로 먼저 감사할 것.
+**2026-08-22 수정(43차)**: `leftBlinker`/`rightBlinker`(carState,
+운전자 방향지시등)와 `laneChangeState`/`laneChangeDirection`
+(lateralPlan, off/preLaneChange/laneChangeStarting/laneChangeFinishing)
+4개 컬럼 추가 — dRel 급점프가 "vision 노이즈"인지 "ego 차선변경으로
+리드 타겟이 바뀐 것"인지 CSV만으로 구분 가능해짐. 세그 경계
+carryover도 동일하게 적용됨. **이 컬럼들이 없는 과거 CSV(42차 이전)로
+이미 "vision 노이즈"라고 결론낸 이벤트가 있다면, 실제로는 이
+컬럼들을 볼 수 없어서 차선변경 가능성을 아예 검증하지 못한 상태였을
+수 있음 — 재검증 필요.**
 
 ## analysis_helpers.py
 **목적**: `extract_log.py`로 뽑은 CSV를 후처리하는 함수 모음. 대부분의

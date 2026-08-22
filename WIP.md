@@ -1,5 +1,21 @@
 # WIP — 중단 지점 (체크포인트, 세션 종료 아님)
 
+- 저장 시각: 2026-08-22 (43차 — 진행 중. 42차 "이벤트4(B seg10) vision
+  dRel 점프 노이즈" 결론에 대해 사용자가 "그 시점이 본인 차선변경
+  시점과 겹친다"고 재검토 요청. 확인해보니 **42차까지 CSV에는
+  차선변경 여부를 판별할 컬럼(blinker/laneChangeState)이 아예 없어서
+  그 가능성 자체를 검증 못 하고 "vision 노이즈"로만 결론냈던 도구
+  공백이 있었음.** `extract_log.py`에 `leftBlinker`/`rightBlinker`/
+  `laneChangeState`/`laneChangeDirection` 4컬럼 추가 완료(코드
+  변경만, toolkit README/CHANGELOG 갱신 완료). **다음 세션 또는 이번
+  세션 재개 시**: 사용자에게 42차와 동일한 로그(`앞차_카메라_
+  인식.zip`, route B seg10, HEAD `c31ddca`) 재업로드를 요청한 상태 —
+  받으면 새 extract_log.py로 재추출 후 t=1895.6~1896.5 구간의
+  laneChangeState/blinker와 dRel 점프 시각을 대조, 필요시
+  qcamera 프레임으로 차선 넘는 장면 직접 확인. 42차 FINDINGS 결론은
+  이 재검증 전까지 **잠정(재검토 필요)**로 취급할 것 — 아직 FINDINGS.md
+  자체는 수정 안 함(재검증 결과 나오면 정정 항목으로 추가).
+
 - 저장 시각: 2026-08-22 (42차 — 41차와 동일 로그를 qcamera 포함해
   재업로드받아 4대 접근 이벤트 전부 프레임 대조 완료·push함. **다음
   세션 시작할 것 없음** — route B seg10 건이 "vision dRel 순간
