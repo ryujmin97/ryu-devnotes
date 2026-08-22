@@ -132,6 +132,20 @@ carryover도 동일하게 적용됨. **이 컬럼들이 없는 과거 CSV(42차 
   `refined_would_trigger_danger` 억제 비율(`noise_suppression_rate`)을
   포함. 260821 로그 seg6/12 대조 결과 raw 12건 → refined 1건
   (억제율 91.7%).
+- `dRel_jump_ego_maneuver_overlap(rows, events, blinker_window_s=1.0,
+  curvature_reversal_window_s=1.0, curvature_reversal_thresh=0.0005)` —
+  (2026-08-22, 44차 신규) `curve_lead_dRel_jump_events()`가 찾은 각
+  점프 이벤트에 `blinker_on`/`laneChangeState_active`/
+  `curvature_reversal`/`likely_ego_maneuver` 플래그를 추가. **route B
+  seg10 이벤트(42차가 "vision 노이즈"로 오판했다가 44차에서 ego 우측
+  blinker+조향 급반전과 겹치는 것으로 정정된 사례)를 계기로 추가** —
+  이후 "곡선 구간 dRel 점프 = vision 노이즈"로 성급히 결론내리기 전에
+  이 함수부터 돌려서 ego 자신의 조향/신호와 겹치는지 스크리닝할 것.
+  **`extract_log.py` 43차(2026-08-22) 이후 버전 CSV 필요**(blinker/
+  laneChangeState 컬럼) — 구버전 CSV는 항상 False로만 나와 결과를
+  신뢰할 수 없음. `likely_ego_maneuver=True`가 "안전과 무관"을
+  의미하지 않음(1차 스크리닝용, 자세한 주의사항은 함수 docstring
+  참고).
 
 **회귀 리포트 사용 예시**:
 ```python

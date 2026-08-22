@@ -1420,6 +1420,84 @@ def curve_noise_summary_refined(rows, jump_thresh_m=8.0, max_dt_s=0.35,
     }
 
 
+def dRel_jump_ego_maneuver_overlap(rows, events=None, blinker_window_s=1.0,
+                                    curvature_reversal_window_s=1.0,
+                                    curvature_reversal_thresh=0.0005,
+                                    **jump_kwargs):
+    """
+    44차(2026-08-22)에서 발견된 실수 재발 방지용: `curve_lead_dRel_jump_events()`가
+    찾아낸 dRel 급점프 각각이 "vision 깊이 오추정 노이즈"가 아니라 ego
+    자신의 실제 측방 기동(방향지시등 on / desiredCurvature 부호 반전 /
+    lateralPlan.laneChangeState 활성)과 겹치는지 자동으로 플래그한다.
+
+    배경: route B seg10 t=1895.6 이벤트(FINDINGS.md 44차)가 42차에서
+    "커브 vision 노이즈"로 오판됐던 근본 원인은, 당시 CSV에 blinker/
+    laneChangeState 컬럼 자체가 없어 "이 점프가 ego의 실제 조향/신호와
+    겹치는지"를 검증할 수단이 없었기 때문. 43차에서 `extract_log.py`에
+    해당 컬럼을 추가했지만, 매번 사람이 CSV를 눈으로 대조해야 한다면
+    같은 실수가 반복될 수 있음 -- 이 함수가 그 대조를 자동화한다.
+
+    각 이벤트 발생 시각(t) 기준:
+    - blinker_on: 전후 blinker_window_s초 내 leftBlinker 또는
+      rightBlinker가 True인 프레임이 하나라도 있는지.
+    - laneChangeState_active: 같은 창 내 laneChangeState가 "off"/빈값이
+      아닌 프레임이 있는지 (openpilot 자체 LCA가 개입했는지).
+    - curvature_reversal: 전후 curvature_reversal_window_s초 내
+      desiredCurvature 부호가 반전되고 그 진폭(max-min)이
+      curvature_reversal_thresh를 넘는지 -- 단순 편측 커브 주행에서는
+      나오지 않는 S자형 조향 패턴 근사 탐지.
+    - likely_ego_maneuver: 위 세 가지 중 하나라도 True.
+
+    **주의**: `likely_ego_maneuver=True`라고 해서 "이 dRel 점프는 안전과
+    무관하다"는 뜻이 아니다 -- 44차 결론대로 ego 기동 중에도 실제 리드
+    차량과의 거리/위험은 여전히 유효할 수 있다. 이 함수는 "vision 노이즈"
+    라는 성급한 결론을 막기 위한 1차 스크리닝 용도로만 쓸 것.
+
+    rows: extract_log.py 2026-08-22(43차) 이후 버전으로 뽑은 CSV만 지원
+    (leftBlinker/rightBlinker/laneChangeState 컬럼 필요). 구버전 CSV면
+    모든 이벤트의 blinker_on/laneChangeState_active가 항상 False로
+    나오므로, 그 결과만으로 "노이즈 확정"하지 말고 CSV 버전부터 확인할 것.
+
+    리턴: curve_lead_dRel_jump_events()와 동일한 이벤트 리스트에
+    "blinker_on"/"laneChangeState_active"/"curvature_reversal"/
+    "likely_ego_maneuver" 키를 추가해서 반환.
+    """
+    if events is None:
+        events = curve_lead_dRel_jump_events(rows, **jump_kwargs)
+    if not events:
+        return events
+
+    t = [_f(r, "t") for r in rows]
+    curv = [_f(r, "desiredCurvature") for r in rows]
+    lblk = [_b(r, "leftBlinker") for r in rows]
+    rblk = [_b(r, "rightBlinker") for r in rows]
+    lcs = [r.get("laneChangeState") for r in rows]
+
+    for e in events:
+        et = e["t"]
+
+        idxs_b = [i for i in range(len(rows))
+                  if t[i] is not None and abs(t[i] - et) <= blinker_window_s]
+        blinker_on = any((lblk[i] or rblk[i]) for i in idxs_b)
+        lc_active = any(lcs[i] not in (None, "", "off") for i in idxs_b)
+
+        idxs_c = [i for i in range(len(rows))
+                  if t[i] is not None and abs(t[i] - et) <= curvature_reversal_window_s]
+        curv_vals = [curv[i] for i in idxs_c if curv[i] is not None]
+        curvature_reversal = False
+        if len(curv_vals) >= 2:
+            cmin, cmax = min(curv_vals), max(curv_vals)
+            if cmin < 0 < cmax and (cmax - cmin) >= curvature_reversal_thresh:
+                curvature_reversal = True
+
+        e["blinker_on"] = blinker_on
+        e["laneChangeState_active"] = lc_active
+        e["curvature_reversal"] = curvature_reversal
+        e["likely_ego_maneuver"] = blinker_on or lc_active or curvature_reversal
+
+    return events
+
+
 if __name__ == "__main__":
     import sys
     if len(sys.argv) < 2:

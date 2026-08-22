@@ -3,6 +3,20 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+## 2026-08-22 (44차)
+- **`analysis_helpers.py`에 `dRel_jump_ego_maneuver_overlap()` 신규**:
+  `curve_lead_dRel_jump_events()`가 찾은 dRel 급점프 이벤트 각각에
+  대해 ego 자신의 blinker/laneChangeState/desiredCurvature 부호반전
+  (S자형 조향)과 겹치는지 자동 플래그. **계기**: route B seg10
+  이벤트를 42차에서 "커브 vision 노이즈"로 오판했다가, 사용자가
+  "본인 차선변경 시점과 겹친다"고 지적해 44차에서 정정한 사례
+  (FINDINGS.md 44차) — 매번 사람이 CSV를 눈으로 대조하지 않아도
+  이런 겹침을 놓치지 않도록 자동화. route B seg10 CSV로 검증:
+  raw jump 11건 중 t=1895.7~1896.25(문제의 그 이벤트) 전부
+  `curvature_reversal=True`+`blinker_on=True`로 정확히 플래그됨.
+  **구버전(43차 이전) CSV로 뽑은 rows에는 안 통함** — leftBlinker/
+  rightBlinker/laneChangeState 컬럼 자체가 없어 항상 False만 나옴.
+
 ## 2026-08-22 (43차)
 - **`extract_log.py` 컬럼 추가**: `leftBlinker`/`rightBlinker`
   (carState, 운전자 방향지시등 의도), `laneChangeState`/
