@@ -9,6 +9,11 @@
 ---
 
 ## c3-ms-dev
+- last_analyzed_commit: `d178ac6` (HEAD, screenrecorder 정지 clip 길이 20초→30초 확대 `git am` 적용 + push 완료, `52668ec..d178ac6`)
+- date: 2026-08-22
+- note: 종방향 제어(long_mpc)와 무관한 소규모 UI/도구 변경 — 정지 버튼 clip 길이가 20초로는 이벤트 직전 상황 파악에 짧다는 피드백으로 30초로 조정. `extract_trailing_clip()`의 `ffmpeg -sseof` 값만 변경(stream copy라 재인코딩 없음, 용량은 길이 비례 증가). 39차 rise-rate 패치(`52668ec`)는 여전히 실차 검증 대기 중, 아래 항목 유효.
+- 화면녹화 해상도/비트레이트 질의 있었음(사용자가 clip 용량 절감 목적): 현재 `screenrecorder.cc`에 소스 2160x1080 -> 저장 1440x720 다운스케일, 비트레이트 2Mbps로 하드코딩. 구체적 변경 요청 시 대응 예정(아직 패치 없음).
+
 - last_analyzed_commit (39차): `52668ec` (HEAD, 저속 구간 aLead weight rise-rate 제한 패치 `git am` 적용 + push 완료, `c3ea08e..52668ec`)
 - date: 2026-08-22 (39차)
 - note: (39차) "저속_앞차" 급정지 느낌 이슈 패치 적용됨(38차 TTC 게이트 위에 스택). 수치 시뮬레이션(rlog 재파싱 기반)만 완료, acados MPC 파이프라인 통합 후 실차 검증은 아직. 다음 세션 최우선: 38차+39차 통합 실차 검증 — (a) 저속 급정지 느낌 해소 체감, (b) 회귀 검증(저속 실제 위험 cut-in에서 danger override 정상 발동, 반응 지연 없는지), (c) RISE_RATE 값 승차감 기준 재조정 여부. 상세는 FINDINGS.md/WIP.md 39차 참고.
