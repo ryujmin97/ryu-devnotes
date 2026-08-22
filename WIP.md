@@ -59,6 +59,17 @@
   (b) `abs(vturn_speed)<120` 게이트가 79% 사례들의 공통 원인인지 개별
   검증, (c) `curve_gap_vs_apex_scan.py` toolkit 편입 여부 판단.
   코드 변경 없음(스크래치 스크립트만 신규).
+  **[체크포인트2] (a)(b) 완료** — route1은 유효 이벤트 1건뿐이지만
+  delta=-0.95s로 route2와 방향 일치(표본 부족, 참고용). **(b) model
+  게이트 가설은 route2에서 기각** — 24건 전부 진입 3초전 vTurnSpeed가
+  이미 120 미만이라 게이트가 애초에 vturn을 안 막고 있었음. route1
+  (장거리 직선 후 첫 커브)과 route2(연속 커브, 직전 커브 여파로 vturn
+  이미 낮음)는 커브 진입 직전 vturn 초기상태가 다른 시나리오라 원인도
+  다를 것으로 재평가. 새 후보 3개(vturn_decel_rate 물리한계/
+  vturn_lookahead_horizon_s 국도 커브간격 부적합/desiredCurvature
+  순간값만 반영해 조임 속도 후행) — 다음 세션 `vturn_speed()`
+  (carrot_man.py) 코드 리딩으로 좁힐 것. 상세는 FINDINGS.md "(a)(b)
+  이어서 진행" 항목 참고.
 
 
 - 저장 시각: 2026-08-22 (45차 계속 — "정지 후 출발 가속 약화" 조치 패치
