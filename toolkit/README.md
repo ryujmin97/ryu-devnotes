@@ -153,6 +153,39 @@ python3 extract_dashcam_frames.py <segment_dir> --repo /home/claude/ryu \
     --times 205.53,207.99,208.69,210.48 --out-dir /home/claude/work/frames --context 2
 ```
 
+## verify_and_extract_frames.py
+**목적**: `extract_dashcam_frames.py`를 감싸는 상위 도구. route_dir
+(세그먼트 여러 개) 전체를 스캔해 target time마다 "이 t가 실제로 어느
+세그먼트의 유효 시간 범위 안에 있는지"부터 자동 검증한 뒤 해당
+세그먼트에서 프레임을 추출한다. 세그먼트를 직접 지정해야 했던 기존
+방식(route.csv를 수동 대조) 대신 라우트 하나만 넘기면 됨.
+**전제**: extract_dashcam_frames.py와 동일 (세그먼트 폴더에 qcamera.ts
++ rlog.zst/qlog.zst, ryu 레포 clone).
+**주요 함수**:
+- `discover_segments(route_dir)` — qcamera.ts+로그 파일이 둘 다 있는
+  세그먼트 폴더 목록(이름순=시간순)
+- `build_route_time_index(route_dir, repo_dir)` — 세그먼트별
+  (t_min, t_max, frame index) 구축
+- `resolve_segment_for_time(route_index, target_t)` — target_t가 속한
+  세그먼트 자동 판정 (IN_RANGE / NEAREST_OUT_OF_RANGE / NO_SEGMENTS)
+- `verify_and_extract(route_dir, repo_dir, target_times, out_dir, ...)`
+  — 위 과정 전체 + 프레임 추출까지 한 번에 수행, `(report, manifest)`
+  리턴. `out_of_range_gap_s`(기본 2.0s) 넘게 범위를 벗어난 시각은
+  OUT_OF_RANGE로 판정하고 추출을 건너뜀(엉뚱한 세그먼트의 프레임을
+  잘못 뽑는 것 방지).
+**출력**: `<out-dir>/manifest.json`(extract_dashcam_frames.py와 동일
+포맷 + `segment` 필드) + `<out-dir>/verify_report.json`(타임스탬프별
+검증 상태) + stdout 요약표.
+**사용**:
+```bash
+python3 verify_and_extract_frames.py /home/claude/work/routeB \
+    --repo /home/claude/ryu \
+    --times 1895.6,1896.2,1896.5,1896.85,1897.6 \
+    --out-dir /home/claude/work/frames/eventB_seg10 --context 1
+```
+**42차(2026-08-22)에서 신규 작성**: qcamera 포함 로그 업로드 시
+표준 분석 절차(로그+영상 대조)의 기본 진입점으로 사용.
+
 ## sim_frac_rate.py
 **목적**: (2026-08-21, 28차 신규) 26차 patch(`5cc0900`, 아직 origin
 미push)의 `frac_rate` 게이트 로직 — 클램프(30m/s, 접근 방향만) +

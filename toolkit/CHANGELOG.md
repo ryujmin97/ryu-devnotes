@@ -3,6 +3,20 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+## 2026-08-22 (42차 계속)
+- **`verify_and_extract_frames.py` 신규**: `extract_dashcam_frames.py`는
+  세그먼트 폴더를 직접 지정받아야 했던 것을, route_dir(여러 세그먼트)
+  전체를 스캔해 target time마다 올바른 세그먼트를 자동 매칭하도록
+  래핑. 세그먼트 범위 밖(gap)이거나 매칭 오차가 큰 시각은
+  OUT_OF_RANGE/WARN으로 명시 리포트 후 추출을 건너뛴다(잘못된
+  프레임으로 결론 내리는 것 방지). 42차 세션에서 route.csv를 수동으로
+  대조해가며 세그먼트를 찾던 작업을 자동화한 것 — 42차 이벤트 4건
+  (route B seg10 t=1896.85 포함)으로 수동 결과와 동일 프레임(segmentId
+  731, matched_t 일치) 재현 확인 + 세그먼트 gap(1750.0)과 완전
+  범위밖(9999.0) 시각으로 OUT_OF_RANGE 판정 정상 동작 확인. **사용자
+  요청으로 "로그 zip에 qcamera 있으면 항상 프레임 대조" 표준 절차의
+  기본 진입점으로 사용할 것.**
+
 ## 2026-08-21 (29차)
 - **`sim_frac_rate.py` 수정**: `VISION_CLOSING_RATE_GATE_CAUTION`/
   `GATE_DANGER`를 `SIM_GATE_CAUTION`/`SIM_GATE_DANGER` 환경변수로
