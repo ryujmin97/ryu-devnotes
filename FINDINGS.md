@@ -3318,3 +3318,47 @@ MPC의 리드 궤적 예측(`extrapolate_lead`)에서 완전히 사라짐**. MPC
   WIP에 남아있던 다른 열린 항목(2번 cam/road/vCruiseCluster 캡 가설
   원 검증, 3번 route3 steer 잔존값 규명 등, 필요 시 WIP.md 확인)으로
   전환 검토.
+
+## 49차 (2026-08-23) — "탈출전/정점직후 가속" 재프레이밍, vturn_speed() 설계 재확인, vturn_release_lag_scan 신규 도구
+
+- **배경**: 48차가 "탈출 후 무가속" 스레드를 8개 route 누적 근거로
+  종결한 직후, 사용자가 프레이밍을 바꿔 두 가설 재제기: (A) "탈출후"가
+  아니라 "탈출전(정점 직후, 아직 완전 직선 아닌 시점)"부터 가속해야
+  하는 것 아니냐, (B) 과속방지턱처럼 apex(최대 곡률 지점)를 지나는
+  순간 속도 제약을 즉시 원복하는 방식이 맞지 않냐.
+- **코드 재확인 결과(핵심)**: `vturn_speed()`(carrot_man.py L953)는
+  "진입/탈출 이벤트"를 따로 판정하지 않는 연속 구조. lookahead 구간
+  내 모든 지점에 방지턱과 동일한 `v_i²=v_f²+2ad` 공식을 벡터화 적용
+  후 `argmin`(가장 엄격한 지점)을 그 순간의 최종 제약으로 삼는다.
+  `lookahead_pos = max(position, 0)`로 **자차가 지나온 지점은 매 프레임
+  자동으로 후보에서 배제**되므로, apex 통과 즉시 그 지점이 argmin
+  후보에서 사라지고 이후엔 곡률이 완화되는 전방 지점들만 남아
+  required_speed가 자연히 상승한다. 즉 **가설 A/B 둘 다 이미 현재
+  설계 의도 자체**임을 확인(주석에도 "커브를 빠져나오는 즉시 제약
+  해제" 명시).
+- **재프레이밍**: 그렇다면 지금까지 확정 못한 "체감상 가속 지연"은
+  구조("release가 언제 시작되는가") 문제가 아니라, "release는 즉시
+  시작되지만 그 이후 `vturn_accel_rc` 저역통과 스무딩이 체감될 만큼
+  느린가"(release *rate*) 쪽 질문일 가능성 — 48차 "버그 0건" 결론을
+  뒤집는 게 아니라 별도 축.
+- **신규 도구**: `vturn_release_lag_scan()`(analysis_helpers.py) —
+  apex 이후 "곡률이 실제로 완화되기 시작한 시각"(steeringAngleDeg
+  비증가 전환, proxy)과 "vTurnSpeed 출력이 실제로 오르기 시작한
+  시각" 사이 지연(lag_s)을 측정. **한계**: `vturn_speed()` 내부의
+  필터-전 required_speed_kph(argmin 이전, modelV2 raw 배열 필요)는
+  CSV에 없어 steeringAngleDeg를 근사 proxy로 사용 — argmin 전환
+  시각 자체의 정확한 재현은 아님(정확히 하려면 modelV2 orientationRate/
+  velocity/position raw 재현 별도 과제 필요, 이번엔 미착수).
+- **검증**: 합성 시나리오 2건으로 로직만 검증 — (1) apex+1.2s 지연
+  주입 시 lag_s≈1.25s로 정확히 재현, (2) 무지연 시 lag_s≈0.05s(1프레임
+  노이즈 수준)로 오탐 없음 확인. **실제 로그 검증은 아직 — route7/
+  route8 raw CSV가 컨테이너 로컬 소실로 없어 다음 세션 신규 로그
+  필요(48차 근접 후보 seg12/seg14 재사용 우선 후보).**
+- **코드 변경**: `ryu` 저장소 변경 없음(관찰/분석 도구만).
+  `devnotes/toolkit/analysis_helpers.py`에 `vturn_release_lag_scan`
+  신규 추가, README.md/CHANGELOG.md 동기화.
+- **다음 단계**: 사용자가 로그(route7=`c8fef594d3` 또는 신규 고속도로
+  단일커브 로그)를 재업로드하면 `vturn_release_lag_scan` 실행 →
+  lag_s 분포 확인 → 체감될 만큼(예: 0.5s+) 크면 `vturn_accel_rc` 값
+  하향 튜닝 검토, 작으면(구조가 이미 즉시 반응) "체감 지연"은 다른
+  원인(vCruiseCluster 캡 등 48차 근접 후보처럼)일 가능성 재확인.

@@ -1801,6 +1801,143 @@ def curve_apex_vs_gap_delta(rows, entry_thresh=5.0, exit_thresh=3.0,
     return results
 
 
+def vturn_release_lag_scan(rows, entry_thresh=5.0, exit_thresh=3.0,
+                            min_event_rows=3, curvature_release_hold_s=0.3,
+                            vturn_rise_thresh_kph=1.5, vturn_rise_hold_s=0.3,
+                            search_window_s=8.0):
+    """
+    (2026-08-23, 49차) `vturn_speed()`(carrot_man.py) 설계상 apex(조향각
+    정점) 통과 즉시 argmin 후보가 전방으로 넘어가며 제약이 풀리기
+    시작하는 구조인지, 아니면 실제 vTurnSpeed 출력이 눈에 띄게 오르기
+    시작하는 시점까지 체감될 만한 지연(주로 vturn_accel_rc 저역통과
+    스무딩)이 있는지를 CSV만으로 근사 측정한다.
+
+    주의(중요, 근사치): vturn_speed() 내부의 필터-전 required_speed_kph
+    (매 지점 물리공식 결과, argmin 이전 값)는 modelV2.orientationRate/
+    velocity/position raw 배열에서만 계산 가능하고 CSV엔 없음 -- CSV엔
+    필터-후 최종 출력 vTurnSpeed만 있다. 이 함수는 그 대신
+    steeringAngleDeg(실제 조향각, 곡률 진행의 관측 가능한 proxy)의
+    apex를 "구조적으로 release가 시작돼야 하는 시점"의 근사치로 쓴다.
+    즉 "argmin 전환 시각" 자체를 직접 재현하는 게 아니라, "곡률이
+    실제로 완화되기 시작한 시각" 대비 "vTurnSpeed가 실제로 오르기
+    시작한 시각"의 지연을 잰다 -- accel_rc 스무딩 체감 지연을 보는
+    용도로는 충분하지만, argmin 구조 자체의 정확한 전환 시점 검증은
+    아니다(그러려면 modelV2 raw 재현이 필요, 별도 과제).
+
+    이벤트 분리는 `curve_apex_vs_gap_delta()`와 동일한
+    entry_thresh/exit_thresh 방식(|steeringAngleDeg| 기준).
+
+    각 이벤트에 대해:
+    1. apex_t: |steeringAngleDeg| 최댓값 시각 (곡률 완화가 구조적으로
+       시작될 수 있는 가장 이른 시점의 근사 하한).
+    2. curvature_release_t: apex_t 이후, |steeringAngleDeg|가
+       curvature_release_hold_s 동안 연속 비증가(재상승 없이 감소/유지)
+       하기 시작하는 첫 시각. 아직 못 찾으면 이벤트 제외.
+    3. vturn_rise_t: apex_t 이후 search_window_s 이내에서, 곡선 진행
+       방향과 무관하게 abs(vTurnSpeed)가 vturn_rise_thresh_kph 이상
+       상승한 뒤 vturn_rise_hold_s 동안 다시 그 이하로 안 떨어지는
+       첫 시각(=필터 출력이 "실제로, 계속" 오르기 시작하는 시점).
+       못 찾으면 이벤트 제외(=이 구간에선 vTurnSpeed가 아예 안 올랐다는
+       뜻이므로 lag 계산이 무의미).
+    4. lag_s = vturn_rise_t - curvature_release_t (양수=곡률 완화보다
+       vTurnSpeed 상승이 늦음, 음수=먼저/동시 상승 -- 부호 반전은
+       근사 오차이거나 다른 제약(vCruiseCluster 등)이 개입했을 가능성).
+
+    리턴: 이벤트별 dict 리스트 (apex_t, curvature_release_t, vturn_rise_t,
+    lag_s, seg, apex_steer). curvature_release_t나 vturn_rise_t를 못 찾은
+    이벤트는 결과에서 제외.
+    """
+    events = []
+    in_curve = False
+    cur = []
+    for r in rows:
+        steer = abs(_f(r, "steeringAngleDeg", 0.0))
+        if not in_curve and steer >= entry_thresh:
+            in_curve = True
+            cur = [r]
+        elif in_curve:
+            cur.append(r)
+            if steer < exit_thresh:
+                in_curve = False
+                if len(cur) >= min_event_rows:
+                    events.append(cur)
+                cur = []
+    if in_curve and len(cur) >= min_event_rows:
+        events.append(cur)
+
+    results = []
+    for ev in events:
+        apex_idx = max(range(len(ev)), key=lambda i: abs(_f(ev[i], "steeringAngleDeg", 0.0)))
+        apex_row = ev[apex_idx]
+        apex_t = _f(apex_row, "t")
+        apex_steer = _f(apex_row, "steeringAngleDeg")
+
+        # curvature_release_t: apex 이후 |steeringAngleDeg|가
+        # curvature_release_hold_s 동안 연속 비증가 시작하는 첫 시각.
+        post_apex = ev[apex_idx:]
+        release_t = None
+        for i in range(len(post_apex) - 1):
+            t0 = _f(post_apex[i], "t")
+            if t0 is None:
+                continue
+            ok = True
+            peak = abs(_f(post_apex[i], "steeringAngleDeg", 0.0))
+            for j in range(i, len(post_apex)):
+                tj = _f(post_apex[j], "t")
+                if tj is None:
+                    continue
+                if tj - t0 > curvature_release_hold_s:
+                    break
+                sj = abs(_f(post_apex[j], "steeringAngleDeg", 0.0))
+                if sj > peak + 0.05:  # 0.05deg 노이즈 허용
+                    ok = False
+                    break
+                peak = min(peak, sj) if sj < peak else peak
+            if ok:
+                release_t = t0
+                break
+        if release_t is None:
+            continue
+
+        # vturn_rise_t: apex 이후 search_window_s 내에서 abs(vTurnSpeed)가
+        # vturn_rise_thresh_kph 이상 오른 뒤 vturn_rise_hold_s 동안
+        # 유지되는 첫 시각.
+        base_vturn = abs(_f(apex_row, "vTurnSpeed", 0.0))
+        rise_t = None
+        for i in range(len(post_apex)):
+            ti = _f(post_apex[i], "t")
+            if ti is None or ti - apex_t > search_window_s:
+                break
+            vi = abs(_f(post_apex[i], "vTurnSpeed", 0.0))
+            if vi - base_vturn >= vturn_rise_thresh_kph:
+                held = True
+                for k in range(i, len(post_apex)):
+                    tk = _f(post_apex[k], "t")
+                    if tk is None:
+                        continue
+                    if tk - ti > vturn_rise_hold_s:
+                        break
+                    vk = abs(_f(post_apex[k], "vTurnSpeed", 0.0))
+                    if vk - base_vturn < vturn_rise_thresh_kph * 0.5:
+                        held = False
+                        break
+                if held:
+                    rise_t = ti
+                    break
+        if rise_t is None:
+            continue
+
+        results.append({
+            "apex_t": apex_t,
+            "apex_steer": apex_steer,
+            "curvature_release_t": release_t,
+            "vturn_rise_t": rise_t,
+            "lag_s": rise_t - release_t,
+            "seg": ev[0].get("seg", ""),
+        })
+    return results
+
+
 if __name__ == "__main__":
     import sys
     if len(sys.argv) < 2:

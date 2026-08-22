@@ -22,15 +22,22 @@
     "아예 안 함" 문제가 아니라, argmin 전환 시점 대비 `vturn_accel_rc`
     스무딩이 체감상 얼마나 느린지(release rate 자체가 너무 완만한지)
     쪽으로 질문이 바뀔 가능성 제기. 아직 코드/로그로 검증 안 함.
-  - **다음(사용자 결정/방향 대기)**: 48차에서 이미 확보한 route7
-    근접 후보(seg12 t=833.54/seg14 t=949.09, 둘 다 cap_margin 경계
-    사례로 결론난 건)에 대해, argmin이 선택한 지점이 apex를 지나
-    전방으로 전환되는 시각과 `turnSpeed`(필터 후 출력)가 실제로
-    상승하기 시작하는 시각 사이 지연(lag)을 직접 측정하는 신규
-    분석함수(가칭 `vturn_release_lag_scan`)를 만들지 여부 확인 필요
-    — 이건 48차 "탈출 후 무가속 버그 0건" 결론을 뒤집는 게 아니라,
-    "버그는 없지만 release 속도 자체가 튜닝 여지가 있는지"를 보는
-    별도 축의 질문임에 유의.
+  - **[갱신] `vturn_release_lag_scan()` 구현 완료, toolkit 편입 완료**
+    (analysis_helpers.py/README.md/CHANGELOG.md 동기화). apex 이후
+    "곡률 완화 시작 시각"(steeringAngleDeg proxy) vs "vTurnSpeed 실제
+    상승 시작 시각" 사이 지연(lag_s)을 측정. 합성 시나리오 2건(지연
+    1.2s 재현/무지연)으로 로직 검증 완료. **한계**: modelV2 raw
+    (필터-전 required_speed_kph)는 CSV에 없어 steeringAngleDeg 근사
+    proxy 사용 — argmin 전환 시각 자체의 정확한 재현은 아님.
+  - **[남음, 최우선] 실제 로그 검증 미실시** — route7(`c8fef594d3`)/
+    route8(`dda0d533ce`) raw CSV가 컨테이너 로컬 소실로 없음. **다음
+    세션 시작할 것**: 사용자가 route7 또는 신규 고속도로 단일커브
+    로그 재업로드 → `extract_log.py`로 CSV 추출 →
+    `vturn_release_lag_scan()` 실행 → lag_s 분포 확인. 체감될 만큼
+    (예: 0.5s+) 크면 `vturn_accel_rc` 하향 튜닝 검토, 작으면(즉시
+    반응 구조 확인) "체감 지연"은 다른 원인(48차처럼 vCruiseCluster
+    캡 등)일 가능성 재확인 — 48차 "버그 0건" 결론은 유효, 이건
+    별도 축(release rate 자체의 튜닝 여지) 질문임에 유의.
 
 - 저장 시각: 2026-08-23 (48차 계속, **"탈출 후 무가속" 조사 스레드
   사실상 종결**) — `vturn_speed()`(carrot_man.py) 코드 리딩 완료 +

@@ -214,3 +214,17 @@
   경계 사례까지 v4 단계에서 제외하도록 조정. 이 두 변경 적용 후
   route7/route8 둘 다 0건으로 수렴 확인(route6은 ADAS 미관여로 분석
   제외). FINDINGS.md 48차 항목 참고.
+
+## 2026-08-23 (49차)
+- `analysis_helpers.py`: `vturn_release_lag_scan` 신규 — 사용자가
+  "탈출 후"가 아니라 "탈출전(정점 직후)부터 가속" 및 "과속방지턱처럼
+  apex 통과 즉시 속도 원복" 프레이밍으로 재제기한 가설을 검증하기 위한
+  도구. `vturn_speed()`(carrot_man.py) 코드 확인 결과 두 가설 모두
+  이미 설계 의도(argmin + lookahead_pos>0 필터로 apex 통과 즉시 release
+  후보 전환)와 일치함을 먼저 확인 -- 이 함수는 그 구조적 즉시성과 실제
+  체감 사이의 간극이 `vturn_accel_rc` 저역통과 스무딩 지연 때문인지를
+  CSV 필드(steeringAngleDeg proxy + vTurnSpeed)만으로 근사 측정.
+  modelV2 raw(필터-전 required_speed_kph)는 CSV에 없어 완전한 검증은
+  아님(한계 docstring에 명시). 합성 시나리오 2건(지연 재현/무지연)으로
+  로직 검증 완료, 실제 로그 검증은 다음 세션(route7/8 CSV 컨테이너
+  소실로 재확보 필요). FINDINGS.md/WIP.md 49차 항목 참고.

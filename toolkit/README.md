@@ -148,6 +148,21 @@ carryover도 동일하게 적용됨. **이 컬럼들이 없는 과거 CSV(42차 
   route2(f3db6ca89d) 32건에서 초과 24건 중 79%가 gap을 apex보다 평균
   1.26초 먼저 찍는 것으로 확인(FINDINGS.md 46차 계속 항목 참고).
   호출부에서 `max_gap > 0`으로 먼저 필터링해 "실제 초과 사례"만 볼 것
+- `vturn_release_lag_scan(rows, entry_thresh=5.0, exit_thresh=3.0,
+  min_event_rows=3, curvature_release_hold_s=0.3, vturn_rise_thresh_kph=1.5,
+  vturn_rise_hold_s=0.3, search_window_s=8.0)` — (2026-08-23, 49차 신규)
+  apex(조향각 정점) 통과 후 "곡률이 실제로 완화되기 시작한 시각"
+  (`curvature_release_t`, steeringAngleDeg 비증가 전환 근사)과 "vTurnSpeed
+  출력이 실제로 오르기 시작한 시각"(`vturn_rise_t`) 사이 지연(`lag_s`)을
+  측정 — `vturn_speed()`(carrot_man.py) 자체는 apex 통과 즉시 release가
+  시작되는 구조(argmin+lookahead_pos>0 필터)이지만, 체감상 "탈출 후에도
+  안 풀린다"는 게 구조 문제가 아니라 `vturn_accel_rc` 저역통과 스무딩
+  지연 때문인지를 보는 용도. **주의**: modelV2 raw 배열(orientationRate/
+  velocity/position, argmin 이전 필터-전 값)은 CSV에 없어 steeringAngleDeg를
+  근사 proxy로 씀 — argmin 전환 시각 자체의 정확한 검증은 아님(그러려면
+  modelV2 raw 재현 별도 과제 필요). 합성 시나리오 2건(지연 1.2s 재현/
+  무지연)으로 로직 검증 완료, **실제 로그 검증은 아직**(route7/route8
+  raw CSV가 컨테이너에 없어 다음 세션 신규 로그로 진행 필요).
   (특히 route1류 고속도로에서는 잡음성 조향 이벤트가 섞여 max_gap이
   크게 음수로 나오는 경우가 많음).
 - `dRel_jump_ego_maneuver_overlap(rows, events, blinker_window_s=1.0,
