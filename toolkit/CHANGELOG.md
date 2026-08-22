@@ -228,3 +228,11 @@
   아님(한계 docstring에 명시). 합성 시나리오 2건(지연 재현/무지연)으로
   로직 검증 완료, 실제 로그 검증은 다음 세션(route7/8 CSV 컨테이너
   소실로 재확보 필요). FINDINGS.md/WIP.md 49차 항목 참고.
+
+## 2026-08-23 (53차)
+- `replay_lookahead_v1.py` 신규 작성 — lookahead horizon 가설(ii) 직접
+  검증용. modelV2 원본(orientationRate.z/velocity.x/position.x)에서
+  carrot_man.vturn_speed()의 필터 적용 전(raw) argmin required_speed_kph를
+  프레임 단위로 재현. 합성 시나리오 2건(원거리 급커브/완전 직선)으로
+  로직 검증 완료, cereal/log.capnp 필드 경로 확인 완료. 실제 rlog 검증은
+  다음 세션 과제(README.md 참고).

@@ -1,5 +1,33 @@
 # WIP — 중단 지점 (체크포인트, 세션 종료 아님)
 
+- 저장 시각: 2026-08-23 (53차, 체크포인트 — 코드 변경 없음(ryu),
+  toolkit 신규 스크립트 작성+로직 단위 검증 완료) 52차 최우선 과제
+  "lookahead horizon 가설 직접 검증용 replay 스크립트"를
+  `toolkit/replay_lookahead_v1.py`로 작성 완료. `carrot_man.vturn_speed()`
+  (HEAD `f94a7d2`)의 필터 적용 전(raw) argmin required_speed_kph를
+  modelV2 원본(orientationRate.z/velocity.x/position.x)에서 직접
+  재현하도록 구현 — `extract_log.py`의 `vTurnSpeed`(필터 후 최종값)만
+  으로는 "필터가 늦춘 것"과 "lookahead_horizon_s(8.0s) 안에 애초에
+  급조임 지점이 안 보였던 것"을 구분 못 했던 한계를 해소하는 게 목적.
+  **검증**: 합성 시나리오 2건(원거리 급커브 raw_kph<100 확인/완전직선
+  raw_kph>200 확인) + 저역통과 1스텝 방향성 검증 통과, cereal/log.capnp
+  필드 경로(orientationRate.z/velocity.x/position.x = XYZTData) 직접 대조
+  확인. toolkit/README.md/CHANGELOG.md 동기화 완료.
+  **한계(다음 세션 확인 시 유의)**: modelV2 이벤트(~20Hz)를 carrot_man
+  20Hz 틱 1개로 근사(완전히 같은 타이밍 아님, 49차와 동일 전제).
+  AutoCurveSpeedFactor/Aggressiveness 사용자 실제 런타임값 미기록이라
+  코드 기본값(1.2/1.0)을 기본 사용(--factor/--aggr로 override 가능).
+  **다음 세션 최우선(변경 없음, 이번 세션이 그 첫 단계만 완료)**:
+  1. **실제 rlog로 첫 검증** — route4(d45a15f8fc, idx10 포함) 또는 동급
+     급조임 커브 raw route를 재업로드받아 `replay_lookahead_v1.py` 실행 →
+     raw_kph가 실제 이벤트 몇 초 전부터 낮게 나오기 시작하는지 확인.
+     raw_kph가 오래전부터 낮았는데 filtered만 늦었다면 -> 필터(decel_rc)
+     원인. raw_kph 자체가 이벤트 직전까지 높다가 급락했다면 -> 가설(ii)
+     (lookahead_horizon_s 부족 또는 모델의 원거리 곡률 예측 정확도 부족)
+     직접 확증.
+  2. route2 apex-vs-gap 미확정 5건 개별 재검증 (52차에서 이월).
+
+
 - 저장 시각: 2026-08-23 (52차 계속2, 체크포인트3 — 코드 변경 없음,
   분석만) **[사고] 다른 계정 세션이 46차 시점 오래된 로컬본으로
   FINDINGS.md/WIP.md를 덮어씀(989줄 유실) → 이 컨테이너의 로컬 파일이

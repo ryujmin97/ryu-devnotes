@@ -278,6 +278,40 @@ SIM_GATE_CAUTION=-3.0 SIM_GATE_DANGER=-8.0 python3 sim_frac_rate.py /home/claude
 상태 — 코드에서 값이 바뀌면 이 파일도 같이 갱신해야 정확한 시뮬레이션이 됨.
 `PARAMS_REGISTRY.md`와 값이 다르면 그쪽이 최신일 가능성이 높으니 대조.
 
+## replay_lookahead_v1.py
+**목적**: (2026-08-23, 53차 신규) lookahead horizon 가설(ii) 직접 검증용.
+`extract_log.py` CSV의 `vTurnSpeed`는 저역통과 필터(`vturn_decel_rc`)를
+거친 최종 출력이라, "필터가 늦춘 것"과 "애초에 lookahead_horizon_s(8.0s)
+윈도 안에 급조임 지점이 안 들어와 있었던 것"을 구분 못 함 — 이 스크립트는
+`carrot_man.vturn_speed()`의 물리공식(v_i^2=v_f^2+2ad, argmin)을 modelV2
+원본(`orientationRate.z`/`velocity.x`/`position.x`)에서 **필터 적용 전(raw)**
+값으로 프레임 단위 재현해 이 둘을 분리한다.
+**입력**: route_dir(세그먼트 폴더들, 각 rlog.zst 포함), `ryu` 레포 clone 필요
+(modelV2 스키마).
+**출력**: CSV(`t, seg, raw_kph, filtered_kph_replica, apex_pos_m, apex_t_s,
+curv_direction_replica`) — `t`는 `extract_log.py`와 동일 절대
+`logMonoTime` 기준이라 route.csv와 직접 join 가능.
+**주요 함수**: `compute_vturn_frame(...)` — 필터 전 argmin 계산만 순수
+분리(단위 테스트 가능하도록 설계). `apply_lowpass(...)` — 실제 코드와
+동일한 조건부(decel_rc/accel_rc) 저역통과 1스텝.
+**한계**: modelV2 이벤트(~20Hz)를 carrot_man 20Hz 틱 1개로 근사(49차와
+동일 전제, 완전히 같은 타이밍은 아님). `AutoCurveSpeedFactor`/
+`AutoCurveSpeedAggressiveness` 사용자 실제 런타임값이 devnotes에 없어
+코드 기본값(1.2/1.0)을 기본 사용 — 다르면 `--factor`/`--aggr`로 override.
+**검증 상태**: 합성 시나리오(원거리 급커브 vs 완전 직선) 2건으로 로직
+단위 검증 완료(급커브 케이스: raw_kph<100 확인/직선: raw_kph>200 확인),
+저역통과 1스텝 방향성(decel_rc 적용) 검증 완료. cereal/log.capnp 필드
+경로(`orientationRate.z`/`velocity.x`/`position.x`)도 직접 확인.
+**실제 로그(raw rlog) 검증은 아직 미실시** — 다음 세션 route4(또는
+동급 급조임 사례) rlog로 raw_kph가 실제 몇 초 전부터 낮게 나오는지
+확인 필요.
+**사용**:
+```bash
+python3 replay_lookahead_v1.py /home/claude/work/route4 \
+    /home/claude/work/route4_lookahead.csv --repo /home/claude/ryu \
+    --print-window 12337.6 12346.6
+```
+
 ## push_via_api.py
 **목적**: `GH_TOKEN` 환경변수로 GitHub Contents API를 통해
 `ryu-devnotes` 저장소에 직접 파일을 커밋/push. 세션 종료 시 표준
