@@ -1,7 +1,39 @@
 # WIP — 중단 지점 (체크포인트, 세션 종료 아님)
 
-- 저장 시각: 2026-08-22 (36차 완료 — frac_rate 게이트 실차 첫 검증
-  성공. 다음 과제는 34차 A/B 실차 비교 복귀 + 지연 분리 측정, 아래 참고)
+- 저장 시각: 2026-08-22 (37차 — 옆차선 차량 락온 급감속, ROOT_CAUSE_IDENTIFIED.
+  사용자 요청으로 체크포인트. 다음 세션은 아래 37차 "다음 단계"부터 이어감)
+
+## 37차 (진행 중) — 옆차선 차량 SCC 단일점 락온 급감속, 근본원인 확인
+
+- 사용자가 업로드한 "옆차선_차량_인식_감속.zip"(6세그: 83e6b133f5--16,
+  866476e5c3--3, 1723e8b850--16/19, 7ffb3e693c--10, 3f3884d185--6)을
+  이번 세션 전용 스크립트(`work/extract_lead_detail.py` — 표준
+  extract_log.py엔 없는 leadYRel/leadDPath/leadTrackId 포함)로 추출,
+  4개 세그에서 급감속 후보 50건 중 4건 프레임 대조 완료.
+- **결론(ROOT_CAUSE_IDENTIFIED)**: `radard.py`의 `get_lead()`가 비전
+  매칭 실패/저확신 시 SCC 단일점 폴백(`track_scc`, trackId=0)을
+  **차로내 위치(yRel/dPath) 검증 없이** 그대로 채택 → 이 트랙은 항상
+  `radar=True`로 반환되고, `RadarD.update()`에서 `radar=True`면
+  `LeadBlend`(cutout/closer_jump/TTC 스무딩)를 **전부 우회**하고 바로
+  `radarState.leadOne`에 반영됨. 옆차선 차량이 SCC의 유일 타깃으로
+  순간 잡히면 걸러낼 안전장치가 애초에 하나도 없음. 4건 전부
+  `trackId=0, radar=True`로 동일 — 특히 `83e6b133f5--16`(yRel -5.5~-6.0m)
+  과 `3f3884d185--6`(yRel -10.5~-3.0m)은 수치상 옆차로가 명백.
+  상세는 FINDINGS.md/PARAMS_REGISTRY.md 37차 항목 참고.
+- **미해결**: `7ffb3e693c--10` 사례(yRel -1.4~-1.5m, 저속 곡선)는
+  실제 차로내 리드였을 가능성 배제 못 함 — 대시캠 프레임 대조 필요.
+- **다음 단계(다음 세션 최우선)**:
+  1. `get_lead()`의 `track_scc` 채택 조건에 최소 차로내 게이트
+     (제안: `abs(track_scc.yRel) < 1.75~2.0m`) 추가 — 비전 대응 리드가
+     없을 때만 쓰는 폴백이라 너무 엄격하면 안 됨, 튜닝 필요.
+  2. 대안/병행: `track_scc` 폴백 트랙은 `radar=True`를 그대로 두지
+     말고 별도 플래그로 표시해 `LeadBlend`(특히 `CUTOUT_DPATH_THRESH`)를
+     계속 타도록 분리.
+  3. 위 1/2 방향 결정 후 패치 작성 → `git format-patch` →
+     `C:\dev\patch\` 전달.
+  4. `7ffb3e693c--10` 사례 대시캠 프레임 대조로 최종 판정.
+  5. 패치 적용 후 실차 검증(다시 옆차선 오탐 재현 시 `leadTrackId`/
+     `leadYRel`이 게이트에 걸려 무시됐는지 확인).
 
 ## 36차 (완료) — frac_rate 게이트 실차 acados 파이프라인 첫 검증 성공
 - 상세는 FINDINGS.md/LAST_ANALYZED.md/PARAMS_REGISTRY.md 36차 참고 (WIP

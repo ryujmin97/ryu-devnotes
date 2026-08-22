@@ -2239,6 +2239,90 @@ vRel과 무관하게 물리적으로 불가능한 속도로 드리프트하는 �
 ### 28차 원본 기록 (아래는 위 30차로 일부 정정됨 — min_filt_rate
 자체는 정확하지만 "대표 신호"로서의 해석이 30차에서 정정됨)
 
+## [ROOT_CAUSE_IDENTIFIED, NEEDS_VALIDATION] 옆차선 차량이 SCC 단일점 레이더(track_scc, trackId=0)로 락온되며 LeadBlend 안전장치를 전부 우회 → 급감속 (2026-08-22, 37차, 업로드 "옆차선_차량_인식_감속.zip" 6세그먼트)
+
+- **사용자 제보**: "옆차선의 차량이 내차 레이더에 가끔 잡혔다 끊어지면서 내차가
+  급감속 하는 경우가 있었어."
+- **로그**: 6개 세그먼트(83e6b133f5--16, 866476e5c3--3, 1723e8b850--16/19,
+  7ffb3e693c--10, 3f3884d185--6) 전용 추출(work/extract_lead_detail.py,
+  `leadYRel`/`leadTrackId`/`leadDPath`까지 포함 — 표준 `extract_log.py`엔
+  없는 필드라 이번 세션 전용 스크립트로 뽑음). aEgo가 10프레임(~0.5s)
+  윈도 기준 -1.2m/s² 이상 떨어지는 급감속 후보를 스캔한 결과 6세그 중
+  4세그에서 총 50건 발견, 그중 4건을 프레임 단위로 대조.
+- **4건 전부 동일 패턴 확인**:
+  | 세그 | t | leadYRel | leadDRel 추이 | leadTrackId | radar | 결과 aEgo |
+  |---|---|---|---|---|---|---|
+  | 83e6b133f5--16 | 3430.65~3432.24 | **-5.5~-6.0m** (뚜렷한 옆차로) | 119m→102m 부드럽게 감소 | 0 | True | 0→-2.5m/s² |
+  | 1723e8b850--19 | 6046.48~6049.4 | 1.0→2.0m | 85m→70m | 0 | True | 0→-1.3m/s² |
+  | 7ffb3e693c--10 | 11623.4~11624.7 | -1.4~-1.5m | 39m→25m | 0 | True→False | +0.7→-3.3m/s² |
+  | 3f3884d185--6 | 12549.65~12553.14 | **-10.5→-3.0m** (강한 옆차로) | 74m→41m | 0 | True | 0→-2.0m/s² |
+
+  4건 모두 **`leadTrackId=0`, `radar=True`** — Genesis DH(EnableRadarTracks<3)
+  차량의 SCC 순정 단일점 레이더가 리드로 선택된 케이스이고, `yRel`이
+  1.0~10.5m로 제자리에 가깝지 않거나(내 차로 중심 기준 반차로~한차로
+  이상) 뚜렷이 벗어난 값으로 유지되는 동안 그대로 감속에 반영됨.
+
+- **원인(코드 확인 완료)**: `selfdrive/controls/radard.py`
+  1. `get_lead()` (line ~712~715):
+     ```python
+     if (track is None or lead_msg.prob < .6) and track_scc is not None and track_scc.cnt > 2:
+       if self.enable_radar_tracks == -1 or (self.enable_radar_tracks >= 2 and track_scc.vLead < 5.0):
+         track = track_scc
+     ```
+     `track_scc = tracks.get(0)` — 차량 자체 SCC 레이더가 보고하는 단일
+     타깃(trackId=0)을 그대로 채택. **비전 매칭(`match_vision_to_track`)이
+     실패했거나(`track is None`) 비전 확신도가 낮을 때(`lead_msg.prob<0.6`,
+     즉 카메라엔 뚜렷한 앞차가 안 보일 때) 발동** — `match_vision_to_track`의
+     `y_sane()`(정상 2.0m/wide 4.0m) 같은 **차로 내 위치 검증이 이 경로엔
+     전혀 없음**. SCC 하드웨어가 순간적으로 옆차선 차량을 자신의 유일한
+     타깃으로 잘못 보고하면 그대로 통과.
+  2. `Track.get_RadarState()`은 트랙 출처(비전매칭 vs track_scc)와 무관하게
+     항상 `"radar": True`를 반환.
+  3. `RadarD.update()` (line ~660~667):
+     ```python
+     if lead_one_raw.get('radar'):
+       # 빨간박스: SCC 레이더 락온 상태. 이미 안정적인 실측값이므로 블렌딩 지연 없이 그대로 사용.
+       self.radar_state.leadOne = lead_one_raw
+       ...
+     else:
+       self.radar_state.leadOne = self.lead_blend.update(lead_one_raw, DT_MDL)
+     ```
+     **`radar=True`면 `LeadBlend` 전체를 우회**하고 바로 `radarState.leadOne`에
+     반영. `LeadBlend`의 `CUTOUT_DPATH_THRESH`(2.0m 벗어나면 cut-out으로
+     즉시 제외)/`closer_jump`/TTC-danger 스무딩은 전부 `radar=False`
+     (비전-only) 경로에서만 동작 — 정확히 이번 옆차선 오탐 4건이 걸려야
+     할 안전장치인데 애초에 도달하지 못함.
+- **왜 "가끔 잡혔다 끊어지는" 것처럼 보이는지**: SCC 단일점 레이더는
+  차선별 트랙 분리가 없어 매 프레임 강한 반사체 하나만 보고 — 앞차가
+  없거나(곡선/차로변경 직후 등) 비전 확신도가 순간적으로 낮아지는
+  타이밍에 우연히 옆차로 차량이 가장 강한 반사체가 되면 트랙0으로
+  잡히고, 다시 진짜 전방 상황이 바뀌거나 비전이 확신을 회복하면
+  풀림 — 사용자가 체감한 "잡혔다 끊어짐"과 정확히 일치.
+- **상태**: ROOT_CAUSE_IDENTIFIED — 4개 독립 세그먼트(다른 시각/다른
+  라우트)에서 동일 메커니즘 재확인되어 우연/노이즈로 보기 어려움.
+  단, 패치는 아직 미작성(다음 단계). 7ffb3e693c--10 사례는 vEgo가
+  낮고(~11m/s, 저속 곡선) yRel도 상대적으로 작아(-1.4~-1.5m) 실제
+  차로 내 리드였을 가능성도 배제 못 함 — 이 건은 대시캠 프레임 대조로
+  최종 확인 필요, 나머지 3건(특히 83e6b133f5--16의 -5.5~-6.0m,
+  3f3884d185--6의 -10.5~-3.0m)은 수치상 옆차로가 명백함.
+- **패치 방향(제안, 미착수)**:
+  1. `track_scc` 채택 조건에 `abs(track_scc.yRel) < 1.75~2.0m`
+     (반차로 폭) 같은 최소 차로내 게이트 추가 — 비전이 대응하는 리드가
+     없을 때만 쓰는 폴백이므로 지나치게 엄격하면 안 되지만, 뚜렷이
+     벗어난 값(예: 83e6b133f5--16의 -5.5m)은 걸러야 함.
+  2. 또는 `radar=True` 우회 조건 자체를 세분화 — `track_scc` 폴백으로
+     선택된 경우엔 `lead_one_raw['radar']=True`를 그대로 두지 말고
+     별도 플래그로 표시해 `LeadBlend`(특히 cutout dPath 체크)를 여전히
+     타도록. `match_vision_to_track`으로 비전-확인된 트랙과 신뢰도를
+     동일하게 취급하는 게 근본 문제.
+  3. 두 방향 다 `enable_radar_tracks`/`RadarLatFactor` 등 기존 파라미터와
+     상호작용하므로 다음 세션에서 방향 확정 후 패치 설계.
+- **근거 로그**: work/csv_per_seg/*.csv(이번 세션 임시 추출, devnotes에는
+  미포함 — 원본 정책상 route.csv 미커밋 원칙 유지), 4건 프레임 덤프는
+  이 섹션 표 참고.
+
+---
+
 ## [VALIDATED] frac_rate 게이트(-5.5m/s CAUTION 문턱)가 실측 두 사례
 모두에서 전혀 발동하지 않음 — 세그7/세그12 zip 재업로드 후
 프레임 단위 재현으로 확정 (2026-08-21, 28차, 27차 NEEDS_VALIDATION

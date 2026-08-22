@@ -34,6 +34,8 @@
 | LEAD_LOST_GRACE_TIME | 0.6s | 리드 순간유실 홀드 시간 | - |
 | CUTOUT_DPATH_THRESH | 2.0m | 컷아웃 판정 dPath 임계값 | NEEDS_VALIDATION |
 | CUTOUT_VREL_GATE | -0.5 m/s | 컷아웃 판정 vRel 게이트 | NEEDS_VALIDATION |
+| (신규 후보) track_scc yRel 게이트 | 없음(미구현) | `get_lead()`에서 `track_scc`(SCC 단일점, trackId=0) 채택 시 차로내 위치 검증 부재 — 옆차선 오탐 4건 근본원인(37차, ROOT_CAUSE_IDENTIFIED). 제안값 1.75~2.0m(반차로 폭) | NEEDS_VALIDATION, 패치 미작성 |
+| (참고) radar=True → LeadBlend 전면 우회 | `RadarD.update()` line ~660 | `lead_one_raw['radar']`가 True(비전매칭/track_scc 폴백 구분 없이 Track이면 항상 True)면 CUTOUT_*/closer_jump/TTC 스무딩 전부 미적용. track_scc 폴백만 별도 취급하는 방향 검토 중(37차) | NEEDS_VALIDATION |
 
 ## selfdrive/carrot/carrot_functions.py
 
