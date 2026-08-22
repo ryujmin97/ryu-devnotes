@@ -9,7 +9,11 @@
 ---
 
 ## c3-ms-dev
-- last_analyzed_commit (36차): `4fe22cd` (HEAD, 신규 커밋 없음 — 36차는 실주행 로그 분석 세션, 35차 계속 2에서 완료된 HEAD 그대로)
+- last_analyzed_commit (38차): `c3ea08e` (HEAD, TTC 기반 aLead damping 게이트 패치 `git am` 적용 + push 완료, `21effa1..c3ea08e`)
+- date: 2026-08-22 (38차)
+- note: (38차) "앞차_민감" 이슈 패치 적용됨. 로직 단위 검증(rlog 재파싱)만 완료, acados MPC 파이프라인 통합 후 실차 검증은 아직. 다음 세션 최우선: 회귀 검증(위험 cut-in/급접근 시 반응 지연 없는지) + 승차감 체감 확인. 상세는 FINDINGS.md/WIP.md 38차 참고.
+
+ (HEAD, 신규 커밋 없음 — 36차는 실주행 로그 분석 세션, 35차 계속 2에서 완료된 HEAD 그대로)
 - date: 2026-08-22 (36차)
 - note: (36차) **frac_rate(VISION_CLOSING_RATE_GATE_CAUTION/DANGER=-2.2/-5.0, 33차 재설계) 실차 acados MPC 파이프라인 첫 실측 검증 성공** — 33차부터 미완이던 "다음 최우선" 과제 해소. 신규 로그 2건(`카메라인식.zip`=route `245733747e` 4세그, `정치차량.zip`=route `b89011cb42` 1세그) `sim_frac_rate.py`(SIM_GATE 환경변수로 현재 상수 override) 재현 분석. 정치차량 route에서 82m/vRel -6.5~-7.9m/s 원거리 vision-only 급접근 시 레이더 락온보다 훨씬 전에 frac_rate 0.826→1.0 도달, 이후 harsh_brake/운전자개입 없이 완전정지까지 매끈히 감속 확인. 카메라인식 route 4세그 중 2세그 max_frac_rate=1.000 추가 확인. PARAMS_REGISTRY.md의 GATE_CAUTION/GATE_DANGER/MAX_PLAUSIBLE/MEDIAN_WINDOW 4개 상수 PARTIALLY_VALIDATED→VALIDATED 상향. 부가 발견(NEEDS_VALIDATION): frac_rate 최초 1.0 도달과 실제 aEgo 반응 사이 약 2초 지연 관찰 — 단 이 구간에 leadStatus 재획득 지연이 섞여 있어 순수 게이트 지연만 분리 측정은 다음 세션 과제. 그 외 harsh_brake/turn_speed_violation 0건 재확인, cut-in 1건(무해), ttc_danger 1건(정치차량 route, 정상적인 정차 접근 과정에서의 자연스러운 TTC 저하로 무해 판단). 상세는 FINDINGS.md 36차 참고.
 - 35차 계속 2 기록 (참고, 위와 동일 HEAD):
