@@ -1,5 +1,23 @@
 # WIP — 중단 지점 (체크포인트, 세션 종료 아님)
 
+- 저장 시각: 2026-08-22 (45차 계속 — "정지 후 출발 가속 약화" 조치 패치
+  작성/전달 완료(**실차 검증 대기**). 사용자와 논의 후 "정차→출발"을
+  상태(state)로 잡아 이 구간에서만 `ttc_accel_weight()`(38차)를 완전
+  우회하는 launch bypass 방식으로 확정·구현. `LAUNCH_BYPASS_STOP_V_EGO
+  =0.3m/s`(정차 판정)/`LAUNCH_BYPASS_EXIT_V_EGO=5.0m/s`(출발완료 판정,
+  38/39차 로직 복귀) 신규 상수 2개 추가. bypass 활성 중엔 39차
+  rise-rate 제한도 함께 우회. danger override(TTC<=2.5s)는 bypass와
+  무관하게 항상 최우선 유지. `work/test_launch_bypass.py` 합성 시나리오
+  4종(정차중 출발/exit 전환/고속잡음 회귀/저속 danger cut-in 회귀)
+  로직 단위 검증 완료 — **exit 전환 순간 w가 급하강할 수 있음을 발견,
+  실차 검증 시 체감 확인 필요**(상세는 FINDINGS.md 45차 "조치" 항목).
+  `git am` temp branch 검증(base `c31ddca`) + `py_compile` 통과. patch
+  `0001-long_mpc-launch-bypass-45cha.patch` 전달함(`/mnt/user-data/
+  outputs/`, `git am` 안내 별도 전달).
+  **다음 세션 시작할 것**: 사용자가 patch 적용+push 여부 확인 →
+  실차 검증(위 FINDINGS.md 45차 "다음 단계" 참고) → 통과 시 EXIT_V_EGO
+  값 실차 기준 재조정 검토.
+
 - 저장 시각: 2026-08-22 (45차 — 완료, 코드 변경 없음(분석만). "정지 후
   출발 가속 약화" 제보 분석 -> 근본원인 특정(NEEDS_VALIDATION):
   `long_mpc.py`의 `ttc_accel_weight()`(38차, `c3ea08e`)가
