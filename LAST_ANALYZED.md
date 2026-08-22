@@ -9,7 +9,16 @@
 ---
 
 ## c3-ms-dev
-- last_analyzed_commit: `c31ddca` (HEAD, radard sccFallback 크래시 긴급수정. 신규 커밋 분석은 없었음 — 41차는 실주행 로그 분석 세션으로, 이 커밋 상태에서 뽑힌 로그를 검증)
+- last_analyzed_commit (46차, 진행중): `c368c422` (HEAD, 신규 커밋 분석 아님 —
+  46차는 "곡선구간 가감속 부족" 제보 실주행 로그 분석 세션. route1
+  (`203f99d429` seg8) 완료 — FINDINGS.md 46차 항목 참고. **route2
+  (`f3db6ca89d` 5세그)/route3(`866476e5c3` seg18, "vturn 이상함")는
+  다음 체크포인트에서 이어감.** 로그 자체는 사용자 확인상 "패치 이전"
+  이나, CSV의 commit 컬럼은 추출 시점 repo HEAD를 찍는 것이라 로그의
+  실제 기록 커밋과 무관함(도구 한계, extract_log.py의 `commit` 필드는
+  "이 CSV를 어떤 코드로 디코딩했는지"만 의미 — 로그 자체의 빌드 시점
+  아님. 참고용으로 남김).
+- last_analyzed_commit (41차 기록): `c31ddca` (HEAD, radard sccFallback 크래시 긴급수정. 신규 커밋 분석은 없었음 — 41차는 실주행 로그 분석 세션으로, 이 커밋 상태에서 뽑힌 로그를 검증)
 - date: 2026-08-22 (41차)
 - note: 41차 — "앞차 카메라 인식" 로그 2개 라우트(1079.5s)로 33/36/38/39차 패치 전부(frac_rate 게이트 + TTC damping + rise-rate) + 40차 radard 크래시 수정을 이 HEAD 상태에서 재검증. 안전지표 전부 0건, frac_rate 게이트 4/4 정상 조기활성화, 3/4는 실제 감속도 조기 반영. 상세는 FINDINGS.md 41차 참고.
 

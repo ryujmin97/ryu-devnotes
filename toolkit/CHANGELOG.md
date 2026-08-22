@@ -169,3 +169,10 @@
   (기존 vturn↔model 쌍 특별 취급을 대체, road↔route 등 미집계 쌍도
   자동 커버). 합성 데이터로 왕복 카운트/dwell/min_count 필터 단위
   검증 완료. 실제 route CSV 재대조는 다음 로그 분석 세션에서.
+
+## 2026-08-22 (46차)
+- `extract_log.py`: `modelTurnSpeed`(modelV2.meta.modelTurnSpeed) 컬럼
+  신규 추가 — 그동안 CSV에 vTurnSpeed/src만 있고 model 후보의 실제 값이
+  없어 "model 게이팅" 관련 분석(진입전 사전감속 부족 원인 조사)이 불가능
+  했음. 세그먼트 경계 carryover도 다른 필드와 동일하게 적용. 하위호환:
+  기존(46차 이전) CSV는 이 컬럼이 항상 빈 문자열 — 재추출 필요.

@@ -51,10 +51,15 @@ FIELDNAMES = [
     "steeringAngleDeg", "desiredCurvature",
     "leadStatus", "leadDRel", "leadVRel", "leadVLead",
     "leadRadar", "leadModelProb",
-    "src", "desiredSpeed", "vTurnSpeed",
+    "src", "desiredSpeed", "vTurnSpeed", "modelTurnSpeed",
     "leftBlinker", "rightBlinker",
     "laneChangeState", "laneChangeDirection",
 ]
+# 2026-08-22 추가(46차): modelV2.meta.modelTurnSpeed (carrot_serv.py의
+# model_turn_speed 게이팅 후보 그 자체) -- 지금까지 CSV에 없어서
+# "model 소스" 관련 분석 때 src=="model" 여부만 보고 실제 model_turn_speed
+# 값 자체(200 미만 여부, vturn과의 상대적 크기)는 확인할 수 없었음.
+# "곡선 진입전/정점/탈출 감속·가속" 분석을 위해 추가.
 # 2026-08-22 추가: 차선변경 발생 여부를 CSV만으로 판별하기 위해
 # carState.leftBlinker/rightBlinker(운전자 의도)와
 # lateralPlan.laneChangeState/laneChangeDirection(실제 궤적 계획 상태:
@@ -115,7 +120,8 @@ def get_repo_git_info(repo_dir):
 
 
 def process_segment(rlog_path, seg_name, repo_dir, max_mb, commit_short="",
-                     carry_cs=None, carry_ctrl=None, carry_lead=None, carry_lat=None):
+                     carry_cs=None, carry_ctrl=None, carry_lead=None, carry_lat=None,
+                     carry_model=None):
     """
     carry_cs/carry_ctrl/carry_lead: 이전 세그먼트에서 넘어온 마지막 상태.
     None이면 이 세그먼트가 라우트의 첫 세그먼트라는 뜻으로 기본값 사용.
@@ -139,6 +145,9 @@ def process_segment(rlog_path, seg_name, repo_dir, max_mb, commit_short="",
     last_lat = dict(carry_lat) if carry_lat is not None else {
         "laneChangeState": "", "laneChangeDirection": "",
     }
+    last_model = dict(carry_model) if carry_model is not None else {
+        "modelTurnSpeed": "",
+    }
     rows = []
     for evt in iter_events(rlog_path, repo_dir=repo_dir, max_output_mb=max_mb):
         w = evt.which()
@@ -161,6 +170,8 @@ def process_segment(rlog_path, seg_name, repo_dir, max_mb, commit_short="",
                 "laneChangeState": str(lp.laneChangeState),
                 "laneChangeDirection": str(lp.laneChangeDirection),
             }
+        elif w == "modelV2":
+            last_model = {"modelTurnSpeed": evt.modelV2.meta.modelTurnSpeed}
         elif w == "radarState":
             lo = evt.radarState.leadOne
             if lo.status:
@@ -178,10 +189,10 @@ def process_segment(rlog_path, seg_name, repo_dir, max_mb, commit_short="",
             cm = evt.carrotMan
             rows.append({
                 "t": t, "seg": seg_name, "commit": commit_short,
-                **last_cs, **last_ctrl, **last_lead, **last_lat,
+                **last_cs, **last_ctrl, **last_lead, **last_lat, **last_model,
                 "src": str(cm.desiredSource), "desiredSpeed": cm.desiredSpeed, "vTurnSpeed": cm.vTurnSpeed,
             })
-    return rows, last_cs, last_ctrl, last_lead, last_lat
+    return rows, last_cs, last_ctrl, last_lead, last_lat, last_model
 
 
 def main():
@@ -207,13 +218,14 @@ def main():
         sys.exit(1)
 
     all_rows = []
-    carry_cs, carry_ctrl, carry_lead, carry_lat = None, None, None, None
+    carry_cs, carry_ctrl, carry_lead, carry_lat, carry_model = None, None, None, None, None
     for seg in seg_dirs:
         rlog_path = os.path.join(args.route_dir, seg, "rlog.zst")
-        rows, carry_cs, carry_ctrl, carry_lead, carry_lat = process_segment(
+        rows, carry_cs, carry_ctrl, carry_lead, carry_lat, carry_model = process_segment(
             rlog_path, seg, args.repo, args.max_mb,
             commit_short=git_info["commit_short"] or "",
             carry_cs=carry_cs, carry_ctrl=carry_ctrl, carry_lead=carry_lead, carry_lat=carry_lat,
+            carry_model=carry_model,
         )
         all_rows.extend(rows)
         print(f"done {seg}: {len(rows)} rows ({len(all_rows)} total)")

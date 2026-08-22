@@ -57,6 +57,7 @@
 | model_turn_straight_thresh | (12차, `7cdc20b`로 제거됨) | desiredCurvature 기준 게이팅 — 진입 전 사전감속 억제 위험으로 폐기 | SUPERSEDED (2026-08-20, model_turn_speed 추세 기반으로 대체, 아래 항목 참고) |
 | model_turn_speed_noise_tol | 0.3 km/h | model_turn_speed 프레임간 미세 흔들림을 "감소"로 오판하지 않기 위한 허용폭 | PARTIALLY_VALIDATED (2026-08-20, 12차 도입, 13차 실차 적용(commit `119b101`). **17차(재업로드 정상 zip, 19세그 전체 두 라우트, 각 19분): vturn↔model 플리커 2.16~2.58/min — 패치 전 베이스라인(7.0/min) 대비 63~69% 감소로 재확인(16차 부분데이터 추정 57~60%보다 뚜렷). ADAS 활성 중 harsh_brake 1/35·0/41로 계속 거의 0건.** model_turn_speed 원시값이 로그에 없어 게이팅 시점 자체는 간접 확인만 가능, 장시간 정속 커브 케이스는 이번 로그(시내~국도 혼합)에도 없어 미검증으로 남음 — FINDINGS.md 17차 참고) |
 | model_turn_straight_hold_sec | 0.6s | 이 시간 이상 연속으로 model_turn_speed가 (노이즈 허용폭 넘는) 감소 없이 유지/반등해야 "트레일링"으로 보고 model 후보를 min()에서 배제 | PARTIALLY_VALIDATED (2026-08-20, 12차 재설계 — 판단 기준만 desiredCurvature에서 model_turn_speed 추세로 변경, 값 0.6s는 유지. 13차 실차 적용, commit `119b101`. **17차: 실주행 플리커 감소 재확인(위 행과 동일 근거, 63~69%), 장시간 정속 커브 부작용은 여전히 미검증**) |
+| model 후보 게이트 `abs(vturn_speed) < 120` | 120 km/h | model_turn_speed를 min() 후보에 넣을지 여부의 추가 조건(carrot_serv.py L1051, 13차 `119b101`에서 model↔vturn 플리커 감소 목적으로 도입) | **[RISK_IDENTIFIED, NEEDS_VALIDATION] 46차(2026-08-22, route1 203f99d429 seg8, 표본 1건)**: vturn 원시 후보가 원거리에서 91~230km/h로 불안정하게 흔들리는 동안(약 11초) 이 조건이 계속 False가 되어 model(93~114km/h로 vturn보다 안정적으로 낮았음)이 min() 경쟁에서 배제됨 — 곡선 진입전 사전감속이 실질 3초 미만으로 줄어드는 원인 후보. 13차 당시엔 "트레일링 오탐 방지" 목적만 검증됐고 이 부작용은 검증 대상이 아니었음. FINDINGS.md 46차 참고. |
 
 ## selfdrive/carrot/carrot_man.py
 
