@@ -9,7 +9,8 @@
 | 상수 | 현재값 | 용도 | 검증상태 |
 |---|---|---|---|
 | MARGIN_ACCEL_GATE_FULL / NONE | 1.5 / 1.0 | 여유거리 클수록 aLead 흔들림 무시 (dRel/desired_distance 비율 기준) | **한계 확인(38차)** — desired_distance가 고속에서 커지는 탓에 TTC 15s대 안전 구간에서도 이 비율만으론 weight=1(무감쇠) 고정되는 경우 확인. 아래 LEAD_ACCEL_TTC_GATE_*와 min() 결합으로 보완 시도(패치 작성, 미적용). 이 상수 자체(1.5/1.0)는 여전히 NEEDS_VALIDATION |
-| LEAD_ACCEL_TTC_GATE_FULL / NONE | 12.0s / 6.0s | (38차 신규) TTC 기반 aLead damping 게이트, MARGIN_ACCEL_GATE와 min()으로 결합 | NEEDS_VALIDATION (2026-08-22, 38차 신규 도입 — 로직 단위 검증만 완료, 실차 acados 파이프라인/실차 승차감 미검증. FINDINGS.md 38차 참고) |
+| LEAD_ACCEL_TTC_GATE_FULL / NONE | 12.0s / 6.0s | (38차 신규) TTC 기반 aLead damping 게이트, MARGIN_ACCEL_GATE와 min()으로 결합 | NEEDS_VALIDATION (2026-08-22, 38차 신규 도입 — 로직 단위 검증만 완료. **39차: 저속 구간에서 이 게이트 자체는 정상 동작하나, dRel이 작아 TTC가 급격히 붕괴하면서 weight가 순간적으로 튀는 부작용 발견 → LEAD_ACCEL_WEIGHT_RISE_RATE로 보완(아래 항목).** 실차 acados 파이프라인/실차 승차감은 여전히 미검증. FINDINGS.md 38차/39차 참고) |
+| LEAD_ACCEL_WEIGHT_RISE_RATE | 1.0 (1/s) | (39차 신규) 위 TTC/거리 게이트의 결합 weight가 "감쇠 풀리는 방향(상승)"으로 바뀔 때 사이클당 변화폭 제한(0→1 최소 1초). TTC<=LEAD_ACQ_TTC_DANGER(2.5s)인 실제위험 시엔 우회, 즉시 weight=1.0 | NEEDS_VALIDATION (2026-08-22, 39차 신규 도입 — 저속 로그 수치 시뮬레이션(rlog 재파싱 기반)으로 peak |aLead| 완화 확인, acados MPC 파이프라인 재실행/실차 검증은 안 됨. FINDINGS.md 39차 참고) |
 | LEAD_ACQ_RAMP_TIME | 5.0s | 리드 인식 후 선제감속 하한선 도달 시간 | NEEDS_VALIDATION (2026-08-18 x12seg 로그에서 첫 적합 사례 확보, seg10 t=657.39 — 매끈한 감속으로 긍정적. 표본 1건, 추가 검증 필요) |
 | LEAD_ACQ_MIN_V_EGO | 3.0 m/s | 이 속도 미만 미적용 | - |
 | LEAD_ACQ_CONFIRM_TIME | 0.2s | 블립 무시, 램프 시작 조건 | - |
