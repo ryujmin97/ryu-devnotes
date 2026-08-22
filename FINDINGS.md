@@ -3541,3 +3541,62 @@ MPC의 리드 궤적 예측(`extrapolate_lead`)에서 완전히 사라짐**. MPC
      "안전지표 전부 0건" 요약이 나왔던 route들).
   4. route desiredSpeed 급점프(2건, 이번 표본)가 우연인지 구조적 문제인지
      추가 표본으로 확인.
+
+## 52차 — route1/route2 turn_speed_violations() 버그수정판 재검증, vturn overshoot 원인 후보 좁힘
+
+### route1 (`203f99d429` seg8, 곡선.zip) — 재검증
+- `turn_speed_violations()` 수정판 재실행: **1건**(t=6575.73~6578.18,
+  max_over=8.13km/h, vEgo_peak=94.1km/h vs vTurnSpeed=86.0km/h,
+  duration=2.45s). 프레임 대조 결과 진짜 급조임 커브(desiredCurvature
+  0.00003→0.0029 급등) 진입 중 vTurnSpeed가 115→86km/h로 약 2초 만에
+  급락하는데 vEgo가 못 따라간 것 — 46/50차 "정점 감속 부족" 정성적
+  관찰을 최초로 정량 재현(단위버그 수정 후).
+- `source_target_violations(rows, "route")`: **0건** — 이 세그에서
+  route(내비 경로) 소스가 270/1200프레임(22.5%) 선택됐으나 선택 구간
+  전부 vEgo가 desiredSpeed+margin 이내 준수. route 소스는 활성 시
+  목표속도를 잘 따라감(51차 WIP "route가 실제로 binding하는지"
+  질문에 대한 최초 답 — 이 세그에선 정상 준수, overshoot 없음).
+
+### route2 (`f3db6ca89d`, 재업로드 전체 20세그 x24001행) — 51차 부분(7세그) 대비 전체 재스캔
+- `turn_speed_violations()`: **16건**(51차 부분 스캔의 14건에서 전체
+  로그 확보로 16건 확대, seg11/13/15(2건)/16(3건)/17/18(3건)/19(4건)).
+  max_over 4.2~18.1km/h, duration 1.4~4.05s.
+- **필터링**: 16건 전부 `brakePressed=False`/`cruiseEnabled=True` 유지
+  (운전자 개입 0건), 15/16건은 `leadStatus=False`(리드차량 없음,
+  순수 커브 상황) — **선행차 추종/운전자 개입과 무관한 순수 vturn
+  오버슈트로 확정**. route(`f3db6ca89d`)가 "연속 급커브 왕복국도"
+  특성상 46차 route2 추정("정점 감속 부족이 일반적 패턴")을 뒷받침.
+- **[신규, 원인 후보 좁힘] aEgo 실측 vs `vturn_decel_rate`(1.2m/s²,
+  방지턱 물리공식 기반 설계값) 비교**: 16건 중 **12건(75%)이 실제
+  aEgo_min이 1.2m/s² 대비 100%~190%**(평균 약 111%) — 즉 시스템이
+  이미 설계 감속률과 같거나 더 강하게 감속 중인데도 목표속도를 못
+  따라잡음. 나머지 4건은 50~92%로 여력이 남아있었음. 최대사례(#3,
+  over=18.1km/h)는 aEgo_min=-2.28m/s²(190%, `A_CRUISE_MIN=-2.0`
+  물리클램프 자체도 근접/초과)까지 감속했지만 vTurnSpeed가 70→31km/h로
+  약 6초 만에 하강하는 속도(급조임 커브 curvature 0.0001→0.027 급등)를
+  못 따라잡음.
+- **해석(NEEDS_VALIDATION)**: 다수(75%) 사례가 이미 설계 감속률
+  (1.2m/s²) 이상으로 반응 중임에도 부족한 것으로 보아, "감속 반응이
+  느긋해서"(파라미터 자체가 관대해서)라기보다 **"목표속도 프로파일이
+  실제 곡률 조임 속도를 lookahead 구간에서 충분히 일찍 반영 못 해
+  뒤늦게 급조임을 발견 → 뒤늦게라도 설계 감속률 이상으로 밟아보지만
+  이미 늦음"** 쪽에 더 가까운 그림. 46차에서 세운 3개 후보
+  (i.vturn_decel_rate 물리한계/ii.vturn_lookahead_horizon_s 국도
+  커브간격 부적합/iii.desiredCurvature 순간값 후행) 중 **ii(lookahead
+  horizon 부적합)가 이번 정량 데이터와 가장 부합** — 단 확정 아님,
+  실제 lookahead 시점의 raw required_speed 궤적(필터 전) 재현 검증
+  필요.
+
+### 코드 변경 없음(분석만), patch 없음.
+
+### 다음 세션 최우선
+1. `curve_apex_vs_gap_delta()`(46차 편입)류로 이번 16건에도 "정점 통과
+   전 사전감속 지연"인지 "정점 자체에서 못 따라감"인지 delta 재분류.
+2. lookahead horizon 부적합 가설(ii) 직접 검증: 오버슈트 시작 시점보다
+   `vturn_lookahead_horizon_s`(8.0s)만큼 이전 시점에 raw
+   required_speed(필터 전, model 게이트 무관)가 이미 급조임을
+   반영하고 있었는지 재현 — modelV2 raw가 CSV에 없어 49차처럼
+   `replay_vturn2.py`류 재현 스크립트 필요할 수 있음.
+3. 나머지 미분석 로그(route4=`d45a15f8fc` 재업로드 전체 20세그,
+   route9=`280302e8ed` 20세그)는 51차 버그수정판 turn_speed_violations()로
+   아직 재스캔 안 함 — 다음 세션 후보.
