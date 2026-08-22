@@ -9,6 +9,14 @@
 ---
 
 ## c3-ms-dev
+- last_analyzed_commit (50차): `f94a7d2` (HEAD — 50차 model 게이트
+  재설계 패치(`abs(vturn_speed)<120` 제거, 트레일링 판정 min_recent+
+  margin 재설계) push 완료 확인. 로컬(devnotes 컨테이너) 커밋 해시는
+  `74e8e90`이었으나 `git am` 적용 후 Windows에서 push한 원격 해시는
+  `f94a7d2`(정상 — 커밋 메타데이터 차이, 내용 동일). c368c422 이후
+  신규 커밋 1개. **[NEEDS_VALIDATION] 실차 미검증** — 특히 직선
+  구간에서 model 후보 과다 개입(같은 세션 스캔 기준 참여율 98.8%)
+  여부 확인 필요. 상세는 FINDINGS.md/WIP.md 50차 항목 참고.
 - last_analyzed_commit (48차): `c368c422` (HEAD, 신규 커밋 분석 아님 —
   48차는 route6/7/8 실주행 로그 분석 세션(curve_exit_no_accel_scan v3
   계속 검증). 신규 커밋 없음, HEAD 46차와 동일. 상세는 FINDINGS.md/
