@@ -9,7 +9,11 @@
 ---
 
 ## c3-ms-dev
-- last_analyzed_commit: `f4160a7` (HEAD, screenrecorder clip 해상도 720p->540p + 비트레이트 2Mbps->1.2Mbps `git am` 적용 + push 완료, `d178ac6..f4160a7`)
+- last_analyzed_commit: `c31ddca` (HEAD, radard sccFallback 크래시 긴급수정. 신규 커밋 분석은 없었음 — 41차는 실주행 로그 분석 세션으로, 이 커밋 상태에서 뽑힌 로그를 검증)
+- date: 2026-08-22 (41차)
+- note: 41차 — "앞차 카메라 인식" 로그 2개 라우트(1079.5s)로 33/36/38/39차 패치 전부(frac_rate 게이트 + TTC damping + rise-rate) + 40차 radard 크래시 수정을 이 HEAD 상태에서 재검증. 안전지표 전부 0건, frac_rate 게이트 4/4 정상 조기활성화, 3/4는 실제 감속도 조기 반영. 상세는 FINDINGS.md 41차 참고.
+
+- last_analyzed_commit (40차 이전): `f4160a7` (HEAD, screenrecorder clip 해상도 720p->540p + 비트레이트 2Mbps->1.2Mbps `git am` 적용 + push 완료, `d178ac6..f4160a7`)
 - date: 2026-08-22
 - note: clip 20초->30초 확대(전 커밋) 후 용량 부담 피드백 -> 해상도/비트레이트 동시 하향으로 상쇄. 화소수 56%(720p->540p) x 비트레이트 60%(2->1.2Mbps) ≈ 최종 용량 1/3 수준 예상(실측 전). **실사용 검증 필요**: 30초/540p/1.2Mbps clip 실제 파일 용량, 주행화면 텍스트(속도/상태표시 등) 가독성 저하 여부 — 부족하면 dst_height/bitrate 값만 재조정하면 됨. long_mpc 종방향 제어와는 무관한 UI/도구 트랙.
 
