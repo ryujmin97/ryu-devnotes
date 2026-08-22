@@ -17,6 +17,16 @@
 
 ---
 
+## [VALIDATED] frac_rate(vision-only closing-rate 절대값 게이트, -2.2/-5.0) 실차 acados MPC 파이프라인 첫 실측 검증 성공 (2026-08-22, 36차)
+- **배경**: 33차에서 문턱 재설계(-5.5/-10.0 → -2.2/-5.0)가 사용자 로컬(`c3-ms-dev`, 커밋 `8114a46`)에 반영됐으나, 그동안 전부 `sim_frac_rate.py` 시뮬레이션 기반 검증뿐이었고 실제 acados MPC 파이프라인에 통합된 후의 실차 반응(`_lead_acq_timer`/`frac_rate` 활성화 및 그 결과 a_target/aEgo 반응) 검증은 계속 미실시 상태였음.
+- **신규 로그**: 사용자가 카메라 인식 테스트 목적으로 촬영한 `카메라인식.zip`(route `245733747e`, seg10/11/14/15, HEAD `4fe22cd`)와 정지차량 접근 테스트 `정치차량.zip`(route `b89011cb42`, seg7, 동일 HEAD) 제공.
+- **검증 방법**: `extract_log.py`로 CSV 추출 후 `sim_frac_rate.py`를 `SIM_GATE_CAUTION=-2.2 SIM_GATE_DANGER=-5.0`로 재현 실행(현재 코드 상수와 동일하게 override — 스크립트 기본값은 구문턱이라 반드시 override 필요, 다음 세션도 동일하게 할 것).
+- **결과 (정치차량 route, t=4121~4126)**: `leadRadar=False`(vision-only) 상태로 82m 거리에서 리드 최초 포착, vRel -6.5~-7.9m/s로 급접근. `_lead_acq_timer`가 `VISION_CLOSING_RATE_MIN_TIME`(0.5s)에 도달한 시점(t=4122.08)부터 `frac_rate`가 즉시 0.826으로 뛰어오르고 0.4초 내 1.0 도달 — **레이더 락온(같은 세그 후반)보다 한참 전에, distance 82m라는 먼 거리에서 게이트가 정확히 설계 의도대로 작동**. 이후 leadStatus가 0.5s 초과로 짧게 유실(정상적인 grace 재확인, 0.5s 이내 blip은 유지되고 초과분만 리셋)되며 acq_t가 재적립되는 과정을 거쳐 t=4124.08경 frac_rate 재차 1.0 도달, t≈4126부터 aEgo가 실제로 음의 방향 진입해 이후 완전 정지까지 급제동/운전자 개입 없이 매끈하게 이어짐(harsh_brake 0건, brakePressed 전 구간 False, 최대 감속 약 -2.3m/s²).
+- **결과 (카메라인식 route, 전체 4세그)**: seg10/seg11에서 `max_frac_rate=1.000` 도달(각각 t=3111부근/3152부근), seg14는 0.359, seg15는 0.764로 부분 활성화 — 다양한 강도의 실제 원거리 접근 시나리오에서 게이트가 여러 차례 정상 활성화됨을 확인. 4세그 전체에 걸쳐 harsh_brake/turn_speed_violation 0건 유지.
+- **frac_rate 활성화 ~ 실제 aEgo 반응 사이 지연**: 정치차량 사례에서 frac_rate가 처음 1.0에 도달(t≈4122.3)한 시점과 aEgo가 육안상 음의 방향으로 뚜렷하게 진입한 시점(t≈4126) 사이 약 2초 지연 관찰. 다만 이 구간은 leadStatus가 중간에 0.5s+ 유실되며 acq_t가 리셋된 재적립 과정을 포함하므로, 순수 "게이트 활성화 → MPC 반영" 지연이 아니라 "vision-only 추적 자체의 재획득 지연"이 섞여 있음 — 향후 leadStatus가 끊기지 않고 안정적으로 유지되는 사례로 순수 지연만 분리 측정 필요(NEEDS_VALIDATION, 다음 세션 후보).
+- **결론**: `VISION_CLOSING_RATE_GATE_CAUTION/DANGER`(-2.2/-5.0), `MAX_PLAUSIBLE`(30.0), `MEDIAN_WINDOW`(3) 4개 상수 모두 실제 acados MPC 파이프라인 통합 상태에서 원거리 vision-only 급접근 시나리오에 정상 반응함을 최초로 실측 확인 — PARAMS_REGISTRY.md 상태 PARTIALLY_VALIDATED → VALIDATED로 상향.
+- 근거: `카메라인식.zip`/`정치차량.zip` (route `245733747e`, `b89011cb42`, 2026-08-22 촬영, HEAD `4fe22cd`).
+
 ## [FIXED] carrotweb "Clip 선택" 버튼 클릭해도 체크박스 선택 안 됨 — logs.js 캐시 버스터 미갱신 (2026-08-22, 35차 계속)
 - 증상: patch 0003(필터→선택 정정) 적용·push 완료 후 사용자가 실기기
   carrotweb에서 "Clip 선택" 버튼을 눌러도 체크박스가 전혀 선택되지
