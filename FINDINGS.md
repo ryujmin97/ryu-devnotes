@@ -2427,6 +2427,45 @@ vRel과 무관하게 물리적으로 불가능한 속도로 드리프트하는 �
      주 사용 경로)을 과도하게 거르지 않는지, 즉 게이트 도입 후에도
      정상 추종이 평소와 동일하게 유지되는지 실차에서 함께 확인 필요.
 
+## [FIXED, URGENT] radard 크래시 — 37차 sccFallback 키가 capnp 스키마에 없어 AttributeError (2026-08-22, 커밋 f67a834)
+
+- **증상**: `c3ea08e`/`52668ec`(38/39차) 적용 후 실차에서 기기 화면에
+  "radard 프로세스가 실행되지 않았습니다"(빨간 에러 오버레이) 표시,
+  종방향 제어 완전 불능.
+- **원인**: 37차(`21effa1`)에서 `Track.get_RadarState()`가 반환하는
+  dict에 `sccFallback` bool 키를 추가했는데, 이 dict가 이후
+  `self.radar_state.leadOne = lead_dict` 형태로 pycapnp 구조체
+  (`cereal/log.capnp`의 `RadarState.LeadData`)에 그대로 대입됨.
+  `LeadData` 스키마엔 `sccFallback` 필드가 정의돼 있지 않아 **매 사이클**
+  `AttributeError`(capnp: struct has no such member; name = sccFallback)
+  발생 → radard 즉시 크래시 → 프로세스매니저가 재시작을 반복하다 실패.
+  `LeadBlend.update()`도 raw dict를 그대로 복사/반환하므로
+  danger-passthrough/블렌딩 두 경로 모두 동일하게 크래시.
+  **37차 로직 단위 합성검증(`test_scc_gate.py`)이 순수 파이썬 dict만
+  다뤄서 이 capnp 대입 단계를 검증 범위에 포함하지 못했던 것이 근본
+  원인** — 로직은 맞았으나 출력 타입(구조체 vs dict) 계약을 놓침.
+- **수정**(`f67a834`):
+  1. `Track.get_RadarState()`에서 `scc_fallback` 파라미터/`sccFallback`
+     키 제거 — capnp에 대입되는 dict는 스키마 필드만 포함하도록 원복.
+  2. 대신 `RadarD.get_lead()`가 `(lead_dict, radar, used_scc_fallback)`
+     3-tuple을 반환하도록 변경해 플래그를 dict 밖(파이썬 로컬 변수)으로
+     분리. `RadarD.update()`의 leadOne/leadTwo 호출부 3-value 언패킹으로
+     갱신, `LeadBlend` 우회 조건은 `lead_one_scc_fallback` 로컬 변수로
+     판단. **37차의 원래 안전 로직(비전 교차검증 없는 SCC 단일점 폴백은
+     LeadBlend를 계속 태운다)은 동작 그대로 유지, capnp 스키마 위반만
+     제거** — 37차 결론/패치 방향 자체는 변경 없음.
+  3. `cereal/log.capnp` 등 스키마 파일은 변경 없음(원복 방식이 스키마
+     확장보다 범위가 작고 안전).
+- **검증**: `ast`/`pyflakes` 통과. capnp 대입(dict->LeadData struct)
+  재현 테스트로 크래시(`AttributeError: struct has no such member;
+  name = sccFallback`) 실제 재현 후 수정본으로 정상 대입 확인. **실차
+  검증(radard 정상 기동 + 37차 원래 목적대로 동작하는지)은 아직 미실시.**
+- **교훈**: `radard.py`처럼 반환 dict가 capnp 구조체에 직접 대입되는
+  코드에 새 키를 추가할 때는, 순수 로직 합성테스트만으로는 부족하고
+  **실제 캡엔프 스키마(`cereal/log.capnp`) 필드와의 일치 여부를 반드시
+  별도 확인**해야 함 — 이번처럼 로직 검증은 전부 통과해도 스키마
+  불일치로 배포 즉시 크래시할 수 있음.
+
 
 ---
 

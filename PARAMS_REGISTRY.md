@@ -37,8 +37,8 @@
 | CUTOUT_DPATH_THRESH | 2.0m | 컷아웃 판정 dPath 임계값 | NEEDS_VALIDATION |
 | CUTOUT_VREL_GATE | -0.5 m/s | 컷아웃 판정 vRel 게이트 | NEEDS_VALIDATION |
 | SCC_FALLBACK_DPATH_GATE | 2.0m | `get_lead()`에서 `track_scc`(SCC 단일점, trackId=0) 채택 전 dPath(차선중심 대비, 곡률/차선폭 보정 포함) 기준 차로내 위치 게이트. 넘으면 폴백 미채택 — 옆차선/경로이탈 오탐 4건 근본원인 대응(37차). yRel 대신 dPath 채택 이유는 FINDINGS.md 37차 항목 참고 | PATCH_APPLIED(c3-ms-dev `21effa1`/c3-ms-test `b5a1209`), 로직 단위 합성검증(7케이스) 통과, 실차 미검증. CUTOUT_DPATH_THRESH와 동일값(2.0) 채택 — 별도 상수로 관리, 값 연동 아님 |
-| sccFallback 플래그 (Track.get_RadarState) | bool | track_scc 유래 채택인지 표시. True면 `RadarD.update()`에서 `radar=True`라도 LeadBlend 우회 안 함(cutout/danger-passthrough 계속 적용) | PATCH_APPLIED(양쪽 브랜치), 실차 미검증 |
-| (해결됨, 참고) radar=True → LeadBlend 전면 우회 | `RadarD.update()` line ~685 | ~~구 조건 `lead_one_raw.get('radar')`~~ → **패치 후**: `lead_one_raw.get('radar') and not lead_one_raw.get('sccFallback')`. track_scc 폴백 리드만 LeadBlend를 계속 타도록 분리 완료(37차 계속 3) | PATCH_APPLIED(양쪽 브랜치), 실차 미검증 |
+| sccFallback 플래그 (RadarD.get_lead 3-tuple 반환값, `used_scc_fallback`) | bool | track_scc 유래 채택인지 표시. True면 `RadarD.update()`에서 `radar=True`라도 LeadBlend 우회 안 함(cutout/danger-passthrough 계속 적용) | **[URGENT FIX 완료] 원래 dict 키(`sccFallback`)였으나 capnp LeadData 스키마에 없어 매 사이클 크래시(radard 프로세스 실행 불가) 유발 확인 — `f67a834`에서 dict 키 제거하고 `get_lead()` 3-tuple 반환의 파이썬 로컬 변수로 분리, 로직은 동일 유지. FINDINGS.md 해당 항목 참고. PATCH_APPLIED(로컬, patch 전달 대기), 실차 미검증** |
+| (해결됨, 참고) radar=True → LeadBlend 전면 우회 | `RadarD.update()` line ~680 | ~~구 조건 `lead_one_raw.get('radar')`~~ → **패치 후**: `lead_one_raw.get('radar') and not lead_one_scc_fallback`(로컬 변수, dict 키 아님 — 위 항목 참고). track_scc 폴백 리드만 LeadBlend를 계속 타도록 분리 완료(37차 계속 3, capnp 크래시 수정 후 f67a834) | PATCH_APPLIED(patch 전달 대기), 실차 미검증 |
 
 ## selfdrive/carrot/carrot_functions.py
 
