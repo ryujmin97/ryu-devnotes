@@ -9,9 +9,9 @@
 ---
 
 ## c3-ms-dev
-- last_analyzed_commit (38차): `c3ea08e` (HEAD, TTC 기반 aLead damping 게이트 패치 `git am` 적용 + push 완료, `21effa1..c3ea08e`)
-- date: 2026-08-22 (38차)
-- note: (38차) "앞차_민감" 이슈 패치 적용됨. 로직 단위 검증(rlog 재파싱)만 완료, acados MPC 파이프라인 통합 후 실차 검증은 아직. 다음 세션 최우선: 회귀 검증(위험 cut-in/급접근 시 반응 지연 없는지) + 승차감 체감 확인. 상세는 FINDINGS.md/WIP.md 38차 참고.
+- last_analyzed_commit (39차): `52668ec` (HEAD, 저속 구간 aLead weight rise-rate 제한 패치 `git am` 적용 + push 완료, `c3ea08e..52668ec`)
+- date: 2026-08-22 (39차)
+- note: (39차) "저속_앞차" 급정지 느낌 이슈 패치 적용됨(38차 TTC 게이트 위에 스택). 수치 시뮬레이션(rlog 재파싱 기반)만 완료, acados MPC 파이프라인 통합 후 실차 검증은 아직. 다음 세션 최우선: 38차+39차 통합 실차 검증 — (a) 저속 급정지 느낌 해소 체감, (b) 회귀 검증(저속 실제 위험 cut-in에서 danger override 정상 발동, 반응 지연 없는지), (c) RISE_RATE 값 승차감 기준 재조정 여부. 상세는 FINDINGS.md/WIP.md 39차 참고.
 
  (HEAD, 신규 커밋 없음 — 36차는 실주행 로그 분석 세션, 35차 계속 2에서 완료된 HEAD 그대로)
 - date: 2026-08-22 (36차)
