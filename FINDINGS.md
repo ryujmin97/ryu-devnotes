@@ -3600,3 +3600,41 @@ MPC의 리드 궤적 예측(`extrapolate_lead`)에서 완전히 사라짐**. MPC
 3. 나머지 미분석 로그(route4=`d45a15f8fc` 재업로드 전체 20세그,
    route9=`280302e8ed` 20세그)는 51차 버그수정판 turn_speed_violations()로
    아직 재스캔 안 함 — 다음 세션 후보.
+
+## 52차 계속 — route2 apex-vs-gap 재분류, route4/route9 turn_speed_violations 수정판 재스캔
+
+### route2(f3db6ca89d) apex-vs-gap 재분류
+- `curve_apex_vs_gap_delta()`로 16건 vturn overshoot과 커브 이벤트
+  매칭 시도 — 매칭 성공 11/16건에서 **gap(최대초과 시점)이 apex(조향각
+  정점)보다 0.3~1.75초 먼저 발생**(delta 음수), 46차 route2 32건
+  재분류 결과(79%가 gap이 apex보다 평균 1.26초 먼저 발생)와 일관.
+  나머지 5건은 인접 연속커브가 뒤섞여 매칭이 부정확(±2s 매칭 한계,
+  개별 재검증 필요). **결론: 대부분 "정점 자체에서 못 따라감"이 아니라
+  "진입/접근 중 이미 벌어진 문제가 정점까지 이어짐"** — lookahead
+  horizon 부적합 가설(ii)과 방향 일치.
+
+### route4(`d45a15f8fc`, 재업로드 전체 20세그) — turn_speed_violations 수정판 재스캔
+- **24건** 검출(47차 구버전 버그 함수로는 "v3=1건"이라 결론났던 route —
+  **그 결론 전체가 단위버그로 인한 false negative였음이 확정**,
+  PARAMS_REGISTRY.md 갱신 필요).
+- 1건(idx17, t≈10677~10686, dur=8.5s)은 `brakePressed`(55프레임)+
+  `cruiseEnabled=False`(164프레임) 겹침 — **운전자 개입 구간, ADAS
+  오버슈트 아님, 제외**.
+- 나머지 23건 전부 브레이크/disengage 없는 순수 ADAS 오버슈트.
+  over 2.2~15.1km/h, duration 0.3~6.6s.
+- aEgo_min vs `vturn_decel_rate`(1.2m/s²) 비율: 23건 중 **13건(57%)이
+  100%~288%** — route2(75%)보다는 낮지만 여전히 과반. **[주의] idx10
+  (over=13.3kph, dur=6.6s)은 aEgo_min=-3.45m/s²(설계값의 288%,
+  `A_CRUISE_MIN=-2.0` 물리클램프의 173%)로 이례적으로 강한 감속 —
+  다른 이벤트와 성격이 다를 수 있음(고이질감/실제 위험 상황 가능성),
+  다음 세션 개별 프레임 확인 최우선 후보로 추가.**
+- route4/route2 둘 다 "12/16건, 13/23건이 설계 감속률 이상으로
+  반응하는데도 못 따라잡음" 패턴이 재현 — 단일 route 우연이 아니라
+  **route 타입(연속 커브/고속도로 커브 구간) 전반의 일반적 패턴일
+  가능성 격상**.
+
+### route9(`280302e8ed`, 재업로드 전체 20세그) — turn_speed_violations 수정판 재스캔
+- **0건** — 기존 "안전지표 클린" 결론 유지(51차 단위버그 수정 이후로도
+  재확인, 이 route는 실제로 커브 콘텐츠가 적었던 것으로 판단).
+
+### 코드 변경 없음(분석만), patch 없음.

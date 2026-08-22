@@ -1,24 +1,33 @@
 # WIP — 중단 지점 (체크포인트, 세션 종료 아님)
 
-- 저장 시각: 2026-08-23 (52차, 체크포인트 — 코드 변경 없음, 분석만.
-  51차 최우선 과제 2건 착수) **route1(203f99d429 seg8)** 재검증:
-  turn_speed_violations() 수정판으로 vturn overshoot 1건 확인
-  (max_over 8.13km/h, 46/50차 "정점 감속 부족" 정성관찰 첫 정량화),
-  route 소스 0건(활성 구간에서 정상 준수). **route2(f3db6ca89d)**
-  전체 20세그 재업로드분으로 재스캔 → overshoot 16건(51차 부분스캔
-  14건에서 확대)으로 확대, **전부 운전자개입/리드차량 무관한 순수
-  vturn 오버슈트로 확정**. **[핵심 신규 발견]** 16건 중 12건(75%)이
-  실제 aEgo가 이미 `vturn_decel_rate`(1.2m/s² 설계값) 100~190%로
-  반응 중인데도 목표속도를 못 따라잡음 — "감속이 느긋해서"보다는
-  46차 후보(ii) `vturn_lookahead_horizon_s`(8.0s) 국도 급커브 간격
-  부적합(뒤늦은 발견) 쪽에 무게. NEEDS_VALIDATION, 상세는 FINDINGS.md
-  52차 항목 참고.
-  **다음 세션 최우선**: (1) 16건 apex-vs-gap delta 재분류(사전감속
-  지연 vs 정점 자체 부족), (2) lookahead horizon 가설 직접 검증 —
-  오버슈트 시작 8초 전 raw required_speed가 이미 급조임 반영했는지
-  재현(modelV2 raw 미보유 문제로 replay 스크립트 필요할 수 있음).
-  (3) route4(d45a15f8fc)/route9(280302e8ed) 전체 재업로드분은 51차
-  버그수정판으로 아직 미재스캔 — 후보로 남김.
+- 저장 시각: 2026-08-23 (52차 계속, 체크포인트2 — 코드 변경 없음,
+  분석만) 52차 다음과제 3개 중 (1)(3) 완료.
+  **(1) route2 apex-vs-gap 재분류**: 매칭 성공 11/16건에서 최대초과
+  시점이 조향각 정점보다 0.3~1.75초 먼저 발생(46차 79%/1.26초 결론과
+  일관) — "정점에서만 못 따라감"이 아니라 "진입중 이미 벌어짐" 쪽
+  확정적. 5건은 인접 커브 매칭 오류로 미확정.
+  **(3) route4(d45a15f8fc)/route9(280302e8ed) 전체 재업로드분 재스캔**:
+  route4 **24건**(1건 운전자개입 제외, 23건 순수ADAS, over 2.2~15.1kph)
+  — **47차 "v3=1건" 결론이 단위버그로 인한 false negative였음 확정**.
+  route9는 0건(기존 클린 결론 유지). route4 23건 중 13건(57%)도
+  route2(75%)와 유사하게 vturn_decel_rate(1.2m/s²) 100%+ 반응 중에도
+  못 따라잡는 패턴 재현 — **단일 route 우연 아니라 일반적 패턴으로
+  격상**. **[개별확인 필요]** route4 idx10(over=13.3kph, dur=6.6s,
+  aEgo_min=-3.45m/s²=설계값288%/물리클램프173%) 이례적으로 강한 감속,
+  다른 이벤트와 성격 다를 가능성 — 다음 세션 프레임 대조 우선순위.
+  PARAMS_REGISTRY.md의 vturn_lookahead_horizon_s 행을 52차 결과로
+  전면 갱신함(21차 "overspeed 0건" 결론 완전 폐기 명시).
+  **(2, 미착수)**: lookahead horizon 가설 직접 검증(raw required_speed
+  재현) — modelV2 raw가 CSV에 없어 별도 replay 스크립트 필요, 다음
+  세션 최우선으로 이월.
+  **다음 세션 최우선**:
+  1. route4 idx10 개별 프레임/qcamera 대조(이례적 강한 감속 성격 규명)
+  2. lookahead horizon 가설(ii) 직접 검증용 replay 스크립트
+     (49차 replay_vturn2.py 재활용 검토) — modelV2 raw required_speed_kph
+     궤적을 오버슈트 시작 8초 전부터 재현해 "이미 급조임을 반영하고
+     있었는지" 확인
+  3. route2 apex-vs-gap 미확정 5건 개별 재검증(±2s 매칭 정밀화 또는
+     수동 대조)
 
 
 - 저장 시각: 2026-08-23 (50차 계속, **push 완료 확인** — 사용자가
