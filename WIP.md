@@ -27,7 +27,36 @@
   근본원인 코드는 동일(`track_scc` 무검증 채택)하지만 발생 상황이
   다름 — 패치는 "옆차선"뿐 아니라 "주행경로 이탈 정지물체" 전반을
   커버해야 함. 상세는 FINDINGS.md 37차 항목 참고.
-- **다음 단계(다음 세션 최우선)**:
+- **패치 방향 결정(37차, 이번 체크포인트)**: 주(main) = `track_scc`
+  폴백 트랙에 별도 플래그를 달아 `LeadBlend`(특히 `CUTOUT_DPATH_THRESH`)
+  를 계속 타도록 분리. 보조 = `get_lead()` 진입 시점에 관대한 yRel
+  1차 필터(예: 3.0m 이상이면 후보 제외)로 극단 케이스 조기 차단.
+  근거: `dPath`는 이미 `Track.d_path()`에서 `md.laneLines` 기반 차선
+  중심 대비 위치로 계산됨(곡률/차선폭 보정 포함, 단순 yRel 아님) —
+  `track_scc`도 `Track` 인스턴스라 이 계산을 동일하게 받음. 단순 yRel
+  임계값(1번안)만으론 `7ffb3e693c--10`(yRel -1.4~-1.5m, 값 자체가
+  작음)을 못 거르지만 dPath 기반 판정은 커브 보정까지 포함하므로
+  이 케이스까지 커버될 가능성이 높음.
+- **cut-in/cut-out 영향 분석 완료(37차)**: 코드 확인 결과, **cut-out
+  감지는 이미 오늘도 `track_scc` 유래 리드에 적용되고 있음** — radar가
+  매 프레임 True→False로 바뀌는 순간(트랙 소실 시 raw가 vision-only로
+  fallback되며 radar=False가 됨) `else` 분기로 빠져 `lead_blend.update()`
+  가 호출되고, 이때 쓰이는 `self.prev`는 track_scc 프레임에서도 매번
+  `radar=True` bypass 중에 계속 갱신돼 옴(line 670 부근
+  `self.lead_blend.prev = dict(lead_one_raw)`). 즉 패치는 cut-out
+  판정 자체를 새로 추가하는 게 아니라, **트랙이 살아있는 동안(status
+  유지)의 "급접근 인지" 판정을 track_scc까지 확장**하는 것.
+  - 실제 위험한 cut-in(빠르게 끼어들며 closing/TTC<2.5s)은 `_is_dangerous()`
+    의 danger-passthrough 경로를 그대로 타서 **패치 후에도 즉시 반영**
+    (반응속도 저하 없음).
+  - 다만 위험하지 않은 완만한 cut-in(서서히 합류, closing 아님)은
+    현재 radar=True bypass 때는 raw 즉시 반영이었지만, 패치 후엔
+    `LEAD_BLEND_SAFE_DIST_TIME`(0.35s)로 스무딩됨 — **완만한 cut-in에서
+    약 0.35s 지연이 새로 생기는 게 유일한 실질적 사이드이펙트**.
+    안전성엔 문제 없으나 실차 검증 시 "느린 끼어들기 반응이 예전보다
+    부드러워졌는지" 체크 포인트로 삼을 것.
+  - cut-out 반응속도는 이미 오늘과 동일(로직 변경 없음), 회귀 위험
+    낮음.
   1. `get_lead()`의 `track_scc` 채택 조건에 최소 차로내 게이트
      (제안: `abs(track_scc.yRel) < 1.75~2.0m`) 추가 — 비전 대응 리드가
      없을 때만 쓰는 폴백이라 너무 엄격하면 안 됨, 튜닝 필요. 4건 중
