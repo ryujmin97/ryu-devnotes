@@ -70,6 +70,14 @@
   순간값만 반영해 조임 속도 후행) — 다음 세션 `vturn_speed()`
   (carrot_man.py) 코드 리딩으로 좁힐 것. 상세는 FINDINGS.md "(a)(b)
   이어서 진행" 항목 참고.
+  **[체크포인트3, (c) 완료] `curve_apex_vs_gap_delta()` toolkit
+  편입 완료** — `analysis_helpers.py`에 정식 함수로 추가(스크래치
+  스크립트와 회귀검증 일치 확인), README.md/CHANGELOG.md 동기화.
+  **1번(route2 32건 재분류) 작업 여기서 일단락.** 다음 세션 최우선:
+  `vturn_speed()`(carrot_man.py) 코드 리딩으로 (i)vturn_decel_rate
+  물리한계/(ii)vturn_lookahead_horizon_s 부적합/(iii)desiredCurvature
+  순간값 반영 3개 후보 중 근본원인 좁히기. 이후 남은 2)cam/road/
+  vCruiseCluster 캡 가설, 3)route3 steer 잔존값 규명 순서로 진행 예정.
 
 
 - 저장 시각: 2026-08-22 (45차 계속 — "정지 후 출발 가속 약화" 조치 패치
