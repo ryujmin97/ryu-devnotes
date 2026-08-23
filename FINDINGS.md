@@ -3835,3 +3835,99 @@ harsh_brake: route1 13(운전자 개입 다수 추정)/route2 75(정체구간 �
 이벤트의 운전자 개입 여부·qcamera 프레임 대조는 미실시(다음 세션
 과제, 특히 route2 harsh_brake 75건/cut-in 36건은 정체구간 비중이
 높아 개별 검증 필요성 낮게 추정되나 확정 아님).**
+
+## 56차 (완료 — 분석만, 코드 변경 없음) 대량 실주행 로그 9개(HEAD `f94a7d2`) 5개 항목 종합분석
+
+**로그**: 사용자가 15:53~19:00(약 3시간)에 걸쳐 수집한 9개 route
+(각 1개 boot session, 10~20세그): `d4c265f041`(x14, seg6~19만 포함
+—seg0~5는 미업로드), `a3a55cb808`(x15, **seg14는 rlog.zst zstd 프레임
+손상으로 제외**, seg0~13만 사용), `98fe04a961`(x20), `941dba0400`(x10),
+`fe5dd1ab6e`(x20), `c1c2e1f253`(x20), `27b2980cda`(x20), `1e6dbf517c`
+(x20), `b251da5b21`(x20). 총 9개 route, 약 189,336행. 55차 WIP 지시대로
+동일 5개 항목을 처음부터 재분석 + 55차 최우선 항목(route1 seg18 저크
+이상 2건) 재현 여부 교차검증을 우선 확인.
+
+**[컨테이너 제약]** `stopped_lead_decel_events`/`launch_after_stop_events`
+는 55차에서 `work/`(스크래치, 컨테이너 로컬)에만 있던 함수라 이번
+세션 컨테이너 리셋으로 소실 — devnotes 기록(FINDINGS.md 55차 항목
+설명)을 참고해 로직을 역재현함(`work/five_item_scan.py` 신규,
+toolkit 미편입 스크래치). 재현 로직: 정지앞차=`leadStatus and
+|leadVLead|<1.0m/s` 지속구간, 재출발=`vEgo<0.3m/s→5.0m/s` 도달 구간
+(45차 launch bypass 상수와 동일 값 사용). 레이더락온 저크는 0.3초
+이동평균 aEgo 기준 `|jerk|>=3.0m/s³`(39차 rise-rate 검증과 동일 문턱)
++ `leadRadar=True` 프레임만 집계.
+
+### 1) 카메라 인식 시 감속 분석
+`vision_to_radar_crossover()`로 9개 route 합계 117건 크로스오버 탐지
+(route별 8~24건). `vRel_at_vision_start<-5.0m/s & dRel_closed>10m`인
+강접근 후보 2건 개별 확인: (1) d4c265f041--12(vRel -8.2, dClosed
+18.7m) — `aEgo_min=-2.26/avg=-1.44`로 확실한 조기반응(정상). (2)
+27b2980cda--8(vRel -5.9, dClosed 10.6m) — `aEgo_min=-0.43/avg=-0.25`로
+다소 약하나 접근량 자체가 작아(10.6m) 41/42/55차급 "저반응" 이상
+패턴으로 보긴 부족(경계 사례, 신규 이상 아님). **이번 세션은 55차
+같은 뚜렷한 저반응 잔여패턴 재현 없음** — frac_rate 게이트는 이번
+로그 전반에서 정상 동작 범위로 판단.
+
+### 2) 정지 앞차 감속 분석
+26건 탐지(9개 route 중 6개에 존재, 나머지 3개는 정지선행차 상황
+자체가 없어 0건). 26건 중 **15건은 운전자 개입 프레임 0(순수
+ADAS)**, 11건은 driver_brake_frames 또는 driver_gas_frames가 섞여
+있어 운전자 개입/보조 판단이 필요(대부분 마지막 정차 직전 저속
+구간에서 운전자가 브레이크를 함께 밟은 것으로 추정, 개별 프레임
+대조는 안 함). 순수 ADAS 15건 전부 `aEgo_min` -0.23~-3.41m/s²
+범위에서 harsh_brake 없이 매끈하게 감속 완료 — 55차 결론(정지앞차
+추종 클린)과 일관.
+
+### 3) 정지 후 재출발 로직 분석 (45차 launch bypass)
+6건 탐지(d4c265f041 2/a3a55cb808 3/b251da5b21 1), **전부
+`driver_gas_ratio=0.0`**(완전 ADAS 재출발). 재출발 소요시간
+3.96~25.76초, `aEgo_max` 1.19~2.51m/s², `aEgo_avg` 0.19~1.19m/s² —
+무가속/정체 구간 없이 매끈. 55차와 동일하게 launch bypass 패치가
+정상 동작 중인 것으로 판단(간접 확인).
+
+### 4) 레이더 락온 상태 저크 민감반응 분석 — **55차 최우선 이상패턴 재현 확인**
+9개 route 합계 307건(route별 4~105건, `a3a55cb808`가 105건으로
+유독 많음 — 저속/정지앞차 밀집 구간 비중이 높아 그런 것으로 추정,
+개별 원인 미검증). **55차 route1 seg18 이상패턴(`leadVRel≈0`인데
+큰 저크)과 동일 조건(`|leadVRel|<1.0m/s & |jerk|>=5.0`)으로 필터링한
+결과 4건 재현**:
+- `a3a55cb808--4` t=3905.30, jerk=+6.60, leadVRel=-0.10, leadDRel=44.7m, **src=road**
+- `98fe04a961--9` t=647.21, jerk=+6.70, leadVRel=-0.50, leadDRel=64.9m, **src=road**
+- `c1c2e1f253--6` t=2833.29, jerk=+5.29, leadVRel=-0.10, leadDRel=51.8m, **src=section**
+- `fe5dd1ab6e--2` t=1378.69, jerk=**-5.37**(감속방향, 나머지 3건과 반대), leadVRel=-0.40, leadDRel=53.1m, **src=vturn**
+
+55차 2건(둘 다 route1 seg18, src 미기록)과 합쳐 표본이 2→6건으로
+확대됨. **신규 관찰**: 이번 4건 중 3건이 가속(+) 방향 저크이며
+`src=road`/`section`(vturn 아님)인 것으로 새로 확인됨 — 45차 WIP가
+우려했던 "launch bypass exit 전환 시 w 급하강"(감속 관련 가설)보다는
+**`desiredSource`/타깃 전환(예: road↔section, 또는 리드 타겟 자체
+전환) 순간의 목표속도/가속도 단절**일 가능성이 더 커짐(가설 수정).
+`src=vturn` 1건만 반대 방향(감속)이라 곡선 관련 별도 메커니즘일
+수도 있음 — 표본 작아 확정 아님. **다음 세션 코드리뷰 시 최우선
+확인 후보를 "launch bypass" 단독에서 "source/타깃 전환 시점의
+가감속 단절 전반(carrot_serv.py `speed_n_sources`/`source_transition_log`
+관련 로직 포함)"으로 범위 확장 권고.**
+
+### 5) 곡선구간 감속 분석
+`turn_speed_violations()` 3건(d4c265f041 1/b251da5b21 2, max_over
+3.58~12.44km/h) — 이번 로그는 커브 구간 자체가 적어(대부분 시내/
+정체 위주 주행으로 추정) 51/54/55차 대비 표본이 크게 줄었으나,
+방향성(양쪽 다 초과=속도가 vTurnSpeed를 못 따라가는 언더슈트 아닌
+오버슈트 패턴)은 기존 apex lag 이슈와 일관. `curve_exit_no_accel_scan_v4`
+는 9개 route 전부 0건 — 48차 결론(탈출후 무가속 버그 없음) 재확인.
+
+### 종합 안전지표
+harsh_brake(ADAS 활성중) 전부 0건(9/9 route). cut_in: 0~5건(대부분
+저속). ttc_danger(≤2.5s): 0~2건. 급제동/위험 cut-in 계열은 이번
+9개 route 전부 클린.
+
+### 다음 세션 최우선
+1. **4번 저크 이상 6건(55차 2건+56차 4건) 코드리뷰 착수** — 대상
+   범위를 launch bypass(`long_mpc.py`)에서 source/타깃 전환 로직
+   전반(`carrot_serv.py` `speed_n_sources`/`source_transition_log`,
+   `long_mpc.py`의 리드 재획득/전환 처리)으로 확장해 확인.
+2. 1번 저반응 후보(27b2980cda--8)는 경계 사례라 저우선 유지, 추가
+   표본 나오면 재확인.
+3. `a3a55cb808` route의 저크 이벤트 105건(다른 route 대비 압도적으로
+   많음) 원인 미검증 — 저속/정체 밀집 구간 특성 때문인지 확인 필요
+   (저우선, 코드리뷰 이후).

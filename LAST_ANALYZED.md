@@ -9,6 +9,14 @@
 ---
 
 ## c3-ms-dev
+- last_analyzed_commit (56차): `f94a7d2` (HEAD, 신규 커밋 분석 아님 —
+  56차는 대량 실주행 로그 9개(약 3시간, 189,336행) 5개 항목 재분석
+  세션. 55차 최우선이던 route1 seg18 저크 이상패턴(leadVRel≈0인데
+  큰 저크)이 4건 추가 재현됨(표본 2→6건) — src=road/section(vturn
+  아님)이 3/4건이라 원인 가설을 "launch bypass"에서 "source/타깃
+  전환 로직 전반"으로 확장. 그 외 4개 항목은 55차 결론과 대체로
+  일관(정지앞차/재출발 클린, curve_exit 0건, 안전지표 전부 클린).
+  상세는 FINDINGS.md 56차 항목 참고.
 - last_analyzed_commit (54차): `f94a7d2` (HEAD, 신규 커밋 분석 아님 —
   54차는 route4(`d45a15f8fc`) 재업로드 rlog로 lookahead horizon
   가설(ii) 첫 실제 검증 세션. `replay_lookahead_v1.py` 실행 결과
