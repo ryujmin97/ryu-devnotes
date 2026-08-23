@@ -17,7 +17,29 @@
 
 ---
 
-## [NEEDS_VALIDATION] 58차 3번 — 정지앞차(정체구간) 8초 미인식 + 검출 후 비전 낙관추정, 원인 특정/패치 완료 (2026-08-23, 58차 3번)
+## [FIXED] 58차 3번 후속 — A(조기등록)를 무력화시키던 get_lead() 외곽 게이트 중복체크 버그 (2026-08-23, 58차 3번 후속수정)
+- **배경**: 58차3번(A+B) push 직후 "기기에러 안 나는지 검증" 요청으로
+  코드 재검토 중 발견.
+- **증상**: `VisionTrack.update()` 내부에 A(tentative 조기등록)를
+  넣었지만, 이를 감싸는 바깥 `RadarD.get_lead()`가
+  `elif (track is None) and ready and (lead_msg.prob > .5):`로
+  `lead_msg.prob`를 독립적으로 재체크 — A로 `VisionTrack.status`가
+  일찍 True가 돼도 이 게이트에 막혀 `radarState.leadOne`엔 전혀 반영
+  안 됨. **크래시는 아니고 A가 실질적으로 무력화된 논리버그.**
+- **원인**: A 설계 당시 `VisionTrack.update()` 내부만 보고 바깥
+  호출부의 독립적인 동일 조건 중복 체크를 놓침.
+- **조치**: 바깥 게이트 조건을 `lead_msg.prob > .5` 대신
+  `self.vision_tracks[index].status`로 교체(이미 같은 tick에 update()
+  끝난 최신 상태를 신뢰 — 정식경로+A 조기등록 경로 둘 다 자연스럽게
+  커버).
+- **검증**: `sim_vision_track_ab.py` `scenario_outer_gate_propagation`
+  신규(구게이트 8초간 미노출 / 신게이트 프레임9 노출 확인), 전체 7건
+  PASS. `git am` base `ff50b03`(원격 실제 HEAD) 검증 통과.
+- **근거**: 코드리뷰(로그/실차 재현 아님). 크래시 위험 자체는 별도로도
+  점검 완료(신규 필드가 capnp 대입 경로에 안 들어감 확인, 40차
+  `sccFallback`류 재발 없음).
+
+
 - **증상**: 산길 정체구간에서 정지앞차를 인식 못 해 운전자가 브레이크
   개입(`정지차량_미인식.zip`, route `a3a55cb808` seg10, t=4301~4312).
 - **원인**: `radard.py` `VisionTrack.update()` 두 지점.

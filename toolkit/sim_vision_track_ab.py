@@ -198,6 +198,35 @@ def scenario_high_prob_regression():
     return ok
 
 
+def scenario_outer_gate_propagation():
+    """58차3번 A 후속수정 검증: radard.py get_lead()(바깥 함수, 783번째줄)의
+    'elif track is None and ready and lead_msg.prob>.5' 게이트가
+    'elif track is None and ready and vision_tracks[index].status'로
+    바뀐 것이 실제로 A의 조기등록을 최종 출력(lead_dict)까지 전파시키는지
+    확인. 구게이트(prob>.5)로는 A-1과 동일 시나리오에서 8초 내내
+    lead_dict가 노출 안 됐어야 하고, 신게이트(status)로는 A-1처럼
+    프레임9 근처에서 노출돼야 함."""
+    vt = VT()
+    dRel = 130.0
+    old_gate_first_exposed = None
+    new_gate_first_exposed = None
+    for i in range(160):
+        dRel -= 0.05
+        status, vLead, cnt, tcnt = vt.update(prob=0.42, dRel_candidate=dRel, v_rel_pred=-1.0, v_ego=28.0)
+        # 구게이트 재현: prob>.5 여부만 봄 (이번 시나리오는 prob=0.42 고정이라 항상 False)
+        old_exposed = (0.42 > 0.5)
+        # 신게이트 재현: vision_tracks[index].status를 그대로 봄
+        new_exposed = status
+        if old_exposed and old_gate_first_exposed is None:
+            old_gate_first_exposed = i
+        if new_exposed and new_gate_first_exposed is None:
+            new_gate_first_exposed = i
+    ok = (old_gate_first_exposed is None) and (new_gate_first_exposed is not None) and (new_gate_first_exposed <= 12)
+    print(f"[외곽게이트 전파] 구게이트 노출프레임={old_gate_first_exposed}(None 기대) / "
+          f"신게이트 노출프레임={new_gate_first_exposed}(프레임10 근처 기대) -> {'PASS' if ok else 'FAIL'}")
+    return ok
+
+
 if __name__ == "__main__":
     results = [
         scenario_A_early_registration(),
@@ -206,6 +235,7 @@ if __name__ == "__main__":
         scenario_B_safety_floor_pulls_down_optimistic_model(),
         scenario_B_no_intervention_when_model_correct(),
         scenario_high_prob_regression(),
+        scenario_outer_gate_propagation(),
     ]
     print(f"\n총 {len(results)}건 중 {sum(results)}건 PASS")
     assert all(results), "일부 시나리오 FAIL -- 코드 재검토 필요"

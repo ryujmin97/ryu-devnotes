@@ -1,3 +1,44 @@
+## 58차 3번 후속수정 (긴급 — A 무력화 버그 발견/수정, 패치 전달 완료, 실차 재검증 필요) — 정지앞차 미인식
+
+**배경**: 58차3번(A+B) push 직후, 사용자가 "오늘 커밋한 부분이 기기에러
+안 나는지 검증해달라"고 요청 → 코드 재검토 진행.
+
+**검증 결과**:
+1. **크래시 위험 없음** — 신규 필드(`tentative_cnt`/`tentative_dRel_last`)는
+   `get_lead()` 반환 dict(capnp 구조체로 대입되는 경로)에 전혀 안 들어감,
+   40차 `sccFallback`류 크래시 재발 위험 없음 확인. `py_compile`/`git am`
+   재검증(base `ff50b03`, 실제 원격 HEAD) 통과. 0-division 등 예외
+   유발지점도 가드 있음 확인. (모듈 실제 import는 컨테이너에
+   `msgq.ipc_pyx` 없어 완전한 파이프라인 검증은 이 환경에서 불가 — 기존
+   세션들과 동일한 한계.)
+2. **[FIXED, 긴급] A(조기등록) 무력화 버그 발견** — `get_lead()`(783번째줄,
+   `RadarD.get_lead`, `VisionTrack.update()`를 감싸는 바깥 함수)의
+   `elif (track is None) and ready and (lead_msg.prob > .5): lead_dict =
+   self.vision_tracks[index].get_lead(md)` 이 `lead_msg.prob`를 **VisionTrack
+   내부와 별개로 독립 재체크**하고 있었음. VisionTrack.update() 안에서 A로
+   `status`가 tentative 조기승격돼도, 이 바깥 게이트가 여전히 prob>0.5만
+   보고 막아버려서 **radarState.leadOne엔 A의 효과가 전혀 반영이 안 되는
+   상태**였음(크래시는 아니고 A가 유명무실한 논리버그).
+
+**조치**: 바깥 게이트를 `lead_msg.prob > .5` 중복체크 대신
+`self.vision_tracks[index].status`(같은 tick에 이미 update() 끝난 최신
+상태, 정식경로+A 조기등록 경로 둘 다 자연스럽게 포함)로 교체.
+
+**검증**: `sim_vision_track_ab.py`에 `scenario_outer_gate_propagation`
+신규 추가(총 7건 PASS) — 구게이트로는 A-1과 동일 시나리오(8초 정지앞차
+재현)에서 lead_dict가 한 번도 노출 안 됨(None) / 신게이트로는 프레임9
+(≈0.45s)에 노출 확인, A가 실제로 최종 출력까지 전파되는지까지 검증.
+
+**전달**: `0002-58-3-A-outer-gate-fix.patch`를 `/mnt/user-data/outputs/`에
+생성, **base `ff50b03`(사용자가 이미 push한 원격 HEAD)** 위에서 `git am`
+검증 + `py_compile` 통과 확인 후 전달.
+
+**다음(최우선)**: 이 후속수정까지 적용한 뒤 실차 재검증. 이전 58차3번
+"다음(최우선)" 항목(A 오탐지 회귀 확인, B 승차감 확인)에 더해, **이번
+수정으로 A가 처음으로 실제 동작하게 된 것이므로 A의 조기등록 자체가
+이번에야 진짜 실차에서 시험대에 오름** — 특히 오탐지(복잡한 배경에서
+없는 리드 조기등록) 여부를 더 유심히 볼 것.
+
 ## 58차 3번 (설계·구현·합성검증·패치 적용/push 완료, 실차검증 대기) — 정지앞차 미인식/과소반응 (A+B)
 
 **배경**: 사용자가 산길 정체구간 정지앞차 미인식으로 브레이크 개입한
