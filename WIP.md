@@ -1,4 +1,39 @@
 
+## 58차 2번 (설계 확정, 구현 착수) — 정체구간 붕끗 완화
+
+**증상**: 정체구간에서 앞차 정지-출발 반복 시 자차가 "붕끗"(급격히
+반응했다 풀렸다) 느낌. 사용자 진단: "선행차 변화에 민감대응 코딩
+영향, 정체구간 한정 별도 로직 필요."
+
+**원인 확정**: `LAUNCH_BYPASS_STOP_V_EGO(0.3)/EXIT_V_EGO(5.0)`(45차)는
+"정차→출발" 단발 이벤트만 상태로 관리 -- 재출발 중 v_ego가 5.0m/s를
+잠깐 넘으면 즉시 38/39차 TTC 기반 로직(`ttc_accel_weight`)으로 복귀.
+정체구간은 구조적으로 dRel(차간거리)이 짧아, 앞차의 정상적인 미세
+감속에도 TTC=dRel/closing이 쉽게 LEAD_ACQ_TTC_DANGER(2.5s) 밑으로
+떨어짐 -- 이 danger override는 rise-rate 제한(39차)까지 전부 우회하고
+즉시 weight=1.0(무감쇠)로 튐. 정체구간의 정상적인 정지-출발 흐름을
+"실제위험"으로 오판해 반응하는 것이 붕끗의 root cause로 판단.
+
+**설계**: "정체(congestion)" 상태를 별도로 추적 -- 최근 시간창
+(CONGESTION_WINDOW_S) 이내 정차(v_ego<STOP_V_EGO 진입) 횟수가
+CONGESTION_STOP_COUNT_THRESH 이상이면 congestion_active=True.
+정체 중엔 danger override 조건에 "TTC 짧음" 단독이 아니라 "실제
+closing 속도도 유의미하게 큼"(CONGESTION_MIN_CLOSING_FOR_DANGER)을
+추가로 요구 -- 정체 중 정상적인 짧은 dRel + 완만한 closing으로는
+더 이상 즉시 무감쇠로 튀지 않고, 진짜 급접근(closing 큼)은 여전히
+즉시 반응. congestion_active는 속도가 CONGESTION_EXIT_SPEED 이상을
+CONGESTION_EXIT_SUSTAIN_S 이상 유지하면 해제(고속 정상주행 복귀 판단).
+
+**안전 설계 원칙(중요)**: 정체 중이라고 반응을 무조건 죽이는 게 아니라
+"TTC 단독 판정"에서 "TTC + closing 속도 동시 판정"으로 기준을
+강화하는 것 -- 실제 급정지/cut-in처럼 closing 속도 자체가 큰 위험은
+정체 중에도 그대로 즉시 반응.
+
+**다음(같은 세션에서 이어서 구현)**: 위 설계대로 long_mpc.py에
+congestion 상태 추적(deque 기반 정차 이력) + danger override 조건
+수정 구현 → 합성검증 → patch 작성 → 사용자 전달.
+
+
 ## 58차 1번 (완료 — 패치 적용/push 완료, 실차 검증 대기) — 카메라 감속 강화
 FINDINGS.md/PARAMS_REGISTRY.md/LAST_ANALYZED.md 58차 1번 항목 참고.
 요약: `radard.py` VisionTrack 게이트 완화 + `long_mpc.py` v_lead 직접
