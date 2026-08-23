@@ -31,6 +31,10 @@
 
 | 상수 | 현재값 | 용도 | 검증상태 |
 |---|---|---|---|
+| VISION_TRACK_TENTATIVE_PROB_GATE | 0.35 | (58차3번 A) 이 이상이면 tentative(예비) 후보 카운트 시작 | NEEDS_VALIDATION (2026-08-23, 신규 도입 — "정지차량_미인식" 실사례(8초간 leadModelProb<0.5로 트랙 미등록) 대응. 로직단위 합성검증(sim_vision_track_ab.py A-1/A-2/A-3) PASS. 실차 검증 없음 — 특히 오탐지(존재하지 않는 리드 조기등록) 위험 확인 필요. FINDINGS.md 58차3번 참고) |
+| VISION_TRACK_TENTATIVE_CNT_GATE | 10 (0.5s@20Hz) | (58차3번 A) tentative 상태가 이만큼 연속 유지되면 정식등록(prob>.5 문턱 우회) | NEEDS_VALIDATION (위와 동일 이력) |
+| VISION_TRACK_TENTATIVE_DREL_JITTER | 8.0m | (58차3번 A) tentative 추적 중 dRel이 이 이상 튀면 다른 물체로 판단, tentative_cnt 리셋 | NEEDS_VALIDATION (위와 동일 이력) |
+| VISION_TRACK_SAFETY_MIN_CNT | 2 | (58차3번 B) prob<VISION_TRACK_PROB_GATE(0.70) 구간에서 dRel 실측 이력이 이 프레임 이상 쌓이면, 실측기반 vLead가 모델예측보다 위험할 때만 min() 안전측 보정 적용 | NEEDS_VALIDATION (2026-08-23, 신규 도입 — 58차1번 v_lead 안전클램프와 동일 원칙 재사용. sim_vision_track_ab.py B-1(실사례 근사 재현)/B-2(정상상황 무간섭) PASS. 실차 검증 없음. FINDINGS.md 58차3번 참고) |
 | LEAD_BLEND_TTC_DANGER | 2.5s | TTC 이하 즉시 반영 | FIXED (route1/2 검증됨) |
 | LEAD_BLEND_DANGER_HOLD | 0.3s | 위험 판정 후 스무딩 우회 유지 시간 | - |
 | LEAD_BLEND_SAFE_DIST_TIME | 0.35s | 안전방향 블렌딩 시정수 | - |
