@@ -3986,3 +3986,57 @@ zstd 손상, seg0~13만 사용)/`98fe04a961`/`941dba0400`/`fe5dd1ab6e`/
 추정되며, 이번엔 |jerk| 상위 6건만 개별 대조했음. 낮은 임계값 전체
 919건 분류는 미실시(저우선).
 
+
+## 58차 1번 (완료 — 패치 적용/push 완료, 실차 검증 대기) — 카메라(vision) 인식 감속을 레이더 인식 수준으로 강화
+
+**요청**: "카메라 인식 감속이 좀 약함. 좀 더 강하게 하고싶어(레이더 인식
+준용)."
+
+**근본원인**: `radard.py`의 `VisionTrack.update()`가 원거리 vision lead에
+대해 두 경로 중 (a) 단일 프레임 모델 예측(`lead_v_rel_pred`, 노이즈에
+약하고 접근율 과소평가 경향) (b) 실측 dRel 미분값(레이더와 동일한
+"위치 변화 → 속도" 방식, 훨씬 정확) 중 하나를 골라 쓰는데, 게이트
+조건(`prob<0.97 또는 cnt<20`이면 (a)만 사용)이 실제 원거리 vision
+lead의 prob 분포(0.5~0.8대가 흔함)에서 거의 항상 걸려 (b) 경로가
+사실상 죽어있었음. 56/57차 qcamera 대조로 반복 확인된 "카메라 인식
+시 미감속" 패턴의 root cause.
+
+**조치 2건**:
+1. `radard.py`: `VISION_TRACK_PROB_GATE=0.70`/`VISION_TRACK_CNT_GATE=10`
+   (기존 0.97/20)로 게이트 완화, model_weight 보간 구간도 재조정.
+   **합성검증 결과 이 변경 단독으로는 효과가 제한적임을 확인**
+   (alpha=0.02 저역통과 시정수가 2.5초로 매우 느려서, 게이트가 자주
+   열려도 실측값에 수렴하는 속도 자체가 느림 + 모델 예측 자체의
+   편향이 blend에 계속 섞임).
+2. **[핵심]** `long_mpc.py`: `process_lead()`에 `vision_dRel_rate`
+   파라미터를 추가, vision-only + 충분히 오래 추적된(`_lead_acq_timer
+   >= VISION_CLOSING_RATE_MIN_TIME`) 경우 long_mpc가 이미 25/26차부터
+   독립적으로 계산해오던 `_vision_dRel_rate`(실측 dRel 미분, 지금까지는
+   frac_rate로 MPC obstacle-distance 하한(floor)만 조이는 데 썼음)를
+   MPC가 실제 lead 궤적을 extrapolate하는 `v_lead` 자체에도 반영.
+   안전측(더 빠른 접근 쪽)으로만 작동, 완화 방향 없음. leadTwo에는
+   미적용(`_vision_dRel_rate` 자체가 leadOne 기준으로만 부기됨).
+
+**검증**: `work/test_visiontrack_gate.py`(합성 시나리오)로 1번 변경의
+게이트 진입 빈도 증가 확인 + 한계(alpha/모델편향) 확인. 2번 변경은
+별도 합성 시나리오로 v_lead 보정(24.0→19.0m/s) 시 t=4s MPC 예측 lead
+거리가 196m→176m로 좁혀짐을 확인 — 더 이르고 강한 감속 목표로 이어짐,
+2번이 실질 개선의 핵심으로 판단.
+
+**적용 이력**: patch 2개(`0001-radard-VisionTrack-dRel-58-1.patch`,
+`0002-long_mpc-vision-only-lead-dRel-_vision_dRel_rate-v_l.patch`)
+전달. 사용자 로컬 `C:\dev\ryu`가 origin보다 크게(30개+ 커밋, `a4b5550`
+시점) 뒤처져 있어 첫 `git am` 시도에서 패치2가 컨텍스트 불일치로 실패
+→ `git reset --hard origin/c3-ms-dev`로 최신 기준(`f94a7d2`)까지 정리
+후 재적용 성공, `git push` 완료(`f94a7d2..e17e078`).
+
+**[주의, 다음 세션 확인]** 사용자 로컬이 22~23차 시점 커밋(`a4b5550`)
+까지밖에 없었다는 건 그 사이의 40차 radard 크래시 긴급수정(`c31ddca`)/
+45차 launch bypass(`651c434`) 등 여러 중요 패치가 실제 기기에 반영
+안 됐을 가능성을 시사 — 사용자에게 평소 쓰던 `C:\dev\ryu`가 맞는지,
+기기에 배포된 코드가 실제로 최신인지 확인 권장(다음 세션 후보, 낮은
+긴급도는 아님).
+
+**다음 단계**: 실차 검증 — (a) 원거리 vision-only 접근 상황에서 감속
+개시가 빨라지는지, (b) 회귀 검증(정상 추종 상황에서 불필요하게
+조여지지 않는지). 통과 시 → 2번 과제(정체구간 붕끽 완화)로 진행.

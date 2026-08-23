@@ -9,6 +9,21 @@
 ---
 
 ## c3-ms-dev
+- last_analyzed_commit (58차 1번): `e17e078` (HEAD, 신규 커밋 2개 —
+  `1f0d292`(radard: VisionTrack 실측 dRel미분 게이트 완화) +
+  `e17e078`(long_mpc: vision_dRel_rate를 v_lead에 직접 반영). 둘 다
+  사용자가 `C:\dev\ryu`에서 `git am` 적용 + `git push` 완료 확인
+  (`f94a7d2..e17e078`). **적용 과정에서 사용자 로컬이 origin보다
+  30개+ 커밋(a4b5550 시점까지) 뒤처져 있던 게 발견됨 — `git reset
+  --hard origin/c3-ms-dev`로 정리 후 재적용.**
+- date: 2026-08-23 (58차 1번)
+- note: (58차 1번) "카메라 인식 감속이 레이더 대비 약함" 개선 요청
+  대응 — VisionTrack 게이트 완화 + long_mpc v_lead 직접 보정(핵심).
+  합성검증 완료, 실차 검증 대기. 상세는 FINDINGS.md/PARAMS_REGISTRY.md
+  58차 항목 참고. **사용자 로컬-원격 동기화 상태 재확인 필요(다음
+  세션 후보).**
+
+## c3-ms-dev
 - last_analyzed_commit (56차): `f94a7d2` (HEAD, 신규 커밋 분석 아님 —
   56차는 대량 실주행 로그 9개(약 3시간, 189,336행) 5개 항목 재분석
   세션. 55차 최우선이던 route1 seg18 저크 이상패턴(leadVRel≈0인데
