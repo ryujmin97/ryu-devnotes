@@ -4046,7 +4046,76 @@ danger override 오발동으로 인한 붕끗"의 ADAS 개입 사례를 찾지
 변경, `ryu` 코드는 미변경(2번 구현 여전히 착수 전).
 
 
-## 58차 2번 계속3 (진행 중, 방향 재검토 필요) — 화면녹화+rlog 대조로 "정체구간 붕끗" 이벤트 정량 확인, 원 가설(danger override) 기각
+## 58차 2번 계속4 (설계 확정·구현·합성검증·패치 전달 완료, 실차검증 대기) — 저속+앞차 강한감속 danger override 확장
+
+**배경**: 아래 "58차 2번 계속3"에서 정량 확인된 원인(TTC 6~12s 램프
+구간에서 앞차 실측 감속이 과도하게 감쇠되다 한꺼번에 반영)에 대해
+조치 후보 (a)GATE_NONE 상향 / (b)앞차 실측 감속 크기 기반 보조 경로
+/ (c)정체 한정 프레이밍 폐기 중 논의.
+
+**방향 결정**: (b) 채택. 근거:
+1. GATE_NONE 상향은 이번 케이스(강한 감속만 조기 반영돼야 함)와
+   달리 완만한 감속 상황까지 전부 더 일찍 반응하게 만들어 문제를
+   정밀하게 못 잡고 범위만 넓힘.
+2. 26차(vision closing-rate 게이트)/38차(TTC 게이트 자체)와 동일하게
+   "TTC 단독"이 아니라 "실측 위험 신호(이번엔 aLeadK)"를 별도
+   축으로 추가하는 것이 이 코드베이스가 반복해온 검증된 패턴.
+3. `LEAD_ACCEL_TTC_GATE_FULL=12.0`은 이미 NEEDS_VALIDATION 상태라
+   더 넓히면 회귀검증 부담만 커짐.
+
+사용자 요구로 범위를 추가로 좁힘: **"저속구간(정체 등) 한정, 그 외
+구간엔 영향 없어야 함"** → TTC 문턱 자체를 만지지 않고, 저속(v_ego
+게이트) + 강한감속(a_lead 문턱) 조합을 새 danger-override 보조
+경로로 얹는 방식으로 최종 설계.
+
+**설계값**: `LOW_SPEED_STRONG_DECEL_V_EGO_GATE=30km/h`(≈8.33m/s,
+이번 이벤트 피크 29.4km/h를 포함하면서 일반 주행과는 구분되는 선),
+`LOW_SPEED_STRONG_DECEL_A_LEAD_THRESH=-1.8m/s²`(이벤트 실측 -1.5~
+-2.0m/s²대 참고). "congestion_active"(정차 반복횟수 상태추적, 58차
+2번 원설계에 있던 것) 병행은 보류 — 단순 v_ego 게이트만으로 저속
+한정 요구가 충족되고 이번 실측 이벤트도 커버되므로, 복잡도를 낮추는
+쪽으로 사용자와 합의(오탐 나오면 추후 좁히기로).
+
+**구현** (`long_mpc.py`, `process_lead()`): danger override 판정에
+`or low_speed_strong_lead_decel`(= `v_ego <= GATE and a_lead <=
+THRESH`) 추가. 성립 시 TTC 위치·39차 rise-rate 제한과 무관하게 즉시
+weight=1.0 — "TTC 문턱 넘을 때까지 감쇠 누적 후 몰아서 반영"이 아니라
+애초에 감쇠 자체가 안 생기게 하는 방향. 게이트가 v_ego 하나로 닫혀
+있어 게이트 밖(고속/일반 주행)에서는 이 분기가 원천적으로 안 열림.
+
+**합성검증** (`devnotes/toolkit/sim_low_speed_decel.py`): `process_
+lead()`의 weight 계산부(margin_accel_weight/ttc_accel_weight/
+rise-rate limiter/danger override)를 순수함수로 재현, 4개 시나리오
+전부 PASS —
+- **A(고속 회귀)**: v_ego=25m/s 고정, TTC 6~12s 램프 왕복 + a_lead
+  강(-2.0)/완만(-0.2) 번갈아도 patch 전/후 weight 시퀀스 **diff=0**
+  (게이트 밖 100% 동일 보장 확인).
+- **B(이벤트 재현)**: 저속(0→28.8km/h 재가속, 실측 피크 29.4km/h와
+  근접) + a_lead=-1.8 지속, closing을 0→4.5m/s로 램프시켜 min
+  TTC≈3.33s로 구성(danger 2.5s 미발동, 실측 4.45s와 정합 — 우연히
+  기존 danger override 경로를 밟지 않도록 의도적으로 통제). unpatched는
+  초반(t=0.5s) weight=0.000(감쇠 발생) → 최대 사이클당 변화폭이
+  rise-rate 한계(0.050=1.0/s×dt)에 걸려 몰아서 반영되는 패턴 재현.
+  patched는 전 구간 weight=1.0 고정(감쇠 자체 미발생, danger override
+  경로가 아니라 저속게이트 경로로 도달했음을 danger_hit=False로 확인).
+- **C(오탐 방지)**: 저속이지만 a_lead=-0.5(threshold -1.8 미달) —
+  게이트 미개방, patch 전/후 **diff=0**.
+- **D(경계 전이)**: v_ego가 게이트값(8.333m/s)을 sin으로 여러 번
+  넘나들어도 예외 없이 동작, 게이트 열린 300프레임 전부 즉시 w=1.0.
+
+단, 이는 로직 단위 합성검증이며 **실제 acados MPC 파이프라인/실차
+로그로는 아직 미검증**(26차 때와 동일한 한계).
+
+**전달**: `c3-ms-dev` 로컬 커밋 `6440fe9`(base `e17e078`). `git
+format-patch` → `verify-am` 브랜치에서 `git am` + `py_compile` 통과
+확인 → `0001-long_mpc-danger-override-58-2.patch` 전달 완료.
+
+**다음(최우선)**: 실차 검증 — (1) 이번 이벤트와 같은 저속 재가속+
+앞차감속 상황에서 급가속→급감속 반전(붕끗)이 사라지는지, (2) 고속/
+일반 주행 회귀 없는지. 통과 시 58차 3번(정지앞차 반응 강화)으로 진행.
+
+
+## 58차 2번 계속3 (완료 — 아래 내용 그대로, 계속4에서 방향 결정·구현으로 이어짐) — 화면녹화+rlog 대조로 "정체구간 붕끗" 이벤트 정량 확인, 원 가설(danger override) 기각
 
 **배경**: 사용자가 화면녹화 clip 2개(161836/161929)에 이어 같은 구간
 rlog(`정체구간_붕끽_이게_확실한_느낌.zip`, route `a3a55cb808` seg11/12)를

@@ -1,4 +1,50 @@
 
+## 58차 2번 계속4 (체크포인트 — 저속+강한감속 게이트 설계·구현·합성검증·패치 전달 완료, 실차검증 대기) — 정체구간 붕끗
+
+**배경**: 직전 체크포인트("58차 2번 계속3", 아래)에서 원 가설(정체 중
+danger override 오발동) 기각 후, 조치 후보 (a)GATE_NONE 상향 /
+(b)앞차 실측 감속 크기 기반 보조 weight 경로 / (c)정체 한정 프레이밍
+폐기 중 사용자와 논의해 **(b) 채택**, 이어서 "저속구간(정체) 한정,
+그 외 구간엔 영향 없어야 함"이라는 사용자 요구로 범위를 더 좁혀
+**v_ego 게이트(<=30km/h) + a_lead 문턱(<=-1.8m/s²)** 조합으로 설계
+확정 → 구현 → 합성검증 → 패치 전달까지 완료.
+
+**구현**: `long_mpc.py`에 `LOW_SPEED_STRONG_DECEL_V_EGO_GATE=30/3.6`
+(m/s)/`LOW_SPEED_STRONG_DECEL_A_LEAD_THRESH=-1.8`(m/s²) 상수 추가.
+`process_lead()`의 danger override 분기(`ttc_now <= LEAD_ACQ_TTC_
+DANGER`)에 `or low_speed_strong_lead_decel`을 추가(`v_ego <= 게이트
+and a_lead <= 문턱`) — 이 조건 성립 시 TTC 위치·rise-rate 제한과
+무관하게 즉시 weight=1.0. 게이트 자체가 v_ego로 닫혀 있어 게이트 밖
+(고속/일반 주행)에서는 새 분기가 원천적으로 안 열림 → patch 이전과
+동작 100% 동일 보장.
+
+**합성검증** (`devnotes/toolkit/sim_low_speed_decel.py`, 4개 시나리오
+전부 PASS, `process_lead()`의 weight 계산부만 순수함수로 재현한
+로직단위 검증 — 실제 acados MPC 미거침):
+- A. 고속 회귀: v_ego=25m/s 고정, TTC 6~12s 램프 구간 왕복 + a_lead
+  강/완만 번갈아도 patch 전/후 weight 시퀀스 diff=0.
+- B. 이벤트 재현: 저속(0→28.8km/h 재가속) + a_lead=-1.8 지속, min
+  TTC≈3.33s(danger 2.5s 미발동, 실측 4.45s와 정합)로 구성 — unpatched는
+  초반 weight=0(감쇠)→rise-rate(1.0/s) 한계에 걸려 몰아서 반영되는
+  패턴 재현, patched는 전 구간 weight=1.0 고정(감쇠 자체가 없어짐,
+  danger override 경로가 아니라 저속게이트 경로로 도달 확인).
+- C. 오탐 방지: 저속이지만 a_lead=-0.5(threshold 미달) — 게이트 미개방,
+  patch 전/후 diff=0.
+- D. 경계 전이: v_ego가 게이트값을 여러 번 넘나들어도 예외 없이 동작,
+  게이트 열린 프레임 전부 즉시 w=1.0.
+
+**커밋/패치**: `c3-ms-dev` 로컬 커밋 `6440fe9`(base `e17e078`, **아직
+origin에 미push** — ryu는 항상 수동 patch 절차). `git format-patch`
+→ `verify-am` 브랜치에서 `git am`+`py_compile` 통과 확인 →
+`0001-long_mpc-danger-override-58-2.patch` `/mnt/user-data/outputs/`
+전달 완료(`git am` 안내 포함).
+
+**다음(최우선)**: 사용자가 `C:\dev\ryu`에 `git am` 적용 후 실차
+드라이브 — (1) 이번 붕끗 이벤트와 같은 저속 재가속+앞차감속 상황에서
+급가속->급감속 반전이 사라지는지, (2) 고속/일반 주행에서 회귀(불필요한
+개입) 없는지 확인. 통과 시 58차 3번(정지앞차 반응 강화)으로 진행.
+
+
 ## 58차 2번 계속3 (체크포인트 — rlog 대조로 이벤트 정량 확인, **원 가설(danger override) 기각, 방향 재검토 필요**) — 정체구간 붕끗
 
 사용자가 clip1/clip2와 같은 구간 rlog(route `a3a55cb808` seg11/12)를
