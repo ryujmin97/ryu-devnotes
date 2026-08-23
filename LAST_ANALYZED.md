@@ -9,15 +9,18 @@
 ---
 
 ## c3-ms-dev
-- last_analyzed_commit (58차 3번): `ff50b03` (HEAD, 신규 커밋 1개 —
-  `ff50b03`(radard: VisionTrack tentative 조기등록(A) + 저확신구간
-  안전측 보정(B)). 사용자가 `C:\dev\ryu`에서 `git am` 적용 +
-  `git push origin c3-ms-dev` 완료 확인(`a35a39f..ff50b03`).
-- date: 2026-08-23 (58차 3번)
-- note: (58차 3번) "정지차량_미인식" 실사례(8초 미검출+검출후 비전
-  낙관추정) 대응. 합성검증(sim_vision_track_ab.py 6건) 완료, 실차
-  검증 대기. 상세는 FINDINGS.md/WIP.md 58차 3번 참고. **다음 세션
-  최우선: 실차 드라이브 검증(A 오탐지 회귀 확인 필수).**
+- last_analyzed_commit (58차 3번 후속수정): `1145aea` (HEAD, 신규 커밋 1개 —
+  `1145aea`(radard: get_lead() 외곽 게이트가 lead_msg.prob>.5를 중복
+  체크하며 A의 조기등록 효과를 무력화시키던 버그 수정). 사용자가
+  `C:\dev\ryu`에서 `git am` 적용 + `git push origin c3-ms-dev` 완료
+  확인(`ff50b03..1145aea`).
+- date: 2026-08-23 (58차 3번 후속수정)
+- note: (58차 3번 후속수정) 58차3번(A+B) push 직후 코드리뷰로 A(조기등록)가
+  외곽 게이트에 막혀 실제로는 무력화돼 있던 버그 발견/수정. 크래시 위험은
+  없었음(별도 확인). sim_vision_track_ab.py에 외곽게이트 전파 시나리오
+  추가(총 7건 PASS). 상세는 FINDINGS.md/WIP.md 참고. **다음 세션 최우선:
+  실차 드라이브 검증 — 이 수정으로 A가 처음 실제 동작, 오탐지 회귀 확인
+  필수.**
 
 ## c3-ms-dev
   `1f0d292`(radard: VisionTrack 실측 dRel미분 게이트 완화) +

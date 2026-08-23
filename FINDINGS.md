@@ -38,6 +38,10 @@
 - **근거**: 코드리뷰(로그/실차 재현 아님). 크래시 위험 자체는 별도로도
   점검 완료(신규 필드가 capnp 대입 경로에 안 들어감 확인, 40차
   `sccFallback`류 재발 없음).
+- **push 완료**: 사용자가 `C:\dev\ryu`에서 `git am` 적용 +
+  `git push origin c3-ms-dev` 완료 — `ff50b03..1145aea`. 원격 fetch로
+  게이트 반영 및 `py_compile` 재확인 완료. 상태 `PATCH_APPLIED` →
+  `NEEDS_VALIDATION`(실차 검증 대기, A 오탐지 회귀 확인 필수)로 전환.
 
 
 - **증상**: 산길 정체구간에서 정지앞차를 인식 못 해 운전자가 브레이크
