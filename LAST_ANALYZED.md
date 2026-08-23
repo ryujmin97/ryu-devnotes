@@ -9,6 +9,22 @@
 ---
 
 ## c3-ms-dev
+- last_analyzed_commit (58차3번+후속수정 REVERTED): `1ac07de` (HEAD,
+  신규 커밋 1개 — `1ac07de`(radard.py를 58차2번 `a35a39f` 시점으로
+  완전 원복, diff 0 확인). 사용자가 로컬을 `git reset --hard
+  origin/c3-ms-dev`로 먼저 동기화(기존 로컬이 `591f219`에서 23커밋
+  뒤처져 있었음) 후 `git am` 적용 + `git push` 완료(`1145aea..1ac07de`).
+- date: 2026-08-24 (58차3번+후속수정 롤백)
+- note: 실주행 체감 피드백(오탐/불필요감속 많음)으로 58차3번(A+B)+
+  외곽게이트 후속수정 전체 롤백. 현재 유효한 건 58차1번(vision dRel미분
+  게이트완화+long_mpc v_lead보정)/58차2번(저속+강한감속 danger
+  override)뿐. **다음 세션 최우선: 58차1,2번만 반영된 현재 상태로 먼저
+  주행감 재확인, 이상 없으면 이 상태를 새 baseline으로 삼고 A/B는
+  재설계 착수(CSV/qcamera 표본분석과 실제 체감이 어긋난 원인 분석부터).**
+  상세는 FINDINGS.md "[REVERTED] 58차 3번(A+B)+후속수정 전체 롤백"
+  항목 참고.
+
+## c3-ms-dev
 - last_analyzed_commit (58차 3번 후속수정): `1145aea` (HEAD, 신규 커밋 1개 —
   `1145aea`(radard: get_lead() 외곽 게이트가 lead_msg.prob>.5를 중복
   체크하며 A의 조기등록 효과를 무력화시키던 버그 수정). 사용자가
