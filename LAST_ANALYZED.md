@@ -9,7 +9,17 @@
 ---
 
 ## c3-ms-dev
-- last_analyzed_commit (58차 1번): `e17e078` (HEAD, 신규 커밋 2개 —
+- last_analyzed_commit (58차 3번): `ff50b03` (HEAD, 신규 커밋 1개 —
+  `ff50b03`(radard: VisionTrack tentative 조기등록(A) + 저확신구간
+  안전측 보정(B)). 사용자가 `C:\dev\ryu`에서 `git am` 적용 +
+  `git push origin c3-ms-dev` 완료 확인(`a35a39f..ff50b03`).
+- date: 2026-08-23 (58차 3번)
+- note: (58차 3번) "정지차량_미인식" 실사례(8초 미검출+검출후 비전
+  낙관추정) 대응. 합성검증(sim_vision_track_ab.py 6건) 완료, 실차
+  검증 대기. 상세는 FINDINGS.md/WIP.md 58차 3번 참고. **다음 세션
+  최우선: 실차 드라이브 검증(A 오탐지 회귀 확인 필수).**
+
+## c3-ms-dev
   `1f0d292`(radard: VisionTrack 실측 dRel미분 게이트 완화) +
   `e17e078`(long_mpc: vision_dRel_rate를 v_lead에 직접 반영). 둘 다
   사용자가 `C:\dev\ryu`에서 `git am` 적용 + `git push` 완료 확인
