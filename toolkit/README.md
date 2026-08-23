@@ -335,6 +335,50 @@ python3 replay_lookahead_v1.py /home/claude/work/route4 \
     --print-window 12337.6 12346.6
 ```
 
+## sim_low_speed_decel.py
+**목적**: 58차 2번("정체구간 붕끗") 패치 — `long_mpc.py`의
+`LOW_SPEED_STRONG_DECEL_V_EGO_GATE`(30km/h)/`_A_LEAD_THRESH`(-1.8m/s²)
+게이트(저속+앞차 강한감속 시 danger override와 동일하게 즉시 무감쇠)
+로직 단위 검증. `process_lead()`의 weight 계산부만 순수함수로 재현
+(실제 acados MPC는 안 거침).
+**의존성**: 없음(표준 라이브러리만).
+**시나리오 4건**: A(고속 회귀, patch 전/후 diff=0)/B(이벤트 재현,
+unpatched 감쇠→rise-rate 한계로 몰려서 반영 vs patched 즉시 w=1.0)/
+C(오탐 방지, 저속+완만감속은 게이트 미개방)/D(경계 전이, v_ego가
+게이트값을 여러 번 넘나들어도 예외 없음).
+**사용**: `python3 sim_low_speed_decel.py`
+
+## sim_vision_track_ab.py
+**목적**: 58차 3번("정지앞차 미인식/과소반응", A+B) + 후속수정(외곽
+게이트 버그) 검증. `radard.py` `VisionTrack.update()`의 tentative 조기
+등록(A)/저확신구간 안전측 min() 보정(B)/`get_lead()` 외곽 게이트
+전파(A 후속수정) 3개 로직 단위 재현.
+**의존성**: 없음(표준 라이브러리만).
+**시나리오 7건**: A-1(조기등록)/A-2(저prob 미등록 회귀)/A-3(jitter
+오인승격 방지)/B-1(안전측 보정, "정지차량_미인식" 실사례 근사)/
+B-2(정상상황 무간섭)/고prob 회귀/외곽게이트 전파(구게이트 prob>.5
+중복체크 무력화 재현 vs 신게이트 status 기반 정상 전파).
+**사용**: `python3 sim_vision_track_ab.py`
+
+## sim_vision_gate_v_lead.py
+**목적**: 58차 1번("카메라 인식 감속이 레이더 대비 약함 → 레이더
+인식 수준으로 강화") 검증. `radard.py` `VisionTrack.update()`의 실측
+dRel미분 blend 전환 게이트 완화(`VISION_TRACK_PROB_GATE` 0.97→0.70,
+`VISION_TRACK_CNT_GATE` 20→10, 커밋 `1f0d292`) + `long_mpc.py`
+`process_lead()`의 `_vision_dRel_rate`를 `v_lead`에 직접 min()
+안전클램프로 반영(커밋 `e17e078`) 2건을 각각 순수함수로 재현.
+**계기**: 58차1번 세션 당시 `work/test_visiontrack_gate.py`(스크래치)
+로만 검증하고 toolkit에 편입 안 해서 컨테이너 리셋으로 소실됨 —
+58차 3번 후속수정 세션에서 toolkit 정식 편입.
+**의존성**: 없음(표준 라이브러리만).
+**시나리오 8건**: 게이트완화 typical prob(0.75~0.85, 구게이트는
+영원히 미전환 vs 신게이트는 프레임10 전환)/고prob 회귀(둘 다 전환되나
+신게이트가 더 빠름)/저prob 무변화(신게이트도 0.70 미만이면 안 풀림)/
+v_lead 안전측 보정(24.0→19.0)/완화방향 없음(min()이 더 큰 값 무시)/
+레이더 리드 무간섭/MIN_TIME 게이트/극단 실사례 근사("정지차량_미인식"
+케이스 수치, 27.0→6.0).
+**사용**: `python3 sim_vision_gate_v_lead.py`
+
 ## push_via_api.py
 **목적**: `GH_TOKEN` 환경변수로 GitHub Contents API를 통해
 `ryu-devnotes` 저장소에 직접 파일을 커밋/push. 세션 종료 시 표준

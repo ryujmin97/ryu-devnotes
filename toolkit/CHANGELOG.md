@@ -3,6 +3,20 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+## 2026-08-23 (58차 3번 후속수정 — 오늘 커밋 5개 검증 도구 정리)
+- **`sim_vision_gate_v_lead.py` 신규**: 58차 1번(카메라 인식 감속 강화,
+  커밋 `1f0d292`/`e17e078`) 검증 도구. VisionTrack 게이트 완화(0.97/20
+  → 0.70/10) before/after 비교 + long_mpc `v_lead` 안전측 min() 보정
+  재현, 8개 시나리오 전부 PASS. 58차1번 세션 당시 스크래치
+  (`work/test_visiontrack_gate.py`)로만 검증하고 미편입돼 소실됐던
+  것을 오늘(58차3번 후속수정) 세션에서 toolkit 정식 편입.
+- **README.md 소급 보강**: `sim_low_speed_decel.py`(58차2번)/
+  `sim_vision_track_ab.py`(58차3번 A+B+외곽게이트) 두 파일도 그동안
+  README에 섹션이 없었음(체크포인트 세션들에서 코드+검증만 하고 문서화
+  누락) — 이번에 소급 추가. 오늘 커밋 5개(58차 1/2/3번 전체) 전부
+  toolkit 시뮬레이션 도구로 커버 완료(총 3개 스크립트, 19개 시나리오
+  전부 PASS 확인).
+
 ## 2026-08-22 (46차 계속)
 - **`analysis_helpers.py`에 `curve_apex_vs_gap_delta()` 신규**: 커브
   이벤트별 "조향각 정점(apex) 시점" vs "vEgo-desiredSpeed 최대 초과폭
