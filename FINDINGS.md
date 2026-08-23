@@ -3763,3 +3763,75 @@ raw_kph가 `target*1.15` 이하로 처음 떨어진 시각(raw_cross_t) vs
    (idx10 nan 문제 해결) 후 필요 시 toolkit 정식 편입.
 3. route2 apex-vs-gap 미확정 5건 개별 재검증 (route2 로그 재업로드
    대기, 여전히 이월).
+
+## 55차 (완료 — 분석만, 코드 변경 없음) 신규 실주행 로그 3개(HEAD `f94a7d2`) 5개 항목 종합분석
+
+**로그**: route1(`a6e5df336a` x19seg, 1140.1s/16.0km), route2(`cf48b52c98`
+x20seg, 1199.8s/12.75km), route3(`7472041957` x3seg 중 seg2는 rlog.zst
+zstd 프레임 손상(녹화 중 절단 추정)으로 제외, seg0/1만 119.9s/1.88km
+분석). 사용자 요청 5개 항목을 순서대로 분석.
+
+### 1) 카메라 인식 시 감속 분석 (frac_rate/vision-only closing-rate 게이트)
+`vision_to_radar_crossover()`로 52건(route1 26/route2 24/route3 2) 탐지.
+`vRel_at_vision_start`가 음수(접근 중)인 사례 대부분에서 레이더 락온
+이전(`aEgo` 이미 음수)부터 감속이 시작됨을 확인 — 41/36차에서 확정된
+frac_rate 게이트 설계 의도대로 최신 HEAD에서도 정상 동작 재확인.
+**잔여 저반응 패턴 2건 신규 관찰(41/42차 route B seg10 패턴과 유사,
+저우선)**:
+- route1 seg2 gap=3.50s, vRel0=-7.2m/s, dRel 75.7→43.8m(32m 접근)인데
+  `aEgo_min=-0.45, avg=+0.11` — 접근 강도 대비 반응 약함.
+- route2 seg0 gap=5.20s, vRel0=-6.4m/s, dRel 85.5→59.9m(25.6m 접근)인데
+  `aEgo_min=-0.99, avg=-0.08, last=+0.25`(레이더 락온 직전 오히려 가속쪽).
+표본 2건뿐이라 결론 아님, 41/42차 "vision vRel-dRel 불일치 노이즈"
+가설과 동일 축의 재현 후보로 기록만 함.
+
+### 2) 정지 앞차 감속 분석
+전용 스캐너(`stopped_lead_decel_events`, |leadVLead|<1.0m/s 지속구간)로
+5건 탐지(route1 0/route2 4/route3 1). 전부 `vEgo_end` 1.0~2.4m/s까지
+매끈히 감속(`aEgo_min` -0.13~-2.26m/s², harsh_brake/운전자개입 없음).
+route2 seg5 t=1622.99 건은 `aEgo_min=-0.13`로 유독 약한 감속(dRel
+59.9m, vEgo 7.0m/s에서 시작 — 원거리라 초기엔 약하게, 이후 같은 세그
+t=1625.21에 -1.03으로 이어져 최종 정차까지는 정상 매끈하게 완료됨.
+전반적으로 정지 리드 추종 자체는 클린.
+
+### 3) 정지 후 재출발 로직 분석 (45차 launch bypass 패치)
+`launch_after_stop_events`로 3건(route1 1/route2 2) 탐지, 전부
+`driver_gas_ratio=0.0`(완전 ADAS 재출발). 정차→5m/s 도달까지 9.4~24.1초,
+`aEgo_max` 1.43~2.44m/s², `aEgo_avg` 0.19~0.49m/s². 완만하지만 무가속/
+정체 없이 매끈히 재출발 — 45차 이전 버그("정지 후 출발 가속 약화",
+ttc_accel_weight closing<=0.1 시 무조건 0) 재발 징후 없음, launch
+bypass 패치가 최신 HEAD에서도 정상 동작 중인 것으로 판단(간접 확인,
+직접적인 exit 전환 순간 프레임 대조는 미실시).
+
+### 4) 레이더 락온 상태 앞차추종 중 민감반응(저크) 분석
+0.3초 스무딩 윈도우 기준 |jerk|≥3.0m/s³ 이벤트 36건(route1 25/route2 11
+/route3 0) 탐지 — 39차 rise-rate 패치 적용 후에도 잔존하는 급변 확인용.
+대부분은 `leadVRel` 실제 변화(선행차 급제동/급가속, 예 vRel -4.6~-11.2
+또는 +2.3~+3.8)로 물리적으로 설명 가능한 정당 반응. **`leadVRel`이
+거의 0에 가까운데도 큰 저크가 나온 예외 2건(route1 seg18)**:
+- t=1195.102, jerk=+9.05, leadVRel=-0.10, leadDRel=19.9m
+- t=1242.70, jerk=+6.73, leadVRel=-0.60, leadDRel=43.2m
+둘 다 가속 방향(+) 저크로, 선행차 상대속도 변화로는 설명이 약함 —
+45차 WIP에서 우려했던 "launch bypass exit 전환 순간 w 급하강"류
+전환부 아티팩트이거나, 다른 소스(vTurnSpeed/route 등) 전환에 의한
+목표속도 점프일 가능성. 표본 2건, 코드 리딩 없이 로그만으로는 원인
+특정 불가 — 다음 세션 코드 리뷰 시 우선 확인 후보로 기록.
+
+### 5) 곡선구간 감속 분석
+`turn_speed_violations()`(51차 단위버그 수정판)로 23건 탐지(route1 10
+/route2 10/route3 3, max_over 2.15~18.33km/h) — 51/54차부터 계속
+조사 중인 "vturn apex 조기 언더슈트/lookahead 지연" 이슈의 연장선
+재현으로 보이며, 54차 시점 패치 방향 미확정 상태와 일치(신규 발견
+아님). `curve_exit_no_accel_scan_v4`(탈출 후 미가속)는 route2 3건 —
+전부 `vCruiseCluster_at_exit`가 관련(특히 seg9 `cap_margin=7.7kph`로
+경계 근접) — 48차 결론(진짜 버그 아니라 순항속도 캡 여유폭 문제)과
+동일 패턴, 신규 버그 아님.
+
+### 종합 안전지표
+harsh_brake: route1 13(운전자 개입 다수 추정)/route2 75(정체구간 저속
+추정)/route3 0. cut-in: 1/36/0(route2 저속 정체구간 다발 추정, 개별
+검증 안 함). ttc_danger(≤2.5s): 1/1/0.
+**이번 세션은 순수 분석만 수행, 개별 harsh_brake/cut-in/ttc_danger
+이벤트의 운전자 개입 여부·qcamera 프레임 대조는 미실시(다음 세션
+과제, 특히 route2 harsh_brake 75건/cut-in 36건은 정체구간 비중이
+높아 개별 검증 필요성 낮게 추정되나 확정 아님).**
