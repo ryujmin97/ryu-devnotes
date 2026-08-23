@@ -243,6 +243,29 @@ python3 verify_and_extract_frames.py /home/claude/work/routeB \
 **42차(2026-08-22)에서 신규 작성**: qcamera 포함 로그 업로드 시
 표준 분석 절차(로그+영상 대조)의 기본 진입점으로 사용.
 
+## analysis_helpers.py — congestion_stop_launch_lurch_scan (58차 2번 신규)
+**목적**: "정체구간 붕끗" 근본원인 가설(58차 2번 설계: 정체 중 danger
+override(TTC<=2.5s)가 완만한 접근에도 무감쇠로 튀는 것) 전용 스캐너.
+`analysis_helpers.py`에 함수로 추가됨(다른 toolkit 스크립트에서 import).
+**주요 파라미터**: `stop_v_ego`(정차 판정, 기본 0.3m/s)/
+`congestion_window_s`(정체 판정용 최근 시간창)/
+`congestion_stop_count_thresh`(window 내 정차 횟수 조건)/
+`ttc_danger_thresh`(기존 LEAD_ACQ_TTC_DANGER 2.5s)/
+`congestion_min_closing_for_danger`(이 값 미만 |vRel|만 "완만한 접근"
+후보로 채택, 이벤트 전체 구간 중 한 번이라도 이 값을 넘으면 "진짜
+위험"으로 판단해 후보에서 제외).
+**주의**: `congestion_window_s`/`congestion_stop_count_thresh`/
+`congestion_min_closing_for_danger`는 아직 실제 `ryu` 코드 상수가
+아님(58차 2번 코드 미착수) — 이 스캔 전용 추정 파라미터, 실제 패치
+상수값은 별도로 튜닝 필요.
+**58차 2번 계속 세션 결과**: 실제 로그 2개(각 ~3분)에 엄격한 기준
+(정차 2회 이상 window)으로는 0건, 완화 기준(정차 1회)으로도 route1에서
+1건뿐이었고 그마저 `cruiseEnabled=False`(운전자 수동 조작 구간)라
+ADAS 개입과 무관 — 이번 로그 표본에서는 설계가 겨냥한 "붕끗" 사례를
+확증하지 못함(FINDINGS.md 58차 2번 계속 항목 참고).
+**합성 시나리오 3건**(완만한 접근 단독/진짜 위험 단독/정체 아닌 상태)
+으로 로직 자체는 검증 완료.
+
 ## sim_frac_rate.py
 **목적**: (2026-08-21, 28차 신규) 26차 patch(`5cc0900`, 아직 origin
 미push)의 `frac_rate` 게이트 로직 — 클램프(30m/s, 접근 방향만) +

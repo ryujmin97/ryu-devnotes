@@ -236,3 +236,14 @@
   프레임 단위로 재현. 합성 시나리오 2건(원거리 급커브/완전 직선)으로
   로직 검증 완료, cereal/log.capnp 필드 경로 확인 완료. 실제 rlog 검증은
   다음 세션 과제(README.md 참고).
+
+## 2026-08-23 (58차 2번)
+- `analysis_helpers.py`: `congestion_stop_launch_lurch_scan` 신규 —
+  "정체구간 붕끗" 근본원인 가설(정체 중 danger override가 완만한
+  접근에도 무감쇠로 튀는 것) 전용 스캐너. 정체 상태 추적(최근 window
+  내 정차 횟수) + TTC danger 이벤트 겹침 판정 + 이벤트 전체 구간
+  max|vRel|로 "완만한 접근만" 필터링(진짜 위험은 후보에서 제외).
+  합성 시나리오 3건으로 로직 검증 완료. 실제 로그(정체구간_붕끽.zip,
+  route1/route2 각 ~3분)에 적용 결과 엄격 기준 0건/완화 기준 1건
+  (그마저 cruiseEnabled=False로 ADAS 무관) — 이번 표본에서는 가설
+  확증 못함. README.md/FINDINGS.md/WIP.md 58차 2번 항목 참고.

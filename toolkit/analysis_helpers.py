@@ -1367,6 +1367,130 @@ def scan_routes_for_ttc_danger(csv_paths, ttc_thresh=2.5, min_closing_vrel=0.1):
 # ---------------------------------------------------------------------------
 # 14) 패치 전/후 회귀 리포트
 # ---------------------------------------------------------------------------
+def congestion_stop_launch_lurch_scan(rows, stop_v_ego=0.3, congestion_window_s=60.0,
+                                       congestion_stop_count_thresh=2,
+                                       ttc_danger_thresh=2.5, min_closing_vrel=0.1,
+                                       congestion_min_closing_for_danger=3.0,
+                                       post_jerk_window_s=1.5):
+    """
+    (2026-08-23, 58차 2번 신규) "정체구간 붕끗" 근본원인 가설 검증용 스캐너.
+    58차 2번 WIP 설계를 그대로 로그 위에서 재현:
+
+    1. "정체(congestion)" 상태 추적 -- 최근 congestion_window_s초 이내
+       v_ego가 stop_v_ego 밑으로 새로 진입(정차)한 횟수가
+       congestion_stop_count_thresh 이상이면 congestion_active=True.
+    2. congestion_active 구간에서 TTC(=dRel/-vRel) <= ttc_danger_thresh인
+       기존 danger override 발동 시점(LEAD_ACQ_TTC_DANGER, 기존 로직)을
+       찾되, 그중 실제 closing 속도(|vRel|)가
+       congestion_min_closing_for_danger 미만인 "완만한 접근"만 후보로
+       추림 -- 이게 바로 58차 2번이 "오판"으로 규정한 케이스(설계상
+       패치 후엔 danger override가 억제되어야 할 대상).
+       |vRel| >= congestion_min_closing_for_danger는 "진짜 위험"으로
+       간주해 후보에서 제외(설계 원칙: 안전 설계는 그대로 유지).
+    3. 각 후보 시점 이후 post_jerk_window_s 이내 aEgo 최대 낙폭(가장
+       음의 방향 변화)을 "체감 붕끗 강도"로 같이 리포트.
+
+    입력: extract_log.py CSV rows.
+    리턴: [{"seg","t","dRel","vRel","ttc","vEgo","stop_count_in_window",
+            "post_min_aEgo","post_aEgo_drop"}]
+
+    한계: LAUNCH_BYPASS_STOP_V_EGO(0.3)와 stop_v_ego 기본값을 맞췄으나,
+    congestion_window_s/stop_count_thresh/min_closing_for_danger는
+    아직 코드에 반영된 실제 상수가 아니라 이 스캔 전용 추정치 --
+    실제 패치 상수값은 이 분석 결과를 참고해 별도로 정할 것.
+    """
+    n = len(rows)
+    t = [_f(r, "t") for r in rows]
+    vEgo = [_f(r, "vEgo") for r in rows]
+    lead = [_b(r, "leadStatus") for r in rows]
+    dRel = [_f(r, "leadDRel") for r in rows]
+    vRel = [_f(r, "leadVRel") for r in rows]
+    aEgo = [_f(r, "aEgo") for r in rows]
+    seg = [r.get("seg") for r in rows]
+    ce = [_b(r, "cruiseEnabled") for r in rows]
+
+    stop_events_t = []  # 정차 진입 시각들
+    prev_above = True
+    candidates = []
+    cur_danger = None
+
+    for i in range(n):
+        if t[i] is None:
+            continue
+        if vEgo[i] is not None:
+            below = vEgo[i] < stop_v_ego
+            if below and prev_above:
+                stop_events_t.append(t[i])
+            prev_above = not below
+
+        # 최근 window 이내 정차 횟수
+        stop_events_t = [st for st in stop_events_t if t[i] - st <= congestion_window_s]
+        congestion_active = len(stop_events_t) >= congestion_stop_count_thresh
+
+        ttc = None
+        if lead[i] and dRel[i] is not None and vRel[i] is not None and vRel[i] <= -min_closing_vrel:
+            ttc = dRel[i] / (-vRel[i])
+        danger = ttc is not None and ttc <= ttc_danger_thresh
+
+        if danger and congestion_active:
+            if cur_danger is None:
+                cur_danger = {"seg": seg[i], "t_start": t[i], "t_end": t[i],
+                               "min_ttc": ttc, "dRel": dRel[i], "vRel": vRel[i],
+                               "vEgo": vEgo[i], "cruiseEnabled": ce[i],
+                               "stop_count_in_window": len(stop_events_t),
+                               "max_abs_vRel": abs(vRel[i])}
+            else:
+                cur_danger["t_end"] = t[i]
+                cur_danger["max_abs_vRel"] = max(cur_danger["max_abs_vRel"], abs(vRel[i]))
+                if ttc < cur_danger["min_ttc"]:
+                    cur_danger["min_ttc"] = ttc
+                    cur_danger["dRel"] = dRel[i]
+                    cur_danger["vRel"] = vRel[i]
+                    cur_danger["vEgo"] = vEgo[i]
+        else:
+            if cur_danger is not None:
+                candidates.append(cur_danger)
+                cur_danger = None
+    if cur_danger is not None:
+        candidates.append(cur_danger)
+
+    # "완만한 접근"만 필터 + 사후 aEgo 낙폭 계산
+    results = []
+    for c in candidates:
+        # 이벤트 전체(danger 지속구간)에서 한 번이라도 실제 위험급
+        # closing(max_abs_vRel)이 있었으면 "진짜 위험"으로 보고 제외 --
+        # 완만한 접근만으로 danger override가 튄 순수 후보만 남김.
+        if c["max_abs_vRel"] >= congestion_min_closing_for_danger:
+            continue
+        t0 = c["t_start"]
+        pre_a = None
+        min_a = None
+        for i in range(n):
+            if t[i] is None or aEgo[i] is None:
+                continue
+            if t0 - 0.3 <= t[i] < t0:
+                pre_a = aEgo[i]
+            if t0 <= t[i] <= t0 + post_jerk_window_s:
+                if min_a is None or aEgo[i] < min_a:
+                    min_a = aEgo[i]
+        drop = None
+        if pre_a is not None and min_a is not None:
+            drop = round(pre_a - min_a, 3)
+        results.append({
+            "seg": c["seg"], "t": round(c["t_start"], 2),
+            "duration_s": round(c["t_end"] - c["t_start"], 2),
+            "dRel": round(c["dRel"], 2) if c["dRel"] is not None else None,
+            "vRel": round(c["vRel"], 2) if c["vRel"] is not None else None,
+            "ttc": round(c["min_ttc"], 2),
+            "vEgo": round(c["vEgo"], 2) if c["vEgo"] is not None else None,
+            "cruiseEnabled": c["cruiseEnabled"],
+            "stop_count_in_window": c["stop_count_in_window"],
+            "post_min_aEgo": round(min_a, 3) if min_a is not None else None,
+            "post_aEgo_drop": drop,
+        })
+    return results
+
+
 def _jerk_stats(rows):
     """운전자 개입 제외 후 aEgo의 프레임간 변화율(jerk, m/s^3) 통계."""
     clean = remove_driver_intervention(rows)
