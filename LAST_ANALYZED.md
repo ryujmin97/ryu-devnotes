@@ -9,6 +9,14 @@
 ---
 
 ## c3-ms-dev
+- last_analyzed_commit (54차): `f94a7d2` (HEAD, 신규 커밋 분석 아님 —
+  54차는 route4(`d45a15f8fc`) 재업로드 rlog로 lookahead horizon
+  가설(ii) 첫 실제 검증 세션. `replay_lookahead_v1.py` 실행 결과
+  raw 신호 자체도 이벤트 근접(수 초 전)까지 뚜렷한 하강 없음 + filtered
+  최종출력은 raw 대비 평균 2초+ 추가 지연 확인, 가설을 (a)모델
+  원거리 감지/(b)필터 누적지연 복합으로 정교화. **패치 방향 미확정,
+  다음 세션 사용자 결정 대기.** 상세는 FINDINGS.md/WIP.md 54차 항목
+  참고.
 - last_analyzed_commit (50차): `f94a7d2` (HEAD — 50차 model 게이트
   재설계 패치(`abs(vturn_speed)<120` 제거, 트레일링 판정 min_recent+
   margin 재설계) push 완료 확인. 로컬(devnotes 컨테이너) 커밋 해시는

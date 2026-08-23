@@ -3668,10 +3668,98 @@ MPC의 리드 궤적 예측(`extrapolate_lead`)에서 완전히 사라짐**. MPC
 
 ### 코드 변경 없음(분석만), patch 없음.
 
-### 다음 세션 최우선 (변경 없음, 재확인)
-1. lookahead horizon 가설(ii) 직접 검증용 replay 스크립트 —
-   modelV2 raw required_speed_kph를 오버슈트 시작 8초 전부터 재현해
-   "이미 급조임 반영 중이었는지" 확인(49차 replay_vturn2.py 재활용
-   검토). **이 가설이 이번 세션(route4 idx10 포함)까지 4개 route
-   교차검증으로 계속 강화되고 있어 최우선으로 격상.**
-2. route2 apex-vs-gap 미확정 5건 개별 재검증.
+### 다음 세션 최우선 (완료, 아래 54차 항목으로 이어짐)
+1. ~~lookahead horizon 가설(ii) 직접 검증용 replay 스크립트~~ →
+   **완료(54차, 아래 참고)**.
+2. route2 apex-vs-gap 미확정 5건 개별 재검증. (route2 로그 미보유,
+   여전히 대기)
+
+## 54차 — lookahead horizon 가설(ii) 실제 rlog 첫 검증, 결론 정교화 (raw 신호도 늦게 감지 + 필터 추가 지연 복합)
+
+**입력**: route4(`d45a15f8fc`) 20세그 재업로드분(`replay_lookahead_v1.py`
+실제 rlog 검증 대상). `extract_log.py`로 표준 CSV 재추출(23997행,
+commit `f94a7d2` 확인 — 52/53차와 동일 코드 상태) + `replay_lookahead_v1.py`
+전체 route 실행(24000 modelV2 프레임, raw_kph/filtered_kph_replica/
+apex_pos_m/apex_t_s 산출).
+
+**idx10 개별 정밀 대조** (t_start=10129.72, over=13.26kph, dur=6.6s —
+52차 결론과 일치): raw_kph와 실측 filtered(route4.csv `vTurnSpeed`)를
+프레임 단위로 나란히 놓고 봄.
+- t=10119.7~10123.8 구간(이벤트 8~6초 전): raw_kph 51~66 사이 유지,
+  뚜렷한 하강 신호 없음 — vEgo 순항속도(54km/h대)와 큰 차이 없음.
+- t=10123.9~10128 구간: `desiredCurvature`가 일시적으로 반대부호로
+  튀는 S자 아티팩트 구간(직전 세션들에서 확인된 curv_direction 부호
+  인코딩) — raw_kph도 이 구간에서 60~100대로 노이즈성 등락.
+- **t=10128.0부터 raw_kph가 실질적으로 하강 시작(64.8→28대, ~5초에
+  걸쳐)** — 즉 raw(필터 이전) 신호 자체도 이벤트 6초 이상 전이 아니라
+  **약 1.5~2초 전부터 눈에 띄게 감지**, `apex_pos_m`도 이 구간에서
+  약 65m(≈4.5~5.6s 환산)에서 시작해 접근하며 단조 감소 — 즉 모델의
+  argmin이 실제로는 65m 근방까지 접근해서야 이 커브를 "발견"한 것으로
+  보임(이론적 `lookahead_horizon_s=8.0s`/약 120m@54km/h와는 거리 차이 큼).
+- **동시에 실측 filtered(vTurnSpeed)는 raw보다 추가로 지연** —
+  t=10129.221 raw=48.65km/h인 시점에 실측 filtered는 아직 66km/h
+  (동시각 기준 약 17km/h 차이), filtered가 raw와 비슷한 값(≈49)에
+  도달한 건 t≈10130.0(raw 대비 약 0.8초 지연).
+
+**24건 전체 일반화 스캔** (`work/lookahead_generalization_scan.py`
+신규 작성, toolkit 미편입 — 아래 "한계" 참고): 각 위반 이벤트마다
+raw_kph가 `target*1.15` 이하로 처음 떨어진 시각(raw_cross_t) vs
+실측 filtered가 같은 문턱에 도달한 시각(filt_cross_t)의 차이(lag)를
+계산.
+- **18/24건에서 lag 계산 가능**(나머지는 문턱 미도달 등으로 계산불가).
+  평균 lag=2.15s, 최대 8.60s(idx5), 최소 -0.04s(거의 동시, 2건).
+  **즉 대부분의 이벤트에서 filtered(실제 시스템 반응)가 raw(모델이
+  이미 알 수 있었던 값)보다 평균 2초 이상 늦게 반응** — idx10
+  자체는 이 지표로 lag 계산 불가(nan, 데이터 정렬 이슈로 문턱
+  교차시점 미검출)였으나 위 개별 대조로는 ~0.8초 확인.
+- max_apex_t_s(사전 8초 윈도 내 raw가 감지한 가장 이른 시점) 평균
+  5.16s, 최대 7.66s로 언뜻 이론적 horizon(8.0s)에 근접해 보이나,
+  **이 지표는 신뢰 불가로 판단** — idx10 개별 대조에서 드러났듯
+  S자/노이즈 구간에서 argmin이 실제 타겟 커브가 아닌 다른 곡률
+  특징(반대 방향 커브 등)을 잠깐 짚었다가 사라지는 경우가 섞여
+  있어, "최대 apex_t_s"만으로는 "그 이벤트를 진짜 일찍 발견했다"를
+  보장 못함. raw_cross_t/filt_cross_t 기반 lag가 더 신뢰할 수 있는
+  지표로 판단.
+
+**결론(가설 정교화, ROOT_CAUSE 복합으로 재정의)**:
+당초 가설(ii) "lookahead_horizon_s 자체가 짧다"는 단순화였음이
+드러남 — 실제로는 두 가지가 겹친 것으로 보임:
+  (a) **raw 신호 자체도 이벤트 근접(수 초 전, 8초 전이 아님)까지는
+      뚜렷한 하강을 안 보임** — `lookahead_horizon_s` 파라미터를
+      단순히 늘려도 raw가 그보다 훨씬 일찍 커브를 "보고" 있었다는
+      증거는 이번 스캔에서 확인 못함(원거리 modelV2 궤적/곡률
+      예측 자체가 이 정도 거리에서는 confident하지 않을 가능성).
+  (b) **filtered 최종 출력은 raw보다 평균 2초 이상 추가로 늦게
+      반응** — 이 부분은 저역통과 필터(`vturn_decel_rc=0.15s`) 자체의
+      시정수보다 훨씬 큰 지연이라, 단순 RC 상수 문제가 아니라
+      "계속 움직이는 목표(매 프레임 다시 계산되는 argmin)를 필터가
+      뒤쫓는 구조적 lag"로 추정 — 목표가 프레임마다 더 타이트해지는
+      상황에서는 저역통과 필터가 누적 지연을 만들 수 있음.
+  → (b)는 (a)보다 개입 여지가 더 크고 리스크도 상대적으로 낮은
+    후보(필터 계수/구조 조정)로 판단되나, **패치 방향은 아직
+    미확정 — 사용자 결정 필요**.
+
+**한계**:
+- `lookahead_generalization_scan.py`는 이번 세션 스크래치
+  (`work/`)이며 toolkit 미편입 — max_apex_t_s 지표의 신뢰성 문제로
+  로직을 더 다듬어야 정식 편입 가치가 있다고 판단, 보류.
+- idx10 자체는 threshold 정렬 이슈로 lag 자동계산에서 nan 처리됨
+  (수동 대조로는 ~0.8s 확인) — 스캔 스크립트의 threshold 매칭
+  로직(1.15배 문턱)이 부호 반전 구간 근처에서 오검출할 가능성 있음,
+  다음 세션에서 정밀화 필요.
+- 여전히 route2/route1 원본 rlog 재검증은 안 함(route4만 검증) —
+  일반화 강도는 route4 24건 표본에 한정.
+
+### 코드 변경 없음(분석만, `work/lookahead_generalization_scan.py`는
+스크래치, toolkit 미편입). patch 없음.
+
+### 다음 세션 최우선
+1. **패치 방향 결정 필요(사용자)** — (b) 필터 지연 완화 쪽(예:
+   `vturn_decel_rc` 값 재검토, 또는 목표 갱신 시 필터를 우회하는
+   "급조임 감지 시 즉시 반영" 로직 추가) vs (a) lookahead 자체
+   개선(모델 원거리 신뢰도 문제라 코드 레벨 대응이 어려울 수 있음,
+   저우선 권고) — 방향 확정되면 시뮬레이션 → 패치 순서로 진행.
+2. `lookahead_generalization_scan.py`의 threshold 매칭 로직 정밀화
+   (idx10 nan 문제 해결) 후 필요 시 toolkit 정식 편입.
+3. route2 apex-vs-gap 미확정 5건 개별 재검증 (route2 로그 재업로드
+   대기, 여전히 이월).
