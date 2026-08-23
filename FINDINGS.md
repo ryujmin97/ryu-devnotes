@@ -4106,9 +4106,10 @@ rise-rate limiter/danger override)를 순수함수로 재현, 4개 시나리오
 단, 이는 로직 단위 합성검증이며 **실제 acados MPC 파이프라인/실차
 로그로는 아직 미검증**(26차 때와 동일한 한계).
 
-**전달**: `c3-ms-dev` 로컬 커밋 `6440fe9`(base `e17e078`). `git
+**전달**: `c3-ms-dev` **origin push 완료** (`e17e078..a35a39f`). `git
 format-patch` → `verify-am` 브랜치에서 `git am` + `py_compile` 통과
-확인 → `0001-long_mpc-danger-override-58-2.patch` 전달 완료.
+확인 → `0001-long_mpc-danger-override-58-2.patch` 전달 → 사용자
+`C:\dev\ryu`에 `git am` + push 완료 확인.
 
 **다음(최우선)**: 실차 검증 — (1) 이번 이벤트와 같은 저속 재가속+
 앞차감속 상황에서 급가속→급감속 반전(붕끗)이 사라지는지, (2) 고속/
