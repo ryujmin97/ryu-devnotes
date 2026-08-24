@@ -1,3 +1,46 @@
+## 60차 계속8 (체크포인트 — [URGENT, FIXED] 외곽게이트 버그 재발 수정/git am검증/전달 완료, 사용자 적용 대기)
+
+**배경**: 사용자가 "이 패치가 컷인 상황에도 영향을 주나" 질문 → 컷인
+경로(`compute_leads()`, 레이더 `Track.cut_in_count` 기반)는 `VisionTrack`
+과 무관해 영향 없음을 확인하는 과정에서, `get_lead()` 외곽 함수가
+`lead_msg.prob > .5`를 `VisionTrack.update()` 내부와 별개로 독립
+재체크하고 있어 **60차 A(tentative 조기등록)가 실제 `radarState.leadOne`
+출력엔 전혀 반영 안 되고 있던 것을 발견**.
+
+**동일 버그 재발 확인**: 이건 58차3번 후속수정(`1145aea`)이 원래 고쳤던
+버그와 정확히 같은 패턴(`elif ... lead_msg.prob > .5` 재체크가
+tentative 승격을 무력화). 58차3번+후속수정 전체 롤백(`1ac07de`, radard.py
+58차2번 시점 완전 원복)으로 이 수정도 같이 사라졌고, 60차 A가 tentative
+로직을 재구현하며 외곽게이트 재반영을 빠뜨렸던 것 -- 즉 **현재
+사용자 기기(`1a44491`)의 60차 A+B안은 내부 계산은 살아있지만 실제
+출력엔 조기등록 효과가 전혀 없는 상태였을 가능성 높음.** 60차 계속5/6
+시뮬레이션(9.2초 앞당김 등)은 VisionTrack 내부 로직만 순수함수 재현이라
+이 외곽게이트 버그를 못 잡았음(중요 한계로 기록).
+
+**조치**: `elif (track is None) and ready and (lead_msg.prob > .5):`를
+`elif (track is None) and ready and self.vision_tracks[index].status:`로
+교체(58차3번 후속수정과 동일 방식) -- `status`는 같은 tick에 이미
+update() 끝난 최신 상태라 정식경로+tentative 조기등록 둘 다 자연히 포함.
+
+**검증**: `git format-patch` -> `verify-am4` 임시 브랜치(base `1a44491`,
+사용자 실제 로컬 HEAD를 이번 세션에서 origin fetch로 확보) `git am`
+컨텍스트 일치 + `py_compile` 통과.
+
+**전달**: `0001-60-8-get_lead-lead_msg.prob-vision_tracks-index-.sta.patch`
+를 `/mnt/user-data/outputs/`에 생성, `git am` 안내와 함께 전달함(base
+`1a44491`).
+
+**다음(최우선)**:
+1. 사용자가 `C:\dev\ryu`에서 `git am` 적용 + `git push origin c3-ms-dev`.
+2. **실차 드라이브 검증 — 이 수정으로 60차 A(dPath게이트)+B안(prob리셋
+   제거)이 처음으로 실제 동작**. 60차 계속7에서 안내했던 검증 항목
+   그대로 유효(정지앞차/정체구간 조기인식, 옆차선/역광 오탐 회귀,
+   산발적 tentative_cnt 누적 사각지대).
+3. 이번처럼 "내부 로직 검증 PASS"와 "실제 출력 반영 여부"가 분리될 수
+   있음이 두 번째로 확인됨(58차3번, 60차 A 둘 다) -- 앞으로 tentative/
+   status 관련 신규 로직 추가 시, 외곽 게이트가 그 status를 실제로
+   소비하는지 코드 리딩으로 매번 확인하는 걸 체크리스트화할 필요.
+
 ## 60차 계속7 (체크포인트 — B안 구현/`git am` 검증/전달 완료, 사용자 적용 대기) — A(tentative) prob 단독 리셋 제거
 
 **구현**: `radard.py` `VisionTrack.update()`, 컨테이너 로컬 커밋 `82d39dc`

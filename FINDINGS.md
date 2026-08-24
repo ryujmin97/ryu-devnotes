@@ -5,7 +5,51 @@
 먼저 훑으면 이미 끝난 걸 다시 분석하지 않아도 된다.
 
 각 항목 형식:
-```
+```## [FIXED, URGENT] 60차 계속8 — get_lead() 외곽게이트가 60차 A(tentative)를 무력화시키던 버그 재발/수정
+
+**증상**: 60차 A(`a75c5cc`)+B안(`1a44491`)까지 적용된 상태에서도, 실제
+`radarState.leadOne` 출력엔 tentative 조기등록 효과가 전혀 반영 안 되고
+있었을 가능성. 원인은 `RadarD.get_lead()`(`VisionTrack.update()`를
+감싸는 바깥 함수)의 `elif (track is None) and ready and (lead_msg.prob
+> .5): lead_dict = self.vision_tracks[index].get_lead(md)` — 이
+`lead_msg.prob`를 `VisionTrack` 내부와 별개로 독립 재체크하는 구조가
+`VisionTrack.update()` 안에서 tentative_cnt 누적으로 `self.status`가
+먼저 True가 돼도, 바깥 게이트가 여전히 정식 prob>.5만 보고 노출을
+막아버림.
+
+**58차3번 후속수정과 동일 패턴 재발**: 이건 58차3번 후속수정(`1145aea`,
+2026-08-23)이 이미 한 번 고쳤던 정확히 같은 버그. 58차3번+후속수정
+전체가 실주행 체감 오탐으로 롤백(`1ac07de`, radard.py를 58차2번 시점
+diff 0으로 완전 원복)되면서 이 외곽게이트 수정도 함께 사라졌고, 60차
+A가 tentative 로직을 처음부터 재구현하면서 외곽게이트 재반영을
+빠뜨렸음.
+
+**발견 경위**: 사용자의 "이 패치가 컷인 상황에도 영향을 주나" 질문에
+답하려고 컷인 판정 경로(`compute_leads()`)와 `VisionTrack` 경로가
+겹치는지 코드를 재확인하던 중 이 외곽게이트를 다시 읽다가 발견.
+
+**함의(중요)**: 60차 계속5/6에서 진행한 시뮬레이션(원 사례 9.2초
+앞당김 등)은 `VisionTrack.update()`의 tentative 분기만 순수함수로
+재현한 것이라 이 외곽게이트 버그를 반영 못함 -- 로직 자체는 유효하나,
+**이번 발견 전까지는 실제 기기 출력엔 전혀 반영 안 되고 있었을 가능성이
+높음.**
+
+**조치**: `elif ... (lead_msg.prob > .5):`를 `elif ... self.vision_
+tracks[index].status:`로 교체(58차3번 후속수정과 동일 방식).
+
+**검증**: `git am`(base `1a44491`, 사용자 실제 HEAD를 이번 세션에서
+fetch로 확보) 컨텍스트 일치 + `py_compile` 통과.
+
+**전달**: `0001-60-8-get_lead-lead_msg.prob-vision_tracks-index-.sta.patch`
+전달, `C:\dev\ryu`에서 `git am` 적용 대기.
+
+**교훈(향후 체크리스트)**: tentative/status류 "내부 상태 승격" 로직을
+추가할 때는, 그 상태를 실제로 소비(consume)하는 모든 바깥 호출부가
+독립적인 재체크 조건을 갖고 있지 않은지 반드시 코드 리딩으로 확인할
+것 -- 58차3번/60차 A 둘 다 같은 유형의 버그로 "합성검증 PASS"와
+"실제 출력 반영"이 분리됐었음.
+
+
 ## [NEEDS_VALIDATION] 60차 A(tentative 조기등록) — 58차3번 원 사례(a3a55cb808--10) 재시뮬레이션 결과: 효과 0
 
 **배경**: 60차 A(`a75c5cc`, dPath 절대값/jitter 게이트 추가)가 실제로 58차3번을
