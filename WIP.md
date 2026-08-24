@@ -1,3 +1,48 @@
+## 63차 계속10 (a) (체크포인트 — 방안E `long_mpc.py` 실제 구현/`git am` 검증/패치 전달 완료, 사용자 적용/push + 실차검증 대기)
+
+**배경**: 아래 "63차 계속10" 체크포인트에서 방안E가 REJECTED됐었으나,
+사용자가 실제 요구사항("끼어드는 차가 내 차보다 빠르면 급감속이 아니라
+레이더 락온 후처럼 정상 반응해야 한다")을 명확히 밝혀 재해석 →
+seg3에서의 억제(frac_rate 1.0→0.209)가 리스크가 아니라 **의도된
+정탐**이었음이 확인됨(레이더 락온 후 실측 vRel +3.2~+7m/s opening으로
+"끼어든 차가 실제로 더 빨랐다"는 사용자 정보와 정합). REJECTED 철회,
+원안(63차 계속9) 그대로 구현 진행. 상세 근거는 FINDINGS.md
+"[63차 계속10 정정] 방안 E 재평가" 항목 참고.
+
+**구현**: `long_mpc.py`(컨테이너 로컬 커밋 `a96a7f3`, base `4ea63c3`)에
+`VISION_RATE_REF_MARGIN=5.0` 상수 + 설계 주석 추가, raw_rate 클램프에
+`ref_rate=-(v_ego-lead.vLead)` 기반 `plausible_min=ref_rate-MARGIN` 하한을
+`raw_rate_clamped = max(raw_rate, -VISION_CLOSING_RATE_MAX_PLAUSIBLE,
+plausible_min)` 형태로 추가. DANGER override(TTC<=2.5s)는 이 클램프와
+무관하게 항상 그대로 유지.
+
+**검증**: `git format-patch` → `verify-am-63c10` 임시 브랜치(base
+`4ea63c3`)에서 `git am` 컨텍스트 일치 확인 + `py_compile` 통과.
+**주의**: 이번 세션엔 이 구현을 seg3/seg14 raw CSV로 재생검증할 시간이
+없었음 — 63차 계속9/계속10의 로직단위 재생검증(별도 스크립트로 핵심
+분기만 순수함수 재현)은 완료돼 있으나, **이번에 실제 `long_mpc.py`에
+통합된 코드 자체를 다시 재생검증하지는 않음**(패치-이전 시뮬레이션과
+패치-이후 실제 코드가 완전히 동일한 로직인지 최종 대조는 다음
+세션/실차 검증에서 확인 필요).
+
+**전달**: `0001-63-10-a-E-leadVLead-closing-rate-VISION_RATE_REF_MAR.patch`를
+`/mnt/user-data/outputs/`에 생성, `git am` 안내와 함께 전달함(base
+`4ea63c3`, 즉 사용자 로컬 `c3-ms-dev` HEAD가 이 커밋이어야 함).
+
+**다음(최우선)**:
+1. 사용자가 `C:\dev\ryu`에서 `git am` 적용 + `git push origin c3-ms-dev`.
+2. 가능하면 이번 통합 코드로 seg3/seg14 CSV 재생검증 한 번 더(패치-이전
+   로직단위 검증과 실제 통합 코드가 일치하는지 최종 확인).
+3. **실차 검증(최우선)**: (a) cutin(끼어든 차가 더 빠른 경우) 재현 시
+   레이더 락온 후처럼 정상 반응하는지, (b) **회귀 검증 필수** — 진짜
+   위험한 cutin(leadVLead도 위험을 인지하는 경우)에서 반응이 지연되지
+   않는지, (c) 일반 원거리 접근 상황에서 58차1/26차 원래 효과가 그대로
+   유지되는지.
+4. `VISION_RATE_REF_MARGIN=5.0` 값 자체는 seg3 1개 사례 기준 설계
+   추정치 — 다른 route로 마진 적절성 추가 교차검증 여지 있음.
+
+**세션 종료 아님 — 중단지점 저장.**
+
 ## 63차 계속10 (체크포인트 — (b) 마진값 교차검증 완료, **방안E REJECTED**, (a) 착수 보류 — 사용자 방향 결정 대기)
 
 **배경**: 사용자가 (a)방안E 실제 구현/(b)다른 route로 마진값 먼저
