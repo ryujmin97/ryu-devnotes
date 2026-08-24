@@ -5229,3 +5229,79 @@ toolkit 미편입 — 방안 미확정 상태라 스크래치 유지).
 
 **코드 변경 없음(ryu 미변경, 방안D는 시뮬레이션에서만 구현·기각됨,
 실제 ryu 코드베이스에 반영 안 함)**.
+
+## [63차 계속10] 방안 E 마진값(REF_MARGIN=5.0) 교차검증 — seg3(r1-3, 진짜 cutin danger) 재생검증 결과 **REJECTED, 설계 재검토 필요**
+
+**배경**: 63차 계속9에서 설계한 방안E(`ref_rate=-(vEgo-leadVLead)` 기준
+`plausible_min=ref_rate-VISION_RATE_REF_MARGIN(5.0m/s)`를 raw_rate 클램프
+하한에 추가)를 실제 코드에 넣기 전, "danger 사례가 아닌 일반 빠른 접근
+사례"로 마진값을 먼저 교차검증하기로 함(패치 전 시뮬레이션 우선 원칙).
+사용자가 재업로드한 zip(`drive-download-20260824T072553Z-1-001.zip`,
+16세그)에서 사용자 지정으로 **seg3(r1-3, "cutin 급감속" 클립 — 62~63차에서
+이미 "radar 조기 락온, 방안C만으로 충분"으로 검증된 세그)를 사용.**
+
+**방법**: `work/route63c/sim_e_seg3.py` 신규 작성 — `long_mpc.py`
+`process_lead()`의 vision-only closing-rate 블록(discontinuity 판정 +
+클램프+중앙값+저역통과 필터 + frac_time/frac_ttc/frac_rate 전체)을 그대로
+복제해 raw CSV(`extract_log.py`로 추출, `leadVRel`/`leadVLead`/`leadDPath`
+포함) 재생. UNPATCHED(discontinuity 리셋 없음) / PATCHED_C(현재 코드,
+방안C만) / PATCHED_E(방안C + ref_rate 기반 클램프 추가) 3-way 비교.
+
+**핵심 결과 — 방안E가 진짜 위험 사례의 응답을 심하게 억제함**:
+- aEgo 최저치(-3.236m/s², t=261.297) 직전 vision-only 구간(t=260.195~
+  260.945, radar 락온 t=260.997 이전)에서 **PATCHED_C는 frac_rate가
+  1.00에 도달**하지만 **PATCHED_E는 같은 구간 최대 0.209(대부분
+  0.11~0.26)에 그침** — window(±1.0s) 기준 frac(전체, frac_time/frac_ttc
+  포함)도 PATCHED_C 1.000 vs PATCHED_E 0.530으로 거의 절반 수준 억제.
+  (aEgo-min 프레임 자체는 이미 radar 락온 후라 frac_rate 기여가 없어져
+  C/E 둘 다 frac(전체)=0.330으로 동일 — 즉 차이는 **락온 *직전* 구간에
+  집중**됨.)
+- **[근본 원인] leadVRel/leadVLead(모델 자체 추정)가 이 구간에서 실제
+  위험을 완전히 놓침**: t=259.0~260.9 구간 내내 `leadVRel`이 **+1.0~
+  +3.2m/s(opening, 멀어지는 것처럼 보고)**였다가 t=260.8 근처에서야
+  겨우 -0.01~-0.35로 미미하게 전환. 반면 **실측 dRel은 같은 구간
+  84.0m(t=259.045)→20.3m(t=260.945)로 1.9초 만에 평균 -32.8m/s급
+  으로 실제 급접근**(리드 차량이 갑자기 자차 앞으로 끼어든 진짜
+  cutin — `leadDPath`도 -0.08~-0.59m로 시종 동일차로 확인, 인접차선
+  오검출 아님). 즉 이 구간은 **"vLead가 위험을 과소평가하는" 정확히
+  58차1번/vision_dRel_rate 크로스체크가 원래 잡으려고 만들어진 그
+  실패모드의 실측 사례**.
+- **모순 구조**: 방안E의 `ref_rate`는 바로 이 실패하는 `leadVLead`에서
+  계산됨(`ref_rate=-(vEgo-leadVLead)`) — leadVLead가 위험을 놓치면
+  `ref_rate`도 함께 위험을 놓치고, `plausible_min=ref_rate-5.0`도 따라서
+  느슨해져 raw_rate의 진짜 급락(dRel 미분)을 "비현실적"이라고 잘못
+  판단해 억제해버림. **안전장치(vision_dRel_rate)가 보완하려는 대상
+  신호(leadVLead)에 안전장치 자신의 민감도가 종속되는 구조적 모순.**
+
+**결론/영향**:
+1. **VISION_RATE_REF_MARGIN=5.0 설계를 이 형태 그대로 구현하는 것은
+   REJECTED** — seg14(반복 스냅 노이즈)는 억제하되 seg3(진짜 cutin
+   danger)는 죽이지 않는 목표를 동시에 달성하지 못함, 오히려 진짜 위험
+   사례 쪽 억제가 더 크게 나타남(seg14는 애초에 aEgo 최저치가 이미
+   radar 락온 후라 원래도 frac_rate 개선 여지가 제한적이었던 반면,
+   seg3는 radar 락온 *직전* 구간 자체가 실제 감속의 핵심 구간).
+2. **danger override(TTC<=LEAD_ACQ_TTC_DANGER) 자체는 이번 케이스와
+   무관하게 유지됨** — 단 이번 seg3에서 danger override가 관여했는지는
+   `lead_v_rel`(leadVRel) 기반 `ttc_now`가 이 구간 내내 999(양수 vRel,
+   위험 아님)로 계산돼 **frac_ttc 경로도 vision_dRel_rate 크로스체크가
+   없으면 이 위험을 못 잡음**을 이번 재생검증으로 함께 확인 — 즉 이
+   구간의 실제 안전망은 frac_rate(그리고 frac_ttc 내부의
+   vision_dRel_rate 보정)가 사실상 전부였다는 뜻이라 억제 리스크가
+   더 크게 다가옴.
+3. **다음 방향(사용자 결정 대기)**: (a) 방안E를 이대로 구현하지 않고
+   보류, (b) `ref_rate` 산정 기준을 leadVLead가 아닌 다른 신호(예:
+   최근 N프레임 raw_rate 중앙값의 훨씬 완만한 버전, 또는 아예 절대
+   상수 기반 완화)로 재설계, (c) 방안E 자체를 폐기하고 63차 계속3의
+   원래 문제(seg14류 반복 재트리거)는 dPath 기반 판정(이미 63차
+   계속4~6에서 인접차선 여부 확인 완료 — seg14는 dPath 작아 인접차선
+   아님으로 결론났음, WIP.md 63차 계속6/7 참고) 등 다른 방향으로 접근.
+
+**증거**: `work/route63c/seg3.csv`(extract_log.py 추출, 1199행),
+`work/route63c/sim_e_seg3.py`(재생검증 스크립트, toolkit 미편입 —
+방안 미확정 상태 스크래치 유지).
+
+**코드 변경 없음(ryu 미변경, 방안E는 시뮬레이션에서만 구현·기각됨,
+devnotes만 변경)**.
+
+**세션 종료 아님 — (b) 완료, 저장 후 (a)로 진행 예정이었으나 위 결과로
+방향 재확인 필요, 사용자 응답 대기.**
