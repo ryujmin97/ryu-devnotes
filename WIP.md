@@ -1,3 +1,36 @@
+## 60차 계속7 (체크포인트 — B안 구현/`git am` 검증/전달 완료, 사용자 적용 대기) — A(tentative) prob 단독 리셋 제거
+
+**구현**: `radard.py` `VisionTrack.update()`, 컨테이너 로컬 커밋 `82d39dc`
+(base `a75c5cc`, 60차 A 위에 얹음). `elif self.prob < VISION_TRACK_
+TENTATIVE_PROB_GATE: reset` 분기 제거 -- prob<0.35 프레임은 이제 아무
+것도 안 하고(freeze) 넘어감, tentative_cnt/이력은 유지된 채 다음
+tentative 구간 프레임에서 이어서 dRel/dPath jitter 판정. dPath 절대값
+게이트/dRel·dPath jitter 게이트(진짜 "다른 물체로 전환" 신호)는 그대로.
+
+**검증**: `git format-patch` -> `verify-am` 임시 브랜치(base `a75c5cc`)에서
+`git am` 컨텍스트 일치 확인 + `py_compile` 통과.
+
+**전달**: `0001-60-6-A-tentative-B-prob-0.35-tentative_cnt.patch`를
+`/mnt/user-data/outputs/`에 생성, `git am` 안내와 함께 전달함(base
+`a75c5cc`, 즉 사용자 로컬이 60차 A까지 적용된 상태여야 함 -- 이미
+`d7c2b0d..a75c5cc` push 완료 확인된 상태이므로 그 위에 바로 적용 가능).
+
+**시뮬레이션 근거**: 60차 계속5/6 항목(FINDINGS.md) 참고 -- 원 사례
+(58차3번, a3a55cb808--10) 재등록 지연 8.1초->9.2초 앞당김, 옆차선
+오탐 차단 회귀 PASS, 단발 노이즈(1프레임 유령객체) 오탐도 PASS.
+
+**다음(최우선)**:
+1. 사용자가 `C:\dev\ryu`에서 `git am` 적용 + `git push origin c3-ms-dev`.
+2. **실차 드라이브 검증** -- (a) 정지앞차/정체구간 조기인식이 실제로
+   앞당겨지는지, (b) 옆차선/역광 상황 오탐 재발 여부(58차3번 seg2류),
+   (c) **회귀 검증 필수** -- prob 하한 리셋 제거로 tentative_cnt가
+   "오래 얼어붙은 채" 남아있다가 우연히 dRel/dPath가 맞아떨어지는
+   먼 미래 프레임에서 리셋 없이 카운트가 이어지는 이론적 사각지대
+   존재(0.5초 연속이 아니라 "산발적 10프레임"이 될 수 있음) -- 일반
+   주행에서 예기치 않은 조기등록이 늘어나는지 특히 주의 관찰.
+3. 통과 시 60차 A(옆차선 dPath 게이트)+B안(prob리셋 제거)이 최종
+   확정, 다음 스레드(58차2번 실차검증 등 잔여 항목)로 복귀.
+
 ## 60차 계속6 (체크포인트 — 방향 결정 완료, 구현 착수 직전) — B안(prob 단독 리셋 제거) 채택
 
 **배경**: 60차 계속5에서 발견한 "60차 A가 원 사례에 효과 0" 문제의
