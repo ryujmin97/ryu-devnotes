@@ -1,3 +1,54 @@
+## 60차 계속4 — A(tentative 조기등록) 재설계 패치 적용/push 완료 (`a75c5cc`), 실차검증 대기
+
+**배경**: 정지앞차 미인식 문제(58차3번 A)를 재시도. 58차3번+후속수정은
+실주행 체감 오탐/불필요감속으로 롤백됐으나(FINDINGS.md 참고), 롤백
+사유가 A(조기등록)/B(저확신구간 안전측 보정) 중 어느 쪽인지 확정 못한
+상태였음 — 이번엔 **B는 제외하고 A만** 재시도, 원인 판별력을 위해
+변수를 하나씩만 바꿈.
+
+**설계/구현** (`radard.py` `VisionTrack`, 커밋 `172bb7a`, base `1ac07de`):
+- 기존 58차3번 A의 dRel jitter(8m) 게이트만으론 dRel은 비슷하고 dPath만
+  다른 옆차로 차량류를 못 걸렀을 가능성(58차3번 seg2 "역광+다차선
+  인접차량 혼선" 사례가 이 허점이었을 것으로 추정) — dPath 게이트 2종
+  추가:
+  1. **절대값 게이트**(`VISION_TRACK_TENTATIVE_DPATH_ABS_GATE=1.75m`):
+     `|dPath|`가 이 이상이면(차로 밖) tentative 후보 자체에서 배제.
+     jitter 게이트(값의 *변화*만 감지)와 달리, 옆차로에서 **안정적으로
+     유지**되는 물체까지 걸러내는 게 핵심(37차 SCC_FALLBACK_DPATH_GATE
+     =2.0m와 동일 원리).
+  2. **jitter 게이트**(`VISION_TRACK_TENTATIVE_DPATH_JITTER=1.5m`):
+     프레임간 dPath 변화량 감시(다른 물체로 전환 감지), 기존 dRel
+     jitter(8m)와 병행.
+- `VISION_TRACK_TENTATIVE_MEDIAN_WINDOW=3` 프레임 경량 중앙값 필터를
+  tentative dRel 판정에 추가 — 단일 프레임 스냅 노이즈로 jitter 게이트가
+  불필요하게 리셋되는 것 방지. 정식 등록 후 dRel/vRel 계산엔 영향 없음.
+
+**합성검증** (`devnotes/toolkit/sim_vision_track_a_dpath.py` 신규,
+5개 시나리오 전부 PASS — `VisionTrack.update()`의 tentative 분기만
+순수함수로 재현, 기존 세션들과 동일 방식):
+- 정지앞차 조기등록 유지(회귀 없음 확인, 프레임9에서 등록)
+- **옆차선 차량 승격 차단(핵심 신규)**: dRel은 정지앞차처럼 서서히
+  감소하지만 dPath가 옆차로 수준(2.5m)으로 안정 유지되는 케이스 —
+  1차 설계(dPath jitter 게이트만)에선 FAIL(승격 통과)이었으나, 절대값
+  게이트 추가 후 200프레임간 등록 0회로 확실히 차단 확인.
+- dPath 요동(다중 물체 혼선) 오인승격 방지
+- 중앙값필터가 단일 프레임 스냅을 흡수(불필요한 리셋 방지) 확인
+- 저prob(0.2, TENTATIVE_PROB_GATE 밑) 회귀 없음
+
+**전달/적용**: `0002-60-A-tentative-dPath-jitter-dRel-B.patch`를
+사용자 현재 HEAD(`d7c2b0d`, 60차 계속3의 v_lead 패치 적용 이후) 위에서
+`git am` 검증 + `py_compile` 통과 확인 후 전달. **사용자가 `C:\dev\ryu`
+에서 `git am` 적용 + `git push origin c3-ms-dev` 완료 확인** —
+`d7c2b0d..a75c5cc`.
+
+**다음(최우선, 실차)**:
+1. 정지앞차 조기인식 실제로 앞당겨지는지 (58차3번 원 목적 달성 여부)
+2. 옆차로/역광 상황에서 오탐 재발 여부 (58차3번 seg2류 재현 시 —
+   이번엔 절대값 게이트로 차단됐어야 함, 실차로 재확인)
+3. **회귀 검증**: 일반 주행에서 예기치 않은 변화 없는지
+4. 통과 시 B(저확신구간 안전측 보정) 재도입 여부 논의 — 이번엔 A
+   단독으로 오탐 없이 통과하는지부터 확인 후 결정
+
 ## 60차 계속3 — 패치 적용/push 완료 확인 (`d7c2b0d`), cutin(--5) 신규등록 게이트 컨테이너 재현 검증 완료
 
 **적용 확인**: 사용자가 `C:\dev\ryu`에서 `git am 0001-60-58-1-v_lead.patch`
