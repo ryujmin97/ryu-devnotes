@@ -1,3 +1,48 @@
+## 60차 계속2 — 58차1 v_lead 직접보정, 전역 스위치 대신 "취약 시나리오 한정 유예" 방식으로 재설계·패치 완료 (실차검증 대기)
+
+**배경**: 사용자가 이전 체크포인트의 전역 킬스위치(`VLEAD_DIRECT_
+CORRECTION_ENABLED`) 방식을 명시적으로 거부 — "58차1/2는 전반적으로
+좋으니 그대로 두고, cutin/차선변경 상황에서만 패치 이전 로직이
+적용되게" 요청. 전역 on/off가 아니라 **시나리오 한정 유예**로 재설계.
+
+**설계**: 58차1의 `measured_v_lead` 보정 코드 자체는 그대로 두고,
+`process_lead()`에 넘기는 `vision_dRel_rate` 인자를 아래 두 조건 중
+하나라도 해당하면 `None`으로 전달(=패치 이전과 동일하게 `lead.vLead`
+그대로 사용)하도록 `vision_rate_for_lead0` 계산부만 수정:
+1. **신규 리드 등록 후 `NEW_LEAD_VLEAD_CORRECTION_SUPPRESS_S=1.5s`
+   이내** (`_lead_acq_timer` 기준) — cutin류(--5) catch-up 구간 커버.
+   60차 원 분석에서 등록~오염 관측 구간이 0.45~1.44s였으므로 1.5s면
+   충분히 덮음(NEEDS_VALIDATION, 실측 재확인 시 조정 여지).
+2. **차선변경 조작 중**(`leftBlinker`/`rightBlinker` 중 하나라도 True)
+   **+ 종료 후 `LANE_CHANGE_VLEAD_CORRECTION_HOLD_S=1.0s` hold** —
+   차선변경(--17/--12) 케이스 커버. blinker는 `longitudinal_planner.py`
+   `update()`에서 `sm['carState']`로부터 뽑아 `mpc.update()`에 신규
+   파라미터(`lane_change_blinker_active`)로 전달.
+- 두 조건 모두 밖(정상 추종, 신규등록 1.5s 경과+비차선변경)에서는
+  58차1이 패치 적용 당시와 100% 동일하게 작동 — frac_rate floor(26차
+  원 로직)도 이 변경과 무관하게 그대로 유지.
+
+**검증**: route `ee004b2c19--12`(이번 3번째 사례) CSV로 새 게이트
+로직만 별도 재현(work/ 스크래치) — 문제 구간(t=816.98~817.44) 전체에서
+`suppressed=True`(blinker 활성)로 정상 억제 확인. **cutin(--5)/차선변경
+(--17) 두 원본 로그는 이번 세션에 없어(과거 세션 산출물, 컨테이너
+로컬 미보존) 재검증 못함** — 신규등록 게이트(1.5s)는 60차 원 분석의
+타이밍 기록으로 커버 가능성만 추정, 실측 재검증 필요.
+
+**전달**: `0001-60-58-1-v_lead.patch`(base `1ac07de`) 생성,
+`git am` 검증(temp branch) + `py_compile` 통과 확인 후 전달.
+
+**다음 단계(최우선)**:
+1. 실차 검증: (a) 이번 --12류 차선변경 재현 시 급감속 완화되는지,
+   (b) cutin(--5)류 재현 가능하면 신규등록 게이트도 함께 확인,
+   (c) **회귀 검증 필수** — 정상 추종(비차선변경, 신규등록 1.5s+
+   경과) 상황에서 58차1 원래 효과(원거리 반응 강화)가 그대로
+   유지되는지.
+2. cutin(--5)/차선변경(--17) 원본 로그 재확보 시 이번 게이트 로직으로
+   재시뮬레이션(신규등록 1.5s 게이트 실측 조정 여지 확인).
+3. `LANE_CHANGE_VLEAD_CORRECTION_HOLD_S`/`NEW_LEAD_VLEAD_CORRECTION_
+   SUPPRESS_S` 값 자체는 설계 추정치 — 실차 반응 보고 튜닝 필요.
+
 ## 60차 계속 (체크포인트 — 코드 변경 없음, 분석만) — 차선변경 급감속 3번째 사례 재현, 롤백 테스트 방안 안내
 
 **배경**: 60차(cutin/cutout 급감속 NEEDS_VALIDATION, FINDINGS.md 60차
