@@ -1,15 +1,25 @@
 ## c3-ms-dev
-- last_analyzed_commit (60차 계속6/7, A tentative B안): `1a44491` (HEAD,
-  신규 커밋 1개 — `1a44491`(radard.py VisionTrack: prob<0.35 단독으로는
-  tentative_cnt 리셋 안 함, freeze 방식으로 변경). 사용자가 `C:\dev\ryu`
-  에서 `git am` 적용 + `git push origin c3-ms-dev` 완료 확인
-  (`a75c5cc..1a44491`).
+- last_analyzed_commit (60차 계속8, 외곽게이트 후속수정): `d6e334f` (HEAD,
+  신규 커밋 1개 — `d6e334f`(`get_lead()` 외곽게이트가 `lead_msg.prob>.5`를
+  `VisionTrack.update()` 내부와 별개로 독립 재체크하며 60차 A(tentative
+  조기등록)의 효과를 실제 출력에서 무력화시키던 버그 수정, `status` 기반
+  판정으로 교체). 사용자가 `C:\dev\ryu`에서 `git am` 적용 + `git push
+  origin c3-ms-dev` 완료 확인(`1a44491..d6e334f`).
+- date: 2026-08-24 (60차 계속8)
+- note: 58차3번 후속수정(`1145aea`)이 원래 고쳤던 것과 정확히 같은 패턴의
+  버그가 60차 A 재구현 과정에서 재발했던 것 — 이번 수정으로 60차 A(dPath
+  게이트)+B안(prob단독리셋 제거)이 처음으로 실제 radarState.leadOne
+  출력까지 반영됨. 상세는 FINDINGS.md/WIP.md 60차 계속8 항목 참고.
+  **다음 세션 최우선: 실차 드라이브 검증 — 정지앞차/정체구간 조기인식
+  개선 여부, 옆차선/역광 오탐 회귀, 산발적 tentative_cnt 누적 사각지대
+  회귀 확인.**
+
+## c3-ms-dev (이전 기록)
+- last_analyzed_commit (60차 계속6/7, A tentative B안): `1a44491`
 - date: 2026-08-24 (60차 계속6/7)
 - note: 60차 A(dPath 게이트, `a75c5cc`)가 58차3번 원 사례에 효과 0이었던
   원인(prob 노이즈성 출렁임에 의한 카운트 리셋)을 B안으로 조치. 상세는
-  FINDINGS.md/WIP.md 60차 계속5/6/7 항목 참고. **다음 세션 최우선:
-  실차 드라이브 검증 — 정지앞차 조기인식 실제 개선 + 옆차선/역광 오탐
-  회귀 + 산발적 tentative_cnt 누적 사각지대 회귀 확인.**
+  FINDINGS.md/WIP.md 60차 계속5/6/7 항목 참고.
 
 # LAST_ANALYZED — 브랜치별 마지막 커밋 분석 지점
 

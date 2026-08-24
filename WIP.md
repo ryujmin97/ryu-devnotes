@@ -30,8 +30,13 @@ update() 끝난 최신 상태라 정식경로+tentative 조기등록 둘 다 자
 를 `/mnt/user-data/outputs/`에 생성, `git am` 안내와 함께 전달함(base
 `1a44491`).
 
+**[갱신] 적용/push 완료 확인** — 사용자가 `C:\dev\ryu`에서 `git am` 적용
+(`Applying: 60차 계속8: get_lead() 외곽게이트 lead_msg.prob 중복체크 ->
+vision_tracks[index].status로 교체`) + `git push origin c3-ms-dev` 완료.
+origin `c3-ms-dev` HEAD: `1a44491..d6e334f`.
+
 **다음(최우선)**:
-1. 사용자가 `C:\dev\ryu`에서 `git am` 적용 + `git push origin c3-ms-dev`.
+1. ~~사용자가 `C:\dev\ryu`에서 `git am` 적용 + `git push origin c3-ms-dev`~~ → **완료**.
 2. **실차 드라이브 검증 — 이 수정으로 60차 A(dPath게이트)+B안(prob리셋
    제거)이 처음으로 실제 동작**. 60차 계속7에서 안내했던 검증 항목
    그대로 유효(정지앞차/정체구간 조기인식, 옆차선/역광 오탐 회귀,
