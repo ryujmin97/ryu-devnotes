@@ -5346,3 +5346,47 @@ devnotes만 변경)**.
 
 **다음**: 63차 계속9 (a) — 방안E를 `long_mpc.py`에 실제 구현 → `git am`
 검증 → 패치 전달.
+
+## [63차 계속10 (a)] 방안 E 패치 크래시/에러 위험 검증 — 안전 확인 완료
+
+**배경**: 사용자가 방안E 패치(`e6a00ae`) 적용 후 콤마 기기에서 크래시/
+에러 없는지 검증 요청. 40차(radard `sccFallback` capnp 스키마 불일치
+크래시) 전례가 있어 매번 신규 로직 추가 시 이 패턴부터 확인하는 것이
+체크리스트화돼 있음(60차 계속8 항목 참고).
+
+**검증 결과 (전부 안전 확인)**:
+1. **capnp 스키마 쓰기 위험 없음**: 이번 패치는 `long_mpc.py` 한 파일만
+   변경, `radard.py`/`RadarState` 관련 capnp 구조체에 신규 필드를 쓰는
+   코드가 전혀 없음(40차 `sccFallback`류 패턴과 다름 — 그건 dict에 새
+   key를 넣어 capnp 구조체에 대입하다 크래시났던 경우, 이번 신규 변수
+   `ref_rate`/`plausible_min`은 순수 지역변수로 함수 밖(`self.*`, 반환값,
+   capnp 대입 등)에 전혀 노출 안 됨).
+2. **`vLead` 필드 검증**: `radarstate.leadOne.vLead`는 `cereal/log.capnp`
+   `LeadData` 구조체(779번째 줄)에 정식 정의된 `Float32` 필드 — 신규
+   필드 아니고, 이미 `process_lead()`(649번째 줄)에서 `lead.vLead`로
+   동일하게 읽고 있던 필드를 한 곳 더 읽는 것뿐. 스키마 불일치
+   AttributeError 위험 없음.
+3. **`v_ego` 스코프 확인**: `update()` 메서드 최상단(`v_ego = self.x0[1]`)
+   에서 정의돼 신규 코드 위치(≈850줄)까지 동일 함수 스코프 안에서
+   그대로 유효 — `NameError` 위험 없음.
+4. **함수 시그니처/호출부 변경 없음**: `update()`/`process_lead()` 인자
+   구성 그대로, `longitudinal_planner.py`의 `self.mpc.update(...)` 호출부
+   수정 불필요 확인.
+5. **타입/NaN 관련 런타임 예외 없음**: `np.float64`(v_ego) vs
+   `Float32`(vLead, `float()` 캐스트) 혼합 연산, `max()` 3-way 비교 모두
+   Python에서 예외 없이 정상 동작 확인(재현 스크립트로 검증). `vLead`가
+   비정상값(NaN)이어도 `TypeError`/`ValueError` 없이 값만 이상해질 뿐
+   크래시로 이어지지 않음(로직 정확도 이슈일 뿐, 안전성 이슈 아님 — 실차
+   관찰 시 참고 포인트로만 기록).
+6. `py_compile` 재확인 통과, 다른 파일 변경 없음(`git diff --stat`
+   1 file changed 확인).
+
+**한계(기존 세션들과 동일)**: 이 컨테이너엔 `msgq.ipc_pyx` 등이 없어
+실제 모듈 import(`import long_mpc`)나 acados MPC 전체 파이프라인 기동은
+불가 — 정적 분석(capnp 스키마 대조, AST/py_compile, 스코프 추적, 타입
+시뮬레이션) 수준의 검증이며, 완전한 크래시 부재 보장은 실제 기기
+기동으로만 최종 확인 가능.
+
+**결론**: 정적 분석 기준으로 크래시/에러 유발 위험 요소 없음 확인.
+남은 건 실차 기동 확인(에러 오버레이 없이 정상 기동)과, 별개로 앞서
+안내한 실차 반응 검증(cutin 상황 정상반응/회귀).
