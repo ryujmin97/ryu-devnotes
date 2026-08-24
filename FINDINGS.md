@@ -4942,3 +4942,74 @@ seg1 t=1377.60 이벤트의 dv/dt≈-217과 비교하면 2자릿수 차이) 일�
 - 나머지 13세그 개별 qcamera 검증(표본 확대).
 
 **세션 종료 아님 — 사용자와 대화로 개선방향 논의 진행 예정.**
+
+## [신규 발견 + 방안 C 구현 완료, 실차검증 대기] cutin 급감속 (r1-3, r1-14/택시) — vision dRel 미분 착시로 인한 급감속
+
+**증상**: 자기 차로로 옆에서 끼어드는(cutin) 차량이 오히려 자차보다
+가속하며 이탈 중인데도, 레이더 락온 직전 자차가 급감속(seg3
+aEgo -3.24m/s²/seg14 -4.29m/s²)하는 문제 2건 제보.
+
+**근본원인(구조적, 우연 아님)**: 두 사례 모두 레이더 락온 순간 vRel
+부호가 뒤집힘 — 락온 직전 vision 추정 vRel은 계속 하락(closing 방향
+착시)해 aEgo가 급락하는데, 락온 순간 dRel은 거의 그대로인데 vRel이
+즉시 +3~4.6m/s로 튐(레이더 실측 = 오히려 벌어지는 중). 원인은 cutin
+(측면 진입) 순간 vision의 dRel 프레임간 미분값이 "종방향 급접근"이라는
+착시 신호를 만들어내는 것 — 실제로는 옆 차로에서 들어오며 dRel이
+기하학적으로 뚝 떨어지는 것뿐. 이건 58차1(v_lead 직접보정)/26·33차
+(frac_rate DANGER 게이트)가 쓰는 "vision dRel 미분 기반 closing-rate"
+신호 자체의 근본 한계이고, 60차 A/B(tentative 등록/dPath게이트)는
+이 트랙이 이미 정식 등록된 이후라 적용 범위 밖 — 완전히 별개의 신규
+발견.
+
+**조치(방안 C, 채택·구현 완료)**: `long_mpc.py`의 `LongitudinalMpc`에
+`DREL_DISCONTINUITY_DROP_THRESH=15.0m`/`DREL_DISCONTINUITY_WINDOW_N=5`
+(프레임, ~0.25s@20Hz) 신설. vision-only dRel 부기 블록(기존
+`_vision_dRel_rate` 계산부) 안에서 원본 dRel 값 자체의 최근 5프레임
+윈도우 양끝 차이가 -15m 이상 급락하면 `_lead_acq_timer = 0.0`으로
+리셋 — **새 코드경로 추가 없이 기존에 이미 검증된(60차 계속2 합성검증
+통과) `NEW_LEAD_VLEAD_CORRECTION_SUPPRESS_S=1.5s` suppress 메커니즘을
+그대로 재사용**함(v_lead 직접보정 + frac_rate/ttc_dRel 크로스체크 모두
+자동으로 1.5초간 유예, 신규리드 게이트와 동일 경로). rate/중앙값 필터는
+"지속접근 vs 일회성 스냅"을 구분하려고 완만하게 흡수하는 게 목적이라
+이 급락 자체를 못 잡을 수 있어, 필터 이전 원본 dRel 값으로 별도 판정.
+
+**안전 백스톱 확인(코드 리딩)**: `process_lead()`의 TTC danger
+override(`ttc_now <= LEAD_ACQ_TTC_DANGER`, 2.5s)는 `lead.vLead` 기반
+`ttc_now`를 매 프레임 직접 계산하며 `_lead_acq_timer`와 전혀 무관 —
+이번 리셋과 완전히 독립적으로 항상 즉시 반응 유지됨을 코드로 확인.
+
+**로직 단위 합성검증(`work/sim_drel_discontinuity.py`, 순수함수 재현,
+4개 시나리오)**:
+- 정상 완만 접근(2m/frame, 5프레임 누적 8m) — 미트리거(오탐 방지 확인)
+- cutin 급락 재현(65→24m류 catch-up 크기) — 4번째 프레임에서 트리거 확인
+- 진짜 급접근(전방 급브레이크류, 5프레임 -38m) — 트리거됨(예상된 동작 —
+  단 danger override는 별도 경로로 항상 살아있어 안전 반응 자체는
+  지연 안 됨, 위 안전 백스톱 확인 참고)
+- 단발 1프레임 스냅 후 즉시 복귀 — 미트리거(과민반응 방지 확인)
+**주의**: 이는 로직 단위 합성검증이며, 실제 r1-3/r1-14 원본 로그로
+직접 재생 검증한 것은 아님(원본 CSV가 이번 세션에 없어, 문서 기록의
+수치 패턴만 근사 재현). **실제 로그 재확보 시 재검증 필요(NEEDS_VALIDATION)**.
+
+**전달/복구 경위**: 이 항목은 61차 계속(방안C) 세션에서 최초 작성됐으나
+당시 devnotes push 없이 세션이 종료돼 origin에 반영 안 된 채 유실됨 —
+다음 세션(이번 세션) 시작 시 사용자가 업로드한 로컬 `long_mpc.py`
+(이미 방안C 코드 반영된 상태)로 대조해 patch를 재구성·재검증 후 이
+기록을 복구함. `0001-61-C-cutin-dRel-suppress.patch`(base `d6e334f`)
+`git am` 검증(temp branch) + `py_compile` 통과 확인.
+
+**다음(최우선)**:
+1. **[확인 필요]** 사용자가 이 패치를 `C:\dev\ryu`에 이미 `git am`
+   적용했는지(업로드한 파일 자체엔 이미 반영돼 있었음) + `git push
+   origin c3-ms-dev` 여부 확인 — origin은 아직 `d6e334f`(패치 미반영)임.
+2. 실차 검증: (a) r1-3/r1-14류 cutin 재현 시 급감속이 실제로 완화되는지,
+   (b) **회귀 검증 필수** — 정상 cutin이 아닌 진짜 급접근(전방 차량
+   급브레이크 등)에서 danger override가 지연 없이 그대로 작동하는지,
+   (c) 신규등록 게이트(60차 계속2)와 겹치는 케이스에서 이중 트리거로
+   인한 부작용 없는지.
+3. 가능하면 r1-3/r1-14 원본 rlog 재업로드받아 실측 dRel 시퀀스로
+   이번 로직을 직접 재생 검증(현재는 문서 기록 기반 근사 시뮬레이션뿐).
+4. `DREL_DISCONTINUITY_DROP_THRESH=15.0m`/`WINDOW_N=5` 값 자체는 설계
+   추정치 — 실차 반응 보고 튜닝 필요.
+5. 방안 A(radard.py VisionTrack dPath 변화 플래그를 radarState.leadOne에
+   실어 long_mpc.py가 직접 참조)는 더 근본적이지만 프로세스 경계를
+   넘는 신규 필드 추가라 40차 크래시류 리스크 있어 이번엔 보류 유지.

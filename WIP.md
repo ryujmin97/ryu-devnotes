@@ -1,3 +1,34 @@
+## 62차 (체크포인트 — 유실된 61차 방안C 기록 복구, 패치 재검증 완료, 사용자 적용/push 여부 확인 대기)
+
+**배경**: 새 세션 시작 시 사용자가 로컬 `C:\dev\ryu`의
+`long_mpc.py`(방안C 코드 이미 반영된 상태)를 업로드 → devnotes를 fresh
+clone해보니 61차 계속(방안C) 작업의 FINDINGS.md 기록이 origin에 없음을
+발견(직전 세션이 push 없이 종료돼 유실됐던 것으로 추정).
+
+**복구 조치**:
+1. 업로드된 `long_mpc.py`를 컨테이너 `ryu` clone(origin HEAD `d6e334f`)에
+   덮어써 로컬 커밋 재구성 → `py_compile` 통과, `git diff --stat`으로
+   변경분이 43줄 추가(방안C 코드 그대로)임을 확인.
+2. `git format-patch` → `verify-am-61c` 임시 브랜치(base `d6e334f`)에서
+   `git am` 컨텍스트 일치 + `py_compile` 재확인 완료.
+3. `0001-61-C-cutin-dRel-suppress.patch`를 `/mnt/user-data/outputs/`에
+   재생성해 전달.
+4. FINDINGS.md의 "[신규 발견 + 방안 C 구현 완료]" 항목을 그대로
+   복구·재기록(복구 경위 문구 추가).
+
+**[확인 필요, 최우선]** 사용자가 이 패치를 `C:\dev\ryu`에 `git am`
+적용했는지(업로드 파일 자체엔 이미 코드가 반영돼 있었음 확인) +
+`git push origin c3-ms-dev`까지 완료했는지 사용자 확인 필요 — **origin
+`c3-ms-dev`는 아직 `d6e334f`(방안C 미반영) 상태.** push 완료 시
+LAST_ANALYZED.md도 갱신 필요.
+
+**다음(최우선)**:
+1. push 여부 확인 → 안 됐으면 `git push origin c3-ms-dev` 안내.
+2. push 확인되면 LAST_ANALYZED.md 갱신.
+3. 이후 61차 계속(방안C) FINDINGS.md 항목의 "다음(최우선)" 2~5번
+   (실차검증: cutin 재현 시 완화 여부, danger override 회귀 검증,
+   신규등록 게이트와의 이중트리거 확인 등)으로 진행.
+
 ## 61차 계속 (체크포인트3 — 나머지 13세그 중 11세그 qcamera 대조 완료, 이전 패치까지 포함 검증 완료)
 
 체크포인트2 이후 사용자가 "이번 패치뿐 아니라 이전 패치도 검증, 나머지
