@@ -3,6 +3,17 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+## 2026-08-25 (63차 계속10 (b))
+- `replay_vision_rate_integrated.py` 신규 — "로직단위 시뮬레이션 vs
+  실제 통합 코드" 최종 대조용 범용 툴. `long_mpc.py` update()의 vision
+  closing-rate 블록을 재구현하지 않고 마커 기준으로 문자 그대로 잘라와
+  exec()으로 재생. seg3/seg14로 방안E(63차 계속9/10) 검증 — 로직단위
+  결론(0.209/0.678)과 실제 코드 재생 결과(0.205/0.671) 거의 일치,
+  drift 없음 확정. 이전엔 매 세션 `work/`에 1회용 스크립트로 만들고
+  버려졌던 패턴(sim_e.py, replay_drel_discontinuity_real.py 등)을
+  이번에 toolkit 정식 편입 — 향후 long_mpc.py 다른 블록 재검증 시도
+  이 스크립트의 마커 교체 방식을 재사용 가능.
+
 ## 2026-08-24 (60차 계속4)
 - `sim_vision_track_a_dpath.py` 신규 — 58차3번 A(tentative 조기등록)
   재설계 합성검증. dRel jitter 게이트만으론 옆차로에서 안정적으로

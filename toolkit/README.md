@@ -385,6 +385,40 @@ v_lead 안전측 보정(24.0→19.0)/완화방향 없음(min()이 더 큰 값 �
 케이스 수치, 27.0→6.0).
 **사용**: `python3 sim_vision_gate_v_lead.py`
 
+## replay_vision_rate_integrated.py
+**목적**: (2026-08-25, 63차 계속10 (b) 신규) "로직단위 시뮬레이션(손으로
+재구현한 스크립트)"과 "실제 `long_mpc.py`에 통합된 코드"가 완전히
+동일하게 동작하는지 최종 대조하는 범용 검증 툴. `long_mpc.py`
+`update()`의 vision-only dRel closing-rate 계산 블록(discontinuity
+감지 -> 클램프+중앙값 필터 -> 방안E ref_rate 클램프 -> vision_rate_for_lead0
+유예판정, 63차 계속9/10)을 **재구현하지 않고** 실제 파일에서 마커
+문자열(`BLOCK_START_MARKER`/`BLOCK_END_MARKER`) 기준으로 문자 그대로
+잘라내 `exec()`으로 재생 클래스에 편입한다 — 하드코딩된 줄번호가 아니라
+마커라서 향후 `update()` 위쪽에 코드가 추가/삭제돼도(줄번호가 밀려도)
+그대로 재사용 가능(마커 자체가 지워지거나 옮겨지면 AssertionError로
+바로 알려줌, 조용히 잘못된 범위로 진행 안 함). 상수값도 파일에서
+정규식으로 직접 파싱(수기 재입력 없음).
+**입력**: `extract_log.py` CSV(leadDRel/leadVLead/leadRadar/leadStatus/
+leftBlinker/rightBlinker/vEgo 컬럼 필요), 세그 이름 1개 이상, `ryu` 레포
+clone(수식 대상 파일 자체).
+**출력**: 각 seg의 `(t, dRel, vLead, radar, status, vision_dRel_rate,
+vision_rate_for_lead0, lead_acq_timer, frac_rate)` 튜플 리스트를
+pickle로 저장. 콘솔에 seg별 최대 frac_rate/시각 요약 출력.
+**주요 함수**: `build_replay_class(long_mpc_path)` — 블록 추출+상수
+파싱+클래스 생성(재사용 가능한 핵심 함수). `vision_dRel_rate_frac(...)`
+— frac_rate 공식(실제 코드 977~997줄과 동일) 별도 함수로 분리, 다른
+스크립트에서도 import해 재사용 가능. `replay_seg(...)` — CSV 한 세그
+프레임 단위 재생.
+**한계**: vision_rate_for_lead0 산출까지만 검증(그 값이 `process_lead()`
+에 실제로 전달되는 최종 신호이므로 충분) — 그 이후 acados MPC solve
+자체는 이 컨테이너에서 실행 불가(기존 세션들과 동일한 한계).
+**사용**:
+```bash
+python3 replay_vision_rate_integrated.py /home/claude/work/route.csv \
+    "20260824_..._3" "20260824_..._14" \
+    --repo /home/claude/ryu --out /home/claude/work/result.pkl
+```
+
 ## push_via_api.py
 **목적**: `GH_TOKEN` 환경변수로 GitHub Contents API를 통해
 `ryu-devnotes` 저장소에 직접 파일을 커밋/push. 세션 종료 시 표준
