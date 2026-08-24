@@ -29,6 +29,10 @@ plausible_min)` 형태로 추가. DANGER override(TTC<=2.5s)는 이 클램프와
 `/mnt/user-data/outputs/`에 생성, `git am` 안내와 함께 전달함(base
 `4ea63c3`, 즉 사용자 로컬 `c3-ms-dev` HEAD가 이 커밋이어야 함).
 
+**[갱신] 적용/push 완료 확인** — 사용자가 `C:\dev\ryu`에서 `git am` 적용
+(사용자 로컬 커밋 `e6a00ae`) + `git push origin c3-ms-dev` 완료.
+origin `c3-ms-dev` HEAD: `4ea63c3..e6a00ae`.
+
 **다음(최우선)**:
 1. 사용자가 `C:\dev\ryu`에서 `git am` 적용 + `git push origin c3-ms-dev`.
 2. 가능하면 이번 통합 코드로 seg3/seg14 CSV 재생검증 한 번 더(패치-이전
