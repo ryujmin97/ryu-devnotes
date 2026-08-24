@@ -1,3 +1,22 @@
+## 63차 계속6 (체크포인트 — 1단계 완료: seg14 신규 컬럼 추출, radarTrackId 확인)
+
+**1단계 완료**: 사용자가 재업로드한 원본 zip에서 seg14만 분리 →
+신규 `extract_log.py`(dPath/yRel/aLeadK/radarTrackId 포함판)로 재추출
+(`/home/claude/work/route63b/seg14.csv`, 1200행, commit `4ea63c3`).
+discontinuity 구간(t=921~926) 프레임 단위 확인 완료.
+
+**radarTrackId 확인 결과 — 예상과 다름, 중요**: t=918~930 구간에서
+`leadRadarTrackId`는 `-1`(vision-only, 미정의) 또는 `0`(레이더 락온 후)
+단 두 값만 존재. **레이더 락온 전(vision-only, t<925.351) 구간 내내
+`-1` 고정** — 즉 이 필드는 vision 단계 내에서의 "트랙 전환"(다른 물체로
+넘어감) 자체를 구분할 수 있는 필드가 아님(radard.py가 vision track에
+개별 ID를 부여하지 않고 vision-only인 동안은 항상 -1로 채움). **63차
+계속4에서 세운 "radarTrackId 변화로 트랙 스왑 여부 확인" 계획은 이
+필드로는 직접 검증 불가능함이 확인됨** — 대신 dPath/yRel의 연속성으로
+간접 판단해야 함(다음 단계).
+
+**세션 종료 아님 — 중단지점 저장, 바로 2단계(dPath/yRel 연속성 분석)로 이어감.**
+
 ## 63차 계속5 (체크포인트 — 원본 zip 재업로드 확인, 토큰절약 위해 분석은 다음으로 미룸)
 
 **배경**: 63차 계속4에서 요청한 r1-3/r1-14 원본 데이터셋을 사용자가
