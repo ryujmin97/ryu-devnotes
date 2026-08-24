@@ -1,3 +1,52 @@
+## 63차 계속4 (체크포인트 — dPath/radarTrackId 컬럼 추가 완료, 사용자 신규 정보로 가설 갱신, 원본 rlog 재업로드 대기)
+
+**배경**: 63차 계속3의 최우선 과제(1번, dPath 컬럼 추가)를 이번 세션에서
+착수. 동시에 사용자가 **"로그에서 끼어드는 차량이 내차보다 가속되는
+상황"**이라는 신규 정보를 제공 — seg14(t=923.10~923.50, 7회 연속
+discontinuity) 이벤트가 인접차선 오검출이 아니라 **실제 cut-in 이벤트이고,
+끼어든 차량이 자차보다 빠르게 가속해 멀어지는 상황**이었을 가능성을 시사.
+
+**조치**: `extract_log.py`에 `leadDPath`/`leadYRel`/`leadALeadK`/
+`leadRadarTrackId`(RadarState.LeadData 필드) 4개 컬럼 신규 추가.
+`py_compile` 통과. README.md/CHANGELOG.md 동기화 완료.
+
+**가설 갱신(중요, 미확정)**: 사용자 정보가 맞다면 seg14의 반복
+closing/opening 패턴은 다음처럼 재해석 가능 —
+1. cut-in 차량이 진입하는 순간 기존에 추적 중이던(더 먼) 리드와 새
+   cut-in 차량 사이에서 트랙이 왔다갔다 흔들리며(radarTrackId 전환)
+   dRel이 요동쳤을 가능성. 순수 vision 노이즈(단일 물체의 추정 오차)
+   보다 **트랙 스왑(다른 물체로의 전환)**이 원인일 가능성이 높아짐.
+2. 이후 "가속해 멀어짐"이 사실이면, discontinuity 종료 후 실제
+   dRel이 다시 벌어지는(opening) 것 자체는 정상 물리 현상 — 문제는
+   그 직전 트랙 전환 구간에서 `_vision_dRel_rate`가 오염되는 것.
+3. 이는 63차 계속3에서 발견한 **"aEgo 최저치 시점에 PATCHED=UNPATCHED=
+   1.0으로 완전 동일"** 현상과도 부합: 트랙 전환으로 오염된 값이 방안
+   C/D의 타이머 리셋과 무관하게(`_lead_acq_timer`만 리셋, `_vision_
+   dRel_rate` 자체는 안 건드림 — 방안C) 또는 리셋해도 즉시 재유입
+   (방안D) 계속 살아남는 것과 일치.
+
+**아직 확정 불가 — radarTrackId 실측 필요**: 위는 사용자 정보 기반
+추정이며, 이번 세션엔 원본 rlog가 없어(컨테이너 재시작으로 유실,
+`/mnt/user-data/uploads/` 비어있음) 검증 못함. **다음(최우선)**:
+1. r1-14(route `a2141d7786` seg14, 가능하면 qcamera 포함) 원본 rlog
+   재업로드 요청 → 새 컬럼(`extract_log.py`)으로 재추출.
+2. t=923.10~923.50 구간에서 `leadRadarTrackId`가 실제로 바뀌는지
+   확인 — 바뀌면 "트랙 전환" 가설 확정, 안 바뀌면 단일 물체 vision
+   노이즈 가설(기존 63차 계속3 잠정 결론) 쪽으로 복귀.
+3. `leadDPath`로 cut-in 전/중/후 궤적이 차로 안으로 들어오는 패턴과
+   일치하는지 시각적으로도 확인(사용자 "가속 이탈" 설명과 정합성).
+4. 트랙 전환 확정 시 **방안 E 설계 방향 구체화**: `radarTrackId` 변화
+   자체를 discontinuity 트리거 조건에 추가(현재 `DREL_DISCONTINUITY_
+   DROP_THRESH`는 dRel 절대 변화량만 봄 — trackId 변화를 직접 감지하면
+   더 정확하고 조기에 잡을 수 있음). danger override는 여전히 무관하게
+   유지.
+
+**코드 변경**: `devnotes/toolkit/extract_log.py`/`README.md`/
+`CHANGELOG.md`만 변경. **ryu 코드는 여전히 미변경**(방안D는 63차
+계속3에서 이미 폐기, 방안E는 트랙 전환 확정 전까지 설계 보류).
+
+**세션 종료 아님 — 중단지점 저장.**
+
 ## 63차 계속 (체크포인트2 — r1-3/r1-14 원본 rlog 재업로드받아 실측 재생 검증 완료, **중요 발견: 방안C 보호 공백**)
 
 **배경**: 63차 체크포인트 직후 사용자가 r1-3/r1-14 원본 rlog(같은

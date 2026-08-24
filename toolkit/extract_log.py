@@ -52,10 +52,17 @@ FIELDNAMES = [
     "steeringAngleDeg", "desiredCurvature",
     "leadStatus", "leadDRel", "leadVRel", "leadVLead",
     "leadRadar", "leadModelProb",
+    "leadDPath", "leadYRel", "leadALeadK", "leadRadarTrackId",
     "src", "desiredSpeed", "vTurnSpeed", "modelTurnSpeed",
     "leftBlinker", "rightBlinker",
     "laneChangeState", "laneChangeDirection",
 ]
+# 2026-08-25 추가(63차 계속3 이어서): RadarState.LeadData.dPath/yRel/
+# aLeadK/radarTrackId -- seg14류 반복 discontinuity(raw dRel이 프레임당
+# -230m/s급으로 튀며 closing/opening 반복)가 인접차선 오검출인지 실제
+# cut-in(가속 이탈)인지 원인 판별을 dPath/radarTrackId 없이는 못 했음
+# (63차 계속3 WIP 최우선 과제). radarTrackId는 트랙 전환(다른 물체로
+# 넘어감) 자체를 직접 잡을 수 있어 dPath보다 더 결정적인 신호가 될 수 있음.
 # 2026-08-22 추가(46차): modelV2.meta.modelTurnSpeed (carrot_serv.py의
 # model_turn_speed 게이팅 후보 그 자체) -- 지금까지 CSV에 없어서
 # "model 소스" 관련 분석 때 src=="model" 여부만 보고 실제 model_turn_speed
@@ -147,6 +154,7 @@ def process_segment(rlog_path, seg_name, repo_dir, max_mb, commit_short="",
     last_lead = dict(carry_lead) if carry_lead is not None else {
         "leadStatus": False, "leadDRel": "", "leadVRel": "", "leadVLead": "",
         "leadRadar": "", "leadModelProb": "",
+        "leadDPath": "", "leadYRel": "", "leadALeadK": "", "leadRadarTrackId": "",
     }
     last_lat = dict(carry_lat) if carry_lat is not None else {
         "laneChangeState": "", "laneChangeDirection": "",
@@ -188,10 +196,13 @@ def process_segment(rlog_path, seg_name, repo_dir, max_mb, commit_short="",
                 last_lead = {
                     "leadStatus": True, "leadDRel": lo.dRel, "leadVRel": lo.vRel, "leadVLead": lo.vLeadK,
                     "leadRadar": lo.radar, "leadModelProb": lo.modelProb,
+                    "leadDPath": lo.dPath, "leadYRel": lo.yRel, "leadALeadK": lo.aLeadK,
+                    "leadRadarTrackId": lo.radarTrackId,
                 }
             else:
                 last_lead = {"leadStatus": False, "leadDRel": "", "leadVRel": "", "leadVLead": "",
-                             "leadRadar": "", "leadModelProb": ""}
+                             "leadRadar": "", "leadModelProb": "",
+                             "leadDPath": "", "leadYRel": "", "leadALeadK": "", "leadRadarTrackId": ""}
         elif w == "carrotMan":
             cm = evt.carrotMan
             rows.append({

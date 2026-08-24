@@ -261,6 +261,15 @@
   로직 검증 완료, cereal/log.capnp 필드 경로 확인 완료. 실제 rlog 검증은
   다음 세션 과제(README.md 참고).
 
+## 2026-08-25 (63차 계속4)
+- `extract_log.py`: `leadDPath`/`leadYRel`/`leadALeadK`/`leadRadarTrackId`
+  컬럼 신규 추가(RadarState.LeadData 필드). 63차 계속3에서 발견한 seg14
+  반복 discontinuity(raw dRel 프레임당 최대 -230m/s급 점프, closing/
+  opening 반복)의 원인이 인접차선 오검출인지 실제 cut-in(트랙 전환)인지
+  구분할 근거가 없었던 것을 해소. 특히 radarTrackId는 dPath보다 더
+  직접적으로 "다른 물체로 넘어갔는지"를 잡을 수 있어 함께 추가.
+  README.md 동기화 완료. `ryu` 코드 변경 없음(devnotes toolkit만).
+
 ## 2026-08-23 (58차 2번)
 - `analysis_helpers.py`: `congestion_stop_launch_lurch_scan` 신규 —
   "정체구간 붕끗" 근본원인 가설(정체 중 danger override가 완만한

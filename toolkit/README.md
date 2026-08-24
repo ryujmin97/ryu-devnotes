@@ -33,8 +33,14 @@ hash/branch/커밋 날짜·메시지/dirty 여부/추출 시각/row 수 —"이 
 **CSV 컬럼**: `t, seg, commit, vEgo, aEgo, brakePressed, gasPressed,
 cruiseEnabled, vCruise, steeringAngleDeg, desiredCurvature, leadStatus,
 leadDRel, leadVRel, leadVLead, src, desiredSpeed, vTurnSpeed,
-leadRadar, leadModelProb, leftBlinker, rightBlinker, laneChangeState,
+leadRadar, leadModelProb, leadDPath, leadYRel, leadALeadK,
+leadRadarTrackId, leftBlinker, rightBlinker, laneChangeState,
 laneChangeDirection`
+**2026-08-25 추가(63차 계속3 이어서)**: `leadDPath`/`leadYRel`/
+`leadALeadK`/`leadRadarTrackId`(RadarState.LeadData 필드) 신규 추가 —
+seg14류 반복 discontinuity 원인이 인접차선 오검출인지 트랙 전환
+(cut-in으로 다른 물체로 넘어감)인지 dPath/radarTrackId 없이는 구분 못
+했던 한계 해소용. 이 컬럼이 없는 과거 CSV는 재추출 필요.
 **사용**:
 ```bash
 python3 extract_log.py /home/claude/work/route /home/claude/work/route.csv \
