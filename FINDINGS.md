@@ -5050,3 +5050,182 @@ override(`ttc_now <= LEAD_ACQ_TTC_DANGER`, 2.5s)는 `lead.vLead` 기반
 실차 드라이브 결과가 다음 세션 최우선으로 유지됨.** 코드 변경 없음
 (ryu 미변경, `work/sim_drel_discontinuity.py`만 신규 — toolkit 미편입,
 실제 로그 검증 전까지는 스크래치로 유지하는 기존 원칙과 동일).
+
+## [63차 계속, 중요] 방안 C 실측 재생 검증 완료 — r1-3은 효과 확인, **r1-14는 보호 공백(gap) 발견**
+
+**배경**: 사용자가 r1-3/r1-14 원본 rlog를 재업로드(`drive-download-
+20260824T072553Z-1-001.zip`, route `a2141d7786` seg3="cutin 급감속"/
+seg14="cutin 급감속_택시_" 라벨로 정확히 일치, 61/62차가 참조한 바로
+그 16세그 로그). `extract_log.py`로 CSV 추출(commit `4ea63c3`, 방안C
+반영된 HEAD로 디코딩 — 단 로그 자체의 기록 시각은 2026-08-24 15:38로,
+방안C 커밋 시각(23:28)보다 훨씬 이름 — **즉 이 로그는 방안C 적용
+이전에 기록된, r1-3/r1-14 문제를 처음 보고하게 만든 바로 그 원본**).
+
+**검증 방법**: `work/replay_drel_discontinuity_real.py` 신규 작성 —
+`long_mpc.py`의 lead-acquisition ramp bookkeeping(L744~780) + 방안C
+discontinuity 체크(L801~844) + `vlead_correction_suppressed`/
+`vision_rate_for_lead0` 계산(L866~877) + `frac_time`/`frac_ttc`/
+`frac_rate` 계산(L907~961)을 실제 코드 그대로 복제. 실측 CSV(leadDRel/
+leadVRel/leadRadar/leftBlinker/rightBlinker/vEgo/cruiseEnabled)를
+프레임 단위로 흘려 PATCHED(방안C 있음)/UNPATCHED(방안C 제거) 두 버전을
+나란히 재생.
+
+**seg3(r1-3) 결과 — 방안C 효과 확인**: discontinuity 7프레임 트리거
+(t=259.20~259.65, dRel 65.2→25.9m 급락 구간, 실측치가 FINDINGS 원 기록
+"65→24m류"와 거의 정확히 일치). aEgo 최저치(-3.236, t=261.297) 부근에서
+**frac(개입강도) PATCHED 0.27~0.36 vs UNPATCHED 0.90~0.98 — 방안C가
+있었다면 이 구간 개입 강도가 실측 대비 약 1/3 수준으로 낮았을 것으로
+추정.** 원인 분해: 이 구간은 radar가 이미 락온(radar=True)한 상태라
+`frac_rate`/`frac_ttc`는 이미 0(radar 락온 시 `_vision_dRel_rate`
+즉시 리셋되는 기존 로직 때문)이고, 차이는 전부 `frac_time`(경과시간
+기반 성분)에서 남 — discontinuity가 `_lead_acq_timer`를 리셋해줘서
+frac_time이 처음부터 다시 램프하기 때문(PATCHED: 리셋 후 경과 ~1.6s
+-> frac_time≈0.32, UNPATCHED: 리셋 없이 훨씬 오래 누적된 timer ->
+frac_time≈1.0 포화).
+
+**seg14(r1-14) 결과 — [신규 발견, 중요] 보호 공백**: discontinuity
+6프레임 트리거(t=923.10~923.50, dRel 85.7→60.7m 급락)도 정상 동작.
+그러나 aEgo 최저치(-4.286, t=925.148) 부근에서 **PATCHED와 UNPATCHED의
+frac이 완전히 동일(둘 다 1.0) — 방안C가 이 사례의 실제 급감속을
+전혀 완화하지 못했을 것으로 추정됨.**
+
+**원인(코드 구조 확인)**: 이 구간은 radar가 아직 안 락온한 상태
+(`leadRadar=False`)라 `frac_rate`/`frac_ttc`가 계속 살아있는데, 이
+둘은 `self._vision_dRel_rate`(저역통과 필터링된 값)를 **discontinuity
+suppression과 무관하게 직접 읽음**(L937/L954, `vlead_correction_
+suppressed` 게이트가 전혀 적용 안 됨 — 그 게이트는 `vision_rate_
+for_lead0`, 즉 process_lead에 넘기는 v_lead 직접보정 주입 여부에만
+적용됨). 게다가 discontinuity 트리거는 `_lead_acq_timer`만 리셋할 뿐
+`_vision_dRel_rate`/`_vision_dRel_rate_window`는 건드리지 않음 — 즉
+급락 구간에서 이미 저역통과 필터에 먹여진 큰 음수(-8.1~-8.3m/s대)
+값이 그대로 남아 `VISION_CLOSING_RATE_MIN_TIME(0.5s)`만 지나면
+frac_rate가 다시 1.0으로 즉시 복귀함. **58차1(v_lead 직접보정)/60차
+계속(신규등록 게이트)/방안C 전부가 "process_lead에 넘기는 v_lead
+직접보정" 경로만 보호하고, 25차/33차(frac_time/frac_ttc/frac_rate
+floor 메커니즘) 경로는 애초에 보호 범위 밖이었음** — 이 두 경로가
+독립적으로 최종 개입강도(frac)에 max()로 합쳐진다는 구조를 seg3
+분석 때는 (radar 락온이 우연히 frac_rate/ttc를 0으로 만들어줘서)
+못 보다가, radar 락온 전에 급감속이 끝나버리는 seg14류에서 처음으로
+드러남.
+
+**결론/영향**: 방안C는 "리드 신규등록/차선변경류 취약구간에서 v_lead
+직접보정을 유예"하는 60차 계속 메커니즘의 재사용이라 그 메커니즘이
+보호하는 범위(v_lead 직접보정, frac_time)에서는 유효하지만, **radar
+락온 전에 frac_rate/frac_ttc가 이미 오염된 `_vision_dRel_rate`로
+포화(1.0)돼버리는 경우(r1-14류, cutin 감지~radar 락온 사이가 긴 경우)
+에는 사실상 무력할 가능성이 높음.** 실차 검증(다음 최우선)에서 이
+차이가 실제로 나타나는지(r1-3류는 완화, r1-14류는 여전히 급감속)
+반드시 확인 필요 — 만약 재현되면 **방안 D**(discontinuity 트리거 시
+`_vision_dRel_rate`/`_vision_dRel_rate_window`도 함께 리셋해 frac_rate/
+frac_ttc 오염까지 차단) 추가 패치가 필요.
+
+**다음(최우선, 갱신)**:
+1. 실차 검증 시 r1-3류(radar 락온 빠름)와 r1-14류(radar 락온 느림/
+   cutin이 더 오래 vision-only로 유지) 두 패턴을 반드시 구분해서
+   관찰 — 전자는 개선 체감 가능성 높고 후자는 이번 발견대로 무개선일
+   가능성 높음.
+2. **[신규, 유력 후보] 방안 D 설계**: discontinuity 트리거 시
+   `_lead_acq_timer`뿐 아니라 `_vision_dRel_rate=0.0`/
+   `_vision_dRel_rate_window.clear()`도 함께 리셋 — frac_rate/frac_ttc
+   floor 경로까지 보호 범위를 넓힘. 단, 이 값을 0으로 리셋하면 그
+   프레임 이후 다시 "정말 위험한 접근"이 있어도 즉시 알아채지 못하고
+   같은 저역통과 필터가 처음부터 다시 수렴해야 하므로(TAU=1.0s), 진짜
+   위험 상황(danger override, TTC<=2.5s의 vRel 기반 즉시반응 경로)은
+   여전히 무관하게 살아있음을 재확인해야 함(안전 백스톱은 유지되지만
+   frac_rate 경로 자체의 반응 지연이 새로 생기는 트레이드오프 고려).
+3. `replay_drel_discontinuity_real.py`는 실제 코드와 대조 검증된
+   재현이므로, 방안 D 설계 시 이 스크립트에 방안 D 로직을 추가해
+   seg3/seg14 둘 다 frac이 낮아지는지 먼저 시뮬레이션으로 확인 후
+   패치 작성 권장(패치 전 시뮬레이션 우선 원칙).
+4. 기존 4/5번 항목(값 튜닝/방안 A)은 그대로 유지, 우선순위는 위 1/2
+   번보다 낮음.
+
+**코드 변경 없음(ryu 미변경, 발견/시뮬레이션만)**.
+`work/route63/replay_drel_discontinuity_real.py` 신규 — toolkit 미편입
+(아직 방안 D 미확정, seg3/14 외 다른 route 재현 검증도 안 됨 — 기존
+원칙대로 스크래치 유지).
+
+## [63차 계속3] 방안 D 구현·재생검증 완료 — seg14엔 사실상 무효, 원인은 raw dRel 자체의 비정상적 스냅(진짜 물리적 접근 아닐 가능성)
+
+**배경**: 직전 항목("방안 C 실측 재생 검증 완료")에서 설계한 방안 D
+(discontinuity 트리거 시 `_lead_acq_timer`뿐 아니라 `_vision_dRel_rate=0.0`
++ `_vision_dRel_rate_window.clear()`도 함께 리셋)을 실제로 구현하고
+seg3/seg14 재생검증. `work/route63/replay_drel_discontinuity_d.py` 신규
+작성(UNPATCHED/PATCHED_C/PATCHED_D 3-way 비교, long_mpc.py 로직 그대로
+복제 — 이전 세션 스크립트가 저장 전에 중단돼 재작성, 검증 방식은 동일).
+
+**seg3(r1-3) 결과**: 방안 D 추가효과 0. 방안C만으로 이미 aEgo 최저치
+부근 frac 0.36 vs UNPATCHED 0.96 확보(기존 결론 유지) — 이 구간은
+discontinuity가 1회만 트리거되고 radar가 이미 락온해 있어 방안C만으로
+충분, 방안D가 개입할 여지 자체가 없음.
+
+**seg14(r1-14) 결과 — [중요, 가설 수정] 방안D 무효, 원인은 예상과 다름**:
+discontinuity가 예상(1회)과 달리 **t=923.10~923.50 구간에서 7회
+연속 재트리거**(dRel이 프레임마다 반복 급락: 85.7→84.5→83.4→75.7→
+68.4→66.9→61.3→60.7→...m). 방안D는 트리거마다 `_vision_dRel_rate`를
+0으로 리셋하지만, 리셋 직후에도 raw_rate가 `VISION_CLOSING_RATE_
+MAX_PLAUSIBLE`(-30m/s)로 클램프될 만큼 큰 값이 연속으로 들어와
+median 필터가 즉시 -30 근처로 재수렴 → 저역통과 필터(TAU=1.0s)가
+discontinuity 종료(t≈923.5) 후 약 0.55초 만인 t=924.047에 이미
+GATE_DANGER(-5.0) 이하로 재포화, **frac_rate가 UNPATCHED/PATCHED_C와
+정확히 같은 프레임(t=924.047)에 1.0 도달**. 이후 924.65~924.995
+구간에서 PATCHED_D만 0.82~0.99로 짧게 처짐이 있으나 aEgo 최저치
+(t=925.148) 시점엔 이미 재차 1.0으로 수렴 완료 — **실질적 개선 효과
+없음**(window max frac: UNPATCHED=PATCHED_C=PATCHED_D=1.000).
+
+**[신규, NEEDS_VALIDATION] raw dRel 값 자체의 신뢰성 의심**: 급락
+구간의 raw dRel 변화량이 물리적으로 부자연스러움 — 예: t=923.298
+한 프레임(0.05s)만에 dRel 83.4→75.7m(순간 -154m/s), t=924.046에는
+53.1→41.5m(순간 -230m/s)인데 **바로 다음 프레임에 41.5→43.8m로
+증가(멀어짐) 반전**. 정상 주행에서 물리적으로 불가능한 크기의 왕복
+스냅이 여러 차례 반복됨 — VISION_CLOSING_RATE_MAX_PLAUSIBLE 클램프
+(30m/s)가 개별 프레임 극단값은 막아주지만, **이런 스냅이 median
+window(3프레임) 안에서 연속으로 여러 번 발생하면 클램프된 -30 자체가
+필터 입력 다수를 차지해 median이 그대로 -30 근처를 반환** → 저역통과
+필터가 "지속접근 vs 일회성 스냅"을 구분하도록 설계됐음에도 스냅이
+연속 발생하는 이 케이스는 설계 의도를 우회함. 같은 구간 `leadVRel`
+(모델 자체 속도 추정치)은 -0.8~-3.2m/s로 훨씬 온건 — raw dRel 미분과
+모델 vRel 추정치가 크게 괴리. qcamera 프레임(t=923.10/923.30/924.00
+육안 비교, `work/route63/frames_seg14/`, `frames_seg14b/`) 상으로도
+흰색 차량(라벨 "cutin 급감속_택시_")의 화면 내 크기·위치가 이 구간
+동안 뚜렷이 커지지 않음 — 다만 40~85m 거리대는 qcamera 저해상도로
+육안 판별이 불확실해 보조적 정황일 뿐 결정적 반증은 아님. t=925.35
+(radar 락온 직후) vRel이 +3.2(멀어짐)로 전환되는 현상도 관찰됐으나,
+이 구간 vEgo가 18.68→16.44m/s로 하드브레이킹(frac=1.0 반응) 자체
+때문에 감소 중이라, 부호반전이 "실제 리드가 멀어짐"인지 "ego 감속으로
+상대속도가 자연히 완화됨"인지 현재 데이터만으론 구분 불가.
+
+**해석(잠정, 검증 필요)**: 이 급락 패턴은 (a) 인접차선 오검출(dPath
+미확인 — 이번 CSV에 dPath 컬럼 없음, extract_log.py 확장 필요)이거나
+(b) vision dRel 추정 자체의 노이즈/불안정(타겟 재획득 스냅 반복) 중
+하나로 추정되나 이번 조사로 확정 못함. 어느 쪽이든 **raw dRel 급락 →
+그대로 frac_rate 포화**로 이어지는 현재 구조가 근본 원인이며, 방안D
+(단순 리셋)로는 스냅이 연속 재발하는 케이스를 못 막는다는 게 핵심
+결론.
+
+**결론/영향**:
+1. **방안 D는 폐기 또는 낮은 우선순위로 하향** — 최소한 seg14류
+   (연속 재트리거 패턴)엔 효과 없음이 재생검증으로 확인됨.
+2. seg3류(discontinuity 1회성, radar 조기 락온)에서는 기존 방안C만
+   으로 이미 충분 — 이 결론은 유지.
+3. **[신규 최우선 후보] 방안 E**: discontinuity가 짧은 시간 내 반복
+   재트리거되는 경우 raw dRel 자체의 신뢰도를 낮추고 대응하는 방향
+   검토 필요(예: 반복 재트리거 횟수 카운트 -> 임계 초과 시 그 구간
+   frac_rate 성분 자체를 일시 무력화/상한). 단 "진짜 위험한 연속
+   접근"과 "노이즈성 반복 스냅"을 구분해야 하는 문제라 신중한 설계
+   필요(방안C/D보다 리스크 큼, 실제 위험 상황에서 반응을 늦출 수
+   있는 트레이드오프 — danger override 경로는 항상 무관하게 유지).
+4. **dPath 컬럼을 extract_log.py에 추가**해 이 구간이 인접차선
+   차량 오검출인지부터 먼저 확인하는 게 방안E 설계보다 선행돼야 함
+   (원인 특정 없이 완화 로직부터 만들면 잘못된 방향으로 갈 위험).
+5. 실차 검증(사용자) 시 r1-3류/r1-14류 구분 관찰은 계속 유효하나,
+   **r1-14류는 방안C/D 어느 쪽으로도 개선이 체감되지 않을 가능성이
+   높다**는 점을 미리 인지하고 관찰할 것.
+
+**증거**: `work/route63/frames_seg14/`, `work/route63/frames_seg14b/`
+(qcamera 프레임, 커밋 안 함 — 원본 이미지는 스크래치 유지 원칙),
+`work/route63/replay_drel_discontinuity_d.py`(재생검증 스크립트,
+toolkit 미편입 — 방안 미확정 상태라 스크래치 유지).
+
+**코드 변경 없음(ryu 미변경, 방안D는 시뮬레이션에서만 구현·기각됨,
+실제 ryu 코드베이스에 반영 안 함)**.

@@ -1,3 +1,44 @@
+## 63차 계속 (체크포인트2 — r1-3/r1-14 원본 rlog 재업로드받아 실측 재생 검증 완료, **중요 발견: 방안C 보호 공백**)
+
+**배경**: 63차 체크포인트 직후 사용자가 r1-3/r1-14 원본 rlog(같은
+16세그 로그, route `a2141d7786` seg3/seg14)를 재업로드 → 드디어 실측
+재생 검증 진행.
+
+**핵심 발견**: `long_mpc.py` 실제 코드를 그대로 복제한
+`work/route63/replay_drel_discontinuity_real.py`로 PATCHED/UNPATCHED
+비교 재생.
+- **r1-3(seg3)**: discontinuity 정상 트리거(7프레임), aEgo 최저치 부근
+  frac이 PATCHED 0.27~0.36 vs UNPATCHED 0.90~0.98 — **방안C 효과 확인**
+  (radar가 이미 락온한 구간이라 frac_time 개선분이 그대로 드러남).
+- **r1-14(seg14)**: discontinuity 정상 트리거(6프레임)했으나, aEgo
+  최저치 부근 frac이 PATCHED=UNPATCHED=1.0으로 **완전히 동일 —
+  방안C가 이 사례엔 사실상 무효**. 원인: radar 락온 전(vision-only
+  지속)인 구간이라 `frac_rate`/`frac_ttc`가 여전히 활성인데, 이 둘은
+  discontinuity suppression과 무관하게 `_vision_dRel_rate`를 직접
+  읽음 — 방안C는 `_lead_acq_timer`만 리셋할 뿐 오염된 `_vision_dRel_
+  rate` 자체는 그대로 둬서, 0.5초(`VISION_CLOSING_RATE_MIN_TIME`)만
+  지나면 frac_rate가 다시 1.0으로 즉시 복귀함.
+
+**의미**: 방안C(60차 계속 신규등록 게이트 재사용)는 "v_lead 직접보정"
+경로만 보호하고 "frac_time/frac_ttc/frac_rate floor" 경로(25차/33차)는
+애초에 보호 범위 밖이었음이 실측으로 처음 드러남. radar 락온이 빠른
+케이스(r1-3류)는 우연히 frac_rate/ttc가 락온 즉시 0으로 리셋돼 보호
+효과가 있었지만, 락온이 늦는 케이스(r1-14류)는 무방비.
+
+**다음(최우선, 최상위로 격상)**:
+1. **방안 D 설계 착수**: discontinuity 트리거 시 `_vision_dRel_rate=0.0`
+   + `_vision_dRel_rate_window.clear()`도 함께 리셋 — frac_rate/frac_ttc
+   경로까지 보호 확장. danger override(TTC<=2.5s, vRel 기반 직접경로)는
+   무관하게 항상 살아있음을 재확인하며 설계.
+2. 방안 D를 `replay_drel_discontinuity_real.py`에 추가해 seg3/14 둘 다
+   frac이 낮아지는지 재생검증 먼저(패치 전 시뮬레이션 우선 원칙) →
+   통과 시 패치 작성.
+3. 실차 검증 시 r1-3류 vs r1-14류(radar 락온 지연 정도)를 구분해서
+   관찰 필요 — 이 발견이 실차에서도 재현되는지 확인.
+
+**세션 종료 아님 — 중단지점 저장.** 상세는 FINDINGS.md "[63차 계속,
+중요] 방안 C 실측 재생 검증 완료" 항목 참고.
+
 ## 63차 (체크포인트 — 방안C 시뮬레이션 재검증만, 코드 변경 없음, 실차/원본로그 검증 대기)
 
 **배경**: 62차의 "다음(최우선)" 항목 중 "최근 패치된 브랜치 시뮬레이션
@@ -2030,3 +2071,49 @@ seg6/7/15~19) 분석 완료. 상세는 FINDINGS.md 51차 참고.
 이 WIP.md에 "51차" 섹션이 있으면 무조건 이 지점부터 이어감. 사용자가
 "체크포인트"라고만 말하면 이 섹션 상태 그대로 유지, 추가 진행 있으면
 새 섹션으로 덧붙임.
+
+## 63차 계속3 (방안 D 구현·재생검증 완료 — 방안 D는 폐기, 방안 E/dPath 확인이 신규 최우선)
+
+**배경**: 63차 체크포인트2에서 설계했던 방안D(discontinuity 트리거 시
+`_vision_dRel_rate`/`_vision_dRel_rate_window`도 함께 리셋)를 실제
+구현하고 seg3/seg14로 재생검증(`work/route63/replay_drel_
+discontinuity_d.py` 신규 — 이전 스크립트는 저장 전 세션 중단으로
+유실, 동일 로직으로 재작성).
+
+**핵심 결과**:
+- seg3: 방안D 추가효과 없음(방안C만으로 이미 충분, 기존 결론 유지).
+- seg14: **방안D도 사실상 무효** — discontinuity가 1회가 아니라
+  t=923.10~923.50 사이 7회 연속 재트리거됨. 리셋해도 그 직후 다시
+  큰(-30m/s 클램프) raw_rate가 연속 유입돼 median 필터가 즉시
+  재수렴, discontinuity 종료 0.55초 후(t=924.047)엔 이미 UNPATCHED/
+  PATCHED_C와 같은 프레임에 frac_rate=1.0 재포화. aEgo 최저치
+  (t=925.148) 시점엔 방안D도 완전히 동일값(1.0).
+
+**[신규 발견] raw dRel 신뢰성 자체가 의심스러움**: 이 구간 dRel
+변화량이 프레임당 최대 -230m/s(물리적으로 불가능)에 달하고 방향이
+반복적으로 뒤집힘(closing→opening→closing...). qcamera 프레임 육안
+비교(t=923.10/923.30/924.00)로는 차량이 이 구간 동안 뚜렷이 가까워
+지는 것처럼 안 보임(단, 저해상도라 결정적이진 않음 — 보조 정황).
+leadVRel(모델 자체 추정)은 -0.8~-3.2m/s로 훨씬 온건해 raw dRel
+미분과 크게 괴리. **인접차선 오검출(dPath 미확인 상태)이거나 vision
+dRel 추정 자체의 노이즈/불안정 중 하나로 추정, 미확정.**
+
+**다음(최우선, 갱신)**:
+1. **extract_log.py에 dPath 컬럼 추가** — 이 구간이 인접차선 차량
+   오검출인지부터 먼저 확인(원인 특정 없이 완화 로직부터 만들면
+   잘못된 방향으로 갈 위험).
+2. dPath로 인접차선 오검출 아닌 걸로 확인되면 **방안 E**(반복
+   재트리거 시 frac_rate 성분 일시 무력화/상한) 설계 착수 — danger
+   override는 항상 무관하게 유지되도록 신중히 설계.
+3. **방안D는 폐기/우선순위 하향** — 더 이상 이 방향으로 시간 쓰지
+   않음.
+4. 실차 검증(사용자) 시: r1-3류는 방안C로 개선 체감 가능성 높음,
+   r1-14류는 방안C/D 어느 쪽으로도 무개선일 가능성 높다는 점 미리
+   인지.
+
+**코드 변경 없음(ryu 미변경)**. `work/route63/replay_drel_
+discontinuity_d.py` 신규(toolkit 미편입, 방안 미확정 상태 스크래치
+유지). `work/route63/frames_seg14/`, `frames_seg14b/`(qcamera 프레임,
+커밋 안 함).
+
+**세션 종료 아님 — 중단지점 저장.**
