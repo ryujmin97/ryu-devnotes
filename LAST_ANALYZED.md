@@ -1,4 +1,25 @@
 ## c3-ms-dev
+- last_analyzed_commit (62차, 61차 계속 방안C 복구·push 완료 확인): `4ea63c3`
+  (HEAD, `d6e334f` 위에 신규 커밋 1개 — `4ea63c3`("61차 계속(방안 C):
+  cutin 불연속 dRel 급락 감지 -> 신규등록 suppress 메커니즘 재사용").
+  62차에서 이 커밋의 devnotes 기록(FINDINGS.md)이 직전 세션 push 누락으로
+  유실된 것을 발견해 복구했고, 이후 사용자가 `git fetch`+`git log`로
+  origin/c3-ms-dev와 로컬 HEAD가 정확히 `4ea63c3`로 일치함(로컬 미푸시
+  커밋 없음, `origin/c3-ms-dev..HEAD` 빈 결과)을 직접 확인 —
+  **패치 적용 + push 완료 재확인됨.**
+- date: 2026-08-25 (62차)
+- note: cutin(자기 차로 진입) 시 vision dRel 프레임간 미분이 종방향
+  급접근으로 착시를 일으켜 레이더 락온 직전 급감속(r1-3/-3.24m/s²,
+  r1-14/-4.29m/s²)하던 문제 — `DREL_DISCONTINUITY_DROP_THRESH=15.0m`/
+  `WINDOW_N=5`로 원본 dRel 급락 감지 시 `_lead_acq_timer=0.0` 리셋,
+  기존 검증된 신규리드 suppress(1.5s) 메커니즘 재사용. 로직단위 합성검증
+  4건 완료(NEEDS_VALIDATION — 실제 원본 로그 재생검증은 아직).
+  **다음 세션 최우선: 실차 드라이브 검증 — (a) cutin 재현 시 급감속
+  완화 여부, (b) danger override(TTC<=2.5s) 회귀 없는지, (c) 신규등록
+  게이트와의 이중트리거 부작용 여부.** 상세는 FINDINGS.md 61차 계속
+  (방안C)/62차 항목 참고.
+
+## c3-ms-dev (이전 기록)
 - last_analyzed_commit (60차 계속8, 외곽게이트 후속수정): `d6e334f` (HEAD,
   신규 커밋 1개 — `d6e334f`(`get_lead()` 외곽게이트가 `lead_msg.prob>.5`를
   `VisionTrack.update()` 내부와 별개로 독립 재체크하며 60차 A(tentative

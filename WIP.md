@@ -16,18 +16,23 @@ clone해보니 61차 계속(방안C) 작업의 FINDINGS.md 기록이 origin에 �
 4. FINDINGS.md의 "[신규 발견 + 방안 C 구현 완료]" 항목을 그대로
    복구·재기록(복구 경위 문구 추가).
 
-**[확인 필요, 최우선]** 사용자가 이 패치를 `C:\dev\ryu`에 `git am`
-적용했는지(업로드 파일 자체엔 이미 코드가 반영돼 있었음 확인) +
-`git push origin c3-ms-dev`까지 완료했는지 사용자 확인 필요 — **origin
-`c3-ms-dev`는 아직 `d6e334f`(방안C 미반영) 상태.** push 완료 시
-LAST_ANALYZED.md도 갱신 필요.
+**[해결 완료]** 사용자가 `git fetch origin` + `git log --oneline -5
+origin/c3-ms-dev` + `git log --oneline origin/c3-ms-dev..HEAD`로 직접
+확인 — origin `c3-ms-dev` HEAD가 `4ea63c3`(방안C 커밋)이고 로컬 HEAD와
+정확히 일치, 로컬에 미푸시 커밋도 없음(`origin/c3-ms-dev..HEAD` 빈
+결과). **패치 적용 + push 완료 재확인됨.** LAST_ANALYZED.md 갱신 완료.
 
-**다음(최우선)**:
-1. push 여부 확인 → 안 됐으면 `git push origin c3-ms-dev` 안내.
-2. push 확인되면 LAST_ANALYZED.md 갱신.
-3. 이후 61차 계속(방안C) FINDINGS.md 항목의 "다음(최우선)" 2~5번
-   (실차검증: cutin 재현 시 완화 여부, danger override 회귀 검증,
-   신규등록 게이트와의 이중트리거 확인 등)으로 진행.
+**다음(최우선)**: 61차 계속(방안C) FINDINGS.md 항목의 "다음(최우선)"
+2~5번으로 진행:
+1. 실차 검증: (a) r1-3/r1-14류 cutin 재현 시 급감속이 실제로 완화되는지,
+   (b) **회귀 검증 필수** — 진짜 급접근(전방 차량 급브레이크 등)에서
+   danger override가 지연 없이 그대로 작동하는지, (c) 신규등록
+   게이트(60차 계속2)와 겹치는 케이스에서 이중 트리거로 인한 부작용
+   없는지.
+2. 가능하면 r1-3/r1-14 원본 rlog 재업로드받아 실측 dRel 시퀀스로 이번
+   로직을 직접 재생 검증(현재는 문서 기록 기반 근사 시뮬레이션뿐).
+3. `DREL_DISCONTINUITY_DROP_THRESH=15.0m`/`WINDOW_N=5` 값 자체는 설계
+   추정치 — 실차 반응 보고 튜닝 필요.
 
 ## 61차 계속 (체크포인트3 — 나머지 13세그 중 11세그 qcamera 대조 완료, 이전 패치까지 포함 검증 완료)
 
