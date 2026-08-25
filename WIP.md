@@ -3016,6 +3016,11 @@ LAST_ANALYZED 확인용 원격 HEAD)):
 **전달**: `0001-79-RES-accelCruise-v_cruise_kph.patch`를 `/mnt/user-data/outputs/`에
 전달(base `f3773b58`, 즉 현재 origin `c3-ms-dev` HEAD 위에 바로 `git am` 가능).
 
+**[갱신] 적용 완료 확인** — 사용자가 `C:\dev\ryu`를 origin에서 새로 clone(base
+`f3773b58` 일치 확인) 후 `git am` 적용(로컬 `2d5174e`, diff --stat +9/-1로 예상과
+일치) + `git push origin c3-ms-dev` 완료(push 결과 로그 미확인이라 `git fetch`+
+`git log origin/c3-ms-dev -1` 재확인 요청함 — 다음 메시지에서 결과 확인 필요).
+
 **다음(최우선)**:
 1. `C:\dev\ryu`에서 `git am` 적용 + `git push origin c3-ms-dev`.
 2. **실차 드라이브 검증**: (a) 수동주행 중 첫 +RES 시 목표속도가 실제로 현재속도
