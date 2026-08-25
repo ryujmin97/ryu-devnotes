@@ -1,4 +1,21 @@
 ## c3-ms-dev
+- last_analyzed_commit (72차 계속2, [체크포인트] 방안I 무력화 원인
+  재현/재확정): `4fa4a44` (HEAD, 코드 변경 없음 — route1 실측 CSV로
+  L823~1140 로직 프레임 대조 재확인)
+- date: 2026-08-25 (72차 계속2, 체크포인트)
+- note: 레이더 락온 엣지(t=690.0027, vRel -3.96→-10.8m/s)에서 방안I
+  트리거 자체는 정상 발동(frac=0/danger_active=False로 게이트 통과
+  확인)하지만, 실제 급감속이 4초+ 지속되는 반면 boost 윈도우는
+  `DISCONTINUITY_JERK_COST_BOOST_S=1.0s`뿐이라 boost 소진 직후
+  (leadALeadK 최악 구간과 겹침) base_a_change_cost가 다시 낮아져
+  (j_lead 기반 interp) 사실상 무감쇠로 복귀 — "방안C와의 상호작용
+  버그"가 아니라 "boost 지속시간이 이 시나리오(찰나성 노이즈가 아닌
+  진짜 지속 급감속)엔 구조적으로 부족"이 재확정된 원인. 상세는
+  WIP.md/FINDINGS.md "72차 계속2" 항목 참고. **다음 세션 최우선: boost
+  지속시간 연장 또는 release-rate 완만화 방안 확정 + route1 replay
+  스크립트 정식화 + route2(x7seg) 재업로드받아 교차검증.**
+
+## c3-ms-dev (이전 기록)
 - last_analyzed_commit (72차 계속, 방안I 패치 적용/push 완료): `4fa4a44`
   (HEAD, `0c137f28b456` 위에 신규 커밋 1개 — `4fa4a44`(72차 방안I,
   레이더 락온 전환 프레임 vRel 불연속 감지). 사용자가 `C:\dev\ryu`에서
