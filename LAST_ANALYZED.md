@@ -1,4 +1,16 @@
 ## c3-ms-dev
+- last_analyzed_commit (75차, 차선변경 급감후 원복 제보 분석): `f8e136e`
+  (코드 변경 없음 — 73차 패치 커밋 그대로. route1/route2 동일 라우트로
+  차선변경 구간만 재분석.)
+- date: 2026-08-26 (75차)
+- note: discontinuity(방안C/G) 트리거 소스가 frac 게이트에 막혀 boost가
+  무력화되는 사각지대를 차선변경 시나리오에서 신규 확인(route2 t=1469/1541)
+  — 73차 split_gate는 handoff 소스만 커버했음. 나머지 harsh 사례는 진짜
+  위험(danger override 정탐) 또는 곡선(vturn) 별개 이슈로 판명. 상세는
+  WIP.md/FINDINGS.md "75차" 참고. **다음: discontinuity 소스에 차선변경
+  한정 frac 무관 게이트를 추가할지 사용자 확인 대기, 패치 미착수.**
+
+## c3-ms-dev
 - last_analyzed_commit (74차, 실차 로그 전체 라우트 재생검증): `f8e136e`
   (코드 변경 없음 — 73차 방안I 패치 커밋 그대로. 이번 세션은 분석만.)
 - date: 2026-08-26 (74차)

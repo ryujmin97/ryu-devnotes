@@ -1,3 +1,57 @@
+## 75차 — "차선변경 시 급감후 원복" 제보, discontinuity 소스 frac게이트 미해결 사각지대 발견
+
+**요청**: 스크린샷("차선을 변경합니다", dRel≈55m, 1.Accel 그래프 하강) +
+route1(`ea5bcc0566`)/route2(`a5b1ce4e42`) 재업로드(72~74차와 동일 라우트,
+`data/routes/` 캐시 재사용). "차선변경 시 부드러울 때도, 급감후 원복하는
+때도 있다 — 위험 상황 아니면 서서히 반응하도록" 요청.
+
+**방법**: leftBlinker/rightBlinker/laneChangeState active 구간을 차선변경
+이벤트로 탐지(route1 19건/route2 10건), 각 구간 전후 aEgo 최저치 확인,
+`replay_boost_duration.py`의 `BoostReplay`(73차 로직 그대로)로 UNPATCHED
+(1.0s hard)/PATCHED(73차, 4.0s+release100+split_gate) 위험구간(aEgo<=-1.0)
+내 boost 적용시간 대조.
+
+**분류**:
+1. **73차 패치로 이미 개선 확인**: route2 t=1374~1381(handoff, aEgo -3.16)
+   UNPATCHED 0%→PATCHED 100%(2.70/2.70s) 커버. route1 t=363~369도
+   18%→56%로 개선. 같은 날 push된 패치가 정확히 이 유형(레이더 핸드오프)을
+   해결하고 있음을 재확인.
+2. **[신규, 미해결] discontinuity(방안C/G) 소스는 여전히 frac 게이트에
+   막혀 boost 무효**: route2 t=1469~1472/t=1541~1545 — 트리거는 발동하나
+   PATCHED/UNPATCHED 둘 다 boost 적용시간 0%. 원인: 73차 `split_gate`는
+   handoff 소스에만 frac 무관 게이트를 줬고, discontinuity 소스는
+   `frac<=0.0` 게이트 그대로(63차 결정 — 방안C/G는 이미 실차검증 끝난
+   조합이라 보호). 차선변경 중 새 차로 리드가 dRel 급락으로 잡히는 순간
+   frac(TTC caution)도 함께 빠르게 상승하는 경우가 많아, 이 시나리오에선
+   discontinuity 트리거가 발동해도 boost가 사실상 항상 무력화됨. **73차가
+   해결한 건 "레이더 핸드오프"뿐, "차선변경 중 비전 dRel 급락"은 여전히
+   사각지대.**
+3. 잔존 구조적 한계(74차부터 알려짐) 재확인: route1 t=522~533(handoff)
+   위험구간 3.20s 중 PATCHED/UNPATCHED 둘 다 0.35s(11%)만 커버 — 트리거가
+   위험구간 후반부에야 발동.
+4. **정탐(버그 아님)**: route1 t=1015~1023(aEgo 최저 -4.01) — 차선변경
+   직후 레이더 짧게 놓쳤다가 vision-only로 새 리드(71m) 포착, 이후 ~4초간
+   vRel -13m/s대 물리적으로 일관 유지(단발 스냅 아님)되며 TTC<2.5s 진입 —
+   danger override 정상 발동한 진짜 급접근. 체감상 급감이지만 코드 버그
+   아님.
+5. route1 t=1061~1066/t=1131~1137: harsh 감속인데 leadStatus=False(리드
+   없음) — 곡선(vturn) 관련 별개 이슈로 추정, blinker와 우연히 겹침.
+6. 나머지 대부분(route1 t=880~894 등): 매끈한 점진적 근접 추종, 정상 동작.
+
+**결론**: 재현 가능한 "급감후 원복" 원인 후보는 **2번(discontinuity 소스
+frac게이트 미해결)**로 좁혀짐.
+
+**다음(사용자 확인 대기, 패치 미착수)**:
+1. discontinuity 소스에도 split_gate 적용할지 — 전면 적용은 63차 보호
+   대상(회귀 리스크) 재검토 필요. 대안: 차선변경 중(blinker+hold)에
+   한정해서만 discontinuity 소스도 frac 무관 게이트로 완화(60차 계속2
+   LANE_CHANGE_VLEAD_CORRECTION_HOLD_S와 동일한 "시나리오 한정" 원칙).
+2. 방향 확정 시 route2 t=1469/1541 재검증(boost 커버율 개선 확인) →
+   `long_mpc.py` 패치 설계.
+3. route1 t=522~533(3번) 구조적 한계는 이번 세션 범위 밖, 계속 이월.
+
+**코드 변경 없음(ryu). devnotes만 변경.**
+
 ## 73차 계속3 — boost_s 스윗스팟 탐색 + release-rate 스크립트 버그 수정, 4.0s+100/s 채택
 
 **boost_s만 증가(hard, split_gate)**: route1 3.0s→6.5s: 19.2/36.0/52.0/
