@@ -1,3 +1,28 @@
+## [체크포인트, 세션 종료 아님] 73차 계속 — 방향 결정: **방안I 트리거 전용 게이트 분리(제한적 1번)**
+
+**결정**: 3개 후보(FINDINGS.md 73차 참고) 중 **1번(frac 게이트 완화)을
+방안I 트리거에만 한정** 적용하기로 확정. 근거:
+- 2번(boost-frac 병존 재설계)은 a_change_cost 이분법 구조 자체를
+  바꿔야 해 범위/리스크 큼.
+- 1번을 **전면** 완화하면 방안C/G(dRel discontinuity, cutin/vision
+  노이즈 대응)까지 함께 풀리는데, 이 조합(방안C/G + frac 게이트)은
+  이미 실차검증까지 끝난 조합이라 회귀 리스크.
+- **방안I(레이더 핸드오프)이 겨냥한 시나리오는 정의상 frac_ttc를
+  즉시 끌어올림**(정지/서행 앞차의 진짜 상태가 락온 순간 확정되는
+  것이지, 새로운 미확인 위험이 아님) — danger override(TTC<=2.5s)만
+  살아있으면 안전망은 충분하다고 판단.
+- 따라서 트리거 소스(dRel discontinuity vs 레이더 핸드오프)별로
+  게이트를 분리: **방안I 트리거로 arm된 boost만 danger_active 단독
+  게이트**(frac 무관), **방안C/G(dRel discontinuity) 트리거는 기존
+  `frac<=0.0` 게이트 그대로 유지**.
+
+**다음(이어서 진행)**: `replay_boost_duration.py`에 "방안I 전용 완화
+게이트" 후보 추가 → route1/route2 재검증(커버리지가 실제로 늘어나는지,
+danger override 회귀 없는지) → 통과 시 `long_mpc.py` 패치 설계
+(트리거 소스를 구분하는 플래그 신규 필요 — 현재 `_discontinuity_jerk_
+boost_timer`는 dRel discontinuity/레이더 핸드오프 두 트리거가 같은
+타이머를 공유하므로, 소스 구분용 별도 상태 추가 검토).
+
 ## [체크포인트, 세션 종료 아님] 73차 — boost duration 연장 가설 재검증, **[방향전환] 원인은 duration이 아니라 frac<=0.0 게이트**
 
 **배경**: 72차 계속4 "다음(최우선)" 1/2번대로 `data_routes.load_route()`
