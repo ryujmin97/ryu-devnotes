@@ -1,16 +1,16 @@
 ## c3-ms-dev
-- last_analyzed_commit (73차 계속4, long_mpc.py 패치 적용/push 완료): `f8e136e`
-  (HEAD, `4fa4a44` 위에 신규 커밋 1개 — 방안I 전용 boost 4.0s hard +
-  release-rate 100/s, split_gate. 사용자가 `C:\dev\ryu`에서 초기 `git am`
-  실패(로컬이 origin보다 2커밋 뒤처짐, `e6a00ae`) → `git fetch`+`git reset
-  --hard origin/c3-ms-dev`로 동기화 후 재적용 성공 + `git push origin
-  c3-ms-dev` 완료 확인 — `4fa4a44..f8e136e`.)
-- date: 2026-08-25 (73차 계속4)
-- note: 73차 계속3 결정(4.0s+100/s, split_gate)대로 구현. `replay_boost_
-  duration.py` 재검증 route1 68.6%/route2 98.2% 커버. 상세는 WIP.md/
-  FINDINGS.md "73차 계속4" 참고. **다음 세션 최우선: 실차 드라이브
-  검증 — 급감속 완화 체감, danger override 회귀 없는지, 방안C/G 무영향
-  재확인, 이중 트리거 시 승차감.**
+- last_analyzed_commit (74차, 실차 로그 전체 라우트 재생검증): `f8e136e`
+  (코드 변경 없음 — 73차 방안I 패치 커밋 그대로. 이번 세션은 분석만.)
+- date: 2026-08-26 (74차)
+- note: route1(ea5bcc0566, x19seg, 11.06km)/route2(a5b1ce4e42, x7seg,
+  4.30km) 전체 구간(기존 튜닝에 쓰인 seg 포함) 재생검증 완료 — 트리거
+  검출 patched=baseline 동일(47건/17건), danger_active-boost 동시발생
+  0건(회귀 없음), boost 시간비중 여전히 작음(<4%), 신규 handoff 트리거
+  3건 전부 무해(급감속 없음), harsh_brake 전수 확인 결과 boost와
+  무관(대부분 driver disengage 인접). 상세는 FINDINGS.md "74차" 참고.
+  **다음 세션: 정성적 승차감 체감 확인(정량 회귀검증은 완료), 방안C/G와
+  방안I 이중 트리거 시 체감, `full_route_replay.py` toolkit 정식 편입
+  검토.**
 
 ## c3-ms-dev (이전 기록)
 - last_analyzed_commit (73차 계속4, long_mpc.py 패치 작성/git am 검증 완료):

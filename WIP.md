@@ -1,3 +1,36 @@
+## 74차 — 73차 방안I 패치(f8e136e) 실차 전체 라우트 재생검증 완료, **정량 회귀 없음 확인**
+
+**배경**: 73차에서 route1 seg10/route2 seg1 두 이벤트 구간만 검증했던
+방안I 패치를, 사용자가 업로드한 route1(ea5bcc0566, x19seg, 11.06km)/
+route2(a5b1ce4e42, x7seg, 4.30km) **전체 구간**에 대해 재생 검증(요청:
+"이번 패치가 다른 로그상황에 어떤 영향을 미치는지도 검증").
+
+**핵심 결과**(상세는 FINDINGS.md "74차" 참고):
+- 트리거 검출 조건(discontinuity/handoff) patched=baseline 완전 동일
+  (설계대로 — 패치는 hard-hold/release만 변경).
+- danger_active(TTC<=2.5s)와 boost 동시발생 **0건**(route1/route2 모두,
+  baseline/patched 모두) — danger override 회귀 없음 확정.
+- boost 적용 프레임 비중 여전히 작음(route1 0.68%->3.80%, route2
+  0.25%->1.73%).
+- 위험구간(aEgo<=-1.5) 대비 boost 커버율 개선 확인(route1 2.7%->18.6%,
+  route2 0.0%->68.4%) — 73차 설계 의도대로 작동.
+- 기존 튜닝 대상 외 새 handoff 트리거 3건(route1) 개별 확인 — 전부
+  고속 순항 중 원거리 레이더 재획득 vRel 노이즈로, 실제 급감속 없이
+  무해하게 지나감(과도촉발 우려 기각).
+- harsh_brake 이벤트(35+20건) 전수 확인 — boost와 무관, 대부분
+  cruiseEnabled=False(운전자 개입/해제 인접)로 기존 학습 패턴과 일치.
+
+**다음(최우선)**:
+1. 정성적 승차감 체감(정량 회귀검증은 이번 세션에서 완료) — 실차
+   드라이브 시 급감속 완화가 "체감되는지" 사용자 확인.
+2. 방안C/G(discontinuity)+방안I(handoff) 이중 트리거 상황 승차감(로직상
+   소스 전환은 확인됐으나 체감 미확인 — 73차에서 이월).
+3. full_route_replay.py(전체 라우트 재생 스크립트) toolkit 정식 편입
+   검토 — 향후 패치마다 "전체 라우트 회귀검증" 표준 절차화 가치 있음.
+
+**코드 변경 없음.** route1.csv, route2.csv, full_route_replay.py
+신규(스크래치, toolkit 미편입).
+
 ## 73차 계속4 — long_mpc.py 패치 작성/git am 검증/전달 완료, **적용/push 완료 확인, 실차 검증 대기**
 
 **배경**: 73차 계속3의 결정(4.0s hard + 100/s release-rate, split_gate)대로

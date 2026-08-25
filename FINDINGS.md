@@ -5931,3 +5931,78 @@ vision dRel 노이즈/cutin 스냅, 곧 정상화)와 달리 방안I이 겨냥�
 **다음(최우선)**: 실차 드라이브 검증 — (a) 급감속 완화 체감, (b) danger
 override 회귀 없는지, (c) 방안C/G(비전단독 dRel 급락)는 로직상 무변경
 이나 재확인 권장, (d) 이중 트리거 상황에서의 승차감.
+
+## [VALIDATED] 74차 — 73차 방안I 패치(f8e136e) 실차 전체 라우트 재생검증: route1(ea5bcc0566, 19seg)/route2(a5b1ce4e42, 7seg) 전 구간 회귀/부작용 없음 확인
+
+**배경**: 73차에서 채택한 방안I 패치(`RADAR_HANDOFF_JERK_BOOST_S=4.0`+
+`RADAR_HANDOFF_JERK_BOOST_RELEASE_RATE=100.0`, split_gate)는 route1
+seg10(t=683~698)/route2 seg1(t=1375~1388) 두 구간에 대해서만 커버율
+검증(68.6%/98.2%)을 마친 상태였음. 이번에 사용자가 두 라우트 전체
+(route1 x19seg/11.06km, route2 x7seg/4.30km — 기존 검증에 쓰인 seg
+포함 전 구간)를 업로드, "패치가 다른 로그상황에 어떤 영향을 미치는지"
+검증 요청.
+
+**추출**: `extract_log.py` meta.json 확인 결과 두 라우트 모두 클론 시점
+ryu repo HEAD가 정확히 73차 패치 커밋 `f8e136e`(commit_subject로 확인) —
+즉 이번 채집 로그가 패치 적용 이후 실차 주행분임(단, meta.json의
+commit은 추출 당시 로컬 clone HEAD 기준이라 "차량에 실제 탑재된 코드"를
+직접 보증하진 않음 — 정황상 일치로 판단).
+
+**방법**: `replay_boost_duration.py`의 `BoostReplay` 클래스를 특정 구간이
+아닌 **전체 라우트(22800/7859 프레임)**에 대해 재생하는 스크립트
+(`work/full_route_replay.py`, 아직 toolkit 미편입 스크래치)를 작성,
+baseline(패치전: 1.0s hard, split_gate 없음) vs patched(73차: 4.0s
+hard+100/s release, split_gate)를 전 구간 비교.
+
+**결과 — 회귀 없음 확인**:
+1. **트리거 검출 자체는 patched=baseline로 완전 동일**(설계대로 —
+   패치는 hard-hold 유지시간/release만 바꾸고 트리거 조건은 불변):
+   - route1: 47건(discontinuity 42 + handoff 5)
+   - route2: 17건(discontinuity 16 + handoff 1)
+2. **danger_active(TTC<=2.5s) 회귀 전무**: route1 danger_active 133프레임,
+   route2 16프레임 모두 boosted(a_change_cost>=300) 상태와 동시발생
+   0건 — baseline/patched 양쪽 다 0건으로 동일. danger override가 boost
+   연장으로 지연/차단되는 사례 전 구간에서 발견 안 됨.
+3. **boost 적용 시간 비중**: route1 0.68%→3.80%(7.7s→43.3s/전체1140s),
+   route2 0.25%→1.73%(1.0s→6.8s/전체393s) — 절대 비중은 여전히 작음(<4%).
+4. **위험구간(aEgo<=-1.5) 대비 boost 커버율 개선** (73차 목적대로 작동
+   확인): route1 2.7%→18.6%, route2 0.0%→68.4%. route2 68.4%(구간 전체
+   기준)는 seg1(t=1375~1388) 단일 이벤트 커버율 98.2%보다 낮은데, 이는
+   route2 전체에 걸친 aEgo<=-1.5 프레임 중 대다수가 이 handoff 트리거와
+   무관한 별개 저속/정차 감속 구간이기 때문(분모 확대 효과) — 타겟
+   이벤트 자체의 커버율(98.2%)은 73차 결과와 변동 없음.
+5. **route1/route2의 "새로운" handoff 트리거 3+0건 개별 확인**(기존
+   튜닝에 쓰인 t=690.00/t=1378.85 이벤트 제외): t=351.70, t=673.05,
+   t=1247.15 — 전부 고속 순항 중(vEgo 50~65km/h) 원거리(dRel 50~95m)
+   레이더 재획득 시점의 vRel 노이즈성 순간 튐(-3.1~-6.4m/s)이 원인,
+   프레임 단위 대조 결과 **세 건 전부 실제 급감속(aEgo 급락)으로
+   이어지지 않음**(aEgo가 boost 구간 내내 대략 -0.3~+0.5 수준 유지) —
+   부스트가 걸려도 체감상 무해(순항 중 저크비용이 잠깐 상향된 것 외
+   가속/감속 자체엔 영향 없음). **과도촉발(over-triggering) 우려는
+   기각** — 촉발되어도 부작용 없는 방향으로만 작동.
+6. **harsh_brake_events**(운전자 직접 브레이크, aEgo<=-0.8) route1 35건/
+   route2 20건 전수 확인 결과, boost 구간과 겹치는 t=527.2/t=149.7 초반
+   프레임 제외 **전부 브레이크 프레스 직후 프레임에서 cruiseEnabled=False**
+   (운전자 개입/해제 인접 — 기존 학습 패턴과 동일, 시스템 MPC 제어와
+   무관). "부스트로 인해 시스템 반응이 둔해져 운전자가 직접 브레이크를
+   밟았다"는 우려 가설을 뒷받침하는 사례 없음.
+7. `ttc_danger_events`(TTC<=2.5s) route1 3건/route2 1건 — 전부 저속
+   근접(vEgo 1~13km/h) 상황, duration 짧음(0.15~3.05s) — 통상적
+   정체/근접 정차 패턴, 급증이나 이상 패턴 없음.
+
+**결론**: 73차 방안I 패치는 튜닝에 쓰인 두 타겟 이벤트 외 **전체 라우트
+범위에서 검출 조건 변경/danger override 저해/과도촉발 부작용 전무**로
+확인. 실차 승차감 체감(정성적)은 여전히 사용자 확인 필요하나, 정량
+회귀검증은 이 세션에서 완료.
+
+**한계**:
+- `leadALeadK` 필드가 CSV 스키마(`extract_log.py` 현재 컬럼)에 없어
+  `full_route_replay.py`에서 j_lead=0으로 고정 근사(기존
+  `replay_boost_duration.py`도 동일 근사 사용 — NEEDS_VALIDATION 이월).
+- meta.json의 commit은 추출 시점 로컬 clone 기준이라 차량 탑재 코드를
+  직접 증명하지 않음(정황 일치로만 판단).
+- 정성적 승차감(부드러움 체감)은 이번 정량분석 범위 밖 — 실차 주관
+  평가 별도 필요.
+
+**코드 변경 없음**(분석 전용). `work/full_route_replay.py` 신규(스크래치,
+toolkit 미편입 — 필요시 다음 세션에서 toolkit 정식 편입 검토).
