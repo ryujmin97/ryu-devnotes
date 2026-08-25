@@ -1,4 +1,18 @@
 ## c3-ms-dev
+- last_analyzed_commit (73차 계속4, long_mpc.py 패치 적용/push 완료): `f8e136e`
+  (HEAD, `4fa4a44` 위에 신규 커밋 1개 — 방안I 전용 boost 4.0s hard +
+  release-rate 100/s, split_gate. 사용자가 `C:\dev\ryu`에서 초기 `git am`
+  실패(로컬이 origin보다 2커밋 뒤처짐, `e6a00ae`) → `git fetch`+`git reset
+  --hard origin/c3-ms-dev`로 동기화 후 재적용 성공 + `git push origin
+  c3-ms-dev` 완료 확인 — `4fa4a44..f8e136e`.)
+- date: 2026-08-25 (73차 계속4)
+- note: 73차 계속3 결정(4.0s+100/s, split_gate)대로 구현. `replay_boost_
+  duration.py` 재검증 route1 68.6%/route2 98.2% 커버. 상세는 WIP.md/
+  FINDINGS.md "73차 계속4" 참고. **다음 세션 최우선: 실차 드라이브
+  검증 — 급감속 완화 체감, danger override 회귀 없는지, 방안C/G 무영향
+  재확인, 이중 트리거 시 승차감.**
+
+## c3-ms-dev (이전 기록)
 - last_analyzed_commit (73차 계속4, long_mpc.py 패치 작성/git am 검증 완료):
   `4fa4a44` (HEAD 기준 patch 미적용, **아직 사용자 적용/push 전** — 로컬
   검증 커밋 `8402d8b`/재현 `40bdb2d`는 컨테이너 로컬일 뿐)

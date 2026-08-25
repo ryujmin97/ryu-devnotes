@@ -1,4 +1,4 @@
-## 73차 계속4 — long_mpc.py 패치 작성/git am 검증/전달 완료, 실차 검증 대기
+## 73차 계속4 — long_mpc.py 패치 작성/git am 검증/전달 완료, **적용/push 완료 확인, 실차 검증 대기**
 
 **배경**: 73차 계속3의 결정(4.0s hard + 100/s release-rate, split_gate)대로
 `long_mpc.py`에 실제 패치 구현.
@@ -27,6 +27,12 @@
 
 **전달**: `0001-73-handoff-boost-4.0s-release-rate-100.patch`를
 `/mnt/user-data/outputs/`에 생성, `git am` 안내(base `4fa4a44`) 함께 전달.
+
+**[갱신] 적용/push 완료 확인** — 사용자가 `C:\dev\ryu`에서 최초 `git am`
+시도 시 로컬이 origin보다 2커밋 뒤처져(`e6a00ae`, 67차/72차 미반영)
+컨텍스트 불일치로 실패 → `git fetch`+`git reset --hard origin/c3-ms-dev`
+로 동기화 후 재적용 성공(`f8e136e`) + `git push origin c3-ms-dev` 완료
+확인(`4fa4a44..f8e136e`).
 
 **다음(최우선)**:
 1. **실차 드라이브 검증** — (a) route1/route2류 재현 상황(정지앞차 레이더
