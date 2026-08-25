@@ -3,6 +3,18 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+## 2026-08-26 (76차) — replay_lane_change_discontinuity_gate.py duration_mode='full' 추가
+- 75차 gate_only 모드(게이트만 frac 무관 완화, hard-hold 1.0s 그대로)가
+  남긴 한계(hard-hold 소진 후 실제 aEgo 최저점에서 무력화, WIP.md 75차
+  계속2)에 대응 — `duration_mode='full'` 신규: 차선변경 중 discontinuity
+  트리거를 소스 'discontinuity_lc'로 태깅해 handoff와 완전히 동일한
+  게이트+hard-hold(4.0s)+release-rate(100/s) 경로를 타도록 재현.
+  route2 t=1470.75 이벤트 재검증 — gate_only는 최저점(t=1472.40)에서
+  a_change_cost=20으로 무력화, full은 500(완전부스트) 유지 확인.
+  route1/route2 전체 회귀 스캔 — diff 프레임 전부 소스='discontinuity_lc'
+  (일반 discontinuity/handoff 소스는 diff 0, danger_active 회귀 없음).
+  상세는 FINDINGS.md 76차 참고.
+
 ## 2026-08-26 (73차 계속2) — replay_boost_duration.py split_gate 옵션 추가
 - `BoostReplay`에 `split_gate` 파라미터 추가: 트리거 소스(dRel
   discontinuity vs 레이더 핸드오프)별로 boost 게이트 분리 — 레이더

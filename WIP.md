@@ -1,3 +1,71 @@
+## 76차 (체크포인트 — 코드 구현/검증 완료, 패치 전달/실차검증 전) — discontinuity+차선변경 조합에 73차 handoff duration 해법(4.0s+100/s) 통합 적용
+
+**배경**: 75차 계속2에서 방향(b)(차선변경 중 discontinuity 트리거도
+handoff와 동일하게 frac 게이트 무관 완화) 구현·검증까지 마쳤으나,
+검증 도중 신규 한계 발견 — hard-hold 자체가 여전히
+`DISCONTINUITY_JERK_COST_BOOST_S`(1.0s)라서, 이 시나리오의 실제 aEgo
+최저점(트리거 후 1.4~1.65초)이 hard-hold 소진 이후에 발생해 여전히
+무력화됨(72~73차가 handoff에서 이미 겪은 "duration 자체가 짧음" 구조적
+한계와 동일 패턴 재현). 사용자 요청: 73차가 handoff에 적용한 해법
+(hard-hold 4.0s + release-rate 100/s)을 discontinuity+차선변경
+조합에도 적용해 한 번에 처리.
+
+**구현** (`long_mpc.py`, base `f8e136e`(73차 HEAD, 75차 패치는 아직
+미적용 상태였음 — 이번에 75차 방향(b) + 76차 duration 확장을 함께
+하나의 커밋으로 구현):
+- discontinuity 트리거 지점(dRel 급락 감지)에서, 트리거 시점에
+  차선변경 중(`lane_change_blinker_active` 또는 직전 프레임
+  `_lane_change_vlead_hold_timer>0`)이면 소스 태그를 신규
+  `'discontinuity_lc'`로 부여하고 `_discontinuity_jerk_boost_timer`를
+  기존 1.0s(`DISCONTINUITY_JERK_COST_BOOST_S`) 대신 방안I과 동일한
+  4.0s(`RADAR_HANDOFF_JERK_BOOST_S`)로 설정. 차선변경과 무관한 일반
+  discontinuity는 소스 `'discontinuity'`로 기존 그대로(1.0s hard-hold).
+- a_change_cost 적용부의 `is_handoff_source` 판정을
+  `trigger_source in ('handoff', 'discontinuity_lc')`로 확장 —
+  `'discontinuity_lc'`가 `'handoff'`와 완전히 동일한 코드경로(게이트
+  frac 무관 + hard-hold 4.0s + release-rate 100/s 감쇠)를 타도록
+  통합. 신규 상수 추가 없이 `RADAR_HANDOFF_JERK_BOOST_S/RATE` 재사용.
+  일반 `'discontinuity'` 소스는 기존 분기(frac<=0.0 게이트 + 1.0s
+  hard-cutoff) 완전히 그대로 — 회귀 없음.
+
+**검증** (`toolkit/replay_lane_change_discontinuity_gate.py` 갱신 —
+`duration_mode='gate_only'`(75차 원안)/`'full'`(76차, 신규) 옵션 추가,
+release-rate 감쇠 로직도 실제 코드와 동일하게 재현):
+- route2 t=1470.75 이벤트 재검증 — 75차(gate_only)는 최저점(t=1472.401,
+  aEgo=-1.556)에서 hard-hold(1.0s, t=1471.75) 이미 소진돼
+  a_change_cost=20(무감쇠에 가까움)으로 무력화 재확인. **76차(full)는
+  hard-hold가 4.0s(t=1474.75까지)라 최저점 전체 구간에서
+  a_change_cost=500(완전부스트) 유지 — 한계 해소 확인.**
+- route1/route2 전체 스캔: full 모드 boost 프레임 수가 gate_only보다
+  항상 크거나 같음(route1 730→1028, route2 184→479) — 커버리지 실제
+  증가.
+- **회귀 없음 확인**: route1/route2 전체에서 UNPATCHED 대비 diff
+  프레임(402/409건)은 전부 소스=`'discontinuity_lc'`인 경우뿐 — 일반
+  discontinuity(차선변경 무관)/handoff 소스는 diff 0건(완전 보존),
+  danger_active 프레임 수도 전 구간 동일(회귀 없음).
+- `py_compile` 통과.
+
+**다음(최우선)**:
+1. `git format-patch`로 커밋 생성 → `verify-am` 임시 브랜치에서 `git am`
+   검증(base `f8e136e`) → `/mnt/user-data/outputs/`에 전달.
+2. **실차 드라이브 검증** — (a) 차선변경 시 급감후 원복 현상이 이번엔
+   실제로 완화되는지(75차 원 제보 재현), (b) **회귀 검증 필수** —
+   danger override(TTC<=2.5s) 정상 동작, 일반 cutin(discontinuity
+   비차선변경)/handoff(레이더 락온) 두 조합 모두 지연 없는지, (c)
+   `discontinuity_lc`가 4.0s+release-rate로 오래 유지되는 특성상,
+   차선변경이 짧게 여러 번 반복되는 상황(예: 연속 차선변경)에서 boost가
+   과도하게 오래 걸리지 않는지 체감 확인.
+3. route1 t=522~533(75차 3번, 핸드오프 구조적 한계, 3.20초 중 11%만
+   커버)는 이번 76차 범위 밖(핸드오프 자체의 구조적 한계, discontinuity_lc
+   경로와 무관) — 계속 이월.
+4. route2 t=1541~1545(75차 원분석 2번째 사각지대 후보)는 이번 검증에서
+   aEgo<=-1.5 위험구간 자체가 감지 안 됨(75차 계속2와 동일) — 필요시
+   다른 기준/qcamera로 재확인.
+
+**코드 변경**: `long_mpc.py`(ryu, 패치 전달 예정)/
+`toolkit/replay_lane_change_discontinuity_gate.py`(devnotes,
+`duration_mode` 옵션 추가)/`README.md`/`CHANGELOG.md`.
+
 ## 75차 계속2 (체크포인트 — 방향(b) 구현/검증/패치 전달 완료, 실차검증 대기, **신규 한계 발견**)
 
 75차가 확정한 방향(b)(차선변경 중에 한정해 discontinuity 소스도 handoff와

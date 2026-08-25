@@ -478,33 +478,38 @@ candidates는 `(label, boost_s, release_rate, split_gate)` 4-tuple,
 python3 replay_boost_duration.py
 ```
 
-## replay_lane_change_discontinuity_gate.py (75차, 신규)
-**목적**: 75차 방향(b) 검증 — 차선변경(blinker 활성 +
-`LANE_CHANGE_VLEAD_CORRECTION_HOLD_S` hold) 중에 한정해, discontinuity
-트리거(방안C/G)도 handoff(방안I)와 동일하게 frac 게이트를 무관하게
-완화(danger_active만 게이트)하는 실제 `long_mpc.py` 패치 로직을
-`replay_boost_duration.py`의 `BoostReplay` 상수/로직을 그대로 재사용해
-재현. `LaneChangeGateReplay` 상태머신에 `lane_change_gate` on/off
-스위치 + leftBlinker/rightBlinker 입력 추가.
-**핵심 발견(75차)**: route2 t=1470.75(discontinuity+차선변경) 트리거
-직후 1.0s hard-hold 구간 내에서는 frac 게이트 완화로 boost 커버리지가
-실제로 늘어남(0.45s/1.0s 구간 base->boost 전환 확인, 회귀 diff로
-검증) — **그러나 이 이벤트의 실제 aEgo<=-1.5 최저점은 트리거로부터
-약 1.4~1.65초 후(hard-hold 1.0s 이미 소진된 시점)에 발생**해, frac
-게이트 완화만으로는 aEgo 위험구간 기준 boost 커버율이 여전히 0%(72~73차
-handoff에서 이미 발견됐던 "boost duration 자체가 짧음" 구조적 한계와
-동일 패턴이 discontinuity+차선변경 조합에서도 재확인됨, NEEDS_VALIDATION
-— duration/release-rate 연장 여부는 별도 결정 필요). 회귀 체크: route1/
-route2 전체 스캔에서 a_change_cost가 patched/unpatched 간 달라지는
-프레임은 전부 `lane_change_active=True`인 경우뿐(38+48건) — 비차선변경
-상황(일반 cutin 등)은 diff 0건으로 회귀 없음 확인. danger_active
-프레임 수도 각 구간에서 동일(회귀 없음).
-**의존성**: `data_routes.py`, `replay_boost_duration.py`(상수 재사용),
-`numpy`.
+## replay_lane_change_discontinuity_gate.py (75차 신규, 76차 갱신)
+**목적**: 75차 방향(b)(discontinuity 트리거를 차선변경 중엔 handoff와
+동일하게 frac 게이트 무관 완화) + **76차(duration_mode='full')**:
+75차가 남긴 "hard-hold 1.0s 자체가 짧아 실제 aEgo 최저점을 놓침"
+한계에 대응해, 차선변경 중 discontinuity 트리거의 hard-hold 유지시간/
+release-rate까지 방안I(handoff)과 완전히 동일(4.0s+100/s)하게 맞추는
+실제 `long_mpc.py` 패치(`discontinuity_lc` 소스 태그)를 재현·검증.
+`LaneChangeGateReplay`에 `duration_mode`('gate_only'=75차 원안 /
+'full'=76차) 옵션 추가, `is_handoff_source` 분기(release-rate 감쇠
+포함)를 'handoff'/'discontinuity_lc' 공통 경로로 재현.
+**핵심 발견(75차, gate_only 한계)**: route2 t=1470.75 트리거 직후
+1.0s hard-hold 구간 내에서는 frac 게이트 완화로 boost 커버리지가
+늘지만, 이 이벤트의 실제 aEgo 최저점(-1.556, 트리거 후 1.65초)은
+hard-hold(1.0s, t=1471.75) 소진 후라 그 순간 a_change_cost가
+20(무감쇠에 가까움)까지 떨어져 무력화됨.
+**76차 확인**: 동일 이벤트에서 `duration_mode='full'`은 hard-hold가
+4.0s(t=1474.75까지)라 최저점(t=1472.20~1472.40) 전 구간에서 a_change_
+cost=500(완전부스트) 유지 — 한계 해소 확인. route1/route2 전체
+스캔에서 full 모드 boost프레임 수가 gate_only보다 항상 크거나 같음
+(route1 730->1028, route2 184->479, 커버리지 실제 증가 확인).
+**회귀 체크**: route1/route2 전체에서 UNPATCHED 대비 a_change_cost가
+달라지는 프레임(402/409건)은 전부 소스='discontinuity_lc'인 경우뿐 —
+일반 discontinuity(차선변경 무관)/handoff 소스는 diff 0건(완전
+보존), danger_active 프레임 수도 회귀 없음.
+**의존성**: `data_routes.py`, `replay_boost_duration.py`(상수 일부
+재사용, `RADAR_HANDOFF_JERK_BOOST_S/RATE`는 모듈에 없어 이 스크립트
+안에서 실제 값 그대로 재정의), `numpy`.
 **사용**:
 ```bash
 python3 replay_lane_change_discontinuity_gate.py
 ```
+
 
 ## push_via_api.py
 **목적**: `GH_TOKEN` 환경변수로 GitHub Contents API를 통해
