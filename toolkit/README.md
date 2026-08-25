@@ -433,6 +433,27 @@ summarize('seg3', res)
 "
 ```
 
+## data_routes.py (72차 계속3, 신규)
+**목적**: `data/routes/<route_id>/route.csv.gz`로 커밋해둔 라우트를
+`analysis_helpers.load_csv()`와 동일한 `list[dict]`로 바로 불러온다.
+로그 업로드 zip을 매 세션 다시 unzip + `extract_log.py` 하지 않고
+재사용하기 위함 — replay/시뮬레이션 스크립트가 반복적으로 같은
+라우트(예: route1 `ea5bcc0566` seg10, route2 `a5b1ce4e42` seg1)를
+쓸 때 특히 유용.
+**의존성**: 없음 (표준 라이브러리만).
+**주요 함수**:
+- `list_routes(devnotes_dir)` — 등록된 route_id 목록
+- `load_route_meta(devnotes_dir, route_id)` — meta.json만 빠르게 확인
+- `load_route(devnotes_dir, route_id)` — `(rows, meta)` 반환, gzip은
+  임시파일로 풀었다가 자동 삭제
+**등록된 라우트 목록/구조는 `data/routes/README.md` 참고.** 새 라우트
+추가 시 그 문서의 "새 라우트 추가 절차" 따를 것.
+**사용**:
+```python
+from data_routes import load_route
+rows, meta = load_route("/home/claude/devnotes", "ea5bcc0566")
+```
+
 ## push_via_api.py
 **목적**: `GH_TOKEN` 환경변수로 GitHub Contents API를 통해
 `ryu-devnotes` 저장소에 직접 파일을 커밋/push. 세션 종료 시 표준

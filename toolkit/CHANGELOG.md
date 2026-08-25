@@ -291,3 +291,13 @@
   route1/route2 각 ~3분)에 적용 결과 엄격 기준 0건/완화 기준 1건
   (그마저 cruiseEnabled=False로 ADAS 무관) — 이번 표본에서는 가설
   확증 못함. README.md/FINDINGS.md/WIP.md 58차 2번 항목 참고.
+
+## 2026-08-25 (72차 계속3, data/routes/ 신설)
+- `data/routes/` 구조 신규: 라우트별 추출 CSV를 gzip 압축해 devnotes
+  레포에 직접 저장(route_id 폴더 아래 `route.csv.gz` + `meta.json`),
+  세션마다 로그 zip 재업로드/재추출 없이 재사용 가능하게 함.
+  route1(`ea5bcc0566`, x19seg, 22800행)/route2(`a5b1ce4e42`, x7seg,
+  7859행) 최초 등록 — 둘 다 72차 "boost 윈도우 구조적 부족" 가설
+  재현에 쓴 검증 세트. 목록/구조는 `data/routes/README.md` 참고.
+- `data_routes.py` 신규: `load_route()`/`list_routes()` — 위 gzip
+  캐시를 `analysis_helpers.load_csv()`와 동일한 형태로 로드.

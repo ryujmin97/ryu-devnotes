@@ -1,3 +1,24 @@
+## [체크포인트, 세션 종료 아님] 72차 계속4 — `data/routes/` 구조 신설 완료(route1/route2 등록+push)
+
+72차 계속3에서 쓴 두 라우트(route1 `ea5bcc0566` x19seg 22800행,
+route2 `a5b1ce4e42` x7seg 7859행 — 둘 다 커밋 `4fa4a44b9311` 상태에서
+추출, meta.json 확인 결과 이전 세션과 완전 동일 재현)를 gzip 압축해
+`devnotes/data/routes/<route_id>/route.csv.gz`+`meta.json`으로 신규
+저장. 로더 `toolkit/data_routes.py`(`load_route`/`list_routes`) 신규
+작성 및 검증 완료(두 라우트 모두 load 성공, meta 일치 확인).
+`data/routes/README.md`(등록 라우트 표 + 사용법 + 추가 절차),
+`toolkit/README.md`/`CHANGELOG.md` 동기화 완료. 이 체크포인트와 함께
+push.
+
+**다음(최우선, 여전히 미착수)**: 아래 72차 계속3 항목 그대로 —
+1. boost 지속시간 연장안(2.5~3.0s 후보) 또는 release-rate 완만화안 설계
+2. `data_routes.load_route()`로 route1/route2 불러와 PATCHED vs
+   UNPATCHED 정량 비교 replay 스크립트 작성(신규 재사용 가능 스크립트는
+   toolkit/에 정식 편입)
+3. 검증 통과 시 `long_mpc.py` 패치 → git am 검증 → 전달
+
+---
+
 ## [체크포인트, 세션 종료 아님] 72차 계속3 — route2(x7seg) 교차검증 완료: boost 윈도우(1.0s) 구조적 부족 가설, **2개 라우트에서 재현 확인**
 
 route2(`a5b1ce4e42`) seg1 t=1378.85 레이더 락온 이벤트(정지앞차,

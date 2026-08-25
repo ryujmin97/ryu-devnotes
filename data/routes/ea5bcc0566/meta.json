@@ -1,0 +1,15 @@
+{
+  "commit": "4fa4a44b9311962a6149f68e2e6e39e6cd0bc871",
+  "commit_short": "4fa4a44b9311",
+  "branch": "c3-ms-dev",
+  "commit_date": "2026-08-25T17:25:40+09:00",
+  "commit_subject": "72차: 방안I - 레이더 락온 전환 프레임 vRel 불연속 감지, 방안G 저크부스트 재사용",
+  "dirty": false,
+  "repo_dir": "/home/claude/ryu",
+  "route_dir": "/home/claude/work/route_ea5bcc",
+  "out_csv": "/home/claude/work/route1_ea5bcc0566.csv",
+  "n_segments": 19,
+  "n_rows": 22800,
+  "extracted_at": "2026-08-25T13:28:49.746735+00:00",
+  "segment_state_carryover_fix": true
+}
