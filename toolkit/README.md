@@ -33,14 +33,8 @@ hash/branch/커밋 날짜·메시지/dirty 여부/추출 시각/row 수 —"이 
 **CSV 컬럼**: `t, seg, commit, vEgo, aEgo, brakePressed, gasPressed,
 cruiseEnabled, vCruise, steeringAngleDeg, desiredCurvature, leadStatus,
 leadDRel, leadVRel, leadVLead, src, desiredSpeed, vTurnSpeed,
-leadRadar, leadModelProb, leadDPath, leadYRel, leadALeadK,
-leadRadarTrackId, leftBlinker, rightBlinker, laneChangeState,
+leadRadar, leadModelProb, leftBlinker, rightBlinker, laneChangeState,
 laneChangeDirection`
-**2026-08-25 추가(63차 계속3 이어서)**: `leadDPath`/`leadYRel`/
-`leadALeadK`/`leadRadarTrackId`(RadarState.LeadData 필드) 신규 추가 —
-seg14류 반복 discontinuity 원인이 인접차선 오검출인지 트랙 전환
-(cut-in으로 다른 물체로 넘어감)인지 dPath/radarTrackId 없이는 구분 못
-했던 한계 해소용. 이 컬럼이 없는 과거 CSV는 재추출 필요.
 **사용**:
 ```bash
 python3 extract_log.py /home/claude/work/route /home/claude/work/route.csv \
@@ -385,38 +379,58 @@ v_lead 안전측 보정(24.0→19.0)/완화방향 없음(min()이 더 큰 값 �
 케이스 수치, 27.0→6.0).
 **사용**: `python3 sim_vision_gate_v_lead.py`
 
-## replay_vision_rate_integrated.py
-**목적**: (2026-08-25, 63차 계속10 (b) 신규) "로직단위 시뮬레이션(손으로
-재구현한 스크립트)"과 "실제 `long_mpc.py`에 통합된 코드"가 완전히
-동일하게 동작하는지 최종 대조하는 범용 검증 툴. `long_mpc.py`
-`update()`의 vision-only dRel closing-rate 계산 블록(discontinuity
-감지 -> 클램프+중앙값 필터 -> 방안E ref_rate 클램프 -> vision_rate_for_lead0
-유예판정, 63차 계속9/10)을 **재구현하지 않고** 실제 파일에서 마커
-문자열(`BLOCK_START_MARKER`/`BLOCK_END_MARKER`) 기준으로 문자 그대로
-잘라내 `exec()`으로 재생 클래스에 편입한다 — 하드코딩된 줄번호가 아니라
-마커라서 향후 `update()` 위쪽에 코드가 추가/삭제돼도(줄번호가 밀려도)
-그대로 재사용 가능(마커 자체가 지워지거나 옮겨지면 AssertionError로
-바로 알려줌, 조용히 잘못된 범위로 진행 안 함). 상수값도 파일에서
-정규식으로 직접 파싱(수기 재입력 없음).
-**입력**: `extract_log.py` CSV(leadDRel/leadVLead/leadRadar/leadStatus/
-leftBlinker/rightBlinker/vEgo 컬럼 필요), 세그 이름 1개 이상, `ryu` 레포
-clone(수식 대상 파일 자체).
-**출력**: 각 seg의 `(t, dRel, vLead, radar, status, vision_dRel_rate,
-vision_rate_for_lead0, lead_acq_timer, frac_rate)` 튜플 리스트를
-pickle로 저장. 콘솔에 seg별 최대 frac_rate/시각 요약 출력.
-**주요 함수**: `build_replay_class(long_mpc_path)` — 블록 추출+상수
-파싱+클래스 생성(재사용 가능한 핵심 함수). `vision_dRel_rate_frac(...)`
-— frac_rate 공식(실제 코드 977~997줄과 동일) 별도 함수로 분리, 다른
-스크립트에서도 import해 재사용 가능. `replay_seg(...)` — CSV 한 세그
-프레임 단위 재생.
-**한계**: vision_rate_for_lead0 산출까지만 검증(그 값이 `process_lead()`
-에 실제로 전달되는 최종 신호이므로 충분) — 그 이후 acados MPC solve
-자체는 이 컨테이너에서 실행 불가(기존 세션들과 동일한 한계).
+## sim_drel_discontinuity.py
+**목적**: 61차 계속(방안 C, cutin dRel 불연속 급락 감지 → 신규등록
+suppress 메커니즘 재사용) 로직 단위 합성검증. `long_mpc.py` 801~844줄
+(방안C 관련 블록)의 조건문/상수를 코드 그대로 복사해 재현(순수함수
+재구현이 아니라 리터럴 대조라 코드-스크립트 간 drift 없음).
+**의존성**: 없음(표준 라이브러리만).
+**시나리오 6건**: 정상 완만접근(오탐방지)/cutin 급락 재현(65→24m류)/
+진짜 급접근(danger override 백스톱 확인용)/단발 1프레임 스냅(과민반응
+방지)/신규등록 게이트와의 이중 트리거(부작용 없음 확인)/danger override
+독립성(정적 코드 구조 확인).
+**사용**: `python3 sim_drel_discontinuity.py`
+**63차**: 컨테이너 리셋으로 유실됐던 걸 재작성하며 toolkit 정식 편입
+(이전엔 work/ 스크래치로만 뒀다가 소실 → 63차부터 "검증 스크립트는
+항상 toolkit에 저장" 원칙으로 변경, SETUP.md 참고).
+
+## replay_drel_discontinuity_real.py
+**목적**: 63차 계속 — 방안C를 **실측 CSV**(route.csv, `extract_log.py`
+산출물) 위에서 프레임 단위로 재생해 PATCHED(방안C 있음)/UNPATCHED
+(방안C 없음) 두 버전을 나란히 비교. `sim_drel_discontinuity.py`가
+합성 시나리오였다면 이건 실제 로그 재생 버전 — `long_mpc.py`의
+lead-acquisition ramp bookkeeping(L744~780) + 방안C discontinuity
+체크(L801~844) + `vlead_correction_suppressed`/`vision_rate_for_lead0`
+계산(L866~877) + `frac_time`/`frac_ttc`/`frac_rate` 계산(L907~961)을
+실제 코드와 대조해 그대로 복제(단 acados MPC 자체는 재현 안 함 —
+`frac`/`vision_rate_for_lead0`까지만 비교해도 "이 프레임에 방안C가
+개입했는지/그 결과 무엇이 억제됐는지"는 정량 판단 가능).
+**입력**: `extract_log.py`로 뽑은 route CSV (leadDRel/leadVRel/
+leadRadar/leftBlinker/rightBlinker/vEgo/cruiseEnabled 컬럼 필요).
+**주요 함수**: `run_segment(csv_path, seg_suffix, t_lo, t_hi)` —
+지정 세그먼트/시간범위를 PATCHED·UNPATCHED 둘 다 재생해 프레임별
+DataFrame 리턴. `summarize(name, res)` — discontinuity 트리거 프레임/
+v_lead 직접보정 주입 프레임 수 비교/frac 최대·평균 비교/aEgo 최저치
+부근 상세 테이블 출력.
+**63차 계속 실측 검증 결과(중요)**: r1-3(seg3)류(radar 락온이 급락
+직후 빠르게 이뤄지는 경우)는 방안C 효과 확인(frac 0.9대→0.3대로
+감소, radar 락온이 frac_rate/ttc를 0으로 리셋해줘서 frac_time 개선분이
+그대로 드러남). **r1-14(seg14)류(radar 락온 전에 급감속이 끝나는
+경우)는 PATCHED=UNPATCHED로 완전히 동일(frac=1.0) — 방안C 무효 발견.**
+원인: `frac_rate`/`frac_ttc`는 discontinuity suppression과 무관하게
+`_vision_dRel_rate`를 직접 읽는데, 방안C는 `_lead_acq_timer`만
+리셋하고 `_vision_dRel_rate`/`_vision_dRel_rate_window`는 그대로 둠 —
+방안 D(두 값도 함께 리셋) 설계 필요. 상세는 FINDINGS.md "[63차 계속,
+중요] 방안 C 실측 재생 검증 완료" 항목 참고.
 **사용**:
 ```bash
-python3 replay_vision_rate_integrated.py /home/claude/work/route.csv \
-    "20260824_..._3" "20260824_..._14" \
-    --repo /home/claude/ryu --out /home/claude/work/result.pkl
+python3 replay_drel_discontinuity_real.py
+# 또는 개별 세그먼트만:
+python3 -c "
+from replay_drel_discontinuity_real import run_segment, summarize
+res = run_segment('/home/claude/work/route.csv', '--3', t_lo=256.0, t_hi=262.0)
+summarize('seg3', res)
+"
 ```
 
 ## push_via_api.py

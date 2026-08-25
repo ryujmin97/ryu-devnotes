@@ -30,6 +30,19 @@ chmod +x /home/claude/devnotes/analyze_commits.sh
 0-1. **로그 분석/시뮬레이션/새 스크립트 작성이 필요한 요청이면
    `toolkit/README.md`부터 읽는다.** 이미 있는 도구로 되는지 먼저
    확인 후, 없을 때만 새로 작성한다 — 중복 스크립트 생성 방지.
+0-2. **[63차 정책 변경] 새로 작성하는 검증/시뮬레이션 스크립트는
+   검증 상태(합성검증뿐/실측검증 완료 등)와 무관하게 작성 즉시
+   `toolkit/`에 커밋한다.** `work/`는 1회성 스캔/탐색용으로만 쓰고,
+   재사용 가능한 검증 도구를 `work/`에만 남겨두지 않는다 — 컨테이너는
+   세션마다 리셋되므로 `work/`에만 있으면 다음 세션(또는 리셋 시)에
+   그대로 소실돼 같은 스크립트를 다시 작성하는 낭비가 생긴다(58차1번
+   `test_visiontrack_gate.py`, 63차 `sim_drel_discontinuity.py` 총
+   2회 반복된 후 이 원칙으로 변경). 절차: 스크립트 작성 →
+   `toolkit/<name>.py`에 저장 → `toolkit/README.md`에 섹션 추가 →
+   `toolkit/CHANGELOG.md`에 날짜/한줄요약 추가 → 세션 종료(또는
+   체크포인트) 시 다른 변경 파일과 함께 push. (이전 원칙이었던
+   "신뢰성 미검증 스크립트는 work/ 스크래치로 유지"는 폐기됨 —
+   README/CHANGELOG에 검증 상태를 명시하는 것으로 대체.)
 1. `/home/claude/devnotes/LAST_ANALYZED.md` 열어서 어디까지 분석했는지 확인
 2. "최신 커밋 분석" 요청이면:
    ```bash

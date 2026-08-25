@@ -3,16 +3,25 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
-## 2026-08-25 (63차 계속10 (b))
-- `replay_vision_rate_integrated.py` 신규 — "로직단위 시뮬레이션 vs
-  실제 통합 코드" 최종 대조용 범용 툴. `long_mpc.py` update()의 vision
-  closing-rate 블록을 재구현하지 않고 마커 기준으로 문자 그대로 잘라와
-  exec()으로 재생. seg3/seg14로 방안E(63차 계속9/10) 검증 — 로직단위
-  결론(0.209/0.678)과 실제 코드 재생 결과(0.205/0.671) 거의 일치,
-  drift 없음 확정. 이전엔 매 세션 `work/`에 1회용 스크립트로 만들고
-  버려졌던 패턴(sim_e.py, replay_drel_discontinuity_real.py 등)을
-  이번에 toolkit 정식 편입 — 향후 long_mpc.py 다른 블록 재검증 시도
-  이 스크립트의 마커 교체 방식을 재사용 가능.
+## 2026-08-25 (63차/63차 계속) — 검증 스크립트 항상 toolkit 저장 원칙 시행
+- **`sim_drel_discontinuity.py` 신규 편입**: 61차 계속(방안C, cutin
+  dRel 불연속 감지) 로직 단위 합성검증. 원래 work/ 스크래치였다가
+  컨테이너 리셋으로 유실 → 재작성하며 이번엔 toolkit에 정식 편입.
+  6개 시나리오 PASS(기존4 + 신규등록 이중트리거/danger override
+  독립성 2건 추가).
+- **`replay_drel_discontinuity_real.py` 신규**: 방안C를 실측 CSV로
+  PATCHED/UNPATCHED 비교 재생. r1-3(seg3) 원본 rlog 재검증에서
+  **방안C가 r1-3류(radar 락온 빠름)엔 효과 있으나 r1-14류(radar
+  락온 느림)엔 무효**임을 발견 — `frac_rate`/`frac_ttc`가
+  `_vision_dRel_rate`를 discontinuity suppression과 무관하게 직접
+  읽는 구조적 보호 공백. 방안 D(두 값도 함께 리셋) 후속 설계 필요.
+  FINDINGS.md "[63차 계속, 중요]" 항목 참고.
+- **[정책 변경]** 앞으로 신규 작성 검증/시뮬레이션 스크립트는 검증
+  상태와 무관하게 **작성 즉시 toolkit에 커밋**한다(이전엔 "실제 로그
+  검증 전까지 work/ 스크래치 유지" 원칙이었으나, 컨테이너 리셋으로
+  같은 스크립트를 최소 2번(58차1번 `test_visiontrack_gate.py`, 이번
+  `sim_drel_discontinuity.py`) 재작성하는 낭비가 반복돼 원칙 폐기).
+  자세한 내용은 `SETUP.md` 참고.
 
 ## 2026-08-24 (60차 계속4)
 - `sim_vision_track_a_dpath.py` 신규 — 58차3번 A(tentative 조기등록)
@@ -271,15 +280,6 @@
   프레임 단위로 재현. 합성 시나리오 2건(원거리 급커브/완전 직선)으로
   로직 검증 완료, cereal/log.capnp 필드 경로 확인 완료. 실제 rlog 검증은
   다음 세션 과제(README.md 참고).
-
-## 2026-08-25 (63차 계속4)
-- `extract_log.py`: `leadDPath`/`leadYRel`/`leadALeadK`/`leadRadarTrackId`
-  컬럼 신규 추가(RadarState.LeadData 필드). 63차 계속3에서 발견한 seg14
-  반복 discontinuity(raw dRel 프레임당 최대 -230m/s급 점프, closing/
-  opening 반복)의 원인이 인접차선 오검출인지 실제 cut-in(트랙 전환)인지
-  구분할 근거가 없었던 것을 해소. 특히 radarTrackId는 dPath보다 더
-  직접적으로 "다른 물체로 넘어갔는지"를 잡을 수 있어 함께 추가.
-  README.md 동기화 완료. `ryu` 코드 변경 없음(devnotes toolkit만).
 
 ## 2026-08-23 (58차 2번)
 - `analysis_helpers.py`: `congestion_stop_launch_lurch_scan` 신규 —
