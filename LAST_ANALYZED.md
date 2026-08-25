@@ -1,4 +1,16 @@
 ## c3-ms-dev
+- last_analyzed_commit (72차 계속3, [체크포인트] route2 교차검증 완료):
+  `4fa4a44` (HEAD, 코드 변경 없음 — route2(x7seg, `a5b1ce4e42`) 실측
+  CSV로 boost 윈도우 구조적 부족 가설 2번째 라우트 재현 확인)
+- date: 2026-08-25 (72차 계속3, 체크포인트)
+- note: route2 seg1 t=1378.85 레이더 락온 이벤트(정지앞차)에서 route1
+  seg10과 동일 정량 패턴(boost 1.0s 소진 후 1.36초 뒤 최대감속 도달,
+  전체 5.5초 지속) 확인 — 표본 2건으로 가설 강화. 상세는 FINDINGS.md
+  "72차 계속3" 참고. **다음 세션 최우선: boost 지속시간 연장(2.5~3.0s
+  후보) 또는 release-rate 완만화 설계 → 두 사례 기반 replay 스크립트
+  정량 검증 → 패치.**
+
+## c3-ms-dev (이전 기록)
 - last_analyzed_commit (72차 계속2, [체크포인트] 방안I 무력화 원인
   재현/재확정): `4fa4a44` (HEAD, 코드 변경 없음 — route1 실측 CSV로
   L823~1140 로직 프레임 대조 재확인)
