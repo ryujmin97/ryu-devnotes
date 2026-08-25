@@ -5,11 +5,11 @@
 - date: 2026-08-25 (71차)
 - note: route1(19세그/1140s)/route2(7세그/393s) 전체 분석+qcamera
   대조 완료. harsh_brake 대부분 운전자 개입, TTC danger 3/4건 정탐
-  확인. **[신규, NEEDS_VALIDATION] route1 seg4 t=356~368 실제 cutin
-  중 9.75초간 비전 dRel 극심 진동 + 시스템 무반응 → 운전자 개입**
-  — 61~67차 discontinuity suppress 로직이 장기 진동에 취약할 가능성.
-  상세는 FINDINGS.md/WIP.md "71차" 항목 참고. **다음 세션 최우선:
-  이 구간 원본 코드 replay 검증.**
+  확인. route1 seg4 t=356~368의 장기 비전 진동은 초기에 "실제 위험을
+  노이즈로 오분류" 가설로 봤으나, **사용자 확인 결과 자차 우회전
+  차선변경+혼잡 차로 상황으로 정정, 버그 아님**. 상세는 FINDINGS.md/
+  WIP.md "71차" 항목 참고. **다음 세션: 70차 이월 항목(방안F/H,
+  세그7 후반 gap 오실레이션) 결정 대기.**
 
 ## c3-ms-dev (이전 기록)
 - last_analyzed_commit (62차, 61차 계속 방안C 복구·push 완료 확인): `4ea63c3`
