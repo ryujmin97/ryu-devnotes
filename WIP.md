@@ -73,6 +73,37 @@ release100/split_gate) 두 버전을 차선변경 구간에 재생, boost 적용
 
 **코드 변경 없음(ryu). devnotes만 변경.**
 
+
+**[갱신, 체크포인트] 사용자 영상 확인으로 2번 원인 확정 + 방향 (b) 채택**:
+사용자가 스크린샷 시점 화면녹화를 직접 재확인 — 차선변경 진입 중
+카메라가 먼저 "옆차로 앞앞차"(더 먼 차)를 리드로 인식했다가, 차로에
+완전히 들어서면서 실제 "바로 앞차"(더 가까운 진짜 리드)로 **타겟이
+전환**되는 순간 dRel이 급락한 것으로 확인 — 실제 접근이 아니라
+방안C/G가 원래 겨냥한 "트랙 전환" 패턴이 차선변경 상황에서 발생한
+사례임을 사용자가 직접 확인. discontinuity 트리거 자체는 정상(진짜
+타겟 전환 감지)이나, 차선변경 중이라 TTC caution(frac)이 같이 뜨면서
+완화 게이트가 막힘 — 75차 원 분석과 정확히 일치.
+
+**방향 확정: (b) 차선변경 중(blinker 활성+hold)에만 한정해서
+discontinuity 소스도 danger 무관 완화 게이트 적용.** 근거: 방안C/G의
+기존 검증된 조합(일반 cutin 등)은 건드리지 않음, danger override
+(TTC<=2.5s)는 항상 그대로 최우선 유지, 60차 계속2(LANE_CHANGE_
+VLEAD_CORRECTION_HOLD_S)와 동일한 "시나리오 한정" 원칙 재사용.
+
+**다음(최우선, 다음 세션에서 이어감)**:
+1. 위 방향대로 게이트 조건 설계 — `_discontinuity_trigger_source`에
+   'discontinuity'가 찍힌 경우라도, blinker 활성(+LANE_CHANGE 류
+   hold) 중이면 handoff와 동일하게 danger_active만으로 게이트(frac
+   무관)하도록 `long_mpc.py`의 boost 게이트 조건부(L1167~1172 부근,
+   `is_handoff_source` 판정부)에 차선변경 조건 추가.
+   `longitudinal_planner.py`가 이미 60차 계속2에서 blinker를
+   `lane_change_blinker_active`로 mpc에 넘기고 있으므로 그 신호
+   재사용 가능(중복 배선 불필요, 확인 후 재사용).
+2. `replay_boost_duration.py`류로 route2 t=1469~1472/t=1541~1545
+   재검증(boost 커버율이 실제로 늘어나는지, 일반 cutin 회귀 없는지)
+   → 통과 시 `long_mpc.py` 패치 설계 → git am 검증 → 전달.
+3. route1 t=522~533 구조적 한계(75차 3번)는 계속 별도 이월.
+
 ## 74차 — 73차 방안I 패치(f8e136e) 실차 전체 라우트 재생검증 완료, **정량 회귀 없음 확인**
 
 **배경**: 73차에서 route1 seg10/route2 seg1 두 이벤트 구간만 검증했던
