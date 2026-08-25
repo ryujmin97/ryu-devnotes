@@ -5507,3 +5507,95 @@ CSV `t` 축과 폴더 시작시각을 직접 대조해 실제 이벤트를 특�
 **코드 변경 없음(ryu 미변경, devnotes만 갱신)**. 스크래치:
 `work/route64.csv`(commit `e6a00aea` 기준), `work/frames_seg4_cutin/`,
 `work/frames_seg10_cutin/`(qcamera 프레임, 커밋 안 함).
+
+## [66차, 방안G 구현] discontinuity 직후 a_change_cost 한시적 부스트 — 설계/구현/로직단위 검증/다른 로직 영향 검토 완료
+
+**배경**: 65차 실측(세그4-1: danger override는 아니지만 discontinuity
+직후 아직 절대거리가 부족한 상황, 66차 설계 논의에서 F/G/H 3안 비교) 중
+가장 가볍고 리스크가 작다고 판단한 **방안G**(discontinuity 직후 저크비용
+`a_change_cost`를 한시적으로 강화 — 목표거리는 그대로, 도달 "속도"만
+완만하게)를 실제 구현.
+
+**구현** (`long_mpc.py`, 로컬 커밋 `2e65fde`, base `e6a00aea`):
+- 신규 상수: `DISCONTINUITY_JERK_COST_BOOST_S=1.0`(부스트 유지시간),
+  `DISCONTINUITY_JERK_COST_BOOST=500.0`(부스트 값, 평시 최대
+  `A_CHANGE_COST=200`보다 큼).
+- 61차 방안C와 동일한 discontinuity 트리거 지점(`DREL_DISCONTINUITY_DROP_
+  THRESH` 급락 감지, `_lead_acq_timer=0.0` 리셋과 같은 프레임)에서
+  `_discontinuity_jerk_boost_timer = DISCONTINUITY_JERK_COST_BOOST_S`로
+  함께 arm. 매 사이클(`update()` 상단, lane_change hold 타이머와 동일
+  위치/패턴) `max(0, timer - dt)`로 감쇠.
+- `process_lead()`에 `is_lead0` 파라미터 추가, leadOne 호출 시에만
+  `self._lead0_danger_active`를 갱신(`ttc_now<=LEAD_ACQ_TTC_DANGER` 또는
+  58차2번 `low_speed_strong_lead_decel`).
+- a_change_cost 산출부(기존 `radarstate.leadOne.status` 분기, j_lead 기반
+  200↔20 보간식)를 `base_a_change_cost`로 이름만 바꾸고, 아래 조건을 모두
+  만족할 때만 `DISCONTINUITY_JERK_COST_BOOST`로 override:
+  1. `_discontinuity_jerk_boost_timer > 0` (부스트 윈도우 내)
+  2. `not self._lead0_danger_active` (process_lead의 danger override/
+     저속강한감속 미발동)
+  3. `frac <= 0.0` (25/26/33차 lead-acquisition proactive floor —
+     `frac_time`/`frac_ttc`/`frac_rate` 중 최댓값 — 미발동)
+  세 조건 중 하나라도 위반하면 즉시 기존 `base_a_change_cost`(j_lead 기반
+  식)로 복귀 — **"완전히 정상적인(위험 신호 전무한) discontinuity"에서만
+  부스트가 걸림**.
+- `frac`이 이 함수 앞부분(`mode=='acc' and ... and self._lead_acq_ramp_
+  started` 조건부 블록 안)에서만 계산되던 걸, 항상 정의되도록 블록 진입
+  전 `frac = 0.0` 기본값 추가(게이트에서 항상 안전하게 참조 가능하도록).
+
+**다른 로직 영향 검토(사용자 요청, 완료)**:
+1. **danger override(process_lead 로컬 ttc_now)와 proactive floor
+   (frac_time/frac_ttc/frac_rate, 이 함수 뒤쪽에서 별도로 재계산)는 서로
+   다른 두 곳에서 독립적으로 구현된 "위험" 판정** — 완전히 동일한 값은
+   아닐 수 있어(예: process_lead는 vision보정된 v_lead로 closing 계산,
+   floor 쪽은 radarstate.vRel+별도 vision cross-check로 ttc_now 계산)
+   **둘 다** 게이트 조건에 넣어 어느 한쪽만 위험을 감지해도 부스트가
+   억제되도록 이중 안전장치 구성.
+2. **`self.a_change_cost`의 유일한 소비처는 `set_weights()`** — repo
+   전체 grep으로 다른 모듈이 이 값을 참조하지 않음 확인. `set_weights()`
+   는 `longitudinal_planner.py`가 매 사이클 `mpc.update()` *이전*에
+   호출하므로 **부스트 값의 실제 반영엔 항상 1사이클(0.05s) 지연**이
+   있음 — 이는 기존 j_lead 기반 식도 동일하게 겪는 pre-existing 지연
+   구조이며, 이번 패치가 새로 만든 문제 아님(참고로만 기록).
+3. **`prev_accel_constraint=False`(reset_state 또는 standstill) 상황엔
+   `set_weights()`가 `self.a_change_cost` 대신 `a_change_cost_starting`
+   을 사용** — 부스트는 이 경로를 전혀 안 건드리므로 리셋/정차 상황과
+   충돌 없음.
+4. **`LEAD_ACCEL_WEIGHT_RISE_RATE`(39차, a_lead damping weight 상승
+   제한)와는 축이 다름** — 39차 것은 "리드의 실측 가속도를 목표거리
+   계산에 얼마나 반영할지"(w) 조절이고, 방안G는 "MPC 자체가 자기 가속도를
+   얼마나 빨리 바꿀 수 있는지"(jerk cost) 조절 — 서로 겹치지 않는 축이라
+   모순은 없으나, 같은 방향(둘 다 "완만하게")으로 누적될 수 있어 실차
+   검증 시 과도하게 겹쳐 반응이 느려지는지 관찰 필요.
+5. **`jerk_factor`(personality별 배율)가 부스트 값에도 그대로 곱해짐**
+   (`jerk_factor * a_change_cost`, 기존 식과 동일 취급) — 별도 예외
+   없음, 의도된 일관성.
+
+**로직단위 합성검증** (`work/sim66/sim_jerk_boost.py`, 5개 시나리오
+전부 PASS, `long_mpc.py`의 관련 로직만 순수함수로 재현 — acados MPC
+파이프라인 미거침, 기존 세션들과 동일한 한계):
+- A. 정상 discontinuity(위험無): 트리거 즉시 부스트(500) 적용, ~1.0s
+  후 자동 해제 확인.
+- B. discontinuity+danger override(ttc<=2.5s) 동시 발생: 전 구간 부스트
+  미적용 확인(danger 최우선).
+- C. discontinuity+frac>0(proactive floor 발동) 동시 발생: 전 구간
+  부스트 미적용 확인.
+- D. discontinuity 미발생(정상 추종) 200프레임: a_change_cost==
+  base_a_change_cost(diff=0) — **회귀 없음 확인**.
+- E. 부스트 윈도우 도중(트리거는 무위험이었으나 곧이어) danger가 신규
+  발생: 그 프레임부터 즉시 부스트 해제 확인.
+
+**검증**: `git format-patch` → `verify-am-66` 임시 브랜치(base `e6a00aea`)
+에서 `git am` 컨텍스트 일치 + `py_compile` 통과.
+
+**전달**: `0001-66-G-discontinuity-a_change_cost-danger-override-pro.patch`
+를 `/mnt/user-data/outputs/`에 생성, `C:\dev\patch\`로 전달(`git am`
+안내 포함, base `e6a00aea`).
+
+**다음(최우선)**: 실차 검증 — (a) 세그4-1류(discontinuity 직후 벌어지는
+중이지만 아직 거리부족) 재현 시 급감속 도달이 더 완만하게 느껴지는지,
+(b) **회귀 검증 필수** — 세그7 초기류(진짜 danger, 계속 closing)에서
+반응 지연이 전혀 없는지, 정상 추종(discontinuity 없는 일반 상황)에서
+승차감 변화가 없는지, (c) 4번 항목(rise-rate와의 누적 스무딩)이 체감상
+과도하게 느린 반응으로 이어지지 않는지, (d) `DISCONTINUITY_JERK_COST_
+BOOST=500`/`_S=1.0` 값 자체는 설계 추정치 — 실차 반응 보고 튜닝 필요.

@@ -1,3 +1,47 @@
+## 67차 (체크포인트 — 방안G 구현/로직단위 검증(5건 PASS)/git am 검증/패치 전달 완료, 실차검증 대기)
+
+**배경**: 66차에서 논의한 대안 3개 중 사용자가 방안G(discontinuity 직후
+`a_change_cost` 한시적 부스트)로 진행 지시, 동시에 "다른 로직에 영향
+있는지도 검토" 요청.
+
+**구현**: `long_mpc.py`(로컬 커밋 `2e65fde`, base `e6a00aea`). 61차
+방안C와 동일한 discontinuity 트리거 지점에서 `_discontinuity_jerk_boost_
+timer=1.0s` arm → 매 사이클 감쇠 → a_change_cost 산출부에서
+`_lead0_danger_active`(danger override/저속강한감속) 또는 `frac>0`
+(25/26/33차 proactive floor) 중 하나라도 성립하면 즉시 무시하고 기존
+j_lead 기반 식으로 복귀, 둘 다 무위험이어야만 `a_change_cost=500`
+(평시 최대 200)으로 override. 상세 구현/영향분석/검증은 FINDINGS.md
+"[66차, 방안G 구현]" 항목 참고.
+
+**다른 로직 영향 검토 결과 요약**: (1) danger override(process_lead
+로컬)와 proactive floor(frac, 별도 위치에서 재계산)는 서로 독립
+구현이라 둘 다 게이트에 포함(이중 안전장치). (2) `self.a_change_cost`
+유일 소비처는 `set_weights()`뿐(다른 모듈 미참조 확인), 반영에 기존과
+동일한 1사이클 지연 있음(신규 문제 아님). (3) reset/standstill
+(`prev_accel_constraint=False`)은 부스트와 무관한 `a_change_cost_
+starting` 경로라 충돌 없음. (4) 39차 rise-rate 제한과는 축이 다르나
+방향은 같아(둘 다 "완만화") 실차에서 과도하게 겹쳐 느려지는지 관찰
+필요. (5) `jerk_factor` 배율은 기존과 동일하게 부스트 값에도 적용.
+
+**로직단위 합성검증**: `work/sim66/sim_jerk_boost.py` 5개 시나리오
+전부 PASS(정상부스트/danger동시발생 억제/frac동시발생 억제/discontinuity
+미발생 시 회귀없음(diff=0)/부스트 도중 danger 신규발생 즉시해제).
+
+**검증**: `git format-patch` → `verify-am-66` 임시 브랜치(base
+`e6a00aea`)에서 `git am` 컨텍스트 일치 + `py_compile` 통과.
+
+**전달**: `0001-66-G-discontinuity-a_change_cost-danger-override-pro.patch`
+를 `/mnt/user-data/outputs/`에 생성, `git am` 안내와 함께 전달함(base
+`e6a00aea`).
+
+**다음(최우선)**: 사용자가 `C:\dev\ryu`에서 `git am` 적용 + push →
+실차 검증 — (a) 세그4-1류 승차감 개선 체감, (b) **회귀 검증 필수**
+(세그7 초기류 danger 반응 지연 없음, 정상 추종 승차감 변화 없음),
+(c) rise-rate와의 누적 스무딩 과도 여부, (d) `DISCONTINUITY_JERK_COST_
+BOOST=500`/`_S=1.0` 값 튜닝 여지.
+
+**세션 종료 아님 — 중단지점 저장.**
+
 ## 66차 (체크포인트 — 세그4-1/세그7 대응 방안 3개(F/G/H) 설계, 코드 변경 없음)
 
 **배경**: 65차 실측 결론(세그4-1/세그7 초기는 정상 동작으로 잠정 보류,
