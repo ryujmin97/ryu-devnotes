@@ -1,3 +1,36 @@
+## 67차 계속 (적용 완료 — 패치 재생성 + 로컬 fetch 누락 문제 해결, git am/push 완료, 실차검증 대기)
+
+**배경**: 아래 "67차" 체크포인트 직후 세션 종료로 컨테이너가 리셋돼
+그때 만든 패치 파일 자체를 잃음. 다음 세션(이번)에서 FINDINGS.md 기록만
+보고 `long_mpc.py`에 방안G를 처음부터 재구현(base `e6a00aea`, 로직은
+원본과 100% 동일 확인) → `0001-67-G-discontinuity-a_change_cost-danger-
+override-pro.patch`로 재전달.
+
+**사용자 `git am` 1차 실패 원인(중요)**: 패치 문제가 아니라 **사용자
+로컬 `C:\dev\ryu`가 origin보다 2커밋(`4ea63c3`/`e6a00aea`) 뒤처진
+`d6e334f`에 멈춰 있었음** — `git status`의 "up to date" 표시는 fetch
+전 캐시된 정보라 신뢰 불가했음. `git fetch origin`으로 진짜 origin
+HEAD(`e6a00ae`) 확인 → `tinygrad_repo` 무관 dirty 파일 2개 `git checkout
+--`로 정리 → `git pull --ff-only`로 fast-forward → 그제서야 `git am`
+성공(로컬 커밋 `0c137f2`).
+
+**[완료] 적용/push 확인**: `python -m py_compile` 통과 + `git push origin
+c3-ms-dev` 완료. **origin `c3-ms-dev` HEAD: `e6a00ae..0c137f2`.** 상세
+경위는 FINDINGS.md "[67차, 적용 완료]" 항목 참고(향후 세션 체크리스트
+반영: `git am` 실패 시 패치보다 먼저 사용자 로컬의 `git fetch` 여부부터
+확인할 것).
+
+**다음(최우선, 66차/67차 WIP 그대로 유효)**: 실차 검증 — (a) 세그4-1류
+(discontinuity 직후 벌어지는 중이지만 아직 거리부족) 재현 시 급감속
+도달이 더 완만하게 느껴지는지, (b) **회귀 검증 필수** — 세그7 초기류
+(진짜 danger, 계속 closing)에서 반응 지연이 전혀 없는지, 정상 추종
+(discontinuity 없는 일반 상황)에서 승차감 변화가 없는지, (c) rise-rate와
+의 누적 스무딩이 체감상 과도하게 느린 반응으로 이어지지 않는지, (d)
+`DISCONTINUITY_JERK_COST_BOOST=500`/`_S=1.0` 값 자체는 설계 추정치 —
+실차 반응 보고 튜닝 필요.
+
+**세션 종료 아님 — 실차검증 대기 상태로 저장.**
+
 ## 67차 (체크포인트 — 방안G 구현/로직단위 검증(5건 PASS)/git am 검증/패치 전달 완료, 실차검증 대기)
 
 **배경**: 66차에서 논의한 대안 3개 중 사용자가 방안G(discontinuity 직후

@@ -5599,3 +5599,41 @@ CSV `t` 축과 폴더 시작시각을 직접 대조해 실제 이벤트를 특�
 승차감 변화가 없는지, (c) 4번 항목(rise-rate와의 누적 스무딩)이 체감상
 과도하게 느린 반응으로 이어지지 않는지, (d) `DISCONTINUITY_JERK_COST_
 BOOST=500`/`_S=1.0` 값 자체는 설계 추정치 — 실차 반응 보고 튜닝 필요.
+
+## [67차, 적용 완료] 방안G 패치 적용/push 완료 — 컨테이너 리셋으로 인한 패치 재생성 + 로컬 fetch 누락 이슈 해결
+
+**배경**: 66차에서 만든 패치(`0001-66-...patch`)가 만들어진 컨테이너가
+세션 종료 후 리셋돼 다음 세션(67차)에서 그 패치 파일 자체를 잃음. 67차
+세션에서 FINDINGS.md 기록만 보고 `long_mpc.py`에 방안G를 처음부터
+재구현(`0001-67-...patch`로 재전달, base `e6a00aea`) — **로직은 66차
+원본과 100% 동일**(주석 문구/일부 줄 위치만 다름, diff로 확인 완료).
+
+**사용자가 처음 겪은 `git am` 실패의 진짜 원인(중요, 재발방지)**:
+패치/코드 문제가 아니라 **로컬 `C:\dev\ryu`가 origin보다 2커밋 뒤처져
+있었음**(`d6e334f`에 멈춰 있었고, 실제 origin은 `4ea63c3`(61차 방안C)+
+`e6a00aea`(63차 방안E)까지 진행돼 있었음). `git status`가 "up to date
+with origin/c3-ms-dev"라고 표시한 건 로컬에 캐시된 오래된 origin 참조
+정보였을 뿐 — **`git fetch` 없이는 신뢰 불가**. 진단 순서로 원인 특정:
+`git log -1 --oneline`(로컬 HEAD 확인) → `git diff --stat`(dirty 여부)
+→ `git config core.autocrlf`(개행변환 여부, 이번엔 무관했음) → `git
+fetch origin && git log --oneline -5 origin/c3-ms-dev`(진짜 최신 origin
+확인)로 로컬-origin 간극을 발견. `tinygrad_repo` 내 무관한 파일 2개
+(pdf/gz) dirty 상태도 섞여 있어 `git checkout -- <path>`로 먼저 정리 후
+`git pull --ff-only`로 fast-forward, 그 다음 패치 적용 → 성공.
+
+**적용 결과**: 사용자가 `C:\dev\ryu`에서 `git am` 적용(로컬 커밋
+`0c137f2`) + `python -m py_compile` 통과 확인 + `git push origin
+c3-ms-dev` 완료. **origin `c3-ms-dev` HEAD: `e6a00ae..0c137f2`.**
+
+**교훈(향후 세션 체크리스트에 반영 필요)**: 사용자 로컬에서 `git am`이
+컨텍스트 불일치로 실패하면, 패치 파일 자체를 의심하기 전에 **먼저
+`git fetch origin` + `git log -1 --oneline` vs 패치의 base 커밋 해시를
+대조**할 것 — 컨테이너 쪽에서 아무리 "origin은 X"라고 재확인해도, 그건
+컨테이너가 clone한 시점의 origin일 뿐 사용자 로컬의 최신 fetch 상태를
+보장하지 않음. 이번 경우 컨테이너 origin과 실제 GitHub origin은 처음부터
+일치했었고(둘 다 e6a00aea), 문제는 순전히 **사용자 로컬이 fetch를 안 한
+것** — 이 케이스는 "라인엔딩 문제"(기존 알려진 실패 패턴)와는 다른
+신규 실패 유형으로 별도 기록.
+
+**다음(최우선, 변경 없음)**: 66차 WIP/FINDINGS의 "다음(최우선)" 항목
+(a)~(d) 그대로 유효 — 실차 검증 대기.
