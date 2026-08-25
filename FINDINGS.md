@@ -66,6 +66,142 @@ WIP.md에는 63차 계속10(방안E)까지만 기록되고 그 이후(방안F/66
 
 **코드 변경 없음(분석만)**, patch 없음.
 
+## [69차, 역보완] devnotes 공백 채움 — git log 기준 63차 계속10(방안E)/66~67차(방안G) 실제 커밋 내용 기록
+
+**배경**: 68차가 발견한 devnotes 공백(위 68차 섹션 참고)을 이번 세션에서
+`ryu` repo `git log`/`git show`로 직접 대조해 역보완. **먼저 정정**:
+68차 메모의 "64~67차(방안 D/E/F/G) 4개 커밋"은 부정확 — 실제
+`4ea63c3`(방안C, 61차) 이후 origin에 존재하는 신규 커밋은 **딱 2개**뿐
+(`e6a00ae`="63차 계속10 (a): 방안E", `0c137f28b456`="67차: 방안G
+[재생성]"). 방안D/방안F는 별도 커밋으로 구현된 적이 없음 — 아래 정리 참고.
+
+- **방안 D(63차계속 FINDINGS 제안: discontinuity 트리거 시
+  `_vision_dRel_rate`/window를 직접 0으로 리셋)는 그대로 구현되지
+  않았음.** 대신 다른 접근(방안E, 아래)이 63차 계속9/10에서 채택돼
+  같은 목적(frac_rate/frac_ttc 오염 차단)을 다른 메커니즘으로 달성한
+  것으로 추정 — 방안D가 "폐기"됐다는 명시적 기록은 없어 정확한 채택
+  경위는 불명(NEEDS_VALIDATION, 다음에 사용자에게 확인 가능).
+- **방안 F는 git log/코드 주석 어디에도 흔적이 없음.** 코드 주석은
+  discontinuity 저크비용 부스트를 "66차/67차(방안G)"로만 지칭 —
+  즉 66차에서 방안G를 설계하고 67차에서 구현/커밋한 것으로 보이며,
+  방안F라는 알파벳은 설계 단계에서 건너뛰었거나(방안 A~E 다음이
+  G로 넘어감) 별도 세션에서 논의만 되고 코드화되지 않은 채 유실된
+  것으로 추정. **확정 불가 — 필요시 사용자 확인.**
+- `0c137f28b456` 커밋 메시지의 "[재생성]" 표기와 author가
+  `Claude <claude@ryu.local>`(다른 커밋들의 `ryu session
+  <session@ryu.local>`과 다름)인 점으로 보아, 이 커밋도 한 번 유실
+  되었다가(예: 컨테이너 리셋) 이전 세션 기록(FINDINGS.md/코드 diff
+  자체는 남아있었거나 재구성 가능했던 것으로 추정)을 바탕으로 재작성돼
+  다시 커밋된 것으로 보임 — 62차(방안C 유실→복구)와 유사한 패턴이
+  devnotes 기록 없이도 코드 커밋 레벨에서 또 발생했을 가능성.
+
+아래 두 섹션은 각 커밋의 diff(코드 내 상세 설계 주석 포함)를 그대로
+역추출해 정리한 것 — 실제 세션에서 어떤 실측/시뮬레이션 근거로
+파라미터 값을 정했는지까지는 diff에 없어 복원 불가(코드 주석에 있는
+근거만 옮김).
+
+---
+
+### 63차 계속10 (a) — 방안 E: leadVLead 기반 참고 closing rate 상대적 타당성 클램프 (`e6a00ae`)
+
+**배경(코드 주석 기준)**: cut-in 상황에서 트랙이 기존 리드→새로 끼어든
+차량으로 전환되는 순간, raw dRel 미분(`raw_rate`)이 물리적으로 불가능한
+크기(-100~-339m/s급)로 튀는 사례 확인(seg3/seg14, 63차 계속 r1-3/r1-14
+재생검증과 같은 로그로 추정). 기존 절대값 클램프
+(`VISION_CLOSING_RATE_MAX_PLAUSIBLE=30.0`)만으론 이런 트랙전환성
+점프를 다 못 거름(30m/s 자체가 넉넉해서 -25m/s 같은 값은 통과).
+
+**설계**: `raw_rate` 클램프 하한에 "모델이 이미 추정한 상대속도"
+(`lead.vLead`) 기반 참고 closing rate를 추가.
+```
+ref_rate = -(v_ego - lead.vLead)              # 모델 기반 참고 closing rate
+plausible_min = ref_rate - VISION_RATE_REF_MARGIN(5.0)
+raw_rate_clamped = max(raw_rate, -VISION_CLOSING_RATE_MAX_PLAUSIBLE, plausible_min)
+```
+leadVLead가 실제 위험(빠른 접근)을 가리킬 땐 ref_rate도 함께 크게
+음수가 돼 plausible_min도 낮아지므로 raw_rate를 거의 그대로 통과시킴
+— 즉 leadVLead가 "안전(느린 접근/opening)"을 가리킬 때만 raw dRel의
+과도한 튐을 억제하는 비대칭 구조. danger override(TTC<=2.5s)는 이
+클램프와 완전히 무관하게 항상 유지.
+
+**중요**: 이 클램프는 `raw_rate_clamped`를 `_vision_dRel_rate_window`에
+쌓는 지점(중앙값 필터 입력)에 적용됨 — 즉 저역통과 필터에 들어가기
+전 단계에서 오염을 막으므로, **63차계속에서 발견된 "방안C는 frac_rate/
+frac_ttc 경로를 보호 못한다"는 보호 공백을 방안D와는 다른 지점(소스
+자체를 정화)에서 우회적으로 커버할 가능성이 있음** — 단, 이게 실제
+seg14류(r1-14, radar 락온 느린 케이스)까지 커버하는지는 이번 역보완
+과정에서 재현 검증하지 않음(NEEDS_VALIDATION, 아래 참고).
+
+**검증 이력(코드 주석 기준, 63차 계속9/10)**:
+- 63차 계속9: seg14 로직단위 재생 — 계단식 포화가 램프 형태로 개선.
+- 63차 계속10: seg3 재생검증 — PATCHED_E가 frac_rate를 0.209로 억제한
+  것이 **오탐 억제가 아니라 정탐이었음을 확인**(레이더 락온 후 실측
+  vRel +3.2~+7m/s, 즉 끼어든 차가 opening 중이었음 — leadVLead 참고치가
+  맞았던 것). PARAMS_REGISTRY.md 27번 행에 이 정정 경위가 이미 상세
+  기록돼 있었음(devnotes 공백에도 불구하고 PARAMS_REGISTRY만은 최신
+  상태로 push돼 있었던 것으로 보임 — WIP.md/FINDINGS.md만 누락).
+
+**상태**: PARAMS_REGISTRY.md 기준 NEEDS_VALIDATION(실차 acados 파이프라인
+검증 없음). 코드는 이미 origin에 반영(`e6a00ae`).
+
+---
+
+### 66차/67차 — 방안G: discontinuity 직후 a_change_cost(MPC 저크비용) 한시적 부스트 (`0c137f28b456`, "[재생성]")
+
+**배경(코드 주석 기준)**: discontinuity(방안C가 감지하는 dRel 급락)
+직후, 아직 danger override급은 아니지만 절대거리가 부족한 상황(예:
+68차 seg4-1류로 추정 — 이름만 언급, 상세는 불명)에서, 목표거리 자체는
+그대로 두되 MPC가 그 거리에 "도달하는 속도"(저크비용)만 한시적으로
+완만하게 만드는 접근. 방안 D/E가 신호(closing rate) 자체를 억제하는
+쪽이었다면, 방안G는 신호는 그대로 믿되 MPC 반응 강도를 다른 축
+(jerk cost)에서 누그러뜨리는 다른 층위의 조치.
+
+**설계**:
+```
+DISCONTINUITY_JERK_COST_BOOST_S = 1.0    # s, 부스트 유지시간(트리거 후 감쇠)
+DISCONTINUITY_JERK_COST_BOOST   = 500.0  # 평시 최대 A_CHANGE_COST(200)보다 큼
+```
+- discontinuity 트리거 시점(방안C와 동일 감지 지점, `_lead_acq_timer`
+  리셋과 같은 프레임)에 `_discontinuity_jerk_boost_timer`를 arm.
+- 매 사이클 `dt`만큼 감쇠(lane-change hold 타이머와 동일 패턴).
+- `process_lead(leadOne)`에서만 갱신되는 `_lead0_danger_active`(danger
+  override `ttc_now<=LEAD_ACQ_TTC_DANGER` 또는 58차2번
+  `low_speed_strong_lead_decel`) — 이 플래그와 proactive floor(`frac`,
+  frac_time/frac_ttc/frac_rate) 둘 다 비활성일 때만 부스트 값(500)을
+  `a_change_cost`로 사용, 그 외엔 즉시 기존 `j_lead` 기반 식으로 복귀.
+  즉 **위험 신호가 조금이라도 있으면 부스트는 즉시 무효화** — 안전
+  경로 최우선 원칙 유지.
+- `process_lead()`에 `is_lead0` 파라미터 신규 추가(leadOne 호출에만
+  `True`) — leadTwo는 이 부스트 게이트와 무관.
+
+**검증(PARAMS_REGISTRY.md 기준)**: `sim_jerk_boost.py`(devnotes에
+언급은 있으나 이번 컨테이너엔 실물 확인 안 함 — 다음 세션에서
+`toolkit/` 내 존재 여부 확인 필요) 합성검증 5건 PASS 기록:
+정상부스트/danger 동시발생 시 억제/frac 동시발생 시 억제/discontinuity
+미발생 시 회귀 없음(diff=0)/부스트 도중 danger 신규발생 시 즉시해제.
+`git am` verify 브랜치(base `e6a00aea`) + `py_compile` 통과, 패치 전달
+완료 기록. **실차 acados MPC 파이프라인 검증은 아직 없음(NEEDS_VALIDATION,
+PARAMS_REGISTRY.md 34번 행과 동일).**
+
+**주의**: 68차 세션에서 분석한 로그(HEAD `0c137f28b456` 기준 추출)는
+**사용자 실제 기기가 58차까지만 반영된 구브랜치**였다고 명시돼 있어,
+방안E/G가 실제 주행에 반영된 로그는 이번 devnotes에 아직 하나도 없음
+— 다음 실차 검증 시 이 점 유의(방안C까지만 반영된 상태에서의 거동과
+방안E/G까지 반영된 이후 거동을 혼동하지 말 것).
+
+**다음(최우선)**:
+1. `toolkit/sim_jerk_boost.py` 실물 존재 확인 — 없으면 코드 주석
+   근거만으로 재구성하거나, 사용자에게 원본 세션 기록 여부 문의.
+2. 방안D 폐기/방안E 채택 경위, 방안F 존재 여부 자체를 사용자에게
+   직접 확인(코드/git log만으론 확정 불가).
+3. 방안E/G 둘 다 여전히 NEEDS_VALIDATION — 사용자가 최신 브랜치
+   (`c3-ms-dev` HEAD, 방안G까지 포함)로 실차 업데이트 후 재현 로그
+   확보 시 cutin(r1-3/r1-14류)/discontinuity 반응 완화 여부 검증.
+
+**코드 변경 없음(ryu 미변경, 기존 커밋 diff 역추출 기록만)**.
+
+---
+
 ## 61차 계속 (체크포인트3) — 16세그 중 나머지 13세그 qcamera 대조 완료, 이전 패치(A/B)까지 포함 검증
 
 **배경**: 61차 체크포인트1/2에서 seg1(옆차선 레이더 오탐 급감)과 seg3/4
