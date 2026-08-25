@@ -1,3 +1,54 @@
+## 78차 (완료 — 분석만, 코드 변경 없음) — 77차와 동일 로그(x15seg)에서 discontinuity_lc 최초 실차 검증 완료
+
+**배경**: 77차가 "이번 로그엔 laneChangeState가 전 구간 'off'라 76차
+discontinuity_lc를 검증 못함"이라고 남긴 지점에서 이어감. laneChangeState는
+계속 off였지만 leftBlinker/rightBlinker(운전자 수동 차선변경 추정)가
+seg4/5/10/11에서 활성화된 걸 발견 → qcamera 프레임 대조로 4개 세그
+전부 실제 차선변경 동작이 있었음을 영상으로 확정(신호와 조향 불일치
+로깅 오류 의심을 기각).
+
+**핵심 결과**: `long_mpc.py`의 `_dRel_raw_history` 5프레임 급락 판정
+(`DREL_DISCONTINUITY_DROP_THRESH=15.0m`)+`lane_change_blinker_active`
+분기 로직을 CSV로 직접 재현해 스캔 —
+- **seg5 t=384.18**(rightBlinker 활성 중, vision-only 5프레임 47.79→
+  25.45m, -22.34m): `discontinuity_lc` 소스로 정상 트리거, 4.0s
+  hard-hold(RADAR_HANDOFF_JERK_BOOST_S) 부여됨을 코드 로직 재현으로
+  최초 확인 — **76차 패치가 실제 차선변경 상황에서 트리거되는 것을
+  이번에 처음으로 실측 확인.**
+- **seg10 t=722.28**(leftBlinker 활성, -28.02m 급락): 동일하게
+  `discontinuity_lc` 정상 트리거.
+- 두 사례 모두 boost 윈도우(4초) 내 aEgo는 mild(seg5 min=-0.909,
+  seg10은 오히려 가속 중 min=+0.081) — **harsh braking 자체가 없어
+  boost의 "급감후 원복 완화" 효과 자체는 이번에도 정량 비교 못함**,
+  단 오탐/부작용(불필요한 과잉반응) 없음은 확인(회귀 안전).
+- seg4 t=368.63: blinker 꺼진 지 2.2초 후(1.0s hold 만료) → 소스
+  `discontinuity`(일반)로 정상 분류, aEgo도 mild(가속중) — 소스 분기
+  로직(blinker 활성/hold 여부에 따른 discontinuity vs discontinuity_lc)
+  실제로 정확히 갈리는 것 확인.
+- seg11: 차선변경은 확인됐으나 dRel 급락 패턴 자체가 없어(매끈한 lead
+  전환) discontinuity 트리거 없음 — 정상.
+
+**harsh_brake_events 49건 재확인**: 77차 FINDINGS 기록과 동일 클러스터
+(seg1/seg5 t=421~425/seg13) — seg5 t=421~425 클러스터는 `src=vturn`+
+`leadStatus=False`(리드 무관 곡선감속, 우회전 교차로 진입으로 추정)로
+discontinuity_lc/차선변경과 완전히 무관함 재확인(77차 결론과 일치).
+
+**결론**: 76차 목표(discontinuity_lc를 실제 차선변경 중 재현 검증)
+**절반 달성** — 트리거 발동 자체와 소스 분기(discontinuity vs
+discontinuity_lc)는 실측 확인됐고 회귀(오탐/부작용)도 없음. 단 "harsh
+감속 상황에서 boost가 실제로 급감후 원복을 완화하는지"는 이번 로그에
+그런 harsh 이벤트가 없어 여전히 미검증 — 다음은 discontinuity_lc가
+harsh braking과 겹치는 차선변경 사례가 필요.
+
+**코드 변경 없음**(분석 전용).
+
+**다음 세션 최우선**:
+1. discontinuity_lc 트리거 + harsh braking(aEgo<=-1.5 급)이 실제로
+   겹치는 차선변경 로그 확보 시 boost 효과(급감후 원복 완화 여부)
+   정량 검증.
+2. (낮은 우선순위) steering_oscillation_detector 4건 개별 미조사 —
+   필요시 조사.
+
 ## 77차 (세션 종료 — 분석만, 코드 변경 없음) — 76차 실차 로그 첫 검증(handoff 재확인, discontinuity_lc는 미검증)
 
 76차 패치 커밋(`f3773b58`) 위에서 기록된 실주행 로그(x15seg,

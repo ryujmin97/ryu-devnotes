@@ -6260,3 +6260,44 @@ discontinuity_lc(4.0s+release-rate) 타깃 시나리오 직접 검증 —
 차선변경 중 discontinuity 트리거 시 boost가 실제로 4.0s 유지되는지,
 반복 차선변경 시 과도하게 오래 지속되는 체감이 없는지. (b) 일반
 handoff/cutin 회귀는 이번 세션으로 재확인 완료, 계속 누적 검증 유지.
+
+## 78차 — [VALIDATED, 부분] discontinuity_lc 최초 실차 트리거 확인 (77차와 동일 로그, laneChangeState 대신 blinker 기반 재분석)
+
+**배경**: 77차가 "laneChangeState 전 구간 off라 discontinuity_lc 검증
+불가"로 남긴 동일 로그(`20260826_070847_00000323--40371089d3_x15seg`,
+commit `f3773b583656`)를 이어서 분석 — laneChangeState는 계속 off였지만
+seg4/5/10/11에서 leftBlinker/rightBlinker(운전자 수동 차선변경)가
+활성화된 구간을 발견, qcamera 프레임 대조로 4개 세그 전부 실제
+차선변경 동작이었음을 영상으로 확정.
+
+**discontinuity 트리거 재현 스캔** (`long_mpc.py`의 `_dRel_raw_history`
+5프레임 판정 + `lane_change_blinker_active`/hold 로직을 CSV에서 직접
+재현):
+- **seg5 t=384.18**(rightBlinker 활성): vision-only 5프레임 dRel
+  47.79→25.45m(-22.34m) 급락 → `discontinuity_lc` 소스로 정상 트리거,
+  4.0s hard-hold 부여 확인 — **76차 패치가 실제 차선변경 상황에서
+  트리거되는 최초 실측 사례.**
+- **seg10 t=722.28**(leftBlinker 활성): -28.02m 급락, 동일하게
+  `discontinuity_lc` 정상 트리거.
+- 두 사례 모두 boost 윈도우(t+4s) 내 aEgo는 mild(seg5 min=-0.909,
+  seg10은 가속중 min=+0.081) — harsh braking 자체가 없어 boost의
+  "급감후 원복 완화" 효과 자체는 정량 비교 불가. 단 오탐/과잉반응
+  없음(회귀 안전) 확인.
+- **seg4 t=368.63**: blinker 꺼진 지 2.2s 후(LANE_CHANGE_VLEAD_
+  CORRECTION_HOLD_S=1.0s 만료) → 소스 `discontinuity`(일반, 1.0s
+  hard-hold)로 정상 분류 — 소스 분기(blinker 활성/hold 여부에 따른
+  discontinuity vs discontinuity_lc) 실측으로 정확히 갈림을 확인.
+- seg11: 차선변경은 확인됐으나 dRel 5프레임 급락 패턴 자체가 없어
+  (매끈한 lead 전환) 트리거 없음 — 정상.
+
+**harsh_brake_events 49건 재확인**: 77차와 동일 클러스터(seg1/seg5
+t=421~425/seg13). seg5 t=421~425(aEgo 최저 -2.64)는 `src=vturn`+
+`leadStatus=False`(리드 무관 곡선감속, 우회전 교차로 진입 추정)로
+discontinuity_lc/차선변경과 완전히 무관 — 77차 결론과 일치 재확인.
+
+**결론**: 76차 목표(discontinuity_lc를 실제 차선변경 중 재현 검증)
+**절반 달성**. 트리거 발동 자체 + 소스 분기 로직은 실측 확인, 회귀
+(오탐/부작용) 없음도 확인. 단 harsh braking과 겹치는 사례가 없어
+"boost가 급감후 원복을 실제로 완화하는지"는 여전히 미검증.
+
+**코드 변경 없음**(분석 전용).

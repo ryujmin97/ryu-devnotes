@@ -1,4 +1,19 @@
 ## c3-ms-dev
+- last_analyzed_commit (78차, discontinuity_lc 최초 실차 트리거 확인): `f3773b5`
+  (HEAD, 코드 변경 없음 — 77차와 동일 로그(x15seg, commit `f3773b583656`)를
+  laneChangeState 대신 blinker 기반으로 재분석.)
+- date: 2026-08-26 (78차)
+- note: 76차 discontinuity_lc 패치가 **실제 차선변경 상황에서 처음으로
+  트리거되는 것을 실측 확인**(seg5 t=384.18/seg10 t=722.28, 둘 다
+  rightBlinker/leftBlinker 활성 중 vision-only dRel 5프레임 급락 →
+  `discontinuity_lc` 소스+4.0s hard-hold 정상 부여). 소스 분기(blinker
+  hold 만료 시 일반 `discontinuity`로 정상 복귀, seg4 t=368.63)도 확인.
+  단 이번 로그엔 discontinuity_lc 트리거가 harsh braking과 겹치는
+  사례가 없어(boost 윈도우 내 aEgo 전부 mild) "급감후 원복 완화 효과"
+  자체의 정량 검증은 여전히 미완료 — 다음은 harsh braking과 겹치는
+  차선변경 로그 필요. 상세는 FINDINGS.md/WIP.md 78차 참고.
+
+## c3-ms-dev
 - last_analyzed_commit (77차, 76차 실차 로그 첫 검증): `f3773b5` (HEAD,
   코드 변경 없음 — 76차 패치가 실제로 반영된 커밋 상태에서 기록된 로그
   (x15seg, 895.8s/4.26km, 도심)를 처음 분석. meta.json commit이 정확히
