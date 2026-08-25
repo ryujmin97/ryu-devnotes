@@ -1,3 +1,39 @@
+## 73차 계속 — split_gate(방안I 전용 게이트 분리) 검증: 게이트차단 완전 해소, duration과 결합 시 커버율 실제 증가 확인
+
+**배경**: 73차 계속(방향 결정)에서 확정한 "방안I(레이더 핸드오프)
+트리거만 danger_active 단독 게이트, 방안C/G(dRel discontinuity)는
+기존 게이트 유지"를 `replay_boost_duration.py`에 `split_gate` 옵션으로
+구현·검증.
+
+**결과**:
+- route1 seg10: `1.0s+split_gate` 0.0%(원래 트리거가 dRel discontinuity
+  라 split_gate 대상 아님, 예상대로 baseline과 동일) →
+  `2.0s+split_gate` 4.0% → `3.0s+split_gate` **19.2%** (게이트차단 전부
+  0.00s로 해소, timer활성=실부스트 정확히 일치).
+- route2 seg1: `1.0s+split_gate` 8.1% → `2.0s+split_gate` 26.1% →
+  `3.0s+split_gate` **44.2%** (마찬가지로 게이트차단 0.00s).
+- **72차 duration 가설이 완전히 틀린 게 아니라, "frac 게이트가 열려
+  있는 상태에서의 duration 연장"만 무의미했던 것 — split_gate로 게이트
+  자체를 우회하면 duration 연장이 다시 의미를 가짐(coverage가 duration에
+  비례해 실제로 늘어남).** 두 방향(게이트 분리 + duration 연장)은
+  상호 배타가 아니라 결합해야 하는 것으로 재정리.
+- danger_active 프레임 수는 모든 split_gate 후보에서 baseline과
+  동일(회귀 없음, 스크립트에 자동 경고 로직 추가 확인 — 경고 없었음).
+
+**다음(최우선)**: coverage가 여전히 100%에 못 미침(risk_dur가
+5.55~6.25초인데 boost_s 3.0s로는 부분 커버) — boost_s를 더 올릴지
+(4.0~5.0s 후보), 또는 route1의 dRel discontinuity 트리거(t=687.850,
+방안C/G 경로)도 이 시나리오에선 사실상 무해한 오탐인지(즉 이 경로도
+split 대상에 포함해도 되는지) 추가 판단 필요. 방향 확정되면
+`long_mpc.py` 패치 설계 — 트리거 소스 구분용 상태(`_trigger_source`
+또는 별도 bool 플래그) 신규 추가 필요(현재 원본 코드엔 이 구분이
+없음, `_discontinuity_jerk_boost_timer` 하나만 공유).
+
+**코드 변경 없음(ryu 미변경). `toolkit/replay_boost_duration.py`에
+`split_gate` 옵션 추가(기존 후보군은 3.0s까지로 정리, release-rate
+후보는 이번 검증에선 제외 — split_gate 효과가 더 명확해 우선순위
+낮춤, 필요시 재추가 가능).**
+
 ## 73차 — boost 지속시간 연장 가설 재검증, **[중요, 방향전환] 진짜 원인은 duration이 아니라 frac<=0.0 게이트 자체**
 
 **배경**: 72차 계속2~4에서 확정된 "boost 윈도우(1.0s)가 실제 급감속

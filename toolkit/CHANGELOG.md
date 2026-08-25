@@ -3,6 +3,17 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+## 2026-08-26 (73차 계속2) — replay_boost_duration.py split_gate 옵션 추가
+- `BoostReplay`에 `split_gate` 파라미터 추가: 트리거 소스(dRel
+  discontinuity vs 레이더 핸드오프)별로 boost 게이트 분리 — 레이더
+  핸드오프(방안I) 트리거는 danger_active 단독 게이트, dRel
+  discontinuity(방안C/G)는 기존 `frac<=0.0` 게이트 유지. 검증 결과
+  게이트차단이 완전히 0으로 해소되고 duration 연장에 비례해 coverage가
+  실제로 증가함 확인(route2 3.0s+split_gate 44.2%). danger_active
+  회귀 자동 체크 로직도 추가(경고 없음 확인). `candidates` 튜플이
+  `(label, boost_s, release_rate, split_gate)` 4-tuple로 변경.
+  상세는 FINDINGS.md 73차 계속 참고.
+
 ## 2026-08-26 (73차) — replay_boost_duration.py 신규
 - boost duration 연장 가설(72차) 검증용 replay 스크립트 신규 작성.
   `data_routes.py`로 route1/route2 실측 로드 → discontinuity 트리거+

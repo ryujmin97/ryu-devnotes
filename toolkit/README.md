@@ -454,19 +454,25 @@ from data_routes import load_route
 rows, meta = load_route("/home/claude/devnotes", "ea5bcc0566")
 ```
 
-## replay_boost_duration.py (73차, 신규)
+## replay_boost_duration.py (73차, 신규 / 73차 계속2 갱신)
 **목적**: 방안I(72차) boost 지속시간(`DISCONTINUITY_JERK_COST_BOOST_S`)
-후보(2.0/2.5/3.0s hard-cutoff) + release-rate 완만화안을
-`data_routes.py`로 불러온 실측 route1/route2에 정량 비교. discontinuity
-트리거+boost 게이트(danger_active/frac<=0.0)까지 `long_mpc.py` 그대로
-복제해, "boost 타이머는 활성인데 게이트에 막혀 실제로는 base cost로
-강등된 시간"까지 진단(핵심 발견: 73차엔 duration이 아니라 이 게이트
-자체가 병목이었음 — FINDINGS.md 73차 참고).
+후보(2.0/3.0s hard-cutoff) + `split_gate` 옵션(73차 계속 결정 — 트리거
+소스별 게이트 분리: 레이더 핸드오프는 danger_active 단독, dRel
+discontinuity는 기존 `frac<=0.0` 게이트 유지)을 `data_routes.py`로
+불러온 실측 route1/route2에 정량 비교. discontinuity 트리거+boost
+게이트(danger_active/frac<=0.0)까지 `long_mpc.py` 그대로 복제해,
+"boost 타이머는 활성인데 게이트에 막혀 실제로는 base cost로 강등된
+시간"까지 진단(73차 핵심 발견: duration이 아니라 게이트 자체가 병목
+— FINDINGS.md 73차 참고. 73차 계속2: split_gate로 게이트차단을
+해소하면 duration 연장이 다시 의미를 가짐 확인 — 두 방향은 결합해야
+함).
 **의존성**: `data_routes.py`, `numpy`.
-**주요 함수**: `BoostReplay`(boost_s/release_rate 파라미터화된 상태
-머신), `run_candidates(rows, t_lo, t_hi, candidates)`,
+**주요 함수**: `BoostReplay(boost_s, release_rate, split_gate)`(상태
+머신), `run_candidates(rows, t_lo, t_hi, candidates)` —
+candidates는 `(label, boost_s, release_rate, split_gate)` 4-tuple,
 `summarize_event(...)` — 위험구간(aEgo<=risk_thresh, 짧은 회복 blip은
-무시) 대비 후보별 timer활성/실부스트/게이트차단 시간 표 출력.
+무시) 대비 후보별 timer활성/실부스트/게이트차단 시간 표 + danger_active
+회귀 자동 경고.
 **사용**:
 ```bash
 python3 replay_boost_duration.py

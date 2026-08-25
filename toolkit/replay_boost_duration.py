@@ -54,17 +54,24 @@ DISCONTINUITY_JERK_COST_BOOST = 500.0
 
 
 class BoostReplay:
-  def __init__(self, boost_s, release_rate=None):
+  def __init__(self, boost_s, release_rate=None, split_gate=False):
     """
     boost_s: 트리거 시 부스트 유지시간(현재 원본=1.0s)
     release_rate: None이면 현재처럼 하드컷(윈도우 종료 즉시 base로 복귀).
                    숫자(cost/s)면 윈도우 종료 후 500에서 base까지
                    이 속도로 선형 감쇠(release-rate 완만화안).
+    split_gate: True면 73차 계속 결정대로 트리거 소스별로 게이트를
+                분리 -- 레이더 핸드오프(방안I) 트리거는 danger_active
+                단독 게이트(frac 무관), dRel discontinuity(방안C/G)
+                트리거는 기존 게이트(danger_active 무관 + frac<=0.0)
+                그대로 유지. False면 원본과 동일(소스 무관 공통 게이트).
     """
     self.boost_s = boost_s
     self.release_rate = release_rate
+    self.split_gate = split_gate
     self._timer = 0.0
     self._release_value = None  # release-rate 모드에서 현재 감쇠 중인 값
+    self._trigger_source = None  # 'discontinuity' | 'handoff' | None
 
     self._lead_present_run_timer = 0.0
     self._lead_absent_timer = 0.0
@@ -113,6 +120,7 @@ class BoostReplay:
         self._lead_acq_timer = 0.0
         self._timer = self.boost_s
         self._release_value = None
+        self._trigger_source = 'discontinuity'
         triggered = True
 
       if self._vision_dRel_prev is not None:
@@ -130,6 +138,7 @@ class BoostReplay:
         if (vRel_now - self._prev_lead_vRel) < -RADAR_HANDOFF_VREL_JUMP_THRESH:
           self._timer = self.boost_s
           self._release_value = None
+          self._trigger_source = 'handoff'
           triggered = True
       self._vision_dRel_prev = None
       self._vision_dRel_rate = 0.0
@@ -177,6 +186,11 @@ class BoostReplay:
       base_cost = A_CHANGE_COST
 
     boost_gate_ok = (self._timer > 0.0) and (not danger_active) and (frac <= 0.0)
+    if self.split_gate and self._timer > 0.0 and self._trigger_source == 'handoff':
+      # 73차 계속: 방안I(레이더 핸드오프) 트리거는 danger_active 단독
+      # 게이트 -- frac(찰나성 노이즈용 floor)는 이 트리거 소스에는
+      # 애초에 설계 의도상 무관하다고 판단(FINDINGS.md 73차 참고).
+      boost_gate_ok = (self._timer > 0.0) and (not danger_active)
 
     if self.release_rate is None:
       a_change_cost = DISCONTINUITY_JERK_COST_BOOST if boost_gate_ok else base_cost
@@ -203,11 +217,12 @@ class BoostReplay:
 
 
 def run_candidates(rows, t_lo, t_hi, candidates):
-  """candidates: list of (label, boost_s, release_rate) """
+  """candidates: list of (label, boost_s, release_rate, split_gate) """
   sub = [r for r in rows if t_lo <= float(r['t']) <= t_hi]
   sub.sort(key=lambda r: float(r['t']))
 
-  replayers = {label: BoostReplay(boost_s, release_rate) for label, boost_s, release_rate in candidates}
+  replayers = {label: BoostReplay(boost_s, release_rate, split_gate)
+               for label, boost_s, release_rate, split_gate in candidates}
   series = {label: [] for label, *_ in candidates}
   ts, aEgos = [], []
   prev_t = None
@@ -226,7 +241,7 @@ def run_candidates(rows, t_lo, t_hi, candidates):
 
     ts.append(t)
     aEgos.append(aEgo)
-    for label, boost_s, release_rate in candidates:
+    for label, boost_s, release_rate, split_gate in candidates:
       res = replayers[label].step(dt, lead_status, dRel, vRel, a_lead, radar_locked, v_ego, cruise_enabled)
       series[label].append(res)
   return ts, aEgos, series
@@ -239,7 +254,7 @@ def summarize_event(name, ts, aEgos, series, candidates, risk_thresh=-1.5, max_g
   # 시점까지(짧은 회복 blip은 "위험 종료"로 치지 않음 -- WIP.md 72차
   # 계속3의 "5.55초 지속" 판정과 동일 원칙).
   trig_idx = None
-  for label, boost_s, release_rate in candidates:
+  for label, boost_s, release_rate, split_gate in candidates:
     for i, res in enumerate(series[label]):
       if res['triggered']:
         trig_idx = i if trig_idx is None else min(trig_idx, i)
@@ -271,8 +286,8 @@ def summarize_event(name, ts, aEgos, series, candidates, risk_thresh=-1.5, max_g
   print(f"트리거 t={ts[trig_idx]:.3f} / 관측 위험구간(aEgo<={risk_thresh}) "
         f"t={risk_t0:.3f}~{risk_t1:.3f} ({risk_dur:.2f}s)")
 
-  print(f"{'후보':<22}{'boost_s':>8}{'release':>10}{'timer활성(s)':>14}{'실부스트(s)':>12}{'게이트차단(s)':>14}{'커버율':>8}")
-  for label, boost_s, release_rate in candidates:
+  print(f"{'후보':<26}{'boost_s':>8}{'release':>10}{'timer활성(s)':>14}{'실부스트(s)':>12}{'게이트차단(s)':>14}{'커버율':>8}")
+  for label, boost_s, release_rate, split_gate in candidates:
     res_list = series[label]
     timer_on = 0.0
     boosted = 0.0
@@ -288,10 +303,18 @@ def summarize_event(name, ts, aEgos, series, candidates, risk_thresh=-1.5, max_g
     gate_blocked = max(0.0, timer_on - boosted)
     coverage_pct = 100.0 * boosted / risk_dur if risk_dur > 0 else 0.0
     rel_str = f"{release_rate:.0f}/s" if release_rate else "-"
-    print(f"{label:<22}{boost_s:>8.2f}{rel_str:>10}{timer_on:>14.2f}{boosted:>12.2f}{gate_blocked:>14.2f}{coverage_pct:>7.1f}%")
+    print(f"{label:<26}{boost_s:>8.2f}{rel_str:>10}{timer_on:>14.2f}{boosted:>12.2f}{gate_blocked:>14.2f}{coverage_pct:>7.1f}%")
+  # danger override 회귀 체크: split_gate 후보들의 danger_active 프레임 수가
+  # split_gate=False(원본과 동일 로직)와 다르면 즉시 표시 -- danger 계산은
+  # boost 게이트와 독립이라 원칙상 항상 동일해야 함(회귀 없음 확인용).
+  base_label = candidates[0][0]
+  base_danger = sum(1 for r in series[base_label] if r['danger_active'])
+  for label, boost_s, release_rate, split_gate in candidates:
+    d = sum(1 for r in series[label] if r['danger_active'])
+    if d != base_danger:
+      print(f"  [경고] {label}: danger_active 프레임 수({d})가 baseline({base_danger})과 다름!")
   print("(\"게이트차단\": boost 타이머는 활성(timer>0)인데 danger_active 또는 frac>0.0\n"
-        " 조건에 걸려 실제로는 base_a_change_cost로 강등된 시간 -- boost_s를 늘려도\n"
-        " 이 게이트가 열려있는 한 무의미함을 확인하기 위한 진단.)")
+        " 조건에 걸려 실제로는 base_a_change_cost로 강등된 시간.)")
 
 
 if __name__ == "__main__":
@@ -301,12 +324,12 @@ if __name__ == "__main__":
   print(f"route1(ea5bcc0566): {meta1['n_rows']}행 / route2(a5b1ce4e42): {meta2['n_rows']}행")
 
   candidates = [
-    ("baseline(1.0s hard)", 1.0, None),
-    ("2.0s hard", 2.0, None),
-    ("2.5s hard", 2.5, None),
-    ("3.0s hard", 3.0, None),
-    ("1.0s+release300/s", 1.0, 300.0),
-    ("1.0s+release200/s", 1.0, 200.0),
+    ("baseline(1.0s hard)", 1.0, None, False),
+    ("2.0s hard", 2.0, None, False),
+    ("3.0s hard", 3.0, None, False),
+    ("1.0s+split_gate(안I전용)", 1.0, None, True),
+    ("2.0s+split_gate(안I전용)", 2.0, None, True),
+    ("3.0s+split_gate(안I전용)", 3.0, None, True),
   ]
 
   # route1 seg10, 72차 계속2 기준 레이더 락온 엣지 t=690.0027

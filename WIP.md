@@ -1,3 +1,24 @@
+## [체크포인트, 세션 종료 아님] 73차 계속2 — split_gate 검증 완료: 게이트차단 해소, duration과 결합해 커버율 실제 증가
+
+**결과**: `replay_boost_duration.py`에 `split_gate` 옵션(방안I 트리거만
+danger_active 단독 게이트) 구현·검증 완료 — route1 3.0s+split_gate
+19.2%, route2 3.0s+split_gate 44.2% 커버(게이트차단 0.00s로 완전 해소).
+danger_active 프레임 수 회귀 없음(baseline과 동일 확인). 상세는
+FINDINGS.md 73차 계속 참고.
+
+**다음(최우선)**:
+1. boost_s를 3.0s보다 더 올릴지(4.0~5.0s 후보) — coverage가 아직
+   100%에 못 미침(risk_dur 5.55~6.25초).
+2. route1 dRel discontinuity 트리거(방안C/G 경로, t=687.850)도 이
+   시나리오에선 split 대상에 포함할지 판단.
+3. 방향 확정되면 `long_mpc.py` 패치 설계 — 트리거 소스 구분용 상태
+   신규 추가(`_discontinuity_jerk_boost_timer` 단일 타이머를 소스별로
+   분리하거나 별도 bool 플래그 추가) → `replay_boost_duration.py`로
+   최종 재검증 → `git am` 검증 → 전달.
+
+**코드 변경 없음(ryu 미변경). `toolkit/replay_boost_duration.py`
+갱신(split_gate 옵션 추가).**
+
 ## [체크포인트, 세션 종료 아님] 73차 계속 — 방향 결정: **방안I 트리거 전용 게이트 분리(제한적 1번)**
 
 **결정**: 3개 후보(FINDINGS.md 73차 참고) 중 **1번(frac 게이트 완화)을
