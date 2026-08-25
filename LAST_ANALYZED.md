@@ -1,4 +1,19 @@
 ## c3-ms-dev
+- last_analyzed_commit (76차 계속, 패치 생성/git am 검증/전달): `f5c0e5c`
+  (로컬 커밋, base `f8e136e` -- **아직 사용자 적용/push 전**. verify-am
+  브랜치에서 `git am`+`py_compile` 통과 확인, 패치 파일 outputs 전달 완료.
+  컨테이너 재시작으로 76차 최초 구현이 유실돼 이번 세션에서 동일 내용을
+  재구현/재검증함 -- devnotes 기록(WIP.md/FINDINGS.md) 덕분에 처음부터
+  재설계 없이 그대로 재현 가능했음.)
+- date: 2026-08-26 (76차 계속)
+- note: discontinuity_lc 소스(75차b+76차 duration 통합)를 long_mpc.py에
+  구현, replay_lane_change_discontinuity_gate.py로 route1/route2 재검증
+  -- 이전 세션 결과와 완전히 동일하게 재현됨(route2 t=1472.401 최저점
+  a_change_cost=500 유지, 회귀 diff 402건 전부 discontinuity_lc뿐).
+  **다음 세션 최우선: 사용자 적용/push 확인 → 실차 드라이브 검증.**
+  상세는 WIP.md "76차 계속" 참고.
+
+## c3-ms-dev
 - last_analyzed_commit (75차, 차선변경 급감후 원복 제보 분석): `f8e136e`
   (코드 변경 없음 — 73차 패치 커밋 그대로. route1/route2 동일 라우트로
   차선변경 구간만 재분석.)

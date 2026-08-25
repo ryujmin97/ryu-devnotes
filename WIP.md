@@ -1,4 +1,27 @@
-## 76차 (체크포인트 — 코드 구현/검증 완료, 패치 전달/실차검증 전) — discontinuity+차선변경 조합에 73차 handoff duration 해법(4.0s+100/s) 통합 적용
+## 76차 계속 (체크포인트 재개, 컨테이너 재시작 후 이어감) — 패치 생성/git am 검증/전달 완료
+
+이전 세션이 코드 구현+시뮬레이션 검증까지 끝낸 상태에서 컨테이너가
+재시작(세션 재시작)돼 로컬 ryu 커밋이 유실된 상태로 재개 — HEAD가
+여전히 `f8e136e`(73차)임을 확인, 아래 76차 구현 내용을 long_mpc.py에
+그대로 재적용 후 다음 단계 완료:
+
+1. `git commit`(로컬 `f5c0e5c`, base `f8e136e`) → `git format-patch -1`
+   → `verify-am-76` 임시 브랜치에서 `git am`(base `f8e136e`) 성공,
+   패치 적용 후 diff 0(원본과 완전 동일) 확인, `py_compile` 통과.
+2. `devnotes/toolkit/replay_lane_change_discontinuity_gate.py` 재실행 —
+   이전 세션과 동일한 결과 재현 확인(route2 t=1472.401 최저점에서
+   76차(full) a_change_cost=500 유지, 75차(gate_only)는 20으로 무력화됨
+   재확인). route1 회귀 diff 402건 전부 소스=discontinuity_lc.
+3. 패치 파일(`0001-76-discontinuity-73-handoff-duration-4.0s-release-ra.patch`)
+   `/mnt/user-data/outputs/`에 전달 완료.
+
+**다음(최우선)**: 사용자가 `C:\dev\ryu`에서 `git am` 적용 + `git push
+origin c3-ms-dev` → **실차 드라이브 검증**(회귀 검증 필수 -- 일반
+cutin/handoff 두 기존 검증 조합이 실차에서도 지연 없이 그대로
+동작하는지, 차선변경 반복 시 boost가 과도하게 오래 유지되는 체감
+없는지, 75차 원 제보(차선변경 시 급감후 원복) 실제 완화 여부).
+
+## 76차 (최초 구현/검증 기록, 컨테이너 재시작 전) — discontinuity+차선변경 조합에 73차 handoff duration 해법(4.0s+100/s) 통합 적용
 
 **배경**: 75차 계속2에서 방향(b)(차선변경 중 discontinuity 트리거도
 handoff와 동일하게 frac 게이트 무관 완화) 구현·검증까지 마쳤으나,
