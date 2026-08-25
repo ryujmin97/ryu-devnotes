@@ -1,3 +1,58 @@
+## 73차 — boost 지속시간 연장 가설 재검증, **[중요, 방향전환] 진짜 원인은 duration이 아니라 frac<=0.0 게이트 자체**
+
+**배경**: 72차 계속2~4에서 확정된 "boost 윈도우(1.0s)가 실제 급감속
+지속시간(4~6초)에 비해 구조적으로 부족" 가설을 검증하기 위해, boost
+지속시간 후보(2.0/2.5/3.0s hard-cutoff) + release-rate 완만화안(1.0s
+유지 후 300/s 또는 200/s로 base까지 선형 감쇠)을 `data_routes.py`로
+불러온 route1(`ea5bcc0566`)/route2(`a5b1ce4e42`) 실측에 정량 비교.
+신규 `toolkit/replay_boost_duration.py` 작성 — `long_mpc.py`의
+discontinuity 트리거(L884~938)+boost 적용 게이트(L1120~1134)를
+그대로 복제하되, danger_active/frac까지 실측 재현해 "boost 게이트가
+언제 실제로 열려있었는지"까지 진단.
+
+**핵심 결과 (두 이벤트 모두 동일 패턴)**:
+- route1 seg10: 트리거 t=687.850(vision dRel 불연속, 락온 이전에도
+  1회 트리거됨 — 72차 계속2 부가확인과 일치)+t=690.003(레이더 락온
+  vRel 불연속). 위험구간(aEgo<=-1.5, 짧은 회복 blip 0.5s 이내는
+  무시) t=691.801~698.051(6.25초).
+- route2 seg1: 트리거 t=1378.850(레이더 락온). 위험구간
+  t=1379.400~1384.950(**5.55초, 72차 계속3 수기 계산과 정확히 일치**
+  — 스크립트 검증 신뢰도 확인).
+- **boost_s를 1.0→2.0→2.5→3.0s로 늘려도 위험구간 내 실제 부스트
+  적용 시간(a_change_cost>=300)은 전부 0.00초(0.0%)로 동일** —
+  duration 자체는 병목이 아니었음.
+- 진단 결과: boost 타이머는 활성(timer>0) 상태였던 시간이 boost_s에
+  비례해 늘어남(route2: 1.0s→0.45s/2.0s→1.45s/3.0s→2.45s 활성)에도
+  **그 활성 시간 전부가 "게이트차단"(danger_active 또는 frac>0.0에
+  걸려 실제로는 base_a_change_cost로 강등)으로 소모됨.**
+- **원인**: `process_lead()`의 frac_ttc가 radar 락온 직후 dRel이
+  빠르게 줄어들며(closing rate 유지) TTC가 곧바로 `LEAD_ACQ_TTC_
+  CAUTION=6.0s` 밑으로 진입 → frac_ttc>0 → boost 게이트 조건
+  `(timer>0 and not danger_active and frac<=0.0)`의 `frac<=0.0`이
+  거의 즉시 깨짐. 즉 **boost는 "완전히 안전하다고 판단될 때만" 켜지도록
+  설계돼 있는데, 이번 시나리오(정지/서행 앞차 락온) 자체가 정의상 곧바로
+  frac_ttc를 끌어올리는 상황이라 boost가 실질적으로 거의 항상
+  자기모순적으로 무력화됨.**
+
+**함의(72차 가설 정정)**: "duration 연장" 자체는 무의미 — frac 게이트가
+열려있는 한 boost_s를 아무리 늘려도 실제 적용 시간은 그대로 0에
+가까움. 다음 방향 후보 3개(다음 세션 결정 필요):
+  1. boost 게이트 조건에서 `frac<=0.0`을 완화(예: frac_ttc만 제외하고
+     danger_active만으로 게이트, 또는 frac 문턱을 0.0 대신 낮은 양수로).
+     danger override(TTC<=2.5s)는 이미 별도로 최우선 유지되므로 안전망
+     자체가 사라지는 건 아님 — 재검토 필요.
+  2. boost와 frac_ttc floor를 상호배타(if/else)가 아니라 병존 가능하게
+     재설계(예: a_change_cost는 boost로 낮게 유지하되 frac이 dRel/vRel
+     목표치에는 별도로 반영되도록 분리).
+  3. 애초에 "찰나성 노이즈 완화"(방안G/C 원 목적)와 "몇 초 지속되는 진짜
+     급감속의 저크 완만화"(방안I 목적)를 같은 boost 메커니즘으로 묶은
+     것 자체가 구조적 한계일 가능성(72차 계속2에서 이미 제기된 프레이밍)
+     — 후자 전용의 별도 메커니즘(예: frac gate 밖에서 동작하는 별도
+     a_change_cost 완화 경로) 분리 검토.
+
+**코드 변경 없음(ryu 미변경, 재현/진단만). `toolkit/replay_boost_
+duration.py` 신규 작성·devnotes 편입.**
+
 ## 72차 계속3 — route2(x7seg, `a5b1ce4e42`) 재업로드 교차검증: 방안I boost 윈도우(1.0s) 구조적 부족, **두 번째 라우트에서도 동일 패턴 확인**
 
 **배경**: 72차 계속2에서 route1 seg10(t≈690, 정지앞차 레이더 락온 급감속)

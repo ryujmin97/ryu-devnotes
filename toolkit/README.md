@@ -454,6 +454,24 @@ from data_routes import load_route
 rows, meta = load_route("/home/claude/devnotes", "ea5bcc0566")
 ```
 
+## replay_boost_duration.py (73차, 신규)
+**목적**: 방안I(72차) boost 지속시간(`DISCONTINUITY_JERK_COST_BOOST_S`)
+후보(2.0/2.5/3.0s hard-cutoff) + release-rate 완만화안을
+`data_routes.py`로 불러온 실측 route1/route2에 정량 비교. discontinuity
+트리거+boost 게이트(danger_active/frac<=0.0)까지 `long_mpc.py` 그대로
+복제해, "boost 타이머는 활성인데 게이트에 막혀 실제로는 base cost로
+강등된 시간"까지 진단(핵심 발견: 73차엔 duration이 아니라 이 게이트
+자체가 병목이었음 — FINDINGS.md 73차 참고).
+**의존성**: `data_routes.py`, `numpy`.
+**주요 함수**: `BoostReplay`(boost_s/release_rate 파라미터화된 상태
+머신), `run_candidates(rows, t_lo, t_hi, candidates)`,
+`summarize_event(...)` — 위험구간(aEgo<=risk_thresh, 짧은 회복 blip은
+무시) 대비 후보별 timer활성/실부스트/게이트차단 시간 표 출력.
+**사용**:
+```bash
+python3 replay_boost_duration.py
+```
+
 ## push_via_api.py
 **목적**: `GH_TOKEN` 환경변수로 GitHub Contents API를 통해
 `ryu-devnotes` 저장소에 직접 파일을 커밋/push. 세션 종료 시 표준

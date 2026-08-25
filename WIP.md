@@ -1,3 +1,42 @@
+## [체크포인트, 세션 종료 아님] 73차 — boost duration 연장 가설 재검증, **[방향전환] 원인은 duration이 아니라 frac<=0.0 게이트**
+
+**배경**: 72차 계속4 "다음(최우선)" 1/2번대로 `data_routes.load_route()`
+로 route1(`ea5bcc0566`)/route2(`a5b1ce4e42`) 불러와 boost 지속시간
+후보(2.0/2.5/3.0s hard) + release-rate 완만화안(1.0s+300/s 또는
+200/s 감쇠) 정량 비교 replay 스크립트(`toolkit/replay_boost_
+duration.py`, 신규) 작성·실행.
+
+**핵심 결과**: boost_s를 1.0→3.0s로 늘려도 위험구간(aEgo<=-1.5, 짧은
+회복 blip 0.5s 이내 무시) 내 실제 boost 적용시간은 route1/route2 둘 다
+**여전히 0.00초(0.0%)** — timer는 boost_s에 비례해 활성 시간이
+늘어나지만(route2 기준 1.0s→0.45s/3.0s→2.45s), 그 활성 시간 전부가
+`frac<=0.0` 게이트에 걸려 base_a_change_cost로 강등됨. 원인: radar
+락온 직후 closing이 지속되며 TTC가 곧바로 `LEAD_ACQ_TTC_CAUTION=6.0s`
+밑으로 진입해 frac_ttc>0이 거의 즉시 성립 — 이 시나리오(정지/서행
+앞차 락온) 자체가 정의상 frac_ttc를 끌어올리는 상황이라 boost 게이트
+`(timer>0 and not danger_active and frac<=0.0)`가 자기모순적으로
+거의 항상 막힘. **72차의 "boost 1.0s가 짧아서 부족" 결론은 정정 —
+duration 자체는 병목이 아니었음.** 상세는 FINDINGS.md 73차 참고.
+
+route2에서 계산된 위험구간(t=1379.400~1384.950, 5.55초)이 72차 계속3의
+수기 계산과 정확히 일치해 스크립트 재현 신뢰도도 확인됨.
+
+**다음(최우선)**: 3개 방향 후보 중 사용자 결정 필요(순서 확정 대기):
+1. boost 게이트에서 `frac<=0.0`을 완화(danger_active만으로 게이트,
+   또는 frac 문턱을 낮은 양수로) — danger override(TTC<=2.5s)는
+   별도로 항상 최우선 유지되므로 안전망 자체는 유지됨, 재검토 필요.
+2. boost와 frac_ttc floor를 상호배타가 아니라 병존 가능하게 재설계.
+3. "찰나성 노이즈 완화"(방안G/C)와 "몇 초 지속 진짜 급감속의 저크
+   완만화"(방안I)를 같은 boost 메커니즘으로 묶은 구조 자체를 분리
+   (frac gate 밖에서 동작하는 별도 경로).
+
+방향 결정되면 → 해당 방향으로 게이트 조건 수정 →
+`replay_boost_duration.py`로 재검증(boosted 시간이 실제로 늘어나는지
+확인) → 통과 시 `long_mpc.py` 패치.
+
+**코드 변경 없음(ryu 미변경). `toolkit/replay_boost_duration.py`
+신규(정식 편입, 스크래치 아님).**
+
 ## [체크포인트, 세션 종료 아님] 72차 계속4 — `data/routes/` 구조 신설 완료(route1/route2 등록+push)
 
 72차 계속3에서 쓴 두 라우트(route1 `ea5bcc0566` x19seg 22800행,

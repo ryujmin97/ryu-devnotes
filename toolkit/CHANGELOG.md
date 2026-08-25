@@ -3,6 +3,15 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+## 2026-08-26 (73차) — replay_boost_duration.py 신규
+- boost duration 연장 가설(72차) 검증용 replay 스크립트 신규 작성.
+  `data_routes.py`로 route1/route2 실측 로드 → discontinuity 트리거+
+  boost 게이트(danger_active/frac<=0.0)까지 실측 재현해 duration
+  후보별 "실제 boost 적용 시간"을 위험구간 대비 커버리지로 비교.
+  **핵심 발견: duration을 1.0→3.0s로 늘려도 커버리지 0.0% 그대로 —
+  병목은 duration이 아니라 frac<=0.0 게이트 자체(72차 가설 정정).**
+  상세는 FINDINGS.md 73차 참고.
+
 ## 2026-08-25 (63차/63차 계속) — 검증 스크립트 항상 toolkit 저장 원칙 시행
 - **`sim_drel_discontinuity.py` 신규 편입**: 61차 계속(방안C, cutin
   dRel 불연속 감지) 로직 단위 합성검증. 원래 work/ 스크래치였다가
