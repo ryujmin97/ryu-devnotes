@@ -1,14 +1,22 @@
 ## c3-ms-dev
-- last_analyzed_commit (72차 계속, 방안I 패치): `0c137f28b456`
-  (HEAD 기준 — 방안I 패치(`0001-72-I-vRel-G.patch`)는 이 커밋 위에
-  작성/검증만 완료, **아직 사용자 로컬 `git am`/push 전**이라 origin
-  HEAD는 여전히 67차 방안G `0c137f28b456` 그대로. 사용자가 적용 후
-  이 항목 갱신 필요.)
+- last_analyzed_commit (72차 계속, 방안I 패치 적용/push 완료): `4fa4a44`
+  (HEAD, `0c137f28b456` 위에 신규 커밋 1개 — `4fa4a44`(72차 방안I,
+  레이더 락온 전환 프레임 vRel 불연속 감지). 사용자가 `C:\dev\ryu`에서
+  `git fetch`+`git reset --hard origin/c3-ms-dev`로 동기화 후 `git am`
+  적용(42줄 추가, 예상과 diff --stat 일치 확인) + `git push origin
+  c3-ms-dev` 완료 확인 — `0c137f2..4fa4a44`.)
 - date: 2026-08-25 (72차 계속)
 - note: 71차/72차에서 발견한 "레이더 락온 전환 프레임 vRel 불연속"
-  사각지대에 대한 방안 I 패치 작성 완료. 상세는 FINDINGS.md/WIP.md
-  "72차 계속(방안 I)" 항목 참고. **다음 세션 최우선: 사용자 push 여부
-  확인 → 실차 검증.**
+  사각지대(비전이 6초+ 낙관 보고하다 레이더 락온 순간 vRel 급변,
+  route1 t=690.05 실차 재현)에 대한 방안 I 패치 적용 완료. 기존 검증된
+  방안G(66/67차) 저크부스트 메커니즘을 트리거 조건만 확장해 재사용
+  (danger override/proactive floor는 무관하게 항상 우선). 상세는
+  FINDINGS.md/WIP.md "72차 계속(방안 I)" 항목 참고. **다음 세션
+  최우선: 실차 드라이브 검증 — (a) 이번 재현 상황(비전 낙관 접근→
+  레이더 급락) 급감속 완화 여부, (b) danger override 회귀 없는지,
+  (c) 방안G(비전단독 dRel 급락)와 이중 트리거 부작용 없는지.
+  `RADAR_HANDOFF_VREL_JUMP_THRESH=3.0m/s`는 설계 추정치, 실차 반응
+  보고 튜닝 필요(NEEDS_VALIDATION).**
 
 ## c3-ms-dev (이전 기록)
 - last_analyzed_commit (71차, 실차 로그 2건 분석): `0c137f28b456`
