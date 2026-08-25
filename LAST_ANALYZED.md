@@ -1,4 +1,18 @@
 ## c3-ms-dev
+- last_analyzed_commit (76차 계속2, 실차 적용/push 완료 확인): `f3773b5`
+  (HEAD, `f8e136e` 위에 신규 커밋 1개. 사용자가 `C:\dev\ryu`에서 `git am`
+  적용 + `git push origin c3-ms-dev` 완료 확인(`f8e136e..f3773b5`).
+  로컬 검증 커밋(`f5c0e5c`)과 diff 없음(내용 완전 동일, 커밋 메타데이터만
+  다름) 재확인.)
+- date: 2026-08-26 (76차 계속2)
+- note: discontinuity_lc(75차b+76차 duration 통합) 실차 적용 완료.
+  **다음 세션 최우선: 실차 드라이브 검증** — (a) 75차 원 제보(차선변경
+  시 급감후 원복) 실제 완화 여부, (b) 회귀 검증 필수(danger override
+  정상 동작, 일반 cutin/handoff 두 기존 검증 조합 지연 없는지), (c)
+  차선변경 반복 시 boost 과도하게 오래 유지되는 체감 없는지. 상세는
+  WIP.md 76차 계속 참고.
+
+## c3-ms-dev
 - last_analyzed_commit (76차 계속, 패치 생성/git am 검증/전달): `f5c0e5c`
   (로컬 커밋, base `f8e136e` -- **아직 사용자 적용/push 전**. verify-am
   브랜치에서 `git am`+`py_compile` 통과 확인, 패치 파일 outputs 전달 완료.
