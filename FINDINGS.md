@@ -52,6 +52,66 @@ frac게이트 미해결)**로 좁혀짐.
 
 **코드 변경 없음(ryu). devnotes만 변경.**
 
+## 75차 계속2 — 방향(b) 구현/검증/패치 전달 완료(`long_mpc.py`), **회귀 없음 확인 + 신규 한계 발견(duration 부족 재현)**
+
+**배경**: 75차가 확정한 방향(b)(차선변경 중에 한정해 discontinuity 소스도
+handoff와 동일하게 frac 게이트 무관하게 완화) 그대로 구현.
+
+**구현** (`long_mpc.py`, 로컬 커밋 `e31f1e5`, base `f8e136e`): a_change_cost
+게이트 조건부(L1172 부근)에 `is_lane_change_discontinuity` 신규 판정 추가
+— `_discontinuity_trigger_source=='discontinuity'` AND
+(`lane_change_blinker_active` 또는 `_lane_change_vlead_hold_timer>0`)이면
+`is_handoff_source`와 동일하게 frac 게이트를 건너뛴다(danger_active만
+확인). `lane_change_blinker_active`/`_lane_change_vlead_hold_timer`는
+60차 계속2가 이미 배선해둔 것을 그대로 재사용 — 신규 배선 없음. 일반
+discontinuity(비차선변경)는 기존 `frac<=0.0` 게이트 그대로.
+
+**검증** (`toolkit/replay_lane_change_discontinuity_gate.py` 신규,
+`replay_boost_duration.py` 로직/상수 재사용):
+- **route2 t=1470.75 discontinuity+차선변경 트리거**: hard-hold(1.0s)
+  구간 내에서 frac 게이트 완화로 실제 boost 적용시간이 늘어남 확인
+  (t=1470.901~1471.350, 0.45초 구간이 base(200 근방)->boost(500)로
+  전환 — patched만 500, unpatched는 frac 게이트에 막혀 200대 유지).
+- **[신규 발견, NEEDS_VALIDATION] 그러나 이 이벤트의 실제 aEgo<=-1.5
+  최저점은 트리거로부터 약 1.4~1.65초 후(hard-hold 1.0s가 이미 소진된
+  시점)에 발생** — frac 게이트 완화만으로는 위험구간(aEgo 기준) 커버율이
+  여전히 0%. **72~73차에서 handoff 트리거에 대해 이미 발견했던 "boost
+  duration(1.0s) 자체가 실제 급감속 지속시간보다 구조적으로 짧다"는
+  패턴이 discontinuity+차선변경 조합에서도 동일하게 재현됨.** t=1541~1545
+  구간은 이번 위험구간 판정 기준(aEgo<=-1.5, gap 0.5s)으로는 위험구간
+  자체가 안 잡힘(감속이 -1.5 문턱을 못 넘음, 별도 재확인 필요).
+- **회귀 없음 확인**: route1(22800행)+route2(7859행) 전체 스캔에서
+  patched/unpatched a_change_cost가 다른 프레임은 전부
+  `lane_change_active=True`인 경우뿐(각각 38건/48건) — 비차선변경
+  상황(일반 cutin 포함)은 diff 0건, 기존 검증된 조합(방안C/G) 완전
+  보존 확인. danger_active 프레임 수도 각 구간에서 patched=unpatched로
+  회귀 없음.
+
+**의미**: 이번 패치(frac 게이트 완화)는 설계 의도대로 정확히 동작하고
+회귀도 없지만, 이것만으로는 75차가 제보받은 "차선변경 시 급감후 원복"의
+근본 해결에는 부족할 가능성 높음 — hard-hold duration 자체가 짧아
+실제 위험 순간을 놓침. 73차가 handoff에 대해 썼던 해법(duration
+연장 + release-rate 완만화)을 discontinuity+차선변경 조합에도 적용할지
+여부가 다음 결정 사항.
+
+**전달**: `0001-75-discontinuity-danger-b.patch`(base `f8e136e`)를
+`/mnt/user-data/outputs/`에 생성, `git am` 검증(`py_compile` 포함) 통과
+확인 후 전달.
+
+**다음(최우선, 사용자 결정 대기)**:
+1. **실차 드라이브 검증** — (a) 이번 패치 자체(frac 게이트 완화)가
+   차선변경 시 체감 개선을 주는지(짧은 hard-hold 구간 내에서도 일부
+   개선은 있음), (b) **회귀 검증 필수** — danger override/일반 cutin이
+   패치 전과 동일하게 동작하는지.
+2. 신규 발견된 "duration 부족" 한계를 해소할지 결정 — 73차 handoff
+   해법(RADAR_HANDOFF_JERK_BOOST_S=4.0/RELEASE_RATE=100)을 discontinuity+
+   차선변경 조합에도 적용할지, 아니면 이번 패치(frac 게이트 완화)만으로
+   실차 체감을 먼저 확인한 뒤 필요시 추가할지.
+3. route2 t=1541~1545 구간(-1.5 문턱 미도달)은 이번 위험구간 판정
+   기준과 다른 방식(예: -1.0 문턱 또는 실제 qcamera 대조)으로 재확인
+   필요.
+4. route1 t=522~533(75차 3번, 구조적 한계)는 계속 별도 이월.
+
 ## 73차 계속3 — boost_s 스윗스팟 탐색 + release-rate 스크립트 버그 수정, 4.0s+100/s 채택
 
 **boost_s만 증가(hard, split_gate)**: route1 3.0s→6.5s: 19.2/36.0/52.0/

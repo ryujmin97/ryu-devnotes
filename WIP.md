@@ -1,3 +1,32 @@
+## 75차 계속2 (체크포인트 — 방향(b) 구현/검증/패치 전달 완료, 실차검증 대기, **신규 한계 발견**)
+
+75차가 확정한 방향(b)(차선변경 중에 한정해 discontinuity 소스도 handoff와
+동일하게 frac 게이트 무관 완화)를 `long_mpc.py`에 구현 완료(로컬 커밋
+`e31f1e5`, base `f8e136e`) — 60차 계속2가 이미 배선해둔
+`lane_change_blinker_active`/`_lane_change_vlead_hold_timer`를 그대로
+재사용, 신규 배선 없음. `replay_lane_change_discontinuity_gate.py`(신규,
+toolkit 편입)로 route1/route2 전체 회귀 스캔 + route2 t=1470.75 대상
+이벤트 재검증 완료 — **회귀 없음 확인**(diff는 전부 차선변경 상황에서만
+발생, 일반 cutin/기존 검증된 조합 완전 보존, danger_active 프레임 수
+동일). 단 **[신규 발견, 미해결] hard-hold(1.0s) 구간 내에서는 boost
+커버리지가 실제로 늘어나지만, 이 이벤트의 실제 aEgo<=-1.5 최저점은
+트리거 후 1.4~1.65초(hard-hold 이미 소진)에 발생 — 72~73차 handoff에서
+이미 봤던 "duration 자체가 짧음" 구조적 한계가 discontinuity+차선변경
+조합에도 동일하게 재현됨.** 상세는 FINDINGS.md "75차 계속2" 참고.
+
+**전달**: `0001-75-discontinuity-danger-b.patch`(base `f8e136e`) 전달,
+`git am`+`py_compile` 검증 통과.
+
+**다음(최우선, 다음 세션에서 이어감)**:
+1. **실차 드라이브 검증** — (a) 이번 패치(frac 게이트 완화) 자체의
+   체감 개선 여부, (b) **회귀 검증 필수** — danger override/일반 cutin
+   정상 동작.
+2. **[사용자 결정 대기]** duration 부족 한계 해소 여부 — 73차 handoff
+   해법(4.0s+release-rate 100/s)을 discontinuity+차선변경 조합에도
+   적용할지, 아니면 이번 패치만으로 실차 체감 먼저 확인할지.
+3. route2 t=1541~1545(-1.5 문턱 미도달)는 다른 기준/qcamera로 재확인 필요.
+4. route1 t=522~533(75차 3번, 구조적 한계)는 계속 이월.
+
 ## 75차 (체크포인트 — 코드 변경 없음, 분석만) — "차선변경 시 급감후 원복" 제보, 73차 패치와의 관계 분석
 
 **배경**: 사용자가 스크린샷("차선을 변경합니다" 표시, dRel≈55m대, 1.Accel

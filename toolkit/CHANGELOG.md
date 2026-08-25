@@ -321,3 +321,10 @@
   재현에 쓴 검증 세트. 목록/구조는 `data/routes/README.md` 참고.
 - `data_routes.py` 신규: `load_route()`/`list_routes()` — 위 gzip
   캐시를 `analysis_helpers.load_csv()`와 동일한 형태로 로드.
+
+## 2026-08-26 (75차, replay_lane_change_discontinuity_gate.py 신규)
+- `replay_lane_change_discontinuity_gate.py` 신규: replay_boost_duration.py의
+  BoostReplay 로직을 재사용해, 차선변경(blinker+hold) 중 discontinuity
+  트리거도 frac 게이트를 무관하게 완화하는 방향(b)을 정량 검증. route2
+  t=1460~1480/1535~1550 두 구간 + route1/route2 전체 회귀 diff 스캔.
+  결과 요약은 FINDINGS.md "75차 계속2" 참고.
