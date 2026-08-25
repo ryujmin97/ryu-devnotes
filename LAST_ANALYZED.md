@@ -1,4 +1,27 @@
 ## c3-ms-dev
+- last_analyzed_commit (77차, 76차 실차 로그 첫 검증): `f3773b5` (HEAD,
+  코드 변경 없음 — 76차 패치가 실제로 반영된 커밋 상태에서 기록된 로그
+  (x15seg, 895.8s/4.26km, 도심)를 처음 분석. meta.json commit이 정확히
+  `f3773b583656`로 일치 확인.)
+- date: 2026-08-26 (77차)
+- note: **76차의 핵심 타깃(차선변경+discontinuity 조합)은 이번 로그에
+  재현 안 됨** — laneChangeState 전 구간 'off'(차선변경 0건), 그래서
+  discontinuity_lc 소스 자체가 발동할 기회가 없었음. 대신 **73차부터
+  이어진 handoff(레이더 락온) 메커니즘의 실차 재확인**은 확보: seg6
+  t=440.98~447.99 고속도로 원거리(109m) vision 단독 감지→레이더 락온
+  전환(vRel -12→-8.6m/s 불연속 점프, 72차가 겨냥한 정확한 패턴)에서
+  aEgo가 +1.0→-2.9 부근까지 완전히 매끈하게 이어짐(락온 순간 저크
+  없음), 같은 구간에 TTC danger(min_ttc=2.39s) override도 정상 발동,
+  harsh_brake_event 미발생(운전자 개입 없이 시스템이 끝까지 처리) —
+  방안G/I/73차 스택이 실도로에서 다시 한번 깔끔하게 작동 확인.
+  turn_speed_violation 2건은 프레임 대조 결과 전부 cruiseEnabled=False
+  구간(운전자 수동 정지, 화면녹화 클립으로 교차앞차 정지 상황 확인)이라
+  ADAS 무관. harsh_brake 49건 중 대표 클러스터 전부 disengage 인접(기존
+  패턴과 동일). **다음 세션 최우선: 차선변경 포함된 로그로 76차
+  discontinuity_lc 타깃 시나리오 직접 검증 필요(이번 로그로는 미검증
+  상태 유지).** 상세는 FINDINGS.md 77차 참고.
+
+## c3-ms-dev
 - last_analyzed_commit (76차 계속2, 실차 적용/push 완료 확인): `f3773b5`
   (HEAD, `f8e136e` 위에 신규 커밋 1개. 사용자가 `C:\dev\ryu`에서 `git am`
   적용 + `git push origin c3-ms-dev` 완료 확인(`f8e136e..f3773b5`).

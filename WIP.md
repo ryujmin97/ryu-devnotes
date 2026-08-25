@@ -1,3 +1,31 @@
+## 77차 (세션 종료 — 분석만, 코드 변경 없음) — 76차 실차 로그 첫 검증(handoff 재확인, discontinuity_lc는 미검증)
+
+76차 패치 커밋(`f3773b58`) 위에서 기록된 실주행 로그(x15seg,
+895.8s/4.26km, 도심)+30초 화면녹화 클립 1개 분석.
+
+**핵심**: 이번 로그엔 차선변경이 한 건도 없어(`laneChangeState` 전
+구간 'off') 76차의 진짜 타깃(차선변경+discontinuity_lc)은 이번에도
+검증 못함. 대신 고속도로 원거리(109m) vision→레이더 락온 handoff
+사례(seg6 t=440~452)가 하나 잡혀서 73차 handoff 메커니즘(72차 방안I
++73차 duration 확장)이 실도로에서 다시 매끈하게 작동함을 재확인 —
+락온 순간 vRel 불연속 점프(-12→-8.6m/s)에도 aEgo는 완전히 연속적으로
+감속, TTC danger override도 충돌 없이 겹쳐 발동, harsh_brake(운전자
+개입) 0건. turn_speed_violation 2건은 전부 운전자 수동주행 구간이라
+ADAS 무관 확인(화면녹화 클립으로 앞차 정지 상황 직접 대조).
+
+상세는 FINDINGS.md/LAST_ANALYZED.md "77차" 참고. 코드 변경 없음.
+
+## 다음 세션 최우선
+1. **차선변경이 포함된 실주행 로그 확보** → 76차 discontinuity_lc(4.0s
+   hard+release-rate 100/s) 타깃 시나리오 직접 검증(아직 한 번도 실제
+   차선변경 상황에서 재현 확인 못한 상태).
+2. (낮은 우선순위) steering_oscillation_detector 4건 개별 미조사 —
+   필요시 조사.
+
+## 다음 세션 시작 시
+이 WIP.md에 "77차" 섹션이 있으면 이 지점부터 이어감 — 특히 차선변경
+포함 로그가 있는지부터 확인.
+
 ## 76차 계속2 (세션 종료 — 실차 적용/push 완료 확인) — discontinuity_lc 패치 반영
 
 사용자가 `C:\dev\ryu`에서 `git am` 적용 + `git push origin c3-ms-dev`
