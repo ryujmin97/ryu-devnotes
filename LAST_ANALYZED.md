@@ -759,6 +759,13 @@
   NEEDS_VALIDATION] 비전-only 원거리 리드 closing-rate 크로스체크"
   참고. **aEgo 실측 대조는 아직 미완료 — 다음 세션 최우선 과제.**
 
+2026-08-26 (79차): 신규 커밋 없음(origin HEAD `f3773b58` 그대로) —
+사용자 제보(수동주행 중 첫 +RES 시 목표속도가 현재속도보다 낮게 설정)로
+`selfdrive/car/cruise.py`(`VCruiseCarrot._update_cruise_buttons()`)
+코드리딩 + 로직단위 시뮬레이션(`work/sim_res_button.py`)으로 원인 확정,
+패치 작성/검증 완료(로컬 `08ef23f`, base `f3773b58`). 상세는 WIP.md/
+FINDINGS.md 79차 항목 참고. **실차 적용/검증 대기.**
+
 ## c3-ms
 - last_analyzed_commit: (아직 분석 안 함)
 - date: -

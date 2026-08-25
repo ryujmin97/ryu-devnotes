@@ -2966,3 +2966,65 @@ seg6/7/15~19) 분석 완료. 상세는 FINDINGS.md 51차 참고.
 이 WIP.md에 "51차" 섹션이 있으면 무조건 이 지점부터 이어감. 사용자가
 "체크포인트"라고만 말하면 이 섹션 상태 그대로 유지, 추가 진행 있으면
 새 섹션으로 덧붙임.
+
+## 79차 (완료 — 원인분석+패치작성/검증 완료, 실차 적용/검증 대기) — 수동주행 중 첫 +RES 시 목표속도가 현재속도보다 낮게 설정되는 문제
+
+**증상(사용자 제보)**: 시동 후 수동으로 60km/h로 주행 중 운전대 +RES(accelCruise)
+버튼을 1회 누르면 목표속도가 33km/h로 설정되며 감속 발생 — 최소 1회 누를 때
+현재 속도보다는 높게 설정되길 원함.
+
+**원인 확정** (`selfdrive/car/cruise.py`, `VCruiseCarrot._update_cruise_buttons()`):
+- `update_v_cruise()`에서 `CS.cruiseState.available`이 True이고 `pcmCruise`+
+  `speed_from_pcm!=1`(Genesis DH 해당)이면, 매 프레임
+  `self.v_cruise_kph = np.clip(v_cruise_kph, 30, self._cruise_speed_max)`로만
+  처리됨 — 이 `v_cruise_kph`는 `CC.enabled=False`(크루즈 미인게이지, 즉 수동주행
+  중)인 동안 버튼 로직에서 전혀 갱신되지 않고(아래 참고) 그대로 정체된 채
+  30~161 사이로만 clip됨. **즉 수동주행 중엔 v_cruise_kph가 현재 차량속도를 전혀
+  추종하지 않고, 이전 세션에서 남은 잔여값(이번 사례: 33)에 멈춰있음.**\n- `_update_cruise_buttons()`의 accelCruise 처리부에서
+  `elif self._cruise_ready or not CC.enabled or CS.cruiseState.standstill or
+  self.carrot_cruise_active:` 조건이 `not CC.enabled`(=수동주행 중 첫 인게이지)
+  케이스까지 묶어서 **아무 것도 하지 않는(no-op, `if False:` 블록만 있음)**
+  분기로 보내버림 — 그 결과 첫 +RES를 눌러도 위에서 정체돼 있던 33이 그대로
+  크루즈 목표속도로 채택됨.
+- **비교**: 바로 아래 decelCruise 처리부(L523)엔 이미 `elif not CC.enabled:
+  v_cruise_kph = max(self.v_ego_kph_set, self._cruise_speed_min)`로 현재속도
+  반영 로직이 있음 — **accelCruise만 이 처리가 빠져있던 비대칭 버그**로 확인.
+  (참고: `d02bf5f6`(2026-03-23, "fix.. v_cruise init") 커밋이 `cruiseState.available`
+  전환 시점(시동 직후 1프레임)만 `v_ego_kph_set`으로 초기화하도록 고쳤으나,
+  "주행 중 CC 비활성 상태에서의 정체" 케이스는 다루지 않아 이번 버그가 계속
+  남아있었음.)
+
+**조치** (`selfdrive/car/cruise.py`, 로컬 커밋 `08ef23f`, base `f3773b58`(devnotes
+LAST_ANALYZED 확인용 원격 HEAD)):
+- accelCruise 분기에서 `not CC.enabled`를 기존 결합 조건에서 분리해 별도 `elif`로
+  추가 — `self._cruise_ready`/`standstill`/`carrot_cruise_active`는 기존 동작(변경
+  없음) 그대로 유지(우선순위도 decelCruise와 동일하게 이 세 조건을 먼저 검사).
+  `not CC.enabled`인 경우엔 `math.ceil((v_ego_kph_set + 0.01) / unit) * unit`로
+  현재 속도보다 **반드시 높게**(다음 단위 눈금으로 올림) 설정 — decelCruise가
+  `max(v_ego_kph_set, min)`(현재속도와 같거나 높음)인 것과 달리, accelCruise는
+  "+"버튼 의미를 살려 현재속도보다 확실히 높게 설정(사용자 요청 문구 "현재보다는
+  높게"에 맞춤).
+
+**검증** (`work/sim_res_button.py`, 로직 단위 순수함수 재현):
+- 재현 시나리오(수동주행 vEgo=60km/h, v_cruise_kph 정체값=33, CC.enabled=False):
+  구코드 33(버그 재현) → 신코드 61(현재속도+1kph 눈금, 개선 확인).
+- 회귀 확인: `cruise_ready=True`/`standstill=True` 케이스는 구코드/신코드 결과
+  동일(33, 변경 없음) — 취소 직후 등 기존 no-op 분기 동작 그대로 보존.
+- `git format-patch` → `verify-am-79` 임시 브랜치(base `f3773b58`)에서 `git am`+
+  `py_compile` 통과 확인.
+
+**전달**: `0001-79-RES-accelCruise-v_cruise_kph.patch`를 `/mnt/user-data/outputs/`에
+전달(base `f3773b58`, 즉 현재 origin `c3-ms-dev` HEAD 위에 바로 `git am` 가능).
+
+**다음(최우선)**:
+1. `C:\dev\ryu`에서 `git am` 적용 + `git push origin c3-ms-dev`.
+2. **실차 드라이브 검증**: (a) 수동주행 중 첫 +RES 시 목표속도가 실제로 현재속도
+   보다 높게(눈금 올림) 설정되는지, (b) **회귀 검증** — 크루즈 취소 직후
+   재인게이지(`_cruise_ready`/`_v_cruise_kph_at_brake` 경로), 정차 후 출발
+   (`standstill`), carrot 명령 인게이지(`carrot_cruise_active`) 등 기존
+   인게이지 경로들이 이번 변경으로 영향받지 않는지, (c) decelCruise(−버튼)로
+   첫 인게이지하는 경우(기존 로직 그대로, 변경 없음)와의 일관성 체감 확인.
+3. `unit`(눈금 크기, `_cruise_speed_unit_basic`)이 사용자 설정에 따라 1보다
+   크면 "현재속도+해당 눈금"까지 올라갈 수 있음(예: 눈금 5면 60→65) — 실차
+   반응 보고 "몇 km/h 정도 위로 붙는게 적당한지" 튜닝 여지 있음(현재는 설계
+   추정치, NEEDS_VALIDATION).

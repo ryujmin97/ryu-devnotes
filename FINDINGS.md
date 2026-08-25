@@ -6301,3 +6301,39 @@ discontinuity_lc/차선변경과 완전히 무관 — 77차 결론과 일치 재
 "boost가 급감후 원복을 실제로 완화하는지"는 여전히 미검증.
 
 **코드 변경 없음**(분석 전용).
+
+## [PATCH_WRITTEN, NEEDS_VALIDATION] 79차 — 수동주행 중 첫 +RES(accelCruise) 시 목표속도가 현재속도보다 낮게 설정됨 (2026-08-26)
+
+**증상**: 시동 후 수동 60km/h 주행 중 +RES 1회 → 목표속도 33km/h로 설정,
+감속 발생. 사용자 요청: 첫 +RES는 항상 현재 속도보다 높게 설정되어야 함.
+
+**원인** (`selfdrive/car/cruise.py`):
+- `update_v_cruise()`가 `CS.cruiseState.available and pcmCruise and
+  speed_from_pcm!=1`(Genesis DH) 조건에서 `self.v_cruise_kph =
+  np.clip(v_cruise_kph, 30, self._cruise_speed_max)`만 매프레임 수행 —
+  `v_cruise_kph` 자체는 `CC.enabled=False`(수동주행)인 동안 버튼 로직에서
+  전혀 갱신되지 않아 이전 세션 잔여값(예: 33)에 정체된 채 clip만 반복됨.
+- `_update_cruise_buttons()`의 accelCruise 처리부가 `self._cruise_ready
+  or not CC.enabled or CS.cruiseState.standstill or self.carrot_cruise_active`
+  를 하나로 묶어 no-op(`if False:`) 분기로 보내, `not CC.enabled`(수동주행 중
+  첫 인게이지) 케이스에서도 아무 갱신을 안 함 — 정체된 33이 그대로 채택됨.
+- 바로 아래 decelCruise 처리부는 `elif not CC.enabled: v_cruise_kph =
+  max(self.v_ego_kph_set, self._cruise_speed_min)`로 이미 현재속도 반영
+  로직이 있어, **accelCruise만 빠진 비대칭 버그**로 확인.
+- 참고: `d02bf5f6`("fix.. v_cruise init")이 `cruiseState.available` False→True
+  전환 시점(시동 직후)만 `v_ego_kph_set`으로 초기화하도록 고쳤으나, "주행 중
+  CC 비활성 상태에서의 정체" 케이스는 다루지 않아 이번 버그가 남아있었음.
+
+**조치**: accelCruise 분기에서 `not CC.enabled`를 별도 `elif`로 분리(다른
+세 조건은 기존 동작 유지, decelCruise와 동일한 우선순위) — 해당 시
+`math.ceil((v_ego_kph_set+0.01)/unit)*unit`로 현재속도보다 확실히 높게(다음
+단위 눈금 올림) 설정.
+
+**검증**: `work/sim_res_button.py` 로직 재현 — 재현 시나리오(vEgo=60,
+정체값=33) 구코드 33(버그 재현)→신코드 61(개선). `cruise_ready`/
+`standstill` 케이스는 구/신 동일(33, 회귀 없음). `git am`(base `f3773b58`)+
+`py_compile` 통과.
+
+**다음(최우선)**: 실차 적용 후 (a) 첫 +RES 시 목표속도가 현재속도보다
+높게 설정되는지, (b) 취소 후 재인게이지/정차출발/carrot 인게이지 등
+기존 경로 회귀 없는지, (c) `unit`(눈금 크기)에 따른 상승폭 체감 확인.
