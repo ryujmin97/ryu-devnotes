@@ -189,3 +189,10 @@
   `-sseof -60`). 실차 `git am` + push 완료(commit `0f7575f`,
   `2226db7..0f7575f`). 실측 검증(clip 생성 여부/길이/ffmpeg 경로)은
   아직 남음. 상세는 WIP.md 참고.
+- 2026-08-25 (72차, 방안 I): `RADAR_HANDOFF_VREL_JUMP_THRESH=3.0` m/s
+  신규(`long_mpc.py`) — 레이더 락온 전환(False->True) 엣지 프레임에서
+  직전 프레임 vRel 대비 이 이상 접근방향으로 튀면 방안G(66/67차)
+  저크부스트 재사용 arm. 실차 재현 사례(route1 t=690.05, vRel
+  -3.6->-10.8m/s=7.2m/s 점프)를 확실히 잡도록 여유있게 설정한 설계
+  추정치 — NEEDS_VALIDATION, 실차 반응 보고 튜닝 필요. patch
+  `0001-72-I-vRel-G.patch` 전달 완료, base `0c137f2`.

@@ -5612,3 +5612,54 @@ frac_ttc 오염까지 차단) 추가 패치가 필요.
 `work/route63/replay_drel_discontinuity_real.py` 신규 — toolkit 미편입
 (아직 방안 D 미확정, seg3/14 외 다른 route 재현 검증도 안 됨 — 기존
 원칙대로 스크래치 유지).
+
+## [PATCH_WRITTEN] 72차(방안 I) — 레이더 락온 전환 프레임 vRel 불연속 감지
+
+**배경**: 72차 체크포인트(WIP.md 참고)에서 실차 재현(route1 t=683.85~
+696, "정지앞차 레이더락온시 급감속")으로 특정한 사각지대에 대한 실제
+코딩 착수. 이전 세션이 컨테이너 리셋으로 중단된 뒤, 사용자가 작업 중이던
+`long_mpc.py`(방안 I 구현 완료 상태)를 업로드해줘서 그대로 이어받음.
+
+**구현** (`long_mpc.py`, 컨테이너 로컬 커밋 `90d5845`, base `0c137f2`
+= 67차 방안G):
+- 신규 상수 `RADAR_HANDOFF_VREL_JUMP_THRESH=3.0`(m/s).
+- 신규 상태 `self._prev_lead_radar`(bool)/`self._prev_lead_vRel`(float,
+  status=True인 프레임에서만 갱신 — blip 중엔 마지막 유효값 유지).
+- 레이더 False→True 엣지 프레임(`elif lead_one_status_now and
+  radarstate.leadOne.radar:` 분기)에서, 엣지일 때만(`not self._prev_
+  lead_radar`) 직전 vRel 대비 이번 vRel이 임계값 이상 접근방향으로
+  튀면 기존 검증된 방안G(`_discontinuity_jerk_boost_timer =
+  DISCONTINUITY_JERK_COST_BOOST_S`)를 그대로 arm — 새 메커니즘 추가
+  없이 트리거 조건만 확장.
+- danger override(TTC<=2.5s)/proactive floor는 a_change_cost 적용부
+  (67차 방안G 지점)에서 이 부스트와 무관하게 항상 우선 — 이번 변경이
+  건드리는 건 "도달 속도(저크)"뿐, "도달 감속량" 자체는 그대로.
+
+**검증**: 컨테이너 origin(`0c137f2`) 기준 `git format-patch` →
+`verify-am-72` 임시 브랜치에서 `git am` 컨텍스트 일치 확인 +
+`py_compile` 통과.
+
+**전달**: `0001-72-I-vRel-G.patch`를 `/mnt/user-data/outputs/`에 생성,
+base `0c137f2`(67차 방안G) 위에 바로 적용 가능.
+
+**주의(재검증 필요)**: 이 패치는 실차 재현 로그(72차) 원인 분석을
+근거로 설계됐으나, 아직 (a) 이 패치를 실제 route1 t=690.05 시퀀스에
+재생 검증한 적 없음(방안G/C처럼 replay 스크립트로 사전검증하는 절차를
+이번엔 건너뜀 — 세션 중단 복구 우선), (b) `RADAR_HANDOFF_VREL_JUMP_
+THRESH=3.0m/s` 값은 설계 추정치(원 사례 vRel -3.6→-10.8 = 7.2m/s
+점프를 확실히 잡도록 여유있게 설정)일 뿐 튜닝 근거 없음, (c) 71차
+seg7 후반 gap 오실레이션/mid-speed 인접차선 오탐(37차 게이트 사각)
+등 이월 항목과는 무관.
+
+**다음(최우선)**:
+1. 사용자가 `C:\dev\ryu`에서 `git am` 적용 + push.
+2. (권장) 방안C/G 때처럼 실측 rlog(route1, 이번 사례) 원본으로
+   `replay_drel_discontinuity_real.py`류 재생 스크립트에 방안 I 로직을
+   추가해 t=690.05 시퀀스에서 실제로 저크가 완만해지는지 사전 검증—
+   아직 안 함(이번 세션은 세션 복구+패치 완성 우선).
+3. 실차 검증: (a) 이번 route1류(비전 낙관 6초+→레이더 급락) 재현 시
+   급감속 완화 여부, (b) danger override 회귀 없는지(TTC<=2.5s 즉시
+   반응 유지), (c) 방안G(discontinuity, 비전단독 dRel 급락)와 이중
+   트리거 시 부작용 없는지.
+4. WIP.md 72차 "다음(사용자 확인 대기)" 2/3번(mp4 나머지 클립 매칭,
+   71차 이월 항목)은 여전히 미착수.
