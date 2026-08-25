@@ -1,4 +1,17 @@
 ## c3-ms-dev
+- last_analyzed_commit (71차, 실차 로그 2건 분석): `0c137f28b456`
+  (HEAD, 67차 방안G와 동일 — 이번 세션은 코드 변경 없이 이 커밋
+  기준으로 기록된 실차 로그만 분석함)
+- date: 2026-08-25 (71차)
+- note: route1(19세그/1140s)/route2(7세그/393s) 전체 분석+qcamera
+  대조 완료. harsh_brake 대부분 운전자 개입, TTC danger 3/4건 정탐
+  확인. **[신규, NEEDS_VALIDATION] route1 seg4 t=356~368 실제 cutin
+  중 9.75초간 비전 dRel 극심 진동 + 시스템 무반응 → 운전자 개입**
+  — 61~67차 discontinuity suppress 로직이 장기 진동에 취약할 가능성.
+  상세는 FINDINGS.md/WIP.md "71차" 항목 참고. **다음 세션 최우선:
+  이 구간 원본 코드 replay 검증.**
+
+## c3-ms-dev (이전 기록)
 - last_analyzed_commit (62차, 61차 계속 방안C 복구·push 완료 확인): `4ea63c3`
   (HEAD, `d6e334f` 위에 신규 커밋 1개 — `4ea63c3`("61차 계속(방안 C):
   cutin 불연속 dRel 급락 감지 -> 신규등록 suppress 메커니즘 재사용").

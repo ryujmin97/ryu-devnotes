@@ -1,3 +1,107 @@
+## 71차 — 최신 브랜치(HEAD `0c137f28b456`, 67차 방안G) 실차 로그 2건(route1 19세그/route2 7세그) 전체 분석, qcamera 대조, [신규 발견] 실제 cutin 중 8~12초 지속 비전 dRel 진동 → 반응 지연
+
+**배경**: 사용자가 최신 브랜치 실차 주행 로그 2개(route1=`ea5bcc0566`
+19세그/1140s, route2=`a5b1ce4e42` 7세그/393s) 업로드, "전체 분석, qcamera
+대조, 상황별 정리" 요청. `extract_log.py` 추출 결과 두 로그 모두
+`commit=0c137f28b456`(67차, HEAD)로 최신 패치 전부 반영 상태에서 기록됨
+확인.
+
+**개관**: route1 cruise_ratio 93.2%, harsh_brake(raw) 35건 / route2
+cruise_ratio 86.3%, harsh_brake(raw) 20건.
+
+**1) harsh_brake 클러스터링(운전자 개입 여부 판별)**: 35+20건을 인접
+이벤트로 묶어 8개 독립 사건으로 재분류. **8건 중 6건은 명확히 운전자
+직접 개입**(brakePressed=True 직후 cruiseEnabled=False로 전환 확인,
+정지선/신호대기 등 ADAS 무관 감속) — route1 seg1 초반(정지선),
+route1 seg17(정지신호 추정, leadStatus=False 상태에서 driver
+disengage), route2 seg5/6(저속 근접 상황 수동 정차) 등. **ADAS
+주행 중(cruise 유지) 발생한 건 2건**(route1 seg7 t=527~531,
+route1 seg4 t=356~368 — 둘 다 아래 2)/3) 항목에서 상세 분석).
+
+**2) TTC danger override(`LEAD_ACQ_TTC_DANGER<=2.5s`) 4건, qcamera
+정탐 확인**:
+- route1 seg1 t=155.9~159.3(min TTC 1.53~2.44s, `src=cam`, `radar=False`,
+  prob 0.72~0.99): qcamera 대조 결과 **교차로 진입 직전 실제 선행
+  차량이 정지/서행 중**인 정탐 확인(3프레임 대조, 신호대기 추정).
+- route1 seg15 t=1021.1(min TTC 1.14s, `src=vturn`, `radar=False`,
+  prob 0.99): qcamera 대조 결과 **곡선구간에서 실제 브레이크등 켜진
+  선행차량**의 정탐 확인.
+- route2 seg6 t=1643.95(min TTC 1.73s): `cruiseEnabled=False`(운전자
+  수동 저속 정차 중, vEgo=1.1m/s) — ADAS 무관, qcamera 대조 불필요로
+  판단.
+- (route1 seg7 t=527~531은 danger override 문턱 밖이었으나 아래 3)에서
+  별도 상세 분석)
+
+**3) [신규 발견, NEEDS_VALIDATION] route1 seg4 t=356~368 — 실제
+cutin 상황에서 비전 dRel이 8~12초간 40~95m 범위로 극심하게 진동,
+그동안 시스템 반응(aEgo)이 사실상 없어 운전자가 직접 브레이크 개입**
+
+qcamera 대조(t=36.5s/45s/49.5s, 즉 route time≈351.7/360/364.5) 결과
+**흰색 SUV가 우측에서 자기 차로로 실제 끼어드는(cutin) 장면 확인**
+(45s 프레임에서 브레이크등 켜진 흰색 SUV가 바로 우측에서 근접, 49.5s
+프레임에서 완전히 자기 차로 앞으로 진입 완료).
+
+CSV 상세 궤적(route1 seg4, t=356.0~368.0):
+- t=356.0~359.75: `leadDRel`이 43m→92m→54m→65m→91m→78m→87m→94m→
+  74m→80m→85m 등으로 **약 9.75초간 40~95m 사이를 반복 진동**
+  (`src=vturn`, `leadRadar=False` 내내, `leadModelProb` 0.25~0.82
+  사이 요동). `curve_lead_dRel_jump_consistency()`로 재확인 시
+  이 구간 점프들은 대부분 `physically_consistent=False`(방향
+  비일관)로 판정 — 즉 기존 노이즈 억제 로직(방안C/E/G) 관점에서는
+  "노이즈"로 분류되어 억제 대상.
+- **이 9.75초 동안 `aEgo`는 -0.54~+0.59 사이에 머물며 실질적 감속
+  반응이 전혀 없었음**(오히려 순간 가속 구간도 존재) — 그러나
+  qcamera 상 실제로는 우측 차량이 근접·끼어들고 있는 중이었음.
+- t=359.8: `brakePressed=True` 시작, t=359.9: `cruiseEnabled=False`로
+  전환 — **운전자가 직접 브레이크 개입**(ADAS가 충분히 반응하지
+  않는다고 체감했을 가능성).
+- t=360.15~366.9: 운전자 브레이크 유지 상태에서 `leadVRel`이 점차
+  -4~-11m/s대(빠른 접근)로 심화 표시, `aEgo`도 -1~-3m/s²대까지 따라감
+  (단, 이 구간은 운전자 브레이크가 이미 걸려있어 실제 차량 감속의
+  상당 부분이 운전자 개입에 의한 것일 수 있음 — 시스템 자체 반응인지
+  분리 어려움).
+- t=367.05: 레이더 최초 안정적 락온(`dRel=5.4m, radar=True`), 이후
+  dRel이 5.4~5.7m대에서 안정.
+
+**해석(가설, 미확정)**: 61차 방안C/63차 방안E/67차 방안G가 겨냥한
+"discontinuity/노이즈 억제"가 이 실제 cutin 사례에서는 **진짜
+위험 신호까지 노이즈로 오분류해 8~10초라는 긴 시간 동안 억제를
+지속**시켰을 가능성. 기존 검증(63차 seg3/seg14, 66~67차 cutin
+검증)은 짧은(1~2초 이내) discontinuity 위주였는데, 이번 사례는
+그보다 훨씬 긴 시간 동안 진동이 지속되는 패턴이라 **방안C/E/G의
+설계 전제(짧은 discontinuity)를 벗어난 사각지대일 가능성**.
+단, 표본 1건뿐이고 (a) 이 정도로 긴 진동이 일반적인지, (b) 진짜
+danger override(TTC<=2.5s)가 이 구간 어디에서도 발동 안 한 게
+맞는지(raw TTC 재계산 필요), (c) 실제 원본 코드 실행 결과인지
+(acados MPC 파이프라인 실제 반영 여부, 로그만으론 프레임 단위
+weight 값을 볼 수 없음) 등은 **미검증** — 다음 세션에서 원본
+코드로 이 구간을 직접 재생(replay)해 discontinuity suppress가
+얼마나 오래 걸려있었는지 확인 필요.
+
+**4) 곡선구간 비전 노이즈 억제 재확인**: `curve_lead_dRel_jump_consistency()`
+적용 결과 route1 노이즈 억제율 80.5%(41건 raw danger → 8건 refined),
+route2 100%(18건 → 0건) — 기존 세션들의 91.7% 등 수치대와 대체로
+일치, 새로운 이상 패턴 없음. route1의 refined 8건 중 다수가 위 2)
+TTC danger 이벤트(seg1/seg15) 및 3) cutin 사례(seg4)와 겹침 —
+즉 refined 판정 로직 자체는 실제 위험 이벤트를 정확히 잡아내고
+있음이 재확인됨(단, 3)의 9초+ 장기 진동에 대해서는 이 로직이 아직
+검증된 적 없는 패턴).
+
+**5) turn_speed_violations**: route1 2건, route2 1건 — 전부 저속
+(vEgo 5.5~7m/s, 60km/h대 1건) 구간에서 `src=gas`(운전자 가속페달
+개입) 또는 짧은 초과(2.6~5.4kph)로, 코드 결함 신호 아님으로 판단.
+
+**6) congestion_stop_launch_lurch_scan**: 두 route 모두 0건(58차2번
+저속 붕끗 패턴 재현 없음, 회귀 없음 확인).
+
+**결론**: 대부분 정상(harsh_brake는 대개 운전자 개입, TTC danger는
+정탐, 곡선 노이즈 억제는 정상 동작). **다음 세션 최우선으로 격상**:
+route1 seg4(t=356~368) 장기 비전 진동/반응지연 사례 원본 코드
+replay 검증 — 방안C/E/G의 discontinuity suppress가 실제로 이 구간
+전체를 억제하고 있었는지, 그렇다면 억제 지속시간에 상한을 두는
+방안(예: N초 이상 지속되는 진동은 더 이상 노이즈로 보지 않고
+안전측으로 개입) 검토 필요.
+
 ## 70차 — [69차 정정] 사용자 제공 이전 세션 대화록 근거로 방안 D→E→F/G/H 변경 경위 전체 재구성
 
 **배경**: 69차는 `git log`/코드 diff만으로 역보완하다 보니 "방안D 폐기
