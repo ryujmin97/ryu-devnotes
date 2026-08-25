@@ -1,3 +1,41 @@
+## 73차 계속3 — boost_s 스윗스팟 탐색 + release-rate 스크립트 버그 수정, 4.0s+100/s 채택
+
+**boost_s만 증가(hard, split_gate)**: route1 3.0s→6.5s: 19.2/36.0/52.0/
+68.0/76.0%(4.0/5.0/6.0/6.5s), route2: 44.2/62.2/81.1/98.2/100.9%.
+게이트차단 전 구간 0.00s. route1은 discontinuity(t=687.850)+handoff
+(t≈690.0) 이중 트리거로 위험구간이 8초 가까이 지속돼 6.5s로도 100%
+불가 — 구조적 한계로 판단, duration 단독 증가는 상한 있음.
+
+**`replay_boost_duration.py` 버그 2건 수정** (release-rate 옵션이 이전
+세션(73차 계속2) 검증에선 사실상 완전히 무효였음이 드러남):
+1. release-rate 감쇠 중 \"즉시 base로 강제복귀\"(`elif danger_active or
+   frac > 0.0`) 판정이 split_gate의 방안I(handoff) frac 면제 예외를
+   반영 안 함 — 핸드오프 트리거는 boost_gate_ok 계산 시 frac을 애초에
+   무시하도록 설계됐는데, release-rate 분기의 강제복귀 판정만 이 예외를
+   빠뜨려서 타이머 만료 직후(핸드오프 후 frac이 거의 즉시 0.7~1.0으로
+   치솟음) 감쇠가 단 한 프레임도 못 가고 즉시 base로 꺼짐.
+   `force_revert = danger_active`로 시작해 `not (split_gate and
+   trigger_source=='handoff')`일 때만 `frac>0.0`을 추가하도록 수정.
+2. `self._release_value = max(base_cost, self._release_value -
+   release_rate * dt)`에서 `release_rate`가 정의 안 된 지역변수 참조
+   (`self.release_rate`여야 함) — 버그1로 이 라인 자체가 전혀 실행이
+   안 됐어서 첫 실행에선 NameError가 안 걸렸다가, 버그1 수정 후 실제로
+   이 분기가 실행되면서 발견됨. `self.release_rate`로 수정.
+
+**버그 수정 후 재검증**: 5.0s+300/s 62.4/92.8%, +200/s 67.2/98.2%,
++150/s 72.8/100.9%, +100/s 83.3/100.9%. 4.0s+150/s 56.8/85.6%,
+**4.0s+100/s 68.0/98.2%**. danger_active 회귀 경고 전 조합 0건.
+
+**결정(사용자 확인)**: **boost_s=4.0s(hard) + release_rate=100/s(cost/s)
+완만화 조합 채택.** 5.0s+150/s(72.8/100.9%)와 커버율 거의 동급이면서,
+\"완전부스트(500)\" 유지시간을 4.0s로 더 짧게 가져가고 나머지는 완만한
+꼬리로 커버 — 원래 방안G \"찰나성 완화\" 설계 취지에 더 부합, 5~6초
+내내 저크비용을 낮게 유지하는 것보다 승차감상 자연스러울 것으로 판단.
+route1 68.0%(미달)는 구조적 한계로 인정하고 실차 검증에서 체감 확인
+후 필요시 재논의하기로 함(duration/release_rate를 더 극단화하지 않음).
+
+**코드 변경 없음(ryu 미변경). `toolkit/replay_boost_duration.py`\n버그 수정만(devnotes).**
+
 ## 73차 계속 — split_gate(방안I 전용 게이트 분리) 검증: 게이트차단 완전 해소, duration과 결합 시 커버율 실제 증가 확인
 
 **배경**: 73차 계속(방향 결정)에서 확정한 "방안I(레이더 핸드오프)

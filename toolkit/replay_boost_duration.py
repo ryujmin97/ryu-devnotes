@@ -192,6 +192,15 @@ class BoostReplay:
       # 애초에 설계 의도상 무관하다고 판단(FINDINGS.md 73차 참고).
       boost_gate_ok = (self._timer > 0.0) and (not danger_active)
 
+    # release-rate 감쇠 중 "즉시 base로 강제복귀"할지 판단하는 위험조건도
+    # split_gate 예외(핸드오프 트리거는 frac 무관, danger_active만 확인)를
+    # 그대로 반영해야 함 -- 아니면 감쇠가 시작하자마자 frac>0(핸드오프 직후엔
+    # 거의 항상 frac이 빠르게 1.0까지 오름)에 걸려 즉시 base로 꺼져버려
+    # release_rate 옵션 자체가 무의미해짐(1차 실행에서 실제로 발견된 버그).
+    force_revert = danger_active
+    if not (self.split_gate and self._trigger_source == 'handoff'):
+      force_revert = force_revert or (frac > 0.0)
+
     if self.release_rate is None:
       a_change_cost = DISCONTINUITY_JERK_COST_BOOST if boost_gate_ok else base_cost
     else:
@@ -200,12 +209,12 @@ class BoostReplay:
       if boost_gate_ok:
         a_change_cost = DISCONTINUITY_JERK_COST_BOOST
         self._release_value = DISCONTINUITY_JERK_COST_BOOST
-      elif danger_active or frac > 0.0:
+      elif force_revert:
         # 위험 감지 시엔 완만화안도 즉시 base로 복귀(원본 설계 원칙 유지).
         a_change_cost = base_cost
         self._release_value = None
       elif self._release_value is not None:
-        self._release_value = max(base_cost, self._release_value - release_rate * dt)
+        self._release_value = max(base_cost, self._release_value - self.release_rate * dt)
         a_change_cost = self._release_value
         if self._release_value <= base_cost + 1e-6:
           self._release_value = None

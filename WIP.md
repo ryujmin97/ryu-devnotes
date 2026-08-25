@@ -1,3 +1,61 @@
+## [체크포인트, 세션 종료 아님] 73차 계속3 — boost_s 4~6.5s 스윗스팟 탐색 + release-rate 스크립트 버그 2건 수정, **4.0s+100/s 조합 채택 결정**
+
+**배경**: 73차 계속2에서 남은 "boost_s를 더 올릴지" 질문에 답하기 위해
+`replay_boost_duration.py`(split_gate 모드)로 boost_s 3.0~6.5s를 스캔.
+
+**boost_s만 늘렸을 때(hard cutoff, split_gate)**:
+- route1: 3.0s 19.2% → 4.0s 36.0% → 5.0s 52.0% → 6.0s 68.0% → 6.5s 76.0%
+  (100% 도달 불가 — discontinuity(t=687.850)+handoff(t≈690.0) 이중
+  트리거로 위험구간이 8초 가까이 이어지는 구조적 한계, 6.5s로도 한계).
+- route2: 3.0s 44.2% → 4.0s 62.2% → 5.0s 81.1% → 6.0s 98.2% → 6.5s 100.9%.
+- 게이트차단 전 구간 0.00s(회귀 없음). 단, 6~6.5s까지 밀면 "찰나성 완화"
+  설계 취지에서 멀어지고 승차감상 "물러지는" 리스크 우려 제기 → duration
+  단독 증가 대신 release-rate 완만화 병행 검토로 방향 전환.
+
+**[중요] `replay_boost_duration.py` 버그 2건 발견·수정** (release-rate
+옵션이 그동안 사실상 완전히 무효였음):
+1. 감쇠 중 "즉시 base로 강제복귀" 판정이 split_gate의 방안I(handoff)
+   frac 면제 예외를 반영 안 해서, 타이머 만료 직후 frac>0(핸드오프 직후
+   거의 항상 즉시 발생)에 걸려 감쇠 시작도 못 하고 즉시 base로 꺼짐 —
+   `force_revert` 변수로 분리해 split_gate+handoff 트리거는 danger_active만
+   확인하도록 수정.
+2. `self._release_value = max(base_cost, self._release_value -
+   release_rate * dt)`에서 `release_rate`가 지역변수 미정의라 `self.
+   release_rate` 대신 참조 시도 → `NameError`(1차 실행에선 예외가 case
+   안 걸려 조용히 통과된 게 아니라 애초에 이 분기 자체가 버그1 때문에
+   전혀 실행 안 돼서 안 걸렸던 것 — 버그1 수정 후 실행하면서 발견).
+   `self.release_rate`로 수정.
+
+**버그 수정 후 재검증 (route1/route2, split_gate 유지)**:
+- 5.0s+300/s: 62.4%/92.8%, +200/s: 67.2%/98.2%, +150/s: 72.8%/100.9%.
+- 4.0s+150/s: 56.8%/85.6%, **4.0s+100/s: 68.0%/98.2%**.
+
+**결정**: **4.0s(hard) + 100/s(release-rate) 조합 채택.** 근거: 5.0s
+hard 계열과 커버율이 거의 동급(68.0/98.2% vs 72.8/100.9%)이면서도,
+\"완전부스트(500) 유지\" 구간을 4.0s로 더 짧게 가져가고 나머지는 완만한
+꼬리로 커버하는 구조라 원래 방안G의 \"찰나성 완화\" 취지에 더 가까움 —
+5~6초 내내 저크비용을 낮게 유지하는 것보다 승차감상 자연스러울 가능성.
+route1이 68%로 미달(구조적 한계, 위 참고)인 점은 실차 검증으로 체감
+확인 후 필요시 재논의하기로 함(무리하게 duration/release_rate를 더
+극단화하지 않기로).
+
+**다음(최우선)**:
+1. 위 결정(방안I 트리거 전용 split_gate + boost_s 4.0s + release-rate
+   100/s 완만화)대로 `long_mpc.py` 패치 설계 — 트리거 소스 구분용 상태
+   신규 추가(`_discontinuity_jerk_boost_timer` 단일 타이머를 소스별로
+   분리하거나 별도 bool 플래그 추가, `_trigger_source` 방식은
+   `replay_boost_duration.py`에서 이미 검증됨) + release-rate 감쇠 로직
+   신규 구현.
+2. `replay_boost_duration.py`로 최종 파라미터(4.0s/100/s)로 다시 한 번
+   route1/route2 재검증(패치 코드와 동일 로직인지 diff 확인) → `git am`
+   검증 → 전달.
+3. route1의 dRel discontinuity 트리거(t=687.850, 방안C/G 경로)는 이번에도
+   split_gate 대상에서 제외(기존 게이트 유지) — 73차 계속 결정 재확인,
+   변경 없음.
+
+**코드 변경 없음(ryu 미변경). `toolkit/replay_boost_duration.py` 버그
+수정(release-rate 옵션이 처음으로 정상 동작) — devnotes만 변경.**
+
 ## [체크포인트, 세션 종료 아님] 73차 계속2 — split_gate 검증 완료: 게이트차단 해소, duration과 결합해 커버율 실제 증가
 
 **결과**: `replay_boost_duration.py`에 `split_gate` 옵션(방안I 트리거만
