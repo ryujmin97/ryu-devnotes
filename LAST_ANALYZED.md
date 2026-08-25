@@ -1,4 +1,18 @@
 ## c3-ms-dev
+- last_analyzed_commit (73차 계속4, long_mpc.py 패치 작성/git am 검증 완료):
+  `4fa4a44` (HEAD 기준 patch 미적용, **아직 사용자 적용/push 전** — 로컬
+  검증 커밋 `8402d8b`/재현 `40bdb2d`는 컨테이너 로컬일 뿐)
+- date: 2026-08-25 (73차 계속4)
+- note: 73차 계속3 결정(4.0s hard + 100/s release-rate, split_gate)대로
+  `long_mpc.py`에 `RADAR_HANDOFF_JERK_BOOST_S`/`_RELEASE_RATE` 신규 상수
+  +`_discontinuity_trigger_source` 소스분리 구현. `replay_boost_duration.py`
+  재실행으로 route1 68.6%/route2 98.2% 커버 재확인(패치와 동일 로직).
+  `git am`+`py_compile` 통과, `0001-73-handoff-boost-4.0s-release-rate-100.patch`
+  전달 완료. **다음 세션 최우선: 사용자 적용/push 확인 → 실차 드라이브
+  검증(급감속 완화 체감, danger override 회귀 없는지, 방안C/G 무영향
+  재확인).** 상세는 WIP.md/FINDINGS.md "73차 계속4" 참고.
+
+## c3-ms-dev (이전 기록)
 - last_analyzed_commit (72차 계속3, [체크포인트] route2 교차검증 완료):
   `4fa4a44` (HEAD, 코드 변경 없음 — route2(x7seg, `a5b1ce4e42`) 실측
   CSV로 boost 윈도우 구조적 부족 가설 2번째 라우트 재현 확인)

@@ -5877,3 +5877,57 @@ vision dRel 노이즈/cutin 스냅, 곧 정상화)와 달리 방안I이 겨냥�
 
 **코드 변경 없음. `work/route72/route1.csv` 신규(스크래치, toolkit
 미편입).**
+
+## [PATCH_WRITTEN, NEEDS_VALIDATION] 73차 계속4 — long_mpc.py 패치: 방안I 전용 boost 4.0s hard + release-rate 100/s, 트리거 소스별 게이트 분리
+
+**배경**: 73차 계속3 결정(4.0s hard + 100/s release-rate 조합, split_gate
+— WIP.md "73차 계속3" 참고)대로 `long_mpc.py` 실제 코드 구현.
+
+**구현**(base `4fa4a44`):
+1. 신규 상수 `RADAR_HANDOFF_JERK_BOOST_S=4.0`(방안I 전용 hard-hold
+   유지시간)/`RADAR_HANDOFF_JERK_BOOST_RELEASE_RATE=100.0`(cost/s, hard-hold
+   종료 후 base까지 선형 감쇠). 기존 `DISCONTINUITY_JERK_COST_BOOST_S=1.0`
+   (방안C/G)은 그대로 유지.
+2. `_discontinuity_trigger_source`('discontinuity'|'handoff') 신규 상태 —
+   dRel discontinuity 트리거 지점(방안C/G)과 레이더 핸드오프 vRel 불연속
+   트리거 지점(방안I) 각각에서 소스 태그 + 대응 hard-hold 유지시간 설정.
+   새 트리거 발생 시 진행 중이던 반대쪽 `_handoff_release_value`는 정리.
+3. `a_change_cost` 적용부를 `is_handoff_source` 분기로 재작성:
+   - 방안C/G: 완전히 기존 그대로(hard-cutoff, `frac<=0.0` 게이트 포함) —
+     이미 실차검증까지 끝난 조합이라 로직 변경 없음, 회귀 리스크 이론상 0.
+   - 방안I: 게이트가 `danger_active`만 확인(frac 무관, 73차 계속 결정
+     그대로). hard-hold(4.0s) 종료 후 `_handoff_release_value`가
+     `RADAR_HANDOFF_JERK_BOOST_RELEASE_RATE`(100/s)로 base까지 선형 감쇠,
+     danger_active가 뜨면 감쇠 중이라도 즉시 base로 강제복귀(원본 설계
+     원칙 유지 — release-rate 완만화가 진짜 위험을 은폐하지 않도록).
+
+**검증**:
+- `py_compile` 통과, `git format-patch` → `verify-am-73` 임시 브랜치
+  (base `4fa4a44`)에서 `git am` 컨텍스트 일치 확인.
+- **패치와 동일 로직을 `replay_boost_duration.py`로 재실행해 재확인**
+  (route1 seg10 t=683~698, route2 seg1 t=1375~1388): baseline(기존
+  1.0s hard, split_gate 없음) 대비 —
+  - route1: 0.0% → **68.6%** 커버 (73차 계속3 수치 68.0%와 근사 일치,
+    boost 활성 2.25s+release 감쇠 4.25s 실부스트, 게이트차단 0.00s)
+  - route2: 0.0% → **98.2%** 커버 (73차 계속3 수치와 동일, boost 활성
+    3.45s+release 감쇠 5.45s 실부스트, 게이트차단 0.00s)
+  두 route 모두 danger_active 회귀 없음(게이트차단 0.00s로 확인).
+
+**전달**: `0001-73-handoff-boost-4.0s-release-rate-100.patch`를
+`/mnt/user-data/outputs/`에 생성, `git am` 안내(base `4fa4a44`) 함께 전달.
+
+**한계/NEEDS_VALIDATION**:
+- route1의 68.6% 미달은 73차 계속3에서 이미 확인된 구조적 한계
+  (discontinuity t=687.850 + handoff t≈690.0 이중 트리거가 8초 가까이
+  위험구간을 이어가는 문제) — 이번 패치로도 완전 해소 안 됨, 실차 체감
+  확인 후 추가 조치 필요성 재논의 예정.
+- `RADAR_HANDOFF_JERK_BOOST_S`/`_RELEASE_RATE` 값 자체는 두 route 실측
+  커버율 기반 채택값이나, 실제 acados MPC 통합 후 승차감 기준 재조정
+  여지 있음.
+- 방안C/G와 방안I 이중 트리거(예: route1처럼 두 트리거가 근접) 시 소스
+  전환이 승차감상 부드러운지는 로직 검증(release 값 정리)만 확인했고
+  실차 체감은 미확인.
+
+**다음(최우선)**: 실차 드라이브 검증 — (a) 급감속 완화 체감, (b) danger
+override 회귀 없는지, (c) 방안C/G(비전단독 dRel 급락)는 로직상 무변경
+이나 재확인 권장, (d) 이중 트리거 상황에서의 승차감.

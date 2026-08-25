@@ -1,3 +1,48 @@
+## 73차 계속4 — long_mpc.py 패치 작성/git am 검증/전달 완료, 실차 검증 대기
+
+**배경**: 73차 계속3의 결정(4.0s hard + 100/s release-rate, split_gate)대로
+`long_mpc.py`에 실제 패치 구현.
+
+**구현**(base `4fa4a44`, 로컬 커밋 `8402d8b`/verify-am 재현 `40bdb2d`):
+- 신규 상수 `RADAR_HANDOFF_JERK_BOOST_S=4.0`/`RADAR_HANDOFF_JERK_BOOST_RELEASE_RATE=100.0`
+  (방안C/G의 기존 `DISCONTINUITY_JERK_COST_BOOST_S=1.0`과는 별개로 분리).
+- `_discontinuity_trigger_source`('discontinuity'|'handoff') 신규 상태로
+  트리거 소스 구분 — dRel discontinuity 트리거 지점(L901 부근)과 레이더
+  핸드오프 vRel 불연속 트리거 지점(L933 부근) 각각에서 소스 태그 + 대응하는
+  hard-hold 유지시간(1.0s vs 4.0s) 설정, 진행 중이던 반대쪽 release 값은 정리.
+- `a_change_cost` 적용부(L1120대) 재작성: `is_handoff_source`로 분기 —
+  **방안C/G는 완전히 기존 그대로**(hard-cutoff, `frac<=0.0` 게이트, 회귀 없음).
+  **방안I은 danger_active만 게이트**(frac 무관, 73차 계속 결정), hard-hold
+  종료 후 `_handoff_release_value`가 `RADAR_HANDOFF_JERK_BOOST_RELEASE_RATE`
+  (100/s)로 base까지 선형 감쇠, danger_active 뜨면 감쇠 중이라도 즉시 base로
+  강제복귀.
+
+**검증**:
+- `py_compile` 통과, `git format-patch` → `verify-am-73` 임시 브랜치(base
+  `4fa4a44`)에서 `git am` 컨텍스트 일치 확인.
+- **`replay_boost_duration.py`로 패치와 동일 로직 재실행해 재확인** —
+  route1(seg10, t=683~698) 68.6%, route2(seg1, t=1375~1388) 98.2% 커버
+  (기존 baseline 1.0s hard는 둘 다 0%) — 73차 계속3 결정치(68.0/98.2%)와
+  일치, 실측 검증 재확인 완료.
+
+**전달**: `0001-73-handoff-boost-4.0s-release-rate-100.patch`를
+`/mnt/user-data/outputs/`에 생성, `git am` 안내(base `4fa4a44`) 함께 전달.
+
+**다음(최우선)**:
+1. **실차 드라이브 검증** — (a) route1/route2류 재현 상황(정지앞차 레이더
+   락온 시) 급감속 완화 체감 여부, (b) **회귀 검증 필수** — danger
+   override(TTC<=2.5s) 정상 동작·지연 없는지, (c) 방안C/G(비전단독 dRel
+   급락)는 이번 패치로 전혀 변경 없음(회귀 리스크 이론상 0, 그래도 재확인
+   권장), (d) 방안C/G와 방안I 이중 트리거 시(예: route1처럼 discontinuity
+   +handoff가 근접) 소스 전환이 부드럽게 처리되는지(새 트리거가 이전 진행
+   중이던 release를 덮어씀 — 설계대로인지 체감 확인).
+2. `RADAR_HANDOFF_JERK_BOOST_S=4.0`/`RADAR_HANDOFF_JERK_BOOST_RELEASE_RATE
+   =100.0`는 실측 커버율 기반 채택값이나 여전히 NEEDS_VALIDATION(실제
+   acados MPC 반영 후 승차감 기준 재조정 여지 있음).
+3. route1의 68.6%(구조적 한계, discontinuity+handoff 이중트리거로 8초
+   가까이 위험구간 지속)는 이번 패치로도 완전 해소 안 됨 — 실차 체감으로
+   추가 조치 필요성 재논의.
+
 ## [체크포인트, 세션 종료 아님] 73차 계속3 — boost_s 4~6.5s 스윗스팟 탐색 + release-rate 스크립트 버그 2건 수정, **4.0s+100/s 조합 채택 결정**
 
 **배경**: 73차 계속2에서 남은 "boost_s를 더 올릴지" 질문에 답하기 위해
