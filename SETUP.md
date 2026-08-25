@@ -59,6 +59,11 @@ chmod +x /home/claude/devnotes/analyze_commits.sh
 4. `/home/claude/devnotes/PARAMS_REGISTRY.md`로 관련 튜닝 상수 현재값/검증상태 확인
 5. `/home/claude/devnotes/FINDINGS.md`로 이미 알려진 이슈인지 먼저 확인
    (재발견/중복 분석 방지)
+5-1. **과거에 추출한 CSV를 다시 쓸 일이 있으면(예: 회귀 재검증) 원본
+   zip을 재추출하기 전에 먼저 Google Drive `ryu-devnotes-csv/` 폴더에
+   같은 route의 CSV가 이미 올라가 있는지 `search_files`로 확인** — 있으면
+   `download_file_content`로 바로 받아 쓴다(재추출 불필요). 없으면 평소대로
+   추출. (74차, 아래 "CSV 보관(Google Drive)" 섹션 참고)
 
 ## 세션 종료 시 체크리스트
 1. 새로 발견한 이슈/검증 결과 → `FINDINGS.md`에 추가
@@ -131,6 +136,68 @@ result = compare_runs_by_commit([
     "/home/claude/work/route_after.csv",
 ])
 ```
+
+## CSV 보관 (Google Drive) — 74차 신규
+
+`extract_log.py`로 뽑은 route CSV는 **레포(devnotes)에는 절대 커밋하지
+않는다** — git 히스토리는 삭제 커밋으로도 blob이 영구히 남아 레포가
+계속 비대해지므로, 레포엔 분석 결론(FINDINGS.md 등)만 남기고 원본 CSV는
+레포 밖(Google Drive)에 둔다.
+
+**전제**: 사용자 Google Drive 커넥터가 연결되어 있어야 함(연결 안 돼
+있으면 `search_mcp_registry`로 확인 후 `suggest_connectors`로 연결
+안내 — 없으면 이 섹션 스킵하고 기존처럼 `work/`에만 스크래치로 둠).
+
+**전용 폴더**: `ryu-devnotes-csv` (Drive 루트, folderId
+`16r-XIFcXXBvOV7tlpL_P0vxuMXmfwFSU`, 74차 세션에서 생성).
+
+**업로드 시점**: 재사용 가치가 있는 CSV(예: 회귀검증에 쓴 route, 패치
+전/후 비교용 baseline)를 추출한 세션 종료 시. 1회성 탐색용 CSV까지
+전부 올릴 필요는 없음 — 판단 애매하면 올리는 쪽으로(Drive는 git과
+달리 용량 부담이 크지 않음).
+
+**파일명 규칙**: `<route_dir_이름>_<commit_short>.csv`
+(예: `20260825_152959_0000031f--ea5bcc0566_f8e136e.csv` — route_dir 이름은
+`extract_log.py`가 만든 meta.json의 `route_dir` 마지막 세그먼트 폴더명
+prefix나 라우트 해시로 축약해도 됨, commit_short는 meta.json의
+`commit_short`).
+
+**업로드 방법**:
+```
+Google Drive:create_file
+  title: "<파일명>.csv"
+  textContent: <CSV 파일 전체 텍스트>
+  contentMimeType: "text/csv"
+  disableConversionToGoogleType: true   # 반드시 true -- 없으면 Google
+                                         # Sheets로 변환되어 순수 CSV로
+                                         # 못 받아옴
+  parentId: "16r-XIFcXXBvOV7tlpL_P0vxuMXmfwFSU"
+```
+리턴된 `id`(fileId)를 `LAST_ANALYZED.md` 또는 `FINDINGS.md`의 해당
+세션 기록에 `drive_csv: <fileId>` 형태로 남긴다(다음 세션이 재추출
+없이 바로 다운로드할 수 있도록).
+
+**다운로드 방법**:
+```
+Google Drive:download_file_content fileId=<위 fileId>
+```
+결과의 `content`는 base64 인코딩 — 디코딩하면 원본 CSV 텍스트.
+
+**검색 방법**(fileId를 모를 때):
+```
+Google Drive:search_files query="name contains '<route_hash>'"
+```
+
+**보관 정책**: git과 달리 Drive는 삭제해도 진짜로 지워지고 용량 부담도
+적으므로, 레포처럼 "삭제해도 히스토리에 남는" 문제가 없다. 다만
+무한정 쌓아둘 필요는 없으니 — 같은 route를 재추출해 새 commit 기준
+CSV를 올렸다면 **이전 commit 기준 CSV는 `trash_file`로 정리**해도
+안전하다(단, 다른 커밋과의 회귀비교에 아직 쓰이는 중이면 보존).
+이 정리는 선택사항이며 세션 종료 필수 절차는 아님.
+
+**74차 검증 완료**: `create_file`(textContent+text/csv,
+disableConversionToGoogleType=true) → `download_file_content` 왕복
+테스트, base64 디코딩 결과 원본과 100% 일치 확인.
 
 ## 주의사항 (toolkit 관련, 기존과 동일)
 - `decode_rlog.py`는 `cereal/log.capnp` 스키마를 `ryu` 레포에서 직접
