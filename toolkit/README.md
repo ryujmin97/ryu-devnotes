@@ -635,6 +635,39 @@ smooth_window_s=0.3)`(leadRadar=True 프레임만, 0.3s 이동평균 jerk).
 **사용**: `python3 five_item_scan.py <csv_path>` (건수만 출력) 또는
 `from five_item_scan import run_five_item_scan`.
 
+## sim_route_curvature_sample.py (90차 신규)
+**목적**: 89차 route 사전감속 과소평가 원인분석에서 나온 대안1(곡률
+샘플링 chord 축소, `sample` 4->2/3)을 검증. raw navi_points(GPS
+폴리라인)가 로그에 없어, 실주행 `desiredCurvature`(모델이 그 순간
+실제로 추종한 경로 곡률)를 시간축으로 적분해 차량이 실제로 통과한
+경로의 2D 지역좌표를 재구성 -- `calculate_curvature()`가 회전/이동
+불변량만 쓰므로 이 재구성 경로에 `carrot_man.py`의 곡률+속도+역방향DP
+로직을 그대로 복제 적용해 sample 값을 비교할 수 있음.
+**의존성**: `shapely`(LineString 리샘플, `pip install shapely` 필요),
+`numpy`, `analysis_helpers.load_csv`.
+**주요 함수**: `reconstruct_path(rows, t_start, t_end)` — desiredCurvature
+적분으로 경로 재구성. `resample_10m(points_xy)` — 원본과 동일한 10m
+리샘플. `compute_curvatures_speeds(resampled_points, sample)` —
+`calculate_curvature`+`V_CURVE_LOOKUP` 복제. `backward_dp(...)` — 82차
+수정판 역방향DP 복제(원복측 vturn_safe_time 크레딧 포함). `run_snapshot()` —
+특정 시점 스냅샷에서 sample 2/3/4 비교.
+**사용**: `python3 sim_route_curvature_sample.py <csv_path> [--t-start] [--t-end]
+[--accel-limit] [--vturn-safe-time]`
+**90차 핵심 결과**: 89차 대안1(sample 4->2/3, chord 40m->20~30m)을 이
+방식으로 검증한 결과, 정점 근처 최소 목표속도는 sample=4일 때도 이미
+78km/h(vturn 실측 최종요구치 73km/h와 5km/h 차이)로 상당히 근접 —
+sample을 2로 낮춰도 75.7km/h까지만 개선(효과 ~2.5km/h). 실제 로그의
+route 최저값(121km/h)과 vturn 실측(73km/h) 사이 48km/h 갭에 비하면
+미미한 수준. **raw navi_points 희소성(원시 GPS 포인트 간격) 실험도
+병행 — 간격을 30/60/100m로 늘려도 sample 축소 효과가 체계적으로
+커지지 않고 오히려 꼭짓점에서 노이즈성 스파이크만 커짐(과소평가가
+아니라 노이즈 방향)**. 즉 **대안1(chord 축소)만으로는 89차가 관찰한
+실제 과소평가 갭을 설명/해소하기 어렵다는 결론** — 진짜 원인은 코드
+내부 파라미터가 아니라 실제 navi 서비스가 제공하는 GPS 폴리라인 자체의
+형상(지도 데이터의 램프 곡선 표현 정밀도) 쪽일 가능성이 더 커짐
+(NEEDS_VALIDATION, raw navi_points를 직접 로깅하지 않는 한 확정 불가).
+상세는 FINDINGS.md \"90차\" 참고.
+
 ---
 
 ## 아직 없는 카테고리 (필요해지면 추가)

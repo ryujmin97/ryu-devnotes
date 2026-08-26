@@ -392,3 +392,11 @@
   `radar_lockon_jerk_events` 3개 함수 신규 구현(기존 55차 로직 설명을
   기반으로 재현) + 기존 `vision_to_radar_crossover`/`turn_speed_violations`
   통합. work/ 스크래치로만 2회(56차/86차) 유실됐던 것을 이번에 정식 편입.
+
+## 2026-08-26 (90차, sim_route_curvature_sample.py 신규)
+- `sim_route_curvature_sample.py` 신규: 89차 대안1(route 곡률 샘플링
+  chord 축소, sample 4->2/3) 검증. raw navi_points가 로그에 없어
+  desiredCurvature 시간적분으로 실주행 경로를 재구성해 대체 입력으로
+  사용. 결과: sample 축소 효과가 미미(~2.5km/h)해 실제 관측된 48km/h
+  갭을 설명 못함 -- 대안1 단독으로는 불충분하다는 결론. 상세는
+  FINDINGS.md 90차 참고.
