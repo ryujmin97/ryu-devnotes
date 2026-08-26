@@ -1,18 +1,18 @@
 #!/usr/bin/env python3
 """
-84차: carrot_navi_route()의 get_path_after_distance() 300m 고정 캡을
-v_ego/accel_limit 기반 동적 캡(300~500m)으로 교체한 로직 검증.
+84차(500m 초기값)+85차(500->600 상향): carrot_navi_route()의 get_path_after_distance() 300m 고정 캡을
+v_ego/accel_limit 기반 동적 캡(300~600m)으로 교체한 로직 검증.
 
 carrot_man.py의 compute_route_lookahead_distance() 순수함수를 그대로
 복제해 여러 (v_ego, accel_limit) 조합에서 캡 값이 의도대로 나오는지 확인.
 - 저속(<=60km/h 부근)에서는 300m(floor)로 수렴 -> 회귀 없음 확인
-- 고속(100km/h+)에서는 500m(ceil)로 확장 확인
+- 고속(100km/h+)에서는 600m(ceil)로 확장 확인
 - accel_limit(AutoNaviSpeedDecelRate)이 낮을수록(더 완만한 감속 설정)
   더 낮은 속도에서부터 캡이 커지기 시작하는지 확인
 """
 
 
-def compute_route_lookahead_distance(v_ego_kph, accel_limit_mss, min_m=300.0, max_m=500.0,
+def compute_route_lookahead_distance(v_ego_kph, accel_limit_mss, min_m=300.0, max_m=600.0,
                                       assumed_target_kph=30.0):
   if accel_limit_mss is None or accel_limit_mss <= 0:
     return min_m
@@ -38,9 +38,9 @@ def run():
       "FAIL: 저속 구간에서 floor(300m)로 수렴하지 않음"
   print("\n[PASS] 저속(<=50km/h) 전 accel_limit에서 floor(300m) 유지 확인")
 
-  # 회귀 체크: 고속(130km/h)+낮은 accel(0.70)은 ceil(500)에 clip돼야 함
-  assert results[130][0] == 500.0, "FAIL: 고속+낮은 accel 조합이 ceil(500m)에 clip 안 됨"
-  print("[PASS] 고속(130km/h)+accel=0.70 조합 ceil(500m) clip 확인")
+  # 회귀 체크: 고속(130km/h)+낮은 accel(0.70)은 ceil(600)에 clip돼야 함
+  assert results[130][0] == 600.0, "FAIL: 고속+낮은 accel 조합이 ceil(600m)에 clip 안 됨"
+  print("[PASS] 고속(130km/h)+accel=0.70 조합 ceil(600m) clip 확인")
 
   # 회귀 체크: accel_limit이 낮을수록(0.70) 같은 속도에서 더 이르게(낮은 속도부터)
   # 캡이 늘어나야 함 -> 80km/h 시점 비교

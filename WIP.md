@@ -1,4 +1,38 @@
-## 84차 (체크포인트 — 구현+검증+패치 전달 완료, `git am`/실차 적용 대기) — route 커브 lookahead 300m 고정 캡 -> v_ego/accel_limit 기반 동적 캡(300~500m)
+## 85차 (체크포인트 — 구현+검증+패치 전달 완료, `git am`/실차 적용 대기) — route lookahead 동적 캡 상한 500m -> 600m 상향
+
+**배경**: 84차 PARAMS_REGISTRY.md 기록에서 "120->60km/h 풀커버는 accel=0.70
+기준 이론상 ≈595m 필요, 500m는 절충값"이라 명시된 지점 — 사용자가 이번
+세션에서 상한을 500m에서 600m로 올려 이 이론적 필요치(≈595m)를 온전히
+커버하도록 결정.
+
+**구현** (`c3-ms-curv` 브랜치, base `2a91c3f`(84차 HEAD)): `carrot_man.py`
+`compute_route_lookahead_distance()`의 `max_m` 기본값 500.0->600.0,
+주석 갱신(300~600m). 최소값(300m)/`assumed_target_kph`(30.0)/계산식은
+그대로 — 상한값만 변경.
+
+**검증** (`toolkit/sim_route_dynamic_cap.py`, 84차 원본을 600m 기준으로
+갱신): 저속(<=50km/h) 전 accel_limit에서 floor(300m) 유지(회귀 없음) /
+accel=0.70 기준 110km/h+에서 ceil(600m) 도달(기존 100km/h+에서 501.5m로
+근접하던 것이 확실히 상한까지 확장됨) / accel_limit 낮을수록 더 낮은
+속도부터 캡 확장(단조성 유지) / accel_limit=0·None 안전 폴백 — 4개
+시나리오 전부 PASS. `git format-patch` → `verify-am-85`(base
+`2a91c3f`)에서 `git am`+diff 0+`py_compile` 통과.
+
+**전달**: `0001-85-route-lookahead-500m-600m.patch`를
+`/mnt/user-data/outputs/`에 전달(base `2a91c3f`, `c3-ms-curv` 브랜치에
+적용, 84차 패치 위에 적층).
+
+**다음(최우선)**:
+1. 사용자가 `C:\dev\ryu`에서 `git checkout c3-ms-curv` + `git fetch` +
+   `git reset --hard origin/c3-ms-curv`(2a91c3f 동기화, 84차까지는 이미
+   push됨) → `git am` 적용 → `git push origin c3-ms-curv`.
+2. **실차 드라이브 검증** — 600m 상한이 실제로 적용되는 고속 구간
+   (accel=0.70 기준 110km/h+)에서 84차 대비 체감 차이(더 이른 감속
+   개시) 확인, 저속/도심 구간 회귀 없는지(floor 300m 동일) 재확인.
+3. 84차 항목(84차 자체의 실차검증)도 여전히 대기 중 — 85차와 함께 같은
+   `c3-ms-curv` 드라이브에서 동시 확인 가능.
+
+## 84차 (완료 — 구현+검증+패치 적용/push 완료) — route 커브 lookahead 300m 고정 캡 -> v_ego/accel_limit 기반 동적 캡(300~500m, 85차에서 600m로 추가 상향됨)
 
 **배경**: 83차 NEEDS_VALIDATION(`AutoNaviSpeedDecelRate=0.70`가 고속+큰
 감속폭 조합에서 300m 상한에 걸릴 수 있음)에 대한 조치. 300m 고정값 상향

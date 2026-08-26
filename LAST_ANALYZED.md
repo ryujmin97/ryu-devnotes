@@ -1,19 +1,19 @@
 ## c3-ms-curv (81차 신규 생성, base c3-ms-dev `2d5174e`)
-- last_analyzed_commit (84차, 적용/push 완료 확인): `2a91c3f`
-  (origin HEAD, `451a3b9`(82차) 위 신규 커밋 1개. 사용자가 `C:\dev\ryu`
-  에서 `git fetch`+`git reset --hard origin/c3-ms-curv`(451a3b9 동기화)
-  후 `git am` 적용 + `git push origin c3-ms-curv` 완료. 컨테이너에서
-  `git fetch origin c3-ms-curv:refs/remotes/origin/c3-ms-curv` 후 로컬
-  검증 커밋(`c26fa91`)과 diff 0(완전 동일) 재확인.)
-- date: 2026-08-26 (84차)
-- note: route 커브 lookahead 300m 고정 캡 -> v_ego/accel_limit 기반
-  동적 캡(300~500m) 적용 완료(82차 원복측 대칭버퍼는 이 커밋 아래
-  `451a3b9`에 그대로 포함돼 있음, 별개 변경 아님). **다음은 실차
-  드라이브 검증만 남음** — 84차(동적 캡: 고속 커브 진입 조기화 체감,
-  저속/직선 구간 회귀 없는지)와 82차(원복측 버퍼: 재가속 자연스러움)를
-  같은 드라이브에서 함께 확인 가능. 81차 항목(vturn_safe_time/TBT
-  게이트)도 여전히 실차 미확인 상태로 함께 열려있음. 문제 시 CarrotWeb
-  pull UI로 `c3-ms-dev` 즉시 롤백 가능. 상세는 WIP.md "84차" 참고.
+- last_analyzed_commit (85차, 구현+검증+패치 전달 완료, 적용/push 대기):
+  `e608162` (컨테이너 로컬 검증 커밋, base `2a91c3f`(84차 origin HEAD)
+  위 신규 커밋 1개 — `git am` verify-am-85 브랜치에서 diff 0 재확인.
+  아직 사용자 로컬/origin에는 미적용.)
+- date: 2026-08-26 (85차)
+- note: route lookahead 동적 캡 상한 500m -> 600m 상향(84차가 절충값
+  500m로 도입했던 것을 이론적 필요치 ≈595m를 온전히 커버하도록 조정).
+  `0001-85-route-lookahead-500m-600m.patch` 전달됨(base `2a91c3f`).
+  **다음은 (1) 사용자 `git am` 적용/push, (2) 84차+85차 실차 드라이브
+  동시 검증** — 84차(동적 캡 자체: 고속 커브 진입 조기화 체감, 저속/직선
+  구간 회귀 없는지)와 85차(600m 상한이 실제 개입하는 고속 구간에서
+  84차 대비 추가 체감 차이) 함께 확인. 82차(원복측 대칭버퍼: 재가속
+  자연스러움)/81차(vturn_safe_time/TBT 게이트)도 여전히 실차 미확인
+  상태로 함께 열려있음. 문제 시 CarrotWeb pull UI로 `c3-ms-dev` 즉시
+  롤백 가능. 상세는 WIP.md "85차"/"84차" 참고.
 
 ## c3-ms-dev
 - last_analyzed_commit (78차, discontinuity_lc 최초 실차 트리거 확인): `f3773b5`
