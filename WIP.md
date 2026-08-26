@@ -3266,21 +3266,25 @@ UI 설명(`"3: route(always)"`) 자체가 이 의미. 즉 "vturn+route 둘 다
 완료)/`toolkit`(devnotes, 신규 검증스크립트는 아직 `work/`에만 있음 —
 정식 편입 여부는 다음 세션 판단, 아래 참고).
 
+**[갱신] 적용/push 완료 확인** — 사용자가 `C:\dev\ryu`(`c3-ms-curv` 브랜치)에서
+`git am` 적용(로컬 diff --stat 예상과 일치) + `git push origin c3-ms-curv`
+완료. 컨테이너에서 `git fetch origin c3-ms-curv:refs/remotes/origin/c3-ms-curv`
+후 로컬 검증 커밋과 diff 0(완전 동일) 재확인 완료. origin `c3-ms-curv` HEAD:
+`451a3b9`. **다음은 실차 검증만 남음.**
+
 **다음(최우선)**:
-1. 사용자가 `C:\dev\ryu`(`c3-ms-curv` 브랜치)에서 `git am` 적용 +
-   `git push origin c3-ms-curv`.
-2. **실차 드라이브 검증** — (a) vturn: 정점 통과 후 재가속이 더 자연스럽게
+1. **실차 드라이브 검증** — (a) vturn: 정점 통과 후 재가속이 더 자연스럽게
    느껴지는지(81차에서 지적된 "원복이 안 당겨지는" 문제 해소 여부),
    (b) route: 커브 빠져나온 후 회복이 더 빨라지는지, (c) **회귀 검증
    필수** — 진입(사전감속)측 체감이 이번 변경으로 전혀 달라지지 않았는지
    (vturn 진입/route 진입 로직 모두 미변경이어야 정상), 커브 구간 내부에서
    과속(target 초과) 없는지.
-3. 검증용 스크립트 2개(`work/test_vturn_recovery_v2.py`,
+2. 검증용 스크립트 2개(`work/test_vturn_recovery_v2.py`,
    `work/test_route_recovery2.py`)는 재사용 가치가 높음(원복측 buffer
    회귀 검증에 반복 필요) — 아직 `toolkit/`에 미편입 상태, 다음 세션에서
    `toolkit/README.md` 정책대로 정식 편입 필요(80차 계속에서 강화한
    정책과 동일 적용 대상).
-4. 문제 발생 시 CarrotWeb pull UI로 `c3-ms-dev`(브랜치 미변경 원본)로
+3. 문제 발생 시 CarrotWeb pull UI로 `c3-ms-dev`(브랜치 미변경 원본)로
    즉시 롤백 가능.
 
 ## 다음 세션 시작 시
