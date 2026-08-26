@@ -3663,3 +3663,60 @@ UI 설명(`"3: route(always)"`) 자체가 이 의미. 즉 "vturn+route 둘 다
 ## 다음 세션 시작 시
 이 WIP.md에 "83차" 섹션이 있으면 이 지점부터 이어감 — 특히 4번(300m 캡
 경계 문제) 실차 재현 검증 여부.
+
+## 91차 (완료 — 구현+검증+패치 전달 완료, `git am`/실차 적용 대기) — route 사전감속을 vturn보다 먼저 시작(ROUTE_ENTRY_MARGIN_KPH)
+
+**배경**: 90차(대안1, chord 축소)가 효과 미미로 기각된 이후, 89차 대안3
+("저비용, 급조임 감지 시 목표속도에 안전마진(margin_kph)을 미리 차감하는
+휴리스틱")을 이번 세션에서 구현·검증까지 완료. 사용자 확인: "route의
+목표속도가 vturn과 비슷한건 좋은소식 — route가 사전감속을 vturn보다 더
+일찍 시작하게만 만들면 만족".
+
+**설계**: `carrot_navi_route()`의 역방향 DP에서, 감속 전환 시점
+(`target_speed < next_out_speed`)의 `time_delay`(=필요 소요시간) 계산에만
+`target_speed - ROUTE_ENTRY_MARGIN_KPH`(마진 차감한 값)를 사용 — **최종
+채택되는 target_speed 자체(`min(target_speed, max_allowed_speed)`)는 전혀
+안 바뀜, 오직 "감속 스케줄을 얼마나 일찍부터 반영하기 시작할지"만 앞당김.**
+정점(apex) 목표값이나 원복(82차)측 로직은 완전히 무관.
+
+**검증** (`toolkit/sim_route_curvature_sample.py` 기반 DP 로직을 margin
+파라미터 추가해 재현, `devnotes/data/routes/bc4301a25d` 캐시로 검증 —
+raw zip 재업로드 불필요):
+- **margin_kph 0/10/20/30 스윕**(3초 그리드) → 커브A(89/90차 대상 구간,
+  완만한 램프)에서 margin이 클수록 조기바인딩(목표속도<현재속도로
+  전환되는 시점) 시점이 앞당겨짐 확인.
+- **커브B(급한 램프+교차로, 89차부터 미검증으로 남아있던 구간, t≈9255~9291)
+  교차검증**: margin=30까지도 접근 구간(커브 진입 훨씬 전)에서 불필요한
+  조기 트리거(오탐) 없음 확인 — 회귀 안전.
+- **직선 154초 구간(bc4301a25d 내 t=8545~8699, steer<2°, 130km/h대 순항,
+  새 로그 업로드 없이 같은 캐시 라우트에서 발견) 오탐 검증**: margin=0~30
+  전 구간 오탐 0건 — margin 로직이 "감속 전환이 실제로 일어나는 지점"에만
+  적용되는 구조라 곡률 자체가 없는 순수 직선에서는 구조적으로 개입 불가능함을
+  확인(89차 대안1의 "직선 구간 GPS 노이즈 오탐" 우려와는 다른 축, 이번
+  방식은 그 리스크가 원천적으로 낮음).
+- 사용자가 margin_kph=25.0(20/30 사이 절충값) 확정 → 0.5초 그리드 정밀
+  재확인: **t≈9217.5부터 조기바인딩(vturn 실제 전환 t=9221.26보다 3.76초
+  먼저), 최종 목표값도 vturn 실측치(73~77)에 근접(78.1~78.2)**.
+
+**구현** (`c3-ms-curv`, 로컬 커밋 `2f5c23e`, base `cf32b5d`(87차 HEAD)):
+`carrot_man.py`에 `ROUTE_ENTRY_MARGIN_KPH=25.0` 신규 상수 추가, 역방향 DP
+루프의 `time_delay` 계산부만 수정(1줄 로직 변경 + 상수 1개). `py_compile`
+통과, `git format-patch` → `verify-am-91` 임시 브랜치(base `cf32b5d`)에서
+`git am`+diff 0(완전 동일) 확인.
+
+**전달**: `0001-91-route-ROUTE_ENTRY_MARGIN_KPH-25.0.patch`를
+`/mnt/user-data/outputs/`에 전달(base `cf32b5d`, 즉 현재 origin
+`c3-ms-curv` HEAD 위에 바로 `git am` 가능).
+
+**다음(최우선)**:
+1. 사용자가 `C:\dev\ryu`(`c3-ms-curv` 브랜치)에서 `git am` 적용 +
+   `git push origin c3-ms-curv`.
+2. **실차 드라이브 검증** — (a) 커브 진입 시 route가 실제로 vturn보다
+   먼저 개입하는 느낌(사전감속이 더 일찍 시작)이 드는지, (b) **회귀 검증
+   필수** — 직선/완만한 구간에서 불필요한 조기 감속(오탐) 없는지(시뮬레이션
+   상 0건이었으나 실제 GPS 노이즈 특성은 다를 수 있음), (c) 커브B류(TBT
+   근접, 이미 route가 지배적이던 급한 커브)에서도 부작용 없는지.
+3. `ROUTE_ENTRY_MARGIN_KPH=25.0`은 시뮬레이션 기준 채택값 — 실차 반응
+   보고 튜닝 여지 있음(NEEDS_VALIDATION).
+4. 81/82/84/85/87차(모두 `c3-ms-curv`, 아직 실차검증 대기 중)도 이번
+   패치와 함께 같은 드라이브에서 동시 확인 가능.

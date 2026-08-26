@@ -219,3 +219,14 @@
   정상해제), patch 전달 완료(`0001-87-...patch`, base `284457f`).
   NEEDS_VALIDATION — 실차 반응 보고 튜닝 필요(너무 짧으면 실제 리드
   일시 가림에서 조기리셋 가능, 너무 길면 팬텀 지속시간 증가).
+
+## ROUTE_ENTRY_MARGIN_KPH (91차, NEEDS_VALIDATION)
+- 위치: `selfdrive/carrot/carrot_man.py`, `carrot_navi_route()`
+- 값: 25.0 (km/h)
+- 목적: route 역방향 DP의 감속 전환 시점 time_delay 계산에서 target_speed를
+  이 값만큼 낮게 취급 — route가 vturn보다 사전감속을 더 일찍 시작하도록.
+  최종 채택 target_speed(정점 목표값) 자체는 불변, 반영 타이밍만 조정.
+- 근거: 시뮬레이션(devnotes work, bc4301a25d 캐시) — 커브A에서 vturn 실제
+  전환보다 3.76초 먼저 개입, 직선 154초/커브B 오탐 0건. 20/30 사이 사용자
+  확정값.
+- 실차 검증: 미실시(NEEDS_VALIDATION).
