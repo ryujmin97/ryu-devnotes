@@ -3708,9 +3708,16 @@ raw zip 재업로드 불필요):
 `/mnt/user-data/outputs/`에 전달(base `cf32b5d`, 즉 현재 origin
 `c3-ms-curv` HEAD 위에 바로 `git am` 가능).
 
+**[갱신] 적용/push 완료 확인** — 사용자가 `C:\dev\ryu`에서 `git fetch`+
+`git reset --hard origin/c3-ms-curv`(cf32b5d 동기화) 후 `git am` 적용
+(컨텍스트 충돌 없이 바로 성공) + `git push origin c3-ms-curv` 완료.
+컨테이너에서 `git fetch origin c3-ms-curv:refs/remotes/origin/c3-ms-curv`
+후 로컬 검증 커밋과 diff 0(완전 동일) 재확인 완료. origin `c3-ms-curv`
+HEAD: `cf32b5d..6d15391`. **다음은 실차 검증만 남음.**
+
 **다음(최우선)**:
-1. 사용자가 `C:\dev\ryu`(`c3-ms-curv` 브랜치)에서 `git am` 적용 +
-   `git push origin c3-ms-curv`.
+1. ~~사용자가 `C:\dev\ryu`(`c3-ms-curv` 브랜치)에서 `git am` 적용 +
+   `git push origin c3-ms-curv`~~ → **완료**.
 2. **실차 드라이브 검증** — (a) 커브 진입 시 route가 실제로 vturn보다
    먼저 개입하는 느낌(사전감속이 더 일찍 시작)이 드는지, (b) **회귀 검증
    필수** — 직선/완만한 구간에서 불필요한 조기 감속(오탐) 없는지(시뮬레이션
