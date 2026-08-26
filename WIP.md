@@ -3066,7 +3066,61 @@ LAST_ANALYZED 확인용 원격 HEAD)):
 `curve_gap_vs_apex_scan.py` 등)는 "편입 여부 판단 보류" 상태 그대로 —
 방안 확정/재사용 가치가 더 명확해지면 다음 세션에서 재검토.
 
-## 81차 (진행중, 코드변경 없음 — 설계검토/논의 단계) — 곡선구간 가감속 vturn+route 결합 로직 설계 재검토 착수 (model 제외)
+## 81차 계속 (체크포인트 — (a)(b) 구현/검증 완료, `c3-ms-curv` 신규 브랜치, 실차 적용/검증 대기)
+
+**배경**: 사용자가 곡선_개념도.pdf/곡선_가감속_코딩.txt 업로드 — vturn/route
+결합 설계 방향 제시. 코드 대조 결과 vturn 1/2번(기본곡선/연속곡선)은
+이미 argmin+forward-only 구조로 구현돼 있음을 확인(설계 일치, 코드
+변경 불필요). route 1번(현재속도 감안 조기감속)도 역방향 DP로 이미
+구현됨 확인. **실제 조치가 필요한 두 지점만 특정**: (a) 공통사항
+2)/3)(목표속도 도달 지연 체감) → `vturn_safe_time` 상향, (b) route
+2번(500m 게이트 제거) → 아래 "81차" 원본 섹션에서 이미 식별한
+`TurnSpeedControlMode==2`의 `-500<xDistToTurn<500` 게이트.
+
+**사용자 지시**: 최신 `c3-ms-dev`(HEAD `2d5174e`, 79차) 베이스로
+**`c3-ms-curv` 신규 브랜치** 생성 후 그 위에서 작업(실차 문제 시
+c3-ms-dev로 즉시 롤백 가능하도록 분리). (a)는 2.0초로.
+
+**구현** (`c3-ms-curv`, 로컬 커밋 `6344077`, base `2d5174e`):
+- (a) `carrot_man.py`: `self.vturn_safe_time = 1.0` → `2.0`.
+- (b) `carrot_serv.py`: `if self.turnSpeedControlMode == 2: if -500<xDistToTurn<500: append(route)` →
+  `if self.turnSpeedControlMode in [2,3,4]: append(route)`로 단순화 —
+  mode 2도 mode 3/4처럼 항상 route 참가. vturn 참가 조건(`[1,2]` 분기)은
+  손대지 않아 mode 2에서 vturn+route 둘 다 항상 경쟁하는 구조가 됨(mode
+  3/4는 기존대로 vturn 자체가 미참가 — vturn+route 동시경쟁은 mode
+  2에서만 발생, 변경 없음).
+
+**검증**: `py_compile` 통과. `git format-patch` → base `2d5174e` 위
+`verify-am-81` 임시 브랜치에서 `git am` 적용 → 결과가 `c3-ms-curv`와
+**diff 0(완전 동일)** 확인.
+
+**전달**: `0001-81-a-b-vturn_safe_time-1.0s-2.0s-route-500m-TBT-mode.patch`를
+`/mnt/user-data/outputs/`에 전달. **사용자 조치 필요**(기존 c3-ms-dev
+패치와 달리 이번엔 신규 브랜치 생성이 필요):
+```powershell
+cd C:\dev\ryu
+git fetch origin
+git checkout -b c3-ms-curv origin/c3-ms-dev
+git am "C:\dev\patch\0001-81-a-b-vturn_safe_time-1.0s-2.0s-route-500m-TBT-mode.patch"
+git push origin c3-ms-curv
+```
+(기기에서 브랜치 전환 시 CarrotWeb pull UI로 `c3-ms-curv` 선택.)
+
+**다음(최우선)**:
+1. 위 명령으로 `c3-ms-curv` 브랜치 생성+push, 기기에서 `c3-ms-curv`로
+   전환 후 실차 드라이브 검증.
+2. (a) 검증 포인트: 정점에서 실제 vEgo가 목표속도에 더 잘 맞춰
+   도달하는지(2.0s가 과한지/부족한지 체감), 반대로 사전감속이 너무
+   일찍 시작돼 답답한 느낌은 없는지.
+3. (b) 검증 포인트: TBT 없는 일반 국도 굽이길에서 route가 이제 실제로
+   개입하는지, **회귀 검증 필수** — 직선/완만 구간에서 GPS 폴리라인
+   노이즈로 인한 오탐(불필요 감속) 없는지(가장 중요한 리스크).
+4. 문제 발생 시 CarrotWeb pull UI로 `c3-ms-dev`(브랜치 미변경 원본)로
+   즉시 롤백 가능 — 이게 이번에 브랜치를 분리한 목적.
+5. 통과하면 `c3-ms-curv`를 `c3-ms-dev`에 merge할지, 계속 별도 브랜치로
+   유지할지 사용자 결정 필요.
+
+## 81차 (완료 — 설계검토/논의 단계, 위 "81차 계속"에서 구현으로 이어짐) — 곡선구간 가감속 vturn+route 결합 로직 설계 재검토 착수 (model 제외)
 
 **배경**: 사용자가 "곡선구간 가감속 현재 vturn+route(네비경로)만 쓰고
 model 가감속은 사용 안 함"이라고 문제제기 → 코드 확인 결과 `model`

@@ -81,7 +81,7 @@
 | vturn_decel_rc | **0.15s** (정정, 기존 0.25s는 구버전 값) | 감속 저역통과 시정수(모델 노이즈 제거용, 감속 프로파일 자체는 물리공식이 결정) | 검증됨(2026-08-20, 260819-7 세션 코드 직접 확인 — a94a58b 커밋에서 물리공식 기반으로 재설계되며 값도 변경됨, 기존 표는 ab156ea 시점 값이라 최신화) |
 | vturn_accel_rc | **0.15s** (정정, 기존 0.6s는 구버전 값) | 가속복귀 저역통과 시정수 | 검증됨(상동, 260819-7 세션 정정) |
 | TARGET_LAT_A | 1.6 m/s^2 | 목표 횡가속도 기준(autoCurveSpeedAggressiveness로 배율 적용) | - |
-| vturn_safe_time | 1.0s | 목표속도 여유 도달 시간(방지턱 AutoNaviSpeedBumpTime과 동일 기본값) | - (2026-08-20 신규 발견, 260819-7) |
+| vturn_safe_time | **2.0s** (81차, 기존 1.0s에서 상향) | 목표속도 여유 도달 시간(방지턱 AutoNaviSpeedBumpTime과 동일 기본값에서 출발) | NEEDS_VALIDATION (2026-08-26, 81차 — 계산상 목표속도가 정점에 지정돼도 실제 차량 속도가 아직 못 따라와 체감상 빠르다는 사용자 제보. vturn_decel_rc/accel_rc(0.15s)는 시정수가 작아 필터 자체가 큰 지연 요인은 아니라고 판단, 1.0s 버퍼가 실제 acados MPC+차량 감속 응답 램프업 시간 대비 부족했을 가능성이 유력 후보 — 2.0s로 상향해 `c3-ms-curv` 브랜치에서 실차검증. 문제 있으면 브랜치 롤백 가능하도록 c3-ms-dev와 분리) |
 | vturn_decel_rate | 1.2 m/s² | 방지턱 물리공식 기반 커브 감속률(AutoNaviSpeedDecelRate=120 동일값) | PARTIALLY_VALIDATED (2026-08-20, 21차: route1/route2 고속 vturn 블록에서 저크 없는 매끈한 감속 다수 확인, 급조임 상황(260819-7 seg6 표본과 유사한 케이스)은 이번 로그에 없어 원 의문점 자체는 미해소 — FINDINGS.md 21차 참고) |
 
 ## selfdrive/carrot/server/gdrive.py (CarrotWeb Drive 업로드)
@@ -196,3 +196,15 @@
   -3.6->-10.8m/s=7.2m/s 점프)를 확실히 잡도록 여유있게 설정한 설계
   추정치 — NEEDS_VALIDATION, 실차 반응 보고 튜닝 필요. patch
   `0001-72-I-vRel-G.patch` 전달 완료, base `0c137f2`.
+- 2026-08-26 (81차, route 500m TBT 게이트 제거): `carrot_serv.py`의
+  `speed_n_sources` 결합부 — `TurnSpeedControlMode==2`에서
+  `-500<xDistToTurn<500`(TBT 회전지점 근접) 게이트가 있어야만
+  route_speed가 min() 후보에 참가하던 것을 제거, mode 2도 mode 3/4처럼
+  항상 참가하도록 통일(단 vturn 참가 조건([1,2] 분기)은 그대로 유지 —
+  mode 2에서 vturn+route 둘 다 항상 경쟁하는 구조로 변경). 근거: TBT
+  안내가 없는 일반 도로 굽이길에서 route_speed가 계산은 되고도 후보에서
+  빠지던 사각지대(81차 코드리딩으로 신규 식별). **리스크**: 내비 GPS
+  폴리라인 곡률 계산이 vturn(비전모델) 대비 노이즈에 취약할 수 있어,
+  게이트 해제 후 직선/완만 구간에서 오탐(불필요 감속) 가능성 —
+  NEEDS_VALIDATION, `c3-ms-curv` 브랜치에서 실차검증 (문제 시 브랜치
+  롤백으로 c3-ms-dev 즉시 복귀 가능하도록 분리).
