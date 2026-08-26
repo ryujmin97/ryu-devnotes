@@ -1,3 +1,55 @@
+## 94차 (완료 — 구현+시뮬레이션검증+패치 전달 완료, `git am`/실차 적용 대기) — 방안D: discontinuity 트리거 시 vision_dRel_rate/window도 함께 리셋(63차 계속 r1-14 사각지대 해소)
+
+**배경**: 사용자가 이전 세션(컨테이너 리셋으로 중단됨, `이전세션.txt`로 전달)에서
+"내차_차선변경.zip"(차선변경 시 옆차선 앞차 인식 급감속) 분석 도중 63차 계속
+FINDINGS.md 기록(r1-14 사각지대: 방안C가 `_lead_acq_timer`만 리셋하고
+`frac_rate`/`frac_ttc`가 읽는 `_vision_dRel_rate`는 그대로 둬서, radar 락온이
+급감속 종료 이후로 늦는 사례에서는 frac_rate가 discontinuity 트리거 이후에도
+DANGER급으로 계속 유지되는 문제)를 재검토 — 63차 계속이 이미 제시했던 "방안D"
+(discontinuity 트리거 시 `_vision_dRel_rate`/`_vision_dRel_rate_window`도 함께
+리셋)를 이번 세션에서 실제 구현·검증까지 완료.
+
+**구현** (`c3-ms-dev`, 로컬 커밋 `866e934`, base `2d5174e`(79차 HEAD)):
+`long_mpc.py`의 discontinuity 트리거 블록(`_lead_acq_timer=0.0` 리셋 직후)에
+`self._vision_dRel_rate=0.0`/`self._vision_dRel_rate_window.clear()`/
+`self._vision_dRel_prev=None` 3줄 추가. 트리거 조건 자체(`DREL_DISCONTINUITY_*`
+문턱)는 전혀 안 건드림 — discontinuity가 아예 안 걸리는 상황(정상 완만 접근)엔
+구조적으로 개입 불가능.
+
+**검증** (`toolkit/sim_drel_discontinuity_d.py` 신규, 4개 시나리오 전부 PASS):
+1. r1-14류(radar 락온이 급감속 종료 이후로 지연) 재현 — UNPATCHED는 트리거
+   프레임에서도, 그 이후 완만한 접근으로 바뀐 뒤에도 frac_rate=1.0(DANGER급)이
+   계속 유지됨(저역통과 필터에 남은 급락 잔류 오염 때문). **PATCHED는 트리거
+   프레임에서 즉시 frac_rate=0.000으로 리셋** — 63차 계속이 발견한 무효화 문제
+   해소 확인.
+2. 정상 완만 접근(discontinuity 없음) — PATCHED/UNPATCHED rate 완전 동일
+   (diff=0.000000, 회귀 없음).
+3. r1-3류(radar가 급락 직후 바로 락온) — 기존 코드가 락온 프레임에서 이미
+   rate/window/prev를 무조건 리셋하는 별도 경로를 갖고 있어서, 락온 이후엔
+   방안D 유무와 무관하게 두 버전이 완전히 동일(diff=0.000000) — 63차 계속이
+   확인했던 "이 조합은 이미 효과 있음" 결론이 이번 패치로 깨지지 않음 확인.
+4. danger override 독립성 — `process_lead()`의 `ttc_now`는 `_vision_dRel_rate`와
+   코드상 완전히 분리된 변수라 이번 리셋과 무관하게 항상 즉시 반응(정적 확인).
+
+`py_compile` 통과, 로컬 커밋 `866e934`(base `2d5174e`).
+
+**전달**: `0001-94-방안D-discontinuity-vision_dRel_rate-window-리셋.patch`를
+`/mnt/user-data/outputs/`에 전달(base `2d5174e`, 즉 현재 origin `c3-ms-dev`
+HEAD 위에 바로 `git am` 가능).
+
+**다음(최우선)**:
+1. 사용자가 `C:\dev\ryu`에서 `git am` 적용 + `git push origin c3-ms-dev`.
+2. **실차 드라이브 검증** — (a) 원 제보(차선변경 시 옆차선 앞차 인식 급감속,
+   특히 radar 락온이 늦는 케이스)에서 실제로 완화되는지, (b) **회귀 검증
+   필수** — r1-3류(radar 즉시 락온, 이미 검증된 조합)에서 체감 변화 없는지,
+   진짜 위험(danger override, TTC<=2.5s)은 이 리셋과 무관하게 그대로
+   즉시 반응하는지.
+3. `이전세션.txt`에 언급된 3개 route(`00000329--d2a61d2a73`,
+   `0000032b--4a32e2c0d3`, `0000032c--bc4301a25d`, 전부 commit `2d5174e`
+   기록)로 이 패치 적용 전/후 `regression_report()` 정량 비교 검토 —
+   원본 zip이 이번 세션엔 없어(이전세션.txt는 텍스트 로그만) 재분석하려면
+   사용자 재업로드 필요.
+
 ## 93차 (완료 — 시뮬레이션 회귀검증만, 코드 변경 없음) — 91차(ROUTE_ENTRY_MARGIN_KPH) 국도 연속곡선 로그(baseline) 정식 회귀검증, **문제 없음**
 
 **배경**: 92차가 "91차 적용후 로그"로 오분류했던 route(0000032d--c0e3054c4a,

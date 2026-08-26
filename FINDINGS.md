@@ -1,3 +1,61 @@
+## 94차 — 방안D: discontinuity 트리거 시 vision_dRel_rate/window 동반 리셋 (63차 계속 r1-14 사각지대 해소)
+
+**배경**: 63차 계속(방안C 실측 재생 검증)에서 발견됐던 미해결 항목 —
+방안C(discontinuity 트리거 시 `_lead_acq_timer=0.0`으로 리셋 →
+`NEW_LEAD_VLEAD_CORRECTION_SUPPRESS_S` 유예가 자동 적용)는 r1-3(seg3,
+radar 락온이 급락 직후 빠르게 이뤄짐)류에는 효과가 있었으나(frac
+0.9대→0.3대로 감소), **r1-14(seg14, radar 락온이 급감속 종료 이후로
+늦는 경우)류에는 완전히 무효**(PATCHED=UNPATCHED로 frac이 동일하게
+1.0 유지)였음. 원인: `frac_time`/`frac_ttc`/`frac_rate`(25차/33차)는
+discontinuity suppression과 무관하게 `self._vision_dRel_rate`(저역통과
+필터링된 dRel 변화율)를 직접 읽는데, 방안C는 `_lead_acq_timer`만
+리셋하고 이 rate 자체(와 그 window/prev)는 그대로 둬서, discontinuity
+급락 자체가 이미 만들어놓은 오염된 rate가 트리거 이후에도 저역통과
+필터를 통해 서서히만 해소됨.
+
+**조치(방안D, 63차 계속이 이미 제안했던 방향을 이번에 실제 구현)**:
+discontinuity 트리거 조건(`_dRel_raw_history` 5프레임 급락 판정)이
+성립하는 프레임에서, 기존 `_lead_acq_timer=0.0` 리셋에 더해
+`self._vision_dRel_rate=0.0`/`self._vision_dRel_rate_window.clear()`/
+`self._vision_dRel_prev=None`도 함께 리셋. 트리거 조건 자체는 전혀
+변경 없음 — discontinuity가 안 걸리는 상황(정상 완만 접근)에서는
+구조적으로 개입 불가능(리셋 코드가 트리거 분기 안에만 있음).
+
+**검증** (`toolkit/sim_drel_discontinuity_d.py` 신규, `long_mpc.py`의
+discontinuity 트리거+vision_dRel_rate 필터(클램프+중앙값+저역통과)+
+frac_rate 정규화 로직을 그대로 복사해 재현):
+1. **r1-14류 재현(radar 락온을 트리거 이후로 미룸)**: UNPATCHED는
+   트리거 프레임에서도(오히려 raw_rate가 이 프레임에 가장 크게 튐)
+   frac_rate=1.000 유지, 그 이후 완만한 접근으로 바뀐 프레임들에서도
+   저역통과 필터 잔류 오염으로 계속 frac_rate=1.000 — 방안C만으로는
+   무효였던 63차 계속 관찰과 정확히 일치하는 패턴 재현. **PATCHED는
+   트리거 프레임에서 즉시 frac_rate=0.000으로 떨어짐** — 사각지대
+   해소 확인.
+2. **정상 완만 접근(discontinuity 없음)**: PATCHED/UNPATCHED rate
+   시퀀스 diff=0.000000(완전 동일) — 회귀 없음.
+3. **r1-3류 재현(radar가 급락 바로 다음 프레임에 락온)**: 기존 코드가
+   락온 프레임 자체에서 rate/window/prev를 무조건 리셋하는 별도 경로
+   (`elif lead_one_status_now and radarstate.leadOne.radar:` 분기)를
+   갖고 있어서, 락온 이후 상태는 방안D 유무와 무관하게 완전히 동일
+   (diff=0.000000) — 63차 계속이 확인했던 "이 조합은 이미 효과 있음"
+   결론이 이번 패치로 깨지지 않음을 확인.
+4. danger override 독립성 — `process_lead()`의 `ttc_now`는
+   `radarstate.leadOne.dRel`/`vRel` 기반으로 매 프레임 직접 계산되며
+   `self._vision_dRel_rate`와는 코드상 완전히 분리된 변수라, 이번
+   리셋과 무관하게 항상 즉시 반응(정적 확인, 기존 세션들과 동일 근거).
+
+**구현**: `selfdrive/controls/lib/longitudinal_mpc_lib/long_mpc.py`,
+로컬 커밋 `866e934`, base `2d5174e`(79차 HEAD, `c3-ms-dev`). `py_compile`
+통과. patch `0001-94-방안D-discontinuity-vision_dRel_rate-window-리셋.patch`
+`/mnt/user-data/outputs/`에 전달, `git am` 안내 함께 전달함.
+
+**다음(최우선)**: 실차 드라이브 검증 — (a) 원 제보(차선변경 시 옆차선
+앞차 인식 급감속, 특히 radar 락온이 늦는 케이스) 완화 여부, (b) 회귀
+검증(r1-3류처럼 이미 검증된 조합 체감 변화 없는지, danger override
+지연 없는지). `이전세션.txt`에 언급된 3개 route(commit `2d5174e` 기록)
+로 패치 전/후 정량 비교 가능하나 원본 zip 재업로드 필요(이번 세션엔
+텍스트 로그만 있어 재분석 못함).
+
 ## 76차 — discontinuity+차선변경 조합에 73차 handoff duration 해법(4.0s+100/s) 통합 적용
 
 **배경**: 75차 계속2가 방향(b)(discontinuity 트리거를 차선변경 중엔

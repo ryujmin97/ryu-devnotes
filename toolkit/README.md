@@ -668,6 +668,22 @@ route 최저값(121km/h)과 vturn 실측(73km/h) 사이 48km/h 갭에 비하면
 (NEEDS_VALIDATION, raw navi_points를 직접 로깅하지 않는 한 확정 불가).
 상세는 FINDINGS.md \"90차\" 참고.
 
+## sim_drel_discontinuity_d.py (94차, 신규)
+**목적**: 94차(방안D, discontinuity 트리거 시 `_vision_dRel_rate`/
+`_vision_dRel_rate_window`/`_vision_dRel_prev` 동반 리셋) 회귀검증.
+63차 계속에서 발견된 r1-14 사각지대(방안C의 `_lead_acq_timer` 리셋만으로는
+`frac_rate`/`frac_ttc`가 discontinuity 트리거 이후에도 오염된 채
+DANGER급으로 유지되는 문제)가 이 패치로 실제 해소되는지 확인.
+`long_mpc.py`의 discontinuity 트리거 블록 + vision_dRel_rate 필터
+(클램프+중앙값+저역통과) + frac_rate 정규화를 그대로 복사해 재현.
+**의존성**: `numpy`.
+**시나리오 4건**: 1)r1-14류(radar 락온 지연) — UNPATCHED는 트리거 후에도
+frac_rate=1.0 유지 vs PATCHED는 즉시 0. 2)정상 완만접근(discontinuity
+없음) — rate 완전 동일(회귀 없음). 3)r1-3류(radar 즉시 락온) — 기존
+코드의 무조건 리셋 경로가 이미 처리하므로 방안D 유무와 무관하게 락온
+이후 동일(기존 검증된 조합 회귀 없음). 4)danger override 독립성(정적 확인).
+**사용**: `python3 sim_drel_discontinuity_d.py`
+
 ---
 
 ## 아직 없는 카테고리 (필요해지면 추가)

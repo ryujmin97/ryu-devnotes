@@ -1,3 +1,14 @@
+## c3-ms-dev (94차, 방안D 구현/검증 완료 — `git am`/실차 적용 대기)
+- last_analyzed_commit: `866e934` (로컬 커밋, base `2d5174e`(79차 HEAD)
+  — **아직 사용자 적용/push 전**)
+- date: 2026-08-27 (94차)
+- note: 63차 계속(r1-14 사각지대)에서 발견된 미해결 항목 — discontinuity
+  트리거 시 `_vision_dRel_rate`/`_vision_dRel_rate_window`/
+  `_vision_dRel_prev`도 함께 리셋(방안D). `toolkit/sim_drel_discontinuity_d.py`
+  신규 4개 시나리오 전부 PASS(r1-14류 무효화 해소, 정상접근/r1-3류 회귀
+  없음). patch 전달 완료. **다음은 사용자 `git am`/push + 실차 드라이브
+  검증만 남음.** 상세는 WIP.md/FINDINGS.md 94차 참고.
+
 ## c3-ms-curv (93차, 91차 회귀검증 시뮬레이션 — 코드 변경 없음)
 - last_analyzed_commit: `6d15391` (origin HEAD, 91차 그대로 — 이번 세션은
   검증 스크립트만 신규, ryu 코드 변경 없음)

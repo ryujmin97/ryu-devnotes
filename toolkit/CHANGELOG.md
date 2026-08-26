@@ -404,3 +404,14 @@
   91차(ROUTE_ENTRY_MARGIN_KPH) 회귀검증용 전체구간 margin 스윕
   스크립트. 국도 연속곡선 route(0000032d--c0e3054c4a)로 검증, 직선
   오탐 0건/조기개입 정점목표값 불변/역전버그 0건 확인.
+
+## 2026-08-27 (94차, sim_drel_discontinuity_d.py 신규)
+- `sim_drel_discontinuity_d.py` 신규: 63차 계속(r1-14 사각지대)에서
+  발견됐던 "방안C만으로는 frac_rate/frac_ttc가 discontinuity 트리거
+  이후에도 오염된 채 유지"되는 문제를 해소하는 94차(방안D, discontinuity
+  트리거 시 `_vision_dRel_rate`/`_vision_dRel_rate_window`/
+  `_vision_dRel_prev`도 함께 리셋) 로직 단위 검증. 4개 시나리오 전부 PASS
+  — r1-14류(radar 락온 지연) 재현 시 UNPATCHED는 트리거 이후에도
+  frac_rate=1.0 유지 vs PATCHED는 트리거 프레임에서 즉시 0으로 리셋,
+  정상 완만접근/r1-3류(radar 즉시 락온) 회귀 없음 확인. 상세는 WIP.md/
+  FINDINGS.md 94차 참고.
