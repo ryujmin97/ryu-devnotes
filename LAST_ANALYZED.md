@@ -812,3 +812,10 @@ gzip 캐시 등록 완료. 상세는 WIP.md/FINDINGS.md 86차 항목 참고.
 
 [갱신] 87차 적용/push 완료 확인 — origin `c3-ms-curv` HEAD `284457f..cf32b5d`.
 컨테이너 diff 0 재확인 완료. 다음은 실차 드라이브 검증만 남음.
+
+2026-08-27 (88차, c3-ms-dev baseline): 신규 커밋 없음(분석만) — 사용자 업로드
+`곡선_고속도로_램프.zip`(commit `2d5174e`, 79차, c3-ms-curv 81/82차 이전
+baseline) 분석. 연속 커브 2개 중 TBT 미근접 커브1은 route 미참가(81차
+가설 실측 확인), TBT 근접 커브2는 route가 대부분 담당. src 하드-스위치
+플리커(51회 중 39회 <1s) 정량 확인. 안전지표 클린(harsh_brake/ttc_danger
+0건), turn_speed_violations 경미 2건. 상세는 WIP.md 88차 항목 참고.
