@@ -819,3 +819,8 @@ baseline) 분석. 연속 커브 2개 중 TBT 미근접 커브1은 route 미참�
 가설 실측 확인), TBT 근접 커브2는 route가 대부분 담당. src 하드-스위치
 플리커(51회 중 39회 <1s) 정량 확인. 안전지표 클린(harsh_brake/ttc_danger
 0건), turn_speed_violations 경미 2건. 상세는 WIP.md 88차 항목 참고.
+
+[정정, 2026-08-27] 88차 항목의 commit 오판 수정: 실제로는 `c3-ms-curv` 브랜치
+`284457f`(85차 HEAD, 81/82/84/85차 반영, 87차 이전) — 세션시작 스크립트가
+`c3-ms-dev`만 clone해서 meta.json이 잘못 찍혔던 것. 상세는 WIP.md 88차 정정
+항목 참고.
