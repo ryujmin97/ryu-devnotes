@@ -3290,3 +3290,57 @@ UI 설명(`"3: route(always)"`) 자체가 이 의미. 즉 "vturn+route 둘 다
 ## 다음 세션 시작 시
 이 WIP.md에 "82차" 섹션이 있으면 이 지점부터 이어감 — 특히 (1) `git am`/
 실차 검증 결과 확인, (2) 위 검증 스크립트 2개 toolkit 편입 여부.
+
+## 83차 (체크포인트 — 코드 변경 없음, 분석/설명만) — route 커브 사전감속 파라미터(`AutoNaviSpeedDecelRate`) 튜닝 관계 정리
+
+**배경**: 82차(원복측 대칭버퍼) 실차검증 대기 중, 사용자가 별도로 "route
+계산 로직으로 곡선 진입전 사전감속 시간을 늘릴 수 없나(속도에 따라 시간이
+늘면 감속도가 낮아지나?)" 질문 → vturn류 신규 버퍼 추가(3안)는 사용자가
+불채택, **`AutoNaviSpeedDecelRate` 파라미터 조정(2안)만 채택**해 설명.
+
+**핵심 확인 사항**:
+1. `carrot_navi_route()`(`carrot_man.py`)의 진입측 감속 계산은 이미
+   `v_ego_kph`(매 프레임 실측 현재속도) 기반 물리공식
+   (`필요거리=(v_ego²-target²)/(2×accel_limit)`, `accel_limit=
+   self.carrot_serv.autoNaviSpeedDecelRate`)이라 **속도가 높을수록 필요
+   감속시간/거리가 이미 자동으로 늘어남** — 별도 코드 변경 불필요.
+2. `AutoNaviSpeedDecelRate`(UI: "SpeedCamDecelRatex0.01m/s^2", 범위
+   10~200→0.10~2.00 m/s², 기본값 120=1.20)를 **낮추면** 더 이르게·완만하게
+   감속 시작(UI 툴팁 "Lower number, slows down from a greater distance"와
+   일치) — 기존 노출된 설정값으로 코드 변경 없이 바로 튜닝 가능.
+3. **[중요, 신규 확인] 사용자 실제 `params_backup-1.json` 값**:
+   `AutoNaviSpeedDecelRate=70`(=0.70 m/s², 기본 120보다 이미 상당히 낮춤),
+   `AutoNaviSpeedCtrlEnd=9`, `TurnSpeedControlMode=2`,
+   `ModelTurnSpeedFactor=20`, `AutoCurveSpeedFactor=90`,
+   `AutoCurveSpeedAggressiveness=100` — 81/82차 작업 대상(`TurnSpeedControlMode=2`)과
+   일치 확인.
+4. **[중요, 신규 발견] 300m lookahead 상한(`get_path_after_distance(...,300)`)과의
+   상호작용**: `accel_limit`을 낮출수록 필요거리가 늘어나 300m 상한을 쉽게
+   초과함 — 예) 100→60km/h는 accel=0.70에서 이미 ≈303m로 상한 초과,
+   accel=1.39 m/s²(UI 140)가 "120→60km/h를 정확히 300m에 맞추는" 이론적
+   경계값(여유 없음, 실사용은 150~160 권장). 반대로 80→30km/h(큰 감속폭)는
+   accel=0.70에서 ≈303m(초과), accel=0.80에서 ≈265m(여유 35m, 상한 이내)로
+   — **감속폭이 클 때는 오히려 값을 살짝 올려야 300m 안에서 계산이 온전히
+   끝나는** 경우도 있음을 구체적 수치로 확인. **사용자의 현재 실측값(0.70)은
+   고속(100km/h대)+큰 감속폭 커브 조합에서 이미 300m 캡에 걸릴 수 있는
+   경계 근처**임을 신규 확인(NEEDS_VALIDATION, 실차 재현 필요).
+5. **[중요] `AutoNaviSpeedDecelRate`는 route 커브 전용이 아니라
+   과속카메라 감속(`sdi_speed`, `carrot_serv.py` L983)/TBT 회전 감속
+   (`atc_desired`, L847)/도로제한속도 기반 감속(L994)까지 전부 공유하는
+   단일 파라미터** — 이 값을 조정하면 커브 감속만이 아니라 이 셋 전부
+   동시에 완만해짐(경고 필요, route 전용으로 분리하려면 별도 코드 변경 필요).
+
+**코드 변경 없음(설명/계산만, patch 없음).**
+
+**다음(사용자 결정 대기)**:
+1. 위 4번 발견(현재 설정 0.70이 고속+큰 감속폭 조합에서 300m 캡에 걸릴
+   가능성)을 실제 고속도로 급조임 커브 로그로 재현 검증할지.
+2. route 전용으로 감속률을 분리하고 싶다면 `accel_limit =
+   self.carrot_serv.autoNaviSpeedDecelRate` 줄을 신규 상수로 분리하는
+   패치 설계(사용자가 아직 불채택 의사 표명, 필요시 재논의).
+3. 300m lookahead 캡 자체를 늘리는 방향(비용/회귀 검증 필요, 아직 논의만
+   된 상태, 코드 미착수).
+
+## 다음 세션 시작 시
+이 WIP.md에 "83차" 섹션이 있으면 이 지점부터 이어감 — 특히 4번(300m 캡
+경계 문제) 실차 재현 검증 여부.
