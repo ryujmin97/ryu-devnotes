@@ -363,3 +363,10 @@
   트리거도 frac 게이트를 무관하게 완화하는 방향(b)을 정량 검증. route2
   t=1460~1480/1535~1550 두 구간 + route1/route2 전체 회귀 diff 스캔.
   결과 요약은 FINDINGS.md "75차 계속2" 참고.
+
+## 2026-08-26 (84차, sim_route_dynamic_cap.py 신규)
+- `sim_route_dynamic_cap.py` 신규: route 커브 lookahead 300m 고정 캡을
+  v_ego/accel_limit 기반 동적 캡(300~500m)으로 교체한 로직(`carrot_man.py
+  compute_route_lookahead_distance()`) 회귀 검증. 저속 floor 유지/고속
+  ceil clip/단조성/예외 안전폴백 4개 시나리오 PASS. 상세는 FINDINGS.md
+  84차 항목 참고.

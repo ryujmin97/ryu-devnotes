@@ -1,3 +1,39 @@
+## 84차 (체크포인트 — 구현+검증+패치 전달 완료, `git am`/실차 적용 대기) — route 커브 lookahead 300m 고정 캡 -> v_ego/accel_limit 기반 동적 캡(300~500m)
+
+**배경**: 83차 NEEDS_VALIDATION(`AutoNaviSpeedDecelRate=0.70`가 고속+큰
+감속폭 조합에서 300m 상한에 걸릴 수 있음)에 대한 조치. 300m 고정값 상향
+대신 **v_ego/accel_limit 기반 동적 캡(300~500m)**으로 사용자 결정.
+
+**구현** (`c3-ms-curv` 브랜치, base `451a3b9`(82차 HEAD) — **c3-ms-dev 아님**,
+동일 함수(`carrot_navi_route`)를 81/82차가 이미 수정해둔 브랜치라 반드시 이
+위에 적층): `carrot_man.py`에 `compute_route_lookahead_distance()` 신규
+함수 추가 — `(v_ego²-target²)/(2*accel_limit)`을 300~500m로 clip,
+`assumed_target_kph=30.0`은 캡 크기 산정 전용 가정값(실제 목표속도와 무관).
+`get_path_after_distance(..., 300)` 하드코딩을 이 값으로 교체.
+
+**검증** (`toolkit/sim_route_dynamic_cap.py`, 신규 정식 편입): 저속(<=50km/h)
+전 accel_limit에서 floor(300m) 유지(회귀 없음) / 사용자 실측 accel=0.70
+기준 100km/h+에서 ceil(500m) 도달 / accel_limit 낮을수록 더 낮은 속도부터
+캡 확장(단조성) / accel_limit=0·None 안전 폴백 — 4개 시나리오 전부 PASS.
+`git format-patch` → `verify-am-84`(base `451a3b9`)에서 `git am`+diff 0+
+`py_compile` 통과.
+
+**전달**: `0001-84-route-lookahead-300m-v_ego-accel_limit-300-500m.patch`를
+`/mnt/user-data/outputs/`에 전달(base `451a3b9`, `c3-ms-curv` 브랜치에 적용).
+
+**다음(최우선)**:
+1. 사용자가 `C:\dev\ryu`에서 `git checkout c3-ms-curv` + `git fetch`+
+   `git reset --hard origin/c3-ms-curv`(451a3b9 동기화) → `git am` 적용 →
+   `git push origin c3-ms-curv`.
+2. **실차 드라이브 검증** — (a) 고속도로 순항 중 route 기반 커브 감속이
+   더 이르게 시작되는지, (b) **회귀 검증 필수** — 저속/도심 구간 체감
+   차이 없는지(floor 300m로 동일해야 함), 직선 구간 GPS 오차로 인한
+   신규 오탐 없는지, (c) 연산 부하 체감(리샘플 포인트 최대 1.67배 증가).
+3. `assumed_target_kph=30.0`/`max_m=500.0`는 설계 추정치 — 실차 반응
+   보고 튜닝 필요.
+4. 82차(vturn/route 원복측 대칭버퍼) 실차검증도 여전히 대기 중 — 84차와
+   함께 같은 `c3-ms-curv` 드라이브에서 동시 확인 가능.
+
 ## 78차 (완료 — 분석만, 코드 변경 없음) — 77차와 동일 로그(x15seg)에서 discontinuity_lc 최초 실차 검증 완료
 
 **배경**: 77차가 "이번 로그엔 laneChangeState가 전 구간 'off'라 76차

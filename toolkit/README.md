@@ -601,6 +601,19 @@ track_scc_cnt, track_scc_dpath, track_scc_vlead, enable_radar_tracks=-1)`
 track 존재+저확신(prob<.6) 상황에서도 게이트 우회 없음(60차 계속8 관련).
 **사용**: `python3 test_scc_gate.py`
 
+## sim_route_dynamic_cap.py (84차, 신규)
+**목적**: 84차(route 커브 lookahead 300m 고정 캡 -> v_ego/accel_limit
+기반 동적 캡) 로직 회귀 검증. `carrot_man.py`
+`compute_route_lookahead_distance()` 순수함수 재현.
+**의존성**: 없음(표준 라이브러리만).
+**주요 함수**: `compute_route_lookahead_distance(v_ego_kph, accel_limit_mss,
+min_m=300.0, max_m=500.0, assumed_target_kph=30.0)` — 캡 거리(m) 리턴.
+**커버 시나리오**: 저속(<=50km/h) 전 accel_limit에서 floor(300m) 유지
+(회귀 없음), 고속(130km/h)+낮은 accel(0.70) 조합 ceil(500m) clip,
+accel_limit 낮을수록 같은 속도에서 캡이 더 크게(단조성), accel_limit=0/None
+예외 시 floor(300m) 안전 폴백.
+**사용**: `python3 sim_route_dynamic_cap.py`
+
 ---
 
 ## 아직 없는 카테고리 (필요해지면 추가)

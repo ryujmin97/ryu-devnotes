@@ -6337,3 +6337,65 @@ discontinuity_lc/차선변경과 완전히 무관 — 77차 결론과 일치 재
 **다음(최우선)**: 실차 적용 후 (a) 첫 +RES 시 목표속도가 현재속도보다
 높게 설정되는지, (b) 취소 후 재인게이지/정차출발/carrot 인게이지 등
 기존 경로 회귀 없는지, (c) `unit`(눈금 크기)에 따른 상승폭 체감 확인.
+
+## [PATCH_WRITTEN, NEEDS_VALIDATION] 84차 — route 커브 lookahead 300m 고정 캡 -> v_ego/accel_limit 기반 동적 캡(300~500m) (2026-08-26, `c3-ms-curv` 브랜치)
+
+**배경**: 83차에서 확인한 "`AutoNaviSpeedDecelRate`(사용자 실측 0.70)가
+고속(100km/h대)+큰 감속폭 조합에서 300m lookahead 상한에 걸릴 수 있음"
+(NEEDS_VALIDATION)에 대한 조치. 사용자가 300m 고정값 상향 대신 **v_ego/
+accel_limit 기반 동적 캡(300~500m)**으로 결정.
+
+**설계**: `carrot_navi_route()`(`carrot_man.py`)가 `get_path_after_distance()`를
+호출하는 시점엔 아직 실제 커브 목표속도(곡률 기반)를 모름(그건 이 호출 이후에
+계산됨) — 그래서 "얼마나 멀리 fetch할지"를 정하기 위한 가정 목표속도로
+`assumed_target_kph=30.0`(흔한 조임 커브 수준)을 사용, 실제 DP가 계산하는
+목표속도와는 무관(캡 크기 산정 전용).
+
+```python
+def compute_route_lookahead_distance(v_ego_kph, accel_limit_mss, min_m=300.0, max_m=500.0,
+                                      assumed_target_kph=30.0):
+  if accel_limit_mss is None or accel_limit_mss <= 0:
+    return min_m
+  v_ego_ms = max(0.0, v_ego_kph) / 3.6
+  v_target_ms = assumed_target_kph / 3.6
+  needed_m = max(0.0, (v_ego_ms ** 2 - v_target_ms ** 2) / (2.0 * accel_limit_mss))
+  return float(min(max_m, max(min_m, needed_m)))
+```
+
+`get_path_after_distance(..., 300)` 하드코딩을 `get_path_after_distance(...,
+route_lookahead_m)`로 교체, `route_lookahead_m`은 매 프레임
+`self.sm['carState'].vEgo*3.6`/`self.carrot_serv.autoNaviSpeedDecelRate`로 계산.
+
+**검증** (`toolkit/sim_route_dynamic_cap.py`, 신규, 순수함수 재현):
+- 저속(<=50km/h)은 accel_limit 무관하게 항상 floor(300m) 유지 —
+  **도심/저속 구간은 기존 300m와 완전히 동일, 회귀 없음** 확인.
+- 사용자 실측 accel=0.70 기준: 80km/h≈303m → 90km/h≈396.8m →
+  100km/h+에서 500m(ceil) 도달.
+- 기본값(1.20)/83차 경계값(1.39)은 각각 110/130km/h는 돼야 캡이 늘기
+  시작 — accel_limit이 낮을수록(더 완만한 감속 설정) 더 낮은 속도에서부터
+  캡이 커지는 단조성 확인(설계 의도와 일치).
+- accel_limit=0/None 예외 시 floor(300m) 안전 폴백 확인.
+
+**적용 위치**: `c3-ms-dev`가 아니라 **`c3-ms-curv`**(81/82차가 이미
+`carrot_navi_route()`를 수정해둔 브랜치, base `451a3b9`) 위에 커밋 —
+동일 함수를 건드리므로 반드시 이 브랜치 위에 적층해야 함(c3-ms-dev에
+잘못 적용하면 81/82차 변경과 별개로 갈라짐).
+
+`git format-patch` → `verify-am-84` 임시 브랜치(base `451a3b9`)에서
+`git am` 적용 → `c3-ms-curv`와 diff 0(완전 동일) 확인 + `py_compile` 통과.
+
+**다음(최우선)**:
+1. 실차 드라이브 검증 — (a) 고속도로 순항(90~120km/h) 중 실제 route
+   기반 커브 감속이 이전보다 더 이르게 시작되는지(83차가 우려한 캡
+   경계 초과 케이스 해소 여부), (b) **회귀 검증 필수** — 저속/도심
+   구간에서 기존과 체감 차이 없는지(설계상 300m floor로 동일해야 함),
+   직선 구간에서 lookahead가 늘어난 만큼 GPS 폴리라인 오차로 인한
+   신규 오탐(불필요 감속) 없는지, (c) 연산 부하(프레임당 소요시간)
+   체감상 문제없는지 — 리샘플 포인트 수가 최대 약 1.67배(300→500m,
+   10m 간격 기준 30→50개) 늘어남.
+2. `assumed_target_kph=30.0`/`max_m=500.0` 값 자체는 설계 추정치 —
+   실차 반응 보고 튜닝 필요(예: 500m로도 부족하면 상향, 또는 실제
+   앞차/커브 상황 대비 과도하게 이르면 하향).
+3. 83차가 함께 제안했던 "route 전용 accel_limit 분리"(현재
+   `AutoNaviSpeedDecelRate` 공유 구조) 논의는 이번 84차와 별개로
+   여전히 미착수 — 필요시 후속 논의.
