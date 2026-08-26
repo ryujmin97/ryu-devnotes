@@ -1,3 +1,42 @@
+## 86차 (체크포인트 — 로그 추출만, 분석은 미착수) — c3-ms-curv 실주행 로그 10개 route CSV 일괄 추출
+
+**배경**: 사용자가 `c3-ms-curv` 브랜치(85차 HEAD `284457f`, route lookahead
+600m 상향 반영된 상태)에서 실주행한 로그 10개 route를 한 번에 업로드
+(00000329~00000332, 총 142세그, x1~x20seg 혼재). 분석용 CSV 추출 +
+Google Drive 저장 요청.
+
+**진행**: `extract_log.py`로 10개 route 전부 CSV 추출 완료(21599~24033
+row, 총 ~152k row). 이번 세션은 **추출까지만 완료, 5항목 분석/qcamera
+대조는 미착수** — 다음 세션에서 이어감.
+
+**이슈 발견 및 수정**: `0000032e--8b55ac185d_x13seg`의 마지막 세그먼트
+(12번) `rlog.zst`가 드라이브 종료 시점에 파일 자체가 잘려 기록됨(zstd
+프레임 미완성) → 기존 `decode_rlog.py`가 전체 추출을 중단시킴. 스트리밍
+폴백 추가해 해결(잘린 지점까지 유효 데이터 회수, 785 row). 정상 파일
+회귀 테스트 통과. 상세는 `toolkit/CHANGELOG.md`/`README.md` 86차 항목
+참고 — **이미 push됨(devnotes 전용 수정, ryu 코드 아님)**.
+
+**Google Drive**: 폴더 `ryu_c3-ms-curv_logs_20260826` 생성 후 연결 완료.
+단, **원본 CSV(7~8.4MB급) 자체는 Drive MCP 도구로 직접 업로드 불가능함을
+확인** — 이 도구는 파일 전체 내용이 Claude 응답 텍스트를 통과해야
+하는데, `view` 도구가 16,000자 초과 파일을 자동으로 중간 생략하는 구조라
+MB급 파일은 컨텍스트에 온전히 못 들어옴(220KB짜리도 이미 잘림 확인).
+→ **대안**: 10개 CSV+meta.json을 zip으로 묶어 `/mnt/user-data/outputs/`
+전달(사용자가 직접 Drive 폴더로 드래그하는 방식 안내), 통합 메타 요약
+(`ALL_ROUTES_META.json`, 2.4KB)만 Drive에 직접 업로드해둠. **향후
+동일 요청 시 이 방식(zip 전달 + 사용자 수동 업로드) 그대로 사용할 것.**
+
+**다음(최우선)**:
+1. 사용자가 zip을 Drive 폴더로 옮겨 저장 완료했는지 확인(선택 사항).
+2. 10개 route에 대해 5항목 분석 프레임워크(vision-to-radar crossover /
+   stopped lead decel / launch-after-stop / radar lock-on jerk / curve
+   speed violation) 적용, qcamera 프레임 대조 포함(5개 항목 전부 필수).
+3. `sim_boost_window_extension.py`(72차, DISCONTINUITY_JERK_COST_BOOST_S
+   1.0s→2.0/2.5/3.0s 커버리지) 관련 후속 검증도 이 로그로 가능한지 검토.
+4. 85차/84차/82차/81차 등 여전히 실차검증 대기 중인 항목들, 이번 로그로
+   함께 확인 가능 여부 검토(같은 `c3-ms-curv` 드라이브인지 먼저 확인 필요
+   — meta.json commit이 `284457f`로 일치하므로 85차 이후 드라이브로 추정).
+
 ## 85차 (체크포인트 — 구현+검증+패치 전달 완료, `git am`/실차 적용 대기) — route lookahead 동적 캡 상한 500m -> 600m 상향
 
 **배경**: 84차 PARAMS_REGISTRY.md 기록에서 "120->60km/h 풀커버는 accel=0.70

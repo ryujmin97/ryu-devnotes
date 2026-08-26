@@ -31,6 +31,12 @@ CHANGELOG.md를 같이 갱신**한다 (세션 종료 체크리스트에 포함�
 - `get_schema(repo_dir)` — capnp 스키마 로드 (import hook 처리 포함)
 - `iter_events(path, repo_dir, max_output_mb=400)` — rlog/qlog 파일을
   열어 capnp Event를 하나씩 yield
+**2026-08-26 수정(86차)**: 드라이브 종료 시점에 잘린 채로 기록된
+`rlog.zst`(주로 마지막 세그먼트)는 one-shot `decompress()`가
+"did not decompress full frame"로 실패함. `stream_reader` 폴백을
+추가해 잘린 지점까지의 유효 데이터를 회수(내용 자체는 유효, zstd
+프레임 경계 문제일 뿐). 폴백 발동 시 stderr 경고 출력 — 해당
+세그먼트는 일부 row가 유실됐을 수 있음을 인지하고 사용할 것.
 **주의**: `capnp.remove_import_hook()`을 `capnp.load()` 이전에 반드시
 호출. zstd 압축 해제 시 `max_output_size` 명시 필요.
 
