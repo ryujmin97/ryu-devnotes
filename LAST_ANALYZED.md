@@ -809,3 +809,6 @@ gzip 캐시 등록 완료. 상세는 WIP.md/FINDINGS.md 86차 항목 참고.
 (VISION_TRACK_GHOST_TIMEOUT_S=3.0 신설). 사용자 화면녹화 제보 기반
 원인분석+구현+시뮬레이션검증 완료, patch 전달, 실차 `git am`/적용
 대기. 상세는 WIP.md/FINDINGS.md 87차 항목 참고.
+
+[갱신] 87차 적용/push 완료 확인 — origin `c3-ms-curv` HEAD `284457f..cf32b5d`.
+컨테이너 diff 0 재확인 완료. 다음은 실차 드라이브 검증만 남음.

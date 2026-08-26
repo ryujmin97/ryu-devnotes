@@ -43,8 +43,16 @@ B안 취지(짧은 prob 출렁임으로 진짜 리드를 오인 리셋하지 않
 실차 반응 보고 튜닝 필요 — 값이 너무 짧으면 실제 리드의 일시적 강한
 가림/역광 등에서 조기 리셋 가능성, 너무 길면 팬텀 지속시간이 늘어남).
 
+**[갱신] 적용/push 완료 확인** — 사용자가 `C:\dev\ryu`에서
+`git remote set-branches --add origin c3-ms-curv`(로컬이 single-branch
+클론이라 c3-ms-curv가 안 보이던 문제 해결) → `git fetch` → `git checkout -b
+c3-ms-curv origin/c3-ms-curv` → `git am` 적용(로컬 커밋 `cf32b5d`) →
+`git push origin c3-ms-curv` 완료. 컨테이너에서 `git fetch origin
+c3-ms-curv:refs/remotes/origin/c3-ms-curv` 후 로컬 검증 커밋(`8d10c06`)과
+diff 0(완전 동일) 재확인. origin `c3-ms-curv` HEAD: `284457f..cf32b5d`.
+
 **다음(최우선)**:
-1. 사용자 `git am` 적용 + push 확인.
+1. ~~사용자 `git am` 적용 + push 확인.~~ → **완료**.
 2. **실차 드라이브 검증** — (a) 이번에 재현된 것과 유사한 상황(커브
    진입부에서 짧게 애매한 물체 스침 후 대상 없음)에서 파란 박스가
    3~4초 내로 사라지는지, (b) 실제 리드(정지 앞차 등)를 놓치지 않고
