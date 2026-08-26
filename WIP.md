@@ -3065,3 +3065,57 @@ LAST_ANALYZED 확인용 원격 HEAD)):
 **다음**: 이번에 편입 안 한 나머지 후보(`work/five_item_scan.py`,
 `curve_gap_vs_apex_scan.py` 등)는 "편입 여부 판단 보류" 상태 그대로 —
 방안 확정/재사용 가치가 더 명확해지면 다음 세션에서 재검토.
+
+## 81차 (진행중, 코드변경 없음 — 설계검토/논의 단계) — 곡선구간 가감속 vturn+route 결합 로직 설계 재검토 착수 (model 제외)
+
+**배경**: 사용자가 "곡선구간 가감속 현재 vturn+route(네비경로)만 쓰고
+model 가감속은 사용 안 함"이라고 문제제기 → 코드 확인 결과 `model`
+후보(`desire_helper._make_model_turn_speed()`, `ModelTurnSpeedFactor`
+기반) 자체는 `carrot_serv.py` min() 경쟁에 여전히 코드상 참가하도록
+남아있으나(9~50차에 걸쳐 vturn↔model 플리커 대응/게이팅 재설계를 반복해온
+이력 있음), **사용자가 설정(`ModelTurnSpeedFactor`)에서 model을 이미
+꺼둔 상태**라고 확인해줌 → 이번 논의는 model을 제외하고 vturn(비젼)+route
+(내비경로) 둘의 결합 로직만 재검토하기로 범위 확정.
+
+**현재 아키텍처 정리** (`carrot_man.py`/`carrot_serv.py` 코드 리딩,
+devnotes에 이 부분(TurnSpeedControlMode/±500m 게이트) 자체를 다룬
+과거 세션 기록 없음 — 이번이 첫 정리):
+
+1. **vturn** (`carrot_man.py vturn_speed()`): 비전모델 예측 궤적
+   (~10s lookahead)에서 지점별 필요속도를 **순방향** 물리공식
+   (`v_i²=v_f²+2ad`, `TARGET_LAT_A=1.6m/s²`)으로 계산, 가장 엄격한
+   지점(apex) 채택. `TurnSpeedControlMode in [1,2]`면 항상 후보 참가.
+   즉시 반응하지만 원거리 예측 불안정 이력 있음(50차, 부호까지 요동).
+
+2. **route** (`carrot_man.py carrot_navi_route()`): 외부 내비 앱이
+   보내는 GPS 폴리라인(`navi_points`)을 5m 간격 리샘플 → 3점 곡률
+   (`calculate_curvature`) → **곡률→속도 룩업테이블**(`V_CURVE_LOOKUP_BP/
+   VALS`, 경험적 테이블이지 물리공식 아님)로 지점별 속도 산출 →
+   **역방향 DP**로 `autoNaviSpeedDecelRate` 감속한계 적용해 현재
+   지점 속도로 역전파. 항상 전방 300m 전체로 계산됨.
+   - **참가 게이트(`TurnSpeedControlMode==2`, 현재 사용자 설정값)**:
+     `-500 < xDistToTurn < 500`(TBT 다음 회전지점과의 거리)일 때만
+     min() 후보에 넣음. **[설계상 의문점, 이번에 처음 식별]** —
+     `xDistToTurn`은 TBT 안내(교차로 좌/우회전 등) 이벤트까지의 거리인데,
+     route_speed 자체는 그 지점 근처 곡률만 계산하는 게 아니라 항상
+     전방 300m 폴리라인 전체(어떤 곡선이든)를 계산한다. 즉 **TBT
+     안내가 없는 일반 도로 급커브(교차로 회전이 아닌 국도 굽이길 등)에서는
+     route_speed가 계산은 되고도 게이트에 막혀 min() 후보에서 아예
+     빠지고, vturn 단독으로만 대응**하게 되는 구조. mode 3/4는 이
+     게이트 없이 항상 route 참가.
+
+3. **결합**: `desired_speed, source = min(speed_n_sources, ...)` — 단순
+   최소값 선택. vturn/route 둘 다 후보에 있으면 더 낮은(더 엄격한) 쪽이
+   그대로 채택되고, 전환 시 부드러운 블렌딩 로직은 없음(다른 소스간
+   플리커 문제가 9~50차에 걸쳐 반복 다뤄진 배경과 동일 구조).
+
+**다음(설계 재검토 계속)**:
+1. `-500<xDistToTurn<500` 게이트가 실제로 "TBT 없는 일반 커브에서
+   route 미참가"를 유발하는지 실측 로그로 확인 필요(현재는 코드 리딩
+   기반 추정, NEEDS_VALIDATION).
+2. min() 단순선택 대신 소스 전환 시 블렌딩/히스테리시스가 필요한지
+   (과거 vturn↔model 플리커 대응 사례를 vturn↔route에도 참고 적용할지)
+   검토.
+3. mode 2(현재 설정)를 mode 3(항상 route 참가)으로 바꾸는 대안의
+   장단점 — route가 이르게 개입하면 좋을 수 있으나, 내비 GPS 폴리라인
+   품질/오차가 낮은 도로에서 오히려 오탐 유발 가능성 고려 필요.
