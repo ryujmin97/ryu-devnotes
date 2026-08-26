@@ -3119,3 +3119,20 @@ devnotes에 이 부분(TurnSpeedControlMode/±500m 게이트) 자체를 다룬
 3. mode 2(현재 설정)를 mode 3(항상 route 참가)으로 바꾸는 대안의
    장단점 — route가 이르게 개입하면 좋을 수 있으나, 내비 GPS 폴리라인
    품질/오차가 낮은 도로에서 오히려 오탐 유발 가능성 고려 필요.
+
+**[갱신] mode 3 오해 정정** — `TurnSpeedControlMode=3`은 "route 500m
+게이트만 해제 + vturn 유지"가 아니라 **vturn을 완전히 끄고 route
+단독으로 전환하는 모드**임을 코드로 재확인:
+```python
+if self.turnSpeedControlMode in [1,2]:
+    speed_n_sources.append(vturn)   # mode 3은 [1,2] 밖 -> vturn 미참가
+...
+elif self.turnSpeedControlMode in [3, 4]:
+    speed_n_sources.append(route)   # 게이트 없이 항상 참가
+```
+UI 설명(`"3: route(always)"`) 자체가 이 의미. 즉 "vturn+route 둘 다
+항상 참전"이라는 목표 조합은 **현재 UI 설정만으로는 불가능** — mode 2의
+`-500<xDistToTurn<500` 게이트만 제거하는 패치가 필요함(vturn 참가
+조건은 손대지 않음). 대안으로 게이트를 "TBT 거리" 대신 다른 조건
+(예: route_speed 자체가 유의미하게 낮을 때만 참가)으로 교체하는 방향도
+논의 중 — 아직 패치 미작성, 방향 결정 대기.
