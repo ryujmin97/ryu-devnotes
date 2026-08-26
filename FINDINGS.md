@@ -6486,3 +6486,26 @@ CSV를 `data/routes/<route_id>/`에 gzip 캐시로 등록(README.md 갱신).
 4. route5(28건)/route6(17건)/route7(16건) 곡선위반 중 src=route인
    12프레임만 따로 걸러 85차 lookahead 600m 확장이 실제로 도움이 됐는지
    개별 확인(전체 위반이 vturn 주도라 이 지표로는 결론 약함).
+
+
+## 87차: VisionTrack 팬텀(유령) 리드 트랙 영구고착 버그 [PATCH_APPLIED, NEEDS_VALIDATION]
+
+**증상**: 사용자 제보(화면녹화 mp4) — 커브 구간에서 파란 박스(leadOne)가
+120초 내내 도로 밖 나무/가드레일 근처에 표시되며 급감속(aEgo -1.56)
+유발. 실제 앞차 없음.
+
+**원인**: `radard.py` `VisionTrack.update()` — 60차 계속6(B안)이
+"prob가 짧게 0.35 밑으로 출렁여도 tentative_cnt를 리셋하지 않는다"로
+바꾼 이후, prob가 [0.35,0.5] 구간을 완전히 벗어나 영구적으로 낮게
+유지되는 경우 리셋할 방법이 없었던 사각지대. `tentative_cnt>=10`으로
+한번 래치된 `register_ok`가 prob 값과 무관하게 영구 True로 고정됨.
+
+**수정**: `VISION_TRACK_GHOST_TIMEOUT_S=3.0` 신설 — prob<0.35가 이
+시간 이상 연속되면 `tentative_cnt` 강제 리셋. 순수 로직 재현 시뮬레이션
+(`work/sim_vision_track_ghost_timeout.py`) 3개 시나리오(고스트 120s/
+실제 리드 노이즈 출렁임/실제 리드 시야이탈 10s) 전부 PASS, 회귀 없음
+확인(시나리오 2: 패치 전후 register_ok 시퀀스 완전 동일).
+
+**패치**: `0001-87-VisionTrack-tentative-GHOST_TIMEOUT_S-3.0s.patch`
+(base `284457f`), `/mnt/user-data/outputs/` 전달 완료. 실차 적용/검증
+대기.

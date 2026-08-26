@@ -803,3 +803,9 @@ HEAD `451a3b9` 그대로, 로그 자체는 85차 HEAD `284457f`에서 기록됨)
 잠정 판단(route 소스 프레임 자체가 적어 결론력 약함). **qcamera 대조는
 미실시**(원본 zip 유실, CSV만 재확보). 10개 route를 `data/routes/`에
 gzip 캐시 등록 완료. 상세는 WIP.md/FINDINGS.md 86차 항목 참고.
+
+2026-08-26 (87차, c3-ms-curv): 신규 커밋 1개(로컬 `8d10c06`, base
+`284457f`) — VisionTrack 팬텀 리드 트랙 영구고착 버그 수정
+(VISION_TRACK_GHOST_TIMEOUT_S=3.0 신설). 사용자 화면녹화 제보 기반
+원인분석+구현+시뮬레이션검증 완료, patch 전달, 실차 `git am`/적용
+대기. 상세는 WIP.md/FINDINGS.md 87차 항목 참고.

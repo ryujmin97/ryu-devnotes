@@ -1,3 +1,58 @@
+## 87차 (완료 — 원인분석+구현+시뮬레이션검증+패치전달 완료) — VisionTrack 팬텀(유령) 리드 트랙 영구고착 버그 수정
+
+**배경**: 사용자가 화면 녹화(mp4)+route zip(`0000032d--c0e3054c4a`)을 업로드,
+"패스 끝에 파란박스가 계속 표시되며 주행감이 이상해진다" 제보.
+
+**원인 분석**(qcamera+CSV 대조, `c3-ms-curv` HEAD `284457f` 기준
+`radard.py` `VisionTrack`): t=9793~9913(약120초) 내내 파란 박스(=
+`radarState.leadOne`, UI 장식 아님)가 커브 바깥쪽 나무/가드레일 근처에
+떠있는데 실제 앞차는 없음. `leadModelProb` 최대 0.095/최소 0.0003으로
+정상등록(0.5)/예비등록(0.35) 문턱에 한참 못 미치는데도 `leadStatus=True`가
+120초 유지됨. 근본원인: **60차 계속6(B안)의 사각지대** — `tentative_cnt`가
+한번 `CNT_GATE`(10, 0.5s)에 도달해 `register_ok`가 래치되면, 이후 prob가
+`TENTATIVE_PROB_GATE`(0.35) 밑으로 "영구적으로" 주저앉아도 기존 리셋
+경로 3개(dPath 절대값 게이트/dRel jitter/dPath jitter)가 전부 prob가
+[0.35,0.5] 구간 안에 있을 때만 평가되어 풀 방법이 없었음. 매 프레임
+노이즈성 `dRel_candidate`를 실제 리드처럼 반영해 `desiredSpeed`/
+`vTurnSpeed`를 흔들고 불필요한 급감속(t=9812~9814, aEgo -1.56) 유발
+실측 확인.
+
+**구현** (`c3-ms-curv` 브랜치, base `284457f`(85차 HEAD)): `radard.py`
+`VisionTrack`에 `ghost_low_prob_time`(prob<`TENTATIVE_PROB_GATE` 연속
+유지시간 누적, `self.radar_ts` 기반) 신규 필드 추가, `GHOST_TIMEOUT_S`
+(3.0s) 초과 시 `tentative_cnt`를 강제로 0으로 리셋(다음 프레임
+`register_ok` 재평가 시 자연스럽게 `self.reset()` 경로로 빠짐). 60차
+B안 취지(짧은 prob 출렁임으로 진짜 리드를 오인 리셋하지 않음)는 그대로
+보존 — "짧은 출렁임"과 "영구 소실"을 시간 길이(3.0s)로 구분.
+
+**검증** (`work/sim_vision_track_ghost_timeout.py`, capnp 의존성 없는
+순수 로직 재현): 3개 시나리오 전부 PASS —
+1. 고스트(120s 영구소실): 패치 전 래치 고착 재현(끝까지 True), 패치 후
+   t=3.5s에서 정상 해제.
+2. 실제 리드 prob 노이즈성 출렁임(최대 연속저하 1.5s, GHOST_TIMEOUT 미만):
+   패치 전/후 `register_ok` 시퀀스 **완전 동일**(회귀 없음 확인).
+3. 실제 리드가 시야를 벗어나 영구 소실(10s): 패치 전 10초 내내 고착(기존
+   버그), 패치 후 t=3.5s 정상 해제.
+`py_compile` 통과, `verify_am_87`(base `284457f`)에서 `git am`+diff 0 확인.
+
+**전달**: `0001-87-VisionTrack-tentative-GHOST_TIMEOUT_S-3.0s.patch`를
+`/mnt/user-data/outputs/`에 전달(base `284457f`, `c3-ms-curv` 브랜치에
+적용).
+
+**신규 상수**: `VISION_TRACK_GHOST_TIMEOUT_S = 3.0` (NEEDS_VALIDATION,
+실차 반응 보고 튜닝 필요 — 값이 너무 짧으면 실제 리드의 일시적 강한
+가림/역광 등에서 조기 리셋 가능성, 너무 길면 팬텀 지속시간이 늘어남).
+
+**다음(최우선)**:
+1. 사용자 `git am` 적용 + push 확인.
+2. **실차 드라이브 검증** — (a) 이번에 재현된 것과 유사한 상황(커브
+   진입부에서 짧게 애매한 물체 스침 후 대상 없음)에서 파란 박스가
+   3~4초 내로 사라지는지, (b) 실제 리드(정지 앞차 등)를 놓치지 않고
+   정상 추적하는지(회귀 확인), (c) 3.0s 타임아웃이 체감상 너무
+   짧은지/긴지.
+3. 86차에서 대기 중이던 ttc_danger 18건(route2 seg11 등) 개별 확인은
+   이번 세션에서 미착수 — 다음 세션 이월.
+
 ## 86차 계속 (체크포인트 — CSV 재확보 + 5항목 스캔 완료, qcamera 대조 미실시) — c3-ms-curv 10개 route 종합분석
 
 **배경**: 컨테이너 재시작으로 86차 원본 zip이 유실됐다가, 사용자가

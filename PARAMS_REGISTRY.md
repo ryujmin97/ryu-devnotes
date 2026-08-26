@@ -210,3 +210,12 @@
   게이트 해제 후 직선/완만 구간에서 오탐(불필요 감속) 가능성 —
   NEEDS_VALIDATION, `c3-ms-curv` 브랜치에서 실차검증 (문제 시 브랜치
   롤백으로 c3-ms-dev 즉시 복귀 가능하도록 분리).
+- 2026-08-26 (87차): `VISION_TRACK_GHOST_TIMEOUT_S=3.0` 신규
+  (`radard.py`, `VisionTrack`) — 60차 계속6(B안)이 남긴 사각지대 수정:
+  tentative_cnt 래치가 prob 영구 소실 시에도 못 풀리던 버그(실차 재현:
+  파란 박스 120초 유지, 급감속 유발). prob<TENTATIVE_PROB_GATE(0.35)
+  연속 유지시간이 이 값을 넘으면 tentative_cnt 강제 리셋. 순수 로직
+  시뮬레이션 3개 시나리오 PASS(고스트 해제/실제 리드 회귀없음/시야이탈
+  정상해제), patch 전달 완료(`0001-87-...patch`, base `284457f`).
+  NEEDS_VALIDATION — 실차 반응 보고 튜닝 필요(너무 짧으면 실제 리드
+  일시 가림에서 조기리셋 가능, 너무 길면 팬텀 지속시간 증가).
