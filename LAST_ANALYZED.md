@@ -829,3 +829,14 @@ baseline) 분석. 연속 커브 2개 중 TBT 미근접 커브1은 route 미참�
 route 사전감속 조기개시(`ROUTE_ENTRY_MARGIN_KPH=25.0`, 89차 대안3 구현).
 시뮬레이션 검증(bc4301a25d 캐시, 커브A/B+직선 154초) 완료, patch 적용/push
 완료 확인. 상세는 WIP.md 91차 항목 참고. **다음은 실차 드라이브 검증만 남음.**
+
+2026-08-27 (92차, c3-ms-curv): 신규 커밋 없음(분석만) — 사용자 업로드
+국도 연속곡선 로그(`0000032d--c0e3054c4a`, x7seg, 5.85km/420s) meta.json
+commit 6d153913582d(91차)로 91차 실차검증 수행. **turn_speed_violation
+5건 전부 src=vturn(vturn apex-lag 이슈, route 무관), harsh_brake 1건도
+src=vturn, 직선 오탐 0건, seg16에서 route 6초 조기개입 실측사례 확인 —
+91차로 인한 회귀 없음으로 판정.** meta.json commit 태그(91차)와 로그
+기록시각(패치 커밋보다 13h 앞섬) 불일치 가능성 있어 사용자 확인 필요
+(NEEDS_CONFIRMATION). 상세는 WIP.md 92차 항목 참고. 91차 남은 항목 c
+(TBT 근접 급커브 부작용)는 이번 로그가 저속국도 위주라 표본 약함,
+추가 검증 필요시 별도 로그로.
