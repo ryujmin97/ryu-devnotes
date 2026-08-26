@@ -22,10 +22,16 @@ accel=0.70 기준 110km/h+에서 ceil(600m) 도달(기존 100km/h+에서 501.5m�
 `/mnt/user-data/outputs/`에 전달(base `2a91c3f`, `c3-ms-curv` 브랜치에
 적용, 84차 패치 위에 적층).
 
+**[갱신] 적용/push 완료 확인** — 사용자가 `C:\dev\ryu`에서 `git fetch`+
+`git reset --hard origin/c3-ms-curv`(2a91c3f 동기화) 후 `git am` 적용 +
+`git push origin c3-ms-curv` 완료. 컨테이너에서 `git fetch origin
+c3-ms-curv:refs/remotes/origin/c3-ms-curv` 후 로컬 검증 커밋(`e608162`)과
+diff 0(완전 동일) 재확인. origin `c3-ms-curv` HEAD: `2a91c3f..284457f`.
+
 **다음(최우선)**:
-1. 사용자가 `C:\dev\ryu`에서 `git checkout c3-ms-curv` + `git fetch` +
-   `git reset --hard origin/c3-ms-curv`(2a91c3f 동기화, 84차까지는 이미
-   push됨) → `git am` 적용 → `git push origin c3-ms-curv`.
+1. ~~사용자가 `C:\dev\ryu`에서 `git checkout c3-ms-curv` + `git fetch`+
+   `git reset --hard origin/c3-ms-curv`(2a91c3f 동기화) → `git am` 적용 →
+   `git push origin c3-ms-curv`.~~ → **완료**.
 2. **실차 드라이브 검증** — 600m 상한이 실제로 적용되는 고속 구간
    (accel=0.70 기준 110km/h+)에서 84차 대비 체감 차이(더 이른 감속
    개시) 확인, 저속/도심 구간 회귀 없는지(floor 300m 동일) 재확인.
