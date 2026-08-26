@@ -1,3 +1,15 @@
+## c3-ms-curv (93차, 91차 회귀검증 시뮬레이션 — 코드 변경 없음)
+- last_analyzed_commit: `6d15391` (origin HEAD, 91차 그대로 — 이번 세션은
+  검증 스크립트만 신규, ryu 코드 변경 없음)
+- date: 2026-08-27 (93차)
+- note: 91차(ROUTE_ENTRY_MARGIN_KPH=25.0)를 국도 연속곡선 route
+  (0000032d--c0e3054c4a, seg13~19, 91차 이전 baseline 로그)에 desiredCurvature
+  적분 재구성+역방향DP margin 스윕(126 스냅샷)으로 정식 회귀검증 — 직선
+  오탐 0건, 조기개입 75건 전부 정점 목표값 불변(diff 0.00kph), 역전버그
+  0건. 92차의 "91차 적용후 로그"였다는 오분류를 정정 후 재검증한 결과.
+  **81/82/84/85/87/91차 전부 여전히 실차 드라이브 검증 대기 상태.** 상세는
+  WIP.md/FINDINGS.md "93차" 참고.
+
 ## c3-ms-curv (81차 신규 생성, base c3-ms-dev `2d5174e`)
 - last_analyzed_commit (85차, 적용/push 완료 확인): `284457f`
   (origin HEAD, `2a91c3f`(84차) 위 신규 커밋 1개. 사용자가 `C:\dev\ryu`

@@ -682,3 +682,21 @@ route 최저값(121km/h)과 vturn 실측(73km/h) 사이 48km/h 갭에 비하면
 2. 이 README에 섹션 추가 (목적/의존성/주요 함수/사용 예시)
 3. `CHANGELOG.md`에 날짜 + 한 줄 요약 추가
 4. 세션 종료 시 `push_via_api.py` 인자에 변경된 toolkit 파일 포함해서 push
+
+## sim_route_margin_regression_scan.py
+**목적**: 93차 — 91차(ROUTE_ENTRY_MARGIN_KPH) 회귀검증용. `sim_route_
+curvature_sample.py`의 재구성/곡률/DP 함수를 재사용하되 `backward_dp`에
+91차 margin_kph 로직(감속전환 time_delay 계산에만 target_speed-margin
+사용)을 추가한 `backward_dp_margin()` 제공. 로그 전체 구간을 지정 간격
+(기본 3초)으로 스윕하며 margin=0 vs margin=25 결과를 비교, (1)직선구간
+오탐 (2)조기개입 여부+정점목표값 불변 확인 (3)역전버그 3가지를 자동
+판정.
+**사용**:
+```bash
+python3 sim_route_margin_regression_scan.py <route.csv> \
+    --step 3.0 --lookahead 45.0 --accel 0.70
+```
+`--accel`은 `AutoNaviSpeedDecelRate` 실측값(83차, 기본 0.70) 사용.
+`--lookahead`는 84/85차 동적 캡(300~600m) 커버리지의 근사치 — 최소
+40~50초 권장(고속 구간 600m 커버 위해).
+**의존성**: `shapely`, `numpy`. `sim_route_curvature_sample.py` 재사용.

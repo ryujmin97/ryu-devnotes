@@ -400,3 +400,7 @@
   사용. 결과: sample 축소 효과가 미미(~2.5km/h)해 실제 관측된 48km/h
   갭을 설명 못함 -- 대안1 단독으로는 불충분하다는 결론. 상세는
   FINDINGS.md 90차 참고.
+- 2026-08-27 (93차): `sim_route_margin_regression_scan.py` 신규 —
+  91차(ROUTE_ENTRY_MARGIN_KPH) 회귀검증용 전체구간 margin 스윕
+  스크립트. 국도 연속곡선 route(0000032d--c0e3054c4a)로 검증, 직선
+  오탐 0건/조기개입 정점목표값 불변/역전버그 0건 확인.
