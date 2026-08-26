@@ -3199,3 +3199,90 @@ UI 설명(`"3: route(always)"`) 자체가 이 의미. 즉 "vturn+route 둘 다
 조건은 손대지 않음). 대안으로 게이트를 "TBT 거리" 대신 다른 조건
 (예: route_speed 자체가 유의미하게 낮을 때만 참가)으로 교체하는 방향도
 논의 중 — 아직 패치 미작성, 방향 결정 대기.
+
+## 82차 (체크포인트 — 구현+검증+패치 전달 완료, `git am`/실차 적용 대기) — vturn/route 원복(가속 재개)측 대칭 safe_time 버퍼, route측 심각한 버그 발견/수정
+
+**배경**: 81차 계속에서 확인한 "vturn_safe_time은 진입측(사전감속 시작/목표속도
+도달)에만 영향, 정점 통과 후 원복(재가속) 타이밍엔 무관"이라는 비대칭 구조에
+대해, 사용자가 "가속 응답도 동일하게 지연이 있으니 원복측도 대칭 적용해야
+한다"고 지적 → vturn/route 양쪽에 동일한 설계(진입과 같은 `vturn_safe_time`
+버퍼를 원복측에도 대칭 적용) 승인 후 동시 구현.
+
+**컨테이너 재시작으로 유실**: 이전 세션이 구현+디버깅 도중(특히 route측
+검증 스크립트가 계속 diff=0을 보여 원인 규명 중) 컨테이너가 재시작됨.
+이번 세션은 사용자가 로컬에서 편집 완료한 `carrot_man.py`를 업로드한 상태로
+시작 — `origin/c3-ms-curv`(81차 HEAD `d7a647f`) 대비 diff 확인 결과 vturn/route
+양쪽 모두 구현은 이미 로컬에 반영돼 있었으나 **커밋/patch화/devnotes 기록은
+전혀 안 된 상태**였음(순수 파일 diff로만 존재).
+
+**구현 및 검증**:
+
+1. **`vturn_speed()` 원복측 대칭 buffer — 정상 작동 확인**:
+   `accel_lead_dist = CS.vEgo * vturn_safe_time`만큼 lookahead position을
+   앞당긴 가상의 2차 계산(`turnSpeed_recovery`)을 만들어, 상승추세
+   (`turnSpeed > vturn_last_speed`)이고 recovery 값이 더 높을 때만 채택.
+   `work/test_vturn_recovery_v2.py`(20Hz 프레임 시뮬레이션, 연속곡률
+   프로파일 — 계단형 프로파일에서는 모델의 lookahead 배열이 정점 통과 즉시
+   불연속으로 빠지는 특성상 buffer 효과가 안 보였으나, 실제 모델처럼
+   연속적으로 완화되는 곡률 프로파일에서는) **100km/h 회복 시점이 0.7초/11m
+   단축, 과도구간 turnSpeed 최대 +29km/h 우위** 확인 — 설계 의도대로 작동.
+   접근(진입)측엔 전혀 영향 없음(로직이 완전히 분리된 블록, 회귀 없음).
+
+2. **`carrot_navi_route()` 원복측 대칭 buffer — 심각한 버그 발견 후 수정**:
+   최초 구현은 진입측 `time_delay`에도 `+ vturn_safe_time`을 동일하게
+   더했는데, **`work/test_route_recovery2.py`(현실적 거리 스케일: 커브
+   60m + 직후 직선 800m)로 재현한 결과 patched 출력이 baseline과
+   소수점까지 100% 동일**함을 발견. 원인 규명(`work/` 내 debug trace):
+   이 DP는 단일 스칼라 `time_wait`(누적 시간여유)로 감속/가속을 관리하는데,
+   진입측에서 추가한 +2.0초의 debt가 **커브 구간(out_speed가 target에
+   고정되어 클리핑되는 구간) 내내 그대로 보존**되다가, 원복 크레딧
+   (`+= vturn_safe_time`, 동일 +2.0초)에서 **정확히 상쇄**되어 그 이후
+   전체 구간의 `time_wait`/`out_speed`가 원본과 완전히 일치하게 되는
+   구조적 문제였음(클리핑이 발생하지 않는 한 두 조정은 수학적으로 항상
+   정확히 상쇄됨 — 커브가 매우 길어서 debt가 커브 안에서 다 소진되는
+   극단적 케이스가 아닌 한 일반적인 커브에서는 100% 무효화).
+   **수정**: 진입측(`time_delay`) 변경을 되돌려 순수 물리 도달시간
+   계산으로 복원(기존 79/81차 동작 그대로), 원복측 크레딧만 유지.
+   원복 판정 조건도 `route_prev_state=='decel'`(decel 트리거 직후 첫
+   지점에 즉시 발동 — 커브 내부 정체구간에서도 조기 발동하는 문제 있었음)
+   에서 `target_speed > next_out_speed and route_prev_state=='decel'`
+   (실제로 target이 next_out을 넘어서는, 즉 커브를 물리적으로 빠져나가는
+   지점)로 엄격화. 수정 후 재검증: baseline 대비 **회복구간에서 최대
+   +6.9km/h 더 높은 out_speed**(더 빠른 회복) 확인, 커브 구간 내부에서는
+   `elif` 조건(immediate vs strict) 어느 쪽을 써도 다운스트림 결과가
+   동일함도 확인(둘 다 커브 내부에서 60kph를 넘기지 않음 — 회귀 없음).
+
+3. **`py_compile` 통과, `git am` 검증**: 로컬 커밋(`a3f2880`, base
+   `d7a647f`=81차 a/b) → `git format-patch -1` → `verify-am-82` 임시
+   브랜치(base `d7a647f`)에서 `git am` 적용 → diff 0(완전 동일) 확인.
+
+**전달**: `0001-82차-vturn-route-원복측-대칭버퍼-route버그수정.patch`를
+`/mnt/user-data/outputs/`에 전달(base `d7a647f` = 현재 origin
+`c3-ms-curv` HEAD 위에 바로 `git am` 가능).
+
+**신규 상수 없음** — 진입측과 동일하게 `vturn_safe_time`(2.0s) 재사용.
+
+**코드 변경**: `carrot_man.py`(ryu, `c3-ms-curv` 브랜치 대상, 패치 전달
+완료)/`toolkit`(devnotes, 신규 검증스크립트는 아직 `work/`에만 있음 —
+정식 편입 여부는 다음 세션 판단, 아래 참고).
+
+**다음(최우선)**:
+1. 사용자가 `C:\dev\ryu`(`c3-ms-curv` 브랜치)에서 `git am` 적용 +
+   `git push origin c3-ms-curv`.
+2. **실차 드라이브 검증** — (a) vturn: 정점 통과 후 재가속이 더 자연스럽게
+   느껴지는지(81차에서 지적된 "원복이 안 당겨지는" 문제 해소 여부),
+   (b) route: 커브 빠져나온 후 회복이 더 빨라지는지, (c) **회귀 검증
+   필수** — 진입(사전감속)측 체감이 이번 변경으로 전혀 달라지지 않았는지
+   (vturn 진입/route 진입 로직 모두 미변경이어야 정상), 커브 구간 내부에서
+   과속(target 초과) 없는지.
+3. 검증용 스크립트 2개(`work/test_vturn_recovery_v2.py`,
+   `work/test_route_recovery2.py`)는 재사용 가치가 높음(원복측 buffer
+   회귀 검증에 반복 필요) — 아직 `toolkit/`에 미편입 상태, 다음 세션에서
+   `toolkit/README.md` 정책대로 정식 편입 필요(80차 계속에서 강화한
+   정책과 동일 적용 대상).
+4. 문제 발생 시 CarrotWeb pull UI로 `c3-ms-dev`(브랜치 미변경 원본)로
+   즉시 롤백 가능.
+
+## 다음 세션 시작 시
+이 WIP.md에 "82차" 섹션이 있으면 이 지점부터 이어감 — 특히 (1) `git am`/
+실차 검증 결과 확인, (2) 위 검증 스크립트 2개 toolkit 편입 여부.
