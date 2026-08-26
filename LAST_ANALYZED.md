@@ -793,3 +793,13 @@ FINDINGS.md 79차 항목 참고. **실차 적용/검증 대기.**
 - last_analyzed_commit: (아직 분석 안 함)
 - date: -
 - note: -
+
+2026-08-26 (86차, c3-ms-curv 재분석): 신규 커밋 없음(origin `c3-ms-curv`
+HEAD `451a3b9` 그대로, 로그 자체는 85차 HEAD `284457f`에서 기록됨) —
+10개 route(commit `284457f`) CSV `five_item_scan.py`(신규 정식편입)로
+5항목 일괄 스캔 완료. 안전지표(harsh_brake/ttc_danger/cutin) 병행 확인.
+곡선위반 72건 중 vturn 소스 3149프레임 vs route 소스 12프레임 —
+곡선위반 다발은 기존 vturn apex 이슈 연장, 85차 route 패치 회귀 아님으로
+잠정 판단(route 소스 프레임 자체가 적어 결론력 약함). **qcamera 대조는
+미실시**(원본 zip 유실, CSV만 재확보). 10개 route를 `data/routes/`에
+gzip 캐시 등록 완료. 상세는 WIP.md/FINDINGS.md 86차 항목 참고.

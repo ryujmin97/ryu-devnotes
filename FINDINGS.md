@@ -6399,3 +6399,90 @@ route_lookahead_m)`로 교체, `route_lookahead_m`은 매 프레임
 3. 83차가 함께 제안했던 "route 전용 accel_limit 분리"(현재
    `AutoNaviSpeedDecelRate` 공유 구조) 논의는 이번 84차와 별개로
    여전히 미착수 — 필요시 후속 논의.
+
+## 86차 (완료 — 10개 route CSV 5항목 스캔 완료, qcamera 대조는 미실시) — c3-ms-curv(85차 HEAD) 실주행 로그 종합분석
+
+**배경**: 85차(route lookahead 상한 600m) 적용 후 사용자가 c3-ms-curv
+브랜치로 실주행한 로그 10개 route(commit `284457f38a85`, 총 142세그,
+~152k row)를 업로드. 컨테이너 재시작으로 원본 zip이 유실됐다가 사용자가
+Google Drive에서 CSV zip(`ryu_c3-ms-curv_logs_20260826.zip`)을 재다운로드해
+재업로드 — qcamera는 이 zip에 포함되지 않아(CSV만) **이번 세션은 CSV
+기반 5항목 스캔까지만 완료, qcamera 프레임 대조는 원본 rlog+qcamera
+재확보 시 별도 진행 필요**.
+
+**도구**: `five_item_scan.py`(신규 정식 편입, toolkit/README.md 참고)로
+5개 항목 일괄 스캔 + `harsh_brake_events`/`ttc_danger_events`/
+`lead_cut_in_detector`(기존 함수) 안전지표 병행.
+
+**route별 요약** (`vision_crossover / stopped_lead / launch_after_stop /
+radar_jerk / turn_violation` — `harsh_brake / ttc_danger / cutin`):
+- route1(d2a61d2a73, x18seg): 25/0/0/63/0 — 0/0/0 (전 카테고리 클린)
+- route2(dfc68039a9, x20seg): 16/2/1/41/2 — 33/**3**/1
+- route3(4a32e2c0d3, x20seg): 13/0/0/35/0 — 0/0/0 (클린)
+- route4(bc4301a25d, x20seg): 14/2/1/88/8 — 13/0/0
+- route5(c0e3054c4a, x20seg): 2/1/0/1/**28**(최다) — 5/**3**/0
+- route6(8b55ac185d, x13seg): 0/1/0/0/17 — 13/0/0
+- route7(1582412718, x20seg): 26/6/6/80/16 — 25/1/0
+- route8(e7a09d7ec4, x4seg): 4/1/0/56/1 — 13/1/0
+- route9(a3fcd91b87, 단일세그): 0/0/0/0/0 — 0/0/0 (짧은 구간)
+- route10(6e1e9a8e26, x6seg): 8/11/2/14/0 — 28/**9**/10 (저속 밀집구간 추정)
+
+**1) 카메라 인식 시 감속**: 크로스오버 108건(10개 route 합계), 기존
+41/55/56차와 동일하게 대부분 레이더 락온 전 감속 개시 확인(개별 전수
+검증은 안 함, 표본 확인 없이 건수만 집계).
+
+**2) 정지 앞차 감속**: 24건 탐지. 개별 미검증(표본 검증 없이 건수만
+집계) — 다음 세션에서 이상치(aEgo_min이 유독 약한 건) 선별 필요.
+
+**3) 정지 후 재출발**: 10건, 45차 launch bypass 이후 대량 로그에서 처음
+집계(route7이 6건으로 최다). 개별 미검증.
+
+**4) 레이더 락온 저크**: 421건(전체 route 합계, route4=88건 최다).
+`leadVRel`≈0(|vRel|<0.5m/s)인데도 저크가 큰 55/56차류 이상 패턴이
+126건 재현됨 — **표본 규모가 이전(2~4건)보다 훨씬 커졌으나 데이터
+규모(152k row, 이전 대비 5~8배) 대비 비율은 유사한 수준으로 추정**
+(정확한 비율 비교는 미실시). 신규 이상으로 격상하지 않고 기존
+NEEDS_VALIDATION(원인 미상, 코드리뷰 필요) 유지.
+
+**5) 곡선구간 감속(turn_speed_violations)**: 72건(10개 route 합계),
+route5(28건)/route6(17건)/route7(16건)에 집중. **위반 구간 프레임의
+src 분포를 확인한 결과 vturn=3149프레임 vs route=12프레임 vs
+gas=91/bump=2 — 압도적으로 vturn(비전 기반 곡선속도제어) 소스이고
+85차가 만진 route(내비경로) 소스는 거의 관여하지 않음.** 즉 이번
+로그의 곡선위반 다발은 51~85차부터 계속 이어지는 "vturn apex
+조기언더슈트/lookahead 지연" 기존 이슈의 연장(신규 발견 아님, 85차
+route lookahead 600m 확장이 vturn 자체의 한계를 해결하는 패치가
+아니었으므로 예상된 결과) — **85차/82차 route 패치 자체의 회귀는
+이번 스캔 기준으로는 확인되지 않음(route 소스 관여 프레임이 원래도
+작아 이 지표만으로 결론 내리긴 약함, 다음 단계로 route 소스만 걸러진
+구간 개별 확인 필요)**.
+
+**안전지표**: ttc_danger(TTC≤2.5s) 총 18건 — 대부분 vEgo<9m/s(저속,
+근접 정차/서행 상황)이고 route10(9건)에 집중(저속 밀집구간 추정,
+harsh_brake도 28건으로 route10이 최다). route2 seg11 t=661.88
+(vEgo=8.68m/s, dRel=28.6m, vRel=-11.8m/s)은 상대적으로 고속 급접근
+후보로 개별 확인 우선순위 높음. **전부 운전자 개입 여부/qcamera
+정탐 확인 미실시** — 다음 세션 최우선.
+
+**코드 변경**: `toolkit/five_item_scan.py` 신규(정식 편입). 10개 route
+CSV를 `data/routes/<route_id>/`에 gzip 캐시로 등록(README.md 갱신).
+`ryu` 코드 변경 없음.
+
+**다음(최우선)**:
+1. ttc_danger 18건, 특히 route2 seg11(고속 근접후보)/route10(9건 밀집)
+   개별 확인 — 운전자 개입 여부, 가능하면 qcamera로 정탐/오탐 판정.
+2. qcamera 대조 자체가 필요하면 원본 zip(rlog+qcamera 포함)을 사용자가
+   재확보해 재업로드 필요 — 이번 CSV-only 재다운로드로는 불가능.
+3. radar_lockon_jerk의 leadVRel≈0 이상패턴(126건) 표본 규모가 커진 만큼
+   코드리뷰 우선순위 재검토 여지(41차부터 이월된 저우선 항목).
+5. **[신규, 부분확인]** route7(1582412718) t=658.0~660.0 급접근 후보
+   개별 확인 결과: `leadRadar=False`(비전단독) 구간에서 `leadDRel`이
+   74→64→68→69→56→61m로 심하게 요동(2~4프레임 간격 노이즈, 42/55차류
+   vision dRel jump 패턴과 유사)하다가 t=658.83부터 `leadVRel`이
+   -1.6→-14.9m/s까지 급격히 커지며 `aEgo`가 -0.5→-2.7까지 지속 감속.
+   `cruiseEnabled=True`/브레이크·가스 미개입(순수 ADAS 반응). dRel
+   자체의 요동으로 인해 노이즈성 오탐인지 실제 급접근(cut-in 등)인지는
+   qcamera 없이 CSV만으로 판정 불가 — qcamera 재확보 시 최우선 확인 대상.
+4. route5(28건)/route6(17건)/route7(16건) 곡선위반 중 src=route인
+   12프레임만 따로 걸러 85차 lookahead 600m 확장이 실제로 도움이 됐는지
+   개별 확인(전체 위반이 vturn 주도라 이 지표로는 결론 약함).

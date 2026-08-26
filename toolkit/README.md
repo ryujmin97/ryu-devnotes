@@ -620,6 +620,21 @@ accel_limit 낮을수록 같은 속도에서 캡이 더 크게(단조성), accel
 예외 시 floor(300m) 안전 폴백.
 **사용**: `python3 sim_route_dynamic_cap.py`
 
+## five_item_scan.py (55/56차 최초 작성, 86차 정식 편입)
+**목적**: "5개 항목 종합분석" 표준 절차(카메라인식감속/정지앞차감속/
+정지후재출발/레이더락온저크/곡선구간감속) 일괄 실행. 55차/56차에서
+`work/`에만 있다가 두 번(56차/86차) 컨테이너 리셋으로 유실된 이력이 있어
+이번에 정식 편입.
+**의존성**: `analysis_helpers.py`(같은 폴더, `vision_to_radar_crossover`/
+`turn_speed_violations`/`_f`/`_b` 재사용).
+**주요 함수**: `run_five_item_scan(rows)` — 5개 함수 결과를 dict로 반환.
+개별: `stopped_lead_decel_events(rows, v_lead_thresh=1.0, min_duration_s=1.0)`,
+`launch_after_stop_events(rows, stop_v_ego=0.3, exit_v_ego=5.0)`(45차 launch
+bypass 상수와 동일값), `radar_lockon_jerk_events(rows, jerk_thresh=3.0,
+smooth_window_s=0.3)`(leadRadar=True 프레임만, 0.3s 이동평균 jerk).
+**사용**: `python3 five_item_scan.py <csv_path>` (건수만 출력) 또는
+`from five_item_scan import run_five_item_scan`.
+
 ---
 
 ## 아직 없는 카테고리 (필요해지면 추가)

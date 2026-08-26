@@ -23,6 +23,22 @@ data/routes/<route_id>/
 1차 검증 세트(72차 계속2/계속3). 상세 분석은 `FINDINGS.md` "72차"
 계열 항목 참고.
 
+| `d2a61d2a73` | 86차 route1 (x18seg) | 18 | 21599 | `284457f38a85` (85차) | c3-ms-curv 실주행, 5항목 스캔 완료(86차) |
+| `dfc68039a9` | 86차 route2 (x20seg) | 20 | 24002 | `284457f38a85` (85차) | ttc_danger 3건 포함 |
+| `4a32e2c0d3` | 86차 route3 (x20seg) | 20 | 24000 | `284457f38a85` (85차) | 안전지표 전부 클린 |
+| `bc4301a25d` | 86차 route4 (x20seg) | 20 | 24000 | `284457f38a85` (85차) | turn_speed_violation 8건 |
+| `c0e3054c4a` | 86차 route5 (x20seg) | 20 | 24001 | `284457f38a85` (85차) | turn_speed_violation 28건(최다) |
+| `8b55ac185d` | 86차 route6 (x13seg) | 13(마지막 세그 zstd 손상, 스트리밍 폴백 회수) | 15185 | `284457f38a85` (85차) | turn_speed_violation 17건 |
+| `1582412718` | 86차 route7 (x20seg) | 20 | 24033 | `284457f38a85` (85차) | stopped_lead/launch_after_stop 각 6건 |
+| `e7a09d7ec4` | 86차 route8 (x4seg) | 4 | 4407 | `284457f38a85` (85차) | - |
+| `a3fcd91b87` | 86차 route9 (단일세그) | 1 | 1055 | `284457f38a85` (85차) | 짧은 구간, 이상 없음 |
+| `6e1e9a8e26` | 86차 route10 (x6seg) | 6 | 6214 | `284457f38a85` (85차) | ttc_danger 9건/harsh_brake 28건(밀집구간 추정) |
+
+위 10개는 86차에서 c3-ms-curv(85차 HEAD) 검증용으로 일괄 업로드된 세트 —
+5항목 스캔(`five_item_scan.py`)은 완료, qcamera 프레임 대조는 아직
+미실시(원본 zip에 qcamera 미포함, CSV만 재확보됨). 상세는 FINDINGS.md
+"86차" 항목 참고.
+
 ## 불러오기
 
 `toolkit/data_routes.py`의 `load_route(devnotes_dir, route_id)` 사용.

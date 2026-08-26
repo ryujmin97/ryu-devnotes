@@ -384,3 +384,11 @@
   compute_route_lookahead_distance()`) 회귀 검증. 저속 floor 유지/고속
   ceil clip/단조성/예외 안전폴백 4개 시나리오 PASS. 상세는 FINDINGS.md
   84차 항목 참고.
+
+## 2026-08-26 (86차, five_item_scan.py 정식 편입)
+- `five_item_scan.py` 신규: 55/56차의 "5개 항목 종합분석"(카메라인식감속/
+  정지앞차감속/정지후재출발/레이더락온저크/곡선구간감속) 절차를 재현하는
+  `stopped_lead_decel_events`/`launch_after_stop_events`/
+  `radar_lockon_jerk_events` 3개 함수 신규 구현(기존 55차 로직 설명을
+  기반으로 재현) + 기존 `vision_to_radar_crossover`/`turn_speed_violations`
+  통합. work/ 스크래치로만 2회(56차/86차) 유실됐던 것을 이번에 정식 편입.

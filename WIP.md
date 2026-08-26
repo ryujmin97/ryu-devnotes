@@ -1,4 +1,16 @@
-## 86차 (체크포인트 — 로그 추출만, 분석은 미착수) — c3-ms-curv 실주행 로그 10개 route CSV 일괄 추출
+## 86차 계속 (체크포인트 — CSV 재확보 + 5항목 스캔 완료, qcamera 대조 미실시) — c3-ms-curv 10개 route 종합분석
+
+**배경**: 컨테이너 재시작으로 86차 원본 zip이 유실됐다가, 사용자가
+Google Drive에 저장해둔 CSV zip(`ryu_c3-ms-curv_logs_20260826.zip`,
+qcamera 미포함)을 재다운로드해 재업로드 — 10개 route 전부 재확보.
+
+**작업**: `five_item_scan.py`(55/56차 로직 재현, 이번에 `toolkit/`
+정식 편입) 신규 작성 → 10개 route 전체에 5항목(카메라인식감속/
+정지앞차감속/정지후재출발/레이더락온저크/곡선구간감속) + 안전지표
+(harsh_brake/ttc_danger/cutin) 일괄 스캔 완료. 10개 route를
+`data/routes/<route_id>/`에 gzip 캐시로 등록(다음부터 재업로드 불필요).
+
+**핵심 결과** (상세는 FINDINGS.md "86차" 항목 참고):\n- 곡선위반 72건 중 vturn 소스가 3149프레임, route 소스는 12프레임뿐 —\n  85차(route lookahead 600m)/82차(원복버퍼) 패치의 회귀가 아니라 기존\n  vturn apex 이슈 연장으로 잠정 판단(결론력 약함, route 소스만 걸러진\n  개별 확인 필요).\n- ttc_danger 18건 중 route2(0000032f) seg11 t=661.88(vEgo 8.68m/s,\n  dRel 28.6m, vRel -11.8m/s)이 상대적 고속 급접근 후보로 최우선.\n- route7 t=658.0~660.0에서 vision-only dRel 요동(74→68→56→61m) 후\n  vRel -14.9m/s까지 급격 심화, aEgo -2.7까지 감속 — 노이즈성 오탐인지\n  실제 cut-in인지 qcamera 없이 판정 불가.\n- radar_lockon_jerk의 leadVRel≈0 이상패턴이 126건(41차부터 이월된\n  저우선 항목, 표본 규모만 커짐 — 신규 격상은 안 함).\n\n**다음(최우선)**:\n1. qcamera 대조가 필요하면 원본 zip(rlog+qcamera 포함) 재확보 필요 —\n   이번 CSV-only 재다운로드로는 불가능. 사용자에게 재업로드 요청할지\n   결정.\n2. ttc_danger 18건(특히 route2 seg11, route10 9건 밀집) 개별 확인.\n3. 84/85차 이전(85차 이전 HEAD)에 이월돼 있던 실차검증 항목들\n   (84차/85차/82차 자체의 체감 확인 등)도 이 10개 route로 함께 확인\n   가능 여부 검토(meta.json commit이 `284457f`로 일치하므로 85차\n   이후 드라이브로 확정).\n\n## 86차 (완료 — 로그 추출만, 위 \"86차 계속\"에서 5항목 스캔으로 이어짐) — c3-ms-curv 실주행 로그 10개 route CSV 일괄 추출
 
 **배경**: 사용자가 `c3-ms-curv` 브랜치(85차 HEAD `284457f`, route lookahead
 600m 상향 반영된 상태)에서 실주행한 로그 10개 route를 한 번에 업로드
