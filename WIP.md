@@ -21,10 +21,16 @@
 **전달**: `0001-84-route-lookahead-300m-v_ego-accel_limit-300-500m.patch`를
 `/mnt/user-data/outputs/`에 전달(base `451a3b9`, `c3-ms-curv` 브랜치에 적용).
 
+**[갱신] 적용/push 완료 확인** — 사용자가 `C:\dev\ryu`에서 `git fetch`+
+`git reset --hard origin/c3-ms-curv`(451a3b9 동기화) 후 `git am` 적용 +
+`git push origin c3-ms-curv` 완료. 컨테이너에서 `git fetch origin
+c3-ms-curv:refs/remotes/origin/c3-ms-curv` 후 로컬 검증 커밋(`c26fa91`)과
+diff 0(완전 동일) 재확인. origin `c3-ms-curv` HEAD: `451a3b9..2a91c3f`.
+
 **다음(최우선)**:
-1. 사용자가 `C:\dev\ryu`에서 `git checkout c3-ms-curv` + `git fetch`+
+1. ~~사용자가 `C:\dev\ryu`에서 `git checkout c3-ms-curv` + `git fetch`+
    `git reset --hard origin/c3-ms-curv`(451a3b9 동기화) → `git am` 적용 →
-   `git push origin c3-ms-curv`.
+   `git push origin c3-ms-curv`.~~ → **완료**.
 2. **실차 드라이브 검증** — (a) 고속도로 순항 중 route 기반 커브 감속이
    더 이르게 시작되는지, (b) **회귀 검증 필수** — 저속/도심 구간 체감
    차이 없는지(floor 300m로 동일해야 함), 직선 구간 GPS 오차로 인한
