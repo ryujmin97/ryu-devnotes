@@ -543,6 +543,66 @@ python3 push_via_api.py --message "커밋 메시지" \
 
 ---
 
+## sim_jerk_boost.py
+**목적**: 66차/67차(방안G) `a_change_cost`(저크비용) 한시적 부스트 로직
+('discontinuity' 트리거 소스, 비-handoff 한정) 합성검증. 69차부터
+"실물 존재 확인 필요"로 여러 세션 이월되던 항목 -- 80차에서 실제로
+작성/저장(그 전까진 주석에서만 언급되고 실물이 없었음).
+**의존성**: 없음(표준 라이브러리만).
+**주요 함수**: `DiscontinuityBoostReplay` -- `trigger()`로 boost 타이머
+arm, `step(frac, danger_active, base_a_change_cost)`로 매 프레임
+`a_change_cost` 재현.
+**커버 시나리오**: 정상 트리거 시 1.0s 전체 boost 유지 후 hard-cutoff,
+frac>0에 의한 무력화(75차 발견 구조), danger override 최우선, 트리거
+없는 구간 회귀 없음, boost 소진 후 지속 감속 한계(72차 실측, 방안I 도입
+근거).
+**주의**: 'handoff'/'discontinuity_lc' 소스(방안I, hard-hold+release-rate)는
+범위 밖 -- `replay_boost_duration.py`가 담당.
+**사용**: `python3 sim_jerk_boost.py`
+
+## sim_res_button.py
+**목적**: 79차("수동주행 중 첫 +RES 시 목표속도가 현재속도보다 낮게
+설정" 버그) 패치 로직 순수함수 재현. `cruise.py`
+`VCruiseCarrot._update_cruise_buttons()` accelCruise 분기 재현.
+**의존성**: 없음(표준 라이브러리만).
+**주요 함수**: `update_cruise_buttons_accel(..., patched=True/False)` --
+patched=False로 79차 이전(버그) 동작, True로 패치 이후 동작 비교 가능.
+**커버 시나리오**: 버그 재현(구코드 33 그대로) vs 패치 확인(신코드
+현재속도보다 높은 다음 눈금), unit(눈금 크기) 반영, 기존 no-op 분기
+(`_cruise_ready`/`standstill`/`CC.enabled=True`) 회귀 없음.
+**사용**: `python3 sim_res_button.py`
+
+## test_launch_bypass.py
+**목적**: 45차(정지 후 출발 가속 약화 대응) launch bypass 로직 회귀
+검증. `long_mpc.py` `process_lead()`의 `LAUNCH_BYPASS_STOP_V_EGO`/
+`LAUNCH_BYPASS_EXIT_V_EGO` 상태 전환 + bypass 중 TTC 게이트/rise-rate
+완전 우회 로직 재현.
+**의존성**: 없음(표준 라이브러리만).
+**주요 함수**: `LaunchBypassReplay.step(v_ego, x_lead, v_lead, ...)` --
+`w`(lead accel damping weight), bypass 활성 여부, ttc_now를 프레임별로
+리턴.
+**커버 시나리오**: 정차→출발 구간 무감쇠 유지, EXIT_V_EGO 전환 순간 w
+급변 가능성(45차가 발견, 회귀 아닌 알려진 설계 특성으로 문서화), bypass
+중 danger override 최우선, 고속 정상주행 회귀 없음(39차 rise-rate 유지).
+**주의**: `dist_w`(margin_accel_weight)는 1.0 고정 단순화 -- 실측 route
+기반 재생은 `replay_boost_duration.py`류 참고.
+**사용**: `python3 test_launch_bypass.py`
+
+## test_scc_gate.py
+**목적**: 37차(SCC 단일점 폴백 dPath 안전 게이트) 회귀 검증.
+`radard.py` `RadarD.get_lead()`의 `track_scc`(trackId=0) 폴백 채택 시
+`SCC_FALLBACK_DPATH_GATE`(2.0m) 검증 로직 재현.
+**의존성**: 없음(표준 라이브러리만).
+**주요 함수**: `get_lead_scc_fallback(track_present, lead_msg_prob,
+track_scc_cnt, track_scc_dpath, track_scc_vlead, enable_radar_tracks=-1)`
+-- (used_scc_fallback, gate_blocked) 튜플 리턴.
+**커버 시나리오**: 옆차선 오검출 차단, 문턱(2.0m) 경계 케이스, 차로 내
+정상 리드 채택 회귀 없음, 후보 조건 자체가 안 열리는 no-op 케이스,
+track 존재+저확신(prob<.6) 상황에서도 게이트 우회 없음(60차 계속8 관련).
+**사용**: `python3 test_scc_gate.py`
+
+---
+
 ## 아직 없는 카테고리 (필요해지면 추가)
 - `toolkit/sim/` — 시뮬레이터 스크립트가 `sim_vision_rate.py` 하나를
   넘어 여러 개로 늘어나면 이 시점에 하위 폴더로 분리 검토.
