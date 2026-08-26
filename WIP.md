@@ -3066,7 +3066,7 @@ LAST_ANALYZED 확인용 원격 HEAD)):
 `curve_gap_vs_apex_scan.py` 등)는 "편입 여부 판단 보류" 상태 그대로 —
 방안 확정/재사용 가치가 더 명확해지면 다음 세션에서 재검토.
 
-## 81차 계속 (체크포인트 — (a)(b) 구현/검증 완료, `c3-ms-curv` 신규 브랜치, 실차 적용/검증 대기)
+## 81차 계속 (체크포인트 — (a)(b) 적용/push 완료 확인, 실차 검증 대기)
 
 **배경**: 사용자가 곡선_개념도.pdf/곡선_가감속_코딩.txt 업로드 — vturn/route
 결합 설계 방향 제시. 코드 대조 결과 vturn 1/2번(기본곡선/연속곡선)은
@@ -3095,20 +3095,19 @@ c3-ms-dev로 즉시 롤백 가능하도록 분리). (a)는 2.0초로.
 **diff 0(완전 동일)** 확인.
 
 **전달**: `0001-81-a-b-vturn_safe_time-1.0s-2.0s-route-500m-TBT-mode.patch`를
-`/mnt/user-data/outputs/`에 전달. **사용자 조치 필요**(기존 c3-ms-dev
-패치와 달리 이번엔 신규 브랜치 생성이 필요):
-```powershell
-cd C:\dev\ryu
-git fetch origin
-git checkout -b c3-ms-curv origin/c3-ms-dev
-git am "C:\dev\patch\0001-81-a-b-vturn_safe_time-1.0s-2.0s-route-500m-TBT-mode.patch"
-git push origin c3-ms-curv
-```
-(기기에서 브랜치 전환 시 CarrotWeb pull UI로 `c3-ms-curv` 선택.)
+`/mnt/user-data/outputs/`에 전달.
+
+**[갱신] 적용/push 완료 확인** — 사용자가 `C:\dev\ryu`에서
+`git checkout -b c3-ms-curv origin/c3-ms-dev` + `git am` 적용 +
+`git push origin c3-ms-curv` 완료(신규 브랜치 최초 push, GitHub PR
+링크 자동 안내됐으나 PR은 생성 안 함 — 브랜치만 사용). 컨테이너에서
+`git fetch origin c3-ms-curv:refs/remotes/origin/c3-ms-curv` 후 로컬
+검증 커밋(`6344077`)과 diff 0(완전 동일) 재확인 완료. origin
+`c3-ms-curv` HEAD: `d7a647f`.
 
 **다음(최우선)**:
-1. 위 명령으로 `c3-ms-curv` 브랜치 생성+push, 기기에서 `c3-ms-curv`로
-   전환 후 실차 드라이브 검증.
+1. ~~위 명령으로 `c3-ms-curv` 브랜치 생성+push~~ → **완료**. 기기에서
+   `c3-ms-curv`로 전환 후 실차 드라이브 검증만 남음.
 2. (a) 검증 포인트: 정점에서 실제 vEgo가 목표속도에 더 잘 맞춰
    도달하는지(2.0s가 과한지/부족한지 체감), 반대로 사전감속이 너무
    일찍 시작돼 답답한 느낌은 없는지.

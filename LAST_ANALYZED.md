@@ -1,14 +1,18 @@
 ## c3-ms-curv (81차 신규 생성, base c3-ms-dev `2d5174e`)
-- last_analyzed_commit (81차 계속, (a)(b) 구현/검증): `6344077`(로컬,
-  base `2d5174e` — **아직 사용자 브랜치 생성/적용/push 전**, verify-am
-  브랜치에서 diff 0 확인 완료, patch 파일 outputs 전달 완료)
+- last_analyzed_commit (81차 계속, 적용/push 완료 확인): `d7a647f`
+  (origin HEAD, `2d5174e` 위 신규 커밋 1개. 사용자가 `C:\dev\ryu`에서
+  `git checkout -b c3-ms-curv origin/c3-ms-dev` + `git am` 적용 +
+  `git push origin c3-ms-curv` 완료(새 브랜치 최초 push, PR 링크 자동
+  생성됨 — PR은 안 만듦, 브랜치만 사용). 컨테이너에서 `git fetch origin
+  c3-ms-curv:refs/remotes/origin/c3-ms-curv` 후 로컬 검증 커밋(`6344077`)
+  과 diff 0(완전 동일) 재확인.)
 - date: 2026-08-26 (81차 계속)
-- note: 실차 문제 시 c3-ms-dev로 즉시 롤백 가능하도록 신규 분리한
-  실험 브랜치. (a) `vturn_safe_time` 1.0s->2.0s(목표속도 도달 지연
-  체감 보완), (b) `carrot_serv.py` route 500m TBT 게이트 제거(mode 2,
-  vturn은 유지). 둘 다 NEEDS_VALIDATION. **다음 세션 최우선: 사용자가
-  브랜치 생성+patch 적용+push 완료했는지 확인 → 실차 드라이브 검증.**
-  상세는 WIP.md "81차 계속" 참고.
+- note: (a) `vturn_safe_time` 1.0s->2.0s, (b) route 500m TBT 게이트
+  제거(mode 2, vturn 유지) 적용 완료. **다음은 실차 드라이브 검증만
+  남음** — (a) 정점 목표속도 도달 체감(과함/부족함), (b) TBT 없는
+  일반 커브에서 route 실제 개입 여부 + **회귀 검증 필수**(직선/완만
+  구간 GPS 노이즈 오탐 여부, 가장 중요한 리스크). 문제 시 CarrotWeb
+  pull UI로 `c3-ms-dev` 즉시 롤백 가능. 상세는 WIP.md "81차 계속" 참고.
 
 ## c3-ms-dev
 - last_analyzed_commit (78차, discontinuity_lc 최초 실차 트리거 확인): `f3773b5`
