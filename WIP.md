@@ -1,3 +1,34 @@
+## 97차 (완료 — 정적 코드리뷰만, 코드 변경 없음) — c3-ms-dev 전체 불필요코드/CPU부하 점검
+
+**요청**: c3-ms-dev 최신(`b67c291`) 코드 전체를 대상으로 (1) 불필요한
+코드 존재 여부, (2) comma 기기 구동 시 CPU 연산을 과다 소모하는 코드
+존재 여부 점검. 로그분석/실차검증 아님 — 순수 정적 리뷰.
+
+**결과 (상세는 FINDINGS.md 97차 항목 참고)**:
+- **핵심 발견**: `controlsd.py` `state_control()`(100Hz 루프) 내
+  rate-limit 없는 `Params.get_*()` 호출 10건 — 초당 최대 1000회
+  불필요한 파라미터 I/O 가능성. `radard.py`(20Hz, 4건),
+  `longitudinal_planner.py`(20Hz, 3건)에도 동일 패턴 있음.
+- **대조**: `lateral_planner.py`/`carrot_functions.py`는 이미
+  프레임 카운터로 분산 캐싱하는 올바른 패턴을 구현해뒀음 — 위
+  3개 파일만 이 패턴이 빠져 일관성 없음.
+- **부수 발견**: `radard.py` `compute_leads()` 내부함수 2개가
+  20Hz마다 재생성(오버헤드), `leadTwo`의 불필요한 `deepcopy`
+  (flat dict라 `.copy()`로 충분), `controlsd.py`의
+  `smooth_value()` 내부함수도 100Hz마다 재생성.
+- **불필요 코드 자체는 발견 안 됨**: 긴 주석 블록들은 문서화 주석,
+  `frogpilot`은 `fleet_manager`로 실제 사용 중(죽은 코드 아님).
+
+**다음 단계 (미정, 사용자 확인 필요)**:
+1. 위 발견에 대한 패치 작성 여부 — 요청 시 진행
+   (`state_control()`/`radard.update()`/`longitudinal_planner.update()`에
+   `carrot_functions.py` 스타일 카운터 캐싱 적용 + `compute_leads()`
+   내부함수 클래스레벨 이동 + `deepcopy`→`.copy()` 교체)
+2. 패치화하면 실차 검증 항목: (a) 파라미터 UI에서 값 변경 시
+   반영 지연이 체감되지 않는지(캐싱 주기 설계 확인), (b) 기존
+   동작 회귀 없는지(zero-regression)
+3. 이 항목은 로그분석 범위 밖이라 `LAST_ANALYZED.md` 갱신 대상 아님
+
 ## 96차 (완료 — 교차검토만, 코드 변경 없음) — c3-ms-curv 병합분(87차)과 94차 로직 상호작용 검토
 
 - 95차 병합 직후 요청으로 진행: 병합된 81/82/84/85/87/91차와 94차가

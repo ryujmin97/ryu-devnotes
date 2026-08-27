@@ -1,3 +1,74 @@
+## 97차 — [INVESTIGATING] c3-ms-dev 전체 정적 코드리뷰 — 실시간 루프 내 Params() 무제한 I/O 발견 (로그분석 아님, 실차검증 대상 아님)
+
+**배경**: 실주행 로그 분석이 아니라 코드베이스 자체에 대한 정적 리뷰
+요청 — (1) 불필요한 코드 존재 여부, (2) comma 기기 구동 중 CPU 연산을
+과다 소모하는 코드 존재 여부. `git log`/`find`/`grep`으로 커스텀 코드가
+몰려있는 `selfdrive/controls/{controlsd,radard,plannerd}.py`,
+`selfdrive/controls/lib/{longitudinal_planner,lateral_planner}.py`,
+`selfdrive/carrot/*`를 대상으로 검토. 커밋 기준: `b67c291`
+(c3-ms-curv 병합 후 c3-ms-dev 최신).
+
+**핵심 발견 — controlsd.py `state_control()` (100Hz 루프) 내
+rate-limit 없는 `Params.get_*()` 호출 10건**:
+`Params.get()/get_int()/get_float()`는 매 호출마다 파일 시스템
+읽기(디스크/IPC)가 발생하는 상대적으로 무거운 호출인데, 이 함수가
+DT_CTRL 기준 **100Hz**로 매 사이클 무조건 실행되면서 그 안에서
+`SteerRatioRate`, `CustomSR`, `UseLaneLineCurveSpeed`, `LatSmoothSec`,
+`SteerActuatorDelay`, `SpeedFromPCM`, `DisableDM` 등 **10개 파라미터를
+캐싱/분산 없이 매번 새로 읽음** (line 95-96, 153-155, 229, 305 등).
+이론상 초당 최대 1000회의 불필요한 파라미터 I/O.
+
+같은 문제가 정도는 약하지만 다른 두 곳에도 있음:
+- `radard.py` `update()` (20Hz): `EnableRadarTracks`,
+  `EnableCornerRadar`, `RadarLatFactor`, `RadarReactionFactor` 4개,
+  매 사이클 무조건 읽음 (line 751-754).
+- `longitudinal_planner.py` `update()` (20Hz): `CommaLongAcc`,
+  `LongActuatorDelay`, `VEgoStopping` 3개, 매 사이클 무조건 읽음
+  (line 192, 230-231).
+
+**대조 — 이미 올바른 패턴이 코드베이스 안에 존재함**: 위 3곳과 달리
+`lateral_planner.py`(`self.readParams` 카운터, 100프레임마다 1회 읽고
+캐시, line 87-94)와 `carrot_functions.py`(`self.params_count % 10`로
+프레임을 분산시켜 카운트 10/20/30/40...마다 서로 다른 파라미터군을
+나눠 읽음, line 162-201)는 정확한 "N프레임마다 캐시" 패턴을 이미
+구현해뒀음. 즉 위 3개 파일만 이 패턴이 누락되어 일관성이 없는 상태 —
+해결 난이도는 낮음(기존 패턴 재사용).
+
+**부수 발견 (영향 작지만 누적)**:
+1. `radard.py` `compute_leads()` (line 989, 994): 내부함수 `_ok()`,
+   `_pick_two_with_gap()`가 20Hz 사이클마다 매번 새로 정의됨 —
+   함수 객체 재생성 오버헤드. 클래스/모듈 레벨로 분리 권장.
+2. `radard.py` line 981: `self.leadTwo = copy.deepcopy(self.leadTwo)` —
+   `leadTwo`는 `get_RadarState()`가 반환하는 스칼라만 담긴 flat dict라
+   중첩 가변 객체가 없음에도 `deepcopy`(재귀+memo 오버헤드) 사용 중.
+   `dict(self.leadTwo)`/`.copy()`로 대체 가능(더 저렴).
+3. `controlsd.py` line 159: `smooth_value()` 내부함수도 100Hz마다
+   재생성됨 — 위 Params 이슈와 같은 함수(`state_control()`) 안이라
+   함께 수정하기 용이.
+
+**"불필요한 코드"는 별도로 발견되지 않음**:
+- `radard.py`의 긴 주석 블록들(30-38, 372-418줄 등)은 죽은 코드가
+  아니라 튜닝 상수 설계 근거를 설명하는 문서화 주석 — 유지 권장.
+- `selfdrive/frogpilot`은 `system/manager/process_config.py`에
+  `fleet_manager` 프로세스로 실제 등록되어 사용 중 — 죽은 코드 아님.
+- `third_party/`, `tinygrad_repo/`, `panda/` 등 업스트림 서브트리는
+  ryu가 손대지 않은 원본이라 이번 리뷰 범위에서 제외(커스텀 코드
+  대상으로만 검토).
+
+**미검증 / 다음 단계**:
+- 위 발견은 정적 리뷰 결과이며, 실제 CPU 사용률(%)이나 프레임
+  드랍/타이밍 지연으로 이어지는지는 실차(comma 기기)에서
+  `top`/`proclogd` 등으로 측정된 바 없음 — [NEEDS_VALIDATION].
+  다만 known-good 패턴(`lateral_planner.py`/`carrot_functions.py`)이
+  이미 캐싱을 하고 있다는 사실 자체가, 해당 개발자들도 이 비용을
+  인지하고 있었음을 시사함.
+- 패치 설계 시 카운터 분산 방식(`carrot_functions.py` 스타일: 서로
+  다른 파라미터군을 각기 다른 카운트에 배정)을 그대로 재사용하는 것을
+  권장 — 새 캐싱 메커니즘을 별도로 만들 필요 없음.
+- 이 항목은 로그분석 기반이 아니라 정적 코드리뷰 기반이므로
+  `LAST_ANALYZED.md`(커밋 분석 범위)와는 무관 — 별도 코드리뷰
+  세션으로 취급.
+
 ## 95차 — [교차검토, NEEDS_VALIDATION] c3-ms-curv 병합 후 87차(radard.py)↔94차(long_mpc.py) 로직 상호작용 — 보완관계, 잔여 갭 존재
 
 **배경**: c3-ms-curv(81/82/84/85/87/91차)를 c3-ms-dev(94차 포함)에 병합
