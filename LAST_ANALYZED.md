@@ -1,3 +1,257 @@
+## c3-ms-dev (94차, 방안D 구현/검증 완료 — `git am`/실차 적용 대기)
+- last_analyzed_commit: `866e934` (로컬 커밋, base `2d5174e`(79차 HEAD)
+  — **아직 사용자 적용/push 전**)
+- date: 2026-08-27 (94차)
+- note: 63차 계속(r1-14 사각지대)에서 발견된 미해결 항목 — discontinuity
+  트리거 시 `_vision_dRel_rate`/`_vision_dRel_rate_window`/
+  `_vision_dRel_prev`도 함께 리셋(방안D). `toolkit/sim_drel_discontinuity_d.py`
+  신규 4개 시나리오 전부 PASS(r1-14류 무효화 해소, 정상접근/r1-3류 회귀
+  없음). patch 전달 완료. **다음은 사용자 `git am`/push + 실차 드라이브
+  검증만 남음.** 상세는 WIP.md/FINDINGS.md 94차 참고.
+
+## c3-ms-curv (93차, 91차 회귀검증 시뮬레이션 — 코드 변경 없음)
+- last_analyzed_commit: `6d15391` (origin HEAD, 91차 그대로 — 이번 세션은
+  검증 스크립트만 신규, ryu 코드 변경 없음)
+- date: 2026-08-27 (93차)
+- note: 91차(ROUTE_ENTRY_MARGIN_KPH=25.0)를 국도 연속곡선 route
+  (0000032d--c0e3054c4a, seg13~19, 91차 이전 baseline 로그)에 desiredCurvature
+  적분 재구성+역방향DP margin 스윕(126 스냅샷)으로 정식 회귀검증 — 직선
+  오탐 0건, 조기개입 75건 전부 정점 목표값 불변(diff 0.00kph), 역전버그
+  0건. 92차의 "91차 적용후 로그"였다는 오분류를 정정 후 재검증한 결과.
+  **81/82/84/85/87/91차 전부 여전히 실차 드라이브 검증 대기 상태.** 상세는
+  WIP.md/FINDINGS.md "93차" 참고.
+
+## c3-ms-curv (81차 신규 생성, base c3-ms-dev `2d5174e`)
+- last_analyzed_commit (85차, 적용/push 완료 확인): `284457f`
+  (origin HEAD, `2a91c3f`(84차) 위 신규 커밋 1개. 사용자가 `C:\dev\ryu`
+  에서 `git fetch`+`git reset --hard origin/c3-ms-curv`(2a91c3f 동기화)
+  후 `git am` 적용 + `git push origin c3-ms-curv` 완료. 컨테이너에서
+  `git fetch origin c3-ms-curv:refs/remotes/origin/c3-ms-curv` 후 로컬
+  검증 커밋(`e608162`)과 diff 0(완전 동일) 재확인.)
+- date: 2026-08-26 (85차)
+- note: route lookahead 동적 캡 상한 500m -> 600m 상향 적용 완료
+  (84차가 절충값 500m로 도입했던 것을 이론적 필요치 ≈595m를 온전히
+  커버하도록 조정). **다음은 실차 드라이브 검증만 남음** — 84차(동적
+  캡 자체: 고속 커브 진입 조기화 체감, 저속/직선 구간 회귀 없는지)와
+  85차(600m 상한이 실제 개입하는 고속 구간에서 84차 대비 추가 체감
+  차이) 함께 확인. 82차(원복측 대칭버퍼: 재가속 자연스러움)/81차
+  (vturn_safe_time/TBT 게이트)도 여전히 실차 미확인 상태로 함께
+  열려있음. 문제 시 CarrotWeb pull UI로 `c3-ms-dev` 즉시 롤백 가능.
+  상세는 WIP.md "85차"/"84차" 참고.
+
+## c3-ms-dev
+- last_analyzed_commit (78차, discontinuity_lc 최초 실차 트리거 확인): `f3773b5`
+  (HEAD, 코드 변경 없음 — 77차와 동일 로그(x15seg, commit `f3773b583656`)를
+  laneChangeState 대신 blinker 기반으로 재분석.)
+- date: 2026-08-26 (78차)
+- note: 76차 discontinuity_lc 패치가 **실제 차선변경 상황에서 처음으로
+  트리거되는 것을 실측 확인**(seg5 t=384.18/seg10 t=722.28, 둘 다
+  rightBlinker/leftBlinker 활성 중 vision-only dRel 5프레임 급락 →
+  `discontinuity_lc` 소스+4.0s hard-hold 정상 부여). 소스 분기(blinker
+  hold 만료 시 일반 `discontinuity`로 정상 복귀, seg4 t=368.63)도 확인.
+  단 이번 로그엔 discontinuity_lc 트리거가 harsh braking과 겹치는
+  사례가 없어(boost 윈도우 내 aEgo 전부 mild) "급감후 원복 완화 효과"
+  자체의 정량 검증은 여전히 미완료 — 다음은 harsh braking과 겹치는
+  차선변경 로그 필요. 상세는 FINDINGS.md/WIP.md 78차 참고.
+
+## c3-ms-dev
+- last_analyzed_commit (77차, 76차 실차 로그 첫 검증): `f3773b5` (HEAD,
+  코드 변경 없음 — 76차 패치가 실제로 반영된 커밋 상태에서 기록된 로그
+  (x15seg, 895.8s/4.26km, 도심)를 처음 분석. meta.json commit이 정확히
+  `f3773b583656`로 일치 확인.)
+- date: 2026-08-26 (77차)
+- note: **76차의 핵심 타깃(차선변경+discontinuity 조합)은 이번 로그에
+  재현 안 됨** — laneChangeState 전 구간 'off'(차선변경 0건), 그래서
+  discontinuity_lc 소스 자체가 발동할 기회가 없었음. 대신 **73차부터
+  이어진 handoff(레이더 락온) 메커니즘의 실차 재확인**은 확보: seg6
+  t=440.98~447.99 고속도로 원거리(109m) vision 단독 감지→레이더 락온
+  전환(vRel -12→-8.6m/s 불연속 점프, 72차가 겨냥한 정확한 패턴)에서
+  aEgo가 +1.0→-2.9 부근까지 완전히 매끈하게 이어짐(락온 순간 저크
+  없음), 같은 구간에 TTC danger(min_ttc=2.39s) override도 정상 발동,
+  harsh_brake_event 미발생(운전자 개입 없이 시스템이 끝까지 처리) —
+  방안G/I/73차 스택이 실도로에서 다시 한번 깔끔하게 작동 확인.
+  turn_speed_violation 2건은 프레임 대조 결과 전부 cruiseEnabled=False
+  구간(운전자 수동 정지, 화면녹화 클립으로 교차앞차 정지 상황 확인)이라
+  ADAS 무관. harsh_brake 49건 중 대표 클러스터 전부 disengage 인접(기존
+  패턴과 동일). **다음 세션 최우선: 차선변경 포함된 로그로 76차
+  discontinuity_lc 타깃 시나리오 직접 검증 필요(이번 로그로는 미검증
+  상태 유지).** 상세는 FINDINGS.md 77차 참고.
+
+## c3-ms-dev
+- last_analyzed_commit (76차 계속2, 실차 적용/push 완료 확인): `f3773b5`
+  (HEAD, `f8e136e` 위에 신규 커밋 1개. 사용자가 `C:\dev\ryu`에서 `git am`
+  적용 + `git push origin c3-ms-dev` 완료 확인(`f8e136e..f3773b5`).
+  로컬 검증 커밋(`f5c0e5c`)과 diff 없음(내용 완전 동일, 커밋 메타데이터만
+  다름) 재확인.)
+- date: 2026-08-26 (76차 계속2)
+- note: discontinuity_lc(75차b+76차 duration 통합) 실차 적용 완료.
+  **다음 세션 최우선: 실차 드라이브 검증** — (a) 75차 원 제보(차선변경
+  시 급감후 원복) 실제 완화 여부, (b) 회귀 검증 필수(danger override
+  정상 동작, 일반 cutin/handoff 두 기존 검증 조합 지연 없는지), (c)
+  차선변경 반복 시 boost 과도하게 오래 유지되는 체감 없는지. 상세는
+  WIP.md 76차 계속 참고.
+
+## c3-ms-dev
+- last_analyzed_commit (76차 계속, 패치 생성/git am 검증/전달): `f5c0e5c`
+  (로컬 커밋, base `f8e136e` -- **아직 사용자 적용/push 전**. verify-am
+  브랜치에서 `git am`+`py_compile` 통과 확인, 패치 파일 outputs 전달 완료.
+  컨테이너 재시작으로 76차 최초 구현이 유실돼 이번 세션에서 동일 내용을
+  재구현/재검증함 -- devnotes 기록(WIP.md/FINDINGS.md) 덕분에 처음부터
+  재설계 없이 그대로 재현 가능했음.)
+- date: 2026-08-26 (76차 계속)
+- note: discontinuity_lc 소스(75차b+76차 duration 통합)를 long_mpc.py에
+  구현, replay_lane_change_discontinuity_gate.py로 route1/route2 재검증
+  -- 이전 세션 결과와 완전히 동일하게 재현됨(route2 t=1472.401 최저점
+  a_change_cost=500 유지, 회귀 diff 402건 전부 discontinuity_lc뿐).
+  **다음 세션 최우선: 사용자 적용/push 확인 → 실차 드라이브 검증.**
+  상세는 WIP.md "76차 계속" 참고.
+
+## c3-ms-dev
+- last_analyzed_commit (75차, 차선변경 급감후 원복 제보 분석): `f8e136e`
+  (코드 변경 없음 — 73차 패치 커밋 그대로. route1/route2 동일 라우트로
+  차선변경 구간만 재분석.)
+- date: 2026-08-26 (75차)
+- note: discontinuity(방안C/G) 트리거 소스가 frac 게이트에 막혀 boost가
+  무력화되는 사각지대를 차선변경 시나리오에서 신규 확인(route2 t=1469/1541)
+  — 73차 split_gate는 handoff 소스만 커버했음. 나머지 harsh 사례는 진짜
+  위험(danger override 정탐) 또는 곡선(vturn) 별개 이슈로 판명. 상세는
+  WIP.md/FINDINGS.md "75차" 참고. **다음: discontinuity 소스에 차선변경
+  한정 frac 무관 게이트를 추가할지 사용자 확인 대기, 패치 미착수.**
+
+## c3-ms-dev
+- last_analyzed_commit (74차, 실차 로그 전체 라우트 재생검증): `f8e136e`
+  (코드 변경 없음 — 73차 방안I 패치 커밋 그대로. 이번 세션은 분석만.)
+- date: 2026-08-26 (74차)
+- note: route1(ea5bcc0566, x19seg, 11.06km)/route2(a5b1ce4e42, x7seg,
+  4.30km) 전체 구간(기존 튜닝에 쓰인 seg 포함) 재생검증 완료 — 트리거
+  검출 patched=baseline 동일(47건/17건), danger_active-boost 동시발생
+  0건(회귀 없음), boost 시간비중 여전히 작음(<4%), 신규 handoff 트리거
+  3건 전부 무해(급감속 없음), harsh_brake 전수 확인 결과 boost와
+  무관(대부분 driver disengage 인접). 상세는 FINDINGS.md "74차" 참고.
+  **다음 세션: 정성적 승차감 체감 확인(정량 회귀검증은 완료), 방안C/G와
+  방안I 이중 트리거 시 체감, `full_route_replay.py` toolkit 정식 편입
+  검토.**
+
+## c3-ms-dev (이전 기록)
+- last_analyzed_commit (73차 계속4, long_mpc.py 패치 작성/git am 검증 완료):
+  `4fa4a44` (HEAD 기준 patch 미적용, **아직 사용자 적용/push 전** — 로컬
+  검증 커밋 `8402d8b`/재현 `40bdb2d`는 컨테이너 로컬일 뿐)
+- date: 2026-08-25 (73차 계속4)
+- note: 73차 계속3 결정(4.0s hard + 100/s release-rate, split_gate)대로
+  `long_mpc.py`에 `RADAR_HANDOFF_JERK_BOOST_S`/`_RELEASE_RATE` 신규 상수
+  +`_discontinuity_trigger_source` 소스분리 구현. `replay_boost_duration.py`
+  재실행으로 route1 68.6%/route2 98.2% 커버 재확인(패치와 동일 로직).
+  `git am`+`py_compile` 통과, `0001-73-handoff-boost-4.0s-release-rate-100.patch`
+  전달 완료. **다음 세션 최우선: 사용자 적용/push 확인 → 실차 드라이브
+  검증(급감속 완화 체감, danger override 회귀 없는지, 방안C/G 무영향
+  재확인).** 상세는 WIP.md/FINDINGS.md "73차 계속4" 참고.
+
+## c3-ms-dev (이전 기록)
+- last_analyzed_commit (72차 계속3, [체크포인트] route2 교차검증 완료):
+  `4fa4a44` (HEAD, 코드 변경 없음 — route2(x7seg, `a5b1ce4e42`) 실측
+  CSV로 boost 윈도우 구조적 부족 가설 2번째 라우트 재현 확인)
+- date: 2026-08-25 (72차 계속3, 체크포인트)
+- note: route2 seg1 t=1378.85 레이더 락온 이벤트(정지앞차)에서 route1
+  seg10과 동일 정량 패턴(boost 1.0s 소진 후 1.36초 뒤 최대감속 도달,
+  전체 5.5초 지속) 확인 — 표본 2건으로 가설 강화. 상세는 FINDINGS.md
+  "72차 계속3" 참고. **다음 세션 최우선: boost 지속시간 연장(2.5~3.0s
+  후보) 또는 release-rate 완만화 설계 → 두 사례 기반 replay 스크립트
+  정량 검증 → 패치.**
+
+## c3-ms-dev (이전 기록)
+- last_analyzed_commit (72차 계속2, [체크포인트] 방안I 무력화 원인
+  재현/재확정): `4fa4a44` (HEAD, 코드 변경 없음 — route1 실측 CSV로
+  L823~1140 로직 프레임 대조 재확인)
+- date: 2026-08-25 (72차 계속2, 체크포인트)
+- note: 레이더 락온 엣지(t=690.0027, vRel -3.96→-10.8m/s)에서 방안I
+  트리거 자체는 정상 발동(frac=0/danger_active=False로 게이트 통과
+  확인)하지만, 실제 급감속이 4초+ 지속되는 반면 boost 윈도우는
+  `DISCONTINUITY_JERK_COST_BOOST_S=1.0s`뿐이라 boost 소진 직후
+  (leadALeadK 최악 구간과 겹침) base_a_change_cost가 다시 낮아져
+  (j_lead 기반 interp) 사실상 무감쇠로 복귀 — "방안C와의 상호작용
+  버그"가 아니라 "boost 지속시간이 이 시나리오(찰나성 노이즈가 아닌
+  진짜 지속 급감속)엔 구조적으로 부족"이 재확정된 원인. 상세는
+  WIP.md/FINDINGS.md "72차 계속2" 항목 참고. **다음 세션 최우선: boost
+  지속시간 연장 또는 release-rate 완만화 방안 확정 + route1 replay
+  스크립트 정식화 + route2(x7seg) 재업로드받아 교차검증.**
+
+## c3-ms-dev (이전 기록)
+- last_analyzed_commit (72차 계속, 방안I 패치 적용/push 완료): `4fa4a44`
+  (HEAD, `0c137f28b456` 위에 신규 커밋 1개 — `4fa4a44`(72차 방안I,
+  레이더 락온 전환 프레임 vRel 불연속 감지). 사용자가 `C:\dev\ryu`에서
+  `git fetch`+`git reset --hard origin/c3-ms-dev`로 동기화 후 `git am`
+  적용(42줄 추가, 예상과 diff --stat 일치 확인) + `git push origin
+  c3-ms-dev` 완료 확인 — `0c137f2..4fa4a44`.)
+- date: 2026-08-25 (72차 계속)
+- note: 71차/72차에서 발견한 "레이더 락온 전환 프레임 vRel 불연속"
+  사각지대(비전이 6초+ 낙관 보고하다 레이더 락온 순간 vRel 급변,
+  route1 t=690.05 실차 재현)에 대한 방안 I 패치 적용 완료. 기존 검증된
+  방안G(66/67차) 저크부스트 메커니즘을 트리거 조건만 확장해 재사용
+  (danger override/proactive floor는 무관하게 항상 우선). 상세는
+  FINDINGS.md/WIP.md "72차 계속(방안 I)" 항목 참고. **다음 세션
+  최우선: 실차 드라이브 검증 — (a) 이번 재현 상황(비전 낙관 접근→
+  레이더 급락) 급감속 완화 여부, (b) danger override 회귀 없는지,
+  (c) 방안G(비전단독 dRel 급락)와 이중 트리거 부작용 없는지.
+  `RADAR_HANDOFF_VREL_JUMP_THRESH=3.0m/s`는 설계 추정치, 실차 반응
+  보고 튜닝 필요(NEEDS_VALIDATION).**
+
+## c3-ms-dev (이전 기록)
+- last_analyzed_commit (71차, 실차 로그 2건 분석): `0c137f28b456`
+  (HEAD, 67차 방안G와 동일 — 이번 세션은 코드 변경 없이 이 커밋
+  기준으로 기록된 실차 로그만 분석함)
+- date: 2026-08-25 (71차)
+- note: route1(19세그/1140s)/route2(7세그/393s) 전체 분석+qcamera
+  대조 완료. harsh_brake 대부분 운전자 개입, TTC danger 3/4건 정탐
+  확인. route1 seg4 t=356~368의 장기 비전 진동은 초기에 "실제 위험을
+  노이즈로 오분류" 가설로 봤으나, **사용자 확인 결과 자차 우회전
+  차선변경+혼잡 차로 상황으로 정정, 버그 아님**. 상세는 FINDINGS.md/
+  WIP.md "71차" 항목 참고. **다음 세션: 70차 이월 항목(방안F/H,
+  세그7 후반 gap 오실레이션) 결정 대기.**
+
+## c3-ms-dev (이전 기록)
+- last_analyzed_commit (62차, 61차 계속 방안C 복구·push 완료 확인): `4ea63c3`
+  (HEAD, `d6e334f` 위에 신규 커밋 1개 — `4ea63c3`("61차 계속(방안 C):
+  cutin 불연속 dRel 급락 감지 -> 신규등록 suppress 메커니즘 재사용").
+  62차에서 이 커밋의 devnotes 기록(FINDINGS.md)이 직전 세션 push 누락으로
+  유실된 것을 발견해 복구했고, 이후 사용자가 `git fetch`+`git log`로
+  origin/c3-ms-dev와 로컬 HEAD가 정확히 `4ea63c3`로 일치함(로컬 미푸시
+  커밋 없음, `origin/c3-ms-dev..HEAD` 빈 결과)을 직접 확인 —
+  **패치 적용 + push 완료 재확인됨.**
+- date: 2026-08-25 (62차)
+- note: cutin(자기 차로 진입) 시 vision dRel 프레임간 미분이 종방향
+  급접근으로 착시를 일으켜 레이더 락온 직전 급감속(r1-3/-3.24m/s²,
+  r1-14/-4.29m/s²)하던 문제 — `DREL_DISCONTINUITY_DROP_THRESH=15.0m`/
+  `WINDOW_N=5`로 원본 dRel 급락 감지 시 `_lead_acq_timer=0.0` 리셋,
+  기존 검증된 신규리드 suppress(1.5s) 메커니즘 재사용. 로직단위 합성검증
+  4건 완료(NEEDS_VALIDATION — 실제 원본 로그 재생검증은 아직).
+  **다음 세션 최우선: 실차 드라이브 검증 — (a) cutin 재현 시 급감속
+  완화 여부, (b) danger override(TTC<=2.5s) 회귀 없는지, (c) 신규등록
+  게이트와의 이중트리거 부작용 여부.** 상세는 FINDINGS.md 61차 계속
+  (방안C)/62차 항목 참고.
+
+## c3-ms-dev (이전 기록)
+- last_analyzed_commit (60차 계속8, 외곽게이트 후속수정): `d6e334f` (HEAD,
+  신규 커밋 1개 — `d6e334f`(`get_lead()` 외곽게이트가 `lead_msg.prob>.5`를
+  `VisionTrack.update()` 내부와 별개로 독립 재체크하며 60차 A(tentative
+  조기등록)의 효과를 실제 출력에서 무력화시키던 버그 수정, `status` 기반
+  판정으로 교체). 사용자가 `C:\dev\ryu`에서 `git am` 적용 + `git push
+  origin c3-ms-dev` 완료 확인(`1a44491..d6e334f`).
+- date: 2026-08-24 (60차 계속8)
+- note: 58차3번 후속수정(`1145aea`)이 원래 고쳤던 것과 정확히 같은 패턴의
+  버그가 60차 A 재구현 과정에서 재발했던 것 — 이번 수정으로 60차 A(dPath
+  게이트)+B안(prob단독리셋 제거)이 처음으로 실제 radarState.leadOne
+  출력까지 반영됨. 상세는 FINDINGS.md/WIP.md 60차 계속8 항목 참고.
+  **다음 세션 최우선: 실차 드라이브 검증 — 정지앞차/정체구간 조기인식
+  개선 여부, 옆차선/역광 오탐 회귀, 산발적 tentative_cnt 누적 사각지대
+  회귀 확인.**
+
+## c3-ms-dev (이전 기록)
+- last_analyzed_commit (60차 계속6/7, A tentative B안): `1a44491`
+- date: 2026-08-24 (60차 계속6/7)
+- note: 60차 A(dPath 게이트, `a75c5cc`)가 58차3번 원 사례에 효과 0이었던
+  원인(prob 노이즈성 출렁임에 의한 카운트 리셋)을 B안으로 조치. 상세는
+  FINDINGS.md/WIP.md 60차 계속5/6/7 항목 참고.
+
 # LAST_ANALYZED — 브랜치별 마지막 커밋 분석 지점
 
 새 세션에서 "최신 커밋 분석"을 요청받으면, 여기 기록된 커밋 이후만
@@ -7,6 +261,166 @@
 분석을 마칠 때마다 이 파일을 갱신한다 (해시 + 날짜 + 한줄 메모).
 
 ---
+
+## c3-ms-dev
+- last_analyzed_commit (58차3번+후속수정 REVERTED): `1ac07de` (HEAD,
+  신규 커밋 1개 — `1ac07de`(radard.py를 58차2번 `a35a39f` 시점으로
+  완전 원복, diff 0 확인). 사용자가 로컬을 `git reset --hard
+  origin/c3-ms-dev`로 먼저 동기화(기존 로컬이 `591f219`에서 23커밋
+  뒤처져 있었음) 후 `git am` 적용 + `git push` 완료(`1145aea..1ac07de`).
+- date: 2026-08-24 (58차3번+후속수정 롤백)
+- note: 실주행 체감 피드백(오탐/불필요감속 많음)으로 58차3번(A+B)+
+  외곽게이트 후속수정 전체 롤백. 현재 유효한 건 58차1번(vision dRel미분
+  게이트완화+long_mpc v_lead보정)/58차2번(저속+강한감속 danger
+  override)뿐. **다음 세션 최우선: 58차1,2번만 반영된 현재 상태로 먼저
+  주행감 재확인, 이상 없으면 이 상태를 새 baseline으로 삼고 A/B는
+  재설계 착수(CSV/qcamera 표본분석과 실제 체감이 어긋난 원인 분석부터).**
+  상세는 FINDINGS.md "[REVERTED] 58차 3번(A+B)+후속수정 전체 롤백"
+  항목 참고.
+
+## c3-ms-dev
+- last_analyzed_commit (58차 3번 후속수정): `1145aea` (HEAD, 신규 커밋 1개 —
+  `1145aea`(radard: get_lead() 외곽 게이트가 lead_msg.prob>.5를 중복
+  체크하며 A의 조기등록 효과를 무력화시키던 버그 수정). 사용자가
+  `C:\dev\ryu`에서 `git am` 적용 + `git push origin c3-ms-dev` 완료
+  확인(`ff50b03..1145aea`).
+- date: 2026-08-23 (58차 3번 후속수정)
+- note: (58차 3번 후속수정) 58차3번(A+B) push 직후 코드리뷰로 A(조기등록)가
+  외곽 게이트에 막혀 실제로는 무력화돼 있던 버그 발견/수정. 크래시 위험은
+  없었음(별도 확인). sim_vision_track_ab.py에 외곽게이트 전파 시나리오
+  추가(총 7건 PASS). 상세는 FINDINGS.md/WIP.md 참고. **다음 세션 최우선:
+  실차 드라이브 검증 — 이 수정으로 A가 처음 실제 동작, 오탐지 회귀 확인
+  필수.**
+
+## c3-ms-dev
+  `1f0d292`(radard: VisionTrack 실측 dRel미분 게이트 완화) +
+  `e17e078`(long_mpc: vision_dRel_rate를 v_lead에 직접 반영). 둘 다
+  사용자가 `C:\dev\ryu`에서 `git am` 적용 + `git push` 완료 확인
+  (`f94a7d2..e17e078`). **적용 과정에서 사용자 로컬이 origin보다
+  30개+ 커밋(a4b5550 시점까지) 뒤처져 있던 게 발견됨 — `git reset
+  --hard origin/c3-ms-dev`로 정리 후 재적용.**
+- date: 2026-08-23 (58차 1번)
+- note: (58차 1번) "카메라 인식 감속이 레이더 대비 약함" 개선 요청
+  대응 — VisionTrack 게이트 완화 + long_mpc v_lead 직접 보정(핵심).
+  합성검증 완료, 실차 검증 대기. 상세는 FINDINGS.md/PARAMS_REGISTRY.md
+  58차 항목 참고. **사용자 로컬-원격 동기화 상태 재확인 필요(다음
+  세션 후보).**
+
+## c3-ms-dev
+- last_analyzed_commit (56차): `f94a7d2` (HEAD, 신규 커밋 분석 아님 —
+  56차는 대량 실주행 로그 9개(약 3시간, 189,336행) 5개 항목 재분석
+  세션. 55차 최우선이던 route1 seg18 저크 이상패턴(leadVRel≈0인데
+  큰 저크)이 4건 추가 재현됨(표본 2→6건) — src=road/section(vturn
+  아님)이 3/4건이라 원인 가설을 "launch bypass"에서 "source/타깃
+  전환 로직 전반"으로 확장. 그 외 4개 항목은 55차 결론과 대체로
+  일관(정지앞차/재출발 클린, curve_exit 0건, 안전지표 전부 클린).
+  상세는 FINDINGS.md 56차 항목 참고.
+- last_analyzed_commit (54차): `f94a7d2` (HEAD, 신규 커밋 분석 아님 —
+  54차는 route4(`d45a15f8fc`) 재업로드 rlog로 lookahead horizon
+  가설(ii) 첫 실제 검증 세션. `replay_lookahead_v1.py` 실행 결과
+  raw 신호 자체도 이벤트 근접(수 초 전)까지 뚜렷한 하강 없음 + filtered
+  최종출력은 raw 대비 평균 2초+ 추가 지연 확인, 가설을 (a)모델
+  원거리 감지/(b)필터 누적지연 복합으로 정교화. **패치 방향 미확정,
+  다음 세션 사용자 결정 대기.** 상세는 FINDINGS.md/WIP.md 54차 항목
+  참고.
+- last_analyzed_commit (50차): `f94a7d2` (HEAD — 50차 model 게이트
+  재설계 패치(`abs(vturn_speed)<120` 제거, 트레일링 판정 min_recent+
+  margin 재설계) push 완료 확인. 로컬(devnotes 컨테이너) 커밋 해시는
+  `74e8e90`이었으나 `git am` 적용 후 Windows에서 push한 원격 해시는
+  `f94a7d2`(정상 — 커밋 메타데이터 차이, 내용 동일). c368c422 이후
+  신규 커밋 1개. **[NEEDS_VALIDATION] 실차 미검증** — 특히 직선
+  구간에서 model 후보 과다 개입(같은 세션 스캔 기준 참여율 98.8%)
+  여부 확인 필요. 상세는 FINDINGS.md/WIP.md 50차 항목 참고.
+- last_analyzed_commit (48차): `c368c422` (HEAD, 신규 커밋 분석 아님 —
+  48차는 route6/7/8 실주행 로그 분석 세션(curve_exit_no_accel_scan v3
+  계속 검증). 신규 커밋 없음, HEAD 46차와 동일. 상세는 FINDINGS.md/
+  WIP.md 48차 항목 참고.
+- last_analyzed_commit (46차, 진행중): `c368c422` (HEAD, 신규 커밋 분석 아님 —
+  46차는 "곡선구간 가감속 부족" 제보 실주행 로그 분석 세션. route1
+  (`203f99d429` seg8) 완료 — FINDINGS.md 46차 항목 참고. **route2
+  (`f3db6ca89d` 5세그)/route3(`866476e5c3` seg18, "vturn 이상함")는
+  다음 체크포인트에서 이어감.** 로그 자체는 사용자 확인상 "패치 이전"
+  이나, CSV의 commit 컬럼은 추출 시점 repo HEAD를 찍는 것이라 로그의
+  실제 기록 커밋과 무관함(도구 한계, extract_log.py의 `commit` 필드는
+  "이 CSV를 어떤 코드로 디코딩했는지"만 의미 — 로그 자체의 빌드 시점
+  아님. 참고용으로 남김).
+- last_analyzed_commit (41차 기록): `c31ddca` (HEAD, radard sccFallback 크래시 긴급수정. 신규 커밋 분석은 없었음 — 41차는 실주행 로그 분석 세션으로, 이 커밋 상태에서 뽑힌 로그를 검증)
+- date: 2026-08-22 (41차)
+- note: 41차 — "앞차 카메라 인식" 로그 2개 라우트(1079.5s)로 33/36/38/39차 패치 전부(frac_rate 게이트 + TTC damping + rise-rate) + 40차 radard 크래시 수정을 이 HEAD 상태에서 재검증. 안전지표 전부 0건, frac_rate 게이트 4/4 정상 조기활성화, 3/4는 실제 감속도 조기 반영. 상세는 FINDINGS.md 41차 참고.
+
+- last_analyzed_commit (40차 이전): `f4160a7` (HEAD, screenrecorder clip 해상도 720p->540p + 비트레이트 2Mbps->1.2Mbps `git am` 적용 + push 완료, `d178ac6..f4160a7`)
+- date: 2026-08-22
+- note: clip 20초->30초 확대(전 커밋) 후 용량 부담 피드백 -> 해상도/비트레이트 동시 하향으로 상쇄. 화소수 56%(720p->540p) x 비트레이트 60%(2->1.2Mbps) ≈ 최종 용량 1/3 수준 예상(실측 전). **실사용 검증 필요**: 30초/540p/1.2Mbps clip 실제 파일 용량, 주행화면 텍스트(속도/상태표시 등) 가독성 저하 여부 — 부족하면 dst_height/bitrate 값만 재조정하면 됨. long_mpc 종방향 제어와는 무관한 UI/도구 트랙.
+
+- last_analyzed_commit: `d178ac6` (HEAD, screenrecorder 정지 clip 길이 20초→30초 확대 `git am` 적용 + push 완료, `52668ec..d178ac6`)
+- date: 2026-08-22
+- note: 종방향 제어(long_mpc)와 무관한 소규모 UI/도구 변경 — 정지 버튼 clip 길이가 20초로는 이벤트 직전 상황 파악에 짧다는 피드백으로 30초로 조정. `extract_trailing_clip()`의 `ffmpeg -sseof` 값만 변경(stream copy라 재인코딩 없음, 용량은 길이 비례 증가). 39차 rise-rate 패치(`52668ec`)는 여전히 실차 검증 대기 중, 아래 항목 유효.
+- 화면녹화 해상도/비트레이트 질의 있었음(사용자가 clip 용량 절감 목적): 현재 `screenrecorder.cc`에 소스 2160x1080 -> 저장 1440x720 다운스케일, 비트레이트 2Mbps로 하드코딩. 구체적 변경 요청 시 대응 예정(아직 패치 없음).
+
+- last_analyzed_commit (39차): `52668ec` (HEAD, 저속 구간 aLead weight rise-rate 제한 패치 `git am` 적용 + push 완료, `c3ea08e..52668ec`)
+- date: 2026-08-22 (39차)
+- note: (39차) "저속_앞차" 급정지 느낌 이슈 패치 적용됨(38차 TTC 게이트 위에 스택). 수치 시뮬레이션(rlog 재파싱 기반)만 완료, acados MPC 파이프라인 통합 후 실차 검증은 아직. 다음 세션 최우선: 38차+39차 통합 실차 검증 — (a) 저속 급정지 느낌 해소 체감, (b) 회귀 검증(저속 실제 위험 cut-in에서 danger override 정상 발동, 반응 지연 없는지), (c) RISE_RATE 값 승차감 기준 재조정 여부. 상세는 FINDINGS.md/WIP.md 39차 참고.
+
+ (HEAD, 신규 커밋 없음 — 36차는 실주행 로그 분석 세션, 35차 계속 2에서 완료된 HEAD 그대로)
+- date: 2026-08-22 (36차)
+- note: (36차) **frac_rate(VISION_CLOSING_RATE_GATE_CAUTION/DANGER=-2.2/-5.0, 33차 재설계) 실차 acados MPC 파이프라인 첫 실측 검증 성공** — 33차부터 미완이던 "다음 최우선" 과제 해소. 신규 로그 2건(`카메라인식.zip`=route `245733747e` 4세그, `정치차량.zip`=route `b89011cb42` 1세그) `sim_frac_rate.py`(SIM_GATE 환경변수로 현재 상수 override) 재현 분석. 정치차량 route에서 82m/vRel -6.5~-7.9m/s 원거리 vision-only 급접근 시 레이더 락온보다 훨씬 전에 frac_rate 0.826→1.0 도달, 이후 harsh_brake/운전자개입 없이 완전정지까지 매끈히 감속 확인. 카메라인식 route 4세그 중 2세그 max_frac_rate=1.000 추가 확인. PARAMS_REGISTRY.md의 GATE_CAUTION/GATE_DANGER/MAX_PLAUSIBLE/MEDIAN_WINDOW 4개 상수 PARTIALLY_VALIDATED→VALIDATED 상향. 부가 발견(NEEDS_VALIDATION): frac_rate 최초 1.0 도달과 실제 aEgo 반응 사이 약 2초 지연 관찰 — 단 이 구간에 leadStatus 재획득 지연이 섞여 있어 순수 게이트 지연만 분리 측정은 다음 세션 과제. 그 외 harsh_brake/turn_speed_violation 0건 재확인, cut-in 1건(무해), ttc_danger 1건(정치차량 route, 정상적인 정차 접근 과정에서의 자연스러운 TTC 저하로 무해 판단). 상세는 FINDINGS.md 36차 참고.
+- 35차 계속 2 기록 (참고, 위와 동일 HEAD):
+- last_analyzed_commit (35차 계속 2): `4fe22cd` (HEAD, c3-ms-dev 기준.
+  patch 0004(logs.js 캐시 버스터 v3->v4)까지 `git am` 충돌 없이 적용
+  + push 완료(`f9241db..4fe22cd`). 같은 patch가 `c3-ms-test`에도
+  적용되어 push 완료(`331d49a..4d2f6a5`) — 참고용 기록만.
+- date: 2026-08-22 (35차 계속 2)
+- note: (35차 계속 2) 실차 검증 남음 — 강제 새로고침(캐시 무시) 후
+  carrotweb에서 "Clip 선택" 버튼 정상 동작 확인, clip 실제 길이
+  20초대 확인. 상세는 FINDINGS.md/WIP.md 35차 계속 2 참고.
+
+## c3-ms-dev
+- last_analyzed_commit (35차 계속): `f9241db` (HEAD, c3-ms-dev 기준.
+  patch 0003(carrotweb Clip 버튼 필터->선택 정정)까지 `git am` 충돌
+  없이 적용 + push 완료(`dfa2f4f..f9241db`). 같은 patch가
+  `c3-ms-test`에도 적용되어 push 완료(`e9000b3..331d49a`) — 참고용
+  기록만.
+- date: 2026-08-22 (35차 계속)
+- note: (35차 계속) 실차 검증 남음 — clip 실제 길이 20초대 확인,
+  carrotweb "Clip 선택" 버튼이 목록을 필터링하지 않고 clip 파일
+  체크박스만 선택하는지 확인. 상세는 FINDINGS.md/WIP.md 35차 참고.
+
+## c3-ms-dev
+- last_analyzed_commit (35차): `dfa2f4f` (HEAD, 신규 커밋 2개 —
+  `c1e79ed`(screenrecord clip 60s->20s) + 자체 해시로 재커밋된
+  carrotweb Clip 필터 버튼 커밋. 둘 다 `git am`으로 컨텍스트 충돌
+  없이 적용, `git push origin c3-ms-dev` 완료 확인(`8114a46..dfa2f4f`).
+  같은 두 patch가 `c3-ms-test`에도 충돌 없이 적용되어 push 완료
+  (`725d19f..e9000b3`) — 코드 분석 대상 아님(우리가 만든 UI/설정
+  패치), 참고용 기록만.
+- date: 2026-08-22 (35차)
+- note: (35차) 실차 검증 남음 — clip 실제 길이 20초대 확인, carrotweb
+  "Clip만" 필터 버튼 동작 확인. 상세는 FINDINGS.md/WIP.md 35차 참고.
+
+## c3-ms-dev
+- last_analyzed_commit (33차): `8114a46` (HEAD, 신규 커밋 2개 —
+  `c53c2fd`(26차 patch 실제 반영: 곡선 노이즈 클램프+중앙값 필터 +
+  VISION_CLOSING_RATE 절대값 게이트 신설, 구문턱 -5.5/-10.0으로
+  origin 최초 push) + `8114a46`(33차: 문턱을 30/31차 확정값
+  -2.2/-5.0으로 재설계). 둘 다 사용자가 로컬(`c:\dev\ryu`)에서
+  커밋 후 이번 세션에서 `git push origin c3-ms-dev` 완료 확인
+  (`a4b5550..8114a46`, fetch로 diff 최종 상태
+  GATE_CAUTION=-2.2/GATE_DANGER=-5.0 재확인).
+- date: 2026-08-21 (33차)
+- note: (33차) 32차에서 사용자 확인 대기였던 두 갈래 중 (a) 문턱
+  재설계 진행 확정 → 컨테이너가 origin 새 clone이라 26차 로컬
+  커밋(5cc0900, 미push 상태였음)이 없어 devnotes 기록으로 역설계
+  재구성한 2단계 커밋(26차 재현 + 문턱 델타)으로 패치 생성 →
+  전달한 delta patch는 `git am` 컨텍스트 불일치로 실패(예상된
+  리스크) → PowerShell 정규식 치환으로 수동 반영 → 사용자가 실제
+  커밋(`c53c2fd`/`8114a46`)까지 완료 후 push. **VISION_CLOSING_RATE_
+  GATE_CAUTION/DANGER, MAX_PLAUSIBLE, MEDIAN_WINDOW 4개 신규 상수
+  PARAMS_REGISTRY.md에 PARTIALLY_VALIDATED로 추가.** (b) "지속적
+  곡선 dRel-vRel 불일치 드리프트" 결함은 이번 세션 범위 밖, 다음
+  세션 과제로 유지(FINDINGS.md 32차 참고). **다음 최우선**: 신규
+  로그로 이 게이트가 실제 acados MPC 파이프라인에서 원거리 반응
+  지연을 개선하는지 첫 실측 검증 — 지금까지는 전부
+  `sim_frac_rate.py` 시뮬레이션 기반.
 
 ## c3-ms-dev
 - last_analyzed_commit (20차 계속): `a4b5550` (HEAD, 신규 커밋 없음 —
@@ -40,6 +454,30 @@
   필터링을 먼저 검토해야 함. 별개로 seg12 t=798 급감속은 곡선
   구간 레이더 타깃 전환 이슈로 재분류(vision closing-rate 크로스
   체크와 무관). 상세는 FINDINGS.md 23차 참고.
+
+## c3-ms-dev
+- last_analyzed_commit (24차 최종): `a4b5550` (HEAD, 신규 커밋 없음
+  — 24차는 하루치 실주행 로그 15개 zip 대량 배치 분석 세션, 이번
+  갱신으로 24차 완전 종료)
+- date: 2026-08-21 (24차 최종)
+- note: (24차 최종) 22~23차 vision closing-rate grace 버그 수정
+  적용 후 첫 하루치(06:29~14:20, 약 7.9시간 구간, 총 주행 약
+  230km) 실주행 로그 15개 zip **전체 처리 완료**(실질 분석 13개,
+  ADAS 미관여 스킵 2개). **종방향 안전 지표(harsh_brake/turn_speed_
+  violation/ttc_danger, ADAS 관여 기준) 13개 실질 라우트 전부
+  0건** — a4b5550 HEAD가 고속도로/시내/극심한 정체 전 도로유형에
+  걸쳐 종방향 안전 회귀 없음 최종 확인. **b403d52(vision
+  closing-rate) 프레임단위 실측 검증 완료**(route5, PARAMS_REGISTRY.md
+  갱신 완료) — 6차 원 제보 증상과 정반대 결과. 신규 source 라벨
+  2건(`bump`=APN 과속방지턱, `gas`=가속페달 오버라이드) 관찰 —
+  둘 다 기존 코드의 정상 동작, 이번 배치에서 처음 로그에 등장했을
+  뿐. source_pair 우세 쌍의 도로유형 의존성(고속도로=road<->vturn
+  압도, 시내혼합=역전/동률, 정체=재우세하나 다변화)이 15개 라우트
+  전체에 걸쳐 일관되게 확인 — 도로유형별 분기 설계 필요성 최종
+  뒷받침. 상세는 FINDINGS.md 24차 최종 종합 참고. **다음 우선
+  과제**: 고속도로 급접근(harsh) 케이스 표본 미확보(b403d52 "온건한
+  접근" 검증에 그침), route3 highway 판별 버그 영향 재확인(낮은
+  우선순위).
 
 ## c3-ms-dev (구버전 기록)
 - last_analyzed_commit: `a4b5550` (HEAD, 22차-2에서 작성한 vision
@@ -362,6 +800,13 @@
   NEEDS_VALIDATION] 비전-only 원거리 리드 closing-rate 크로스체크"
   참고. **aEgo 실측 대조는 아직 미완료 — 다음 세션 최우선 과제.**
 
+2026-08-26 (79차): 신규 커밋 없음(origin HEAD `f3773b58` 그대로) —
+사용자 제보(수동주행 중 첫 +RES 시 목표속도가 현재속도보다 낮게 설정)로
+`selfdrive/car/cruise.py`(`VCruiseCarrot._update_cruise_buttons()`)
+코드리딩 + 로직단위 시뮬레이션(`work/sim_res_button.py`)으로 원인 확정,
+패치 작성/검증 완료(로컬 `08ef23f`, base `f3773b58`). 상세는 WIP.md/
+FINDINGS.md 79차 항목 참고. **실차 적용/검증 대기.**
+
 ## c3-ms
 - last_analyzed_commit: (아직 분석 안 함)
 - date: -
@@ -371,3 +816,51 @@
 - last_analyzed_commit: (아직 분석 안 함)
 - date: -
 - note: -
+
+2026-08-26 (86차, c3-ms-curv 재분석): 신규 커밋 없음(origin `c3-ms-curv`
+HEAD `451a3b9` 그대로, 로그 자체는 85차 HEAD `284457f`에서 기록됨) —
+10개 route(commit `284457f`) CSV `five_item_scan.py`(신규 정식편입)로
+5항목 일괄 스캔 완료. 안전지표(harsh_brake/ttc_danger/cutin) 병행 확인.
+곡선위반 72건 중 vturn 소스 3149프레임 vs route 소스 12프레임 —
+곡선위반 다발은 기존 vturn apex 이슈 연장, 85차 route 패치 회귀 아님으로
+잠정 판단(route 소스 프레임 자체가 적어 결론력 약함). **qcamera 대조는
+미실시**(원본 zip 유실, CSV만 재확보). 10개 route를 `data/routes/`에
+gzip 캐시 등록 완료. 상세는 WIP.md/FINDINGS.md 86차 항목 참고.
+
+2026-08-26 (87차, c3-ms-curv): 신규 커밋 1개(로컬 `8d10c06`, base
+`284457f`) — VisionTrack 팬텀 리드 트랙 영구고착 버그 수정
+(VISION_TRACK_GHOST_TIMEOUT_S=3.0 신설). 사용자 화면녹화 제보 기반
+원인분석+구현+시뮬레이션검증 완료, patch 전달, 실차 `git am`/적용
+대기. 상세는 WIP.md/FINDINGS.md 87차 항목 참고.
+
+[갱신] 87차 적용/push 완료 확인 — origin `c3-ms-curv` HEAD `284457f..cf32b5d`.
+컨테이너 diff 0 재확인 완료. 다음은 실차 드라이브 검증만 남음.
+
+2026-08-27 (88차, c3-ms-dev baseline): 신규 커밋 없음(분석만) — 사용자 업로드
+`곡선_고속도로_램프.zip`(commit `2d5174e`, 79차, c3-ms-curv 81/82차 이전
+baseline) 분석. 연속 커브 2개 중 TBT 미근접 커브1은 route 미참가(81차
+가설 실측 확인), TBT 근접 커브2는 route가 대부분 담당. src 하드-스위치
+플리커(51회 중 39회 <1s) 정량 확인. 안전지표 클린(harsh_brake/ttc_danger
+0건), turn_speed_violations 경미 2건. 상세는 WIP.md 88차 항목 참고.
+
+[정정, 2026-08-27] 88차 항목의 commit 오판 수정: 실제로는 `c3-ms-curv` 브랜치
+`284457f`(85차 HEAD, 81/82/84/85차 반영, 87차 이전) — 세션시작 스크립트가
+`c3-ms-dev`만 clone해서 meta.json이 잘못 찍혔던 것. 상세는 WIP.md 88차 정정
+항목 참고.
+
+2026-08-27 (91차, c3-ms-curv): 신규 커밋 1개(`6d15391`, base `cf32b5d`) —
+route 사전감속 조기개시(`ROUTE_ENTRY_MARGIN_KPH=25.0`, 89차 대안3 구현).
+시뮬레이션 검증(bc4301a25d 캐시, 커브A/B+직선 154초) 완료, patch 적용/push
+완료 확인. 상세는 WIP.md 91차 항목 참고. **다음은 실차 드라이브 검증만 남음.**
+
+2026-08-27 (92차, c3-ms-curv, **[정정] 사용자 확인 — 91차 적용 이전
+로그로 재분류**): 신규 커밋 없음(분석만) — 사용자 업로드 국도 연속곡선
+로그(`0000032d--c0e3054c4a`, x7seg, 5.85km/420s)를 최초 91차 실차검증으로
+분석했으나, **사용자 확인으로 실제로는 91차 패치 적용 이전(88차와 동일
+유형의 meta.json 오판) 기록임이 밝혀짐**. turn_speed_violation 5건/
+harsh_brake 1건 전부 src=vturn(apex-lag 이슈, route 무관)이라는 관측
+자체는 유효하나 baseline 자료로 재분류, "91차로 인한 회귀 없음" 결론은
+폐기. **91차 실차검증(a 조기개입 체감/b 직선 오탐 회귀/c 커브B류
+부작용)은 여전히 미완료** — 다음 세션 우선순위. 동일 구간을 91차 적용
+후 재업로드하면 `regression_report()`로 전/후 정량비교 가능. 상세는
+WIP.md 92차 항목 참고.

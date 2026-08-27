@@ -415,6 +415,230 @@ def curve_exit_no_accel_scan_v2(rows, curvature_thresh=0.002, straight_thresh=0.
 
 
 # ---------------------------------------------------------------------------
+# 4c) 커브 탈출 - 무가속 구간 스캔 v3 (260819-7 세션 vCruiseCluster 캡 오탐 대응)
+# ---------------------------------------------------------------------------
+def curve_exit_no_accel_scan_v3(rows, curvature_thresh=0.002, straight_thresh=0.0005,
+                                 min_curve_duration_s=0.5, no_accel_window_s=2.0,
+                                 accel_thresh=0.15, min_straight_hold_s=0.8,
+                                 lead_exclude_dist_m=60.0, cap_margin_thresh_kph=5.0):
+    """
+    curve_exit_no_accel_scan_v2 대비 개선점 (260819-7 세션, FINDINGS.md
+    "[INVESTIGATING] curve_exit_no_accel_scan v1의 3번째 오탐 패턴" 항목 근거):
+
+    3) vCruiseCluster 캡 여유폭 필터: 탈출 시점의
+       min(vCruiseCluster, desiredSpeed) - vEgo(kph 환산) 여유폭이
+       cap_margin_thresh_kph 미만이면, vTurnSpeed/desiredSpeed 자체가
+       이미 회복됐어도 controlsd.py `desired_kph = min(CS.vCruiseCluster,
+       carrotMan.desiredSpeed)` 캡 때문에 애초에 가속할 여지가 거의 없는
+       정상 상황이므로 후보에서 제외한다.
+
+       주의: 반드시 "vCruiseCluster" 필드를 써야 함 -- "vCruise"는 이름은
+       비슷하지만 controlsd.py가 실제로 캡에 쓰는 값이 아닌 별개 필드
+       (extract_log.py 47차 참고). vCruiseCluster가 로그에 없는(구버전
+       CSV) row는 이 필터를 건너뛰고 v2와 동일하게 처리한다(캡 오탐
+       제외를 못하므로 과탐 방향으로만 치우침 -- 안전 쪽 fallback).
+
+    리턴: v2와 동일 스키마 + "vCruiseCluster_at_exit", "cap_margin_kph_at_exit" 추가.
+    (margin 계산이 불가능했던 row는 두 필드 모두 None.)
+    """
+    n = len(rows)
+    curv = [abs(_f(r, "desiredCurvature", 0.0) or 0.0) for r in rows]
+    times = [_f(r, "t", 0.0) for r in rows]
+    aEgo = [_f(r, "aEgo", 0.0) for r in rows]
+    vEgo = [_f(r, "vEgo", 0.0) for r in rows]
+    segs = [r.get("seg") for r in rows]
+    lead = [_b(r, "leadStatus") for r in rows]
+    dRel = [_f(r, "leadDRel") for r in rows]
+    vCruiseCluster = [_f(r, "vCruiseCluster") for r in rows]
+    desiredSpeed = [_f(r, "desiredSpeed") for r in rows]
+
+    results = []
+    in_curve = False
+    curve_start_t = None
+    i = 0
+    while i < n:
+        c = curv[i]
+        if not in_curve and c >= curvature_thresh:
+            in_curve = True
+            curve_start_t = times[i]
+        elif in_curve and c < straight_thresh:
+            curve_dur = times[i] - curve_start_t
+            in_curve = False
+            if curve_dur >= min_curve_duration_s:
+                t_exit = times[i]
+                seg_exit = segs[i]
+
+                # -- 개선 1 (v2): leadStatus 필터
+                if lead[i] and dRel[i] is not None and dRel[i] <= lead_exclude_dist_m:
+                    i += 1
+                    continue
+
+                # -- 개선 2 (v2): 직선 지속시간 재확인 (재상승 여부)
+                j0 = i
+                hold_ok = True
+                while j0 < n and segs[j0] == seg_exit and (times[j0] - t_exit) <= min_straight_hold_s:
+                    if curv[j0] >= curvature_thresh:
+                        hold_ok = False
+                        break
+                    j0 += 1
+                if not hold_ok:
+                    i += 1
+                    continue
+
+                # -- 개선 3 (v3, 신규): vCruiseCluster 캡 여유폭 필터
+                vcc = vCruiseCluster[i]
+                dspd = desiredSpeed[i]
+                cap_margin = None
+                if vcc is not None and dspd is not None and vEgo[i] is not None:
+                    target_kph = min(vcc, dspd)
+                    cap_margin = target_kph - (vEgo[i] * 3.6)
+                    if cap_margin < cap_margin_thresh_kph:
+                        i += 1
+                        continue
+                # vcc/dspd 중 하나라도 없으면(구버전 CSV) 필터 스킵 -- v2와
+                # 동일하게 처리(안전 쪽 fallback, 위 docstring 참고).
+
+                j = i
+                max_a = aEgo[i] if aEgo[i] is not None else 0.0
+                t_window_end = t_exit
+                while j < n and segs[j] == seg_exit and (times[j] - t_exit) <= no_accel_window_s:
+                    if aEgo[j] is not None:
+                        max_a = max(max_a, aEgo[j])
+                    t_window_end = times[j]
+                    j += 1
+                if max_a < accel_thresh:
+                    results.append({
+                        "seg": seg_exit,
+                        "t_curve_end": round(t_exit, 2),
+                        "t_window_end": round(t_window_end, 2),
+                        "max_aEgo_in_window": round(max_a, 3),
+                        "vEgo_at_exit": round(vEgo[i], 2) if vEgo[i] is not None else None,
+                        "leadStatus_at_exit": lead[i],
+                        "leadDRel_at_exit": round(dRel[i], 1) if dRel[i] is not None else None,
+                        "vCruiseCluster_at_exit": round(vcc, 1) if vcc is not None else None,
+                        "cap_margin_kph_at_exit": round(cap_margin, 1) if cap_margin is not None else None,
+                    })
+        i += 1
+    return results
+
+
+def curve_exit_no_accel_scan_v4(rows, curvature_thresh=0.002, straight_thresh=0.0005,
+                                 min_curve_duration_s=0.5, no_accel_window_s=2.0,
+                                 accel_thresh=0.15, min_straight_hold_s=0.8,
+                                 lead_exclude_dist_m=60.0, cap_margin_thresh_kph=6.5,
+                                 min_vego_at_exit_mps=1.0):
+    """
+    curve_exit_no_accel_scan_v3 대비 개선점 (2026-08-23, 48차, route6/7/8
+    실전 검증 근거 — FINDINGS.md "48차" 항목 참고):
+
+    4) vEgo 최소속도 필터: `vEgo_at_exit`가 `min_vego_at_exit_mps` 미만이면
+       (사실상 정차) 곡률 임계값이 우연히 넘은 경우를 배제한다. 정차 중
+       조향각/곡률 계산이 튀는 건 "커브"가 아니므로 애초에 v3 스캐너의
+       대상이 아니다 (48차 route7 seg18 t=1176.94, vEgo≈0 오탐으로 신규
+       발견).
+
+    5) `cap_margin_thresh_kph` 기본값을 5.0 -> 6.5로 상향. 48차에서
+       route7 seg12(t=833.54, margin=6.0)/seg14(t=949.09, margin=5.8)
+       두 근접 후보를 CSV 원본(vTurnSpeed/src 필드)으로 직접 대조한 결과,
+       **두 건 모두 vTurnSpeed 자체는 이미 완전히 해제(각각 -201/-187,
+       즉 200km/h 안팎으로 사실상 무제한)된 상태였고, desiredSpeed를
+       최종 제한하는 건 오직 vCruiseCluster(운전자 설정 순항속도) 캡
+       뿐**이었음이 확인됨 — 즉 vturn_speed()의 lookahead/필터 로직과는
+       처음부터 무관한, 순수 "여유폭이 작아서 완만히만 가속하는" 정상
+       상황. 문턱 5.0은 이런 경계 사례(5.8~6.0)를 걸러내기엔 살짝
+       빡빡했던 것으로 판단, 6.5로 상향해 route7의 두 근접 후보를 v4
+       단계에서 정식 제외한다.
+
+    이 두 변경을 적용한 결과 route6(ADAS 미관여 제외)/7/8 3개 route
+    전부 0건으로 수렴함(48차 실측 확인, FINDINGS.md 참고).
+
+    리턴: v3와 동일 스키마.
+    """
+    n = len(rows)
+    curv = [abs(_f(r, "desiredCurvature", 0.0) or 0.0) for r in rows]
+    times = [_f(r, "t", 0.0) for r in rows]
+    aEgo = [_f(r, "aEgo", 0.0) for r in rows]
+    vEgo = [_f(r, "vEgo", 0.0) for r in rows]
+    segs = [r.get("seg") for r in rows]
+    lead = [_b(r, "leadStatus") for r in rows]
+    dRel = [_f(r, "leadDRel") for r in rows]
+    vCruiseCluster = [_f(r, "vCruiseCluster") for r in rows]
+    desiredSpeed = [_f(r, "desiredSpeed") for r in rows]
+
+    results = []
+    in_curve = False
+    curve_start_t = None
+    i = 0
+    while i < n:
+        c = curv[i]
+        if not in_curve and c >= curvature_thresh:
+            in_curve = True
+            curve_start_t = times[i]
+        elif in_curve and c < straight_thresh:
+            curve_dur = times[i] - curve_start_t
+            in_curve = False
+            if curve_dur >= min_curve_duration_s:
+                t_exit = times[i]
+                seg_exit = segs[i]
+
+                # -- v4 신규: 정차(사실상 vEgo=0) 상태 배제
+                if vEgo[i] is None or vEgo[i] < min_vego_at_exit_mps:
+                    i += 1
+                    continue
+
+                # -- v2: leadStatus 필터
+                if lead[i] and dRel[i] is not None and dRel[i] <= lead_exclude_dist_m:
+                    i += 1
+                    continue
+
+                # -- v2: 직선 지속시간 재확인 (재상승 여부)
+                j0 = i
+                hold_ok = True
+                while j0 < n and segs[j0] == seg_exit and (times[j0] - t_exit) <= min_straight_hold_s:
+                    if curv[j0] >= curvature_thresh:
+                        hold_ok = False
+                        break
+                    j0 += 1
+                if not hold_ok:
+                    i += 1
+                    continue
+
+                # -- v3, v4에서 문턱만 상향(5.0 -> 6.5): vCruiseCluster 캡 여유폭 필터
+                vcc = vCruiseCluster[i]
+                dspd = desiredSpeed[i]
+                cap_margin = None
+                if vcc is not None and dspd is not None and vEgo[i] is not None:
+                    target_kph = min(vcc, dspd)
+                    cap_margin = target_kph - (vEgo[i] * 3.6)
+                    if cap_margin < cap_margin_thresh_kph:
+                        i += 1
+                        continue
+
+                j = i
+                max_a = aEgo[i] if aEgo[i] is not None else 0.0
+                t_window_end = t_exit
+                while j < n and segs[j] == seg_exit and (times[j] - t_exit) <= no_accel_window_s:
+                    if aEgo[j] is not None:
+                        max_a = max(max_a, aEgo[j])
+                    t_window_end = times[j]
+                    j += 1
+                if max_a < accel_thresh:
+                    results.append({
+                        "seg": seg_exit,
+                        "t_curve_end": round(t_exit, 2),
+                        "t_window_end": round(t_window_end, 2),
+                        "max_aEgo_in_window": round(max_a, 3),
+                        "vEgo_at_exit": round(vEgo[i], 2) if vEgo[i] is not None else None,
+                        "leadStatus_at_exit": lead[i],
+                        "leadDRel_at_exit": round(dRel[i], 1) if dRel[i] is not None else None,
+                        "vCruiseCluster_at_exit": round(vcc, 1) if vcc is not None else None,
+                        "cap_margin_kph_at_exit": round(cap_margin, 1) if cap_margin is not None else None,
+                    })
+        i += 1
+    return results
+
+
+# ---------------------------------------------------------------------------
 # 5) 목표속도 추종 오차 분석
 # ---------------------------------------------------------------------------
 def speed_tracking_error(rows, target_field="desiredSpeed", window_s=1.0):
@@ -422,8 +646,18 @@ def speed_tracking_error(rows, target_field="desiredSpeed", window_s=1.0):
     vEgo와 target_field(기본 desiredSpeed, 필요시 vCruise) 간의 오차를
     프레임별로 계산하고, window_s 구간별 평균/최대 오차를 요약해 리턴.
 
+    **단위 주의(2026-08-23, 51차 버그 수정)**: CSV의 vEgo는 m/s
+    (carState 원본 그대로), desiredSpeed/vTurnSpeed/vCruise는 km/h
+    (carrotMan 메시지 원본, int(...)로 로깅됨) — 서로 단위가 다르다.
+    이 함수는 내부적으로 vEgo를 *3.6 해서 km/h로 맞춘 뒤 비교한다.
+    error/target/frames의 "vEgo"/"error"는 모두 km/h 기준.
+    (구버전은 vEgo(m/s)를 변환 없이 비교해 오차값이 사실상 무의미했음
+    — turn_speed_violations()도 동일 버그로 함께 수정, PARAMS_REGISTRY
+    /FINDINGS.md 51차 항목 참고.)
+
     리턴: {"frames": [{"t","seg","vEgo","target","error"}...],
            "summary": [{"seg","t_start","t_end","mean_abs_error","max_abs_error"}...]}
+    ("vEgo"/"error"는 km/h 단위)
     """
     frames = []
     for r in rows:
@@ -432,7 +666,8 @@ def speed_tracking_error(rows, target_field="desiredSpeed", window_s=1.0):
         t = _f(r, "t")
         if v is None or tgt is None or t is None:
             continue
-        frames.append({"t": t, "seg": r.get("seg"), "vEgo": v, "target": tgt, "error": v - tgt})
+        v_kph = v * 3.6
+        frames.append({"t": t, "seg": r.get("seg"), "vEgo": v_kph, "target": tgt, "error": v_kph - tgt})
 
     summary = []
     cur = None
@@ -461,12 +696,22 @@ def speed_tracking_error(rows, target_field="desiredSpeed", window_s=1.0):
 # ---------------------------------------------------------------------------
 # 6) 커브 진입 시 권장속도(vTurnSpeed) 초과 탐지
 # ---------------------------------------------------------------------------
-def turn_speed_violations(rows, margin=0.5, min_duration_s=0.3):
+def turn_speed_violations(rows, margin=2.0, min_duration_s=0.3):
     """
-    vEgo > vTurnSpeed + margin (m/s) 인 구간을 찾는다.
+    vEgo > vTurnSpeed + margin (km/h) 인 구간을 찾는다.
     vTurnSpeed가 비어있는(0 또는 미제공) 프레임은 건너뜀.
 
+    **단위 버그 수정(2026-08-23, 51차)**: 구버전은 vEgo(m/s)를 변환 없이
+    vTurnSpeed(km/h)와 직접 비교해 사실상 항상 미발동(false negative)
+    상태였음 — vEgo가 km/h로 환산해도 vTurnSpeed보다 낮은 정상 상황에서도
+    m/s 값 자체는 항상 vTurnSpeed(km/h, 보통 30~250대)보다 작아 조건식이
+    거의 발동 불가능한 구조였다. 이 버전은 vEgo를 *3.6 km/h로 환산 후
+    비교한다. margin도 기존 0.5(단위 불명확)에서 2.0 km/h로 재정의
+    (turn_speed_violations()를 참조하던 route_summary.py 등 과거 결과는
+    재검증 필요 — PARAMS_REGISTRY.md/FINDINGS.md 51차 항목 참고).
+
     리턴: [{"seg","t_start","t_end","duration","max_over","vEgo_peak","vTurnSpeed_at_peak"}]
+    (vEgo_peak은 km/h 단위로 리턴됨 — 구버전은 m/s였음)
     """
     n = len(rows)
     t = [_f(r, "t") for r in rows]
@@ -479,17 +724,19 @@ def turn_speed_violations(rows, margin=0.5, min_duration_s=0.3):
     for i in range(n):
         if t[i] is None or v[i] is None or vt[i] is None or vt[i] <= 0:
             over = False
+            v_kph = None
         else:
-            over = v[i] > vt[i] + margin
+            v_kph = v[i] * 3.6
+            over = v_kph > abs(vt[i]) + margin
         if over:
             if cur is None:
                 cur = {"seg": seg[i], "t_start": t[i], "t_end": t[i],
-                       "max_over": v[i] - vt[i], "vEgo_peak": v[i], "vTurnSpeed_at_peak": vt[i]}
+                       "max_over": v_kph - abs(vt[i]), "vEgo_peak": v_kph, "vTurnSpeed_at_peak": vt[i]}
             else:
                 cur["t_end"] = t[i]
-                if (v[i] - vt[i]) > cur["max_over"]:
-                    cur["max_over"] = v[i] - vt[i]
-                    cur["vEgo_peak"] = v[i]
+                if (v_kph - abs(vt[i])) > cur["max_over"]:
+                    cur["max_over"] = v_kph - abs(vt[i])
+                    cur["vEgo_peak"] = v_kph
                     cur["vTurnSpeed_at_peak"] = vt[i]
         else:
             if cur is not None:
@@ -506,6 +753,110 @@ def turn_speed_violations(rows, margin=0.5, min_duration_s=0.3):
             b["max_over"] = round(b["max_over"], 2)
             result.append(b)
     return result
+
+
+def source_target_violations(rows, src_name, target_field="desiredSpeed", margin=2.0, min_duration_s=0.3):
+    """
+    turn_speed_violations()의 일반화 버전. vTurnSpeed 고정이 아니라
+    임의의 desiredSource(src_name)가 선택돼 있는 구간에서 vEgo가
+    target_field(기본 desiredSpeed, km/h) + margin(km/h)을 초과하는 블록을 찾는다.
+
+    예: route(내비 경로) 감속 후보의 실제 준수 여부를 보려면
+        source_target_violations(rows, "route")
+
+    **단위 주의**: CSV의 vEgo는 m/s, desiredSpeed/vTurnSpeed는 km/h —
+    이 함수는 내부적으로 vEgo를 *3.6 해서 km/h로 맞춰 비교한다
+    (turn_speed_violations()와 동일한 51차 단위 수정 적용, 처음부터
+    올바른 단위로 작성됨).
+    src_name이 아닌 프레임, target_field가 비어있거나(<=0) 프레임은 건너뜀
+    (해당 구간에서는 위반 판정을 하지 않고 블록을 끊는다 — turn_speed_violations와
+    동일한 규칙).
+
+    리턴: [{"seg","t_start","t_end","duration","max_over","vEgo_peak","target_at_peak"}]
+    (vEgo_peak은 km/h 단위)
+    """
+    n = len(rows)
+    t = [_f(r, "t") for r in rows]
+    v = [_f(r, "vEgo") for r in rows]
+    tgt = [_f(r, target_field) for r in rows]
+    src = [r.get("src") for r in rows]
+    seg = [r.get("seg") for r in rows]
+
+    blocks = []
+    cur = None
+    for i in range(n):
+        active = src[i] == src_name
+        if not active or t[i] is None or v[i] is None or tgt[i] is None or tgt[i] <= 0:
+            over = False
+            v_kph = None
+        else:
+            v_kph = v[i] * 3.6
+            over = v_kph > tgt[i] + margin
+        if over:
+            if cur is None:
+                cur = {"seg": seg[i], "t_start": t[i], "t_end": t[i],
+                       "max_over": v_kph - tgt[i], "vEgo_peak": v_kph, "target_at_peak": tgt[i]}
+            else:
+                cur["t_end"] = t[i]
+                if (v_kph - tgt[i]) > cur["max_over"]:
+                    cur["max_over"] = v_kph - tgt[i]
+                    cur["vEgo_peak"] = v_kph
+                    cur["target_at_peak"] = tgt[i]
+        else:
+            if cur is not None:
+                blocks.append(cur)
+                cur = None
+    if cur is not None:
+        blocks.append(cur)
+
+    result = []
+    for b in blocks:
+        dur = b["t_end"] - b["t_start"]
+        if dur >= min_duration_s:
+            b["duration"] = round(dur, 2)
+            b["max_over"] = round(b["max_over"], 2)
+            result.append(b)
+    return result
+
+
+def route_target_jump_events(rows, jump_thresh_kph=8.0, max_dt_s=0.5):
+    """
+    src=='route'(내비 경로 감속 후보) 구간에서 desiredSpeed(=이 구간에서는
+    route_speed 산출값과 동일)가 짧은 시간 안에 큰 폭으로 튀는 지점을 찾는다.
+    carrot_navi_route()의 역순 시간지연(time_delay/time_wait) 스무딩이
+    매 프레임 재계산되며 GPS 경로점/곡률 추정 노이즈로 불연속을 만드는지
+    확인하는 용도(vturn 쪽의 curve_noise_summary_refined()에 대응하는
+    route 버전).
+
+    연속 두 프레임이 같은 seg 내에서 dt<=max_dt_s이고
+    |Δ desiredSpeed| >= jump_thresh_kph 이면 이벤트로 기록.
+    src가 route가 아닌 프레임을 만나면 연속성이 끊긴 것으로 보고 리셋.
+
+    리턴: [{"seg","t","dt","d_desiredSpeed","before","after"}]
+    """
+    events = []
+    prev = None
+    for r in rows:
+        if r.get("src") != "route":
+            prev = None
+            continue
+        t = _f(r, "t")
+        v = _f(r, "desiredSpeed")
+        seg = r.get("seg")
+        if t is None or v is None:
+            prev = None
+            continue
+        if prev is not None and prev["seg"] == seg:
+            dt = t - prev["t"]
+            dv = v - prev["v"]
+            if 0 < dt <= max_dt_s and abs(dv) >= jump_thresh_kph:
+                events.append({
+                    "seg": seg, "t": round(t, 2), "dt": round(dt, 2),
+                    "d_desiredSpeed": round(dv, 2),
+                    "before": round(prev["v"], 1), "after": round(v, 1),
+                })
+        prev = {"t": t, "v": v, "seg": seg}
+    return events
 
 
 # ---------------------------------------------------------------------------
@@ -1016,6 +1367,130 @@ def scan_routes_for_ttc_danger(csv_paths, ttc_thresh=2.5, min_closing_vrel=0.1):
 # ---------------------------------------------------------------------------
 # 14) 패치 전/후 회귀 리포트
 # ---------------------------------------------------------------------------
+def congestion_stop_launch_lurch_scan(rows, stop_v_ego=0.3, congestion_window_s=60.0,
+                                       congestion_stop_count_thresh=2,
+                                       ttc_danger_thresh=2.5, min_closing_vrel=0.1,
+                                       congestion_min_closing_for_danger=3.0,
+                                       post_jerk_window_s=1.5):
+    """
+    (2026-08-23, 58차 2번 신규) "정체구간 붕끗" 근본원인 가설 검증용 스캐너.
+    58차 2번 WIP 설계를 그대로 로그 위에서 재현:
+
+    1. "정체(congestion)" 상태 추적 -- 최근 congestion_window_s초 이내
+       v_ego가 stop_v_ego 밑으로 새로 진입(정차)한 횟수가
+       congestion_stop_count_thresh 이상이면 congestion_active=True.
+    2. congestion_active 구간에서 TTC(=dRel/-vRel) <= ttc_danger_thresh인
+       기존 danger override 발동 시점(LEAD_ACQ_TTC_DANGER, 기존 로직)을
+       찾되, 그중 실제 closing 속도(|vRel|)가
+       congestion_min_closing_for_danger 미만인 "완만한 접근"만 후보로
+       추림 -- 이게 바로 58차 2번이 "오판"으로 규정한 케이스(설계상
+       패치 후엔 danger override가 억제되어야 할 대상).
+       |vRel| >= congestion_min_closing_for_danger는 "진짜 위험"으로
+       간주해 후보에서 제외(설계 원칙: 안전 설계는 그대로 유지).
+    3. 각 후보 시점 이후 post_jerk_window_s 이내 aEgo 최대 낙폭(가장
+       음의 방향 변화)을 "체감 붕끗 강도"로 같이 리포트.
+
+    입력: extract_log.py CSV rows.
+    리턴: [{"seg","t","dRel","vRel","ttc","vEgo","stop_count_in_window",
+            "post_min_aEgo","post_aEgo_drop"}]
+
+    한계: LAUNCH_BYPASS_STOP_V_EGO(0.3)와 stop_v_ego 기본값을 맞췄으나,
+    congestion_window_s/stop_count_thresh/min_closing_for_danger는
+    아직 코드에 반영된 실제 상수가 아니라 이 스캔 전용 추정치 --
+    실제 패치 상수값은 이 분석 결과를 참고해 별도로 정할 것.
+    """
+    n = len(rows)
+    t = [_f(r, "t") for r in rows]
+    vEgo = [_f(r, "vEgo") for r in rows]
+    lead = [_b(r, "leadStatus") for r in rows]
+    dRel = [_f(r, "leadDRel") for r in rows]
+    vRel = [_f(r, "leadVRel") for r in rows]
+    aEgo = [_f(r, "aEgo") for r in rows]
+    seg = [r.get("seg") for r in rows]
+    ce = [_b(r, "cruiseEnabled") for r in rows]
+
+    stop_events_t = []  # 정차 진입 시각들
+    prev_above = True
+    candidates = []
+    cur_danger = None
+
+    for i in range(n):
+        if t[i] is None:
+            continue
+        if vEgo[i] is not None:
+            below = vEgo[i] < stop_v_ego
+            if below and prev_above:
+                stop_events_t.append(t[i])
+            prev_above = not below
+
+        # 최근 window 이내 정차 횟수
+        stop_events_t = [st for st in stop_events_t if t[i] - st <= congestion_window_s]
+        congestion_active = len(stop_events_t) >= congestion_stop_count_thresh
+
+        ttc = None
+        if lead[i] and dRel[i] is not None and vRel[i] is not None and vRel[i] <= -min_closing_vrel:
+            ttc = dRel[i] / (-vRel[i])
+        danger = ttc is not None and ttc <= ttc_danger_thresh
+
+        if danger and congestion_active:
+            if cur_danger is None:
+                cur_danger = {"seg": seg[i], "t_start": t[i], "t_end": t[i],
+                               "min_ttc": ttc, "dRel": dRel[i], "vRel": vRel[i],
+                               "vEgo": vEgo[i], "cruiseEnabled": ce[i],
+                               "stop_count_in_window": len(stop_events_t),
+                               "max_abs_vRel": abs(vRel[i])}
+            else:
+                cur_danger["t_end"] = t[i]
+                cur_danger["max_abs_vRel"] = max(cur_danger["max_abs_vRel"], abs(vRel[i]))
+                if ttc < cur_danger["min_ttc"]:
+                    cur_danger["min_ttc"] = ttc
+                    cur_danger["dRel"] = dRel[i]
+                    cur_danger["vRel"] = vRel[i]
+                    cur_danger["vEgo"] = vEgo[i]
+        else:
+            if cur_danger is not None:
+                candidates.append(cur_danger)
+                cur_danger = None
+    if cur_danger is not None:
+        candidates.append(cur_danger)
+
+    # "완만한 접근"만 필터 + 사후 aEgo 낙폭 계산
+    results = []
+    for c in candidates:
+        # 이벤트 전체(danger 지속구간)에서 한 번이라도 실제 위험급
+        # closing(max_abs_vRel)이 있었으면 "진짜 위험"으로 보고 제외 --
+        # 완만한 접근만으로 danger override가 튄 순수 후보만 남김.
+        if c["max_abs_vRel"] >= congestion_min_closing_for_danger:
+            continue
+        t0 = c["t_start"]
+        pre_a = None
+        min_a = None
+        for i in range(n):
+            if t[i] is None or aEgo[i] is None:
+                continue
+            if t0 - 0.3 <= t[i] < t0:
+                pre_a = aEgo[i]
+            if t0 <= t[i] <= t0 + post_jerk_window_s:
+                if min_a is None or aEgo[i] < min_a:
+                    min_a = aEgo[i]
+        drop = None
+        if pre_a is not None and min_a is not None:
+            drop = round(pre_a - min_a, 3)
+        results.append({
+            "seg": c["seg"], "t": round(c["t_start"], 2),
+            "duration_s": round(c["t_end"] - c["t_start"], 2),
+            "dRel": round(c["dRel"], 2) if c["dRel"] is not None else None,
+            "vRel": round(c["vRel"], 2) if c["vRel"] is not None else None,
+            "ttc": round(c["min_ttc"], 2),
+            "vEgo": round(c["vEgo"], 2) if c["vEgo"] is not None else None,
+            "cruiseEnabled": c["cruiseEnabled"],
+            "stop_count_in_window": c["stop_count_in_window"],
+            "post_min_aEgo": round(min_a, 3) if min_a is not None else None,
+            "post_aEgo_drop": drop,
+        })
+    return results
+
+
 def _jerk_stats(rows):
     """운전자 개입 제외 후 aEgo의 프레임간 변화율(jerk, m/s^3) 통계."""
     clean = remove_driver_intervention(rows)
@@ -1418,6 +1893,300 @@ def curve_noise_summary_refined(rows, jump_thresh_m=8.0, max_dt_s=0.35,
         ),
         "events": events,
     }
+
+
+def dRel_jump_ego_maneuver_overlap(rows, events=None, blinker_window_s=1.0,
+                                    curvature_reversal_window_s=1.0,
+                                    curvature_reversal_thresh=0.0005,
+                                    **jump_kwargs):
+    """
+    44차(2026-08-22)에서 발견된 실수 재발 방지용: `curve_lead_dRel_jump_events()`가
+    찾아낸 dRel 급점프 각각이 "vision 깊이 오추정 노이즈"가 아니라 ego
+    자신의 실제 측방 기동(방향지시등 on / desiredCurvature 부호 반전 /
+    lateralPlan.laneChangeState 활성)과 겹치는지 자동으로 플래그한다.
+
+    배경: route B seg10 t=1895.6 이벤트(FINDINGS.md 44차)가 42차에서
+    "커브 vision 노이즈"로 오판됐던 근본 원인은, 당시 CSV에 blinker/
+    laneChangeState 컬럼 자체가 없어 "이 점프가 ego의 실제 조향/신호와
+    겹치는지"를 검증할 수단이 없었기 때문. 43차에서 `extract_log.py`에
+    해당 컬럼을 추가했지만, 매번 사람이 CSV를 눈으로 대조해야 한다면
+    같은 실수가 반복될 수 있음 -- 이 함수가 그 대조를 자동화한다.
+
+    각 이벤트 발생 시각(t) 기준:
+    - blinker_on: 전후 blinker_window_s초 내 leftBlinker 또는
+      rightBlinker가 True인 프레임이 하나라도 있는지.
+    - laneChangeState_active: 같은 창 내 laneChangeState가 "off"/빈값이
+      아닌 프레임이 있는지 (openpilot 자체 LCA가 개입했는지).
+    - curvature_reversal: 전후 curvature_reversal_window_s초 내
+      desiredCurvature 부호가 반전되고 그 진폭(max-min)이
+      curvature_reversal_thresh를 넘는지 -- 단순 편측 커브 주행에서는
+      나오지 않는 S자형 조향 패턴 근사 탐지.
+    - likely_ego_maneuver: 위 세 가지 중 하나라도 True.
+
+    **주의**: `likely_ego_maneuver=True`라고 해서 "이 dRel 점프는 안전과
+    무관하다"는 뜻이 아니다 -- 44차 결론대로 ego 기동 중에도 실제 리드
+    차량과의 거리/위험은 여전히 유효할 수 있다. 이 함수는 "vision 노이즈"
+    라는 성급한 결론을 막기 위한 1차 스크리닝 용도로만 쓸 것.
+
+    rows: extract_log.py 2026-08-22(43차) 이후 버전으로 뽑은 CSV만 지원
+    (leftBlinker/rightBlinker/laneChangeState 컬럼 필요). 구버전 CSV면
+    모든 이벤트의 blinker_on/laneChangeState_active가 항상 False로
+    나오므로, 그 결과만으로 "노이즈 확정"하지 말고 CSV 버전부터 확인할 것.
+
+    리턴: curve_lead_dRel_jump_events()와 동일한 이벤트 리스트에
+    "blinker_on"/"laneChangeState_active"/"curvature_reversal"/
+    "likely_ego_maneuver" 키를 추가해서 반환.
+    """
+    if events is None:
+        events = curve_lead_dRel_jump_events(rows, **jump_kwargs)
+    if not events:
+        return events
+
+    t = [_f(r, "t") for r in rows]
+    curv = [_f(r, "desiredCurvature") for r in rows]
+    lblk = [_b(r, "leftBlinker") for r in rows]
+    rblk = [_b(r, "rightBlinker") for r in rows]
+    lcs = [r.get("laneChangeState") for r in rows]
+
+    for e in events:
+        et = e["t"]
+
+        idxs_b = [i for i in range(len(rows))
+                  if t[i] is not None and abs(t[i] - et) <= blinker_window_s]
+        blinker_on = any((lblk[i] or rblk[i]) for i in idxs_b)
+        lc_active = any(lcs[i] not in (None, "", "off") for i in idxs_b)
+
+        idxs_c = [i for i in range(len(rows))
+                  if t[i] is not None and abs(t[i] - et) <= curvature_reversal_window_s]
+        curv_vals = [curv[i] for i in idxs_c if curv[i] is not None]
+        curvature_reversal = False
+        if len(curv_vals) >= 2:
+            cmin, cmax = min(curv_vals), max(curv_vals)
+            if cmin < 0 < cmax and (cmax - cmin) >= curvature_reversal_thresh:
+                curvature_reversal = True
+
+        e["blinker_on"] = blinker_on
+        e["laneChangeState_active"] = lc_active
+        e["curvature_reversal"] = curvature_reversal
+        e["likely_ego_maneuver"] = blinker_on or lc_active or curvature_reversal
+
+    return events
+
+
+def curve_apex_vs_gap_delta(rows, entry_thresh=5.0, exit_thresh=3.0,
+                             unrestricted_ds=180.0, min_event_rows=3):
+    """
+    (2026-08-22, 46차 계속) 커브 이벤트별로 "실제 조향각 정점(apex) 시점"과
+    "vEgo(kph)-desiredSpeed 최대 초과폭(max gap) 발생 시점"의 시간차를
+    계산 -- "정점 감속 부족"이 실제로는 apex 이전(사전감속 구간 후반)에서
+    이미 벌어진 문제의 연장인지, 진짜 apex에서 못 따라간 것인지 구분하는
+    용도. route2(f3db6ca89d) 32건 분석에서 79%가 gap이 apex보다 평균
+    1.26초 먼저 발생하는 것으로 확인(FINDINGS.md "route2 32건 커브
+    이벤트 재분류" 참고).
+
+    이벤트 분리: |steeringAngleDeg| >= entry_thresh 진입 / < exit_thresh
+    이탈. min_event_rows 미만인 짧은 잡음성 이벤트는 제외.
+    desiredSpeed >= unrestricted_ds(기본 180, 사실상 무제한)인 프레임은
+    gap 계산에서 제외(직선 구간이 이벤트에 섞여 들어온 경우 방지).
+
+    리턴: 이벤트별 dict 리스트. 각 dict:
+      entry_t, exit_t, apex_t, apex_steer,
+      max_gap(양수=초과, 음수=미달), gap_t, gap_ds, gap_vego,
+      delta_gap_minus_apex(음수=gap이 apex보다 먼저 발생)
+    max_gap 계산 가능한 유효 프레임이 없는 이벤트(전 구간
+    desiredSpeed>=unrestricted_ds)는 결과에서 제외됨.
+
+    참고: route1(고속도로 단일커브)처럼 이벤트 자체가 드문 도로에서는
+    잡음성 조향(차선변경 등)이 entry_thresh를 넘어 이벤트로 잡히고
+    max_gap이 크게 음수로 나오는 경우가 많음 -- 호출부에서
+    `max_gap > 0`으로 먼저 필터링해 "실제 초과 사례"만 볼 것.
+    """
+    events = []
+    in_curve = False
+    cur = []
+    for r in rows:
+        steer = abs(_f(r, "steeringAngleDeg", 0.0))
+        if not in_curve and steer >= entry_thresh:
+            in_curve = True
+            cur = [r]
+        elif in_curve:
+            cur.append(r)
+            if steer < exit_thresh:
+                in_curve = False
+                if len(cur) >= min_event_rows:
+                    events.append(cur)
+                cur = []
+    if in_curve and len(cur) >= min_event_rows:
+        events.append(cur)
+
+    results = []
+    for ev in events:
+        apex_row = max(ev, key=lambda r: abs(_f(r, "steeringAngleDeg", 0.0)))
+        apex_t = _f(apex_row, "t")
+        apex_steer = _f(apex_row, "steeringAngleDeg")
+
+        gap_candidates = []
+        for r in ev:
+            ds = _f(r, "desiredSpeed")
+            vego = _f(r, "vEgo")
+            if ds is None or vego is None or ds <= 0 or ds >= unrestricted_ds:
+                continue
+            vego_kph = vego * 3.6
+            gap_candidates.append((vego_kph - ds, _f(r, "t"), ds, vego_kph))
+        if not gap_candidates:
+            continue
+        max_gap, gap_t, gap_ds, gap_vego = max(gap_candidates, key=lambda x: x[0])
+
+        results.append({
+            "entry_t": _f(ev[0], "t"),
+            "exit_t": _f(ev[-1], "t"),
+            "apex_t": apex_t,
+            "apex_steer": apex_steer,
+            "max_gap": max_gap,
+            "gap_t": gap_t,
+            "gap_ds": gap_ds,
+            "gap_vego": gap_vego,
+            "delta_gap_minus_apex": gap_t - apex_t,
+            "seg": ev[0].get("seg", ""),
+        })
+    return results
+
+
+def vturn_release_lag_scan(rows, entry_thresh=5.0, exit_thresh=3.0,
+                            min_event_rows=3, curvature_release_hold_s=0.3,
+                            vturn_rise_thresh_kph=1.5, vturn_rise_hold_s=0.3,
+                            search_window_s=8.0):
+    """
+    (2026-08-23, 49차) `vturn_speed()`(carrot_man.py) 설계상 apex(조향각
+    정점) 통과 즉시 argmin 후보가 전방으로 넘어가며 제약이 풀리기
+    시작하는 구조인지, 아니면 실제 vTurnSpeed 출력이 눈에 띄게 오르기
+    시작하는 시점까지 체감될 만한 지연(주로 vturn_accel_rc 저역통과
+    스무딩)이 있는지를 CSV만으로 근사 측정한다.
+
+    주의(중요, 근사치): vturn_speed() 내부의 필터-전 required_speed_kph
+    (매 지점 물리공식 결과, argmin 이전 값)는 modelV2.orientationRate/
+    velocity/position raw 배열에서만 계산 가능하고 CSV엔 없음 -- CSV엔
+    필터-후 최종 출력 vTurnSpeed만 있다. 이 함수는 그 대신
+    steeringAngleDeg(실제 조향각, 곡률 진행의 관측 가능한 proxy)의
+    apex를 "구조적으로 release가 시작돼야 하는 시점"의 근사치로 쓴다.
+    즉 "argmin 전환 시각" 자체를 직접 재현하는 게 아니라, "곡률이
+    실제로 완화되기 시작한 시각" 대비 "vTurnSpeed가 실제로 오르기
+    시작한 시각"의 지연을 잰다 -- accel_rc 스무딩 체감 지연을 보는
+    용도로는 충분하지만, argmin 구조 자체의 정확한 전환 시점 검증은
+    아니다(그러려면 modelV2 raw 재현이 필요, 별도 과제).
+
+    이벤트 분리는 `curve_apex_vs_gap_delta()`와 동일한
+    entry_thresh/exit_thresh 방식(|steeringAngleDeg| 기준).
+
+    각 이벤트에 대해:
+    1. apex_t: |steeringAngleDeg| 최댓값 시각 (곡률 완화가 구조적으로
+       시작될 수 있는 가장 이른 시점의 근사 하한).
+    2. curvature_release_t: apex_t 이후, |steeringAngleDeg|가
+       curvature_release_hold_s 동안 연속 비증가(재상승 없이 감소/유지)
+       하기 시작하는 첫 시각. 아직 못 찾으면 이벤트 제외.
+    3. vturn_rise_t: apex_t 이후 search_window_s 이내에서, 곡선 진행
+       방향과 무관하게 abs(vTurnSpeed)가 vturn_rise_thresh_kph 이상
+       상승한 뒤 vturn_rise_hold_s 동안 다시 그 이하로 안 떨어지는
+       첫 시각(=필터 출력이 "실제로, 계속" 오르기 시작하는 시점).
+       못 찾으면 이벤트 제외(=이 구간에선 vTurnSpeed가 아예 안 올랐다는
+       뜻이므로 lag 계산이 무의미).
+    4. lag_s = vturn_rise_t - curvature_release_t (양수=곡률 완화보다
+       vTurnSpeed 상승이 늦음, 음수=먼저/동시 상승 -- 부호 반전은
+       근사 오차이거나 다른 제약(vCruiseCluster 등)이 개입했을 가능성).
+
+    리턴: 이벤트별 dict 리스트 (apex_t, curvature_release_t, vturn_rise_t,
+    lag_s, seg, apex_steer). curvature_release_t나 vturn_rise_t를 못 찾은
+    이벤트는 결과에서 제외.
+    """
+    events = []
+    in_curve = False
+    cur = []
+    for r in rows:
+        steer = abs(_f(r, "steeringAngleDeg", 0.0))
+        if not in_curve and steer >= entry_thresh:
+            in_curve = True
+            cur = [r]
+        elif in_curve:
+            cur.append(r)
+            if steer < exit_thresh:
+                in_curve = False
+                if len(cur) >= min_event_rows:
+                    events.append(cur)
+                cur = []
+    if in_curve and len(cur) >= min_event_rows:
+        events.append(cur)
+
+    results = []
+    for ev in events:
+        apex_idx = max(range(len(ev)), key=lambda i: abs(_f(ev[i], "steeringAngleDeg", 0.0)))
+        apex_row = ev[apex_idx]
+        apex_t = _f(apex_row, "t")
+        apex_steer = _f(apex_row, "steeringAngleDeg")
+
+        # curvature_release_t: apex 이후 |steeringAngleDeg|가
+        # curvature_release_hold_s 동안 연속 비증가 시작하는 첫 시각.
+        post_apex = ev[apex_idx:]
+        release_t = None
+        for i in range(len(post_apex) - 1):
+            t0 = _f(post_apex[i], "t")
+            if t0 is None:
+                continue
+            ok = True
+            peak = abs(_f(post_apex[i], "steeringAngleDeg", 0.0))
+            for j in range(i, len(post_apex)):
+                tj = _f(post_apex[j], "t")
+                if tj is None:
+                    continue
+                if tj - t0 > curvature_release_hold_s:
+                    break
+                sj = abs(_f(post_apex[j], "steeringAngleDeg", 0.0))
+                if sj > peak + 0.05:  # 0.05deg 노이즈 허용
+                    ok = False
+                    break
+                peak = min(peak, sj) if sj < peak else peak
+            if ok:
+                release_t = t0
+                break
+        if release_t is None:
+            continue
+
+        # vturn_rise_t: apex 이후 search_window_s 내에서 abs(vTurnSpeed)가
+        # vturn_rise_thresh_kph 이상 오른 뒤 vturn_rise_hold_s 동안
+        # 유지되는 첫 시각.
+        base_vturn = abs(_f(apex_row, "vTurnSpeed", 0.0))
+        rise_t = None
+        for i in range(len(post_apex)):
+            ti = _f(post_apex[i], "t")
+            if ti is None or ti - apex_t > search_window_s:
+                break
+            vi = abs(_f(post_apex[i], "vTurnSpeed", 0.0))
+            if vi - base_vturn >= vturn_rise_thresh_kph:
+                held = True
+                for k in range(i, len(post_apex)):
+                    tk = _f(post_apex[k], "t")
+                    if tk is None:
+                        continue
+                    if tk - ti > vturn_rise_hold_s:
+                        break
+                    vk = abs(_f(post_apex[k], "vTurnSpeed", 0.0))
+                    if vk - base_vturn < vturn_rise_thresh_kph * 0.5:
+                        held = False
+                        break
+                if held:
+                    rise_t = ti
+                    break
+        if rise_t is None:
+            continue
+
+        results.append({
+            "apex_t": apex_t,
+            "apex_steer": apex_steer,
+            "curvature_release_t": release_t,
+            "vturn_rise_t": rise_t,
+            "lag_s": rise_t - release_t,
+            "seg": ev[0].get("seg", ""),
+        })
+    return results
 
 
 if __name__ == "__main__":

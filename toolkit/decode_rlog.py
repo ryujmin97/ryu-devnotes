@@ -7,7 +7,15 @@ rlog.zst / qlog.zst -> capnp Event 이터레이터.
   압축 해제 크기가 안 들어있는 경우가 있어, 안 주면 예외 발생 가능).
 - BytesIO보다 임시 파일에 써서 읽는 편이 capnp의 멀티 메시지 스트림 파싱에
   더 안정적.
+- 2026-08-26 수정: 드라이브 종료 시점(전원 차단/segment 강제 종료 등)에
+  걸린 마지막 세그먼트는 rlog.zst 파일 자체가 잘려 기록된 경우가 있음.
+  이 경우 one-shot decompress()가 "did not decompress full frame"으로
+  실패하지만, stream_reader로 읽으면 잘린 지점까지의 유효 데이터는 정상
+  회수 가능(zstd 프레임 경계 문제일 뿐 내용 자체는 유효). one-shot 실패
+  시 스트리밍 폴백을 자동 시도하고, 이 경우 stderr에 경고를 남긴다
+  (마지막 세그먼트 끝부분 일부 row 유실 가능성 있음을 알리기 위함).
 """
+import io
 import os
 import sys
 
@@ -45,7 +53,27 @@ def iter_events(path: str, repo_dir: str = "/home/claude/ryu", max_output_mb: in
 
     dctx = zstandard.ZstdDecompressor()
     with open(path, "rb") as f:
-        data = dctx.decompress(f.read(), max_output_size=max_output_mb * 1024 * 1024)
+        raw = f.read()
+    try:
+        data = dctx.decompress(raw, max_output_size=max_output_mb * 1024 * 1024)
+    except zstandard.ZstdError as e:
+        # 잘린 파일(마지막 세그먼트 등) 폴백: 스트리밍으로 가능한 만큼 회수
+        print(f"[decode_rlog] WARNING: one-shot decompress 실패({e}), "
+              f"stream_reader 폴백 시도: {path}", file=sys.stderr)
+        chunks = []
+        reader = dctx.stream_reader(io.BytesIO(raw), read_across_frames=True)
+        try:
+            while True:
+                chunk = reader.read(1024 * 1024)
+                if not chunk:
+                    break
+                chunks.append(chunk)
+        except Exception as e2:
+            print(f"[decode_rlog] WARNING: 스트리밍도 {len(b''.join(chunks))} "
+                  f"bytes에서 중단됨({e2}): {path}", file=sys.stderr)
+        data = b"".join(chunks)
+        if not data:
+            raise
 
     tmp_path = f"/tmp/_seg_{os.getpid()}.bin"
     with open(tmp_path, "wb") as f:
