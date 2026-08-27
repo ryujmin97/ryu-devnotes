@@ -1,3 +1,51 @@
+## 98차 (완료 — 구현+정적검증 완료, 실차검증 대기) — 97차 발견사항 전부 패치: Params I/O 캐싱 + compute_leads 내부함수 이동 + deepcopy 제거
+
+**배경**: 97차(정적 코드리뷰)가 찾은 3개 항목을 사용자 확인 후 전부 패치.
+
+**구현** (base `b67c291`, c3-ms-dev HEAD, 로컬 커밋 `05580ab`):
+1. **Params I/O 캐싱** (`lateral_planner.py`의 `self.readParams` 카운터
+   패턴 그대로 재사용):
+   - `controlsd.py` `state_control()`(100Hz): `SteerRatioRate`/`CustomSR`/
+     `UseLaneLineCurveSpeed`/`LatSmoothSec`/`SteerActuatorDelay`/
+     `SpeedFromPCM`/`DisableDM` 7개 → 100프레임(~1s)마다 1회
+   - `radard.py` `update()`(20Hz): `EnableRadarTracks`/`EnableCornerRadar`/
+     `RadarLatFactor`/`RadarReactionFactor` 4개 → 100프레임(5s)마다 1회
+   - `longitudinal_planner.py` `update()`(20Hz): `CommaLongAcc`/
+     `LongActuatorDelay`/`VEgoStopping` 3개 → 100프레임(5s)마다 1회
+2. **`compute_leads()` 내부함수 모듈레벨 이동**: `radard.py`의 `_ok()`/
+   `_pick_two_with_gap()`(20Hz마다 재생성되던 클로저)를 모듈레벨
+   `_lead_cand_ok()`/`_pick_two_with_gap()`으로 이동.
+3. **`leadTwo` deepcopy→copy**: `get_RadarState()` 반환값이 float/bool/str만
+   담긴 flat dict(중첩 가변객체 없음)임을 코드 확인 후 `.copy()`로 교체,
+   `import copy` 제거.
+
+**제어 로직/임계값 자체는 전혀 변경 없음** — 이번 패치는 순수 캐싱
+리팩터. 부작용은 UI 파라미터 값 변경 시 반영 지연뿐(controlsd 최대~1s,
+radard/longitudinal_planner 최대~5s) — 튜닝 중 즉각 반영을 기대하는
+사용성과는 트레이드오프이나, `lateral_planner.py`/`carrot_functions.py`가
+이미 이 트레이드오프를 채택 중이라 일관성 있음.
+
+**검증**: `py_compile` 3파일 전부 통과. 로그 재생 시뮬레이션은 대상 아님
+(제어값에 영향 없는 순수 I/O 캐싱이라 route 로그로 확인할 대상 자체가
+없음 — behavior는 Params 반영 타이밍만 변함).
+
+**전달**: `0001-98차-Params-IO-캐싱-compute_leads-이동-deepcopy제거.patch`
+(base `b67c291`, 현재 origin `c3-ms-dev` HEAD 위에 바로 `git am` 가능).
+
+**환경 변경 사항 (이번 세션부터)**: 사용자가 스마트폰 + Termux 환경으로
+전환. 이후 devnotes/patch 로컬 저장 경로 및 push 절차는 PowerShell이
+아닌 Termux(bash) 명령어로 안내.
+
+**다음(최우선)**: 실차 드라이브 검증 —
+1. UI에서 튜닝 파라미터(예: `LatSmoothSec`, `TFollowGap1` 등 캐싱 대상)
+   변경 시 반영이 체감상 느려지지 않는지 (controlsd 최대 1s, 나머지 최대
+   5s 지연은 설계상 허용 범위이나 실사용 체감 확인 필요).
+2. 캐싱 전/후 조향·종방향 제어 동작 회귀 없는지 (특히 `SpeedFromPCM`/
+   `DisableDM`처럼 안전 관련 파라미터가 지연 캐싱으로 인해 위험 상황에서
+   불리하게 작동하지 않는지 — 단, 두 파라미터 모두 차량 설정값 성격이라
+   주행 중 실시간 변경 대상이 아님을 확인함, 위험도 낮음).
+3. 97차/98차는 로그분석 범위 밖 — `LAST_ANALYZED.md` 갱신 대상 아님.
+
 ## 97차 (완료 — 정적 코드리뷰만, 코드 변경 없음) — c3-ms-dev 전체 불필요코드/CPU부하 점검
 
 **요청**: c3-ms-dev 최신(`b67c291`) 코드 전체를 대상으로 (1) 불필요한

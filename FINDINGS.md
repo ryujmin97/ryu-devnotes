@@ -1,4 +1,16 @@
-## 97차 — [INVESTIGATING] c3-ms-dev 전체 정적 코드리뷰 — 실시간 루프 내 Params() 무제한 I/O 발견 (로그분석 아님, 실차검증 대상 아님)
+## 98차 — [NEEDS_VALIDATION] 97차 발견사항 전부 패치 완료 (Params I/O 캐싱 + compute_leads 내부함수 이동 + deepcopy→copy)
+
+97차가 찾은 3개 항목 전부 패치. 상세 구현/검증 내용은 WIP.md 98차 항목
+참고. 요약: `controlsd.py`/`radard.py`/`longitudinal_planner.py` 실시간
+루프 내 무제한 `Params.get_*()` 호출 14건을 `lateral_planner.py` 기존
+캐싱 패턴(`self.readParams` 카운터)으로 통일, `radard.py`
+`compute_leads()` 내부함수 2개 모듈레벨 이동, `leadTwo`의 불필요한
+`deepcopy`를 `.copy()`로 교체(반환 dict가 flat scalar-only임을 코드로
+확인). 제어 로직/임계값 변경 없음 — 순수 캐싱 리팩터. `py_compile` 통과,
+base `b67c291`, 로컬 커밋 `05580ab`. 실차 검증 대기: (a) 파라미터 변경
+반영 지연 체감 여부, (b) 회귀 없음.
+
+## 97차 — [RESOLVED → 98차에서 패치] c3-ms-dev 전체 정적 코드리뷰 — 실시간 루프 내 Params() 무제한 I/O 발견 (로그분석 아님, 실차검증 대상 아님)
 
 **배경**: 실주행 로그 분석이 아니라 코드베이스 자체에 대한 정적 리뷰
 요청 — (1) 불필요한 코드 존재 여부, (2) comma 기기 구동 중 CPU 연산을
