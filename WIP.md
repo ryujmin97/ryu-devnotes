@@ -1,4 +1,14 @@
-## 94차 (완료 — 구현+시뮬레이션검증+패치 전달 완료, `git am`/실차 적용 대기) — 방안D: discontinuity 트리거 시 vision_dRel_rate/window도 함께 리셋(63차 계속 r1-14 사각지대 해소)
+## 95차 (완료 — c3-ms-curv → c3-ms-dev 병합 완료, 원격 푸시 확인 대기) — 81/82/84/85/87/91차 통합
+
+- merge-base: `2d5174e` (79차)
+- 병합 전 c3-ms-dev 단독 커밋: `6981b5d` (94차, 방안D 리셋)
+- 병합 대상 c3-ms-curv 단독 커밋(오래된 순): `d7a647f`(81차a,b) `451a3b9`(82차) `2a91c3f`(84차) `284457f`(85차) `cf32b5d`(87차) `6d15391`(91차)
+- 컨테이너 dry-run(`git merge --no-commit --no-ff`) 및 사용자 로컬 실제 병합(`ort` strategy) 둘 다 **충돌 없이 성공**
+- 변경 파일: `selfdrive/carrot/carrot_man.py`, `selfdrive/carrot/carrot_serv.py`, `selfdrive/controls/radard.py` — 총 3 files changed, 120 insertions(+), 7 deletions(-)
+- 사용자가 로컬에서 `git merge origin/c3-ms-curv -m "Merge c3-ms-curv into c3-ms-dev (81,82,84,85,87,91차 통합)"` 실행 완료, 이어서 `git push origin c3-ms-dev` 예정
+- 이번 병합은 브랜치 병합(2-parent merge commit)이라 기존 `NNNN-xxx.patch`(git am용 단일 패치) 방식 대신 사용자 로컬 `git merge` 직접 실행으로 처리함
+- **다음 세션 확인사항**: `git log --oneline -5 origin/c3-ms-dev`로 병합 커밋이 원격에 반영됐는지 확인, 이후 81/82/84/85/87/91차와 94차(방안D)가 한 브랜치에 공존하는 상태에서 실주행 검증 필요
+
 
 **배경**: 사용자가 이전 세션(컨테이너 리셋으로 중단됨, `이전세션.txt`로 전달)에서
 "내차_차선변경.zip"(차선변경 시 옆차선 앞차 인식 급감속) 분석 도중 63차 계속
