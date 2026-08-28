@@ -234,6 +234,135 @@ def scenario_F_ratio_boundary_transition():
     return toggled_correctly
 
 
+# ===========================================================================
+# 117차: F에서 발견된 하드클램프 단차(1.5 m/s^2) 대응 -- 39차
+# (LEAD_ACCEL_WEIGHT_RISE_RATE)와 동일 패턴으로, 캡 자체를 직접 하드클램프
+# 하는 대신 "캡이 얼마나 섞여 들어가는지"를 나타내는 블렌드 weight를 두고 그
+# weight의 사이클당 변화폭을 제한한다(진입/해제 양방향). 실제 long_mpc.py
+# 패치(0001-117-...patch)와 동일한 로직을 순수함수로 재현.
+# ===========================================================================
+LOW_SPEED_GAP_OPEN_WEIGHT_RISE_RATE = 1.0  # 1/s : cap_w가 0<->1로 바뀌는 데 최소 1.0초
+
+
+class GapOpenCapState:
+    """long_mpc.py의 self._gap_open_cap_weight_prev 재현."""
+    def __init__(self):
+        self.cap_w_prev = 0.0  # 안전측 기본값(캡 미적용)
+
+
+def apply_gap_open_cap_smoothed(a_lead, v_ego, dRel, desired_distance,
+                                 launch_bypass_active, state: GapOpenCapState, dt=DT):
+    """하드클램프(apply_gap_open_cap) 대신 블렌드 weight를 rise-rate로
+    완만화한 버전. long_mpc.py 패치와 동일 로직."""
+    if desired_distance <= 1.0:
+        gap_ratio = 0.0
+    else:
+        gap_ratio = dRel / desired_distance
+    gap_open_apply = (
+        v_ego <= LOW_SPEED_GAP_OPEN_V_EGO_GATE
+        and a_lead >= LOW_SPEED_GAP_OPEN_A_LEAD_THRESH
+        and (not launch_bypass_active)
+        and gap_ratio >= LOW_SPEED_GAP_OPEN_MARGIN_RATIO
+    )
+    cap_target = 1.0 if gap_open_apply else 0.0
+    if launch_bypass_active:
+        cap_w = cap_target  # 45차와 동일 원칙: bypass 중엔 rise-rate 제한도 우회, 즉시 0.0
+    elif cap_target > state.cap_w_prev:
+        cap_w = min(cap_target, state.cap_w_prev + LOW_SPEED_GAP_OPEN_WEIGHT_RISE_RATE * dt)
+    elif cap_target < state.cap_w_prev:
+        cap_w = max(cap_target, state.cap_w_prev - LOW_SPEED_GAP_OPEN_WEIGHT_RISE_RATE * dt)
+    else:
+        cap_w = cap_target
+    state.cap_w_prev = cap_w
+    if cap_w > 0.0:
+        a_out = a_lead * (1.0 - cap_w) + min(a_lead, LOW_SPEED_GAP_OPEN_ACCEL_CAP) * cap_w
+    else:
+        a_out = a_lead
+    return a_out, cap_w
+
+
+def scenario_G_smoothed_boundary_transition():
+    """F와 동일한 경계 왕복 시나리오를 완만화 버전으로 재실행. 사이클간 최대
+    a_lead 변화폭이 이론상 상한(ACCEL_CAP 근방 변화 기준 RISE_RATE*DT에 비례,
+    최소 1초에 걸쳐 캡 전체(최대 discontinuity)가 반영되므로 한 사이클당 변화폭은
+    discontinuity*RISE_RATE*DT 근처)으로 줄었는지 확인 -- F의 순간 단차(최대
+    1.5 m/s^2)와 직접 비교 보고."""
+    n = 300
+    v_ego = 20.0 / 3.6
+    a_lead = 2.0
+    desired_distance = 15.0
+    bypass = LaunchBypassState()
+    bypass.active = False
+    state = GapOpenCapState()
+    max_step = 0.0
+    prev_a = a_lead
+    for i in range(n):
+        t = i * DT
+        dRel = 18.0 + 6.0 * np.sin(t * 1.2)
+        lb_active = bypass.update(v_ego)
+        a_p, cap_w = apply_gap_open_cap_smoothed(a_lead, v_ego, dRel, desired_distance, lb_active, state)
+        step = abs(a_p - prev_a)
+        max_step = max(max_step, step)
+        prev_a = a_p
+    # F의 하드클램프 단차(이론값) 대비 비교
+    hard_discontinuity = a_lead - LOW_SPEED_GAP_OPEN_ACCEL_CAP
+    ok = max_step < hard_discontinuity  # 완만화로 단차가 실제로 줄어야 PASS
+    print(f"    완만화 버전 사이클간 최대 a_lead 변화폭={max_step:.4f} m/s^2 "
+          f"(F 하드클램프 이론 단차={hard_discontinuity:.3f} 대비 "
+          f"{'개선' if ok else '개선 안됨'}, 1프레임(dt={DT}s)당 이론 상한="
+          f"{LOW_SPEED_GAP_OPEN_WEIGHT_RISE_RATE*DT*hard_discontinuity:.4f})")
+    print(f"    [G] 경계전이 단차 완화: {'PASS' if ok else 'FAIL'}")
+    return ok
+
+
+def scenario_H_bypass_overrides_smoothing():
+    """캡 블렌드가 한창 진행 중(cap_w 중간값)인데 launch bypass가 갑자기
+    활성화되는 경우(정체 중 정차 등 극단 케이스): rise-rate 완만화를 무시하고
+    즉시 cap_w=0(무캡)으로 강제되는지 확인 -- 45차 원칙(defense-in-depth)의
+    핵심 검증."""
+    v_ego = 20.0 / 3.6
+    a_lead = 2.0
+    desired_distance = 15.0
+    dRel = 24.0  # gap_ratio=1.6 >= 1.5, 게이트 계속 열림
+    state = GapOpenCapState()
+    ok = True
+    # 먼저 10프레임(0.5s, RISE_RATE=1.0/s 기준 완전 정착(1.0s)의 절반) 동안
+    # 게이트를 열어 cap_w를 중간값(~0.5)까지만 끌어올림
+    for i in range(10):
+        a_p, cap_w = apply_gap_open_cap_smoothed(a_lead, v_ego, dRel, desired_distance, False, state)
+    if not (0.0 < state.cap_w_prev < 1.0):
+        print(f"    [경고] 사전조건 미충족 -- cap_w_prev={state.cap_w_prev:.3f} (0~1 중간값이어야 시나리오 유효)")
+        ok = False
+    # bypass 활성화 -- 같은 프레임에 즉시 0.0으로 떨어져야 함
+    a_p, cap_w = apply_gap_open_cap_smoothed(a_lead, v_ego, dRel, desired_distance, True, state)
+    if cap_w != 0.0 or a_p != a_lead:
+        ok = False
+        print(f"    [FAIL] bypass 활성 프레임에서 cap_w={cap_w:.3f}(기대 0.0), a_lead={a_p:.3f}(기대 {a_lead})")
+    print(f"    bypass 즉시 우회(완만화 무시): {'PASS' if ok else 'FAIL'}")
+    return ok
+
+
+def scenario_I_smoothed_matches_hard_at_steady_state():
+    """완만화 버전도 게이트가 충분히 오래(>=1초, rise-rate 정착 시간) 유지되면
+    최종적으로 하드클램프 버전과 동일한 정상상태 값(ACCEL_CAP)에 도달해야 한다
+    -- 단순 지연일 뿐 정상상태 결과 자체가 달라지면 안 됨(D 시나리오와 동일
+    조건, 완만화 버전으로 재실행)."""
+    n = 100  # 5s >> 1s 정착시간
+    v_ego = 30.0 / 3.6
+    a_lead = 2.0
+    desired_distance = 15.0
+    dRel = 24.0
+    state = GapOpenCapState()
+    final_a = None
+    for i in range(n):
+        a_p, cap_w = apply_gap_open_cap_smoothed(a_lead, v_ego, dRel, desired_distance, False, state)
+        final_a = a_p
+    ok = abs(final_a - LOW_SPEED_GAP_OPEN_ACCEL_CAP) < 1e-6 and abs(state.cap_w_prev - 1.0) < 1e-6
+    print(f"    {n}프레임 후 최종 a_lead={final_a:.4f}(기대 {LOW_SPEED_GAP_OPEN_ACCEL_CAP}), "
+          f"cap_w={state.cap_w_prev:.4f}(기대 1.0) -- {'PASS' if ok else 'FAIL'}")
+    return ok
+
+
 if __name__ == "__main__":
     results = {
         "A_high_speed_regression": scenario_A_high_speed_regression(),
@@ -241,7 +370,10 @@ if __name__ == "__main__":
         "C_normal_launch_extension": scenario_C_normal_launch_extension(),
         "D_event_reproduction": scenario_D_event_reproduction(),
         "E_false_positive_guard": scenario_E_false_positive_guard(),
-        "F_ratio_boundary_transition": scenario_F_ratio_boundary_transition(),
+        "F_ratio_boundary_transition(hard-clamp, 참고용 -- 117차부터 실제 적용은 G)": scenario_F_ratio_boundary_transition(),
+        "G_smoothed_boundary_transition": scenario_G_smoothed_boundary_transition(),
+        "H_bypass_overrides_smoothing": scenario_H_bypass_overrides_smoothing(),
+        "I_smoothed_matches_hard_at_steady_state": scenario_I_smoothed_matches_hard_at_steady_state(),
     }
     print("\n=== 요약 ===")
     for name, ok in results.items():

@@ -507,3 +507,10 @@ discontinuity 0건). 개발 중 트리거 소스별 boost_s 미구분 버그가 
   launch bypass 및 정상 출발 연장 구간 오탐 방지(45차 재발 방지) 포함
   6개 시나리오 전부 PASS. **경계 전이 시 a_lead 최대 1.5 m/s^2 단차
   발견 -- 완만화 필요 여부 NEEDS_VALIDATION.**
+- 2026-08-29 (117차): sim_gap_open_damping.py에 완만화(rise-rate 블렌드)
+  버전(`apply_gap_open_cap_smoothed`) 추가 -- 116차 F에서 발견된 하드클램프
+  단차(1.5 m/s^2)를 39차와 동일 패턴(블렌드 weight 사이클당 변화폭 제한,
+  양방향)으로 해소. 신규 시나리오 G(단차 0.075로 감소)/H(bypass 즉시
+  우회)/I(정상상태 일치) 전부 PASS. long_mpc.py 실제 패치 적용 완료
+  (LOW_SPEED_GAP_OPEN_*, LOW_SPEED_GAP_OPEN_WEIGHT_RISE_RATE 신규,
+  patch 0001-117-gap-opening-a_lead-116-rise-rate.patch), git am 검증 통과.

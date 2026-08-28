@@ -1,3 +1,66 @@
+## 117차 (PATCH_WRITTEN) — 116차 "저속 gap-opening a_lead 캡" 방향 확정(완만화 우선) + long_mpc.py 패치 + 완만화 합성검증
+
+**배경**: 116차에서 설계+합성검증(A~E PASS)까지 마쳤으나, 시나리오 F에서
+게이트 진입/해제 순간 a_lead에 최대 1.5 m/s² 단차(하드클램프)가 발견돼
+"단차를 그대로 두고 실측 replay부터 할지 vs 완만화를 먼저 추가할지"
+미결정 상태로 세션 종료됨(WIP.md 116차 미결정사항 1번). 이번 세션에서
+사용자가 **완만화를 먼저 추가하는 방향으로 확정** — 39차
+(`LEAD_ACCEL_WEIGHT_RISE_RATE`)와 동일하게 "캡을 직접 하드클램프하는 대신
+블렌드 weight를 두고 그 weight의 사이클당 변화폭을 제한"하는 패턴 재사용.
+
+**39차와의 차이점**: 39차는 위험(closing)이 풀리는 rising 방향만
+rise-rate로 제한(위험 방향은 즉시 반영이 안전측). 이번 방안은 "위험
+신호"가 아니라 "가속 상한"이므로 켜질 때(캡 진입)/꺼질 때(캡 해제) 둘
+다 단차 방지가 목적 — 양방향 모두 `LOW_SPEED_GAP_OPEN_WEIGHT_RISE_RATE`
+(1.0/s)로 제한.
+
+**구현 (`long_mpc.py`, `process_lead()` — `a_lead *= w` 직후 삽입)**:
+- `gap_open_apply` 게이트 조건은 116차 설계와 동일(그대로 유지)
+- `cap_target = 1.0 if gap_open_apply else 0.0`
+- `self._gap_open_cap_weight_prev`(초기값 0.0, 안전측)를 기준으로 목표를
+  향해 사이클당 `RISE_RATE*dt`만큼만 이동(rising/falling 둘 다)
+- launch bypass 활성 중엔 이 rise-rate 제한도 즉시 우회해 `cap_w=0.0`
+  강제(45차 defense-in-depth 원칙 재사용) — bypass 중엔 `gap_open_apply`
+  자체도 항상 False라 이중 안전장치
+- 최종: `a_lead = a_lead*(1-cap_w) + min(a_lead, ACCEL_CAP)*cap_w`
+  (cap_w=0이면 원본 그대로, cap_w=1이면 완전 클램프, 중간값은 선형 블렌드)
+- 리드 소실 시(`else` 분기) `_gap_open_cap_weight_prev`도 0.0으로 리셋
+  (`_lead_accel_weight_prev` 리셋과 동일 원칙 — 리드 재획득 시 잔여 캡
+  이어지지 않도록)
+
+**합성검증 (`toolkit/sim_gap_open_damping.py`, 신규 시나리오 G/H/I 추가,
+기존 A~F는 하드클램프 버전 참고용으로 보존)**:
+- **G(경계전이 완화 재측정)**: F와 동일 경계 왕복 시나리오를 완만화
+  버전으로 재실행 — 사이클당 최대 a_lead 변화폭이 1.500 → **0.075
+  m/s²**로 감소(95% 감소, 이론상 `RISE_RATE*dt*discontinuity` =
+  1.0*0.05*1.5 = 0.075와 정확히 일치)
+- **H(bypass 즉시 우회)**: 캡 블렌드가 진행 중(cap_w=0.5)일 때 launch
+  bypass가 활성화되면, 같은 프레임에 즉시 cap_w=0.0/a_lead=원본으로
+  강제되는지 확인 — PASS(완만화 지연 없이 즉시 우회)
+- **I(정상상태 일치)**: 게이트가 충분히 오래(5s, 정착시간 1s 이상)
+  유지되면 완만화 버전도 최종적으로 하드클램프 버전과 동일한 정상상태
+  (a_lead=ACCEL_CAP=0.5, cap_w=1.0)에 도달 — 단순 지연일 뿐 정상상태
+  결과는 동일함을 확인
+- 기존 A(고속 회귀)/B(launch bypass 배제)/C(정상 출발 연장)/D(이벤트
+  재현)/E(오탐 방지) 전부 완만화 버전에서도 회귀 없음(A~E는 하드클램프
+  함수 그대로 재사용해 비교 기준으로 유지, 실제 적용 로직은 G/H/I가
+  검증하는 완만화 버전)
+- 9개 시나리오 전부 PASS
+
+**패치 검증**: `git format-patch` → 별도 temp branch(`verify-tmp`,
+base `8a7baa0`)에 `git am` 적용 → `c3-ms-dev`(patch 적용 후 커밋
+`7529bfd`)와 diff 0 확인 + `py_compile` 통과. (파일 자체가 원래부터
+UTF-8 BOM으로 시작하는 특성이 있어 `ast.parse`는 기본 encoding으로 실패
+— `utf-8-sig`로 읽으면 정상 컴파일됨, 이번 패치가 유발한 문제 아님,
+기존 파일 특성으로 확인.)
+
+**남은 것 (NEEDS_VALIDATION)**:
+1. 실측 로그(lowspeed_a/b/c 등 115차 기존 4개 라우트)로 게이트 발동
+   빈도/오탐 여부 replay 검증 — 아직 실행 안 함
+2. `LOW_SPEED_GAP_OPEN_ACCEL_CAP=0.5`/`A_LEAD_THRESH=1.0`/
+   `WEIGHT_RISE_RATE=1.0` 전부 실측 로그 없이 감으로 잡은 값 — 튜닝 필요
+3. 실차 체감 검증 전무 — acados MPC 파이프라인 재실행 필요
+
 ## 115차 계속 — lowspeed_a/b부수 완전제거 방향 심층분석 — TTC 궤적상 a는 실제 급박(4.18s대)/b부수는 여유(5.1s대), scenario_B_event_reproduction의 tautology 발견(threshold를 그대로 가져다 써서 threshold 인상 시 항상 자동PASS), 메커니즘(즉시점프→빠른램프) 교체 제안
 
 **배경**: 115차에서 "부분개선"으로 남았던 lowspeed_a/lowspeed_b부수

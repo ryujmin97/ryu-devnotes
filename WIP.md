@@ -1,3 +1,49 @@
+## 117차 (완료 — 116차 F 단차 대응 방향 확정+구현+검증+패치전달 완료) — 캡 진입/해제 완만화(rise-rate 블렌드) 추가, long_mpc.py patch 적용
+
+**결정**: 116차 미결정사항 1번("F 단차를 그대로 두고 실측 replay부터
+할지 vs 완만화를 먼저 추가할지") — 사용자가 **완만화 우선 확정**.
+"캡 진입/해제를 `LEAD_ACCEL_WEIGHT_RISE_RATE`처럼 사이클당 변화폭을
+제한하는 방식으로 바꿔서 단차 자체를 줄인다"는 방향으로, 39차와 동일
+패턴(블렌드 weight rise-rate 제한) 재사용해 진행.
+
+**구현**: `long_mpc.py` `process_lead()`에 `LOW_SPEED_GAP_OPEN_*` 상수
+(게이트 조건은 116차 설계 그대로) + `LOW_SPEED_GAP_OPEN_WEIGHT_RISE_RATE`
+(1.0/s, 신규) 추가. 캡을 하드클램프하지 않고 블렌드 weight(`cap_w`)를
+두어 `a_lead*(1-cap_w) + min(a_lead,CAP)*cap_w`로 적용, cap_w는 목표
+(gate on=1.0/off=0.0)를 향해 사이클당 `RISE_RATE*dt`만큼만 이동(진입/
+해제 양방향). launch bypass 중엔 이 rise-rate도 즉시 우회해 cap_w=0.0
+강제(45차 defense-in-depth). 상태(`_gap_open_cap_weight_prev`)는
+`_lead_accel_weight_prev`와 동일하게 리드 소실 시 0.0(안전측)으로 리셋.
+39차와 차이점: 39차는 rising(위험 풀림) 방향만 제한하지만 이 방안은
+"위험 신호"가 아니라 "가속 상한"이라 양방향 모두 완만화 필요.
+
+**합성검증**: `toolkit/sim_gap_open_damping.py`에 완만화 버전
+(`apply_gap_open_cap_smoothed`) + 신규 시나리오 G/H/I 추가(기존 A~F는
+하드클램프 버전 비교기준으로 보존). **G**: 116차 F와 동일 경계 왕복
+재실행 — 사이클당 최대 a_lead 변화폭 1.500→**0.075 m/s²**(95% 감소,
+이론값 `RISE_RATE*dt*discontinuity`=1.0*0.05*1.5=0.075와 정확히 일치).
+**H**: cap_w가 중간값(0.5)으로 램프 중일 때 bypass 활성화 시 같은
+프레임에 즉시 cap_w=0.0 강제 확인. **I**: 게이트 5s 유지 시 하드클램프
+버전과 동일 정상상태(a_lead=0.5, cap_w=1.0) 도달 확인(지연만 있고
+결과는 동일). 기존 A~E도 회귀 없음. **9개 시나리오 전부 PASS.**
+
+**패치 검증**: 로컬 커밋(`7529bfd`, base `8a7baa0`) → `git format-patch`
+→ 별도 temp branch(`verify-tmp`)에 `git am` 적용 → diff 0 + `py_compile`
+통과(파일이 원래부터 UTF-8 BOM 시작이라 기본 encoding으론 ast.parse
+실패 — `utf-8-sig`로 정상 확인, 기존 파일 특성이지 이번 패치 문제
+아님). 패치 파일: `0001-117-gap-opening-a_lead-116-rise-rate.patch`.
+
+**devnotes 갱신**: FINDINGS.md(117차 항목 신규)/PARAMS_REGISTRY.md
+(LOW_SPEED_GAP_OPEN_* 2개 행 신규)/toolkit/README.md(sim_gap_open_damping.py
+섹션 117차 갱신)/toolkit/CHANGELOG.md(117차 한줄 요약) 전부 완료.
+
+**남은 것 (다음 세션 우선순위)**:
+1. 실측 로그(115차 기존 lowspeed_a/b/c 등 4개 라우트)로 게이트 발동/
+   오탐 여부 replay 검증 — 아직 실행 안 함
+2. `ACCEL_CAP=0.5`/`A_LEAD_THRESH=1.0`/`WEIGHT_RISE_RATE=1.0` 전부 감으로
+   잡은 값 — 실측 기반 튜닝 필요
+3. 실차 체감 검증 전무
+
 ## 116차 (체크포인트 — 신규 방안 "저속 gap-opening a_lead 캡" 설계+합성검증 완료, 실측 replay 전 결정 대기) — LOW_SPEED_GAP_OPEN_* 6개 시나리오 전PASS, 경계전이 단차(1.5 m/s^2) 발견
 
 **배경**: 6님 제보 — "저속(30~40km/h 이하)에서 앞차가 멀어질 때 자차가
