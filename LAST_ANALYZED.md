@@ -10,16 +10,18 @@
 - 분석 라우트: `smooth(1028)`(08/28 10:28, 1세그), `lowspeed_a`(08/27
   11:26, 2세그), `lowspeed_b`(08/27 12:06, 3세그), `lowspeed_c`(08/27
   12:21, 3세그) — 전부 신규 라우트(기존 캐시 라우트와 무관).
-- note: 기존 `toolkit/replay_low_speed_strong_decel.py` 재사용(신규
-  스크립트 없음)해 112차 threshold(-1.8→-2.5) 실측검증 범위를 ROUTE1
-  캐시 밖 4개 신규 라우트로 확장. smooth는 완전 PASS(오탐 완전제거),
-  lowspeed_a/b부수는 부분개선(완전제거 아님), lowspeed_b 메인
-  이벤트(min aEgo -4.02, vEgo 33.5km/h)는 게이트 상한(30km/h) 밖이라
-  애초에 저속게이트와 무관 — dRel/vRel 연속변화로 봤을 때 진짜
-  선행차량 강감속에 대한 정상 반응으로 판단(버그 아님, 승차감 판단은
-  대시캠 대조 대기). lowspeed_c는 저속게이트 완전 무관. 상세는
-  WIP.md/FINDINGS.md "115차" 참고. 코드 변경 없음, 대시캠 대조/사용자
-  확인 대기.
+- note: **[용어 주의] 4개 로그 전부 112차 패치 미적용 상태의 실주행
+  로그** — 기존 `toolkit/replay_low_speed_strong_decel.py`로 이 로그
+  raw 값에 112차 threshold(-1.8→-2.5) 로직을 오프라인 재생(replay)해
+  "적용됐다면 어떻게 판정됐을지"를 시뮬레이션. 패치가 실제 구동된
+  로그로 검증한 게 아님(향후 과제). 재생 결과: smooth는 완전
+  PASS(오탐 완전제거 시뮬레이션), lowspeed_a/b부수는 부분개선(완전제거
+  아님), lowspeed_b 메인 이벤트(min aEgo -4.02, vEgo 33.5km/h)는
+  게이트 상한(30km/h) 밖이라 애초에 저속게이트와 무관 — dRel/vRel
+  연속변화로 봤을 때 진짜 선행차량 강감속에 대한 정상 반응으로
+  판단(버그 아님, 승차감 판단은 대시캠 대조 대기). lowspeed_c는
+  저속게이트 완전 무관. 상세는 WIP.md/FINDINGS.md "115차" 참고. 코드
+  변경 없음, 대시캠 대조/사용자 확인 대기.
 
 ## c3-ms-dev (114차, margin_accel_weight 포함 완전 재현 — 코드 변경 없음)
 - last_analyzed_commit: `8a7baa0ca0f6`(origin HEAD, c3-ms-dev, 112차
