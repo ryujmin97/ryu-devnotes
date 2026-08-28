@@ -3,6 +3,12 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+## 2026-08-28 (100차) — `verify_resample_np.py` 신규
+- 99차가 찾은 carrot_man.py `LineString.interpolate()` 반복호출 →
+  numpy 벡터화(`resample_10m_np`) 대체 패치 전, 원본과의 수치 동일성
+  검증용 스크립트 신규 작성. 랜덤경로 20개+급커브+직선+경계조건+600m급
+  전부 PASS(최대오차 1.2e-13m). 100차 패치(carrot_man.py) 채택 근거.
+
 ## 2026-08-26 (86차 체크포인트) — `decode_rlog.py` 잘린 rlog.zst 스트리밍 폴백 추가
 - `c3-ms-curv` 실주행 로그 10개 route(00000329~00000332) CSV 추출 중
   `0000032e--8b55ac185d_x13seg`의 마지막 세그먼트(12번) `rlog.zst`가

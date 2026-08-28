@@ -1,3 +1,43 @@
+## 100차 — [NEEDS_VALIDATION] 99차 발견사항 전부 패치 완료 (carrot_man.py Params I/O 캐싱 + Shapely interpolate→numpy 벡터화 + 죽은코드 2건 제거)
+
+99차가 찾은 항목 전부 패치. base `6ab8ad6`(c3-ms-dev HEAD, 98차
+반영본), 로컬 커밋 `8354ed6`, 패치 `0001-carrot-man-perf-cleanup.patch`.
+
+1. **Params I/O 캐싱**: `carrot_man.py`에 `readParams` 카운트다운
+   패턴(controlsd.py/radard.py/longitudinal_planner.py, 98차와 동일)을
+   신규 도입. `IsOnroad`(`carrot_navi_route()`),
+   `AutoCurveSpeedFactor`/`AutoCurveSpeedAggressiveness`
+   (`carrot_curve_speed_params()`) 3개를 100프레임(20Hz 기준 5s)마다
+   1회 재조회로 변경. `broadcast_version_info()` 루프에
+   `self._refresh_cached_params()` 호출 추가.
+2. **Shapely `interpolate()` → numpy 벡터화**: `carrot_navi_route()`의
+   `LineString(...).interpolate()` 반복호출(사이클당 최대 ~60회)을
+   신규 모듈함수 `resample_10m_np()`로 대체. `shapely` import 제거
+   (단, `selfdrive/carrot/server/core.py`가 별도로 shapely를 계속
+   사용 중이라 `pyproject.toml` 의존성 자체는 그대로 유지).
+   - **수치 동일성 검증**: `toolkit/verify_resample_np.py`(100차
+     신규) — 랜덤 경로 20개(다양한 곡률/길이/노이즈), 89/90차류
+     급커브, 직선(오탐 확인), 경계조건(2점 초단거리, 총길이가
+     distance_interval 정확한 배수), 600m급 긴 경로까지 전부 PASS,
+     원본(Shapely) 대비 최대오차 1.2e-13m(부동소수점 오차 수준)로
+     100% 일치.
+3. **죽은 코드 2건 제거**: `carrot_man.py`의
+   `if False and self.navd_active:` 분기, `controlsd.py`의
+   `if False: # command`(`desire_map`) 분기 — 둘 다 항상 거짓이라
+   실행된 적 없는 죽은 코드, 제거해도 동작 변화 없음.
+
+**검증**: `py_compile` 통과, 별도 클린 clone에서 `git reset --hard
+6ab8ad6` 후 `git am` 정상 적용 확인(충돌 없음), 적용 후 재컴파일도
+통과. 제어 로직/임계값/출력값 변경 없음 — 순수 캐싱+구현체 교체+
+죽은코드 제거.
+
+**미검증 / 다음 단계**: 97/98차와 동일하게 실차 CPU 사용률 측정은
+이번에도 미수행 — [NEEDS_VALIDATION] 유지. 실차 검증 대기 항목: (a)
+`IsOnroad`/커브속도 계수 변경이 5s 지연 후 반영되는 것을 체감상
+문제없는지, (b) numpy 리샘플 경로가 실제 GPS route에서도 회귀 없는지
+(시뮬레이션은 합성 데이터 기준이었음 — 실제 route CSV로 재확인은
+아직 안 함).
+
 ## 99차 — [RISK_IDENTIFIED, NEEDS_USER_DECISION] carrot_man.py 20Hz 루프 정적 코드리뷰 — 97차와 동일 유형의 Params I/O 미캐싱 + Shapely interpolate 반복호출 발견 (로그분석 아님)
 
 **배경**: 97차/98차가 `controlsd.py`/`radard.py`/`longitudinal_planner.py` 3개

@@ -635,6 +635,37 @@ smooth_window_s=0.3)`(leadRadar=True 프레임만, 0.3s 이동평균 jerk).
 **사용**: `python3 five_item_scan.py <csv_path>` (건수만 출력) 또는
 `from five_item_scan import run_five_item_scan`.
 
+## verify_resample_np.py (100차 신규)
+
+99차(carrot_man.py 20Hz 루프 정적리뷰)에서 찾은 "Shapely
+`LineString.interpolate()` 반복호출" 이슈를 numpy 벡터화 함수
+(`resample_10m_np()`)로 대체하기 전, 두 방식이 수치적으로 동일한
+결과를 내는지 검증하기 위해 작성.
+
+**함수**: `resample_10m_shapely(points_xy, distance_interval)` — 원본
+(carrot_man.py/sim_route_curvature_sample.py와 동일한 Shapely 기반
+리샘플). `resample_10m_np(points_xy, distance_interval)` — 대체 후보
+(numpy 누적거리 배열 + `np.interp` 스타일 벡터화, carrot_man.py 100차
+패치에 실제 채택된 것과 동일 구현). `make_random_path(...)` — 급커브
+포함 랜덤 GPS 스타일 경로 생성기(테스트용).
+
+**검증 범위**: 랜덤 경로 20개(다양한 곡률/길이/노이즈) + 89/90차류
+급한 램프커브 스타일 + 직선(곡률 0, 오탐 확인) + 경계조건(2점짜리
+매우 짧은 경로, 총길이가 정확히 distance_interval의 배수인 경우) +
+route_lookahead_m 최대치(600m)급 긴 경로.
+
+**결과**: 전부 PASS, 원본(Shapely) 대비 최대오차 1.2e-13m(부동소수점
+오차 수준) 이내로 100% 일치 — 좌표 개수/값 모두 동일.
+
+**사용**: `python3 verify_resample_np.py` (인자 없음, 내장 테스트셋
+전체 실행). 의존성: `shapely`(비교 기준용, numpy 버전 자체는 shapely
+불필요), `numpy`.
+
+**향후 재사용**: `carrot_man.py`의 GPS 경로 리샘플링 로직을 다시 만질
+일이 있으면(예: 89차 대안1 - sample 값 축소) 이 스크립트의
+`resample_10m_np()`를 그대로 가져다 쓰면 됨 — 별도 검증 없이 신뢰
+가능.
+
 ## sim_route_curvature_sample.py (90차 신규)
 **목적**: 89차 route 사전감속 과소평가 원인분석에서 나온 대안1(곡률
 샘플링 chord 축소, `sample` 4->2/3)을 검증. raw navi_points(GPS

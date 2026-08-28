@@ -1,3 +1,50 @@
+## 100차 (완료 — 구현+정적검증 완료, 실차검증 대기) — 99차 발견사항 전부 패치: carrot_man.py Params I/O 캐싱 + Shapely interpolate→numpy 벡터화 + 죽은코드 2건 제거
+
+**배경**: 99차(정적 코드리뷰)가 찾은 3개 항목("패치구현" 사용자 확인 후)
+전부 패치.
+
+**구현** (base `6ab8ad6`, c3-ms-dev HEAD, 로컬 커밋 `8354ed6`):
+1. `carrot_man.py` `__init__`에 `readParams`(카운트다운) +
+   `_is_onroad_cached`/`_auto_curve_speed_factor`/
+   `_auto_curve_speed_aggressiveness` 캐시 필드 추가, 신규 메서드
+   `_refresh_cached_params()`(100프레임마다 재조회) 추가. 이 메서드를
+   `broadcast_version_info()` 루프의 `self.sm.update(0)` 직후 매
+   사이클 호출. `carrot_navi_route()`/`carrot_curve_speed_params()`는
+   `self.params.get_*()` 직접호출 대신 캐시값 참조로 변경.
+2. 신규 모듈함수 `resample_10m_np(points_xy, distance_interval)`
+   (numpy 누적거리 배열 + 벡터화 선형보간) 추가, `carrot_navi_route()`
+   내 `LineString(...)`+`while`+`.interpolate()` 블록을 이 함수
+   호출 1줄로 교체. 최상단 `try: from shapely.geometry import
+   LineString ... SHAPELY_AVAILABLE` 블록 및 `carrot_navi_route()`의
+   `not SHAPELY_AVAILABLE` 가드 조건 제거(더 이상 shapely 불필요).
+   `selfdrive/carrot/server/core.py`가 별도로 shapely를 쓰고 있어
+   `pyproject.toml`의 `shapely` 의존성 자체는 손대지 않음.
+3. `carrot_man.py:404`(`if False and self.navd_active:`),
+   `controlsd.py:278`(`if False: # command` + `desire_map`) 죽은
+   분기 삭제.
+
+**사전검증** (`toolkit/verify_resample_np.py`, 100차 신규 — README/
+CHANGELOG 등록 완료): 원본 Shapely 방식과 신규 numpy 방식을 랜덤
+경로 20개 + 급커브 + 직선 + 경계조건(초단거리 2점, 길이가
+distance_interval의 정확한 배수) + 600m급 긴 경로에 대해 좌표 비교 —
+전부 PASS, 최대오차 1.2e-13m(부동소수점 오차 수준)로 100% 일치.
+
+**적용검증**: `py_compile` 통과. 별도 클린 clone(`/home/claude/verify_apply`)
+에서 `git reset --hard 6ab8ad6` 후 `git am
+0001-carrot-man-perf-cleanup.patch` 충돌 없이 적용 확인, 적용 후
+재컴파일도 통과.
+
+**패치 전달**: `/mnt/user-data/outputs/0001-carrot-man-perf-cleanup.patch`
+(base `6ab8ad6`). `C:\dev\patch\0001-carrot-man-perf-cleanup.patch`로
+저장 후 `C:\dev\ryu`에서 `git am` 적용.
+
+**실차검증 대기**: (a) `IsOnroad`/커브속도 계수(`AutoCurveSpeedFactor`/
+`Aggressiveness`) 변경이 5s 지연 후 반영되는 것이 체감상 문제없는지,
+(b) numpy 리샘플이 실제 GPS route(합성 데이터가 아닌 실주행 로그)에서도
+곡률/out_speed 산출 결과가 기존과 동일한지 — 사전검증은 합성(랜덤+
+수작업 케이스) 데이터 기준이었음, 실제 route 좌표로는 아직 재확인
+안 함.
+
 ## 99차 (체크포인트 — 분석만 완료, 패치 미적용/사용자 결정 대기) — carrot_man.py 20Hz 루프 정적리뷰: Params I/O 미캐싱 2건 + Shapely interpolate 반복호출 + 죽은코드 2건 발견
 
 **요청**: "코드 철저히 분석해서 다시 cpu 및 메모리 많이 차지하거나 불필요한
