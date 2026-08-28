@@ -7218,3 +7218,65 @@ discontinuity_lc 실사례가 없어 미검증"으로 남겼던 부분을 이번
 — 컨테이너 리셋 시 소실, 재현 필요시 동일 커맨드로 재추출).
 
 **코드 변경 없음**(분석 전용, 방안 설계는 다음 세션).
+
+## 107차 — [NEEDS_VALIDATION] 106차 "차선변경 특유의 leadRadar 핸드오프 급감속" 결론 재검토 — 일반 주행에서도 41%는 blinker 무관 발생, leadRadarTrackId는 이 차량 구조상 무변별
+
+**배경**: 106차가 남긴 "다음 세션 최우선 #1(leadTrackId 컬럼 추가)"을
+착수하려 했으나, `extract_log.py`에 `leadRadarTrackId` 컬럼이 이미
+63차 계속3에서 추가돼 있었음을 확인(106차가 기존 도구 확인 없이
+"없음"으로 판단하고 계획을 세운 것으로 보임).
+
+**leadRadarTrackId 무변별 확인**: 캐시된 라우트 3건(ea5bcc0566,
+d2a61d2a73, dfc68039a9) 전수 조사 결과 `leadRadar=True`인 모든 프레임의
+`leadRadarTrackId` 값이 예외 없이 **0으로 고정**. 이 차량(Genesis DH,
+카메라 SCC 단일점 레이더, 코너레이더 없음)의 `radard.py get_lead()`
+구조상 `track_scc = tracks.pop(0)`로 항상 동일 ID(0)만 쓰기 때문 —
+멀티트랙 레이더 차량과 달리 트랙ID로 "같은 물체 vs 다른 물체"를
+구분할 수 없음. **106차 계획(트랙ID 정량화)은 이 차량에서는 애초에
+성립하지 않는 접근**이었음.
+
+**대체 정량화 — `radar_source_flicker_scan()` 신규 작성**: 트랙ID 대신
+`leadRadar`(True/False) 값 자체의 엣지(뒤집힘) 빈도를 직접 클러스터링해
+blinker 겹침/dRel 최대점프/would_trigger_ttc_danger를 계산하는 함수를
+`toolkit/analysis_helpers.py`에 추가(상세는 toolkit/README.md 참고).
+
+**핵심 재검토 결과**: 캐시된 일반 주행 라우트 12건(72차 검증셋
+ea5bcc0566/a5b1ce4e42 포함, 86차 c3-ms-curv 검증셋 10건) 전체에 실행:
+
+| 지표 | 값 |
+|---|---|
+| 총 플리커 클러스터 (min_flips=3, window=2.0s) | 51건 |
+| blinker 겹침 | 21건 (41%) |
+| blinker 무관 | **30건 (59%)** |
+
+**즉 이 leadRadar 반복토글+dRel점프 현상 자체는 차선변경에 국한되지
+않고, 이미 검증 끝난 일반 주행 로그(72차 route1/route2 등)에서도
+블링커 없이 더 자주 발생함.** 106차가 확보한 3건(92bb45496d 1건,
+947fbb7dc6 2건)은 이 일반적 현상 중 우연히 (a) 화면녹화가 있어
+검증 가능했고 (b) blinker와 시간상 겹쳤고 (c) 그중 1건이 TTC danger
+문턱까지 간 표본이었을 가능성이 있음 — "차선변경이 원인"이라는
+106차의 인과관계 결론은 **표본 편향(화면녹화 있는 3건만 봄)에서
+비롯됐을 수 있음**, 아직 반증된 것은 아니지만 재검증 필요.
+
+**주의 (would_trigger_ttc_danger 플래그 신뢰도)**: 이 플래그는
+`curve_lead_dRel_jump_events`와 동일하게 프레임간 dRel 변화량을
+순간속도로 근사해 계산한 **1차 스크리닝 값**이며, 실제
+`process_lead()`의 `_lead0_danger_active`/부스트 게이트 상호작용을
+그대로 재현한 것이 아님. 정밀 검증에는 이미 devnotes에 있는
+`replay_boost_duration.py`(73차, handoff/discontinuity_lc 분기까지
+실측 재생 가능)를 이 51개 클러스터 구간에 대해 돌려보는 후속 작업
+필요 — **아직 미실시**.
+
+**다음 세션 방향(사용자 확인 필요, 아직 미확정)**:
+1. `replay_boost_duration.py`를 51개 클러스터(특히
+   would_trigger_ttc_danger=True인 것들) 구간에 실행해 "danger
+   override가 boost를 강제복귀시키는" 106차 사례3 패턴이 blinker
+   무관 구간에서도 실제로 재현되는지 확인.
+2. 재현된다면: 패치 범위를 "차선변경 한정"이 아니라 "leadRadar 소스
+   플리커 일반"으로 넓혀 재설계 필요(단, 넓히면 진짜 핸드오프 반응성
+   회귀 위험도 커짐 — 신중 필요).
+3. 재현되지 않는다면(즉 blinker 무관 구간의 플리커는 대부분 boost가
+   정상 작동): 106차 사례3만의 특수성(예: 1.85초 내 4회+ 라는 유독
+   높은 빈도, 혹은 다른 변수)을 별도로 좁혀서 재검토.
+
+**코드 변경 없음**(분석/도구 추가만). 관련 파일: `toolkit/analysis_helpers.py`(신규 함수), `toolkit/README.md`, `toolkit/CHANGELOG.md`.

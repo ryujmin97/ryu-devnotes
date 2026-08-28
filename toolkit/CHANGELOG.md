@@ -427,3 +427,16 @@
   deepcopy/미캐싱 Params.get/print/re.compile/threading/subprocess/
   unbounded append/dict 누적/비벡터화 for-loop 등 CPU·메모리 안티패턴
   후보를 grep으로 일괄 스캔. 매치는 컨텍스트 확인 필수(오탐 흔함).
+
+## 2026-08-28 (107차, radar_source_flicker_scan 신규)
+- `analysis_helpers.radar_source_flicker_scan()` 신규: 106차 "차선변경 중
+  leadRadar 핸드오프 반복 급감속" 정량화용. leadRadar(True/False) 엣지가
+  짧은 시간(window_s) 안에 min_flips회 이상 몰리면 클러스터로 묶고,
+  blinker 겹침 여부/최대 dRel 점프/would_trigger_ttc_danger를 함께 계산.
+  **107차에서 leadRadarTrackId(63차 계속3에 이미 존재, 106차가 "없음"으로
+  오판했던 컬럼)를 확인해보니 이 차량(SCC 단일점, 코너레이더 없음)에서는
+  radar=True 프레임의 값이 항상 0으로 고정 — 트랙ID 자체는 변별력 없음
+  확인(캐시 라우트 3건 전수). 캐시된 12개 라우트 전체 스캔 결과 51클러스터
+  중 21건(41%)만 blinker 겹침, 59%는 블링커 무관 — 106차의 "차선변경
+  특유의 버그"라는 결론이 표본(3건)에 국한된 것이었을 가능성 제기됨.
+  상세는 WIP.md/FINDINGS.md 107차 참고.

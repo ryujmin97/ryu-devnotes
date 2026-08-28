@@ -198,6 +198,21 @@ carryover도 동일하게 적용됨. **이 컬럼들이 없는 과거 CSV(42차 
   의미하지 않음(1차 스크리닝용, 자세한 주의사항은 함수 docstring
   참고).
 
+- `radar_source_flicker_scan(rows, min_flips=3, window_s=2.0, blinker_window_s=1.0, jump_thresh_m=8.0, ttc_danger_thresh=2.5)`
+  (107차 신규): leadRadar(True/False) 값이 짧은 시간 안에 여러 번 뒤집히는
+  "소스 플리커" 클러스터를 찾는다. 106차("차선변경 중 leadRadar 핸드오프
+  반복 급감속") 정량화용으로 추가 — leadRadarTrackId는 이 차량(SCC 단일점
+  레이더, 코너레이더 없음)에서 radar=True일 때 항상 0 고정이라 변별력이
+  없음을 107차에서 확인(트랙ID로 "같은 물체 vs 다른 물체" 구분 불가), 대신
+  leadRadar 엣지 빈도 + blinker 겹침 + dRel 점프 크기로 직접 정량화.
+  **주의**: `would_trigger_ttc_danger`는 `curve_lead_dRel_jump_events`와
+  동일하게 프레임간 순간변화율 기반 근사치(1차 스크리닝용)이며 실제
+  a_change_cost 부스트/danger override 상호작용을 시뮬레이션한 값이
+  아님 — 정밀 검증엔 `sim_jerk_boost.py` 병행 필요. 107차에서 캐시된
+  일반 주행 12개 라우트 전체 스캔 결과 51클러스터 중 blinker 겹침은
+  21건(41%)뿐 — 이 현상이 차선변경에 국한되지 않을 가능성 시사(상세는
+  WIP.md/FINDINGS.md 107차 참고).
+
 **회귀 리포트 사용 예시**:
 ```python
 from analysis_helpers import load_csv, regression_report, regression_report_markdown
