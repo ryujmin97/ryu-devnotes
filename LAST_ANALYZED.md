@@ -1,3 +1,21 @@
+## c3-ms-dev (106차, 차선변경 중 leadRadar 핸드오프 급감속 원인 확정 — 코드 변경 없음)
+- last_analyzed_commit: `bc1bcb0`(origin HEAD, 101차 반영본과 동일 —
+  코드 수정 없이 실차 로그(92bb45496d 3세그+947fbb7dc6 4세그, dashcam
+  클립 3건) 분석만 수행. `f8e136e`(73차 방안I)/`f3773b5`(76차
+  discontinuity_lc)가 이미 조상 커밋으로 포함된 상태에서 기록된 로그.
+- date: 2026-08-28 (106차, 105차 체크포인트 완결)
+- note: 사용자 제보 "차선변경 중 앞차 급감속" 3건 재현 확인 — 방향지시등
+  활성 구간마다 leadRadar True/False 반복 토글 + leadDRel 물리적으로
+  불가능한 점프. mild(aEgo -1.12, 92bb45496d) / 중간(aEgo -2.4,
+  947fbb7dc6 seg1) / severe(aEgo -3.78, TTC danger min_ttc=1.55s,
+  947fbb7dc6 seg3) 3단계 확보. severe 사례는 76차가 미검증으로 남긴
+  "discontinuity_lc + harsh braking 실사례"를 최초로 충족 — 단
+  TTC danger override 발동 시 73차 boost가 즉시 base로 강제복귀되는
+  구조 확인(jerk 완화가 필요한 순간에 꺼짐). 화면녹화 HUD 대조로
+  리드 트랙ID 99→102→104 스위치 시각 확인. 다음 세션: extract_log.py에
+  leadTrackId 컬럼 추가 후 정량 재검토, 방안 설계는 착수 전. 코드
+  미착수. 상세는 WIP.md/FINDINGS.md "106차" 참고.
+
 ## c3-ms-dev (104차, 오탐/반응둔감 제보 실차 로그 2건 분석 — 코드 변경 없음)
 - last_analyzed_commit: `bc1bcb0`(origin HEAD, 101차 반영본과 동일 —
   이번 세션은 코드 수정 없이 실차 dashcam 로그(zip 2건+mp4 1건, seg10/
