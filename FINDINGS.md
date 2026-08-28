@@ -7219,6 +7219,98 @@ discontinuity_lc 실사례가 없어 미검증"으로 남겼던 부분을 이번
 
 **코드 변경 없음**(분석 전용, 방안 설계는 다음 세션).
 
+## 108차 — [VALIDATED] 106차/107차 "차선변경(discontinuity_lc)이 force_revert 필요조건" 결론을 실주행 30라우트(신규 18개, 92bb45496d/947fbb7dc6 원본 포함)로 확정 — 중요 시뮬레이션 버그 2건 발견/수정
+
+**배경**: 사용자가 실차 주행로그 18개(약 2.7GB, 92bb45496d/947fbb7dc6 포함)를
+신규 업로드. 107차 계속이 12개 캐시 라우트만으로 낸 결론("force_revert
+3건 전부 blinker 겹침")을 훨씬 큰 표본으로 재검증 요청.
+
+**1단계 — CSV 추출**: `extract_log.py`로 18개 라우트 전체를 CSV 추출,
+`toolkit/`에 저장하지 않고 `/home/claude/work/csv/`에 스크래치로 보관
+(Drive 커넥터 미연결 확인 — 컨테이너 리셋 시 소실, 재사용 필요시
+재업로드 필요). 기존 캐시 12개 + 신규 18개 = **총 30개 라우트**로
+확대.
+
+**2단계 — 1차 재검증 시도, 시뮬레이션 버그 발견 (`flicker_cluster_boost_
+replay.py`, 이후 삭제)**: `radar_source_flicker_scan()` 클러스터에
+`replay_boost_duration.py`의 `BoostReplay`를 결합해 30라우트 전체
+스캔 시도. 두 가지 함정을 순차로 발견:
+
+1. **클러스터 매칭 방식의 워밍업 오염**: 클러스터 구간만 잘라
+   재생(warm-start)하면 상태머신이 매번 리셋되어 결과가 자르는
+   범위(pad_s)에 따라 달라짐(같은 이벤트가 pad_s=1.0/5.0에서 다르게
+   집계됨) — 라우트 전체를 한 번에 연속 재생하는 방식으로 전환해 해결.
+2. **[핵심 버그] boost_s 소스 미구분**: `BoostReplay(boost_s=4.0, ...)`를
+   모든 트리거 소스에 동일하게 적용했으나, 실제 `long_mpc.py`는
+   `discontinuity`(차선변경 무관)=1.0s, `handoff`/`discontinuity_lc`
+   (75-76차)=4.0s로 **트리거 소스별 hard-hold 시간이 다름**.
+   `BoostReplay`는 이 구분을 아예 모델링하지 않음(생성자에 준 단일
+   `boost_s`를 모든 소스에 씀). 이 버그로 인해 `d4e9c02bdb`(t≈2491,
+   min_aEgo=-4.19), `ea5bcc0566`(t≈156, min_aEgo=-3.94) 등 다수의
+   "새 severe force_revert 사례"가 나왔으나, 원시 데이터 대조 결과
+   전부 vturn/cam 소스로 진짜 접근 중인 선행차에 대한 **정상적인
+   급제동**(dRel이 물리적으로 일관되게 단조 감소, vRel 지속 음수)이었음
+   — 노이즈나 오탐이 아니라 boost 자체가 원래 적용 대상이 아닌
+   일반(차선변경 무관) discontinuity 상황. 버그로 인해 실제 1.0s가
+   아닌 4.0s 윈도우가 재현되면서 danger_active와 우연히 겹치는 구간이
+   늘어나 허위로 "force_revert 사례"에 집계됨.
+
+**3단계 — 정확한 재현 (`replay_lane_change_discontinuity_gate.py`의
+`LaneChangeGateReplay`, `duration_mode='full'`, 75차/76차 기존 도구,
+현재 `long_mpc.py`의 `discontinuity_lc` 소스와 100% 동일 로직)로
+30라우트 전체 재스캔**: 신규 `toolkit/scan_force_revert_episodes.py`
+작성(라우트 전체 연속 재생 + 에피소드 그룹핑, 토큰/재사용을 위해
+저장).
+
+**최종 결과: force_revert 에피소드 총 5건(30라우트 전체)**
+
+| route_id | 소스 | blinker | t | 지속 | min aEgo |
+|---|---|---|---|---|---|
+| `947fbb7dc6` | discontinuity_lc | True | 2685.72~2686.18 | 0.46s | **-3.40** |
+| `a5b1ce4e42` | discontinuity_lc | True | 1471.40~1471.95 | 0.55s | -0.56 |
+| `a5b1ce4e42` | discontinuity_lc | True | 1354.05~1354.20 | 0.15s | +0.50 |
+| `ad830211ff` | handoff | **False** | 923.03~923.28 | 0.25s | -1.81 |
+| `ad830211ff` | handoff | **False** | 922.83~922.83 | 0.00s | -1.75 |
+
+**결론**:
+1. **`discontinuity_lc`(차선변경 중 discontinuity, 75-76차 소스) 3건
+   전부 blinker=True** — 106차 원본 사례(`947fbb7dc6`, aEgo -3.40,
+   106차가 화면녹화로 확인한 것과 정확히 동일 t/이벤트)를 포함해
+   30라우트 전체에서 재확인. **107차 계속의 결론(blinker가 필요조건)이
+   훨씬 큰 표본으로 재확정됨.**
+2. **순수 `discontinuity`(차선변경 무관, 방안C/G)는 30라우트 전체에서
+   danger override로 인한 force_revert 0건** — 2단계에서 나왔던
+   "허위 severe 사례"들은 전부 시뮬레이션 버그 산물이었고, 실제로는
+   정상적인 안전 반응(genuine hazard, 패치 대상 아님)으로 재확인.
+3. **`handoff`(레이더 재락온, 차선변경 무관) 2건은 blinker=False,
+   저속(vEgo 6.3→2.5m/s) 근접주행 중 완만한 감속(-1.75~-1.81) —
+   심각하지 않은 정상 범위.**
+
+**패치 범위 확정 근거**: 옵션1(플리커/`discontinuity_lc` 감지 후에만
+confirm-hold)이 정확히 문제의 3건(전부 discontinuity_lc)에만 적용되고
+나머지 2건(handoff, 정상 범위)과 30라우트의 모든 순수 discontinuity
+(진짜 위험 반응)는 전혀 건드리지 않음 — **가장 보수적이고 안전한
+범위임이 대규모 데이터로 재확인됨.**
+
+**코드 변경 없음**(분석/도구 전용). 관련 파일: `toolkit/
+scan_force_revert_episodes.py`(신규, LaneChangeGateReplay 기반 다중
+라우트 스캔), `toolkit/README.md`/`CHANGELOG.md` 갱신 완료(108차).
+
+**다음 세션(또는 이어서) 최우선**: 위 확정 근거로 옵션1 patch 설계/
+구현 착수 — `long_mpc.py` 1202~1215줄, `is_handoff_source` 분기 중
+`_discontinuity_trigger_source == 'discontinuity_lc'`인 경우에 한해
+danger_active confirm-hold(N프레임/0.2~0.3s) 적용, `handoff`는 현행
+즉시 revert 유지.
+
+**주의(108차 세션 종료 사고 기록)**: 108차 최초 작업분(이 항목 포함,
+`scan_force_revert_episodes.py` 포함)은 도구 호출 한도 도달로 push
+전에 컨테이너가 리셋돼 1회 유실됐다가 다음 세션에서 그대로 재구성함
+(신규 계산 없이 이전 세션 결과를 그대로 기록 — 원본 CSV 18개도 이미
+소실돼 재계산 불가, 위 표는 108차 최초 실행 결과를 신뢰해 그대로
+사용). **교훈: 이 정도 규모(30라우트, 대량 검증)의 작업은 결론이
+나는 즉시(다음 스캔으로 넘어가기 전에) 바로 push할 것 — 세션/체크
+포인트 종료를 기다리지 않는다는 원칙을 이번에 어겨서 발생한 사고.**
+
 ## 107차 — [NEEDS_VALIDATION] 106차 "차선변경 특유의 leadRadar 핸드오프 급감속" 결론 재검토 — 일반 주행에서도 41%는 blinker 무관 발생, leadRadarTrackId는 이 차량 구조상 무변별
 
 **배경**: 106차가 남긴 "다음 세션 최우선 #1(leadTrackId 컬럼 추가)"을

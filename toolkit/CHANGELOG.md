@@ -3,6 +3,17 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+## 2026-08-28 (108차, scan_force_revert_episodes.py 신규)
+`replay_lane_change_discontinuity_gate.py`의 `LaneChangeGateReplay`
+(duration_mode='full')로 여러 라우트를 라우트-전체-연속-재생 방식
+일괄 스캔해 force_revert 에피소드를 뽑는 도구 신규 작성. 30라우트
+실주행 확대검증(신규 18개+기존 캐시 12개)에 사용, 106차/107차의
+"차선변경이 force_revert 필요조건" 결론 재확정(force_revert 5건 —
+discontinuity_lc 3건 전부 blinker=True, handoff 2건 정상범위, 순수
+discontinuity 0건). 개발 중 트리거 소스별 boost_s 미구분 버그가 있던
+초안(`flicker_cluster_boost_replay.py`)은 허위 severe 사례를 냈던 것
+확인 후 폐기 — 상세는 FINDINGS.md 108차 참고.
+
 ## 2026-08-28 (100차) — `verify_resample_np.py` 신규
 - 99차가 찾은 carrot_man.py `LineString.interpolate()` 반복호출 →
   numpy 벡터화(`resample_10m_np`) 대체 패치 전, 원본과의 수치 동일성

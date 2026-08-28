@@ -544,6 +544,39 @@ python3 replay_lane_change_discontinuity_gate.py
 ```
 
 
+## scan_force_revert_episodes.py (108차 신규)
+**목적**: `replay_lane_change_discontinuity_gate.py`의
+`LaneChangeGateReplay(duration_mode='full')`(75-76차, 현재
+`long_mpc.py`의 `discontinuity_lc` 소스와 100% 동일 로직)를 여러
+라우트에 대해 "라우트 전체 한 번에 연속 재생" 방식으로 돌려
+force_revert(boost 타이머가 살아있는데도 danger_active에 밀려
+a_change_cost가 boost 값 밑으로 떨어진 프레임) 에피소드를 자동
+탐지/그룹핑한다. 106차/107차가 수작업/소규모 표본으로 냈던 "차선변경이
+force_revert 필요조건" 결론을 30라우트 규모로 확정하는 데 사용됨
+(108차, FINDINGS.md 참고).
+**중요 — 반드시 이 도구를 쓸 것, 직접 재구현하지 말 것**: 108차에서
+클러스터 구간만 잘라 warm-start로 재생하거나(pad_s에 따라 결과가
+달라지는 아티팩트 발생), 트리거 소스별 hard-hold 시간 차이
+(discontinuity=1.0s vs handoff/discontinuity_lc=4.0s)를 구분 안 하고
+단일 `boost_s`로 재현하면 허위 severe 사례가 다수 발생함을 확인
+(폐기된 `flicker_cluster_boost_replay.py`, 이 실수 기록은 FINDINGS.md
+108차 "2단계" 참고). 이 함정을 피하려면 `LaneChangeGateReplay`를
+그대로 재사용해야 한다.
+**의존성**: `replay_lane_change_discontinuity_gate.py`.
+**주요 함수**: `scan_route(route_id, rows, force_revert_cost_thresh=300.0)`
+— 단일 라우트 스캔, `scan_many_routes(route_rows_map)` — `{route_id:
+rows}` 딕셔너리를 받아 전체 에피소드 리스트를 합쳐 반환.
+**사용**:
+```python
+from scan_force_revert_episodes import scan_many_routes
+eps = scan_many_routes(route_rows_map)  # route_rows_map = {route_id: rows}
+for e in sorted(eps, key=lambda x: x['min_aEgo']):
+    print(e['route_id'], e['trigger_source'], e['blinker_active_at_start'],
+          e['t_start'], e['duration_s'], e['min_aEgo'])
+```
+단독 실행(등록된 라우트 대상): `python3 scan_force_revert_episodes.py
+/home/claude/devnotes <route_id1> <route_id2> ...`
+
 ## push_via_api.py
 **목적**: `GH_TOKEN` 환경변수로 GitHub Contents API를 통해
 `ryu-devnotes` 저장소에 직접 파일을 커밋/push. 세션 종료 시 표준

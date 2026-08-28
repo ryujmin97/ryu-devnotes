@@ -1,3 +1,38 @@
+## 108차 (완료 — 실주행 30라우트 확대검증 + 시뮬레이션 버그 2건 발견/수정, 코드변경 없음) — discontinuity_lc(차선변경 중) force_revert 필요조건 재확정, 옵션1 설계 근거 확정
+
+**요청**: 사용자가 실주행 로그 18개(2.7GB, 92bb45496d/947fbb7dc6 원본
+포함) 신규 업로드, 107차 계속(캐시 12라우트) 결론을 더 큰 표본으로
+검증 후 설계 방안 제시 요청.
+
+**작업**:
+1. 18개 라우트 `extract_log.py`로 CSV 추출 (`/home/claude/work/csv/`,
+   레포 미커밋 — 대용량 정책). 기존 캐시 12개+신규 18개=30개 라우트.
+2. 1차 재검증 도구(`flicker_cluster_boost_replay.py`) 작성 중 버그 2건
+   발견: (a) 클러스터 warm-start 재생 시 pad_s에 따라 결과가 달라지는
+   아티팩트 → 라우트 전체 연속 재생으로 해결. (b) **트리거 소스별
+   boost_s(discontinuity=1.0s vs handoff/discontinuity_lc=4.0s)를
+   구분 안 해 허위 severe 사례 다수 발생** — 원시데이터 대조로 확인,
+   이 도구는 폐기.
+3. 기존 75-76차 도구 `replay_lane_change_discontinuity_gate.py`의
+   `LaneChangeGateReplay(duration_mode='full')`(실제 코드와 100% 동일)
+   기반으로 신규 `toolkit/scan_force_revert_episodes.py` 작성 —
+   30라우트 전체 정확 재스캔.
+4. **최종 결과: force_revert 5건** — `discontinuity_lc` 3건(전부
+   blinker=True, 106차 원본 947fbb7dc6 -3.40 포함), `handoff` 2건
+   (blinker=False, 저속 정상범위 -1.75~-1.81), 순수 `discontinuity`는
+   0건. → 106차/107차 결론(차선변경이 force_revert 필요조건) 재확정.
+5. FINDINGS.md 108차 항목 기록, toolkit README/CHANGELOG 갱신.
+
+**사고 기록**: 108차 최초 작업분이 도구 호출 한도로 push 전 컨테이너
+리셋돼 유실 → 다음 세션에서 이전 세션 결과를 그대로 재구성해 기록
+(재계산 불가, 원본 CSV 18개도 소실). 상세는 FINDINGS.md 108차 "주의"
+항목 참고.
+
+**다음 세션 최우선**: 옵션1 patch 구현 착수 — `long_mpc.py`의
+`_discontinuity_trigger_source == 'discontinuity_lc'`인 경우에 한해
+danger_active confirm-hold(0.2~0.3s) 적용, `handoff`는 즉시 revert
+유지. 실차 검증은 아직 없음(30라우트는 전부 로그 기반 replay 재현).
+
 ## 107차 계속 (체크포인트 — 정밀 재검증 완료, 코드 변경 없음) — replay_boost_duration.py로 51클러스터 정밀 재현, 106차 blinker 인과관계 확정
 
 **107차 본편에서 제기한 재검토("차선변경 특유 아닐 수 있음") 우려를
