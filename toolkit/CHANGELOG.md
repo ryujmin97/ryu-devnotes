@@ -3,7 +3,17 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
-## 2026-08-29 (112차 — 라우트1 패치 구현 + sim_low_speed_decel.py 확장)
+## 2026-08-29 (112차 계속2 — replay_low_speed_strong_decel.py 신규,
+threshold 강화 효과 재정량화)
+- `replay_low_speed_strong_decel.py` 신규: 라우트1 실측 CSV 기반
+  threshold 발동 스캔 + jerk_boost 플리커링 점검 + weighted a_lead
+  궤적 비교(오버라이드 유/무). **핵심 발견**: 라우트1 이벤트는 단일
+  오탐 스파이크가 아니라 aLeadK가 최대 -2.96까지 악화되는 진짜 지속적
+  감속이었고, TTC도 같은 구간에서 자연 하강(정상경로도 결국 수렴).
+  threshold 강화(-1.8→-2.5)는 오탐을 "제거"가 아니라 "조기발동 구간을
+  0.754s→0.410s(약 46%)로 단축"하는 효과였음 — 사용자 재확인 필요.
+
+
 - `long_mpc.py`: `LOW_SPEED_STRONG_DECEL_A_LEAD_THRESH` -1.8 -> -2.5
   (라우트1 실측 aLeadK=-2.07 오탐 해소, 3라우트 근거). `discontinuity_
   jerk_boost`에 신규 트리거 소스 `low_speed_strong_decel` 추가 —

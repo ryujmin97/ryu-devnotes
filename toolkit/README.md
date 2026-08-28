@@ -389,6 +389,28 @@ threshold 강화 후에도 여전히 게이트 발동 — 원래 목적 보존 �
 hard-hold(4.0s)+release-rate(100/s)로 base까지 완만 감쇠)**.
 **사용**: `python3 sim_low_speed_decel.py`
 
+## replay_low_speed_strong_decel.py
+**목적**: 112차 계속 — 라우트1 실측 CSV로 LOW_SPEED_STRONG_DECEL
+threshold 강화(-1.8→-2.5) + jerk_boost 신규소스 검증. `sim_low_speed_
+decel.py`(합성 시나리오)와 달리 실측 노이즈 데이터를 그대로 사용.
+**핵심 발견(중요, 기존 분석 정정)**: 단일 시점(aLeadK=-2.07)만 봤던
+기존 분석은 불완전 — 실제로는 aLeadK가 계속 악화돼 최대 -2.96까지
+도달하는 **진짜 지속적 앞차 감속 이벤트**였고, 동시에 TTC도 6.85s→
+4.15s로 자연 하강 중이었음(정상 ttc_accel_weight 경로도 결국 같은
+구간에서 자연 수렴). `compare_weight_trajectory()`로 오버라이드
+없는 baseline과 비교한 결과: baseline은 t=1939.873에 자연 수렴(w≥0.99)
+하는데, 구threshold는 이보다 0.900s, 신threshold는 0.700s 앞당겨
+w=1.0을 강제함. 즉 **threshold 강화는 오탐을 "제거"한 게 아니라
+"조기발동 구간을 0.754s→0.410s로 약 46% 단축"한 것** — 원래
+FINDINGS.md 112차의 "오탐 확정" 서술은 이번 실측 replay로 일부
+정정 필요(사용자 확인 대기, 아래 FINDINGS.md 112차 계속2 참고).
+**함수**: `run_threshold_scan()`(threshold별 발동 프레임/에피소드 스캔),
+`run_jerk_boost_flicker_check()`(실측 노이즈 환경 재트리거 이상 점검),
+`compare_weight_trajectory()`(오버라이드 유/무 weighted a_lead 궤적
+비교 — 오버라이드의 실제 한계효용 정량화).
+**의존성**: 없음(표준 라이브러리만).
+**사용**: `python3 replay_low_speed_strong_decel.py <route.csv>`
+
 ## sim_vision_track_ab.py
 **목적**: 58차 3번("정지앞차 미인식/과소반응", A+B) + 후속수정(외곽
 게이트 버그) 검증. `radard.py` `VisionTrack.update()`의 tentative 조기
