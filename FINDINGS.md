@@ -1,3 +1,48 @@
+## 112차 — "저속주행중 앞차 서행/정지시 급감속" 3라우트 확정 — 라우트1 LOW_SPEED_STRONG_DECEL 게이트 오탐(rise-rate 우회 부작용), 라우트2/3은 TTC 정상경로
+
+**배경**: 사용자 제보 "저속주행시 앞차가 서행하거나 정지시 내차가
+급하게 정지" — 대시캠 클립 3건 + route 3건(`00000336--4a688572c0`
+seg10-11, `00000338--c60bf8189f` seg9-11, `00000339--ce1f43d848`
+seg4-6) 업로드. `leadALeadK` 필드까지 포함해 재추출 후 시계열 분석.
+
+**공통 확인사항**: 3건 모두 radar=True(레이더 락온) 실제 리드차량,
+danger override(TTC≤2.5s) 문턱 불침범.
+
+**라우트별 원인(중요 — 서로 다름)**:
+1. **라우트1(t≈1940, min aEgo=-2.58, vEgo 14~20km/h)**: `LOW_SPEED_
+   STRONG_DECEL` 게이트(58차2번, `V_EGO_GATE=30km/h`/`A_LEAD_THRESH=
+   -1.8m/s²`) 정확히 t=1938.97(`aLeadK=-2.07`, vEgo=19.2km/h)에 발동
+   확인. 발동 즉시 `w=1.0` 적용되며 `LEAD_ACCEL_WEIGHT_RISE_RATE`
+   rise-rate 제한을 완전 우회(이 분기가 `lead0_danger_now`에 묶여
+   TTC-danger와 동급 취급되기 때문) → 0.7~1초 후 aEgo -0.5→-2.58
+   급락. dRel은 전 구간 8~9m로 여유 있었음(진짜 위험 아님). **-1.8m/s²
+   문턱이 평범한 일상 제동 강도라 오탐되며, 완충 없이 풀강도로 튀는
+   구조가 원인 — 명확한 버그로 확정.**
+2. **라우트2(t≈4376, min aEgo=-4.02, vEgo 33~44km/h)/라우트3(t≈5221,
+   min aEgo=-2.18, vEgo 30~39km/h)**: `LOW_SPEED_STRONG_DECEL` 게이트
+   미발동(vEgo>30km/h 구간에서 리드 강한 감속 발생). `ttc_accel_
+   weight`/`margin_accel_weight` 정상 경로로 w 서서히 상승, ego 응답이
+   리드 실측 감속(aLeadK 최대 -4.2/-2.0)과 대체로 비례 — **설계대로
+   동작한 정상 케이스에 가까움**. 다만 w가 도달하는 과정에 jerk 완충
+   메커니즘이 없다는 구조적 공백은 라우트1과 공통.
+
+**패치 방향(사용자 확정, 코드 변경 전 논의만 완료)**:
+- 라우트1: 임계값 강화(-1.8→약-2.5 근처, 실측 기반 보정) +
+  `discontinuity_jerk_boost`(66~73차 기 검증, "목표는 유지, 저크만
+  완화") 메커니즘을 신규 트리거 소스 `low_speed_strong_decel`로 확장.
+  rise-rate 제한 되살리기 안은 기각(58차 원 취지 무력화 우려).
+- 라우트2/3: a_change_cost boost 확장 대상에 포함하기로 합의하되,
+  회귀추적을 위해 라우트1 우선 분리 패치+검증 후 순서대로 진행.
+
+**다음**: 라우트1 패치 구현(`LOW_SPEED_STRONG_DECEL_A_LEAD_THRESH`
+조정 + boost 트리거 소스 추가) → `sim_low_speed_decel.py` 확장 검증
+→ replay 검증 → patch 전달. 라우트2/3 boost 확장은 라우트1 실차검증
+후 재논의.
+
+**코드 변경 없음(이번 세션은 분석+방향합의까지만)**.
+
+---
+
 ## 104차 — [INVESTIGATING] 오탐(A)/반응둔감(B) 제보 실차 로그 분석 — A는 조향 증가 구간 레이더 유실 시 vision fallback 원거리 오판, B는 오탐 아닌 진짜 "느린 반응" 사례로 재분류
 
 **배경**: 사용자가 "오탐 및 앞차에 반응 둔감"으로 제보한 실차 로그(dashcam
