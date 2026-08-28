@@ -421,3 +421,9 @@
   frac_rate=1.0 유지 vs PATCHED는 트리거 프레임에서 즉시 0으로 리셋,
   정상 완만접근/r1-3류(radar 즉시 락온) 회귀 없음 확인. 상세는 WIP.md/
   FINDINGS.md 94차 참고.
+
+## 2026-08-28 (101차 후속 — CPU/메모리 전체 재점검)
+- 신규: `toolkit/scan_perf_antipatterns.sh` — 실시간 루프 파일들에서
+  deepcopy/미캐싱 Params.get/print/re.compile/threading/subprocess/
+  unbounded append/dict 누적/비벡터화 for-loop 등 CPU·메모리 안티패턴
+  후보를 grep으로 일괄 스캔. 매치는 컨텍스트 확인 필수(오탐 흔함).

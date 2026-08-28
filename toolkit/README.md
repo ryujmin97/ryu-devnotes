@@ -747,3 +747,28 @@ python3 sim_route_margin_regression_scan.py <route.csv> \
 `--lookahead`는 84/85차 동적 캡(300~600m) 커버리지의 근사치 — 최소
 40~50초 권장(고속 구간 600m 커버 위해).
 **의존성**: `shapely`, `numpy`. `sim_route_curvature_sample.py` 재사용.
+
+## scan_perf_antipatterns.sh
+**목적**: 실시간 루프 파일(carrot_man.py/carrot_functions.py/
+carrot_serv.py/controlsd.py/radard.py/longitudinal_planner.py/
+long_mpc.py/cruise.py 등)에서 CPU/메모리 관련 정적 안티패턴 후보를
+grep으로 일괄 스캔. "전체코드 CPU/메모리 재점검" 같은 요청에서 매번
+grep 명령을 손으로 다시 짜지 않기 위한 도구(101차 후속 세션에서 사용한
+패턴을 스크립트화).
+**스캔 항목**: `deepcopy`, `Params()` 신규 인스턴스 생성, 미캐싱
+가능성 있는 `.params.get*`, `print(`, 함수 내부 `re.compile`,
+`threading.Thread`/`subprocess.*`, `.append(`(bounded 여부 확인용),
+누적형 dict 캐시(`self.xxx = {}`), 비벡터화 `for ... in range(len(`.
+**사용**:
+```bash
+bash toolkit/scan_perf_antipatterns.sh /home/claude/ryu
+# 파일 목록을 직접 지정하려면:
+bash toolkit/scan_perf_antipatterns.sh /home/claude/ryu selfdrive/carrot/carrot_man.py
+```
+**주의 (중요)**: 이 스크립트는 "의심 위치"만 찾아준다. 매치 하나하나가
+실제 문제인지는 반드시 `sed -n 'N,Mp' <file>`로 컨텍스트(호출 빈도,
+readParams류 캐싱 게이트 안에 있는지, deque(maxlen=..)로 bounded인지,
+이벤트 트리거성인지 vs 매 프레임 실행인지)를 확인해야 한다. 오탐이
+흔하다 — 101차 후속 스캔에서 나온 매치 대부분이 이미 97~100차에서
+캐싱/bounded 처리가 되어 있는 것으로 확인됨(WIP.md/FINDINGS.md
+"101차 후속 CPU/메모리 재점검" 참고).
