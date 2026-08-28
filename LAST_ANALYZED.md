@@ -1,3 +1,12 @@
+## c3-ms-dev (111차, 사용자 제보 dashcam 클립 2건 분석 — 코드 변경 없음)
+- last_analyzed_commit: `02e1f93`(origin HEAD, 109차 패치 반영본)
+- date: 2026-08-28 (111차)
+- note: 클립 파일명-route t 매칭용 신규 도구
+  `match_dashcam_clip_to_route.py` 작성. 클립1=106차 중간사례(패치
+  무관), 클립2=106차/108차 심각사례(109차/110차 검증 대상과 동일,
+  실제 패치 영향은 0.19초뿐이며 진짜위험이라 결과적으로 거의 동일한
+  감속 예상). 상세는 WIP.md/FINDINGS.md "111차" 참고.
+
 ## c3-ms-dev (110차, 109차 패치 검증 공백 해소 — 코드 변경 없음)
 - last_analyzed_commit: `02e1f93`(origin HEAD, 109차 옵션1 patch 반영본)
 - date: 2026-08-28 (110차)

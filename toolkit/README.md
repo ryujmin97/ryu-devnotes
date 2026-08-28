@@ -796,6 +796,25 @@ frac_rate=1.0 유지 vs PATCHED는 즉시 0. 2)정상 완만접근(discontinuity
 
 ---
 
+## match_dashcam_clip_to_route.py (111차 신규)
+**목적**: `_clip.mp4` 대시캠 화면녹화의 파일명 타임스탬프(HHMMSS)만으로는
+route CSV의 정확한 `t` 구간을 특정할 수 없는 문제(HUD 시계가 시:분만
+표시 + screenrecorder.cc 저장시각과 시작시각 어긋남, 111차 실측 최대
+~50초 편차 확인) 해결. blinker 클러스터의 **순서/상대 시간차 + 급감속
+강도**로 클립을 route t에 매칭.
+**핵심 함수**: `find_blinker_clusters(rows)` — route CSV에서 blinker
+활성 클러스터 전부 추출 + 각 구간 min_aEgo/시각. `match_clips(clusters,
+clip_filename_seconds, tolerance_s=10)` — 클립 파일명 시각 리스트와
+후보 클러스터 시간차를 비교해 매칭.
+**검증(111차)**: `947fbb7dc6`의 두 클립(`113702`,`113848`, 파일명
+시간차 106s)을 이 방법으로 매칭 — 후보 클러스터 시간차 108.9s(오차
+2.9s)로 성공 매칭, qcamera 프레임 시각 대조로 재확인. 파일명 매칭
+직접시도(seg0 시작시각 기준 단순 오프셋)는 실제로 53~55초 어긋나
+실패했던 것과 대조.
+**한계**: 클립 2~3개 전용(그 이상은 조합 폭발, 수동 검토 권장). 이
+도구는 "언제" 일어났는지만 특정 — 화면 `a_ego/a_target/a_out` 그래프
+자체를 재현하려면 별도로 `long_mpc.py` MPC 솔버 재실행 필요(미구현).
+
 ## 아직 없는 카테고리 (필요해지면 추가)
 - `toolkit/sim/` — 시뮬레이터 스크립트가 `sim_vision_rate.py` 하나를
   넘어 여러 개로 늘어나면 이 시점에 하위 폴더로 분리 검토.

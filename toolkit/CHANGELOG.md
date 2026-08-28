@@ -3,6 +3,12 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+## 2026-08-28 (111차, match_dashcam_clip_to_route.py 신규)
+`_clip.mp4` 파일명 타임스탬프만으로 route CSV t구간 특정이 안 되는
+문제(HUD 시:분만 표시, 저장시각≠시작시각, 최대 ~50초 편차 실측)
+해결용. blinker 클러스터의 상대 시간차+급감속 강도로 매칭.
+947fbb7dc6 클립 2건(113702/113848) 성공 매칭 검증 — README 참고.
+
 ## 2026-08-28 (109차, patched_replay_v109.py 신규)
 옵션1 patch(`long_mpc.py`, `discontinuity_lc` 전용 danger confirm-hold
 0.25s, 커밋 `b84eeb8`) 사전검증용 PATCHED replay 작성.
