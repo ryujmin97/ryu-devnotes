@@ -389,6 +389,27 @@ threshold 강화 후에도 여전히 게이트 발동 — 원래 목적 보존 �
 hard-hold(4.0s)+release-rate(100/s)로 base까지 완만 감쇠)**.
 **사용**: `python3 sim_low_speed_decel.py`
 
+## sim_gap_open_damping.py (116차, 신규)
+**목적**: 6님 제보("저속에서 앞차 멀어질 때 너무 급하게 재가속 -> 다시
+붙을 때 급브레이크") 대응 신규 방안 — 저속(<=40km/h)에서 이미
+desired_distance보다 충분히 벌어진 상태(gap_ratio >=
+MARGIN_ACCEL_GATE_FULL=1.5, 기존 dist_w 경계 재사용)에서 앞차가 강하게
+가속 중일 때만 MPC에 넘기는 a_lead에 상한(`LOW_SPEED_GAP_OPEN_ACCEL_CAP`)을
+거는 로직의 단위 검증. `process_lead()`의 관련 분기만 순수함수로 재현.
+**핵심 설계**: 45차("정지 후 출발 가속 약화") 재발을 막기 위해
+(1) `_launch_bypass_active` 구간 명시적 제외, (2) gap_ratio가 낮은
+(desired_distance 이내로 정상 추종 중인) 구간은 게이트 자체가 안 열림 —
+정상 출발이 "너무 천천히" 되는 오탐을 구조적으로 차단.
+**의존성**: 없음(표준 라이브러리만).
+**시나리오 6건, 전부 PASS**: A(고속 회귀 diff=0)/B(launch bypass 중
+defense-in-depth 캡 미적용)/C(bypass 해제 후 18~40km/h 정상 출발 연장
+구간 캡 미적용 — 오탐 방지 핵심)/D(이벤트 재현, gap_ratio>=1.5+강한가속
+지속 시 a_lead가 CAP(0.5)로 클램프)/E(완만가속 오탐방지, diff=0)/
+F(gap_ratio 1.5 경계 전이 — 예외 없이 즉시 토글되나, **캡 진입 순간
+a_lead에 최대 1.5 m/s^2 단차(하드클램프, 완만화 없음) 발생 확인 —
+방안I류 jerk 완만화 병행 필요 여부는 NEEDS_VALIDATION으로 남김**).
+**사용**: `python3 sim_gap_open_damping.py`
+
 ## replay_low_speed_strong_decel.py
 **목적**: 112차 계속 — 라우트1 실측 CSV로 LOW_SPEED_STRONG_DECEL
 threshold 강화(-1.8→-2.5) + jerk_boost 신규소스 검증. `sim_low_speed_

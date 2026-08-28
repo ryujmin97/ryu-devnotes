@@ -499,3 +499,11 @@ discontinuity 0건). 개발 중 트리거 소스별 boost_s 미구분 버그가 
   중 21건(41%)만 blinker 겹침, 59%는 블링커 무관 — 106차의 "차선변경
   특유의 버그"라는 결론이 표본(3건)에 국한된 것이었을 가능성 제기됨.
   상세는 WIP.md/FINDINGS.md 107차 참고.
+
+## 2026-08-29 (116차, sim_gap_open_damping.py 신규)
+- 신규: `toolkit/sim_gap_open_damping.py` — 저속(<=40km/h)+gap_ratio>=1.5
+  (기존 MARGIN_ACCEL_GATE_FULL 재사용)+앞차 강한가속 조건에서만 a_lead에
+  상한(0.5 m/s^2)을 거는 신규 방안(LOW_SPEED_GAP_OPEN_*) 단위 검증.
+  launch bypass 및 정상 출발 연장 구간 오탐 방지(45차 재발 방지) 포함
+  6개 시나리오 전부 PASS. **경계 전이 시 a_lead 최대 1.5 m/s^2 단차
+  발견 -- 완만화 필요 여부 NEEDS_VALIDATION.**

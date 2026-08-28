@@ -1,3 +1,63 @@
+## 116차 (체크포인트 — 신규 방안 "저속 gap-opening a_lead 캡" 설계+합성검증 완료, 실측 replay 전 결정 대기) — LOW_SPEED_GAP_OPEN_* 6개 시나리오 전PASS, 경계전이 단차(1.5 m/s^2) 발견
+
+**배경**: 6님 제보 — "저속(30~40km/h 이하)에서 앞차가 멀어질 때 자차가
+너무 급하게 재가속하면, 이후 앞차가 다시 정지/감속할 때 자차가 급하게
+반응하게 되는 것 아니냐"는 신규 가설. 기존 방안I/C/58차(전부 "앞차 감속에
+어떻게 반응할까")와 달리, **"앞차가 멀어질 때 자차 가속을 어떻게 완만하게
+할지"**를 다루는 첫 방안.
+
+**코드 리딩 결과 (기존 로직 실태)**:
+1. `dynamic_t_follow()`(jLead 기반 t_follow/jerk 보정)는 `DynamicTFollow`
+   파라미터 기본값 0 → 완전 비활성. 사용자 실제 params_backup 확인 결과도
+   `DynamicTFollow:"0"`, `EnableSpeedTF:"0"`, `JLeadFactor3:"0"` 전부
+   비활성 확정 — 원인은 이쪽이 아님.
+2. `long_mpc.py`의 lead accel damping(`dist_w`/`ttc_w`)은 위험(closing)
+   방향 감쇠만 존재 — 앞차가 멀어지는(v_lead>v_ego) 방향엔 damping
+   자체가 없어 `a_lead`가 감쇠 없이 그대로 MPC 타깃에 반영됨 (핵심 원인
+   지점으로 특정).
+3. `get_carrot_accel()`은 순수 속도기반 가속 상한이라 lead/gap 상태 무관.
+
+**방향 A(DynamicTFollow 파라미터 활성화) vs 방향 B(long_mpc 레벨 신규
+게이트) 비교 검토 → 방향 B 채택**: A는 jLead 신호가 toolkit CSV에
+미수집(cereal엔 존재, extract_log.py 미추출)이라 검증 인프라 신설 필요 +
+전역 스위치라 부작용 범위가 넓음. B는 기존 신호(aLeadK/vRel/dRel)로 즉시
+replay 검증 가능 + 저속+gap-opening으로 영향범위 국한.
+
+**설계 (`long_mpc.py` 삽입 위치: `dist_w`/`ttc_w` 계산부 인접)**:
+```
+LOW_SPEED_GAP_OPEN_V_EGO_GATE = 40.0 / 3.6       # ~40km/h (6님 확인값)
+LOW_SPEED_GAP_OPEN_A_LEAD_THRESH = 1.0           # m/s^2
+LOW_SPEED_GAP_OPEN_ACCEL_CAP = 0.5               # m/s^2
+gap_ratio = x_lead / desired_distance             # desired_distance<=1.0이면 스킵
+apply = (v_ego <= GATE and a_lead >= THRESH
+         and not self._launch_bypass_active
+         and gap_ratio >= MARGIN_ACCEL_GATE_FULL)  # 1.5, 기존 dist_w 경계 재사용
+if apply: a_lead = min(a_lead, ACCEL_CAP)
+```
+**"정지 후 출발 가속 약화"(45차) 재발 방지가 핵심 설계 포인트**: (1)
+`_launch_bypass_active` 구간 명시적 제외, (2) gap_ratio가 낮은(아직
+desired_distance 이내로 정상 추종 중) 구간은 게이트 자체가 안 열림 →
+정상 출발이 "너무 천천히" 되는 오탐을 구조적으로 차단.
+
+**합성검증 (`toolkit/sim_gap_open_damping.py`, 신규, 6개 시나리오 전부
+PASS)**: A(고속 회귀 diff=0)/B(launch bypass 중 캡 미적용,
+defense-in-depth)/C(bypass 해제 후 18~40km/h 정상 출발 연장 구간 캡
+미적용 — 오탐방지 핵심 검증)/D(이벤트 재현, gap_ratio>=1.5+강한가속
+지속 시 a_lead가 0.5로 정상 클램프)/E(완만가속 오탐방지 diff=0)/
+**F(gap_ratio 1.5 경계 전이 — 예외 없이 즉시 토글되나, 캡 진입 순간
+a_lead에 최대 1.5 m/s^2 단차(하드클램프, 완만화 없음) 발생 발견 —
+방안I류 jerk 완만화 병행 필요 여부는 NEEDS_VALIDATION)**.
+
+**미결정 사항 (다음 세션 시작 시 최우선 확인)**:
+1. F에서 발견된 경계전이 단차(1.5 m/s^2)를 그대로 두고 실측 replay부터
+   할지, 아니면 완만화(rise-rate류)를 먼저 추가한 뒤 replay할지 — 방향
+   미확정 상태로 세션 종료됨
+2. `LOW_SPEED_GAP_OPEN_ACCEL_CAP=0.5`/`A_LEAD_THRESH=1.0`/
+   `MARGIN_RATIO=1.5(재사용)` 전부 실측 로그 없이 감으로 잡은 값 —
+   기존 4개 실측 라우트(lowspeed_a/b/c 등, 115차 참고)로 replay 검증
+   필요
+3. ryu 코드(long_mpc.py) 자체는 아직 미수정 — 방향 확정 후 patch 생성
+
 ## 115차 (체크포인트 — pre-112차(b67c291) 실측 로그 4건 분석, 112차 threshold 실측검증) — SMOOTH 완전PASS/ROUTE_A 부분개선/ROUTE_B 저속게이트무관 진짜급감속
 
 **입력**: 사용자 업로드 zip 2건 → 라우트 4건으로 분리·추출.
