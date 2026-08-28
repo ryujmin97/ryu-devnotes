@@ -1,3 +1,13 @@
+## c3-ms-dev (110차, 109차 패치 검증 공백 해소 — 코드 변경 없음)
+- last_analyzed_commit: `02e1f93`(origin HEAD, 109차 옵션1 patch 반영본)
+- date: 2026-08-28 (110차)
+- note: 109차가 컨테이너 리셋으로 검증 못한 `947fbb7dc6`(최심각 사례,
+  min_aEgo -3.40)/`ad830211ff`(handoff 2건) 재업로드 후 PATCHED
+  재검증. 947fbb7dc6는 force_revert 지속시간 0.457s→0.209s 단축(위험
+  반응 min_aEgo는 보존), ad830211ff는 완전 무영향(설계대로). 로그 기반
+  replay 검증 전부 완료, 남은 과제는 실차 드라이브 검증뿐. 상세는
+  WIP.md/FINDINGS.md "110차" 참고.
+
 ## c3-ms-dev (106차, 차선변경 중 leadRadar 핸드오프 급감속 원인 확정 — 코드 변경 없음)
 - last_analyzed_commit: `bc1bcb0`(origin HEAD, 101차 반영본과 동일 —
   코드 수정 없이 실차 로그(92bb45496d 3세그+947fbb7dc6 4세그, dashcam

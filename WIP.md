@@ -1,3 +1,37 @@
+## 110차 (완료 — 109차 검증 공백 해소, 코드 변경 없음) — 947fbb7dc6/ad830211ff 재업로드 후 PATCHED 재검증
+
+**요청**: 109차가 컨테이너 리셋으로 검증 못 한 두 사례(`947fbb7dc6`
+최심각 사례, `ad830211ff` handoff 2건) 사용자가 재업로드.
+
+**작업**:
+1. 로그 폴더 타임스탬프(2026-08-27) vs 109차 패치 커밋 `02e1f93`
+   author date(2026-08-28) 교차검증 — 로그가 패치 이전 raw 기록임을
+   확인(replay 시뮬레이션 목적엔 문제 없음, 실차검증 대체 아님).
+2. `extract_log.py`로 두 라우트 CSV 추출 (`work/csv_947fbb7dc6.csv`,
+   `work/csv_ad830211ff.csv`, 레포 미커밋).
+3. `scan_force_revert_episodes`(UNPATCHED)/`patched_replay_v109`
+   (PATCHED) 나란히 실행, before/after 비교.
+4. **결과**: `947fbb7dc6` 최심각 사례 — min_aEgo -3.40 그대로 보존,
+   지속시간 0.457s→0.209s 단축(54%↓). `ad830211ff` handoff 2건 —
+   PATCHED/UNPATCHED 프레임단위 완전 동일(영향 없음, 설계대로).
+5. FINDINGS.md 110차 항목 기록.
+
+**결론**: 109차 옵션1 patch의 로그 기반 replay 검증이 모두 완료됨
+(108차 30라우트 + 109차 캐시 12라우트 + 이번 2건). 코드 변경 없음
+(109차 패치 `b84eeb8` 그대로 유지).
+
+**다음 세션 최우선**:
+- **실차 드라이브 검증**(유일하게 남은 과제) — 차선변경 중 급감속
+  완화 체감, 순수 discontinuity/handoff 반응 회귀 없음,
+  `LANE_CHANGE_DISCONTINUITY_DANGER_CONFIRM_S=0.25s` 적정성 판단.
+- (기존 이월) 91차 curve pre-decel 실차검증, 방안E/G 실차검증, 45차
+  stop-to-launch bypass 미완성 구현.
+
+**이번 세션 변경 파일**: `FINDINGS.md`(110차 항목), 이 WIP.md 항목.
+`toolkit/`, `ryu` 코드 변경 없음.
+
+---
+
 ## 109차 (완료 — 옵션1 patch 구현+시뮬레이션 검증, 실차검증 전) — discontinuity_lc danger confirm-hold, 패치전달 완료
 
 **요청**: 108차 확정 근거로 옵션1 patch 구현 착수.

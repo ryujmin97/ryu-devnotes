@@ -7219,6 +7219,42 @@ discontinuity_lc 실사례가 없어 미검증"으로 남겼던 부분을 이번
 
 **코드 변경 없음**(분석 전용, 방안 설계는 다음 세션).
 
+## 110차 — [VALIDATED] 109차 검증 공백(947fbb7dc6/ad830211ff) 재업로드 후 PATCHED 재검증 완료 — 최심각 사례도 위험반응 보존 확인
+
+**배경**: 109차가 컨테이너 리셋으로 검증 못 한 두 사례를 사용자가 재업로드
+(`00000337--947fbb7dc6`, x20seg / `00000335--ad830211ff`, x9seg).
+**주의**: 로그 폴더 타임스탬프(2026-08-27 11:36/11:07)가 109차 패치 커밋
+`02e1f93`(author date 2026-08-28 11:10)보다 이전 — 이 데이터는 패치
+적용 전 raw 센서 기록이며, `patched_replay_v109.py`가 그 위에 패치
+로직을 소프트웨어 재생하는 방식이므로 검증 목적(시뮬레이션 재검증)에는
+문제 없음. 단 이것으로 실차 드라이브 검증을 대체하지 않음(별도 과제로
+유지).
+
+**작업**: `extract_log.py`로 두 라우트 CSV 추출 → `scan_force_revert_
+episodes.scan_route()`(UNPATCHED, 108차)와 `patched_replay_v109.
+scan_route_patched()`(PATCHED, 109차)를 나란히 실행해 before/after 비교.
+
+**결과**:
+- **`947fbb7dc6`(108차/106차 최심각 사례, blinker=True,
+  discontinuity_lc)**: force_revert 1건 유지(제거되지 않음) —
+  `min_aEgo=-3.40`(BEFORE/AFTER 완전 동일, 위험 반응 보존) / 지속시간
+  **0.457s → 0.209s로 단축**(약 54% 감소). 기존 캐시 지속 사례
+  (0.55s→0.35s)와 동일한 패턴 재확인 — confirm-hold가 불필요한
+  장기화만 줄이고 진짜 위험 반응(min_aEgo)은 그대로 보존함을 최심각
+  사례에서도 확인.
+- **`ad830211ff`(108차 handoff 2건)**: PATCHED/UNPATCHED 결과가
+  `t_start`/`t_end`/`n_frames`/`min_aEgo` 전 항목 프레임 단위까지
+  완전 동일 — handoff는 설계대로 전혀 영향받지 않음(트리거 소스명
+  분기라 구조적 회귀 불가라는 109차 설계 근거 실측으로 재확인).
+
+**결론**: 109차 옵션1 patch의 시뮬레이션 검증 공백이 모두 해소됨.
+로그 기반 replay 검증은 108차 30라우트 + 109차 캐시 12라우트 +
+이번 947fbb7dc6/ad830211ff까지 전부 완료 — **남은 유일한 과제는
+실차 드라이브 검증**(체감/CONFIRM_S=0.25s 적정성).
+
+**변경 파일**: `FINDINGS.md`(본 항목), `WIP.md`. `toolkit/`, `ryu`
+코드 변경 없음(109차 패치 그대로, 재검증만 수행).
+
 ## 109차 — [NEEDS_VALIDATION] 옵션1(discontinuity_lc 전용 danger confirm-hold) 패치 구현 + 시뮬레이션 검증 (실차 검증 전, 커밋 b84eeb8)
 
 **배경**: 108차가 확정한 근거(force_revert 5건 중 discontinuity_lc
