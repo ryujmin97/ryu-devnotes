@@ -1,4 +1,4 @@
-## 101차 (완료 — 원인 확정+패치 작성+정적검증 완료, 실차/디바이스 검증 대기) — 100차 패치가 유발한 carrot_man __init__ AttributeError 크래시 원인 확정 및 수정
+## 101차 (완료 — 원인 확정+패치 적용+device 재부팅 검증까지 완료) — 100차 패치가 유발한 carrot_man __init__ AttributeError 크래시 원인 확정 및 수정
 
 **배경**: 100차 패치(`eaee8b5`) 적용 후 device에서 carrot_man이
 정상 기동하지 못하는 문제 발생. managerState에서
@@ -44,12 +44,15 @@ capnp/msgq 의존성 때문에 컨테이너에서 `long_mpc`류와 마찬가지�
 (base `eaee8b5`, 즉 100차 반영본 위에 적용). `C:\dev\patch\`
 (PC) 또는 Termux 환경이면 해당 위치에 저장 후 `git am` 적용.
 
-**다음 단계**: device에 패치 적용 후 재부팅 -> `carrot_man`이
-crash loop 없이 정상 기동하는지, managerState에서
-`running=True`로 안정되는지 확인 필요. 정상 기동 확인 후에도
-100차 패치 자체(Params I/O 캐싱 + Shapely->numpy 벡터화)의 실차
-동작 검증은 별도로 여전히 필요(100차 항목 "실차검증 대기" 상태
-그대로 이어짐).
+**최종 검증 (device)**: 패치(`bc1bcb0`) 적용 후 device 재부팅 —
+carrot_man crash loop 완전히 해소, 정상 기동 확인. 101차는 이걸로
+완료.
+
+**참고**: crash가 해소되어 carrot_man이 정상 기동하게 됐을 뿐,
+100차 패치 자체(Params I/O 캐싱 + Shapely->numpy 벡터화)의 실제
+주행 중 동작(체감/회귀 여부)은 아직 확인 전 — 100차 항목 "실차검증
+대기" 상태는 별개로 그대로 이어짐(101차는 어디까지나 100차가
+만든 크래시 버그만 해결한 것).
 
 ---
 

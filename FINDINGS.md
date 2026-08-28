@@ -1,4 +1,4 @@
-## 101차 — [VALIDATED-정적] 100차 패치가 유발한 carrot_man __init__ AttributeError 크래시 — 원인 확정 및 수정
+## 101차 — [VALIDATED] 100차 패치가 유발한 carrot_man __init__ AttributeError 크래시 — 원인 확정 및 수정 (device 재부팅 검증 완료)
 
 **증상**: 100차 패치(`eaee8b5`) 적용 후 device에서 `carrot_man`이
 기동 직후 crash loop(managerState: `running=False, exitCode=1`
@@ -44,10 +44,10 @@ base `eaee8b5`(100차 반영본), 로컬 커밋 `6bbccca`, 패치
 
 **검증**: `ast.parse()`로 문법 검증 통과, `git diff`로 코드 이동만
 있고 로직/캐시값/호출 시점(20Hz 루프 내 갱신 주기 등) 변경이
-없음을 확인. capnp/msgq 의존성 때문에 컨테이너 환경에서
-`CarrotMan()` 실제 인스턴스화 테스트는 불가 — **디바이스
-재부팅으로만 crash loop 해소 최종 확인 가능**(기존 "정적 크래시
-검증" 원칙과 동일한 한계).
+없음을 확인. capnp/msgq 의존성 때문에 컨테이너 환경에서는
+`CarrotMan()` 실제 인스턴스화 테스트가 불가했음(기존 "정적 크래시
+검증" 원칙과 동일한 한계) — 이후 patch `bc1bcb0` 적용 후 **device
+재부팅으로 crash loop 완전 해소 최종 확인 완료.**
 
 **교훈**: `__init__` 내에서 캐시 필드를 나중에 추가할 때, 그
 필드를 참조하는 다른 메서드 호출이 `__init__` 앞부분에 이미
