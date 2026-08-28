@@ -3,6 +3,18 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+## 2026-08-29 (112차 — 라우트1 패치 구현 + sim_low_speed_decel.py 확장)
+- `long_mpc.py`: `LOW_SPEED_STRONG_DECEL_A_LEAD_THRESH` -1.8 -> -2.5
+  (라우트1 실측 aLeadK=-2.07 오탐 해소, 3라우트 근거). `discontinuity_
+  jerk_boost`에 신규 트리거 소스 `low_speed_strong_decel` 추가 —
+  handoff/discontinuity_lc와 동일한 hold(4.0s)+release-rate(100/s)
+  경로 재사용, danger 지속 중엔 a_change_cost=base 유지(즉시반응 방해
+  없음)하고 해제 직후부터만 도달과정을 완만화.
+- `sim_low_speed_decel.py`: 시나리오 E(라우트1 threshold 회귀 재현,
+  신threshold 미발동 확인)/F(진짜 강한감속 -3.0 여전히 발동 확인)/
+  G(jerk_boost 신규 소스 arm/hold/release 검증) 3건 추가, 기존 B는
+  threshold 상수와 동기화하도록 하드코딩값 제거. 전체 7건 PASS.
+
 ## 2026-08-28 (111차, match_dashcam_clip_to_route.py 신규)
 `_clip.mp4` 파일명 타임스탬프만으로 route CSV t구간 특정이 안 되는
 문제(HUD 시:분만 표시, 저장시각≠시작시각, 최대 ~50초 편차 실측)

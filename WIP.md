@@ -1,3 +1,30 @@
+## 112차 계속 (체크포인트 — 라우트1 패치 구현+단위검증 완료, replay검증 보류) — LOW_SPEED_STRONG_DECEL threshold 강화 + jerk_boost 신규 소스 추가
+
+**작업**: 112차(위 항목) 합의 방향대로 `long_mpc.py` 구현 완료:
+1. `LOW_SPEED_STRONG_DECEL_A_LEAD_THRESH`: -1.8 → -2.5.
+2. `discontinuity_jerk_boost`에 신규 트리거 소스 `low_speed_strong_decel`
+   추가 (handoff/discontinuity_lc와 동일한 hold 4.0s+release 100/s
+   경로 재사용, danger 지속 중엔 base 유지·해제 후에만 완만화 — rise-rate
+   되살리기 기각 결정과 정합).
+3. `toolkit/sim_low_speed_decel.py` 확장: 시나리오 E/F/G 추가, 기존 B는
+   threshold 상수 참조로 수정. **7/7 PASS**.
+
+**보류(다음 세션 최우선)**: 라우트1 원본 CSV가 컨테이너에 없어(레포
+미커밋 정책 + 컨테이너 리셋, Drive 미연결) replay 검증 불가 — 사용자가
+라우트1 CSV 또는 원본 zip 재업로드 필요. 이후 순서:
+1. `patched_replay` 계열로 라우트1 실측 replay 검증 (min_aEgo/지속시간
+   패치 전후 비교).
+2. `git format-patch`로 패치 파일 생성·전달.
+3. 라우트2/3 a_change_cost boost 확장 여부는 라우트1 실차검증 결과
+   보고 재논의(기존 합의 유지).
+
+**이번 세션 변경 파일**: `ryu`: `selfdrive/controls/lib/
+longitudinal_mpc_lib/long_mpc.py`. `devnotes`: `toolkit/
+sim_low_speed_decel.py`, `toolkit/README.md`, `toolkit/CHANGELOG.md`,
+`FINDINGS.md`(112차 계속 항목), 이 WIP.md 항목.
+
+---
+
 ## 112차 (체크포인트 — 원인 확정, 패치 방향 논의 완료, 코드 변경 없음) — "저속주행중 앞차 서행/정지시 급감속" 제보 3라우트 분석, 라우트1 LOW_SPEED_STRONG_DECEL 게이트 오탐 확정
 
 **요청**: 사용자가 "저속주행급감.Zip"(대시캠 클립 3건 + route 3건,

@@ -370,15 +370,23 @@ python3 replay_lookahead_v1.py /home/claude/work/route4 \
 
 ## sim_low_speed_decel.py
 **목적**: 58차 2번("정체구간 붕끗") 패치 — `long_mpc.py`의
-`LOW_SPEED_STRONG_DECEL_V_EGO_GATE`(30km/h)/`_A_LEAD_THRESH`(-1.8m/s²)
-게이트(저속+앞차 강한감속 시 danger override와 동일하게 즉시 무감쇠)
-로직 단위 검증. `process_lead()`의 weight 계산부만 순수함수로 재현
-(실제 acados MPC는 안 거침).
+`LOW_SPEED_STRONG_DECEL_V_EGO_GATE`(30km/h)/`_A_LEAD_THRESH`(112차부터
+-2.5m/s², 원래 -1.8) 게이트(저속+앞차 강한감속 시 danger override와
+동일하게 즉시 무감쇠) 로직 단위 검증 + 112차부터
+`discontinuity_jerk_boost` 신규 트리거 소스 `low_speed_strong_decel`
+(a_change_cost 완만화 경로) 검증. `process_lead()`의 weight 계산부만
+순수함수로 재현(실제 acados MPC는 안 거침).
 **의존성**: 없음(표준 라이브러리만).
-**시나리오 4건**: A(고속 회귀, patch 전/후 diff=0)/B(이벤트 재현,
+**시나리오 7건**: A(고속 회귀, patch 전/후 diff=0)/B(이벤트 재현,
 unpatched 감쇠→rise-rate 한계로 몰려서 반영 vs patched 즉시 w=1.0)/
 C(오탐 방지, 저속+완만감속은 게이트 미개방)/D(경계 전이, v_ego가
-게이트값을 여러 번 넘나들어도 예외 없음).
+게이트값을 여러 번 넘나들어도 예외 없음)/**E(112차 신규: 라우트1
+실측 aLeadK=-2.07 재현 — 신threshold -2.5에서 더 이상 저속게이트
+미발동 확인, 오탐 해소)**/**F(112차 신규: 진짜 강한감속 -3.0은
+threshold 강화 후에도 여전히 게이트 발동 — 원래 목적 보존 확인)**/
+**G(112차 신규: jerk_boost 'low_speed_strong_decel' 소스 — danger
+지속 중엔 a_change_cost=base 유지, 해제 직후 boost(500) 전환 후
+hard-hold(4.0s)+release-rate(100/s)로 base까지 완만 감쇠)**.
 **사용**: `python3 sim_low_speed_decel.py`
 
 ## sim_vision_track_ab.py

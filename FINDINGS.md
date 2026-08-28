@@ -43,6 +43,39 @@ danger override(TTC≤2.5s) 문턱 불침범.
 
 ---
 
+## 112차 계속 — 라우트1 패치 구현 완료 + 단위 시뮬레이션 검증 PASS(7/7), replay 검증은 CSV 부재로 보류
+
+**작업**: 위 방향 합의대로 `long_mpc.py`(c3-ms-dev) 구현:
+1. `LOW_SPEED_STRONG_DECEL_A_LEAD_THRESH` -1.8 → -2.5 (라우트1 실측
+   aLeadK=-2.07을 더 이상 발동시키지 않도록, 라우트2/3 실측 최대치
+   -4.2/-2.0과는 여전히 구분되는 값).
+2. `discontinuity_jerk_boost` 신규 트리거 소스 `low_speed_strong_decel`
+   추가: `low_speed_strong_lead_decel`의 False→True 엣지에서 arm.
+   `is_handoff_source`(hold=`RADAR_HANDOFF_JERK_BOOST_S`=4.0s,
+   release-rate=100/s)에 편입 — 신규 튜닝 없이 방안I 검증값 재사용.
+   **구조적으로 확인된 동작**: danger_active(=low_speed_strong_lead_decel)
+   지속 중엔 `force_revert`가 즉시 걸려 a_change_cost가 base로 유지되므로
+   실제 위험 반응(w=1.0 경로)은 전혀 지연되지 않고, danger 해제 직후부터만
+   boost(500)→release로 "도달 과정"(복귀 시 jerk)만 완만화됨 — 사용자와
+   합의한 "목표는 안 바꾸고 저크만 완화" 원칙과 정확히 부합.
+3. `sim_low_speed_decel.py`에 시나리오 E(라우트1 실측 재현, 신threshold
+   미발동 확인)/F(진짜 강한감속 -3.0 여전히 발동)/G(jerk_boost 신규
+   소스 arm→hold→release 전체 사이클 검증) 추가, 기존 B는 threshold
+   상수 참조로 변경(하드코딩 drift 방지). **전체 7개 시나리오 PASS**.
+
+**한계(다음 세션 최우선)**: 라우트1 원본 CSV가 컨테이너에 없음(CSV는
+레포 미커밋 정책 + 컨테이너 리셋으로 소실, Google Drive 커넥터 미연결
+상태라 이번 세션엔 자동 회수 불가) — 순수 로직 단위 검증(sim)만
+완료했고, 실측 로그 기반 replay 검증(patched_replay류)은 아직 못함.
+사용자가 라우트1 CSV(또는 원본 저속주행급감 zip)를 재업로드하면 즉시
+진행 가능.
+
+**코드 변경**: `ryu`: `selfdrive/controls/lib/longitudinal_mpc_lib/
+long_mpc.py`. `toolkit`: `sim_low_speed_decel.py`, `README.md`,
+`CHANGELOG.md`.
+
+---
+
 ## 104차 — [INVESTIGATING] 오탐(A)/반응둔감(B) 제보 실차 로그 분석 — A는 조향 증가 구간 레이더 유실 시 vision fallback 원거리 오판, B는 오탐 아닌 진짜 "느린 반응" 사례로 재분류
 
 **배경**: 사용자가 "오탐 및 앞차에 반응 둔감"으로 제보한 실차 로그(dashcam
