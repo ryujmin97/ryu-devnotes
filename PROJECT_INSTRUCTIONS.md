@@ -5,6 +5,33 @@
 **파일 업로드가 아니라 텍스트 지침**이라 계정을 새로 만들거나 프로젝트를
 새로 파도 이 텍스트 한 번만 붙여넣으면 동일한 워크플로우가 재현된다.
 
+**[2026-08-28 개정] 이 버전에서 바뀐 것 (103차, 102차 devnotes push 시
+인코딩 손상 사고 이후):**
+- **⚠️ 재발 방지 규칙 신설 — 한글(비-ASCII) 텍스트가 포함된 파일 내용
+  편집/병합은 절대로 사용자 PowerShell에서 `Get-Content | ... |
+  Set-Content` 같은 파이프라인으로 직접 하지 않는다.** Windows
+  PowerShell 5.1은 `Get-Content`/`Set-Content`의 기본 인코딩이
+  UTF-8이 아니어서(파일에 BOM이 없으면 시스템 기본 코드페이지로 읽고,
+  `Set-Content`는 기본적으로 ASCII로 씀), 이 조합을 쓰면 한글 등
+  비-ASCII 멀티바이트 문자가 전부 `?`(0x3F, 리터럴 손실 — 원본 바이트
+  복구 불가)로 깨진다. 102차→103차 사이 devnotes push 과정에서
+  Claude가 이 방식의 명령어를 직접 안내했다가 WIP.md/LAST_ANALYZED.md
+  전체(100차 이상 누적된 회차 기록 포함)가 이렇게 깨진 채로 커밋/푸시된
+  사고가 실제로 있었다(103차에서 손상 이전 커밋으로부터 복구, 신규
+  102차 항목 일부는 재구성으로 대체 — 완전 복구 불가능한 손실 발생).
+  **앞으로 파일 내용 자체를 고치거나 두 버전을 병합해야 하는 작업
+  (git rebase 충돌 해결 포함)은 Claude가 컨테이너 안에서 직접 처리해
+  완성된 파일을 만든 뒤 다운로드시키고, 사용자는 그 파일을 그대로
+  Move(이동)만 하도록 안내한다.** 부득이하게 사용자가 로컬에서 텍스트
+  치환을 해야 하는 경우엔 반드시 `-Encoding UTF8`을
+  `Get-Content`/`Set-Content` 양쪽에 명시하도록 안내한다.
+- **파일 전달 시 Downloads 처리 방식: 복사(Copy) → 이동(Move)로 변경.**
+  기존엔 `Copy-Item`으로 레포 폴더에 덮어썼기 때문에 Downloads 폴더에
+  다운로드된 파일이 그대로 남아 계속 쌓였다. 앞으로는 `Move-Item`을 써서
+  레포로 옮긴 뒤 Downloads에는 해당 파일이 남지 않도록 한다. 아래
+  "작업 결과물 전달 원칙"의 PowerShell 블록을 `Copy-Latest`/`Copy-Item`
+  대신 `Move-Latest`/`Move-Item` 함수로 교체.
+
 **[2026-08-27 개정] 이 버전에서 바뀐 것 (94차 이후 세션에서 지침 드리프트
 발견 → 수정):**
 - GH_TOKEN 자동 push 절차 전면 삭제 — push는 항상 사용자가 로컬에서 직접
@@ -134,19 +161,64 @@ PARAMS_REGISTRY.md/toolkit/* 등)이 실제로 바뀌는 작업 단위가 끝날
    전달한다. ("나중에 정리해서 드릴게요"처럼 미루지 않는다 — 그 턴에서
    바로 준다.)
 3. **아래 PowerShell 명령어를 매번 그대로 같이 준다** (사용자가 요청하지
-   않아도 항상 포함):
+   않아도 항상 포함). **다운로드 폴더 → 레포는 반드시 이동(Move)이며
+   복사(Copy)가 아니다** — 처리 후 Downloads 폴더에 해당 파일이 남아있지
+   않아야 정상이다. 파일명 충돌(브라우저가 `WIP (1).md`처럼 저장하는
+   경우) 대응을 위해, Downloads 폴더에서 패턴에 맞는 가장 최근 다운로드
+   파일을 자동으로 찾아 레포 안 정확한 이름으로 옮겨 덮어쓰는 방식을
+   쓴다:
    ```powershell
-   cd C:\dev\ryu-devnotes
-   # 다운로드한 갱신 파일들을 이 폴더에 덮어쓴 뒤
+   $dl = "$env:USERPROFILE\Downloads"
+   $repo = "C:\dev\ryu-devnotes"
+
+   function Move-Latest($pattern, $destName) {
+       $f = Get-ChildItem $dl -Filter $pattern | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+       if ($f) {
+           Move-Item $f.FullName "$repo\$destName" -Force
+           Write-Host "OK: $($f.Name) -> $destName (이동, Downloads에서 제거됨)"
+       } else {
+           Write-Host "경고: $pattern 패턴 파일 없음 (Downloads 확인 필요)"
+       }
+   }
+
+   Move-Latest "WIP*.md" "WIP.md"
+   Move-Latest "FINDINGS*.md" "FINDINGS.md"
+   # 이번에 실제로 바뀐 파일만 위와 같은 형식으로 추가/삭제
+
+   cd $repo
    git add -A
    git commit -m "<한줄 요약>"
    git push
    ```
+   - Claude는 이 블록을 줄 때 이번 작업 단위에서 실제로 바뀐 파일들에
+     맞춰 `Move-Latest` 호출 줄을 정확히 구성해서 준다(불필요한 파일
+     패턴 넣지 않음).
+   - `Move-Latest`는 "방금 받은 파일이 Downloads 안에서 해당 패턴 중
+     가장 최근"이라는 전제로 동작한다. 파일 전달 직후 바로 이 스크립트를
+     실행하는 것을 전제로 안내한다.
+   - `Move-Item`이므로 실행 후 원본은 Downloads에 남지 않는다 —
+     `Copy-Item`으로 되돌리지 않는다.
+   - Downloads 경로(`$env:USERPROFILE\Downloads`)나 레포 로컬 경로
+     (`C:\dev\ryu-devnotes`)가 사용자 환경과 다르면 최초 1회 확인해서
+     고정 사용한다.
 4. 코드(ryu) 변경이 있었으면 패치 파일도 같이 만든다:
    - `/mnt/user-data/outputs/`에 별도 생성
    - **패치 파일명 규칙**: `NNNN-짧은-설명.patch` (예:
      `0001-fix-lateral-gain.patch`), NNNN은 세션 내 4자리 순번
    - 저장 위치는 항상 `C:\dev\patch\`
+   - 여기도 동일하게 **이동(Move) 방식**을 쓴다:
+   ```powershell
+   $dl = "$env:USERPROFILE\Downloads"
+   $patchDir = "C:\dev\patch"
+
+   $f = Get-ChildItem $dl -Filter "0001-fix-lateral-gain*.patch" | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+   if ($f) {
+       Move-Item $f.FullName "$patchDir\0001-fix-lateral-gain.patch" -Force
+       Write-Host "OK: $($f.Name) -> 0001-fix-lateral-gain.patch (이동, Downloads에서 제거됨)"
+   } else {
+       Write-Host "경고: 패치 파일 없음 (Downloads 확인 필요)"
+   }
+   ```
    - 적용 안내(`git am` 등)도 같이 준다
    - ryu는 devnotes와 완전 별개 절차 — 커밋 메시지/폴더/명령어를 섞지 않음
 5. 지금 준 것이 "세션의 완전한 종료"인지 "작업 중간 저장(체크포인트)"인지
