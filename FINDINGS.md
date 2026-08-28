@@ -1,3 +1,70 @@
+## 99차 — [RISK_IDENTIFIED, NEEDS_USER_DECISION] carrot_man.py 20Hz 루프 정적 코드리뷰 — 97차와 동일 유형의 Params I/O 미캐싱 + Shapely interpolate 반복호출 발견 (로그분석 아님)
+
+**배경**: 97차/98차가 `controlsd.py`/`radard.py`/`longitudinal_planner.py` 3개
+파일만 커버했던 것과 별개로, 같은 20Hz(`Ratekeeper(20)`) 실시간 루프를 도는
+`selfdrive/carrot/carrot_man.py`(`broadcast_version_info()` 스레드)를 이번에
+정적 리뷰. 커밋 기준: `6ab8ad6`(c3-ms-dev HEAD, 98차 패치 반영본).
+
+**핵심 발견 1 — 97차와 동일 유형의 미캐싱 Params I/O (carrot_man.py는 97차 검토
+범위에 있었지만 실제로는 놓쳤던 부분)**:
+- `carrot_curve_speed_params()` (line 996-997): `AutoCurveSpeedFactor`,
+  `AutoCurveSpeedAggressiveness` 2개를 `get_int()`로 매 호출마다 새로 읽음.
+  이 함수는 `carrot_curve_speed()`를 통해 20Hz 루프에서 매 사이클 무조건
+  호출됨 — 캐싱/카운터 없음.
+- `carrot_navi_route()` (line 407): `is_onroad = self.params.get_bool("IsOnroad")`
+  도 매 사이클 무조건 새로 읽음.
+- 대조: 같은 `selfdrive/carrot/` 안의 `carrot_functions.py`는 이미
+  `self.params_count % 10` 카운터 분산 캐싱 패턴을 구현해뒀음(line 162-201) —
+  즉 `carrot_man.py`만 이 패턴이 누락된 상태. 97차가 "selfdrive/carrot/*"를
+  검토 대상에 포함시켰다고 기록했으나 실제 상세 발견 목록에는 이 2건이
+  빠져 있었음(97차 기록 자체를 정정하지 않고, 99차 신규 발견으로 별도 기록).
+
+**핵심 발견 2 — `carrot_navi_route()`의 Shapely `LineString.interpolate()`
+반복호출 (신규, 97차에 없던 유형)**:
+- line 436-444: 매 20Hz 사이클마다 `LineString(relative_coords)` 객체를
+  새로 생성하고, `while current_distance <= line.length` 루프 안에서
+  `line.interpolate(current_distance)`를 (route_lookahead_m=300~600m ÷
+  distance_interval=10m 만큼, 최대 약 60회) 반복 호출.
+- Shapely/GEOS의 `LineString.interpolate()`는 호출 간 누적거리 상태를
+  유지하지 않고 매 호출마다 정점 배열을 처음부터 다시 훑어 목표 거리를
+  찾는 방식이라, 이 루프는 사실상 "정점 수 × 호출 횟수"에 비례하는
+  불필요한 재계산 — numpy 누적거리 배열 + `np.interp` 한 번으로 대체 가능한
+  연산을 GEOS C-extension 호출 수십 회로 처리 중.
+- line 435 주석은 "5m 간격 리샘플"이라고 돼 있으나 실제 코드는
+  `distance_interval = 10.0`(10m) — 주석과 실제 값 불일치(동작에는 영향
+  없음, 문서 정정 필요).
+- 이 계산 전체(곡률/out_speed 산출)가 GPS 위치·항로 갱신 여부와 무관하게
+  20Hz로 매번 처음부터 재계산됨 — 위치가 사실상 그대로인 프레임에서도
+  동일 계산 반복.
+
+**부수 발견 — 죽은 코드(불필요한 코드, CPU 영향 없음)**:
+- `carrot_man.py` line 404: `if False and self.navd_active:` — 항상 거짓이라
+  블록 전체가 실행 불가능한 죽은 분기.
+- `controlsd.py` line 278: `if False: # command` — `desire_map` 딕셔너리
+  생성 코드가 죽은 분기 안에 있음(실행 안 되므로 런타임 비용은 0, 코드
+  정리 대상).
+- `carrot_man.py` line 58/196 부근: `haversine_cache`/`curvature_cache`
+  캐시 시도 코드가 전부 주석처리된 채 남아 있음 — 과거에 캐싱을
+  시도했다가 미완성으로 남긴 흔적으로 추정, 실제 채택 여부 사용자 확인
+  필요.
+
+**"불필요한 코드"(로직 자체가 안 쓰이는 죽은 코드) 그 외 추가 발견 없음**:
+97차와 동일한 결론 — `radard.py` 주석 블록, `frogpilot`, 서드파티
+서브트리 등은 이미 97차에서 확인 완료(재검증 결과 동일).
+
+**미검증 / 다음 단계 (사용자 결정 대기, 패치 아직 미적용)**:
+- 위 2개 미캐싱 Params I/O는 97차 때와 같은 해결 난이도(기존
+  `carrot_functions.py` `params_count % 10` 패턴 재사용) — 구현 자체는
+  간단.
+- Shapely interpolate 대체(numpy 벡터화)는 로직 동일성 검증(리샘플
+  좌표가 기존 방식과 수치적으로 일치하는지)이 필요 — `toolkit/`에
+  `sim_route_curvature_sample.py`가 이미 존재하므로 이를 활용해 회귀
+  검증 권장(그대로 재사용 가능한지 우선 확인, 없으면 신규 작성 후
+  toolkit에 등록).
+- 실제 CPU 사용률 측정(실차 `top`)은 이번에도 수행하지 않음 —
+  [NEEDS_VALIDATION]은 97차와 동일하게 유지.
+- 사용자가 패치 진행을 원하면 다음 세션(100차)에서 구현.
+
 ## 98차 — [NEEDS_VALIDATION] 97차 발견사항 전부 패치 완료 (Params I/O 캐싱 + compute_leads 내부함수 이동 + deepcopy→copy)
 
 97차가 찾은 3개 항목 전부 패치. 상세 구현/검증 내용은 WIP.md 98차 항목

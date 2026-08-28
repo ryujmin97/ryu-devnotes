@@ -1,3 +1,29 @@
+## 99차 (체크포인트 — 분석만 완료, 패치 미적용/사용자 결정 대기) — carrot_man.py 20Hz 루프 정적리뷰: Params I/O 미캐싱 2건 + Shapely interpolate 반복호출 + 죽은코드 2건 발견
+
+**요청**: "코드 철저히 분석해서 다시 cpu 및 메모리 많이 차지하거나 불필요한
+코드 찾아봐" — 97차/98차가 다루지 않은 범위(`carrot_man.py`) 위주 재검토.
+
+**결과 요약** (상세는 FINDINGS.md 99차 참고):
+1. `carrot_curve_speed_params()`/`carrot_navi_route()`가 20Hz 루프에서
+   Params 3개(`AutoCurveSpeedFactor`,`AutoCurveSpeedAggressiveness`,
+   `IsOnroad`)를 매 사이클 무캐싱 조회 — 97차와 동일 유형, `carrot_man.py`만
+   누락돼 있었음.
+2. `carrot_navi_route()`의 곡률 리샘플링이 Shapely `LineString.interpolate()`를
+   20Hz × 최대 ~60회/사이클 반복호출 — GEOS가 매 호출마다 누적거리를
+   처음부터 재탐색하므로 불필요한 재계산. numpy 벡터화로 대체 가능.
+3. 죽은 코드 2건(`carrot_man.py:404`, `controlsd.py:278`의 `if False` 블록) —
+   런타임 비용은 없으나 정리 대상.
+4. 주석 435줄("5m 간격")과 실제 코드(`distance_interval=10.0`) 불일치 — 문서만
+   정정 필요.
+
+**아직 안 한 것**: 패치 구현 없음(97차와 동일하게 분석만). 사용자가
+진행 원하면 100차에서 `carrot_functions.py`의 `params_count % 10` 캐싱
+패턴 재사용 + `toolkit/sim_route_curvature_sample.py` 활용한 numpy 리샘플
+회귀검증으로 패치 예정.
+
+**base**: `6ab8ad6` (c3-ms-dev HEAD, 98차 패치 포함본), 코드 변경 없음(순수
+리뷰), ryu 로컬 커밋 없음.
+
 ## 98차 (완료 — 구현+정적검증 완료, 실차검증 대기) — 97차 발견사항 전부 패치: Params I/O 캐싱 + compute_leads 내부함수 이동 + deepcopy 제거
 
 **배경**: 97차(정적 코드리뷰)가 찾은 3개 항목을 사용자 확인 후 전부 패치.
