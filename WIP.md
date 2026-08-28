@@ -1,3 +1,58 @@
+## 101차 (완료 — 원인 확정+패치 작성+정적검증 완료, 실차/디바이스 검증 대기) — 100차 패치가 유발한 carrot_man __init__ AttributeError 크래시 원인 확정 및 수정
+
+**배경**: 100차 패치(`eaee8b5`) 적용 후 device에서 carrot_man이
+정상 기동하지 못하는 문제 발생. managerState에서
+`carrot_man`이 `running=False, exitCode=1`로 수 초 간격 반복
+재시작을 시도하다 실패(비정상 crash loop). 문제는 rlog/qlog
+어디에도 carrot_man의 Python traceback이 전혀 남지 않았다는 점
+— `logMessage`/`logCarrotMessage`를 전부 훑어도 관련 에러 로그
+0건, stdout/stderr 캡처도 없음. 이는 크래시가 `cloudlog` 설정이
+끝나기도 전, 즉 `__init__` 극초반에서 발생했음을 시사.
+
+**원인 확정** (실제 코드 확인, 100차 패치본 `selfdrive/carrot/
+carrot_man.py` 직접 분석): `__init__` 312번째 줄의
+`self.carrot_curve_speed_params()` 호출이, 그 함수(1048번째 줄)가
+참조하는 캐시 필드 `self._auto_curve_speed_factor`/
+`self._auto_curve_speed_aggressiveness`보다 **먼저** 실행됨.
+100차 패치가 이 캐시 필드 초기화 블록(`readParams` 포함)을
+`__init__` 맨 끝(`self.is_metric = ...` 다음)에 새로 추가하면서,
+이미 위쪽(312번째 줄)에 있던 `carrot_curve_speed_params()` 호출을
+그 아래로 함께 옮기지 않은 게 원인. 결과적으로 `__init__` 도중
+`AttributeError: 'CarrotMan' object has no attribute
+'_auto_curve_speed_factor'`가 발생해 프로세스가 즉시 종료됨.
+99차 이전(패치 전) 코드에서는 `carrot_curve_speed_params()`가
+`self.params.get_*()`를 직접 호출했기 때문에 순서 의존성 자체가
+없었음 — 100차의 캐싱 리팩터링이 새로 만들어낸 순서 버그.
+
+**수정** (base `eaee8b5`, c3-ms-dev HEAD/100차 반영본, 로컬 커밋
+`6bbccca`): 캐시 필드 초기화 블록(주석 포함 4줄:
+`readParams`/`_is_onroad_cached`/`_auto_curve_speed_factor`/
+`_auto_curve_speed_aggressiveness`)을 `__init__` 맨 끝에서
+`self.carrot_curve_speed_params()` 호출 직전(`curvatureFilter`
+설정 직후)으로 이동. 로직/캐시값/재조회 주기 등 100차의 실제
+동작은 전혀 변경하지 않고 **초기화 순서만** 바로잡음. 이동한
+블록에는 101차 원인 설명 주석 추가.
+
+**검증**: `python3 -c "import ast; ast.parse(...)"` 문법 검증
+통과. `git diff`로 이동만 있고 로직/값 변경 없음을 확인.
+capnp/msgq 의존성 때문에 컨테이너에서 `long_mpc`류와 마찬가지로
+실제 `CarrotMan()` 인스턴스화(런타임) 테스트는 불가 — **디바이스
+부팅으로만 크래시 해소를 최종 확인 가능** (`PARAMS_REGISTRY.md`
+"정적 크래시 검증" 원칙 참고).
+
+**패치 전달**: `/mnt/user-data/outputs/0001-carrot-man-init-order-fix.patch`
+(base `eaee8b5`, 즉 100차 반영본 위에 적용). `C:\dev\patch\`
+(PC) 또는 Termux 환경이면 해당 위치에 저장 후 `git am` 적용.
+
+**다음 단계**: device에 패치 적용 후 재부팅 -> `carrot_man`이
+crash loop 없이 정상 기동하는지, managerState에서
+`running=True`로 안정되는지 확인 필요. 정상 기동 확인 후에도
+100차 패치 자체(Params I/O 캐싱 + Shapely->numpy 벡터화)의 실차
+동작 검증은 별도로 여전히 필요(100차 항목 "실차검증 대기" 상태
+그대로 이어짐).
+
+---
+
 ## 100차 (완료 — 구현+정적검증 완료, 실차검증 대기) — 99차 발견사항 전부 패치: carrot_man.py Params I/O 캐싱 + Shapely interpolate→numpy 벡터화 + 죽은코드 2건 제거
 
 **배경**: 99차(정적 코드리뷰)가 찾은 3개 항목("패치구현" 사용자 확인 후)

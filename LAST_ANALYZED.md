@@ -1,3 +1,14 @@
+## c3-ms-dev (101차, 100차 패치 crash 원인 확정+수정 — device 재부팅 검증 대기)
+- last_analyzed_commit: `eaee8b5`(origin HEAD, 100차) 기준 로컬 수정
+  커밋 `6bbccca` (아직 사용자 적용/push 전)
+- date: 2026-08-28 (101차)
+- note: 100차 패치가 `carrot_man.py` `__init__` 초기화 순서 버그로
+  device에서 crash loop 유발 — 원인 확정(캐시 필드 참조가 필드
+  초기화보다 앞선 위치에서 호출됨) 및 수정 완료(순서만 이동, 로직
+  변경 없음). 정적검증(문법/diff)만 완료, **다음은 사용자
+  `git am`(base `eaee8b5`)/push + device 재부팅으로 crash loop
+  해소 확인만 남음.** 상세는 WIP.md/FINDINGS.md "101차" 참고.
+
 ## c3-ms-dev (94차, 방안D 구현/검증 완료 — `git am`/실차 적용 대기)
 - last_analyzed_commit: `866e934` (로컬 커밋, base `2d5174e`(79차 HEAD)
   — **아직 사용자 적용/push 전**)

@@ -1,3 +1,63 @@
+## 101차 — [VALIDATED-정적] 100차 패치가 유발한 carrot_man __init__ AttributeError 크래시 — 원인 확정 및 수정
+
+**증상**: 100차 패치(`eaee8b5`) 적용 후 device에서 `carrot_man`이
+기동 직후 crash loop(managerState: `running=False, exitCode=1`
+반복). rlog/qlog의 `logMessage`/`logCarrotMessage`를 전수 확인해도
+Python traceback이나 에러 로그가 전혀 없음 — stdout/stderr 캡처도
+없음.
+
+**진단 과정**: traceback이 전혀 안 남는다는 건 `cloudlog`가 아직
+초기화되기 전(=`__init__` 매우 초반)에 프로세스가 죽었다는 뜻으로
+추정. 100차 패치가 정확히 무엇을 건드렸는지(diff 범위: `__init__`
+자체 + 최상단 import 블록)를 기준으로 `__init__` 내부 실행 순서를
+줄 단위로 재확인.
+
+**원인 확정** (코드 직접 확인, `selfdrive/carrot/carrot_man.py`):
+- `__init__` 312번째 줄: `self.carrot_curve_speed_params()` 호출
+- `carrot_curve_speed_params()` 정의(1048~1052번째 줄):
+  `self.autoCurveSpeedFactor = self._auto_curve_speed_factor` /
+  `self.autoCurveSpeedAggressiveness =
+  self._auto_curve_speed_aggressiveness` — 두 캐시 필드를 그대로
+  참조
+- 그런데 `self._auto_curve_speed_factor`/
+  `self._auto_curve_speed_aggressiveness`의 실제 초기화는
+  100차 패치가 `__init__` 맨 끝(349~351번째 줄, `self.is_metric`
+  다음)에 새로 추가한 것 — 즉 312번째 줄 시점엔 아직 존재하지
+  않는 속성
+- 결과: `AttributeError`가 `__init__` 도중(전체 초기화가 끝나기
+  전) 발생 -> 프로세스 즉시 종료. `cloudlog`는 이보다 뒤에
+  설정되므로 traceback이 로그에 안 남는 현상과 정확히 일치
+- 99차 이전(패치 전) 코드는 `carrot_curve_speed_params()`가
+  `self.params.get_*()`를 매번 직접 호출했기 때문에 이런 순서
+  의존성이 애초에 없었음 — 100차의 캐싱 리팩터링 자체가 새로
+  만들어낸 순서 버그(회귀).
+
+**수정**: 캐시 필드 초기화 블록(`readParams` 카운트다운 변수 +
+`_is_onroad_cached`/`_auto_curve_speed_factor`/
+`_auto_curve_speed_aggressiveness`, 원래 있던 설명 주석 포함)을
+`__init__` 맨 끝에서 `self.carrot_curve_speed_params()` 호출
+직전(`self.curvatureFilter = MyMovingAverage(20)` 다음)으로 이동.
+값/로직/재조회 주기 등 100차 패치의 실제 동작은 전혀 바꾸지 않고
+**초기화 순서만** 정정. 이동한 위치에 101차 원인 설명 주석 추가.
+base `eaee8b5`(100차 반영본), 로컬 커밋 `6bbccca`, 패치
+`0001-carrot-man-init-order-fix.patch`.
+
+**검증**: `ast.parse()`로 문법 검증 통과, `git diff`로 코드 이동만
+있고 로직/캐시값/호출 시점(20Hz 루프 내 갱신 주기 등) 변경이
+없음을 확인. capnp/msgq 의존성 때문에 컨테이너 환경에서
+`CarrotMan()` 실제 인스턴스화 테스트는 불가 — **디바이스
+재부팅으로만 crash loop 해소 최종 확인 가능**(기존 "정적 크래시
+검증" 원칙과 동일한 한계).
+
+**교훈**: `__init__` 내에서 캐시 필드를 나중에 추가할 때, 그
+필드를 참조하는 다른 메서드 호출이 `__init__` 앞부분에 이미
+있는지 항상 확인해야 함. 100차 패치 리뷰(정적 리뷰) 단계에서
+`git diff`만 보고 "캐시 필드 추가 + 호출부 교체"를 각각 독립적인
+변경으로 봤을 가능성 — 실제로는 필드 추가 위치와 기존 호출
+위치의 상대적 순서까지 함께 확인했어야 잡을 수 있었던 버그.
+
+---
+
 ## 100차 — [NEEDS_VALIDATION] 99차 발견사항 전부 패치 완료 (carrot_man.py Params I/O 캐싱 + Shapely interpolate→numpy 벡터화 + 죽은코드 2건 제거)
 
 99차가 찾은 항목 전부 패치. base `6ab8ad6`(c3-ms-dev HEAD, 98차
