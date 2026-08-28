@@ -3,6 +3,18 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+## 2026-08-29 (114차 — replay_margin_accel_weight_full.py 신규,
+113차 유실분 대체+확장, ROUTE1 재평가)
+- `replay_margin_accel_weight_full.py` 신규: margin_accel_weight(dist_w)
+  까지 포함한 완전 재현(carrot_functions.py Params 기본값 대입) +
+  LOW_SPEED_STRONG_DECEL/TTC danger override 포함. **113차가 만들었다는
+  `replay_rise_rate_saturation.py`는 컨테이너 리셋으로 유실되어 레포에
+  없었음 확인, 이 스크립트가 대체.** 핵심 발견: ROUTE1은 112차 threshold
+  패치로 이미 saturation 0.951s→0.250s(danger override 조기발동)로
+  해소, ROUTE2/3만 여전히 0.9~1.0s대 harsh. SMOOTH 라우트 전체 스캔에서
+  진짜 위험과 무관한 0.448s 에피소드(track-switch 추정) 발견 — 단순
+  threshold 판별지표의 한계 노출. 상세는 FINDINGS.md 114차 참고.
+
 ## 2026-08-29 (112차 계속2 — replay_low_speed_strong_decel.py 신규,
 threshold 강화 효과 재정량화)
 - `replay_low_speed_strong_decel.py` 신규: 라우트1 실측 CSV 기반

@@ -1,3 +1,18 @@
+## c3-ms-dev (114차, margin_accel_weight 포함 완전 재현 — 코드 변경 없음)
+- last_analyzed_commit: `8a7baa0ca0f6`(origin HEAD, c3-ms-dev, 112차
+  threshold 패치(-1.8→-2.5) 반영본 — 이 시점에 이미 반영돼 있음을 확인)
+- date: 2026-08-29 (114차)
+- note: 113차 산출물(`replay_rise_rate_saturation.py`) 유실 확인(레포에
+  파일 없음, README/CHANGELOG 미등록) → 대체+확장판 `replay_margin_
+  accel_weight_full.py` 작성. margin_accel_weight(dist_w)를 carrot_
+  functions.py Params 기본값으로 완전 재현 + LOW_SPEED_STRONG_DECEL/TTC
+  danger override 포함. **ROUTE1 saturation 0.951s→0.250s로 재평가(이미
+  해소), ROUTE2(0.999s)/ROUTE3(0.903s)만 실질 harsh 유지, SMOOTH 전체
+  스캔에서 0.448s 노이즈성 에피소드(track-switch 추정) 발견 — 113차의
+  단순 threshold 판별지표 전제가 깨짐.** 상세는 WIP.md/FINDINGS.md
+  "114차" 참고. 코드 변경 없음, 다음은 사용자 확인 후 판별지표
+  재설계/범위 축소 방향 결정.
+
 ## c3-ms-dev (111차, 사용자 제보 dashcam 클립 2건 분석 — 코드 변경 없음)
 - last_analyzed_commit: `02e1f93`(origin HEAD, 109차 패치 반영본)
 - date: 2026-08-28 (111차)

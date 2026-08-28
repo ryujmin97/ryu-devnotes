@@ -1,3 +1,133 @@
+## 114차 — margin_accel_weight(dist_w) 포함 완전 재현 — ROUTE1은 112차 패치로 이미 해소, ROUTE2/3만 실질 문제, SMOOTH 내부 노이즈 에피소드로 단순 threshold 판별지표 재검토 필요
+
+**[선행 확인] 113차 산출물 유실**: 세션 시작 시 `toolkit/replay_rise_rate_
+saturation.py`(113차가 만들었다고 서술된 스크립트)가 레포에 없음 확인 —
+`toolkit/README.md`/`CHANGELOG.md` 등록도 없음. FINDINGS.md 113차 텍스트는
+남았으나 스크립트 자체와 WIP.md 113차 항목은 유실된 것으로 판단(원인
+미상). 아래 114차는 그 대체+확장.
+
+**작업**: `toolkit/replay_margin_accel_weight_full.py` 신규 작성 — 113차가
+근사하지 못했던 `margin_accel_weight`(dist_w)를 `long_mpc.py`의
+`get_safe_obstacle_distance`/`desired_follow_distance`/
+`carrot.get_T_FOLLOW` 체인 그대로 재현. 필요한 carrot 상태값은
+`selfdrive/carrot/carrot_functions.py`의 **Params 기본값**을 그대로
+대입(사용자가 커스텀했다면 오차 발생 가능, 명시적 가정):
+- `TFollowGap1..4` = 1.10/1.20/1.40/1.60 (personality=standard 가정 →
+  base=1.20)
+- `EnableSpeedTF=0`(기본) → 속도 스케일 스킵
+- `DynamicTFollow=0`(기본) → `dynamic_t_follow()`의 jLead 기반 보정 자체가
+  스킵됨(jLead가 CSV에 없어 근사해야 했을 항이었는데, 기본값이 꺼져있어
+  다행히 통째로 스킵 가능 — 근사 오차 소스 하나 제거됨)
+- `MyDrivingMode=3`(Normal, 기본) → `mySafeFactor=1.0`
+- `TFollowDecelBoost=0.10`(기본), `StopDistanceCarrot=550`→5.5m(기본),
+  `comfortBrake=2.4`(하드코드)
+- t_follow의 decel-hold 상태(`_tf_applied`)는 `TFollowState` 클래스로
+  프레임 순차 시뮬레이션(세그먼트 시작마다 리셋 — 세그 중간 이벤트에는
+  영향 없음)
+- 위 가정들의 실측 영향은 결과적으로 미미했음(아래 참고) — t_follow가
+  1.20~1.60 범위에서 거의 고정되고, 4개 이벤트 전부 dist_w가 처음부터
+  1.0으로 고정돼 desired_distance 정밀도 자체가 이번 케이스들의 결과를
+  좌우하지 않았음.
+- `margin_accel_weight`/`ttc_accel_weight`뿐 아니라
+  `LOW_SPEED_STRONG_DECEL` 게이트 + TTC danger override(TTC≤2.5s) —
+  둘 다 rise-rate 클램프를 우회해 즉시 w=1.0 적용하는 실제 코드 분기 —
+  까지 `long_mpc.py` L820-868 그대로 포함.
+
+**핵심 발견 1: ROUTE1 재평가 (0.951s → 0.250s)**: t=1937.5~1941.5 프레임별
+대조 결과, t=1939.173(vEgo=5.30, aLeadK=-2.76, dRel=10.90m)에서
+`LOW_SPEED_STRONG_DECEL_A_LEAD_THRESH`(112차가 이미 -1.8→-2.5로 강화,
+현재 origin `c3-ms-dev`에 반영된 상태로 확인)가 정확히 발동 —
+saturation(gap>0 구간)이 t=1938.922~1939.173, **단 0.250초 만에 danger
+override로 끊김**. SMOOTH의 0.298s와 거의 동급 수준. 113차가 보고한
+0.951s는 "override를 포함하지 않은 재현"이었을 것으로 추정(스크립트
+유실로 직접 대조 불가) — 112차계속2의 `compare_weight_trajectory()`가
+별도로 계산한 "override 없는 baseline 자연수렴"(t=1939.873) 수치와
+일치하는 것으로 보아, **113차 표의 0.951s는 실제로는 "다른 질문"(override
+자체가 없었다면 얼마나 걸렸을까)에 대한 답이 "현재 코드의 실제
+saturation"으로 잘못 표기됐을 가능성이 큼.**
+→ **결론: ROUTE1은 112차 threshold 강화 패치만으로 이미 사실상 해소됨.**
+추가 조치(신규 jerk_boost 트리거 소스 등) 불필요할 수 있음 — 실차검증에서
+재확인 권장이나, 로그 기반으로는 더 이상 "harsh" 분류 근거가 약함.
+
+**핵심 발견 2: ROUTE2/ROUTE3는 113차와 거의 동일**: ROUTE2 longest_
+saturation=0.999s(113차 0.999s), ROUTE3=0.903s(113차 0.903s) — 프레임
+대조 결과 두 라우트 모두 이벤트 구간 내내 `v_ego`가 30km/h 게이트보다
+빨라(각 44/36km/h대) LOW_SPEED_STRONG_DECEL 게이트 밖이고, TTC도 danger
+임계값(2.5s) 밑으로 안 떨어져(자연 수렴 과정 내내 4s 이상 유지) 어느
+override도 안 걸림 — rise-rate 클램프가 목표(w_target)를 온전히
+"뒤쫓는" 과정을 그대로 겪음. **→ 113차의 "구조적 공백"(저크 완충 장치
+부재) 진단은 이 두 라우트에 한해서는 그대로 유효, 이 두 라우트가 실질적
+남은 문제.**
+
+**핵심 발견 3: margin_accel_weight(dist_w)는 4개 이벤트 전부에서
+1.000 고정**: dRel/desired_distance ratio가 4건 모두 GATE_NONE(1.0)
+밑(예: ROUTE1 dRel≈9~11m vs desired_distance≈13~16m, ratio≈0.6~0.8)이라
+dist_w가 처음부터 무감쇠(1.0) — 113차가 우려했던 "dist_w 근사 누락으로
+인한 saturation 과대평가"는 **이 4개 이벤트에 한해서는 기우였음**(dist_w
+자체가 애초에 안 걸려서 ttc_w/override만으로 결과가 결정됨). 단, 이는
+"저속 근접 추종" 상황에 국한된 관찰 — 38차가 다룬 고속/장거리(TTC~15s대)
+시나리오에서는 margin_accel_weight가 실제로 작동한 전례가 있으므로
+일반화 금지, 고속 라우트 재검증 시엔 dist_w 근사가 여전히 중요할 수 있음.
+
+**핵심 발견 4(신규 경고, 중요): SMOOTH 라우트 전체 스캔에서 판별지표
+자체의 한계 노출**: `scan_route_saturation_episodes()`로 SMOOTH 전체를
+스캔한 결과, 분석 대상이던 t≈5768.92(0.298s, qcamera로 확인된 진짜
+"부드러운 정체 서행" 이벤트)와는 별개로 **t≈5794.13에서 0.448s
+에피소드 발견** — ROUTE1의 새 최대치(0.250s)보다도 길다. 프레임 대조
+결과 t=5794.573에서 `leadDRel`이 23.28→11.70m로, `leadVLead`가
+6.19→13.75m/s로 한 프레임 만에 불연속 점프(진짜 감속이 아니라 **track
+재획득/전환 아티팩트로 추정**, `leadRadarTrackId` 미대조라 확정은 아님)
+— 그 직전까지 ttc_w가 인위적으로 상승하다 track 전환과 동시에 0으로
+리셋되며 끊긴 패턴. **즉 진짜 위험 감속이 전혀 아닌 상황에서도 0.448s
+saturation이 발생할 수 있음이 확인됨.**
+→ **113차가 제안한 "SMOOTH 최장 0.298s / harsh 최소 0.903s 사이 어디든
+안전한 분리선"이라는 전제가 깨짐**: SMOOTH 내부에 이미 0.448s짜리
+비-위험 에피소드가 있고, 반대로 ROUTE1은 이제 0.250s로 SMOOTH의
+정상 이벤트(0.298s)보다도 짧다. **연속 saturation 시간 단일 지표로는
+더 이상 harsh/smooth를 깨끗하게 못 가른다.**
+
+**전체 라우트 threshold 스윕(오탐률, `scan_route_saturation_episodes`,
+th=0.25~0.90s)**:
+
+| threshold | SMOOTH(총 16건) | ROUTE1(총 13건) | ROUTE2(총 7건) | ROUTE3(총 3건) |
+|---|---|---|---|---|
+| 0.25s | 2 | 0 | 4 | 2 |
+| 0.30s | 1 | 0 | 4 | 2 |
+| 0.35s | 1 | 0 | 4 | 2 |
+| 0.40s | 1 | 0 | 4 | 2 |
+| 0.45s | 0 | 0 | 4 | 2 |
+| 0.50s | 0 | 0 | 3 | 2 |
+| 0.60s | 0 | 0 | 3 | 2 |
+| 0.70s | 0 | 0 | 2 | 2 |
+| 0.80s | 0 | 0 | 1 | 2 |
+| 0.90s | 0 | 0 | 1 | 1 |
+
+0.45~0.90s 구간이면 SMOOTH 오탐 0건 + ROUTE2/3는 계속 걸림 + ROUTE1은
+전 구간 0건(더 이상 타겟 아님) — 다만 표본이 여전히 라우트 4개뿐이라
+확정적 결론은 아님. 최상위 에피소드 상세: ROUTE2 top1 t=4374.73/
+0.999s(분석 대상 사건 그 자체), top2 t=4341.12/0.702s(**미분석 신규
+에피소드, 성격 미확인**); ROUTE3 top1 t=5219.83/0.903s(분석 대상),
+top2 t=5119.67/0.801s(**미분석 신규 에피소드**).
+
+**다음 세션 우선순위(방향 미확정, 사용자 확인 필요)**:
+1. ROUTE2 t=4341.12(0.702s)/ROUTE3 t=5119.67(0.801s) 신규 에피소드
+   qcamera 대조 — 진짜 harsh인지 SMOOTH처럼 track-switch 아티팩트인지
+   미확인.
+2. SMOOTH t=5794.13 에피소드 `leadRadarTrackId` 대조로 track-switch
+   여부 확정 — 맞다면 판별지표에 "radarTrackId 불변" 게이트를 추가
+   결합해야 함(63차 방안C/D 자산 재사용 가능성).
+3. 위 결과에 따라 "ROUTE2/ROUTE3 전용 좁은 트리거"로 범위를 좁힐지,
+   아니면 판별지표 자체를 재설계할지 결정.
+4. ROUTE1을 더 이상 대표사례로 삼지 않는 방향으로 112차/113차 설계
+   제안 갱신.
+5. 113차 유실 스크립트 로컬 백업 여부 확인(있으면 대조용으로 유용).
+
+**코드 변경 없음(분석 + 신규 도구만)**. `toolkit`:
+`replay_margin_accel_weight_full.py`(신규, 113차 유실분 대체+확장),
+`README.md`, `CHANGELOG.md`.
+
+---
+
 ## 113차 — "10:28:28 부드러운 정차" 대조분석으로 급감속 전면 재검토 — rise-rate 클램프 연속 saturation 시간이 harsh/smooth를 가르는 공통 판별지표임을 확인, 일반화 트리거 설계 제안(코드 변경은 다음 세션 확인 후)
 
 **배경**: 사용자가 "급감없이 부드러움" 화면녹화(신규 라우트,

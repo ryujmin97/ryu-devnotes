@@ -1,3 +1,95 @@
+## 114차 (체크포인트 — margin_accel_weight 포함 완전 재현 완료, [긴급] 113차 유실 확인, 사용자 확인 필요) — ROUTE1은 이미 해소됨/ROUTE2·3만 진짜 문제
+
+**[긴급, 먼저 확인] 113차 devnotes 유실 발견**: 세션 시작 시 WIP.md 최상단이
+"112차 계속2"였음(113차 항목 없음). 확인 결과 `toolkit/replay_rise_rate_
+saturation.py`(113차가 만들었다고 FINDINGS.md에 기록된 신규 스크립트)가
+**레포에 존재하지 않음** — `toolkit/README.md`/`CHANGELOG.md`에도 등록
+안 됨. FINDINGS.md 113차 서술 텍스트만 살아남고 스크립트 파일 자체와
+WIP.md 113차 항목은 컨테이너 리셋으로 유실된 것으로 추정(SETUP.md
+"검증 스크립트는 항상 toolkit에 저장" 원칙이 있었음에도 이번엔
+지켜지지 못함 — 원인 미상, 커밋 히스토리 자체가 이번 세션 시작 시
+단일 "재작성" 커밋(`5d0c517`)으로 남아있어 세션 중간 리셋 시점 특정 불가).
+**사용자 확인 필요**: 로컬에 `replay_rise_rate_saturation.py` 백업이
+있는지 확인 요망(있다면 아래 114차 스크립트와 별개로 보존 권장).
+
+**작업**: 113차가 미룬 과제("margin_accel_weight(dist_w)까지 포함한 완전
+재현") 수행. 신규 `toolkit/replay_margin_accel_weight_full.py` 작성 —
+`long_mpc.py`의 desired_distance 체인(`get_safe_obstacle_distance`/
+`desired_follow_distance`/`carrot.get_T_FOLLOW`)을 **carrot_functions.py의
+Params 기본값**(TFollowGap2=1.20/ComfortBrake=2.4/StopDistanceCarrot=5.5/
+EnableSpeedTF=0/DynamicTFollow=0/MyDrivingMode=Normal)으로 대입해 재현.
+`margin_accel_weight`/`ttc_accel_weight`뿐 아니라 **LOW_SPEED_STRONG_DECEL
+게이트 + TTC danger override(둘 다 rise-rate 우회, w=1.0 즉시 적용)까지
+포함** — 이 부분이 113차(유실) 스크립트에 빠져있었을 가능성이 높음(아래
+핵심발견 참고, 직접 대조는 파일이 없어 불가).
+
+**핵심 발견 (중요, 113차 결론 정정)**:
+1. **ROUTE1 saturation: 0.951s(113차) → 0.250s(114차, danger override
+   포함)로 대폭 감소.** 프레임별 대조 결과 t=1939.173(aLeadK=-2.76)에서
+   `LOW_SPEED_STRONG_DECEL`(112차가 이미 -1.8→-2.5로 강화, 현재 origin에
+   반영된 상태)이 정확히 발동해 saturation을 0.25s만에 끊어버림 —
+   SMOOTH의 0.298s와 거의 동급. 113차의 0.951s는 112차계속2의
+   "override 없는 baseline 자연수렴" 수치(다른 질문에 대한 답)를
+   "현재 코드의 saturation"으로 잘못 표에 넣었을 가능성이 큼(스크립트가
+   없어 직접 대조 불가, 추정).
+   **→ ROUTE1은 이미 112차 패치로 사실상 해소된 것으로 재평가.**
+2. **ROUTE2(0.999s)/ROUTE3(0.903s)는 113차와 거의 동일** — 두 라우트 다
+   `LOW_SPEED_STRONG_DECEL`(v_ego>30km/h라 게이트 밖)/TTC danger(ttc>2.5s
+   유지) 어느 override도 안 걸리고, rise-rate 클램프가 온전히 목표를
+   뒤쫓는 과정을 그대로 거침 — **이 두 라우트가 실제 남은 문제.**
+3. **margin_accel_weight(dist_w)는 4라우트 이벤트 구간 전부에서 1.000
+   고정**(dRel/desired_distance ratio가 GATE_NONE 밑) — 즉 113차가
+   우려한 "dist_w 근사 오차로 인한 과대평가"는 **이 4개 이벤트에 한해서는
+   기우였음**(dist_w가 처음부터 아예 안 걸림, ttc_w/override만이
+   유효했음). 다만 이는 이번 4개 사례에 국한된 관찰 — 고속/장거리 추종
+   시나리오에서는 dist_w가 실제로 작동할 수 있음(38차 원 사례 참고),
+   일반화 금지.
+4. **[신규 경고, 판별지표 재검토 필요] SMOOTH 라우트 전체 스캔에서
+   0.448s 에피소드 발견(t≈5794.13, 분석 대상이던 t≈5768.92/0.298s
+   이벤트와는 별개 지점)** — 프레임 대조 결과 t=5794.573에서 dRel이
+   23.28→11.70m, vLead가 6.19→13.75m/s로 순간 점프(track-switch/재획득
+   아티팩트로 추정, radarTrackId 미확인)해 ttc_w가 인위적으로 치솟다
+   끊긴 것으로 보임 — **진짜 위험 감속이 아닌데도 ROUTE1의 최대
+   saturation(0.25s)보다 긴 0.448s를 기록**. 113차가 제안한 "SMOOTH
+   최장 0.298s / harsh 최소 0.903s 사이 어디든 안전한 분리선"이라는
+   전제가 114차 데이터로는 깨짐(SMOOTH 내부에 0.448s 노이즈성
+   에피소드 존재, ROUTE1은 이제 0.25s로 SMOOTH보다 오히려 낮음) —
+   **단순 threshold 하나로는 못 가른다.** 상세는 FINDINGS.md 참고.
+
+**전체 라우트 threshold 스윕 결과(오탐률 확인, `scan_route_saturation_
+episodes`)**: FINDINGS.md 114차 표 참고 — 요약하면 0.40s 문턱 기준
+SMOOTH 1건/ROUTE1 0건/ROUTE2 4건/ROUTE3 2건 걸림. ROUTE1이 이제 전
+threshold에서 0건이라(최대 0.25s) 애초에 "이 새 메커니즘이 필요한
+사례" 목록에서 빠지는 셈 — **113차가 세웠던 "ROUTE1을 대표사례로
+한 통합 트리거" 설계 전제 자체를 재검토해야 함.**
+
+**다음 세션(사용자 확인 후 진행, 방향 미확정)**:
+1. **판별지표 재설계**: 현재 "연속 saturation 시간" 단일 지표로는
+   SMOOTH의 track-switch 노이즈(0.448s)를 못 거름 — radarTrackId
+   불연속 체크(63차 방안C/D 자산 재사용 가능성)를 추가 게이트로
+   결합할지 검토.
+2. **ROUTE2/ROUTE3 전용 접근으로 축소할지 판단**: ROUTE1이 빠지므로
+   "저속+고속 공통 일반화 트리거"보다 "고속 추종 중 rise-rate
+   장시간(≈0.9s+) saturation" 좁은 시나리오로 범위를 좁히는 안 검토.
+3. (계속) 문턱 스윕 추가 라우트 확보 — 이번 세션은 기존 4라우트
+   재사용뿐, 신규 라우트 없음(사용자가 제공한 파일 2건 모두 기존
+   112/113차 라우트의 재업로드였음).
+4. 113차 유실 스크립트 백업 여부 사용자 확인.
+5. 방향 확정 후 `long_mpc.py` 패치 구현.
+
+**이번 세션 변경 파일**: `devnotes`: `toolkit/replay_margin_accel_weight_
+full.py`(신규), `toolkit/README.md`, `toolkit/CHANGELOG.md`,
+`FINDINGS.md`(114차), `LAST_ANALYZED.md`, 이 WIP.md 항목. `ryu` 코드
+변경 없음(분석만).
+
+CSV(`smooth.csv`/`r1.csv`/`r2.csv`/`r3.csv`)는 프로젝트 정책(레포 커밋
+금지)에 따라 devnotes에 커밋하지 않음 — `/home/claude/work/`에만 존재,
+컨테이너 리셋 시 소실. Google Drive 커넥터 미연결이라 이번 세션은
+work/ 스크래치로만 둠 — **재사용 필요하면 다음 세션에서 원본 zip
+재업로드 필요**(114차 스크립트만 있으면 재추출은 빠름).
+
+---
+
 ## 112차 계속2 (체크포인트 — [중요 정정] replay 검증 결과 threshold 강화 효과 재정량화, 사용자 판단 필요) — "오탐 제거"가 아니라 "조기발동 46% 단축"
 
 **작업**: 사용자가 라우트1 원본 CSV 재업로드 → `extract_log.py` 재추출

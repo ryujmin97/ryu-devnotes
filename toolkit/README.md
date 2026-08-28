@@ -411,6 +411,48 @@ FINDINGS.md 112차의 "오탐 확정" 서술은 이번 실측 replay로 일부
 **의존성**: 없음(표준 라이브러리만).
 **사용**: `python3 replay_low_speed_strong_decel.py <route.csv>`
 
+## replay_margin_accel_weight_full.py (114차, 신규)
+**목적**: 113차가 근사 못 했던 `margin_accel_weight`(dist_w)까지 포함해
+`long_mpc.py`의 lead-accel damping weight(dist_w/ttc_w/rise-rate 클램프/
+LOW_SPEED_STRONG_DECEL 게이트/TTC danger override)를 실측 CSV 위에서
+완전 재현. desired_distance 계산에 필요한 carrot 상태값은
+`selfdrive/carrot/carrot_functions.py`의 **Params 기본값**(TFollowGap2=
+1.20/ComfortBrake=2.4/StopDistanceCarrot=5.5/EnableSpeedTF=0/
+DynamicTFollow=0/MyDrivingMode=Normal)을 대입 — personality=standard
+가정, 사용자가 Params를 커스텀했다면 오차 가능(스크립트 상단 docstring에
+가정/한계 전부 명시).
+**113차 스크립트(`replay_rise_rate_saturation.py`) 관련 중요 공지**:
+그 스크립트는 컨테이너 리셋으로 유실되어 레포에 존재하지 않음(FINDINGS.md
+서술만 남음) — 이 스크립트가 그 대체+확장판. 113차 수치와 직접 재현
+비교는 불가했으나, ROUTE1 결과가 크게 달라진 것으로 보아(0.951s→0.250s)
+113차 스크립트는 LOW_SPEED_STRONG_DECEL/TTC danger override 로직을
+포함하지 않았을 가능성이 높음(114차 FINDINGS.md 참고).
+**주요 함수**:
+- `run_window(rows, t_lo, t_hi)` — 지정 시간범위 프레임별 dist_w/ttc_w/
+  w_target/w_applied/danger_now/gap 리스트 리턴.
+- `longest_saturation_run(frames)` / `total_saturation_time(frames)` —
+  gap>0(클램프가 목표를 못 따라잡는 상태) 연속/총 시간.
+- `scan_route_saturation_episodes(rows, thresholds)` — 라우트 전체를
+  순차 재생(세그 경계 상태 이어받음, leadStatus False 구간에서 rise-rate
+  상태 리셋)해 threshold별 에피소드 개수 카운트(오탐률 스윕용). 리턴:
+  `(threshold별 count/max_duration 딕셔너리, 전체 에피소드 리스트)`.
+- `TFollowState` — decel-hold+boost t_follow를 세그먼트 단위로 순차
+  시뮬레이션하는 상태 클래스(carrot_functions.py
+  `_apply_decel_hold_and_boost_t_follow` 리터럴 이식).
+**114차 핵심 발견**: ROUTE1은 이미 112차 threshold 강화(-1.8→-2.5)
+패치로 danger override가 0.25s만에 발동해 SMOOTH 수준으로 saturation이
+짧아짐(더 이상 harsh 아님). ROUTE2/3는 override 게이트 밖(v_ego>30km/h)
+이라 여전히 0.9~1.0s대 saturation. SMOOTH 라우트 전체 스캔에서 진짜
+위험과 무관한 0.448s 노이즈성 에피소드(track-switch 추정)가 발견돼
+"연속 saturation 시간 단일 지표" 판별법의 한계가 드러남 — 상세는
+FINDINGS.md "114차" 참고.
+**의존성**: 없음(표준 라이브러리만).
+**사용**:
+```bash
+python3 replay_margin_accel_weight_full.py <route.csv> <t_lo> <t_hi>   # 특정 구간
+python3 replay_margin_accel_weight_full.py <route.csv>                 # 전체 스캔+threshold 스윕
+```
+
 ## sim_vision_track_ab.py
 **목적**: 58차 3번("정지앞차 미인식/과소반응", A+B) + 후속수정(외곽
 게이트 버그) 검증. `radard.py` `VisionTrack.update()`의 tentative 조기
