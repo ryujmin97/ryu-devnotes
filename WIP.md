@@ -1,3 +1,36 @@
+## 104차 (완료 — 분석만, 코드 변경 없음) — 오탐(A)/반응둔감(B) 제보 실차 로그 2건 분석
+
+**입력**: dashcam zip 2건(seg10/seg11) + 화면녹화 mp4 1건, 제보 내용
+"녹화영상보면 오탐 및 앞차에 반응 둔감".
+
+**작업 순서**: 세션 시작(devnotes/ryu clone) → WIP.md 회차 확인(103차
+확인) → 업로드 파일 확인 → toolkit/README.md에서 dashcam 분석 도구
+확인 → zip 내용물 확인 → mp4 메타데이터 확인 → seg10/seg11 통합 route
+폴더 구성 → `extract_log.py`로 CSV 추출 → meta.json으로 커밋 시점 확인
+(101차 이후, 코드 변경 없는 순수 분석 세션으로 결정) → `analysis_helpers.py`
+기존 함수(`five_item_scan`, TTC danger 탐지, harsh_brake 탐지 등)로
+기본 스캔 → 위험/오탐 후보 구간 상세 로그 대조(t=683~689, t=726~731) →
+조향각/곡률/트랙ID로 커브 여부 및 타겟 스위치 여부 확인 →
+`extract_dashcam_frames.py`로 두 구간 핵심 시점 qcamera 프레임 추출/
+확인(t=682/683.2/684.3/686.7/688.3, t=727.5/730.5/731.1) → FINDINGS.md
+중복 확인(grep) → 104차 항목 작성.
+
+**결과**: Finding A(오탐, NEEDS_VALIDATION)/Finding B(반응둔감 —
+탐지오류 아닌 것으로 재분류) 2건을 FINDINGS.md에 기록. 상세는
+FINDINGS.md "104차" 항목 참고. 코드 변경 없어 LAST_ANALYZED.md엔
+분석 세션 기록만 추가(패치 없음).
+
+**다음 세션**:
+1. Finding A: 조향각 증가+레이더 유실 구간에서 vision-only 추정이
+   원거리로 오판하는 사각지대 — 재현 로그 추가 확보 후 방안 설계 착수.
+2. Finding B: 안정적 레이더 접근 중 desiredSpeed(route/vturn)가
+   우선시돼 감속이 지연되는 우선순위 로직 문제 — `carrot_serv.py`
+   min() 소스선택/`long_mpc.py` 리드 게이팅 교차점 코드리딩부터.
+3. mp4 클립은 이번 두 사례 시각과 겹치지 않아 미활용 — 향후 제보 시
+   클립 타임스탬프와 실제 이벤트 시각을 먼저 대조할 것.
+
+---
+
 ## 103차 (완료 — WIP.md/LAST_ANALYZED.md 인코딩 손상 복구 + Downloads 처리 Copy→Move 절차 개정) — devnotes push 인코딩 사고 대응
 
 **배경**: 102차 devnotes push 과정에서 rebase 충돌이 발생, Claude가

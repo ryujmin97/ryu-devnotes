@@ -1,3 +1,19 @@
+## c3-ms-dev (104차, 오탐/반응둔감 제보 실차 로그 2건 분석 — 코드 변경 없음)
+- last_analyzed_commit: `bc1bcb0`(origin HEAD, 101차 반영본과 동일 —
+  이번 세션은 코드 수정 없이 실차 dashcam 로그(zip 2건+mp4 1건, seg10/
+  seg11 통합 route) 분석만 수행
+- date: 2026-08-28 (104차)
+- note: 사용자 제보 "오탐 및 앞차 반응 둔감" 검증. Finding A(t=683.22~
+  688.97, NEEDS_VALIDATION): 조향각 증가(커브) 구간 레이더 유실 시
+  vision-only 추정이 근접 실물체를 80~89m 원거리로 오판(qcamera 프레임
+  대조로 확인) — 신규 사각지대. Finding B(t=726.87~731.17, 재분류):
+  당초 "반응둔감"이라 제보됐으나 탐지 자체는 정상(트랙ID 불변, 레이더
+  안정 락온) — 실제 원인은 리드가 지속 접근 중(vRel -4~-4.5m/s)인데도
+  route/vturn 소스 desiredSpeed(94~96kph)가 우선시돼 약 4초간 가속을
+  이어간 우선순위 로직 문제로 확인(min TTC=2.49s까지 하락 후 정상
+  회복). 둘 다 코드 미착수, 방안 설계는 다음 세션 과제. 상세는
+  WIP.md/FINDINGS.md "104차" 참고.
+
 ## c3-ms-dev (102차, 전체코드 CPU/메모리 정적 재점검 — 신규 이슈 없음, 코드 변경 없음)
 - last_analyzed_commit: `bc1bcb0`(origin HEAD, 101차 반영본) — 이번
   세션은 코드 수정 없이 정적 리뷰만 수행
