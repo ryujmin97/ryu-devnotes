@@ -1,3 +1,26 @@
+## c3-ms-dev (115차, pre-112차(b67c291) 실측 로그 4건 — 112차 threshold 실측검증 확장, 코드 변경 없음)
+- **분석 대상 로그의 실제 device 펌웨어 커밋**: `b67c2912a2d3` (사용자
+  확인, "Merge c3-ms-curv into c3-ms-dev (81,82,84,85,87,91차 통합)",
+  2026-08-27 10:23 KST) — 94/98/100/101/109/112차 전부 미반영 상태.
+  **주의**: `extract_log.py` meta.json의 `commit` 필드(`8a7baa0`,
+  112차)는 로컬 clone 시점 repo HEAD일 뿐 이 값과 다름 — 실측 로그의
+  실제 실행 커밋은 항상 사용자에게 별도 확인할 것.
+- 분석 도구 기준 repo(origin HEAD, 비교용): `8a7baa0ca0f6`(112차)
+- date: 2026-08-29 (115차)
+- 분석 라우트: `smooth(1028)`(08/28 10:28, 1세그), `lowspeed_a`(08/27
+  11:26, 2세그), `lowspeed_b`(08/27 12:06, 3세그), `lowspeed_c`(08/27
+  12:21, 3세그) — 전부 신규 라우트(기존 캐시 라우트와 무관).
+- note: 기존 `toolkit/replay_low_speed_strong_decel.py` 재사용(신규
+  스크립트 없음)해 112차 threshold(-1.8→-2.5) 실측검증 범위를 ROUTE1
+  캐시 밖 4개 신규 라우트로 확장. smooth는 완전 PASS(오탐 완전제거),
+  lowspeed_a/b부수는 부분개선(완전제거 아님), lowspeed_b 메인
+  이벤트(min aEgo -4.02, vEgo 33.5km/h)는 게이트 상한(30km/h) 밖이라
+  애초에 저속게이트와 무관 — dRel/vRel 연속변화로 봤을 때 진짜
+  선행차량 강감속에 대한 정상 반응으로 판단(버그 아님, 승차감 판단은
+  대시캠 대조 대기). lowspeed_c는 저속게이트 완전 무관. 상세는
+  WIP.md/FINDINGS.md "115차" 참고. 코드 변경 없음, 대시캠 대조/사용자
+  확인 대기.
+
 ## c3-ms-dev (114차, margin_accel_weight 포함 완전 재현 — 코드 변경 없음)
 - last_analyzed_commit: `8a7baa0ca0f6`(origin HEAD, c3-ms-dev, 112차
   threshold 패치(-1.8→-2.5) 반영본 — 이 시점에 이미 반영돼 있음을 확인)
