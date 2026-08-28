@@ -3,6 +3,14 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+## 2026-08-28 (109차, patched_replay_v109.py 신규)
+옵션1 patch(`long_mpc.py`, `discontinuity_lc` 전용 danger confirm-hold
+0.25s, 커밋 `b84eeb8`) 사전검증용 PATCHED replay 작성.
+`LaneChangeGateReplay` 상속, `scan_force_revert_episodes.py`와 나란히
+before/after 비교. 캐시 `a5b1ce4e42`에서 검증 완료(경미 사례 흡수,
+지속 사례 축소+진짜위험 보존), 108차 severe 사례(947fbb7dc6)/handoff
+사례(ad830211ff)는 원본 소실로 미검증 — FINDINGS.md 109차 참고.
+
 ## 2026-08-28 (108차, scan_force_revert_episodes.py 신규)
 `replay_lane_change_discontinuity_gate.py`의 `LaneChangeGateReplay`
 (duration_mode='full')로 여러 라우트를 라우트-전체-연속-재생 방식

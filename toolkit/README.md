@@ -577,6 +577,37 @@ for e in sorted(eps, key=lambda x: x['min_aEgo']):
 단독 실행(등록된 라우트 대상): `python3 scan_force_revert_episodes.py
 /home/claude/devnotes <route_id1> <route_id2> ...`
 
+## patched_replay_v109.py (109차 신규)
+**목적**: 옵션1 patch(`long_mpc.py`, `LANE_CHANGE_DISCONTINUITY_
+DANGER_CONFIRM_S`)를 실제 코드 배포 전에 검증하기 위해
+`replay_lane_change_discontinuity_gate.py`의 `LaneChangeGateReplay`
+(76차, full모드)를 상속, `discontinuity_lc` 트리거에 한해 danger_
+active가 CONFIRM_S(0.25s, `long_mpc.py`와 반드시 동일값 유지) 동안
+연속 유지돼야 force_revert를 인정하도록 오버라이드한 PATCHED 버전.
+`scan_force_revert_episodes.py`(108차, UNPATCHED)와 나란히 돌려
+before/after 비교하는 용도.
+**검증 결과(109차)**: 캐시 `a5b1ce4e42`에서 경미한 force_revert(0.15s)
+완전 흡수, 지속 사례(0.55s)는 0.35s로 단축(진짜 위험분은 보존) —
+상세는 FINDINGS.md 109차 참고. **주의**: 108차 가장 심한 사례
+(`947fbb7dc6`)와 `handoff` 사례(`ad830211ff`)는 원본 CSV 소실로 아직
+이 도구로 검증 못함 — 재업로드 후 최우선 재검증 필요.
+**의존성**: `replay_lane_change_discontinuity_gate.py`,
+`replay_boost_duration.py`.
+**주요 함수**: `PatchedLaneChangeGateReplay(lane_change_gate,
+duration_mode='full')` — `step()`이 `force_revert` 키를 추가로 반환,
+`scan_route_patched(route_id, rows)` — `scan_force_revert_episodes.
+scan_route()`와 동일 인터페이스의 PATCHED 버전.
+**사용**:
+```python
+from data_routes import load_route
+from scan_force_revert_episodes import scan_route as scan_unpatched
+from patched_replay_v109 import scan_route_patched
+
+rows, meta = load_route("/home/claude/devnotes", "a5b1ce4e42")
+eps_before = scan_unpatched("a5b1ce4e42", rows)
+eps_after = scan_route_patched("a5b1ce4e42", rows)
+```
+
 ## push_via_api.py
 **목적**: `GH_TOKEN` 환경변수로 GitHub Contents API를 통해
 `ryu-devnotes` 저장소에 직접 파일을 커밋/push. 세션 종료 시 표준

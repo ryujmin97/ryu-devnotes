@@ -7219,6 +7219,57 @@ discontinuity_lc 실사례가 없어 미검증"으로 남겼던 부분을 이번
 
 **코드 변경 없음**(분석 전용, 방안 설계는 다음 세션).
 
+## 109차 — [NEEDS_VALIDATION] 옵션1(discontinuity_lc 전용 danger confirm-hold) 패치 구현 + 시뮬레이션 검증 (실차 검증 전, 커밋 b84eeb8)
+
+**배경**: 108차가 확정한 근거(force_revert 5건 중 discontinuity_lc
+3건 전부 blinker=True, handoff 2건/순수discontinuity 0건은 정상범위)에
+따라 옵션1 patch 실제 구현.
+
+**구현** (`long_mpc.py`, 커밋 `b84eeb8`, `c3-ms-dev`):
+- 신규 상수 `LANE_CHANGE_DISCONTINUITY_DANGER_CONFIRM_S = 0.25` (s)
+- 신규 상태 `self._lc_danger_confirm_timer` — `_discontinuity_trigger_
+  source == 'discontinuity_lc'`일 때만 `_lead0_danger_active`가 연속
+  유지된 시간을 누적, 0.25s 미만이면 `force_revert`를 인정하지 않고
+  boost(a_change_cost=DISCONTINUITY_JERK_COST_BOOST) 유지.
+- 새 트리거 발생 시(dRel discontinuity 재검출) 타이머 리셋 —
+  이전 트리거의 confirm 이력이 새 트리거로 이어지지 않게 함.
+- `handoff`는 완전히 기존 그대로(즉시 revert) — 분기 조건 자체가
+  `trigger_source == 'discontinuity_lc'`로 한정돼 있어 회귀 불가능한
+  구조.
+
+**시뮬레이션 검증**: 신규 `toolkit/patched_replay_v109.py`
+(`LaneChangeGateReplay`(76차)를 상속해 confirm-hold만 오버라이드)로
+캐시 12라우트 재생.
+- `a5b1ce4e42`(유일하게 discontinuity_lc 이벤트가 있던 캐시 라우트):
+  - 경미한 사례(t=1354.05~1354.20, 0.15s, min_aEgo +0.50) → **완전
+    흡수**(confirm 도달 전 danger_active가 사라짐, force_revert 0건)
+  - 지속 사례(t=1471.40~1471.95, 0.55s, min_aEgo -0.56) → **0.35s로
+    단축**(첫 0.2s는 boost 유지로 흡수, 이후 danger_active가 0.25s
+    이상 지속돼 confirm되며 정상적으로 base 복귀 — 진짜 위험 반응은
+    보존됨을 확인)
+  - 나머지 11개 캐시 라우트는 애초에 force_revert 이벤트가 없어
+    PATCHED/UNPATCHED 동일(0건) — 회귀 확인 범위 밖.
+- **한계**: 108차에서 발견된 가장 심각한 사례(`947fbb7dc6`, blinker=True,
+  min_aEgo=-3.40)와 `handoff` 2건(`ad830211ff`)의 원본 CSV는 108차
+  세션 컨테이너 리셋으로 소실돼 이번 세션에서 재검증 불가 — **재업로드
+  후 반드시 재검증 필요**(다음 세션 최우선 항목으로 WIP.md에 기록).
+
+**정적 검증**: `python3 -m py_compile` 통과. capnp 스키마 필드 추가/변경
+없음(내부 상태 변수만 추가) — 크래시 리스크 낮음. 단, **디바이스 boot
+확인은 아직 없음**(컨테이너에서 `msgq.ipc_pyx` import 불가로 원천적
+불가 — 기존 원칙대로).
+
+**패치 전달**: `0001-discontinuity-lc-danger-confirm-hold.patch`
+(`C:\dev\patch\`, git am 적용 안내 별도 제공).
+
+**다음 세션 최우선**:
+1. 실차 드라이브 검증(회귀 체크: 차선변경 중 급감속 완화 체감, 순수
+   discontinuity/handoff 반응 회귀 없음, LANE_CHANGE_DISCONTINUITY_
+   DANGER_CONFIRM_S=0.25s가 적절한지 — 너무 짧으면 흡수 효과 미미,
+   너무 길면 진짜 위험 반응 지연).
+2. `947fbb7dc6`/`ad830211ff` 원본 재업로드 후 PATCHED 재검증(현재
+   세션에서 못한 부분).
+
 ## 108차 — [VALIDATED] 106차/107차 "차선변경(discontinuity_lc)이 force_revert 필요조건" 결론을 실주행 30라우트(신규 18개, 92bb45496d/947fbb7dc6 원본 포함)로 확정 — 중요 시뮬레이션 버그 2건 발견/수정
 
 **배경**: 사용자가 실차 주행로그 18개(약 2.7GB, 92bb45496d/947fbb7dc6 포함)를

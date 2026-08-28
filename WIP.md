@@ -1,3 +1,30 @@
+## 109차 (완료 — 옵션1 patch 구현+시뮬레이션 검증, 실차검증 전) — discontinuity_lc danger confirm-hold, 패치전달 완료
+
+**요청**: 108차 확정 근거로 옵션1 patch 구현 착수.
+
+**작업**:
+1. `long_mpc.py`(c3-ms-dev)에 `LANE_CHANGE_DISCONTINUITY_DANGER_
+   CONFIRM_S=0.25s` 신규 상수 + `_lc_danger_confirm_timer` 상태 추가.
+   `discontinuity_lc` 소스에 한해 danger_active가 0.25s 연속 유지돼야
+   force_revert 인정하도록 게이트 로직 수정. `handoff`/순수
+   `discontinuity`는 완전 그대로(분기 조건이 소스명으로 한정돼 구조적
+   회귀 불가). 커밋 `b84eeb8`.
+2. 신규 `toolkit/patched_replay_v109.py` 작성(`LaneChangeGateReplay`
+   상속) — 캐시 12라우트 재생 검증: `a5b1ce4e42`의 discontinuity_lc
+   2건 중 경미한 1건은 완전 흡수, 지속 사례 1건은 0.55s→0.35s로 단축
+   (진짜 위험 반응은 보존). 나머지 라우트는 애초 이벤트 없음.
+3. **검증 공백**: 108차의 가장 심한 사례(`947fbb7dc6`, aEgo -3.40)와
+   `handoff` 2건(`ad830211ff`)은 원본 CSV가 컨테이너 리셋으로 소실돼
+   이번 세션에서 재검증 못함 — **재업로드 필요**.
+4. 패치 파일 전달(`0001-discontinuity-lc-danger-confirm-hold.patch`).
+
+**다음 세션 최우선**:
+- `947fbb7dc6`/`ad830211ff` 재업로드 후 패치 재검증(가장 중요 — 심각
+  사례에 대한 검증이 아직 없는 상태).
+- 실차 드라이브 검증(체감/회귀 체크, CONFIRM_S=0.25s 적정성 판단).
+- (기존 이월) 91차 curve pre-decel 실차검증, 방안E/G 실차검증, 45차
+  stop-to-launch bypass 미완성 구현.
+
 ## 108차 (완료 — 실주행 30라우트 확대검증 + 시뮬레이션 버그 2건 발견/수정, 코드변경 없음) — discontinuity_lc(차선변경 중) force_revert 필요조건 재확정, 옵션1 설계 근거 확정
 
 **요청**: 사용자가 실주행 로그 18개(2.7GB, 92bb45496d/947fbb7dc6 원본
