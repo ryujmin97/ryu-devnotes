@@ -1,3 +1,28 @@
+## 128차 계속 (체크포인트 — 패치 2건 전달, scons 컴파일 검증은 다음 세션) — TBT HUD 폰트 자동축소 + omx_encoder.h avcodec.h include
+
+**요청**: 사용자 승인 — (a) 폰트 자동 축소 패치 작성, (b) 헤더 include 1줄 추가 패치 작성.
+
+**(a) 패치** (`0001-128-tbt-hud-bottom-text-font-shrink.patch`, 커밋 `03482e6`, base `b63063a`):
+- `drawTurnInfoHud()` 하단 안내텍스트(szSdiDescr/szPosRoadName) 구간에 `fit_bottom_text_size` 람다 추가.
+- 가용 폭 = `TBT_BOX_W - 40`(420px). `nvgTextBounds`로 폰트 30부터 측정, 초과 시 2px씩 축소해 20까지 시도.
+- 20까지 축소해도 넘치면 20 유지(잘림 감수) — 완전한 말줄임/2줄 배치는 이번엔 적용 안 함(범위 최소화).
+
+**(b) 패치** (`0002-128-omx-encoder-avcodec-include.patch`, 커밋 `6a3b61b`, base `03482e6`):
+- `omx_encoder.h`의 `extern "C"` 블록에 `#include <libavcodec/avcodec.h>` 1줄 추가 (avformat.h include 위).
+- ryu 자체 버그 아님(원본 openpilot 구조), 실차 빌드 영향 없을 가능성 높으나 안전한 명시적 include로 방어.
+
+**검증 상태**:
+- ✅ 두 패치 모두 클린 클론(base 위)에 순차 적용 가능(`03482e6` → `6a3b61b`), git format-patch로 개별 생성.
+- ✅ carrot.cc 중괄호 균형: 수정 전 483/482(기존 불균형 1, 문자열 리터럴 기인 추정) → 수정 후 485/484(불균형 그대로 1 유지, 내가 추가한 람다 블록은 대칭) — 구조적 깨짐 없음 확인.
+- ❌ **scons 컴파일 검증 미실시** — 이번 세션에서 시도 안 함. 다음 세션에서 127차계속과 동일 방식(apt 패키지 수동설치 + scons -j1 selfdrive/ui/)으로 진행 가능.
+- ❌ 실차 반영 전 폰트 축소 결과 실측 필요(nvg 실제 렌더링 폭이 목업 추정치와 다를 수 있음).
+
+**상세**: `FINDINGS.md` 128차 항목(분석 근거) 참고.
+
+**다음**: scons 컴파일 검증 → 실차 반영 → (a) 실제 렌더링에서 여전히 잘리면 말줄임/2줄 배치로 추가 보완 검토.
+
+---
+
 ## 127차 계속 (완료 — scons 컴파일 검증 완료, unused-private-field 버그 발견+수정 패치 전달) — TurnInfoDrawer::icon_size 제거
 
 **상태**: 127차에서 보류했던 scons 컴파일 검증 진행. 사용자 파일 업로드 없이
