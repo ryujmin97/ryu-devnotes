@@ -922,6 +922,32 @@ clip_filename_seconds, tolerance_s=10)` — 클립 파일명 시각 리스트와
 도구는 "언제" 일어났는지만 특정 — 화면 `a_ego/a_target/a_out` 그래프
 자체를 재현하려면 별도로 `long_mpc.py` MPC 솔버 재실행 필요(미구현).
 
+## replay_lane_departure_gate.py (120차, 신규)
+**목적**: 119차 실제 패치(radard.py get_lead() LANE_DEPARTURE 게이트,
+1.75m/0.5s/vRel>-0.5)가 실차에서 실제로 동작했는지 실측 route CSV로
+검증. `sim_lane_departure_gate.py`(119차, 근사 합성검증)의 실측 replay
+버전 — 119차가 "다음 세션 필요"로 남겨둔 항목.
+**핵심 아이디어**: leadStatus=True 구간에서 |leadDPath|>1.75 &
+leadVRel>-0.5가 0.5s 지속되는 "예측 발동 시각"을 계산 후, 그 직후
+실제 CSV에서 leadStatus가 True->False로 전환되는지 대조(PASS/FAIL/
+AMBIGUOUS 판정).
+**의존성**: 없음(표준 라이브러리만).
+**120차 핵심 발견**: 4개 route(89996행) 스캔 결과 PASS 5/FAIL 3 —
+FAIL 사례는 `LeadBlend.update()`가 게이트의 status=False 리셋을
+자신의 구버전 `_is_cutout()`(2.0m 기준)으로 재판정해 최대
+`LEAD_LOST_GRACE_TIME`(0.6s) 동안 리셋을 무력화하는 구조적 버그(118/
+119차가 원래 잡으려던 "outer 로직 무력화" 버그 클래스 재발). 상세는
+FINDINGS.md "120차" 참고.
+**주의**: dPath는 게이트 발동 "이후" 값이 로그에서 사라지므로(status
+False가 되며 필드가 비게 됨), 발동 이전 상승 구간만으로 예측 —
+정밀한 "게이트가 정말 그 프레임에 개입했는지"는 leadStatus 실제
+전환 타이밍과의 대조로 간접 판단(직접 확정 아님, verdict 필드의
+note에 판단 근거 명시).
+**사용**:
+```bash
+python3 replay_lane_departure_gate.py <route.csv> [<route.csv> ...]
+```
+
 ## 아직 없는 카테고리 (필요해지면 추가)
 - `toolkit/sim/` — 시뮬레이터 스크립트가 `sim_vision_rate.py` 하나를
   넘어 여러 개로 늘어나면 이 시점에 하위 폴더로 분리 검토.

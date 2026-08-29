@@ -1,3 +1,89 @@
+## 120차 — [중요] 119차 LANE_DEPARTURE 게이트 실차 검증 — 부분 무력화 버그 발견(LeadBlend가 gate 리셋을 다시 덮어씀)
+
+**배경**: 사용자가 119차 패치(`21adb2c`, 커밋 완료) 적용된 실차 주행
+로그 업로드(연속 주행 4개 route 업로드: 13:30:24~14:34, 총 64세그먼트
++ CarrotWeb 화면녹화 클립 19개, 파일명으로 시나리오 라벨링 —
+"내차 차선변경 패치적용여부 검증" 등). "패치적용 잘 됐는지" 검증 요청.
+
+**검증 방법(신규 `replay_lane_departure_gate.py`, toolkit 편입)**:
+`extract_log.py` CSV(leadDPath/leadVRel/leadStatus/leadRadar 컬럼)
+위에서 radard.py get_lead()의 LANE_DEPARTURE 게이트 로직(dPath>1.75m
+& vRel>-0.5 가 0.5s 이상 지속되면 강제 status=False)을 그대로
+복제해 "예측 발동 시각"을 계산하고, 실제 CSV에서 그 직후 leadStatus가
+정말 True->False로 전환되는지 대조.
+
+**결과**: 4개 route 전체(총 89996 rows, 약 64분)에서 후보 이벤트
+9건 발견 — **PASS 5건**(0.042~0.752s 이내 실제 전환 확인, 패치가
+실제로 개입한 것으로 판단) / **FAIL 3건**(dPath가 1.75m를 0.5s
+넘게, 최장 1.3초 이상 지속 초과했는데도 leadStatus가 계속 True로
+남음) / AMBIGUOUS 0건. "내차 차선변경 패치적용여부 검증" 등 ego
+차선변경 클립 구간(13:43~14:22대, 총 5개 파일)은 dPath가 매번 짧은
+스파이크(<0.3~0.4초)로만 튀고 0.5초 이상 지속된 적이 없어 게이트
+발동 자체가 없었음 — **정상 차선변경 중 오탐(리드 오손실) 없음**은
+확인됨(부수적 긍정 결과).
+
+**FAIL 사례 상세(route355 t=1304.25, 가장 명확)**: t=1303.81~1305.15
+(약 1.34초) 동안 leadRadar=True 유지된 채 |dPath|가 1.75~1.98m
+사이(정확히 119차가 새로 커버하려던 구간, 구threshold 2.0m는 안
+넘음)를 오가며 계속 초과 상태였고 vRel도 0.2~0.3(강접근 아님)으로
+게이트 조건을 명백히 만족했으나 leadStatus는 단 한 번도 False가
+되지 않았음. t=1305.20에 이르러서야 완전히 다른 원거리 물체(dRel
+32m -> 74m 점프)로 전환되며 사실상 "게이트가 아니라 트랙 자체가
+다른 물체로 바뀌어서" 우연히 넘어간 것으로 보임 — **119차 게이트가
+이 이벤트에서 사실상 전혀 작동하지 않은 것으로 판단**.
+
+**근본 원인(코드리뷰로 확정)**: `RadarD.get_lead()`(L940~954, 119차
+패치)가 게이트 발동 시 `lead_dict = {'status': False}`로 리셋하지만,
+이 dict에는 `'radar'` 키가 없다. 호출부 `RadarD.update()`(L848~850)는
+`if lead_one_raw.get('radar') and not lead_one_scc_fallback:` 조건으로
+"빨간박스 직접사용"(블렌딩 스킵) 분기를 타는데, 게이트가 리셋한
+dict는 이 조건이 항상 False가 되어 **무조건 else 분기
+(`self.lead_blend.update(lead_one_raw, DT_MDL)`)로 빠진다.**
+`LeadBlend.update()`는 `raw.get('status')==False`를 받으면 자신의
+**별도 독립 판정 로직** `_is_cutout()`(118차가 이미 발견한 그 구버전
+로직, `CUTOUT_DPATH_THRESH=2.0m` 기준)으로 "즉시 보고 vs grace-hold"를
+다시 판단한다:
+- `self.prev.dPath`(LeadBlend가 마지막으로 기억한 값)가 아직 2.0m를
+  안 넘었다면(=119차가 새로 잡으려던 1.75~2.0m 구간) `_is_cutout()`은
+  **False** -> `miss_cnt` 증가 grace-hold 경로로 빠져 최대
+  `LEAD_LOST_GRACE_TIME=0.6s` 동안 **직전 lead를 status=True로 계속
+  보고(extrapolated dRel)** -> 119차 게이트의 리셋이 완전히 가려짐.
+  이 grace 안에 트랙이 재획득되면 리셋 자체가 영원히 무효화될 수
+  있음(FAIL 사례가 실제로 이런 패턴).
+- 반대로 `self.prev.dPath`가 이미 2.0m를 넘은 상태였다면 `_is_cutout()`
+  이 True가 되어 즉시 보고 -> 이 경우만 119차 게이트가 "우연히" 빠르게
+  반영됨(PASS 5건 중 다수가 dpath_at_predicted가 1.9~2.2m대로 이미
+  구threshold 부근/초과였던 것과 일치).
+
+**결론**: 118/119차가 원래 없애려던 "outer 로직이 내부 상태리셋을
+다시 무력화하는" 버그 클래스(60차 계속8, `lead_msg.prob>0.5` 재체크
+사례와 동일 패턴)가 이번엔 **LeadBlend**를 매개로 재발함. 119차
+패치는 "죽은" 게 아니라 — dPath가 자연스럽게 2.0m(구threshold)까지
+넘어가는 사례에서는 결과적으로 잘 동작하지만, **정확히 119차가 새로
+커버하려던 1.75~2.0m 구간에서는 최대 0.6초 지연되거나 완전히
+무력화될 수 있는 부분적 실패** 상태.
+
+**다음 세션 필요(코드 미변경, 설계만)**:
+1. get_lead()가 게이트를 발동시키는 그 프레임에 `self.lead_blend.prev
+   = None; self.lead_blend.miss_cnt = 0; self.lead_blend.danger_hold_cnt
+   = 0`도 함께 리셋(RadarD.update()의 빨간박스 케이스가 이미 하는
+   것과 동일 패턴, L859~860 참고) — RadarD가 LeadBlend 인스턴스에
+   접근 가능한지 확인 필요(현재 get_lead()는 RadarD 메서드이므로
+   `self.lead_blend`로 접근 가능해 보임, 다음 세션에 실제 구조
+   재확인).
+2. 대안: LeadBlend._is_cutout()의 threshold를 CUTOUT_DPATH_THRESH(2.0)
+   대신 LANE_DEPARTURE_DPATH_THRESH(1.75)와 동기화 — 다만 이 상수는
+   원래 다른 목적(cutout 일반 판정)에도 쓰이므로 부작용 검토 필요.
+3. 검증: `replay_lane_departure_gate.py`에 "gate 발동 시 lead_blend
+   리셋까지 반영한" PATCHED 버전 추가해 이번 실측 3개 FAIL 이벤트가
+   해소되는지 재생 검증.
+**상태**: `NEEDS_FIX` (실차검증 완료, 원인 확정, 패치 미작성)
+
+**참고**: 이번에 쓴 `drive_route354~357.csv`(4개, 총 89996행)는 레포에
+커밋하지 않음(대용량 산출물 커밋 금지 원칙) — Drive 커넥터 미연결로
+`work/`에만 스크래치 보관, 컨테이너 리셋 시 소실됨(재분석 필요 시
+사용자가 원본 zip 재업로드 필요).
+
 ## 118차 — 검증된 레이더 락("빨간 박스") 상태에서 LeadBlend의 dPath 컷아웃 로직이 완전 우회됨 확인 (근본원인 확정, 코드 미변경)
 
 **증상(사용자 제보)**: 앞차가 명백히 차선을 이탈했는데도 레이더 락온이

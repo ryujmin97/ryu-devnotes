@@ -3,6 +3,13 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+- 2026-08-29 (120차): `replay_lane_departure_gate.py` 신규 — 119차
+  실제 패치(radard.py LANE_DEPARTURE 게이트)를 실차 route CSV
+  4개(89996행)로 검증. PASS 5/FAIL 3 — `LeadBlend.update()`가 게이트의
+  status=False 리셋을 자신의 구버전 `_is_cutout()`(2.0m 기준)으로
+  재판정해 최대 0.6s(LEAD_LOST_GRACE_TIME) 무력화하는 구조적 버그
+  발견(상세는 FINDINGS.md/WIP.md "120차" 참고, NEEDS_FIX).
+
 - 2026-08-29 (119차): `sim_lane_departure_gate.py` 신규 — 118차
   제안 차선이탈 강제해제 게이트(THRESH/CONFIRM_S) 파라미터 후보
   합성 검증. 핵심 발견: 기존 2.0m 재사용 시 실측 이벤트(route1
