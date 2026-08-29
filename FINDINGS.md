@@ -1,4 +1,4 @@
-## 134차 — [정적 리뷰, NEEDS_VALIDATION] c3-ms-dev 전체 코드 상호영향 검토 — 112차(low_speed_strong_decel) 부스트 arm 가드 비대칭 발견, 그 외 신규 이슈 없음
+## 134차 — [PATCH_WRITTEN, SIM_VALIDATED, 실차재생 미실시] c3-ms-dev 전체 코드 상호영향 검토 — 112차(low_speed_strong_decel) 부스트 arm 가드 비대칭 발견 + 패치 적용
 
 **배경**: 사용자 요청 — origin/c3-ms-dev 브랜치 전체 코드를 분석해 최근 여러
 패치들이 서로 다른 로직에 영향을 주는지 면밀히 검토(실주행 로그 분석이
@@ -50,12 +50,42 @@ L1113-1121)는 새 트리거 발생 시 무조건 덮어씀(109차 주석에 "�
 dRel 불연속(끼어들기/차선변경 등)이 겹치는" 복합 상황이 필요해 발생
 빈도 자체가 낮을 것으로 추정.
 
-**다음 세션(선택)**: 필요시 discontinuity/discontinuity_lc/handoff arm
-지점에도 "새 소스의 hold가 기존 잔여시간보다 짧으면 덮어쓰지 않고 유지"
-로직을 검토 가능(단, 이는 109차가 의도적으로 채택한 "새 트리거가 항상
-확정 이력을 새로 시작한다"는 설계 철학과 충돌하므로 신중한 검토 필요).
-발생 빈도가 낮아 우선순위는 낮음. 로그 기반 실측 검증 전이므로 이 발견
-자체가 실차에서 체감되는 문제인지도 미확인.
+**패치(같은 세션, 사용자 지시로 즉시 적용)**: `long_mpc.py`의 plain
+'discontinuity' arm 지점(dRel 불연속 감지 블록, `if lane_change_
+blinker_active ... else:` 구조)을 3-way 분기로 변경:
+1. 차선변경 중이면 기존대로 `discontinuity_lc`(4.0s) arm.
+2. 차선변경이 아니고, `_discontinuity_jerk_boost_timer <= 0.0`(무boost)
+   이거나 `_discontinuity_trigger_source == 'discontinuity'`(같은 소스
+   재트리거)이면 기존대로 `discontinuity`(1.0s) arm — **기존 동작과
+   100% 동일**.
+3. 그 외(handoff/discontinuity_lc/low_speed_strong_decel이 진행 중)면
+   아무것도 건드리지 않고 그대로 흘려보냄 — 진행 중이던 4.0s hard-hold와
+   (discontinuity_lc라면) `_lc_danger_confirm_timer` 누적치까지 보존.
+
+109차가 채택한 "새 트리거는 확정 이력을 새로 시작한다"는 설계 철학
+자체는 유지된다는 점에 유의 — 이 패치는 그 철학을 뒤집는 게 아니라,
+"plain discontinuity(1.0s)가 이미 진행 중인 더 긴(4.0s) hold를
+**단축시키는** 경우만" 막는다. discontinuity_lc/handoff/
+low_speed_strong_decel 세 소스는 서로 전부 동일하게 4.0s이므로 서로
+덮어써도 기간이 줄지 않아(같은 길이로 재시작) 기존처럼 무조건 덮어쓰는
+로직 그대로 유지(변경 없음, 109차 설계와 충돌 없음).
+
+**검증**: 신규 `toolkit/sim_boost_arm_priority.py`(README/CHANGELOG
+등록 완료)로 arm 지점 분기 로직을 리터럴 이식해 7개 시나리오 로직단위
+검증. 신규 수정분 3건 — low_speed_strong_decel 진행 중(3.0s 남음)/
+discontinuity_lc 진행 중(confirm 타이머 누적치 포함)/handoff 진행 중
+(2.0s 남음) 각각에서 plain discontinuity 트리거가 발생해도 덮어쓰지
+않고 보존됨을 확인. 회귀 없음 확인 3건 — 같은 'discontinuity' 소스
+재트리거는 기존처럼 1.0s로 정상 리프레시, 이전 소스가 이미 소진(timer
+<=0)됐으면 stale 소스 태그와 무관하게 정상 arm, 4.0s 소스끼리는 서로
+덮어써도 기간 단축이 없어 기존 설계(무조건 덮어씀) 그대로 유지 확인.
+무boost 상태 정상 arm 1건 포함 **총 7/7 PASS**. `py_compile` 문법
+검증도 통과.
+
+**아직 안 된 것**: 실차 로그 재생검증(replay). 이 조합(저속+강한 선행차
+감속과 dRel 불연속이 동시에 겹치는 상황) 자체가 드물어 다음 세션에서
+해당 조합이 포함된 로그를 확보하면 재생검증 권장 — 그 전까지는
+NEEDS_VALIDATION 유지.
 
 ## 133차 — [LOG_VALIDATED, 실차재생 미실시] 132차 램프 리미터 패치, 129차/131차 원본 route(306de77a28 seg15) 실측 재검증
 

@@ -1,14 +1,16 @@
-## c3-ms-dev (134차, 전체코드 정적 리뷰 — 최근 패치 상호영향 검토, 신규 이슈 1건(낮은 심각도)/코드 변경 없음)
-- last_analyzed_commit: `f24cbf8`(origin HEAD, 132차 반영) — 이번 세션은
-  코드 수정 없이 정적 리뷰만 수행
+## c3-ms-dev (134차, 전체코드 정적 리뷰 + boost-arm 가드 비대칭 패치 적용 — SIM_VALIDATED, 실차검증 대기)
+- last_analyzed_commit: `f24cbf8`(origin HEAD, 132차 반영) 기준 로컬 수정
+  (아직 사용자 적용/push 전 — 패치 파일 별도 전달)
 - date: 2026-08-29 (134차)
 - note: `long_mpc.py` discontinuity/handoff/discontinuity_lc/
   low_speed_strong_decel 4종 부스트 트리거 상호작용, `radard.py` LeadBlend
   BIG_JUMP 게이트(104/130차)와의 방향성 비충돌, `carrot_man.py` 132차
-  램프 리미터의 독립성을 확인 — 신규 회귀 없음. 112차 boost-arm 가드
-  비대칭 1건 발견(NEEDS_VALIDATION, 낮은 심각도 — jerk cost 완만화
-  지속시간에만 영향, 안전 반응 크기는 무관). 상세는 FINDINGS.md/WIP.md
-  "134차" 참고.
+  램프 리미터의 독립성을 확인 — 그 외 신규 회귀 없음. 112차 boost-arm
+  가드 비대칭 1건 발견 후 같은 세션에서 패치 적용(plain 'discontinuity'
+  arm 지점에 elif 가드 추가 — 더 긴 hold 진행 중이면 덮어쓰지 않음).
+  신규 `toolkit/sim_boost_arm_priority.py`로 7개 시나리오 로직단위 검증
+  7/7 PASS. 실차 로그 재생검증은 아직 없음(조합 자체가 드묾, 다음 세션
+  로그 확보 시 권장). 상세는 FINDINGS.md/WIP.md "134차" 참고.
 
 ## c3-ms-dev (133차, 132차 램프 리미터 패치 실측 재검증 — LOG_VALIDATED, 코드 변경 없음)
 - last_analyzed_commit: `89f1765fb10a`(132차 패치 반영 이후, c3-ms-dev)

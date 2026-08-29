@@ -1,4 +1,4 @@
-## 134차 (완료 — c3-ms-dev 전체 코드 정적 리뷰, 코드 변경 없음) — 최근 패치 상호영향 검토, 112차 부스트 arm 가드 비대칭 1건 발견(NEEDS_VALIDATION)
+## 134차 (완료 — 정적 리뷰 + 발견사항 패치 적용 + 로직단위 시뮬레이션 검증 완료, 실차검증 대기) — 최근 패치 상호영향 검토, 112차 부스트 arm 가드 비대칭 수정
 
 **배경**: 사용자 요청으로 origin/c3-ms-dev(HEAD `f24cbf8`, 132차) 전체를 정적
 리뷰 — 최근 여러 세션 패치들이 서로 다른 로직에 영향을 주는지 검토(실주행
@@ -26,9 +26,25 @@ handoff 등 다른 트리거가 발생하면 (기존 설계대로) 무조건 덮
 (끼어들기/차선변경 등)"이 겹쳐야 해 실차 발생빈도 자체가 낮을 것으로 추정.
 상세는 FINDINGS.md "134차" 참고.
 
-**다음**: 필요시 낮은 우선순위로 가드 로직 보완(새 소스의 hold가 기존
-잔여시간보다 짧을 때는 유지) 검토 가능, 또는 실사용 빈도가 낮아 그대로
-보류해도 무방 — 사용자 판단 필요. 로그 기반 실측 검증은 아직 없음.
+**134차 계속(같은 세션, 패치 적용)**: 사용자 지시로 위 발견사항을 즉시
+패치. `long_mpc.py`의 plain 'discontinuity' arm 지점(60차대 dRel 불연속
+감지 블록)에 `elif (timer<=0.0 or source=='discontinuity')` 가드를 추가 —
+handoff/discontinuity_lc/low_speed_strong_decel(전부 4.0s hard-hold)이
+진행 중일 때 plain discontinuity(1.0s)가 이를 덮어써 단축시키지 않도록
+보존(태그/타이머/handoff_release_value/lc_danger_confirm_timer 전부
+미변경). discontinuity_lc/handoff/low_speed_strong_decel 세 소스끼리는
+전부 동일하게 4.0s라 덮어써도 기간 단축이 없으므로 기존처럼 무조건
+덮어쓰는 설계 그대로 유지(변경 없음). 신규
+`toolkit/sim_boost_arm_priority.py`(README/CHANGELOG 등록 완료)로 7개
+시나리오 로직단위 검증 — 신규 수정 3건(low_speed_strong_decel/
+discontinuity_lc/handoff 각각 진행 중 plain discontinuity에 덮어써지지
+않음, discontinuity_lc는 confirm 타이머 보존까지 확인) + 회귀 없음 확인
+3건(같은 소스 재트리거 정상 리프레시, 소진된 stale 소스 무관 정상 arm,
+4.0s 소스끼리는 기존처럼 무조건 덮어씀) 전부 PASS(7/7). 문법 검증
+(`py_compile`) 통과. **아직 실차 로그 재생검증은 없음** — 이 조합 자체가
+저속+강한 선행차 감속과 dRel 불연속(끼어들기/차선변경)이 동시에 겹치는
+드문 상황이라, 다음 세션에서 해당 조합이 포함된 로그 확보 시 재생검증
+권장.
 
 ## 133차 (완료 — 132차 패치 실측 로그 재검증, 코드 미변경) — 129차/131차 원본 route(306de77a28 seg15) 재업로드로 램프 리미터 패치를 실측 desiredSpeed(route) 원본에 직접 사후적용 검증
 

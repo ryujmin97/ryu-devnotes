@@ -581,3 +581,4 @@ discontinuity 0건). 개발 중 트리거 소스별 boost_s 미구분 버그가 
   t=28.35 이벤트를 raw 66.6->37.9 단일프레임 스냅으로 독립 재현(Hypothesis
   C 실측 재확인), t=4.25는 lookahead 윈도우 한계로 재현 실패(방법론
   한계, 주 검증도구 결론에는 영향 없음).
+- 134차: sim_boost_arm_priority.py 신규 — boost-arm 소스 4종(discontinuity/discontinuity_lc/handoff/low_speed_strong_decel) 덮어쓰기 우선순위 검증, 112차 가드 비대칭 발견분 long_mpc.py 패치와 함께 7/7 PASS

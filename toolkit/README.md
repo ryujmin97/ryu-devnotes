@@ -389,6 +389,27 @@ threshold 강화 후에도 여전히 게이트 발동 — 원래 목적 보존 �
 hard-hold(4.0s)+release-rate(100/s)로 base까지 완만 감쇠)**.
 **사용**: `python3 sim_low_speed_decel.py`
 
+## sim_boost_arm_priority.py (134차 신규)
+**목적**: `_discontinuity_jerk_boost_timer`/`_discontinuity_trigger_source`를
+arm하는 4개 트리거 지점(discontinuity/discontinuity_lc/handoff/
+low_speed_strong_decel)이 서로를 덮어쓸 때의 우선순위/기간을 검증. 134차
+정적 리뷰에서 발견한 "112차(low_speed_strong_decel)는 자기 자신을
+보호하는 가드가 있지만, 반대로 plain 'discontinuity'(1.0s)가 이미 진행
+중인 더 긴 hold(4.0s 소스들)를 덮어써 단축시키는 경우는 보호가 없었다"는
+비대칭 문제의 패치(같은 세션에서 적용, long_mpc.py 해당 arm 지점에
+elif 가드 추가)를 검증.
+**의존성**: 없음(표준 라이브러리만).
+**주요 함수**: `BoostArmState` -- arm 지점 4곳의 분기 로직을 리터럴
+이식(`arm_discontinuity_or_lc`/`arm_handoff`/`arm_low_speed_strong_decel`).
+**커버 시나리오(7개)**: 무boost 정상 arm, 더 긴 hold(low_speed_strong_decel/
+discontinuity_lc/handoff) 진행 중 plain discontinuity가 덮어쓰지 않고
+보존(신규 수정 검증 3건, discontinuity_lc는 confirm 타이머까지 보존 확인
+포함), 같은 소스 재트리거는 기존처럼 정상 리프레시(회귀 없음), 이전
+소스가 이미 소진됐으면 stale 태그와 무관하게 정상 arm, 4.0s 소스끼리는
+서로 덮어써도 기간 단축이 없어 기존처럼 무조건 덮어쓰는 설계 유지 확인.
+**결과**: 7/7 PASS.
+**사용**: `python3 sim_boost_arm_priority.py`
+
 ## sim_gap_open_damping.py (116차 신규, 117차 완만화 버전 추가)
 **목적**: 6님 제보("저속에서 앞차 멀어질 때 너무 급하게 재가속 -> 다시
 붙을 때 급브레이크") 대응 신규 방안 — 저속(<=40km/h)에서 이미
