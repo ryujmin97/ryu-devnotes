@@ -1,4 +1,46 @@
-## 137차 — [CONFIRMED-OK, 코드변경 없음] PathOffset 파라미터의 레인리스 모드 적용 여부 분석
+## 138차 — [정정/RISK_IDENTIFIED, NEEDS_USER_DECISION] PathOffset 레인리스 최종 조향 미반영 확인 (137차 결론 정정)
+
+**137차 결론 정정: `path_xyz` 레벨 계산은 137차 기록대로 맞으나, 그 결과가
+레인리스 모드에서는 실제 조향 명령에 전혀 반영되지 않음을 추가 추적으로 확인.**
+
+**추적 경로**:
+1. `lateral_planner.py`: `path_xyz[:,1] += pathOffset`(line 163, 무조건) →
+   `y_pts`(line 169) → `lat_mpc.run()` → `publish()`에서 `lateralPlan.curvatures`로
+   발행. 여기까지는 offset이 반영됨(137차 기록 그대로 유효).
+2. `controlsd.py` line 181: `lanefull_mode_enabled = (lat_plan.useLaneLines and
+   curve_speed_abs > self._use_lane_line_curve_speed)`. `lat_plan.useLaneLines`는
+   곧 `self.lanelines_active`(레인모드 여부) — **레인리스에서는 항상 False**,
+   `and` 조건이므로 `lanefull_mode_enabled`도 무조건 False.
+3. `controlsd.py` line 189-196 분기: `lanefull_mode_enabled=True`일 때만
+   `lat_plan.curvatures`(offset 반영값) 사용, `False`일 때는
+   `model_v2.action.desiredCurvature` 사용.
+4. `model_v2.action.desiredCurvature`는 `modeld.py`
+   `get_action_from_model()`(line 99-121)에서 신경망(modeld 프로세스) 출력
+   `plan[:,Plan.T_FROM_CURRENT_EULER]`/`plan[:,Plan.ORIENTATION_RATE]`로부터
+   직접 계산 — `lateral_planner.py`의 `path_xyz`/`pathOffset`/MPC와 **완전히
+   별개 파이프라인**(path_xyz를 입력으로 받지 않음).
+
+**종합**: 레인리스 모드(또는 커브조건 미충족 시)에는 `lateral_planner.py`가
+pathOffset 반영해 계산한 `lateralPlan.curvatures`가 존재는 하지만 `controlsd.py`가
+이를 채택하지 않고 신경망 직접출력(`model_v2.action.desiredCurvature`, offset
+무관)을 최종 조향에 사용함 → **레인리스 주행 중 PathOffset 값을 바꿔도 실제
+차량 거동에는 영향이 없을 가능성이 높음(미반영 추정)**.
+
+**미확정 사항(다음 세션/실주행 로그 검증 필요)**:
+- `_use_lane_line_curve_speed`(파라미터 `UseLaneLineCurveSpeed`, 기본 0) 조건까지
+  고려하면 커브 진입 시 레인모드라도 일시적으로 False가 될 수 있어 조건이
+  더 복잡할 수 있음 — 이번 세션은 코드 정적분석만 수행, 실차 로그로 curvature
+  소스 전환 시점 검증은 안 함.
+- "레인리스에서 PathOffset 미반영"이 의도된 설계인지(원작자가 레인리스에서는
+  모델 신뢰가 우선이라 판단) 아니면 놓친 버그인지 불명 — 사용자 확인 필요.
+- 수정한다면 (a) `controlsd.py`의 레인리스 분기에도 `pathOffset`을
+  `model_v2.action.desiredCurvature` 기반 계산에 별도로 더하거나, (b)
+  `lateral_planner.py`가 애초에 레인리스에서도 사용되도록
+  `lanefull_mode_enabled` 조건을 수정하는 두 방향이 있으나 부작용 검토 필요
+  (레인리스에서 MPC 경로를 쓰게 하면 다른 회차에서 의도적으로 분리한 이유와
+  충돌 가능) — 패치 미적용, 사용자 결정 대기.
+
+## 137차 — [CONFIRMED-OK(부분 정정, 138차 참고), 코드변경 없음] PathOffset 파라미터의 레인리스 모드 적용 여부 분석
 
 **결론: PathOffset은 레인모드/레인리스 모드 구분 없이 항상 적용됨(코드상 정상, 버그 아님).**
 

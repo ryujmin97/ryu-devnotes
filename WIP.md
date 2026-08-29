@@ -1,3 +1,16 @@
+## 138차 (완료 — 분석만, 코드변경 없음, 137차 결론 정정) — PathOffset 레인리스 최종 조향 미반영 발견
+
+`path_xyz`/`lateralPlan` 다운스트림 추적 결과, **137차 결론을 정정**:
+`lateral_planner.py`가 pathOffset을 반영해 `lateralPlan.curvatures`까지는
+계산하지만, `controlsd.py`의 `lanefull_mode_enabled = lat_plan.useLaneLines
+and curve_speed_abs > threshold` 조건 때문에 레인리스에서는 이 값이
+버려지고 `model_v2.action.desiredCurvature`(modeld.py 신경망 직접출력,
+path_xyz/pathOffset과 무관)가 최종 조향에 쓰임. **레인리스 주행 중
+PathOffset을 조정해도 실제 차량 거동에는 반영 안 될 가능성 높음.**
+의도된 설계인지 버그인지는 미확정 — 사용자 확인 필요. 수정 방향 2가지
+후보(FINDINGS.md 138차 참고)는 있으나 패치 미적용, 사용자 결정 대기.
+실차 로그로 curvature 소스 전환 시점 검증은 다음 단계 과제로 남김.
+
 ## 137차 (완료 — 분석만, 코드변경 없음) — PathOffset 파라미터 레인리스 모드 적용 여부 코드 분석
 
 `lateral_planner.py` line 163 `self.path_xyz[:, 1] += self.pathOffset`가
