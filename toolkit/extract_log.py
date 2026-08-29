@@ -56,7 +56,17 @@ FIELDNAMES = [
     "src", "desiredSpeed", "vTurnSpeed", "modelTurnSpeed",
     "leftBlinker", "rightBlinker",
     "laneChangeState", "laneChangeDirection",
+    "activeLaneLine",
 ]
+# 2026-08-30 추가(144차): controlsState.activeLaneLine
+# (controlsd.py line360, `cs.activeLaneLine = self.lanefull_mode_enabled`) --
+# 140차 PathOffset 레인리스 반영 패치의 실차검증에 필수. 이 필드 없이는
+# desiredCurvature/steeringAngleDeg만으로 "지금 레인풀(차선기반)인지
+# 레인리스(모델 직접출력)인지"를 CSV만으로 구분할 수 없어, 오프셋이
+# 실제로 반영된 프레임인지 판별 불가능했음. True=레인풀(lanefull_mode_enabled),
+# False=레인리스. PathOffset 원시값(Params) 자체는 cereal에 없어 여전히
+# CSV로는 못 뽑음 -- 필요시 실차에서 carrot_settings.json/params 스냅샷을
+# 별도로 받아야 함.
 # 2026-08-25 추가(63차 계속3 이어서): RadarState.LeadData.dPath/yRel/
 # aLeadK/radarTrackId -- seg14류 반복 discontinuity(raw dRel이 프레임당
 # -230m/s급으로 튀며 closing/opening 반복)가 인접차선 오검출인지 실제
@@ -150,7 +160,9 @@ def process_segment(rlog_path, seg_name, repo_dir, max_mb, commit_short="",
     last_cs = dict(carry_cs) if carry_cs is not None else {
         "leftBlinker": "", "rightBlinker": "",
     }
-    last_ctrl = dict(carry_ctrl) if carry_ctrl is not None else {"desiredCurvature": None}
+    last_ctrl = dict(carry_ctrl) if carry_ctrl is not None else {
+        "desiredCurvature": None, "activeLaneLine": "",
+    }
     last_lead = dict(carry_lead) if carry_lead is not None else {
         "leadStatus": False, "leadDRel": "", "leadVRel": "", "leadVLead": "",
         "leadRadar": "", "leadModelProb": "",
@@ -178,7 +190,11 @@ def process_segment(rlog_path, seg_name, repo_dir, max_mb, commit_short="",
                 "leftBlinker": cs.leftBlinker, "rightBlinker": cs.rightBlinker,
             }
         elif w == "controlsState":
-            last_ctrl = {"desiredCurvature": evt.controlsState.desiredCurvature}
+            cst = evt.controlsState
+            last_ctrl = {
+                "desiredCurvature": cst.desiredCurvature,
+                "activeLaneLine": cst.activeLaneLine,
+            }
         elif w == "lateralPlan":
             lp = evt.lateralPlan
             last_lat = {

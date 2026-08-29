@@ -39,6 +39,11 @@ data/routes/<route_id>/
 미실시(원본 zip에 qcamera 미포함, CSV만 재확보됨). 상세는 FINDINGS.md
 "86차" 항목 참고.
 
+| `ba5f3d3273` | 144차 route1 (x13seg, seg7~19) | 13 | 15603 | `3ec4e5c63f28` (141차) | gps.csv.gz 포함(697행). 연속주행 1/3구간(07:02:34~) |
+| `898edd0f96` | 144차 route2 (x20seg) | 20 | 23998 | `3ec4e5c63f28` (141차) | gps.csv.gz 포함(1198행). 연속주행 2/3구간(07:15:35~) |
+| `e996400f6e` | 144차 route3 (x4seg, 마지막 세그 짧음) | 4 | 3688 | `3ec4e5c63f28` (141차) | gps.csv.gz 포함(128행). 연속주행 3/3구간(07:35:34~07:37:39) |
+| `144cha-combined` | 144차 통합(위 3개 병합) | - | 43289 | `3ec4e5c63f28` (141차) | 위 3개 route가 t(logMonoTime) 기준 끊김없이 이어지는 단일 연속주행(07:02~07:37, 20.6km)임을 확인 후 병합. `route.csv.gz`+`gps.csv.gz`(2023행). **목적**: route(GPS기반 커브감속) 적용검증 + PathOffset(140/141차) 레인리스 조향 반영 실차검증. **NEEDS_VALIDATION — 분석 진행 중, 사용자 승인 후 4개 항목(ba5f3d3273/898edd0f96/e996400f6e/144cha-combined) 전부 레포에서 삭제 예정**. extract_log.py에 `activeLaneLine` 필드 신규 추가(144차) 반영된 CSV. |
+
 ## 불러오기
 
 `toolkit/data_routes.py`의 `load_route(devnotes_dir, route_id)` 사용.

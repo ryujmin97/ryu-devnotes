@@ -1,0 +1,15 @@
+{
+  "note": "144차: 사용자 업로드 3개 route(ba5f3d3273 x13seg / 898edd0f96 x20seg / e996400f6e x4seg)가 t(logMonoTime)상 완전히 이어지는 단일 연속 주행(07:02:34~07:37:39, 끊김 없음)임을 확인 후 하나의 타임라인으로 병합.",
+  "commit": "3ec4e5c63f286860897052f2ebe6ab95645126d4",
+  "commit_short": "3ec4e5c63f28",
+  "branch": "c3-ms-dev",
+  "source_route_ids": ["ba5f3d3273", "898edd0f96", "e996400f6e"],
+  "t_range": [568.784061525, 2733.198398552],
+  "n_rows": 43289,
+  "n_gps_rows": 2023,
+  "duration_s": 2164.4,
+  "distance_km": 20.6,
+  "extracted_at": "2026-08-30",
+  "purpose": "144차: route(GPS 폴리라인 기반 커브감속) 적용검증 + PathOffset(140/141차 패치) 실차검증용 직진/커브 주행분석",
+  "status": "NEEDS_VALIDATION - 분석 진행 중, 사용자 승인 후 레포에서 삭제 예정"
+}

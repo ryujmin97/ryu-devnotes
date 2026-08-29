@@ -75,6 +75,14 @@ carryover도 동일하게 적용됨. **이 컬럼들이 없는 과거 CSV(42차 
 이미 "vision 노이즈"라고 결론낸 이벤트가 있다면, 실제로는 이
 컬럼들을 볼 수 없어서 차선변경 가능성을 아예 검증하지 못한 상태였을
 수 있음 — 재검증 필요.**
+**2026-08-30 수정(144차)**: `activeLaneLine`(controlsState, `controlsd.py`
+line360 `cs.activeLaneLine = self.lanefull_mode_enabled`) 컬럼 추가 —
+140차 PathOffset 레인리스 반영 패치 실차검증에 필수. True=레인풀
+(차선기반 MPC curvature 사용), False=레인리스(140차 패치 전이면
+model_v2 직접출력, 140차 패치 후 PathOffset!=0이면 MPC curvature로
+전환). **이 필드가 없는 과거 CSV로는 오프셋이 실제로 반영된 프레임인지
+구분 불가능** — 오프셋 관련 재분석 시 반드시 재추출 필요. PathOffset
+원시값(Params, cereal 미기록)은 여전히 CSV로 못 뽑음.
 
 ## analysis_helpers.py
 **목적**: `extract_log.py`로 뽑은 CSV를 후처리하는 함수 모음. 대부분의

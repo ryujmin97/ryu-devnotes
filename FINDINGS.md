@@ -1,3 +1,41 @@
+## 144차 — [NEEDS_VALIDATION, 진행중] route 적용검증 + PathOffset 직진/커브 실차 1차분석
+
+**대상**: 사용자 업로드 연속주행 3개 route(37seg, 07:02~07:37, 20.6km,
+commit `3ec4e5c`=141차 최신). 상세 요청/절차는 WIP.md "144차" 참고.
+
+**Finding A (route 적용 확인)**: src 분포 cam 44%/route 30%/vturn 22%/
+road 4%/bump<1%. route가 실제로 유의미한 비중으로 적용됨.
+
+**Finding B (route↔vturn 플리커, 재조사 후보)**: 전체 6개 소스쌍 중
+route↔vturn이 분당 4.44회로 압도적 1위(154 round-trip, dwell 중앙값
+1.61s, 최소 0.04s). 값 자체는 대개 근접(수 kph)하나 90차~ "route가
+vturn보다 먼저 안정적으로 감속 시작" 목표와 달리 두 소스가 잦게
+뒤바뀌는 패턴. 예: t=1955.9~1960.9(5초) 15회 전환, t=799.6~800.4
+(0.8초) 6회 전환.
+
+**Finding C (레인리스 100%, 오프셋 검증 조건은 유효)**: `activeLaneLine`
+(신규 추가 컬럼) True 0건/False 43275행(99.97%) — 주행 내내 레인풀
+모드 미진입. 140차 패치의 `_path_offset_active` 분기가 유일한 오프셋
+경로였던 셈 → 검증 시나리오 자체는 순수하게 오프셋 패치 하나만 격리
+관찰 가능한 조건.
+
+**Finding D (직진구간 desiredCurvature 편향 없음 — 원인 미확정)**:
+|dc|<0.0015 & cruiseEnabled & v>5 조건 20407행 평균 desiredCurvature
+≈ -0.000019(≈0), stdev 0.000487. 오프셋 반영 시 기대되는 체계적 편향이
+관측 안 됨. **원인 후보 2가지 미판별**: (a) 이번 주행 중 PathOffset
+실제 값이 0이었음(정상 결과), (b) 140차 패치가 의도대로 동작 안 함.
+Params PathOffset 원시값이 cereal에 없어 로그만으로 구분 불가 —
+**사용자에게 이번 테스트 주행 중 PathOffset 설정값 확인 필요**.
+
+**Finding E (커브 이벤트 71건 탐지)**: |desiredCurvature|>0.004,
+지속≥1.0s 기준. 대다수(약 56건)는 R<20m 저속 교차로 회전. 도로 곡선
+성격(R 50~230m, v 40~65km/h)은 약 15건 — 다음 단계 상세분석 후보.
+
+**상태**: 코드 변경 있음(extract_log.py `activeLaneLine` 필드 추가,
+non-breaking). 분석 자체는 미완료 — PathOffset 실제값 확인 후 이어감.
+
+---
+
 ## 142차 — [CONFIRMED, 코드변경 없음] 레인모드/레인리스 × PathOffset(0/+/−) curvature 소스 8-시나리오 정리 + 신규 디테일(heading/offset 적용 순서)
 
 **배경**: 137~141차 분석을 사용자 요청으로 "레인모드/레인리스 ×
