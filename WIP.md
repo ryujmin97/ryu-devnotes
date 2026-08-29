@@ -1,4 +1,38 @@
-## 128차 계속 (체크포인트 — 패치 2건 전달, scons 컴파일 검증은 다음 세션) — TBT HUD 폰트 자동축소 + omx_encoder.h avcodec.h include
+## 128차 계속2 (완료 — scons 컴파일 검증 완료) — (a) 클린 컴파일 확인, (b) 실질 검증 불필요함을 확인
+
+**scons 검증 진행** (127차계속과 동일 apt+uv+scons 방식):
+
+**(a) 검증 결과 — 클린**: `carrot.o`(폰트 자동축소 패치 포함) 컴파일 시 에러/경고 0건. 링크까지
+정상 진행(별도 무관 이슈로 최종 링크만 미완주, 아래 참고).
+
+**(b) 관련 추가 발견 — omx_encoder.h include 자체는 검증 대상이 아니었음**:
+- 헤더 include 추가 후 `omx_encoder.cc` 컴파일 시도 → `AVCodecContext` 에러는 사라졌으나 대신
+  `av_free_packet`(ffmpeg 3.1+에서 제거), `av_register_all`(ffmpeg 4.0+에서 제거),
+  `avcodec_find_encoder`가 `const AVCodec*` 반환(ffmpeg 5.0+) 등 **훨씬 오래된 ffmpeg API에 맞춰진
+  코드가 최신 ffmpeg 6.1.1과 3중으로 안 맞는** 사실을 발견.
+- 원인 추적: `selfdrive/ui/SConscript`의 `is_running_on_wsl2()`가 `/proc/version`에 "WSL2" 또는
+  "Ubuntu" 문자열이 있으면 **`omx_encoder.cc`/`screenrecorder.cc`를 빌드에서 통째로 제외**함.
+  사용자의 실제 개발 환경(Windows PC, WSL2)에서는 이 조건이 걸려 애초에 이 파일이 빌드되지 않음.
+  샌드박스 커널 버전 문자열(`6.18.44-fc-v22`)만 이 패턴에 안 걸려서 예외적으로 컴파일이 시도된 것.
+- **결론**: omx_encoder.h/cc의 ffmpeg API 불일치는 실제 개발 환경에서 마주칠 일이 없는 샌드박스
+  전용 허상 이슈. 128차(b) include 패치는 안전한 방어적 수정으로 유지하되, 3중 API 불일치를
+  전부 고치는 건 불필요한 범위 확장이라 진행하지 않음(전역 수정 지양 원칙).
+- 검증을 위해 샌드박스에서만 `is_running_on_wsl2()`를 강제 True로 임시 패치해 실제 WSL2 환경과
+  동일하게 해당 파일들을 빌드에서 제외한 뒤 재컴파일 → `carrot.o` 포함 전체 정상 컴파일 확인.
+  이 임시 패치는 검증 후 즉시 원복(커밋 대상 아님).
+
+**최종 링크 미완주 (무관 이슈, 참고용)**: `libQMapLibre.so`가 요구하는 ICU 66 심볼
+(`ubidi_*_66`, `u_shapeArabic_66` 등) 미해결로 링크 실패. 지도 서드파티 prebuilt 바이너리와
+샌드박스 ICU 버전 불일치 — 127차계속의 avcodec 이슈와 같은 성격의 환경 문제, 코드 무관.
+
+**빌드 부산물 정리**: scons 실행 중 `lupdate`가 번역 파일(`*.ts`) 11개를 자동 재생성함 —
+패치와 무관한 빌드 부산물이라 `git checkout`으로 원복, 커밋 안 함.
+
+**최종 커밋 상태**: `03482e6`(a), `6a3b61b`(b) — 원격 대비 이 2개 파일 diff만 존재, 클린.
+
+---
+
+## 128차 계속 (완료 — 패치 2건 전달 + scons 검증 완료, 위 128차계속2 참고) — TBT HUD 폰트 자동축소 + omx_encoder.h avcodec.h include
 
 **요청**: 사용자 승인 — (a) 폰트 자동 축소 패치 작성, (b) 헤더 include 1줄 추가 패치 작성.
 
