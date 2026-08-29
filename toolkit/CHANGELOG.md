@@ -567,3 +567,17 @@ discontinuity 0건). 개발 중 트리거 소스별 boost_s 미구분 버그가 
   실제 패치 `0001-132-route_lookahead-Hypothesis-C-131-out_speed.patch`
   작성 -> verify-am(base 1cc2bf3) git am 성공 + py_compile 통과 + diff-0.
   실차 검증 대기(FINDINGS.md 132차 참고).
+
+## 133차
+- `extract_gps.py`(신규) — gpsLocation(1Hz) capnp 채널 추출을 재사용
+  가능한 스크립트로 정식화(131차 인라인 작업 대체).
+- `replay_route_ramp_limiter_direct.py`(신규, 주 검증도구) — 132차
+  램프 리미터를 실측 desiredSpeed(route) 원본 시계열에 직접 사후적용.
+  129차/131차 원본 route(306de77a28 seg15) 재업로드로 검증 -- 실측
+  급락 2건(t=4.25 Δ-25, t=28.35 Δ-24) 모두 patched에서 초당
+  accel_limit_kmh 상한 이내로 완화됨을 확인, PASS.
+- `replay_route_boundary_ramp_limiter.py`(신규, 보조) — 실측 GPS
+  트랙(1Hz)을 navi_points 프록시로 carrot_navi_route_core(131차) 재생.
+  t=28.35 이벤트를 raw 66.6->37.9 단일프레임 스냅으로 독립 재현(Hypothesis
+  C 실측 재확인), t=4.25는 lookahead 윈도우 한계로 재현 실패(방법론
+  한계, 주 검증도구 결론에는 영향 없음).

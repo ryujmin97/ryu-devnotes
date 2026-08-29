@@ -1191,3 +1191,60 @@ curvature 배열에 급커브가 이산적으로 출현, 역방향 DP가 그 프
 **사용**: `python3 toolkit/sim_route_boundary_ramp_limiter.py
 --v-ego-kph 74 --curve-radius-m 17.3 --accel 0.70`
 **의존성**: `sim_route_lookahead_boundary_snap.py`(같은 디렉토리, import).
+
+## extract_gps.py (133차, 신규)
+**목적**: `gpsLocation`(1Hz) capnp 채널 추출을 재사용 가능한 스크립트로
+정식화(131차가 인라인으로만 했던 GPS 좌표 추출 -- navRoute/
+navInstructionCarrot엔 좌표가 없지만 차량 자체 GPS는 이 채널에 별도
+기록됨, 131차 확인).
+**출력 CSV 컬럼**: `t, seg, latitude, longitude, altitude, speed,
+bearingDeg, horizontalAccuracy`. `t`는 `extract_log.py`와 동일
+`logMonoTime` 기준이라 route.csv와 join 가능(1Hz vs 20Hz라 가장 가까운
+t로 매칭 또는 선형보간 필요).
+**사용**: `python3 extract_gps.py <route_dir> <out.csv> --repo /home/claude/ryu`
+**의존성**: `decode_rlog.py`.
+
+## replay_route_ramp_limiter_direct.py (133차, 신규 — 132차 패치 실측 재검증 주 도구)
+**목적**: 132차 램프 리미터 패치를 실측 로그로 재검증. 패치는
+`carrot_navi_route()`의 내부 계산 방식과 무관하게 **최종 out_speed
+값에만 사후로 프레임간 상한을 거는 구조**이므로, 로그에 실제 기록된
+`desiredSpeed(src=='route')` 시계열 자체를 raw 시퀀스로 보고
+`RampLimiterState`(sim_route_boundary_ramp_limiter.py, 132차와 동일
+로직)를 그대로 통과시킨다. navi_points 재구성/근사가 전혀 불필요해
+방법론적 불확실성이 가장 적은 검증 방법(133차 결론의 주 근거).
+**핵심 로직**: `src=='route'`인 프레임만 추려 그 부분수열에만 리미터
+적용(다른 소스 프레임 사이에 route가 잠깐 나타났다 사라지는 걸 route
+값으로 착각하지 않도록). route 비활성 후 재진입 시 리미터 상태 리셋
+(prev_out=None) -- 실제 패치와 동일 원칙. dt는 프레임별 실제 시간
+간격을 그대로 사용(고정 0.05s 가정 안 함 -- 실제 로그는 프레임 드랍으로
+dt 0.02~0.08s 폭 존재 확인됨).
+**결과(133차, route 306de77a28 seg15)**: 실측 급락 2건(t=4.25 Δ-25.0,
+t=28.35 Δ-24.0) 모두 patched에서 초당 accel_limit_kmh(2.52kph/s,
+accel=0.70 가정) 상한 이내로 완화 확인. t=43.70 지점은 계산상
+불연속이 아니라 소스전환(gas->route) 표시값 점프임을 재확인(패치
+개입 대상 아님, patched==recorded==30). 판정은 고정 dt 대신 프레임별
+실제 dt 기반 "낙차율(kph/s)"을 accel_limit_kmh와 직접 비교(초기 버전은
+고정 dt=0.05 가정 판정 로직으로 인해 FAIL 오판 후 수정).
+**사용**: `python3 replay_route_ramp_limiter_direct.py <route.csv>
+--accel 0.70`
+**의존성**: `sim_route_boundary_ramp_limiter.py`(RampLimiterState import).
+
+## replay_route_boundary_ramp_limiter.py (133차, 신규 — 보조/참고용)
+**목적**: 실측 GPS 트랙(1Hz, `gpsLocation`)을 navi_points 프록시로 써서
+`carrot_navi_route_core`(131차, sim_route_lookahead_boundary_snap.py)를
+실측 좌표로 재생 -- "왜"(어떤 메커니즘으로) 급락이 발생하는지까지
+재현 시도. `replay_route_ramp_limiter_direct.py`(주 도구)와 달리 raw
+out_speed 자체를 재구성하므로 근사 오차가 있다.
+**결과**: t=28.35 이벤트(131차가 Hypothesis C로 정밀매칭한 그 이벤트)는
+이 재구성에서도 raw 66.6->37.9 단일프레임 스냅으로 독립 재현 --
+Hypothesis C가 실측 GPS 데이터로도 다시 확인됨. t=4.25 이벤트는 재현
+실패(그 시점 route_lookahead(74kph,accel=0.70)=300m 윈도우 안에
+교차로가 아직 안 들어옴 -- 실제 거리 약 500m로 추정, raw가 300 유지).
+**한계**: 실제 navi 폴리라인이 아니라 차량 실주행 궤적 프록시(1Hz,
+성긴 해상도) -- lookahead 윈도우가 짧은 시나리오에서는 재현 실패 가능.
+133차 최종 결론은 이 스크립트가 아니라 `replay_route_ramp_limiter_direct.py`
+(방법론적 불확실성 없음)를 근거로 함.
+**사용**: `python3 replay_route_boundary_ramp_limiter.py <route.csv>
+<gps.csv> --accel 0.70`
+**의존성**: `sim_route_lookahead_boundary_snap.py`,
+`sim_route_boundary_ramp_limiter.py`.

@@ -1,3 +1,81 @@
+## 133차 — [LOG_VALIDATED, 실차재생 미실시] 132차 램프 리미터 패치, 129차/131차 원본 route(306de77a28 seg15) 실측 재검증
+
+**배경**: 132차 패치는 합성 시나리오(curve_R/v_ego/accel 스윕)로만
+사전검증됐음. 사용자가 129차/131차에서 쓰던 원본 route를 GPS 좌표
+포함해서 재업로드, 실측 로그로 재검증 요청.
+
+**추출**: `extract_log.py`로 route CSV(20Hz, 1200행) 재추출 -- 129차가
+보고한 급락 2건(t=4.25 86->61, t=28.35 65->41) 정확히 재확인됨(단일
+20Hz 프레임). `extract_gps.py`(133차 신규)로 `gpsLocation`(1Hz) 채널도
+별도 추출(60행) -- 131차가 인라인으로만 했던 GPS 추출을 재사용 가능한
+toolkit 스크립트로 정식화.
+
+**검증 방법 A(주 근거, 신뢰도 높음)**: `replay_route_ramp_limiter_direct.py`
+(신규) -- 132차 패치는 `carrot_navi_route()`의 계산 방식과 무관하게
+**최종 out_speed 값에만 사후로 프레임간 상한을 거는 구조**이므로, 로그에
+실제 기록된 `desiredSpeed(src=='route')` 시계열 자체를 raw 시퀀스로 보고
+`RampLimiterState`(132차 패치와 동일 로직)를 그대로 통과시켰다. 이 방식은
+navi_points 재구성/근사가 전혀 필요 없어 방법론적 불확실성이 가장 적다.
+
+결과:
+- t=4.25 급락(86->61, Δ-25.0): patched는 86kph 근방에서 시작해 약
+  2.52kph/s(`accel_limit_kmh`, `AutoNaviSpeedDecelRate=0.70` 가정)
+  속도로만 서서히 하강 -- 84~86kph대를 수 초간 유지, recorded처럼
+  즉시 61로 떨어지지 않음.
+- t=28.35 급락(65->41, Δ-24.0, 131차가 Hypothesis C로 정밀매칭한 바로
+  그 이벤트): patched는 67kph대에서 초당 상한 속도로만 하강.
+- t=43.70 지점(46->30): 계산상 불연속이 아니라 **소스 전환 아티팩트**로
+  재확인 -- 직전 `gas` override 구간(43.35~43.65) 동안 route는 이미
+  내부적으로 30 근방까지 계산돼 있었고, gas 해제로 route 소스가 다시
+  노출되며 표시값만 46->30로 "점프"한 것뿐(route 자체의 프레임간
+  재계산 불연속이 아님). patched도 recorded와 동일하게 30 -- 이 지점은
+  애초에 패치 개입 대상이 아님을 확인.
+- 낙차율 재판정: 실제 로그는 20Hz가 정확히 균일하지 않음(프레임 드랍으로
+  dt 0.02~0.08s 확인, 예: t=4.25->4.33 dt=0.075s, patched 낙차 0.19kph는
+  이 dt 기준 물리 상한 0.7*3.6*0.075=0.189kph와 정확히 일치 -- 리미터
+  정상 동작, 초기 스크립트의 고정-dt=0.05 가정 판정 로직이 부정확했던
+  것뿐, 프레임별 실제 dt 기반 kph/s 낙차율로 재계산해 전 구간
+  accel_limit_kmh(2.52kph/s) 이내 확인).
+- route 재진입 리셋 경계(`gas`/`vturn` 구간 이후 route 재활성 첫 프레임)는
+  설계대로 즉시 통과 -- 132차 의도한 동작 그대로 확인.
+
+**검증 방법 B(보조, 참고용)**: `replay_route_boundary_ramp_limiter.py`
+(신규) -- 실제 navi 폴리라인이 로그에 없으므로(131차 확인) 대신 차량
+실주행 GPS 트랙(1Hz)을 navi_points 프록시로 써서 `carrot_navi_route_core`
+(131차)를 그대로 재생. t=28.35 이벤트는 이 재구성에서도 raw 66.6->37.9
+단일프레임 스냅으로 **독립 재현**됨(Hypothesis C가 실측 GPS 데이터로도
+다시 확인) -- patched는 이를 매끄럽게 완화. 단 t=4.25 이벤트는 이
+방법으로는 재현 실패(그 시점 route_lookahead 300m 윈도우 안에 교차로가
+아직 안 들어와 raw가 300 유지) -- 1Hz GPS 프록시 해상도/윈도우 한계로
+판단(교차로가 실제로는 그 시점 약 500m 앞, lookahead(74kph,accel=0.70)
+=300m라 윈도우 밖). 이 한계는 방법 A가 아니라 방법 B에 국한되므로 133차
+결론(방법 A 근거)에는 영향 없음.
+
+**vturn 상호작용**: t=45.15~45.20(steer 89도 부근) route(30)->vturn(30~32)
+전환은 로그 원본에서도 이미 매끄러움(불연속 없음) -- 132차 패치가 개입할
+필요/영향 모두 없음 확인.
+
+**미해결(사소, 낮은 우선순위)**: `vTurnSpeed` 컬럼이 이 route 대부분
+구간에서 음수로 기록됨(예: steer=-2.6도인 거의 직진 구간에서도 vTurn=-86
+등). steer 부호와 무관해 보여 원인 불명 -- 이번 검증 결론에는 영향 없으나
+다음 세션에서 `carrot_serv.py`/`carrot_man.py`의 vTurnSpeed 부호 규약
+확인 필요.
+
+**상태**: [LOG_VALIDATED] -- 실측 로그 데이터 레벨(desiredSpeed 시계열)
+검증은 완료. **실차(acados MPC 포함 전체 파이프라인) 재생 검증은
+아직 미실시** -- 이번 결과는 어디까지나 로그에 기록된 값에 대한 오프라인
+재계산이며, patched desiredSpeed를 실제 MPC가 어떻게 추종할지는 별도
+확인 필요.
+
+**사용**:
+```
+python3 toolkit/replay_route_ramp_limiter_direct.py <route.csv> --accel 0.70
+python3 toolkit/replay_route_boundary_ramp_limiter.py <route.csv> <gps.csv> --accel 0.70
+python3 toolkit/extract_gps.py <route_dir> <out_gps.csv> --repo /home/claude/ryu
+```
+
+---
+
 ## 132차 — [PATCH_WRITTEN, NEEDS_VALIDATION] 131차 Hypothesis C 대응 `carrot_navi_route()` out_speed 프레임간 램프 리미터
 
 **배경**: 131차 [SUCCESS, 정밀매칭 완료] Hypothesis C(129차 "계단형

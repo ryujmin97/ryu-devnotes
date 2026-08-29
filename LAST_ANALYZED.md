@@ -1,3 +1,15 @@
+## c3-ms-dev (133차, 132차 램프 리미터 패치 실측 재검증 — LOG_VALIDATED, 코드 변경 없음)
+- last_analyzed_commit: `89f1765fb10a`(132차 패치 반영 이후, c3-ms-dev)
+- date: 2026-08-29 (133차)
+- 분석 대상: route `306de77a28` seg15(129차/131차와 동일, 사용자 재업로드,
+  GPS 좌표 포함 zip) — 60초 단일세그먼트, 1200행 20Hz CSV +
+  gpsLocation 60행(1Hz) 신규 추출.
+- note: 132차 패치를 실측 desiredSpeed(route) 원본 시계열에 직접
+  사후적용(`replay_route_ramp_limiter_direct.py`, 신규) — 실측 급락
+  2건(t=4.25 Δ-25, t=28.35 Δ-24) 모두 accel_limit_kmh(2.52kph/s) 이내로
+  완화 확인. 상세는 FINDINGS.md/WIP.md "133차" 참고. route CSV/gps CSV는
+  work/에 있으나 대용량 정책상 레포 미커밋 + Google Drive 커넥터 이번
+  세션 미연결 -- 컨테이너 리셋 시 소실, 필요시 zip 재업로드.
 ## c3-ms-dev (124차, 컷인 5클립 전수분석 + 123차 원인가설 2건 기각 — 중단/코딩방향 미결정, 코드 변경 없음)
 - last_analyzed_commit: `21adb2c013f4`(119차 반영, c3-ms-dev — route354/
   356 재추출 meta.json 확인, 123차와 동일 커밋)
