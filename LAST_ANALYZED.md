@@ -1,3 +1,20 @@
+## c3-ms-dev (118차, 앞차 컷아웃/차선이탈 락온 미해제 원인분석 — 코드 변경 없음)
+- last_analyzed_commit: `76c985ca86f5`(117차 반영, c3-ms-dev, 사용자
+  업로드 로그 실제 실행 커밋과 동일 — extract_log.py meta.json 확인)
+- date: 2026-08-29 (118차)
+- 분석 대상: 사용자 업로드 `앞차_컷아웃.Zip` — route1(`ce1f43d848`
+  x20seg, 12:16:14~12:36:14, 24000행) / route2(`bc5b8243eb` x5seg,
+  12:36:14~12:40:01, 5734행) + CarrotWeb 화면녹화 클립 2개(`_clip.mp4`,
+  각 ~30초, HUD 오버레이 포함— 파일명 시각 12:19:25 / 12:37:48).
+- note: **클립-route t 매핑 실패(중요, 다음에 참고)** — 클립이 두
+  라우트에 각 1개씩뿐이라 `match_dashcam_clip_to_route.py`(111차,
+  클립 2개+상대시간차 매칭 필요)를 적용할 수 없었음. 클립 자체(HUD
+  오버레이) 1fps 프레임 직접 육안분석으로 대체 — qcamera 프레임
+  추출/시각대조는 이번엔 미실시(클립 자체가 이미 HUD 정보를 포함해
+  1차 증거로 충분했음). route1 CSV는 `leadDPath/leadYRel/leadDRel/
+  leadVRel/leadStatus/leadRadar` 전체를 훑는 신규(1회성) 스캔으로
+  t=5915.03~5932.53 이벤트 1건 확보(FINDINGS.md "118차" 참고). 코드
+  변경 없음, 설계 제안 단계에서 사용자 확인 대기.
 ## c3-ms-dev (115차, pre-112차(b67c291) 실측 로그 4건 — 112차 threshold 실측검증 확장, 코드 변경 없음)
 - **분석 대상 로그의 실제 device 펌웨어 커밋**: `b67c2912a2d3` (사용자
   확인, "Merge c3-ms-curv into c3-ms-dev (81,82,84,85,87,91차 통합)",
