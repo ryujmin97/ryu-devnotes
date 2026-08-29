@@ -582,3 +582,5 @@ discontinuity 0건). 개발 중 트리거 소스별 boost_s 미구분 버그가 
   C 실측 재확인), t=4.25는 lookahead 윈도우 한계로 재현 실패(방법론
   한계, 주 검증도구 결론에는 영향 없음).
 - 134차: sim_boost_arm_priority.py 신규 — boost-arm 소스 4종(discontinuity/discontinuity_lc/handoff/low_speed_strong_decel) 덮어쓰기 우선순위 검증, 112차 가드 비대칭 발견분 long_mpc.py 패치와 함께 7/7 PASS
+- 140차: sim_path_offset_laneless_curvature_source.py 신규 — controlsd.py의 curvature 소스 선택 분기(PathOffset 레인리스 반영 패치) 로직단위 검증, 6/6 PASS
+- 141차: sim_path_offset_laneless_curvature_source.py 갱신(mpc_solution_valid 파라미터 추가) — mpcSolutionValid 체크(140차 리뷰 지적사항 보완) 8/8 PASS

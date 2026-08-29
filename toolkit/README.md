@@ -1269,3 +1269,22 @@ Hypothesis C가 실측 GPS 데이터로도 다시 확인됨. t=4.25 이벤트는
 <gps.csv> --accel 0.70`
 **의존성**: `sim_route_lookahead_boundary_snap.py`,
 `sim_route_boundary_ramp_limiter.py`.
+
+## sim_path_offset_laneless_curvature_source.py (140차 신규, 141차 갱신)
+**목적**: `controlsd.py` `state_control()`의 curvature 소스 선택 분기
+(`use_mpc_curvature = lanefull_mode_enabled or self._path_offset_active`)가
+(a) `PathOffset==0`일 때 기존 동작과 100% 동일하고 (b) `PathOffset!=0`일
+때만 레인리스에서 `lat_plan.curvatures`(offset 반영된 MPC 출력)로
+전환되며 (c) `lat_plan.curvatures`가 비어있거나 `mpcSolutionValid=False`일
+때 안전 폴백하는지를 로직단위(8가지 조합)로 검증. 137/138/139차에서
+발견한 "PathOffset이 레인리스에서 최종 조향에 미반영" 문제를 140차에서
+패치, 141차에서 `mpcSolutionValid` 체크(외부 리뷰 지적사항)를 추가한
+직후 각각 사전검증용.
+**결과**: 8/8 PASS(latActive/lanefull/offset_active/curvatures유무/
+mpc_solution_valid 전 조합 기대대로 분기). 141차 신규 케이스(레인모드+
+curvatures 있음+valid=False → 폴백, 기존엔 못 걸렀던 케이스) 포함.
+**사용**: `python3 sim_path_offset_laneless_curvature_source.py`
+**의존성**: 없음(표준 라이브러리만). **주의**: `controlsd.py`의 실제
+분기 구조가 바뀌면(예: `use_mpc_curvature` 계산식, valid 체크 조건 변경)
+이 스크립트의 `select_new_desired_curvature()`도 함께 갱신해야 함 —
+리터럴 이식이라 자동 동기화 안 됨.

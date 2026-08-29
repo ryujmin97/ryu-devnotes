@@ -1,3 +1,51 @@
+## 141차 — [PATCHED, 실차검증 필요] mpcSolutionValid 체크 추가 (140차 리뷰에서 지적된 사각지대 보완, 레인/레인리스 공통)
+
+**배경**: 140차 패치를 외부(타 AI) 리뷰 과정에서 "`len(lat_plan.curvatures)==0`
+폴백만으로는 '배열은 채워졌지만 아직 유효하지 않은 MPC 해'를 걸러내지
+못한다"는 지적이 있어 코드로 직접 확인 — **지적이 정확함을 확인**.
+
+**확인된 사실**:
+- `lateral_planner.py` `publish()`가 `lateralPlan.mpcSolutionValid =
+  bool(self.solution_invalid_cnt < 2)`를 발행하고 있었으나,
+  `controlsd.py`는 레인모드에서도(140차 이전부터) 이 필드를 **한 번도
+  체크한 적이 없었음** — 140차가 새로 만든 리스크가 아니라 기존부터
+  있던 리스크.
+- `curvatures` 배열은 `reset_mpc()`(NaN/infeasible 시 호출)가 실행돼도
+  `x_sol`이 `zeros`로 채워질 뿐 **길이는 항상 `CONTROL_N`으로 유지**됨
+  → `len==0` 체크는 "메시지가 아예 안 온" 극초기만 잡고, "값이
+  무효(0 또는 stale)인데 배열은 채워진" 전환 프레임은 못 잡음.
+
+**패치**: `state_control()`의 MPC curvature 사용 조건에
+`or not lat_plan.mpcSolutionValid`를 추가 — `False`면 `self.curvature`
+(직전 값 유지)로 폴백. 레인모드/레인리스 공통 분기에 넣어 **두 모드
+모두에 동일하게 적용**(사용자가 요청한 "공통 안전장치").
+
+**⚠️ 정직하게 밝힐 것 — 완전 무결점 리그레션 방지는 아님**: 140차까지는
+"`PathOffset==0`이면 레인리스 동작이 기존과 100% 동일"이 성립했으나,
+141차는 이 안전장치를 **레인모드에도 공통 적용**했으므로,
+`mpcSolutionValid==False`인 (평소엔 드문) 상황에서는 **레인모드의 기존
+동작도 141차 이전과 달라짐**(전엔 무효 MPC 값을 그대로 조향에 반영,
+이제는 폴백). 이는 의도된 안전 개선(버그 수정에 가까움)이지 완전한
+무변화 보장이 아니므로, "PathOffset=0이면 전부 무변화"라는 이전 표현은
+141차부터는 "PathOffset=0이면 레인리스는 무변화, 레인모드는
+mpcSolutionValid가 항상 True였던 케이스에 한해 무변화"로 정정 필요.
+
+**합성검증**: `sim_path_offset_laneless_curvature_source.py`(141차
+갱신, `mpc_solution_valid` 파라미터 추가) 8개 조합 전체 PASS. 특히
+"레인모드+curvatures 있음+valid=False"(141차 신규 케이스, 기존엔
+못 걸렀음) 케이스가 올바르게 폴백함을 확인.
+
+**py_compile**: 통과.
+
+**패치파일**: `0002-mpc-solution-valid-check.patch`(로컬 커밋 `c48ba30`,
+base `d7b1e2a`=140차). 140차 패치(`0001-...`) 적용 후 순서대로 `git am`.
+
+**미완료(실차검증 필요, 140차와 통합)**:
+- `mpcSolutionValid==False`가 실제 주행 중 얼마나 자주 발생하는지(정상
+  주행 중엔 거의 0에 가까울 것으로 예상하나 실측 확인 안 됨) — 너무
+  자주 발생하면 레인모드에서 폴백(직전 값 유지)이 잦아져 조향이
+  둔해지는 부작용 가능성 있음, 로그로 빈도 확인 권장.
+
 ## 140차 — [PATCHED, 실차검증 필요] PathOffset 레인리스 최종 조향 미반영 수정(controlsd.py curvature 소스 전환)
 
 **배경**: 138/139차에서 확인된 문제(`lateral_planner.py`가 계산한

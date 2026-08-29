@@ -1,3 +1,19 @@
+## 141차 (완료 — 구현+합성검증+패치전달 완료, 실차검증 대기) — mpcSolutionValid 체크 추가(140차 리뷰 지적사항 보완)
+
+외부 리뷰에서 140차의 `len(curvatures)==0` 폴백만으로는 "배열은 채워졌지만
+아직 유효하지 않은 MPC 해"를 못 거른다는 지적 — 코드 확인 결과 정확함
+(레인모드에서도 `mpcSolutionValid`가 원래부터 체크된 적 없었음, 140차가
+만든 리스크 아님). `state_control()`의 MPC curvature 사용 조건에
+`or not lat_plan.mpcSolutionValid`를 추가해 레인/레인리스 공통 안전장치로
+반영. **주의**: 이로 인해 `mpcSolutionValid==False`인 드문 상황에선
+레인모드 기존 동작도 141차 이전과 달라짐(의도된 안전 개선, 완전
+무변화는 아님 — 상세는 FINDINGS.md 141차 참고). `sim_path_offset_
+laneless_curvature_source.py` 8/8 PASS(mpc_solution_valid 케이스 추가
+갱신), `py_compile` 통과. 패치파일 `0002-mpc-solution-valid-check.patch`
+(로컬 커밋 `c48ba30`, base `d7b1e2a`=140차) — 140차 패치 적용 후 순서대로
+`git am`. **실차검증 필요**: 140차와 함께 PathOffset!=0 레인리스 주행
+테스트 + `mpcSolutionValid=False` 발생 빈도 로그 확인.
+
 ## 140차 (완료 — 구현+합성검증+패치전달 완료, 실차검증 대기) — PathOffset 레인리스 최종 조향 반영 패치
 
 `controlsd.py`의 curvature 소스 선택 분기를 `use_mpc_curvature =
