@@ -1070,3 +1070,30 @@ CUTOUT_DPATH_THRESH=2.0m을 그대로 재사용하면 이 게이트가 이 사�
   더 급한 실제 커브(급커브/급차선변경 등)의 정상 dPath 거동은
   대표하지 못할 수 있음.
 **사용**: `python3 toolkit/sim_lane_departure_gate.py`
+
+## sim_lead_blend_far_jump_gate.py (130차, 신규)
+**목적**: 104차 Finding A(NEEDS_VALIDATION) — 레이더 락온 근접 리드가
+커브 진입 중 락을 잃고 vision-only 저신뢰(prob≈0.24)로 폴백되는 순간
+84~89m 원거리로 오판되는데, 기존 `LeadBlend` BIG_JUMP(>15m 안전방향)
+즉시-스냅 로직이 신뢰도와 무관하게 그대로 반영하던 문제를 재현하고,
+130차에서 반영한 신뢰도 게이트(`radar=True` 또는
+`modelProb>=LEAD_BLEND_BIG_JUMP_PROB_GATE(0.70)`일 때만 즉시 스냅,
+아니면 기존 블렌딩 경로로) 패치를 검증.
+**의존성**: 없음(표준 라이브러리만). `radard.py`를 capnp/cereal 의존성
+때문에 직접 import할 수 없어 `LeadBlend` 로직을 patched/unpatched
+두 버전으로 문자 그대로 복제.
+**시나리오 5건**: (A) 104차 실측 근사 재현 — patched가 즉시 89m로
+스냅하지 않고 시정수(0.35s)로 점진 전환하는지, (B) 고신뢰
+vision(modelProb=0.85) far jump 회귀 없음, (C) 레이더 교차검증
+(radar=True, modelProb 낮아도) far jump 회귀 없음, (D) closer_jump
+(위험방향)는 저신뢰여도 danger-passthrough로 즉시 반영(반응지연
+없음), (E) 정상 추종 중(점프 없음) patched/unpatched 완전 동일.
+**결과**: 5/5 PASS. patched 첫 프레임 dRel 점프 55.4m→8.0m로 감소
+(즉시 원거리 오판 노출 완화, 완전 차단은 아니고 0.35s 시정수로
+점진 반영 — 그 사이 레이더 재획득/vision 신뢰 회복 시 정상값으로
+자연 수렴, 진짜 근접 위험은 기존 danger override가 그대로 처리).
+**한계**: 로직 단위 합성검증만 완료. 실차 acados MPC 파이프라인
+검증(동일 커브+레이더유실 재현 로그) 없음 — 104차가 확보한 원본
+route는 이 세션 컨테이너엔 없어(대용량 정책상 미보관) replay 정밀
+재현은 불가, 다음 세션 재확보 시 진행.
+**사용**: `python3 toolkit/sim_lead_blend_far_jump_gate.py`

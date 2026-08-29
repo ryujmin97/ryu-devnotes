@@ -47,7 +47,8 @@
 | LEAD_BLEND_DANGER_HOLD | 0.3s | 위험 판정 후 스무딩 우회 유지 시간 | - |
 | LEAD_BLEND_SAFE_DIST_TIME | 0.35s | 안전방향 블렌딩 시정수 | - |
 | LEAD_BLEND_CLOSER_JUMP_DIST | 8.0m | 이 이상 급접근 점프 시 즉시 반영 | 검증됨 (route1 seg13 t=794s, 표본 1건) |
-| LEAD_BLEND_BIG_JUMP_DIST | 15.0m | 이 이상 안전방향 점프는 즉시 스냅 | 검증됨 (route1 t=1388~1390s / route2 t=825~827s, 표본 1건씩) |
+| LEAD_BLEND_BIG_JUMP_DIST | 15.0m | 이 이상 안전방향 점프는 즉시 스냅(단, 130차부터 신뢰도 게이트 통과시에만) | 검증됨 (route1 t=1388~1390s / route2 t=825~827s, 표본 1건씩) |
+| LEAD_BLEND_BIG_JUMP_PROB_GATE | 0.70 (130차 신규, VISION_TRACK_PROB_GATE와 동일값 재사용) | BIG_JUMP 즉시-스냅을 `radar=True` 또는 `modelProb>=`이 값일 때만 허용 — 저신뢰 vision-only far jump는 블렌딩(0.35s 시정수) 경로로 완화. 104차 Finding A(커브 중 레이더 유실 → vision 저신뢰 원거리 오판, 84~89m로 근접 실물체를 원거리 오판) 대응 | NEEDS_VALIDATION (2026-08-29, 130차 신규 도입. `sim_lead_blend_far_jump_gate.py` 합성검증 5건 PASS — 104차 재현(첫프레임 점프 55.4m→8.0m 감소)/고신뢰vision 회귀없음/레이더교차검증 회귀없음/closer_jump 반응지연없음/정상추종 완전동일 전부 확인. `git am` verify-am 브랜치 검증(base `b63063a`) + py_compile 통과, 패치 전달 완료. **실차 acados MPC 파이프라인 검증은 아직 없음**(동일 커브+레이더유실 재현 로그 미확보). FINDINGS.md 130차 참고) |
 | LEAD_LOST_GRACE_TIME | 0.6s | 리드 순간유실 홀드 시간 | - |
 | CUTOUT_DPATH_THRESH | 2.0m | 컷아웃 판정 dPath 임계값 | NEEDS_VALIDATION |
 | CUTOUT_VREL_GATE | -0.5 m/s | 컷아웃 판정 vRel 게이트 | NEEDS_VALIDATION |

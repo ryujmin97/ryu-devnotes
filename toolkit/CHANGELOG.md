@@ -537,3 +537,15 @@ discontinuity 0건). 개발 중 트리거 소스별 boost_s 미구분 버그가 
   우회)/I(정상상태 일치) 전부 PASS. long_mpc.py 실제 패치 적용 완료
   (LOW_SPEED_GAP_OPEN_*, LOW_SPEED_GAP_OPEN_WEIGHT_RISE_RATE 신규,
   patch 0001-117-gap-opening-a_lead-116-rise-rate.patch), git am 검증 통과.
+
+## 2026-08-29 (130차, sim_lead_blend_far_jump_gate.py 신규 + radard.py 패치)
+- 신규: `toolkit/sim_lead_blend_far_jump_gate.py` — 104차 Finding A
+  (커브+레이더유실 시 vision-only 저신뢰 원거리 오판) 재현 및
+  `LeadBlend` BIG_JUMP 신뢰도 게이트 패치 검증. 5개 시나리오 전부 PASS.
+- 패치: `radard.py` `LeadBlend.update()` BIG_JUMP(>15m 안전방향)
+  즉시-스냅 조건에 `LEAD_BLEND_BIG_JUMP_PROB_GATE(0.70)` 신뢰도 게이트
+  추가 — radar=True 또는 고신뢰 vision(modelProb>=0.70)만 즉시 스냅,
+  저신뢰 vision-only far jump는 기존 블렌딩(0.35s 시정수) 경로로.
+  git am verify-am 브랜치 검증(base `b63063a`) + py_compile 통과,
+  패치 `0001-130-LeadBlend-BIG_JUMP-104-Finding-A.patch` 전달.
+  실차 검증 대기(FINDINGS.md 130차 참고).

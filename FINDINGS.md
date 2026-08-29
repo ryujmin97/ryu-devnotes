@@ -1,3 +1,65 @@
+## 130차 — [구현+합성검증+패치전달 완료, 실차검증 대기] 104차 Finding A(커브+레이더유실 시 vision 원거리 오판) 원인 확정 및 `LeadBlend` BIG_JUMP 신뢰도 게이트 패치
+
+**배경**: 사용자 지시("이어서 계속, A로 진행하자")로 104차 Finding A
+(NEEDS_VALIDATION 상태로 25회차 이상 방치)를 이어서 진행. 새 실차
+로그는 없어 코드 레벨 정적분석으로 원인 규명 착수.
+
+**원인 확정**: `radard.py` `VisionTrack.update()`(register_ok 경로)는
+저신뢰 vision dRel 후보를 크기 검증 없이 그대로 `self.dRel`에 반영하고
+(단, prob<0.35 완전 저확신이면 `tentative_cnt` 래치가 `GHOST_TIMEOUT_S
+(3.0s)` 동안은 유지돼 `register_ok`가 계속 True), 이 원거리 값이
+`RadarD.update()`를 거쳐 `LeadBlend.update()`에 raw로 들어갈 때
+`LEAD_BLEND_BIG_JUMP_DIST(15.0m)`를 넘는 "안전 방향"(더 멀어짐) 점프로
+분류됨. 기존 로직은 이런 큰 점프를 "다른 물체로 전환"으로 간주해
+**신뢰도(radar 교차검증 여부/modelProb) 확인 없이** 블렌딩을 건너뛰고
+즉시 반영 — 104차 실측(3.5초 안정 레이더락 근접 리드 → 커브 진입 락
+유실 → vision 단독 prob=0.24로 84~89m 오판)이 정확히 이 경로를 탐.
+
+**패치 설계**: `LEAD_BLEND_BIG_JUMP_PROB_GATE = 0.70`(58차1번
+`VISION_TRACK_PROB_GATE`와 동일 철학 재사용, "vision 단독값을 레이더급
+으로 신뢰 가능한 최소 확신도") 신설. BIG_JUMP 즉시-스냅 조건을
+`is_big_jump and (raw['radar'] or raw['modelProb']>=GATE)`로 변경 —
+레이더 교차검증되거나 고신뢰 vision인 far jump는 기존과 동일하게 즉시
+반영(회귀 없음), 저신뢰 vision-only far jump만 `LEAD_BLEND_SAFE_
+DIST_TIME(0.35s)` 시정수 블렌딩으로 완화. `closer_jump`/TTC danger 등
+위험방향 즉시반영 경로는 무변경 — 반응지연 위험 없음. VISION_TRACK_
+PROB_GATE 정의가 파일 뒤쪽에 있어 직접 참조 시 NameError가 나므로 값만
+리터럴 복제(0.70) — 두 상수 동시 개정 필요성을 코드 주석에 명시.
+
+**합성검증**: `toolkit/sim_lead_blend_far_jump_gate.py`(신규) 5개
+시나리오 전부 PASS —
+(A) 104차 재현: patched 첫 프레임 dRel 점프 55.4m(unpatched, 33.6→
+89.0m 즉시 스냅) → 8.0m(patched, 33.6→41.6m 블렌딩 시작)로 감소.
+저신뢰 상태 지속 시 완전 차단이 아니라 0.5s 후 dRel=77.2m로 점진
+수렴함도 확인(설계 의도대로 — 진짜 원거리 전환이면 결국 반영됨,
+다만 순간적 오판이 MPC에 즉시 꽂히는 것만 완화).
+(B) 고신뢰 vision(modelProb=0.85) far jump: unpatched==patched
+(70.0m, 즉시 스냅 유지) — 회귀 없음.
+(C) 레이더 교차검증(radar=True, modelProb=0.1로 낮아도) far jump:
+unpatched==patched(50.0m, 즉시 스냅 유지) — 회귀 없음.
+(D) closer_jump(위험방향, 저신뢰 vision이어도): danger-passthrough로
+즉시 반영(40.0m) — 반응지연 없음.
+(E) 정상 추종(점프 없음, 200프레임/10초): unpatched/patched 완전
+동일(diff=0) — 회귀 없음.
+
+**패치/검증 상태**: `git format-patch` 생성 →
+`0001-130-LeadBlend-BIG_JUMP-104-Finding-A.patch` → `verify-am`
+브랜치(base `b63063a`)에 `git am` 적용 검증 + `py_compile` 통과.
+사용자에게 패치 전달, 로컬 `git am` 적용/push는 사용자 몫.
+
+**상태**: **실차 검증 필요.** 104차 원본 route(대용량 정책상 컨테이너
+미보관)를 재확보하면 동일 시나리오(커브+레이더유실) replay로 정밀
+재검증 가능. 또한 다음 세션에서: (1) 정상 far-jump 케이스(진짜 다른
+차량으로 전환되는 경우, 예: 앞차 turn-off/차선변경으로 새 원거리
+리드가 드러나는 상황)에서 0.35s 블렌딩 지연이 체감상 문제되는지
+실차로 확인 필요 — 이런 케이스가 흔하면 GATE=0.70이 과하게 보수적일
+수 있음. (2) VisionTrack 레벨(`self.dRel`)에서 더 상류에 별도 플로시
+빌리티 게이트를 둘지, 지금처럼 LeadBlend 레벨에서만 막을지 재검토
+여지 있음(현재는 LeadBlend 레벨 — VisionTrack 자체의 dRel 값은 여전히
+84~89m로 저장됨, radarState.leadOne에 실제 반영되는 시점만 완화됨).
+
+---
+
 ## 129차 — 교차로 접근 route 사전감속 "계단형 고정" 실측 확인 + 91차(ROUTE_ENTRY_MARGIN_KPH) 구조적 원인 가설 [NEEDS_VALIDATION, 코드 미수정]
 
 **배경**: 사용자가 실차 로그(route `306de77a28` seg15, 20260829_140424) +
@@ -1175,7 +1237,18 @@ zip 2건 + 화면녹화 mp4 1건)를 분석. seg10/seg11을 하나의 route 폴�
 핵심 시점 qcamera 프레임 대조. 로그는 101차 패치 커밋 이후 시점이나
 **코드 변경은 없음(분석 전용 세션)**.
 
-### Finding A — [NEEDS_VALIDATION] 조향각 증가(커브) 중 레이더 유실 시 vision fallback이 근접 실물체를 원거리로 오판(오탐)
+### Finding A — [130차: 원인 확정 + 패치 설계/구현 완료, 실차검증 대기] 조향각 증가(커브) 중 레이더 유실 시 vision fallback이 근접 실물체를 원거리로 오판(오탐)
+
+**[130차 갱신]** 원인을 코드 레벨에서 확정함: `radard.py` `LeadBlend.
+update()`의 BIG_JUMP(`LEAD_BLEND_BIG_JUMP_DIST=15.0m` 초과, "안전
+방향" 점프) 즉시-스냅 경로가 신뢰도(radar 여부/modelProb)와 무관하게
+항상 적용되고 있었음 — 이 케이스처럼 근접 리드가 락을 잃고 vision
+단독 저신뢰(prob≈0.24)로 84~89m를 보고하면, "다른(더 먼) 물체로
+전환됐다"고 오판해 블렌딩 없이 그대로 즉시 반영됨. 패치로 즉시-스냅을
+`radar=True` 또는 `modelProb>=LEAD_BLEND_BIG_JUMP_PROB_GATE(0.70)`
+조건으로 한정, 저신뢰 vision-only far jump는 기존 블렌딩(0.35s
+시정수) 경로로 완화. 상세는 아래 "130차" 섹션(최상단) 참고 — 원본
+Finding A 기록은 그대로 보존.
 
 - t=683.22까지는 trackId=0 레이더 락온 상태로 실제 리드를 3.5초간
   안정 추종(dRel 점진 감소, radar confirm=True).

@@ -1,3 +1,43 @@
+## 130차 (완료 — 원인확정+구현+합성검증+패치전달 완료, 실차검증 대기) — 104차 Finding A(커브+레이더유실 vision 원거리 오판) `LeadBlend` BIG_JUMP 신뢰도 게이트 패치
+
+**요청**: "이어서 계속, A로 진행하자" — 104차 Finding A(오탐, 25회차간
+NEEDS_VALIDATION 방치)를 이어서 진행.
+
+**진행**:
+1. devnotes 부트스트랩(129차 확인) + FINDINGS.md 104차 Finding A 재확인.
+2. 새 실차 로그 없음 → 코드 정적분석으로 원인 규명: `radard.py`
+   `LeadBlend.update()`의 BIG_JUMP(15m) 즉시-스냅 로직이 신뢰도
+   (radar/modelProb) 검증 없이 항상 적용되던 것을 확인 — 104차 관찰
+   (레이더 유실 후 vision 저신뢰 84~89m 즉시 반영)과 정확히 일치.
+3. 패치 설계: `LEAD_BLEND_BIG_JUMP_PROB_GATE=0.70` 신설, 즉시-스냅을
+   `radar=True` 또는 `modelProb>=GATE`로 한정. `radard.py` 직접 수정.
+4. `toolkit/sim_lead_blend_far_jump_gate.py`(신규) 5개 시나리오 합성
+   검증 전부 PASS(104차 재현/고신뢰vision 회귀없음/레이더교차검증
+   회귀없음/closer_jump 반응지연없음/정상추종 완전동일).
+5. `git format-patch` → `verify-am` 브랜치 검증(base `b63063a`,
+   `git am` 적용 + `py_compile`) 통과.
+6. devnotes 갱신: FINDINGS.md(104차 Finding A 상태 갱신 + 130차 신규
+   섹션), PARAMS_REGISTRY.md(`LEAD_BLEND_BIG_JUMP_PROB_GATE` 등록),
+   toolkit/README.md + CHANGELOG.md.
+
+**결과물**:
+- 패치: `0001-130-LeadBlend-BIG_JUMP-104-Finding-A.patch`
+  (radard.py, `git am` 검증 완료, 로컬 적용/push는 사용자 몫)
+- devnotes: WIP.md/FINDINGS.md/PARAMS_REGISTRY.md/toolkit/README.md/
+  toolkit/CHANGELOG.md/toolkit/sim_lead_blend_far_jump_gate.py
+
+**다음 세션**:
+- 실차 acados MPC 파이프라인 검증(동일 커브+레이더유실 재현 로그 필요
+  — 104차 원본 route는 대용량 정책상 컨테이너 미보관, 재확보 필요)
+- 진짜 far-jump(다른 차량으로 전환되는 정상 케이스)에서 0.35s 블렌딩
+  지연이 체감 문제 없는지 실차 확인
+- GATE=0.70이 과보수적인지, 필요시 VisionTrack 레벨(더 상류)에서
+  플로시빌리티 게이트를 추가할지 재검토
+- Finding B(반응 둔감, route/vturn 속도 목표 우선순위 문제)는 104차
+  이후 아직 착수 안 됨 — 다음 우선순위 후보
+
+---
+
 ## 129차 (체크포인트 — 원인분석 완료, 구현방향 미결정, 코드 변경 없음) — 교차로 route 사전감속 계단형 고정 원인분석
 
 **요청**: 교차로(좌/우회전) 접근 시 route 사전감속이 너무 일찍 최저속도(30km/h)로
