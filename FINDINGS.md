@@ -1,3 +1,32 @@
+## 142차 — [CONFIRMED, 코드변경 없음] 레인모드/레인리스 × PathOffset(0/+/−) curvature 소스 8-시나리오 정리 + 신규 디테일(heading/offset 적용 순서)
+
+**배경**: 137~141차 분석을 사용자 요청으로 "레인모드/레인리스 ×
+PathOffset(0/+n/−n)" 관점 6개 핵심 조합 + 안전 폴백 2개 = 8개 시나리오로
+재정리. `origin/c3-ms-dev`(`3ec4e5c`, 140/141차 패치 반영 상태) 코드
+직접 확인 + 기존 `sim_path_offset_laneless_curvature_source.py` 재실행
+(8/8 PASS, 코드 변경 없어 결과 동일).
+
+**결론**: `use_mpc_curvature = lanefull_mode_enabled or (PathOffset != 0)`
+분기는 offset **부호와 무관**(boolean `!=0`만 검사) — 부호는 분기 선택
+이후 `lateral_planner.py`의 `path_xyz[:,1] += pathOffset`에서 MPC 입력
+값에만 반영됨. 레인모드는 PathOffset 값과 무관하게 항상 MPC 소스
+(`lat_plan.curvatures`)를 쓰므로 레인리스처럼 "offset에 의한 소스 전환"
+현상 자체가 없음. 8개 시나리오 매트릭스는 WIP.md 142차 항목 참고.
+
+**신규 발견**: `path_xyz[:,1] += self.pathOffset`(line 163)가
+`yaw_from_path_no_scipy()`(line 152~157, heading/yaw_rate 계산) **이후에
+실행**됨을 확인 — 137~141차 기록엔 없던 디테일. 이는 MPC가 받는
+`heading_pts`/`yaw_rate_pts`는 offset 미반영, `y_pts`만 상수 이동한다는
+뜻 → offset은 목표 경로를 형태 변화 없이 "평행이동"시키는 것에 가까워,
+정상상태 곡률에는 이론상 영향이 없고 주로 커브 진입/전환 구간의 과도
+곡률에만 영향을 줄 가능성 있음(정적분석 기반 가설, 실차 로그 미검증).
+
+**다음 단계**:
+- 위 "정상상태 곡률 무영향" 가설을 PathOffset≠0 실주행 로그로 검증
+  (레인모드 진입 전/후 curvature 파형 비교)
+- 138차부터 남아있는 `_use_lane_line_curve_speed` 게이트로 인한 레인모드
+  판정 순간적 False 전환 케이스는 여전히 미검증
+
 ## 141차 — [PATCHED, 실차검증 필요] mpcSolutionValid 체크 추가 (140차 리뷰에서 지적된 사각지대 보완, 레인/레인리스 공통)
 
 **배경**: 140차 패치를 외부(타 AI) 리뷰 과정에서 "`len(lat_plan.curvatures)==0`

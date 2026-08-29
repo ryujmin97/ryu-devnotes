@@ -1,3 +1,47 @@
+## 142차 (완료 — 분석만, 코드변경 없음) — 레인모드/레인리스 × PathOffset(0/+/−) curvature 소스 8-시나리오 정리
+
+137~141차에 걸쳐 축적된 "PathOffset/레인리스/curvature 소스" 분석을
+사용자 요청으로 레인모드·레인리스 × PathOffset(0/+n/−n) 6개 핵심 조합 +
+안전 폴백 2개(curvatures 비어있음, mpcSolutionValid=False) = 8개
+시나리오로 재정리. 현재 `origin/c3-ms-dev`(140/141차 패치 반영된 상태,
+`3ec4e5c`) 코드를 직접 읽어 확인, 기존 `toolkit/sim_path_offset_laneless_curvature_source.py`
+재실행으로 분기 로직 8/8 PASS 재확인(코드 변경 없었으므로 결과 동일 예상대로).
+
+**결론 매트릭스**:
+| # | 모드 | PathOffset | 최종 조향 curvature 소스 |
+|---|------|-----------|--------------------------|
+| 1 | 레인모드 | 0 | `lat_plan.curvatures`(MPC) — offset=0이라 원본과 동일값 |
+| 2 | 레인모드 | +n | `lat_plan.curvatures`(MPC, path_xyz[:,1]+=+n 반영) |
+| 3 | 레인모드 | −n | `lat_plan.curvatures`(MPC, path_xyz[:,1]+=−n 반영) |
+| 4 | 레인리스 | 0 | `model_v2.action.desiredCurvature`(modeld 신경망 직접출력, lateral_planner.py와 완전 별개 파이프라인) |
+| 5 | 레인리스 | +n | `lat_plan.curvatures`(140차 패치로 전환, offset 반영) |
+| 6 | 레인리스 | −n | `lat_plan.curvatures`(140차 패치로 전환, offset 반영) |
+| 7 | 레인리스, offset≠0, curvatures 배열 비어있음 | 직전 `desired_curvature` 유지(안전 폴백) |
+| 8 | 모드 무관, mpcSolutionValid=False | 직전 `desired_curvature` 유지(141차 신규 안전장치) |
+
+핵심 포인트: **offset 부호(+/−)는 `use_mpc_curvature` 분기 선택에 전혀
+영향 없음**(`PathOffset != 0` boolean만 검사) — 부호는 분기 선택 이후
+MPC 입력값(`path_xyz[:,1]`)에만 반영됨. 레인모드(1~3)는 PathOffset 값과
+무관하게 애초부터 항상 MPC 소스를 쓰므로, 레인리스(4~6)와 달리 "offset
+적용 여부에 따른 소스 전환" 자체가 일어나지 않음.
+
+**신규 발견(137~141차 기록에 없던 디테일)**: `lateral_planner.py`에서
+`path_xyz[:,1] += self.pathOffset`(line 163)는 `yaw_from_path_no_scipy()`
+호출(heading/yaw_rate 계산, line 152~157) **이후**에 실행됨. 즉 MPC에
+들어가는 `heading_pts`/`yaw_rate_pts`는 offset 미반영 상태 그대로이고
+`y_pts`(위치)만 상수 이동 — offset은 "평행이동된 목표 경로"를 의미하며
+이론상 정상상태 곡률(경로 형태)에는 영향이 없고 주로 **전환 구간의
+과도(transient) 곡률**에만 영향을 줄 가능성이 있음. 코드 정적분석 기반
+추정이며 실차/시뮬레이션 검증은 안 함 — 다음 세션 후보로 남김.
+
+**미검증 사항**: (a) 위 "정상상태 곡률 무영향" 가설의 실차 로그 검증,
+(b) `_use_lane_line_curve_speed` 게이트로 레인모드 판정이 커브 진입
+순간 일시적으로 False가 될 수 있다는 138차 미확정사항(여전히 미해결).
+
+**변경 파일**: WIP.md, FINDINGS.md만(코드/툴킷 변경 없음 — 기존
+`sim_path_offset_laneless_curvature_source.py`가 이미 분기 검증을
+충분히 커버).
+
 ## 141차 (완료 — 구현+합성검증+패치전달 완료, 실차검증 대기) — mpcSolutionValid 체크 추가(140차 리뷰 지적사항 보완)
 
 **[추가 확인] origin/c3-ms-dev에 실제 push 완료**: 사용자가 로컬(`~/ryu`)에서
