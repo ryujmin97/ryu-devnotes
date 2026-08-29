@@ -1,3 +1,38 @@
+## 132차 — [PATCH_WRITTEN, NEEDS_VALIDATION] 131차 Hypothesis C 대응 `carrot_navi_route()` out_speed 프레임간 램프 리미터
+
+**배경**: 131차 [SUCCESS, 정밀매칭 완료] Hypothesis C(129차 "계단형
+급락"의 진짜 원인 — `route_lookahead_m` 윈도우 경계로 급커브 curvature가
+이산적으로 배열에 출현, 역방향 DP가 그 프레임에 즉시 재계산)에 대한
+패치를 사용자 지시로 착수.
+
+**패치**: `carrot_man.py::carrot_navi_route()` 최종 반환값 `out_speed`에
+`ROUTE_SPEED_LOOP_DT=0.05s`(broadcast_version_info `Ratekeeper(20)`과
+일치) 기준 프레임간 램프 리미터 적용, 상한=`accel_limit_kmh*dt`(기존
+`AutoNaviSpeedDecelRate` 재사용, 새 튜닝 상수 없음). 근거: `route_lookahead_m`
+자체가 이미 이 감속률로 충분한 거리를 목표로 산정되므로(84차/85차),
+경계 스냅이 아니었다면 원래 성립했어야 할 불변식을 최종 출력에서
+복원하는 것에 가깝다 — 새 제약 추가가 아님. 증감 양방향 대칭 적용(원복측
+스냅도 함께 완화). 리셋 규칙: route 비활성/최초활성 및 "제약없음"(300
+센티널) 전환 시 리미터 상태 즉시 리셋(안전 방향은 지연 없이 반영).
+
+**사전검증**: `toolkit/sim_route_boundary_ramp_limiter.py`(신규, 131차
+`sim_route_lookahead_boundary_snap.py` 재사용) — `curve_R=10~25m`,
+`v_ego=74~90kph`, `accel=0.70~1.2` 전 조합 PASS. 131차 정밀매칭 조건
+(반경17.3m/74kph/0.70)에서 unpatched 최대낙차 20.54kph -> patched
+0.13kph(이론 상한 이내). 초기에 시뮬레이션 하네스 경계 아티팩트(300<->
+실제값 전환, 131차 문서화된 "원호 진입점 과장"과 동일 성격)를 핵심
+지표와 혼동해 오판했던 스크립트 버그 발견 후 수정.
+
+**패치 상태**: `0001-132-route_lookahead-Hypothesis-C-131-out_speed.patch`
+생성 -> `verify-am` 브랜치(base `1cc2bf3`)에 `git am` 적용 성공 +
+`py_compile` 통과 + diff-0 확인. 사용자 전달, 로컬 적용/push는 사용자 몫.
+
+**한계/다음 세션**: 로직+합성검증만 완료, **실차 검증 필요**(129차와
+동일/유사 교차로 재주행). margin_kph=0/25 대조(131차 미완료 항목)는
+이 패치와 독립적인 별도 후속 확인사항으로 남음.
+
+---
+
 ## 131차 — [원인가설 SUCCESS 재현, 코드 미수정, NEEDS_VALIDATION] 129차 교차로 접근 route "계단형 급락" 진짜 원인: `route_lookahead` 윈도우 경계 진입 시 curvature 이산적 출현(Hypothesis C)
 
 **배경**: 129차가 실측한 route `306de77a28` seg15의 계단형 급락

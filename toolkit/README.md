@@ -1165,3 +1165,29 @@ API는 시도했으나 컨테이너 네트워크 허용목록에 없어 실패�
 --straight-before-curve-m 700`
 **의존성**: `numpy`만 (shapely 불필요 — carrot_man.py 실제 코드가
 numpy 벡터화 resample 사용).
+
+## sim_route_boundary_ramp_limiter.py (132차, 신규 — 패치 사전검증)
+**목적**: 131차 Hypothesis C(`route_lookahead_m` 윈도우 경계 진입 시
+curvature 배열에 급커브가 이산적으로 출현, 역방향 DP가 그 프레임에
+즉시 전체 재계산 -> `out_speed` 단일 20Hz 프레임 급락)에 대한 패치
+후보(`carrot_navi_route()` 최종 반환값 `out_speed`에 프레임간 램프
+리미터 적용, 상한=`accel_limit_kmh*dt`)를 실제 코드 수정 전에 검증.
+**방법**: `sim_route_lookahead_boundary_snap.py`(131차)의 순수함수
+(`carrot_navi_route_core`)를 import해 그대로 재사용하고, 그 위에
+`RampLimiterState`(patched 로직만) 클래스를 얹어 patched/unpatched를
+같은 20Hz 루프에서 나란히 비교. 리셋 규칙(300 센티널 전환 시 즉시
+통과+리셋 — "제약 해제" 방향은 지연 없이 반영)도 실제 패치와 동일하게
+구현.
+**결과(PASS)**: `curve_R=10~25m`, `v_ego=74~90kph`, `accel=0.70~1.2`
+전 조합에서 정상주행 구간(300 센티널 전환 제외) 최대 프레임간 낙차가
+이론 상한(`accel_limit_kmh*dt`) 이내로 억제됨. 131차 정밀매칭 조건
+(반경17.3m/74kph/0.70)에서 unpatched 20.54kph -> patched 0.13kph.
+**주의(스크립트 설계 교훈)**: 최초 버전은 300<->실제값 전환(시뮬레이션
+하네스 경계 아티팩트, 131차가 이미 "원호 진입점 과장"/"윈도우이 커브를
+완전히 지나며 소멸"로 문서화한 것과 동일 성격)까지 핵심 지표에 섞어
+집계해 FAIL로 오판했음 — 정상주행 구간만 분리 집계하도록 수정 후 정상
+판정. 향후 유사 램프리미터/경계값 검증 스크립트 작성 시 센티널값
+전환 구간을 반드시 핵심 지표에서 분리할 것.
+**사용**: `python3 toolkit/sim_route_boundary_ramp_limiter.py
+--v-ego-kph 74 --curve-radius-m 17.3 --accel 0.70`
+**의존성**: `sim_route_lookahead_boundary_snap.py`(같은 디렉토리, import).

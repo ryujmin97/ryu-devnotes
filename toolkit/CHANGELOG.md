@@ -558,3 +558,12 @@ discontinuity 0건). 개발 중 트리거 소스별 boost_s 미구분 버그가 
   git am verify-am 브랜치 검증(base `b63063a`) + py_compile 통과,
   패치 `0001-130-LeadBlend-BIG_JUMP-104-Finding-A.patch` 전달.
   실차 검증 대기(FINDINGS.md 130차 참고).
+
+## 132차
+- `sim_route_boundary_ramp_limiter.py`(신규) — 131차 Hypothesis C 패치
+  후보(carrot_navi_route() out_speed 프레임간 램프 리미터, 상한
+  accel_limit_kmh*dt) 사전검증. curve_R 10~25m/accel 0.70~1.2 전
+  조합 PASS(정상주행 구간 최대낙차가 이론 상한 이내로 억제).
+  실제 패치 `0001-132-route_lookahead-Hypothesis-C-131-out_speed.patch`
+  작성 -> verify-am(base 1cc2bf3) git am 성공 + py_compile 통과 + diff-0.
+  실차 검증 대기(FINDINGS.md 132차 참고).

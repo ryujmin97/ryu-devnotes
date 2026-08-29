@@ -1,3 +1,53 @@
+## 132차 (완료 — 구현+사전검증+패치전달 완료, 실차검증 대기) — 131차 Hypothesis C 대응 `carrot_navi_route()` out_speed 프레임간 램프 리미터 패치
+
+**배경**: 131차가 [SUCCESS, 정밀매칭 완료]로 격상한 Hypothesis C(129차
+교차로 접근 route "계단형 급락"의 진짜 원인: `route_lookahead_m` 윈도우
+경계로 급커브가 curvature 배열에 이산적으로 "출현"하며 역방향 DP가 그
+프레임에 즉시 전체 재계산)에 대해, 사용자 지시("131차 이어서: Hypothesis
+C 패치 작성부터 시작")로 패치 설계/구현 착수.
+
+**패치 설계**: `carrot_man.py::carrot_navi_route()`의 최종 반환값
+`out_speed`(=`out_speeds[0]`)에 20Hz 사이클(`ROUTE_SPEED_LOOP_DT=0.05s`,
+`broadcast_version_info()`의 `Ratekeeper(20)`과 일치) 기준 프레임간 램프
+리미터를 적용 — 상한은 `accel_limit_kmh * dt`로, 새 튜닝 상수 없이 기존
+`AutoNaviSpeedDecelRate`(사용자 설정)를 그대로 재사용. `route_lookahead_m`
+자체가 "이 감속률로 충분히 감속 가능한 거리"를 목표로 동적 산정되므로
+(84차/85차), 이 리미터는 새 제약 추가가 아니라 "윈도우 경계 스냅이 없었다면
+매 프레임 이미 성립했어야 할 불변식(프레임당 변화 <= accel_limit_kmh*dt)"을
+최종 출력에서 강제 복원하는 것에 가깝다. 증감 양방향 대칭 적용 — 129차/131차가
+보고한 "회전 종료 즉시 원복" 계단(원복측 스냅)도 같은 메커니즘이라 함께
+완화됨. 상태 리셋 규칙(안전 우선): (1) route 비활성화/최초 활성화 시
+리미터 상태를 `None`으로 리셋해 과거 값을 끌고 오지 않음. (2) 윈도우 내
+유효 포인트 부족(`out_speed=300` 센티널, "제약 없음") 전환 시에도 즉시
+리셋 — 이 방향(허용속도 상승)은 안전한 완화 방향이므로 지연 없이 반영.
+
+**사전검증**: `toolkit/sim_route_boundary_ramp_limiter.py`(신규) —
+131차 `sim_route_lookahead_boundary_snap.py`의 순수함수(`carrot_navi_route_core`)를
+그대로 재사용, 그 위에 패치 로직만 얹어 patched/unpatched 비교. `curve_R=10~25m`,
+`v_ego=74~90kph`, `accel=0.70~1.2` 조합 전부에서 정상주행 구간(300 센티널
+전환 제외) 최대 프레임간 낙차가 이론 상한(`accel_limit_kmh*dt`) 이내로
+억제됨을 확인(PASS) — 예: 131차 정밀매칭 조건(반경17.3m, v_ego74kph, accel0.70)에서
+unpatched 최대낙차 20.54kph → patched 0.13kph. **주의**: 초기 판정 로직이
+시뮬레이션 하네스 경계 아티팩트(300<->실제값 전환, 131차가 이미 "원호
+진입점 과장"으로 문서화한 것과 동일 성격)를 핵심 지표와 혼동해 FAIL로
+오판했던 것을 발견/수정 — 정상주행 구간만 분리 집계하도록 스크립트 개선.
+
+**패치/검증 상태**: `git format-patch` 생성 →
+`0001-132-route_lookahead-Hypothesis-C-131-out_speed.patch` → `verify-am`
+브랜치(base `1cc2bf3`)에 `git am` 적용 성공 + `py_compile` 통과 + diff-0
+(패치 적용 결과와 원본 수정본 완전 일치) 확인. 사용자에게 패치 전달,
+로컬 `git am` 적용/push는 사용자 몫.
+
+**상태**: **실차 검증 필요.** 로직/합성 시뮬레이션 검증만 완료 —
+`carrot_navi_route()`가 acados MPC 등 실제 파이프라인에서 이 리미터로
+인해 정상 커브 진입/원복 시 체감 지연이 없는지, 129차가 겪은 계단형
+급락이 실제로 해소되는지는 129차와 동일한 교차로(또는 유사 route)
+재주행으로 확인 필요. 다음 세션: (1) 실차검증. (2) margin_kph=0/25
+대조(131차 미완료 항목, 이번 세션에서도 미실시 — 이 패치와는 독립적인
+후속 확인사항). (3) `c3-ms-curv` 등 다른 branch 작업과의 우선순위 조율.
+
+---
+
 ## 131차 (체크포인트 — 원인가설 SUCCESS 재현, 코드 미수정, 실차검증 필요) — 129차 route "계단형 급락" 진짜 원인: route_lookahead 윈도우 경계 진입 이산적 불연속(Hypothesis C)
 
 사용자가 route `306de77a28` seg15 재업로드("패치 적용전에 시뮬레이션

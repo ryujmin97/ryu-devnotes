@@ -233,3 +233,16 @@
   전환보다 3.76초 먼저 개입, 직선 154초/커브B 오탐 0건. 20/30 사이 사용자
   확정값.
 - 실차 검증: 미실시(NEEDS_VALIDATION).
+
+## ROUTE_SPEED_LOOP_DT (132차, NEEDS_VALIDATION)
+- 위치: `selfdrive/carrot/carrot_man.py`, `carrot_navi_route()`
+- 값: 0.05 (초, 20Hz) — `broadcast_version_info()`의 `Ratekeeper(20)`과
+  일치시킨 값. 별도 튜닝 대상 아님(루프 주기 그 자체).
+- 목적: 131차 Hypothesis C(route_lookahead 윈도우 경계 진입 시 curvature
+  이산적 출현 -> out_speed 단일프레임 급락) 완화용 프레임간 램프 리미터의
+  주기값. 상한 계산식: `accel_limit_kmh(=AutoNaviSpeedDecelRate*3.6) * ROUTE_SPEED_LOOP_DT`.
+  새 튜닝 상수 없이 기존 `AutoNaviSpeedDecelRate`를 재사용.
+- 근거: `toolkit/sim_route_boundary_ramp_limiter.py`(132차) 사전검증 —
+  curve_R 10~25m/accel 0.70~1.2 전 조합 PASS.
+- 실차 검증: 미실시(NEEDS_VALIDATION) — 129차와 동일/유사 교차로 재주행
+  필요.
