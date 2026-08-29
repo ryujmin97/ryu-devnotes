@@ -65,6 +65,15 @@ gps.csv.gz 2023행) 신규 등록. **NEEDS_VALIDATION — 분석 완료 후
   `verify_and_extract_frames.py` 재사용 가능)
 - route↔vturn 플리커 원인 상세 분석 진행 여부 (위 2번, 별도 요청 시)
 
+**[다음 세션 필독] 로그 재추출/재분석 불필요**: `data/routes/144cha-combined/`
+에 이미 병합 CSV(route.csv.gz 43289행 + gps.csv.gz)와 meta.json 저장됨.
+`toolkit/data_routes.py`의 `load_route(devnotes_dir, "144cha-combined")`
+로 바로 불러와서 이어갈 것 — zip 재업로드나 extract_log.py 재실행
+불필요. 화면녹화 영상만 새로 받으면 됨(같은 t 기준 대조용, 영상 자체는
+devnotes에 커밋하지 않고 work/에 스크래치로 다룸). 사용자 승인 전까지는
+`ba5f3d3273`/`898edd0f96`/`e996400f6e`/`144cha-combined` 4개 항목 삭제
+금지.
+
 ---
 
 ## 143차 (완료 — 127차 TBT HUD 폭 축소 패치 실차 반영 확인) — drawTurnInfoHud 790px→460px 실차 검증

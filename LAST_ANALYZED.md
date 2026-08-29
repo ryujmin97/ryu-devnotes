@@ -1,3 +1,21 @@
+## c3-ms-dev (144차, route 적용검증 + PathOffset 직진/커브 실차 1차분석 — NEEDS_VALIDATION, 진행중)
+- last_analyzed_commit: `3ec4e5c63f28`(origin HEAD, 141차 반영) — 코드
+  변경은 extract_log.py(devnotes 툴킷, activeLaneLine 필드 추가)뿐, ryu
+  코드 변경 없음
+- date: 2026-08-30 (144차)
+- 분석 대상: `data/routes/144cha-combined`(ba5f3d3273+898edd0f96+
+  e996400f6e 3개 route가 t 기준 끊김없이 이어지는 단일 연속주행 병합,
+  07:02~07:37, 43289행, gps.csv.gz 2023행 포함)
+- note: route src 적용 확인(30% 비중)/route↔vturn 플리커(분당 4.44회,
+  최다) 발견/activeLaneLine 전 구간 False(레인리스 100%, 오프셋 검증
+  조건은 유효)/직진구간 desiredCurvature 편향 미검출(원인 미확정 —
+  **PathOffset 실제 설정값 사용자 확인 대기 중, 이게 확인돼야 다음
+  단계 진행 가능**)/도로 곡선성 커브 이벤트 15건 후보 추출(교차로
+  저속회전 56건 제외). **다음 세션에서 화면녹화 영상 받으면 이 15건과
+  시각 대조 예정 — 로그 재추출/재분석 불필요, `data_routes.py`로
+  `144cha-combined` 그대로 로드해서 이어갈 것.** 상세는 FINDINGS.md/
+  WIP.md "144차" 참고.
+
 ## c3-ms-dev (134차, 전체코드 정적 리뷰 + boost-arm 가드 비대칭 패치 적용 — SIM_VALIDATED, 실차검증 대기)
 - last_analyzed_commit: `f24cbf8`(origin HEAD, 132차 반영) 기준 로컬 수정
   (아직 사용자 적용/push 전 — 패치 파일 별도 전달)
