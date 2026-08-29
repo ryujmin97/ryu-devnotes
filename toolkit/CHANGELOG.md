@@ -3,6 +3,13 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+- 2026-08-29 (119차): `sim_lane_departure_gate.py` 신규 — 118차
+  제안 차선이탈 강제해제 게이트(THRESH/CONFIRM_S) 파라미터 후보
+  합성 검증. 핵심 발견: 기존 2.0m 재사용 시 실측 이벤트(route1
+  t=5915~5932) 최대 dPath가 -1.99m라 아예 트리거 안 됨, 1.75m로
+  좁히면 자연해제 대비 2.25s 단축(근사치, route1.csv 미보유로 정밀
+  replay 아님).
+
 ## 2026-08-29 (114차 — replay_margin_accel_weight_full.py 신규,
 113차 유실분 대체+확장, ROUTE1 재평가)
 - `replay_margin_accel_weight_full.py` 신규: margin_accel_weight(dist_w)
