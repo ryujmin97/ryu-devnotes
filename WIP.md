@@ -1,3 +1,55 @@
+## 119차 계속 (완료 — 패치 작성+`git am` 재적용 검증+전달 완료, 사용자 확인 대기) — `radard.py`에 LANE_DEPARTURE 게이트(1.75m/0.5s) 실제 반영, `0001-lane-departure-gate.patch`
+
+**작업**: 아래 119차(파라미터 합성검증) 직후, 사용자가 "패치작업"
+요청 → 검증 없이 route1 실측 replay는 아직 안 됐지만("잠정치"로
+명시하고) 사용자 지시에 따라 바로 패치 작성으로 진행.
+
+**변경 내용** (`selfdrive/controls/radard.py`, base
+`76c985c`=117차):
+1. 상수 3개 신규 추가 (L42~ 부근): `LANE_DEPARTURE_DPATH_THRESH=1.75`,
+   `LANE_DEPARTURE_CONFIRM_S=0.5`,
+   `LANE_DEPARTURE_VREL_GATE=CUTOUT_VREL_GATE`(-0.5). 각 상수 옆에
+   118차 원인/119차 검증 근거를 주석으로 남김.
+2. `RadarD.__init__()`에 `self._lane_departure_cnt = {0: 0.0, 1: 0.0}`
+   디바운스 카운터 추가.
+3. `RadarD.get_lead()` 내 `lead_dict` 확정 직후(corner_radar 보정
+   이후, `low_speed_override` 이전)에 게이트 삽입 — **index==0
+   (leadOne)에만 적용**, leadTwo는 118차 미결정 3번(cut-in 감지 등
+   용도 상이) 그대로 보류. `lead_dict['status']`가 True이고
+   `|dPath|>1.75` 이고 `vRel>-0.5`(강접근 아님)인 프레임이
+   `DT_MDL` 단위로 누적돼 0.5초 이상 지속되면
+   `lead_dict={'status': False}; radar=False`로 강제 전환. 이
+   경로는 radar-lock(빨간박스) 상태를 포함해 `lead_dict`가 어느
+   경로로 확정됐든 매 프레임 재평가되므로, 118차가 확인한
+   "`lead_one_raw.get('radar') and not lead_one_scc_fallback`일
+   때 `LeadBlend.update()` 자체가 스킵되는" 우회 문제를 구조적으로
+   해결.
+
+**capnp 스키마 안전성**: `lead_dict`는 기존에도 매 경로에서 이미
+`dict`로 재구성되던 값이고, 이번 변경은 메시지 필드 신규 접근/신규
+쓰기 없이 기존 `lead_dict`/`radar` 로컬 변수 값만 조건부로 덮어씀
+— capnp 스키마 변경 없음(40차류 크래시 리스크 없음, key_learnings
+원칙 확인).
+
+**검증**:
+- `python3 -m py_compile selfdrive/controls/radard.py` → OK
+- `git format-patch -1 HEAD` → `0001-lane-departure-gate.patch`
+  생성 → 별도 브랜치(`verify-am`, base `76c985c`)에서 `git am`
+  재적용 → 성공, `py_compile` 재확인 OK.
+
+**아직 안 된 것 (사용자 확인 전 명시적으로 남김)**:
+- 1.75m/0.5s는 **근사 재현(route1.csv 실측 replay 아님) 기반
+  잠정치** — 119차(합성검증)에서 이미 밝힌 한계 그대로 유지. 실측
+  replay, 정상주행 로그 전수 스캔(오탐율 실측 확인)은 아직 안 함.
+- 실차 검증 전무(패치만 작성됨, 사용자가 로컬에서 `git am` 적용 후
+  실주행/replay로 확인 필요).
+- leadTwo 적용 여부 미결정 그대로.
+
+**다음 세션**: 사용자가 이 패치를 적용/실차 검증 또는 route1 원본
+확보 후 정밀 replay 재요청 시 그에 맞춰 진행. `radar_state.leadOne`
+쪽 downstream(long_mpc.py 등)에 이번 변경으로 인한 부작용 없는지도
+필요시 다음 세션에 재확인.
+
 ## 119차 (체크포인트 — 118차 제안 LANE_DEPARTURE 게이트 파라미터 후보 합성검증, 코드 미반영) — 사용자 제안 THRESH=1.75m/CONFIRM_S=0.5s를 `sim_lane_departure_gate.py`(신규, toolkit 편입)로 검증
 
 **배경**: 118차에서 제안한 "빨간 박스(검증된 레이더락) 상태에서도
