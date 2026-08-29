@@ -9217,3 +9217,77 @@ boost 무력화 메커니즘 자체는 일반 주행에서도 재현되는 진�
 
 **다음 세션(또는 이어서)**: 위 근거를 바탕으로 옵션1(플리커 감지 후에만
 confirm-hold, 권장) 패치 설계/구현 재착수 가능.
+
+## [REVIEW, 코드변경없음] 136차 — 실차 params.json 백업 검토, LateralTorqueCustom 게이팅 발견
+
+- **배경**: 사용자가 `params_backup-4.json`(161키) 업로드, 수정/추천값
+  질문. `ryu/selfdrive/carrot_settings.json`(title/min/max/default
+  메타데이터)과 대조해 기본값 대비 변경된 73개 항목 추출 후, 그 중
+  실제 코드 게이팅까지 확인한 것만 아래에 정리.
+
+- **1. LateralTorqueCustom=0 + LateralTorqueKf/Ki/Kd/Kp/Friction/
+  AccelFactor 전부 비기본값 (핵심 발견)**:
+  `selfdrive/controls/lib/latcontrol_torque.py` L144-152:
+  ```python
+  if lateralTorqueCustom > 0:
+    self.torque_params.latAccelFactor = ...LateralTorqueAccelFactor...
+    self.torque_params.friction = ...LateralTorqueFriction...
+    lateralTorqueKp = ...LateralTorqueKpV...
+    ...
+  elif self.lateralTorqueCustom > 1:  # reset to default
+    ...
+  ```
+  값: `LateralTorqueKf=85`(기본100), `Friction=30`(기본100),
+  `Kd=0`(기본0, 동일), `KiV=10`(기본0?), `KpV=73`(기본100),
+  `AccelFactor=2500`. `LateralTorqueCustom` 자체는 0(기본과 동일) —
+  즉 게이트가 꺼져 있어 이 값들은 **런타임에 전혀 읽히지 않음**(if문
+  자체가 False). 대신 `update_live_torque_params()`가 openpilot의
+  liveTorqueParameters(자동추정)를 그대로 적용 중(같은 파일 L132-138).
+  **의도 확인 필요**: 커스텀 튜닝을 실제로 쓰려던 것이면
+  `LateralTorqueCustom=1`로 켜야 함. 자동추정을 원하는 게 맞다면 현재
+  상태 정상, 나머지 필드값은 죽은 설정.
+
+- **2. LatSuspendAngleDeg=45 (허용범위 45~300의 최솟값)**: 자동조향
+  일시중단 스티어링각 임계값. `CustomSteerMax=408`(토크상한 커스텀,
+  기본0=미사용)과 조합 시, 강한 토크가 필요한 급커브에서 각도임계값에
+  먼저 걸려 조향보조가 꺼질 잠재 위험 — 실사용 의도(예: 특정 안전
+  마진 확보 목적) 확인 안 됨, 코드상 게이팅 로직까지는 이번 세션에서
+  추적하지 않음(단순 파라미터 값 관찰).
+
+- **3. SteerActuatorDelay=0 (기본 30)**: 버그 아님. `modeld.py`
+  L430-433:
+  ```python
+  if custom_lat_delay > 0.0:
+    lat_delay = custom_lat_delay + lat_smooth_seconds + 0.1
+  else:
+    lat_delay = sm["liveDelay"].lateralDelay + lat_smooth_seconds + 0.1
+  ```
+  0은 "liveDelay(자동측정 조향 지연) 사용" 모드 선택으로, 고정값(30=
+  0.30s) 대신 openpilot이 실측한 지연을 쓰는 대안 방식. 정상 동작
+  분기, 수정 불필요.
+
+- **4. EnableRadarTracks=-1**: 기존 37차 옆차선 오인식 이슈(track_scc
+  trackId=0 폴백, `radard.py` L946 `self.enable_radar_tracks == -1`
+  조건)와 직결된 값. 이후 `SCC_FALLBACK_DPATH_GATE=2.0m` 패치
+  (PARAMS_REGISTRY.md 참고, PATCH_APPLIED)가 이 조건 경로에도 게이트를
+  추가해 완화된 상태 — 값 자체를 바꿀 필요는 없어 보이나, 해당 패치의
+  실차 검증이 아직 NEEDS_VALIDATION이라는 점과 연결지어 인지만 해둘
+  것.
+
+- **5. VEgoStopping=5 (=0.05, 기본 50=0.50 추정, x0.01 스케일)**:
+  일반적으로 쓰이는 값 대비 10배 민감한 정지판정 임계값
+  (`modeld.py`/carrot 쪽에서 사용). 코드 경로 상세 추적은 이번 세션
+  범위 밖 — 정지/출발 시점 체감 이상 있으면 다음 세션에서 우선 조사
+  후보로 기록.
+
+- **나머지**: CruiseSpeed1~5/CruiseMaxVals0~6/AutoNaviSpeed*/
+  AutoCurveSpeed* 등 68개는 크루즈속도 프리셋·가속프로파일·내비연동
+  커스터마이징 범주 — 상호 모순이나 위험 신호 없음, 개별 기록 생략.
+
+- **주의**: `carrot_settings.json`의 "default" 필드가 일부 항목(예:
+  `DynamicTFollowLC` — JSON default=0인데 range=[20,100]로 범위밖,
+  title 표시값은 (100))에서 title 표시값과 불일치 — 이 JSON의
+  default 필드를 전면 신뢰하지 말고, 실제 코드에서 게이팅을 확인한
+  항목(위 1~5번)만 결론으로 채택함.
+
+- **범위**: 코드/패치 변경 없음. 실차 미검증(관찰/코드대조 리뷰만).

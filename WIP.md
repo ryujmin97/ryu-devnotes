@@ -1,3 +1,59 @@
+## 136차 (완료 — 분석만, 코드변경 없음) — 실차 params.json 백업 파일 검토(carrot_settings.json 대조)
+
+**배경**: 사용자가 실차 params 백업(`params_backup-4.json`, 161개 키)을
+업로드하고 "수정하거나 추천값 있나" 질문. 로그분석/패치 세션 아니고
+현재 UI 설정값 스냅샷에 대한 1회성 리뷰 요청.
+
+**방법**: `ryu/selfdrive/carrot_settings.json`(UI 파라미터 메타: title/
+min/max/default)과 대조해 기본값과 다른 73개 항목 추출 → 그중 실제
+코드(controlsd.py/latcontrol_torque.py/modeld.py/radard.py) 게이팅
+로직까지 확인해 "현재 값이 실제로 적용되는지"까지 검증한 항목만 결론
+확정.
+
+**핵심 발견 (사용자에게 보고 완료)**:
+1. **`LateralTorqueCustom=0`인데 `LateralTorqueKf/Ki/Kd/Kp/Friction/
+   AccelFactor`가 전부 기본값과 다르게 커스텀돼 있음** —
+   `latcontrol_torque.py` L145 `if lateralTorqueCustom > 0:` 게이트가
+   꺼져 있어 이 6개 커스텀값은 **전혀 적용되지 않고 있음** (대신 openpilot
+   live torque 자동추정값 사용 중). 의도적으로 커스텀 튜닝값을 넣어둔
+   거라면 `LateralTorqueCustom`을 1로 켜야 반영됨 — 반대로 자동추정을
+   원한다면 현재 상태가 맞고 커스텀 필드값들은 그냥 죽은 설정으로 둬도
+   무방.
+2. `LatSuspendAngleDeg=45` — 허용범위(45~300)의 **최소값**. 자동조향이
+   일시중단되는 스티어링휠 각도 임계값이라, `CustomSteerMax=408`(높은
+   토크허용)과 조합하면 정작 강한 토크가 필요한 급커브/급차선변경
+   구간에서 그 전에 먼저 조향보조가 꺼질 위험 — 의도적 설정인지 확인
+   권장.
+3. `SteerActuatorDelay=0` — 이건 버그 아님, `modeld.py` L430 로직상
+   0은 "고정값 대신 `liveDelay.lateralDelay`(자동측정치) 사용" 모드.
+   기본값 30(0.30s 고정)과 다른 게 정상 동작 방식 차이일 뿐.
+4. `EnableRadarTracks=-1` — 프로젝트가 계속 추적 중인 SCC 단일점
+   레이더(`track_scc`, trackId=0) 폴백 채택 조건(`radard.py` L946)과
+   직결. 37차에서 이 값이 `-1`일 때 옆차로 오인식 위험이 근본원인으로
+   지목됐었으나, 이후 `SCC_FALLBACK_DPATH_GATE`(dPath<2.0m) 패치가
+   이미 적용돼 완화됨(PARAMS_REGISTRY 참고, 다만 실차 완전검증은 아직).
+   현재 -1 유지는 "문제"는 아니고 기존에 진행 중인 검증 트랙과 그대로
+   연결되는 항목이라는 점만 확인/기록.
+5. `VEgoStopping=5`(=0.05, x0.01 스케일) — UI 상 일반적으로 쓰이는
+   값(50=0.50) 대비 10배 민감. modeld.py/carrot 정지판정 임계값이라
+   너무 낮으면 정지판정이 과민(혹은 반대로 지연)할 수 있음 — 실주행
+   체감(정지/출발 시점 어색함) 있었는지 확인 후 조정 권장, 이번엔
+   코드 경로까지 깊게 추적하지 않음(NEEDS_VALIDATION 성격, 후속 필요시
+   재조사).
+
+**나머지 68개 차이값**(CruiseSpeed1~5/CruiseMaxVals0~6/AutoNaviSpeed*/
+AutoCurveSpeed* 등)은 크루즈속도 프리셋·가속프로파일·내비연동 설정류로
+사용자 취향 커스터마이징 범주로 판단, 특별한 이상 신호 없음 — 상세
+비교표는 아래 참고용으로만 work 폴더에 있었음(레포에는 저장 안 함,
+1회성 스냅샷 비교라 재사용 가치 낮다고 판단).
+
+**결론**: 코드/패치 변경 없음, 이번 세션은 순수 리뷰. 1번(LateralTorqueCustom)
+이 가장 실질적인 발견 — 사용자 의도 확인 필요.
+
+**사용자 확인 필요**: (1) LateralTorqueKf 등 커스텀 토크값을 실제로 쓰고
+싶었는지(그럼 LateralTorqueCustom=1 필요), (2) LatSuspendAngleDeg=45가
+의도적인지, (3) VEgoStopping=5 관련 체감 이상 여부.
+
 ## 135차 계속 (완료 — 1번 패치 적용, 2번 blame 조사 완료/보류 확정, 3번 보류) — cruise.py line500 죽은분기 제거 + line562 의도 조사
 
 **배경**: 135차 체크포인트에서 찾은 3개 항목(cruise.py 죽은분기 2건,
