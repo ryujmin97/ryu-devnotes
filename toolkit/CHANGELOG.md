@@ -3,6 +3,15 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+- 2026-08-29 (125차): `extract_cutin_lists.py` 신규 — rlog에서
+  `radarState.leadOne`/`leadsCutIn`/`leadsLeft`/`leadsRight`를 시간별로
+  원본 그대로 추출(게이트 재구현 없음). r354 t≈296~299 컷인 재분석에서
+  cutIn/left/right가 사건 내내 전부 비어있었음(옆차 yRel 최대 0.83m로
+  `in_lane_prob` 계산상 "차로 안" 판정 유지) 확인 — "차선 폭 넓히기"
+  제안이 이 사례엔 무력함을 입증. 124차의 TTC 계산(7초+)이 실제 위험
+  구간(t=297.0 이후, dRel 5.3→1.8m, yRel 0→0.8m 급변, TTC 3.1초)을
+  놓쳤던 것도 이번에 정정됨(상세는 FINDINGS.md "125차" 참고).
+
 - 2026-08-29 (120차): `replay_lane_departure_gate.py` 신규 — 119차
   실제 패치(radard.py LANE_DEPARTURE 게이트)를 실차 route CSV
   4개(89996행)로 검증. PASS 5/FAIL 3 — `LeadBlend.update()`가 게이트의

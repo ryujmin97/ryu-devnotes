@@ -948,6 +948,38 @@ note에 판단 근거 명시).
 python3 replay_lane_departure_gate.py <route.csv> [<route.csv> ...]
 ```
 
+## extract_cutin_lists.py (125차, 신규)
+**목적**: rlog에서 `radarState`의 `leadOne`/`leadsCutIn`/`leadsLeft`/`leadsRight`
+리스트(radard.py `compute_leads()`가 실제로 산출한 최종 결과 그대로)를
+시간별로 추출. `extract_log.py`는 최종 선택된 leadOne만 CSV로 뽑기 때문에,
+"인접 차선 차량이 실제로 언제부터 cutin/left/right 후보로 잡혔는지"를
+보려면 이 스크립트가 필요함. 125차, 컷인_이거는_차선_폭을_넓게(133212)
+정밀분석 계기로 작성 — 게이트/hysteresis 로직을 재구현하지 않고 실제
+publish된 리스트를 그대로 읽으므로 로직 drift 위험이 없음.
+**입력**: route_dir(세그먼트 여러 개) 또는 단일 세그먼트 폴더 둘 다 지원.
+**출력**: `--json` 없으면 지정 시간창(`--t-lo`/`--t-hi`)을 사람이 읽기 좋게
+stdout 출력. `--json <path>`면 라우트 전체를 JSONL로 저장(leadOne dict +
+cutIn/left/right 리스트 전체 보존).
+**125차 핵심 발견**: r354 t≈296~299 컷인 사례를 이 스크립트로 재생한 결과
+`leadsCutIn`/`leadsLeft`/`leadsRight`가 사건 전체 구간에서 단 한 번도
+비지 않았음(n=0 유지) — 옆차의 yRel이 최대 0.83m로, `in_lane_prob`
+계산상 "여전히 내 차로 안"으로 분류되어 애초에 "차로 밖 후보" 게이트가
+개입한 적이 없었음. 즉 `lane_half_width` 관련 임계값을 넓히는 방향의
+수정은 이미 발동한 적 없는 이 게이트를 더 관대하게 만들 뿐이라 이 사례엔
+무력함(FINDINGS.md "125차" 참고). 이 발견은 `decode_rlog.py`의
+`liveTracks`(원시 레이더 포인트, yRel/dRel raw) + `modelV2.leadsV3[0]`
+(비전 단독 후보 x/y)를 병행 조회해서 얻음 — 이 두 신호는 아직 별도
+toolkit 함수로 감싸지 않았으니, 다음에 유사 분석이 필요하면 이
+스크립트의 `process_route()`와 나란히 `decode_rlog.iter_events()`를
+`liveTracks`/`modelV2` 필터로 직접 순회하는 패턴을 참고할 것.
+**사용**:
+```bash
+python3 extract_cutin_lists.py <route_or_seg_dir> --repo /home/claude/ryu \
+    --t-lo 294 --t-hi 300
+python3 extract_cutin_lists.py <route_dir> --repo /home/claude/ryu \
+    --json /home/claude/work/cutin_lists.jsonl
+```
+
 ## 아직 없는 카테고리 (필요해지면 추가)
 - `toolkit/sim/` — 시뮬레이터 스크립트가 `sim_vision_rate.py` 하나를
   넘어 여러 개로 늘어나면 이 시점에 하위 폴더로 분리 검토.
