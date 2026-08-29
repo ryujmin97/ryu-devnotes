@@ -1,3 +1,88 @@
+## 140차 — [PATCHED, 실차검증 필요] PathOffset 레인리스 최종 조향 미반영 수정(controlsd.py curvature 소스 전환)
+
+**배경**: 138/139차에서 확인된 문제(`lateral_planner.py`가 계산한
+`lateralPlan.curvatures`에는 `PathOffset`이 반영되지만, `controlsd.py`가
+레인리스 모드에서는 이 값을 버리고 `model_v2.action.desiredCurvature`
+(offset 무관, 신경망 직접출력)를 사용해 실제 조향에 미반영되던 문제)를
+사용자 요청으로 패치.
+
+**패치 방향**: 두 후보 중 (a) — `controlsd.py`의 레인리스 분기에서
+`PathOffset`이 0이 아닐 때만 `lat_plan.curvatures`(offset 반영된 MPC
+출력)를 쓰도록 전환. (b)(레인모드 조건 자체를 완화) 대신 (a)를 택한 이유:
+`PathOffset==0`(기본값, 대다수 사용자)일 때는 분기 결과가 기존과 100%
+동일해 리그레션 리스크가 0에 가까움.
+
+**구현**:
+- `controlsd.py` `__init__`에 `self._path_offset_active = False` 초기화 추가.
+- `state_control()`의 기존 100프레임 Params 캐싱 블록(97차 패턴)에
+  `self._path_offset_active = self.params.get_int("PathOffset") != 0` 추가.
+  cereal 스키마 변경 없음 — `lateral_planner.py`와 별개 프로세스지만 동일한
+  `Params()` 파일을 각자 직접 읽어 값 동기화(37차 capnp 스키마 미스매치
+  크래시 전례를 피하기 위해 스키마 변경 대신 이 방식 택함).
+- curvature 소스 선택 조건을 `self.lanefull_mode_enabled` →
+  `use_mpc_curvature = self.lanefull_mode_enabled or self._path_offset_active`로
+  변경. `len(lat_plan.curvatures)==0` 폴백(`self.curvature` 유지)은 기존
+  그대로 유지되어 MPC 데이터 없을 때도 안전.
+
+**합성검증**: `toolkit/sim_path_offset_laneless_curvature_source.py`(신규)
+로 6개 조합(latActive/lanefull/offset_active/curvatures유무) 로직단위
+검증, 6/6 PASS. 특히 "PathOffset=0, 레인리스" 케이스가 기존 분기
+(`modelActionBranch`)와 정확히 일치함을 확인 — 기본값 사용자 리그레션 없음.
+
+**py_compile**: 통과.
+
+**미완료(실차검증 필요)**:
+- 이번 패치는 "레인리스에서 MPC 곡률을 쓰게 전환"한 것뿐이고, MPC가 실제로
+  offset 방향/크기대로 정확히 추종하는지, 부드럽게 수렴하는지는 실주행에서
+  확인 필요.
+- 레인리스에서 MPC 곡률로 전환되면 `model_v2.action.desiredCurvature`
+  대비 반응 특성(지연/부드러움 등)이 다를 수 있음 — `PathOffset!=0`으로
+  설정해 레인리스 구간을 실제로 주행하며 조향 부드러움/오버슈트 여부 확인 필요.
+- 커브 진입/이탈 등 `lanefull_mode_enabled`가 자주 토글되는 구간에서
+  `PathOffset!=0`이면 레인모드↔레인리스 전환마다 curvature 소스가 매번
+  동일(MPC)하게 유지되므로 오히려 전환 시 튐이 줄어들 가능성도 있으나
+  확인 안 됨.
+
+**패치파일**: `0001-path-offset-laneless-curvature.patch`(로컬 커밋
+`d7b1e2a`, base `1706706`=136차 HEAD). `git am`으로 적용.
+
+## 139차 — [정정, 코드변경 없음] lane_offset_filtered.x도 레인리스에서 pathOffset과 동일하게 미반영 (137/138차 이어서 확인)
+
+**배경**: 외부(타 AI) 감사에서 "PathOffset보다 `lane_offset_filtered.x`
+(레인모드 차선폭 기반 보정, `AdjustLaneOffset` 계통)가 레인리스에서 실제
+조향에 영향을 줄 가능성이 더 높다"는 우선순위 제안이 있었음 — 이를 실제
+코드로 재검증.
+
+**결론: 근거 없음. `lane_offset_filtered.x`는 `pathOffset`과 완전히 동일한
+경로/운명을 공유하므로 138차 결론이 그대로 적용됨(레인리스 미반영).**
+
+**근거**: `lane_offset_filtered.x`가 `path_xyz`에 더해지는 지점
+(`lane_planner_2.py` line 249, `CAMERA_OFFSET + lane_offset_filtered.x`)은
+`get_d_path()` **함수 내부**이고, `get_d_path()`는 `lateral_planner.py`
+line 150에서 호출되어 `self.path_xyz`로 반환됨 — `pathOffset`이 더해지는
+line 163보다 **먼저** 같은 배열에 반영됨. 따라서 두 오프셋 모두 이후
+동일한 `y_pts → lat_mpc.run() → lateralPlan.curvatures` 파이프라인을
+공유하고, 138차에서 확인한 `controlsd.py`의 `lanefull_mode_enabled` 분기에
+의해 레인리스 모드에서는 이 `lateralPlan.curvatures` 자체가 통째로
+버려짐(`model_v2.action.desiredCurvature` 대체 사용). 즉
+`lane_offset_filtered.x`가 `pathOffset`과 별도의 특별한 경로를 갖지
+않음 — 완전히 같은 결론.
+
+**부가 확인**: `self.LP.offset_total`(=`lane_offset_filtered.x`)이 쓰이는
+유일한 다른 지점은 `lateral_planner.py` line 264 디버그 텍스트뿐이며,
+이마저도 `self.lanelines_active`(레인모드)일 때만 표시되도록 조건부라
+별도 사이드채널 없음.
+
+**시사점**: "레인리스에서 미세하게 한쪽으로 붙는다"는 현상이 실제 관찰된다면,
+`pathOffset`/`lane_offset_filtered.x` 어느 쪽도 원인이 될 수 없음 —
+`model_v2.action.desiredCurvature`(modeld.py 신경망 직접출력) 자체의 편향,
+또는 카메라 캘리브레이션/장착 오차 쪽을 우선 의심해야 함. 이번 세션 범위
+밖이라 조사는 안 함, 기록만.
+
+**교훈(작업 방식 메모)**: 외부 AI 감사나 텍스트 요약 기반 우선순위 판단은
+실제 소스코드 재추적 없이는 신뢰하지 말 것 — 이번 건처럼 문서 텍스트만
+보고 "이 변수가 다를 것"이라 추정하면 잘못된 우선순위를 매길 수 있음.
+
 ## 138차 — [정정/RISK_IDENTIFIED, NEEDS_USER_DECISION] PathOffset 레인리스 최종 조향 미반영 확인 (137차 결론 정정)
 
 **137차 결론 정정: `path_xyz` 레벨 계산은 137차 기록대로 맞으나, 그 결과가

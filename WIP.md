@@ -1,3 +1,30 @@
+## 140차 (완료 — 구현+합성검증+패치전달 완료, 실차검증 대기) — PathOffset 레인리스 최종 조향 반영 패치
+
+`controlsd.py`의 curvature 소스 선택 분기를 `use_mpc_curvature =
+lanefull_mode_enabled or self._path_offset_active`로 수정해, `PathOffset`
+설정 시(Params `PathOffset != 0`) 레인리스에서도 `lateralPlan.curvatures`
+(offset 반영된 MPC 출력)를 쓰도록 함. `PathOffset==0`(기본값)이면 기존
+동작과 100% 동일(리그레션 없음). `sim_path_offset_laneless_curvature_source.py`
+(신규, toolkit 편입)로 6/6 PASS, `py_compile` 통과. cereal 스키마 변경
+없이 `Params()` 직접 읽기로 구현(37차 capnp 크래시 전례 회피).
+패치파일 `0001-path-offset-laneless-curvature.patch`(로컬 커밋 `d7b1e2a`,
+base `1706706`) 전달, `git am`으로 적용. **실차검증 필요**: PathOffset!=0
+설정 후 레인리스 구간 실주행하며 조향 부드러움/추종 정확도 확인. 상세는
+FINDINGS.md 140차 참고.
+
+## 139차 (완료 — 분석만, 코드변경 없음) — lane_offset_filtered.x도 pathOffset과 동일하게 레인리스 미반영 확인 (외부 감사 우선순위 제안 반박)
+
+외부(타 AI) 감사가 "PathOffset보다 `lane_offset_filtered.x`가 레인리스에서
+더 의심된다"고 제안했으나, 실제 코드 재추적 결과 **근거 없음으로 확인**.
+`lane_offset_filtered.x`는 `get_d_path()` 내부에서 `pathOffset`보다 먼저
+같은 `path_xyz` 배열에 더해지고, 이후 138차에서 확인한 것과 완전히 동일한
+경로(`lat_mpc → lateralPlan.curvatures → controlsd.py lanefull_mode_enabled
+분기`)를 거쳐 레인리스에서 똑같이 버려짐. 즉 두 변수 모두 레인리스에서는
+최종 조향에 영향 없음 — 우선순위 차이 없음. "레인리스에서 미세하게
+붙는 현상"의 원인 후보는 오히려 `model_v2.action.desiredCurvature`(신경망
+직접출력) 편향이나 카메라 캘리브레이션 쪽으로 좁혀짐(조사는 안 함, 기록만).
+상세 근거는 FINDINGS.md 139차 참고. 패치 없음.
+
 ## 138차 (완료 — 분석만, 코드변경 없음, 137차 결론 정정) — PathOffset 레인리스 최종 조향 미반영 발견
 
 `path_xyz`/`lateralPlan` 다운스트림 추적 결과, **137차 결론을 정정**:
