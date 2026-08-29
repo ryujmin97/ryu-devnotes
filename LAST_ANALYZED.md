@@ -1047,3 +1047,9 @@ margin_kph 가설 재현 시도 NEGATIVE(최대 1.84kph, 실측 Δ-25kph 못 미
 (Δ-19.8kph 단일프레임) 재현. 코드 미수정, NEEDS_VALIDATION. 상세는
 WIP.md/FINDINGS.md 131차 항목 참고. **다음은 실제 도로좌표 확보 후
 정밀매칭 + 패치 방향 설계.**
+
+[갱신, 같은 131차 세션] "실제 교차로 좌표 확보"는 rlog의 `gpsLocation`
+(1Hz) 채널 + 실제 회전구간 desiredCurvature 반경역산(17.3m)만으로
+지도 API 없이 해결됨. 이 반경 대입 재검증 결과 Δ-20.65kph 단일프레임
+급락 재현 — 129차 실측(Δ-24.0)과 거의 동일 규모로 정밀매칭 완료.
+Hypothesis C SUCCESS 확정. 다음은 패치(윈도우 경계 완충) 설계.
