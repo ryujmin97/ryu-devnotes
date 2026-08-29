@@ -1,3 +1,187 @@
+## c3-ms-dev (134차, 전체코드 정적 리뷰 — 최근 패치 상호영향 검토, 신규 이슈 1건(낮은 심각도)/코드 변경 없음)
+- last_analyzed_commit: `f24cbf8`(origin HEAD, 132차 반영) — 이번 세션은
+  코드 수정 없이 정적 리뷰만 수행
+- date: 2026-08-29 (134차)
+- note: `long_mpc.py` discontinuity/handoff/discontinuity_lc/
+  low_speed_strong_decel 4종 부스트 트리거 상호작용, `radard.py` LeadBlend
+  BIG_JUMP 게이트(104/130차)와의 방향성 비충돌, `carrot_man.py` 132차
+  램프 리미터의 독립성을 확인 — 신규 회귀 없음. 112차 boost-arm 가드
+  비대칭 1건 발견(NEEDS_VALIDATION, 낮은 심각도 — jerk cost 완만화
+  지속시간에만 영향, 안전 반응 크기는 무관). 상세는 FINDINGS.md/WIP.md
+  "134차" 참고.
+
+## c3-ms-dev (133차, 132차 램프 리미터 패치 실측 재검증 — LOG_VALIDATED, 코드 변경 없음)
+- last_analyzed_commit: `89f1765fb10a`(132차 패치 반영 이후, c3-ms-dev)
+- date: 2026-08-29 (133차)
+- 분석 대상: route `306de77a28` seg15(129차/131차와 동일, 사용자 재업로드,
+  GPS 좌표 포함 zip) — 60초 단일세그먼트, 1200행 20Hz CSV +
+  gpsLocation 60행(1Hz) 신규 추출.
+- note: 132차 패치를 실측 desiredSpeed(route) 원본 시계열에 직접
+  사후적용(`replay_route_ramp_limiter_direct.py`, 신규) — 실측 급락
+  2건(t=4.25 Δ-25, t=28.35 Δ-24) 모두 accel_limit_kmh(2.52kph/s) 이내로
+  완화 확인. 상세는 FINDINGS.md/WIP.md "133차" 참고. route CSV/gps CSV는
+  work/에 있으나 대용량 정책상 레포 미커밋 + Google Drive 커넥터 이번
+  세션 미연결 -- 컨테이너 리셋 시 소실, 필요시 zip 재업로드.
+## c3-ms-dev (124차, 컷인 5클립 전수분석 + 123차 원인가설 2건 기각 — 중단/코딩방향 미결정, 코드 변경 없음)
+- last_analyzed_commit: `21adb2c013f4`(119차 반영, c3-ms-dev — route354/
+  356 재추출 meta.json 확인, 123차와 동일 커밋)
+- date: 2026-08-29 (124차)
+- 분석 대상: route354/356 zip 재업로드분(123차 컨테이너 리셋으로
+  소실된 것 재확보) + 컷인 관련 클립 5개 전수(133212/133149/141434/
+  134659/141833).
+- note: **[중요] 123차가 지목한 원인가설 2건
+  (`radard.py` L420 `VISION_TRACK_TENTATIVE_DPATH_ABS_GATE`,
+  `long_mpc.py` `DREL_DISCONTINUITY_DROP_THRESH`) 모두 0.05초 단위
+  고해상도 재검증으로 기각됨** — 실제 유일한 문제사례(r354
+  t≈296~302)는 동일 trackId=0가 레이더를 2프레임 놓쳤다가 재락온하며
+  거리값을 스냅 보정하는 완전히 다른 메커니즘. 다음 세션에서 이
+  메커니즘 자체를 다룰 신규 로직 설계 여부를 사용자가 결정할
+  예정(코드 미수정, 4가지 방향 옵션 WIP.md "124차" 참고). r354/r356
+  CSV는 work/에 있으나 컨테이너 리셋 시 소실 가능 — 필요시 zip
+  재업로드.
+## c3-ms-dev (123차, 컷인/컷아웃 세번째 검증 — 중단/미완료, 코드 변경 없음)
+- last_analyzed_commit: `21adb2c013f4`(119차 반영, c3-ms-dev — route354
+  ~357 extract_log.py meta.json 확인)
+- date: 2026-08-29 (123차)
+- 분석 대상: 사용자 업로드 route zip 4개(`00000354` x19seg 13:30:24~,
+  `00000355` x20seg 13:49:24~, `00000356` x20seg 14:09:24~,
+  `00000357` x5seg 14:29:24~ — 4개가 연속 주행 하나로 이어짐,
+  t=138.46~3929.40 단일 타임라인) + 컷인/컷아웃 화면녹화 클립 8개.
+- note: **route CSV(r354~357.csv)가 work/에만 있었고 재추출 전
+  컨테이너 리셋으로 소실됨 — 다음 세션에서 이어가려면 zip
+  재업로드 필요**(zip 자체를 devnotes에 커밋하지 않았으므로 여기
+  경로 기록 없음, 사용자 로컬에 원본 보관 여부 확인 필요). 매칭
+  완료된 것: 컷아웃_135527→r355 t≈1666~1696, 컷아웃_141322→r356
+  t≈2760~2774, 컷인_이거는_차선_폭을_넓게_133212→r354 t≈296~302.
+  컷인_141434/복합클립 3건은 route t 매핑 전 단계에서 중단(파일명
+  시각만으로는 부정확 — 121차/111차 학습대로 qcamera/HUD 대조 필요,
+  다음 세션에서 CSV 재확보 후 진행). 상세 발견사항은 FINDINGS.md
+  "123차" 참고.
+## c3-ms-dev (118차, 앞차 컷아웃/차선이탈 락온 미해제 원인분석 — 코드 변경 없음)
+- last_analyzed_commit: `76c985ca86f5`(117차 반영, c3-ms-dev, 사용자
+  업로드 로그 실제 실행 커밋과 동일 — extract_log.py meta.json 확인)
+- date: 2026-08-29 (118차)
+- 분석 대상: 사용자 업로드 `앞차_컷아웃.Zip` — route1(`ce1f43d848`
+  x20seg, 12:16:14~12:36:14, 24000행) / route2(`bc5b8243eb` x5seg,
+  12:36:14~12:40:01, 5734행) + CarrotWeb 화면녹화 클립 2개(`_clip.mp4`,
+  각 ~30초, HUD 오버레이 포함— 파일명 시각 12:19:25 / 12:37:48).
+- note: **클립-route t 매핑 실패(중요, 다음에 참고)** — 클립이 두
+  라우트에 각 1개씩뿐이라 `match_dashcam_clip_to_route.py`(111차,
+  클립 2개+상대시간차 매칭 필요)를 적용할 수 없었음. 클립 자체(HUD
+  오버레이) 1fps 프레임 직접 육안분석으로 대체 — qcamera 프레임
+  추출/시각대조는 이번엔 미실시(클립 자체가 이미 HUD 정보를 포함해
+  1차 증거로 충분했음). route1 CSV는 `leadDPath/leadYRel/leadDRel/
+  leadVRel/leadStatus/leadRadar` 전체를 훑는 신규(1회성) 스캔으로
+  t=5915.03~5932.53 이벤트 1건 확보(FINDINGS.md "118차" 참고). 코드
+  변경 없음, 설계 제안 단계에서 사용자 확인 대기.
+## c3-ms-dev (115차, pre-112차(b67c291) 실측 로그 4건 — 112차 threshold 실측검증 확장, 코드 변경 없음)
+- **분석 대상 로그의 실제 device 펌웨어 커밋**: `b67c2912a2d3` (사용자
+  확인, "Merge c3-ms-curv into c3-ms-dev (81,82,84,85,87,91차 통합)",
+  2026-08-27 10:23 KST) — 94/98/100/101/109/112차 전부 미반영 상태.
+  **주의**: `extract_log.py` meta.json의 `commit` 필드(`8a7baa0`,
+  112차)는 로컬 clone 시점 repo HEAD일 뿐 이 값과 다름 — 실측 로그의
+  실제 실행 커밋은 항상 사용자에게 별도 확인할 것.
+- 분석 도구 기준 repo(origin HEAD, 비교용): `8a7baa0ca0f6`(112차)
+- date: 2026-08-29 (115차)
+- 분석 라우트: `smooth(1028)`(08/28 10:28, 1세그), `lowspeed_a`(08/27
+  11:26, 2세그), `lowspeed_b`(08/27 12:06, 3세그), `lowspeed_c`(08/27
+  12:21, 3세그) — 전부 신규 라우트(기존 캐시 라우트와 무관).
+- note: **[용어 주의] 4개 로그 전부 112차 패치 미적용 상태의 실주행
+  로그** — 기존 `toolkit/replay_low_speed_strong_decel.py`로 이 로그
+  raw 값에 112차 threshold(-1.8→-2.5) 로직을 오프라인 재생(replay)해
+  "적용됐다면 어떻게 판정됐을지"를 시뮬레이션. 패치가 실제 구동된
+  로그로 검증한 게 아님(향후 과제). 재생 결과: smooth는 완전
+  PASS(오탐 완전제거 시뮬레이션), lowspeed_a/b부수는 부분개선(완전제거
+  아님), lowspeed_b 메인 이벤트(min aEgo -4.02, vEgo 33.5km/h)는
+  게이트 상한(30km/h) 밖이라 애초에 저속게이트와 무관 — dRel/vRel
+  연속변화로 봤을 때 진짜 선행차량 강감속에 대한 정상 반응으로
+  판단(버그 아님, 승차감 판단은 대시캠 대조 대기). lowspeed_c는
+  저속게이트 완전 무관. 상세는 WIP.md/FINDINGS.md "115차" 참고. 코드
+  변경 없음, 대시캠 대조/사용자 확인 대기.
+
+## c3-ms-dev (114차, margin_accel_weight 포함 완전 재현 — 코드 변경 없음)
+- last_analyzed_commit: `8a7baa0ca0f6`(origin HEAD, c3-ms-dev, 112차
+  threshold 패치(-1.8→-2.5) 반영본 — 이 시점에 이미 반영돼 있음을 확인)
+- date: 2026-08-29 (114차)
+- note: 113차 산출물(`replay_rise_rate_saturation.py`) 유실 확인(레포에
+  파일 없음, README/CHANGELOG 미등록) → 대체+확장판 `replay_margin_
+  accel_weight_full.py` 작성. margin_accel_weight(dist_w)를 carrot_
+  functions.py Params 기본값으로 완전 재현 + LOW_SPEED_STRONG_DECEL/TTC
+  danger override 포함. **ROUTE1 saturation 0.951s→0.250s로 재평가(이미
+  해소), ROUTE2(0.999s)/ROUTE3(0.903s)만 실질 harsh 유지, SMOOTH 전체
+  스캔에서 0.448s 노이즈성 에피소드(track-switch 추정) 발견 — 113차의
+  단순 threshold 판별지표 전제가 깨짐.** 상세는 WIP.md/FINDINGS.md
+  "114차" 참고. 코드 변경 없음, 다음은 사용자 확인 후 판별지표
+  재설계/범위 축소 방향 결정.
+
+## c3-ms-dev (111차, 사용자 제보 dashcam 클립 2건 분석 — 코드 변경 없음)
+- last_analyzed_commit: `02e1f93`(origin HEAD, 109차 패치 반영본)
+- date: 2026-08-28 (111차)
+- note: 클립 파일명-route t 매칭용 신규 도구
+  `match_dashcam_clip_to_route.py` 작성. 클립1=106차 중간사례(패치
+  무관), 클립2=106차/108차 심각사례(109차/110차 검증 대상과 동일,
+  실제 패치 영향은 0.19초뿐이며 진짜위험이라 결과적으로 거의 동일한
+  감속 예상). 상세는 WIP.md/FINDINGS.md "111차" 참고.
+
+## c3-ms-dev (110차, 109차 패치 검증 공백 해소 — 코드 변경 없음)
+- last_analyzed_commit: `02e1f93`(origin HEAD, 109차 옵션1 patch 반영본)
+- date: 2026-08-28 (110차)
+- note: 109차가 컨테이너 리셋으로 검증 못한 `947fbb7dc6`(최심각 사례,
+  min_aEgo -3.40)/`ad830211ff`(handoff 2건) 재업로드 후 PATCHED
+  재검증. 947fbb7dc6는 force_revert 지속시간 0.457s→0.209s 단축(위험
+  반응 min_aEgo는 보존), ad830211ff는 완전 무영향(설계대로). 로그 기반
+  replay 검증 전부 완료, 남은 과제는 실차 드라이브 검증뿐. 상세는
+  WIP.md/FINDINGS.md "110차" 참고.
+
+## c3-ms-dev (106차, 차선변경 중 leadRadar 핸드오프 급감속 원인 확정 — 코드 변경 없음)
+- last_analyzed_commit: `bc1bcb0`(origin HEAD, 101차 반영본과 동일 —
+  코드 수정 없이 실차 로그(92bb45496d 3세그+947fbb7dc6 4세그, dashcam
+  클립 3건) 분석만 수행. `f8e136e`(73차 방안I)/`f3773b5`(76차
+  discontinuity_lc)가 이미 조상 커밋으로 포함된 상태에서 기록된 로그.
+- date: 2026-08-28 (106차, 105차 체크포인트 완결)
+- note: 사용자 제보 "차선변경 중 앞차 급감속" 3건 재현 확인 — 방향지시등
+  활성 구간마다 leadRadar True/False 반복 토글 + leadDRel 물리적으로
+  불가능한 점프. mild(aEgo -1.12, 92bb45496d) / 중간(aEgo -2.4,
+  947fbb7dc6 seg1) / severe(aEgo -3.78, TTC danger min_ttc=1.55s,
+  947fbb7dc6 seg3) 3단계 확보. severe 사례는 76차가 미검증으로 남긴
+  "discontinuity_lc + harsh braking 실사례"를 최초로 충족 — 단
+  TTC danger override 발동 시 73차 boost가 즉시 base로 강제복귀되는
+  구조 확인(jerk 완화가 필요한 순간에 꺼짐). 화면녹화 HUD 대조로
+  리드 트랙ID 99→102→104 스위치 시각 확인. 다음 세션: extract_log.py에
+  leadTrackId 컬럼 추가 후 정량 재검토, 방안 설계는 착수 전. 코드
+  미착수. 상세는 WIP.md/FINDINGS.md "106차" 참고.
+
+## c3-ms-dev (104차, 오탐/반응둔감 제보 실차 로그 2건 분석 — 코드 변경 없음)
+- last_analyzed_commit: `bc1bcb0`(origin HEAD, 101차 반영본과 동일 —
+  이번 세션은 코드 수정 없이 실차 dashcam 로그(zip 2건+mp4 1건, seg10/
+  seg11 통합 route) 분석만 수행
+- date: 2026-08-28 (104차)
+- note: 사용자 제보 "오탐 및 앞차 반응 둔감" 검증. Finding A(t=683.22~
+  688.97, NEEDS_VALIDATION): 조향각 증가(커브) 구간 레이더 유실 시
+  vision-only 추정이 근접 실물체를 80~89m 원거리로 오판(qcamera 프레임
+  대조로 확인) — 신규 사각지대. Finding B(t=726.87~731.17, 재분류):
+  당초 "반응둔감"이라 제보됐으나 탐지 자체는 정상(트랙ID 불변, 레이더
+  안정 락온) — 실제 원인은 리드가 지속 접근 중(vRel -4~-4.5m/s)인데도
+  route/vturn 소스 desiredSpeed(94~96kph)가 우선시돼 약 4초간 가속을
+  이어간 우선순위 로직 문제로 확인(min TTC=2.49s까지 하락 후 정상
+  회복). 둘 다 코드 미착수, 방안 설계는 다음 세션 과제. 상세는
+  WIP.md/FINDINGS.md "104차" 참고.
+
+## c3-ms-dev (102차, 전체코드 CPU/메모리 정적 재점검 — 신규 이슈 없음, 코드 변경 없음)
+- last_analyzed_commit: `bc1bcb0`(origin HEAD, 101차 반영본) — 이번
+  세션은 코드 수정 없이 정적 리뷰만 수행
+- date: 2026-08-28 (102차)
+- note: 실시간 루프 8개 파일(carrot_man.py/carrot_functions.py/
+  carrot_serv.py/controlsd.py/radard.py/longitudinal_planner.py/
+  long_mpc.py/cruise.py) 전수 재검토 — Params I/O 캐싱(97~100차
+  readParams 패턴), deepcopy 제거(97차), 히스토리 버퍼 bounded 여부
+  (deque maxlen), 스레드/subprocess 1회성 여부 전부 재확인, 새로운
+  이슈 없음. 유일하게 남은 비벡터화 Python 루프(`get_path_after_
+  distance()`, haversine 기반, 20Hz)는 증분탐색+lookahead 캡으로
+  이미 실질 반복 상한이 있어 우선순위 낮은 벡터화 후보로만 기록.
+  `toolkit/scan_perf_antipatterns.sh` 신규 작성(재사용용). 상세는
+  WIP.md "102차" 참고.
+
 ## c3-ms-dev (101차, 100차 패치 crash 원인 확정+수정 — device 재부팅 검증 대기)
 - last_analyzed_commit: `eaee8b5`(origin HEAD, 100차) 기준 로컬 수정
   커밋 `6bbccca` (아직 사용자 적용/push 전)
@@ -875,3 +1059,21 @@ harsh_brake 1건 전부 src=vturn(apex-lag 이슈, route 무관)이라는 관측
 부작용)은 여전히 미완료** — 다음 세션 우선순위. 동일 구간을 91차 적용
 후 재업로드하면 `regression_report()`로 전/후 정량비교 가능. 상세는
 WIP.md 92차 항목 참고.
+
+2026-08-29 (131차, c3-ms-dev): 신규 커밋 없음(분석만, 로컬 repo HEAD
+`1cc2bf3`=130차) — 사용자 재업로드 route `306de77a28` seg15로 129차
+"계단형 급락" 후속. 실제 navi 폴리라인이 어떤 로그 채널에도 없음을
+확인(navRoute count=0). `sim_route_step_drop_repro.py`(신규)로 129차
+margin_kph 가설 재현 시도 NEGATIVE(최대 1.84kph, 실측 Δ-25kph 못 미침).
+`sim_route_lookahead_boundary_snap.py`(신규)로 실제 코드 순수함수 복제
++ 합성 GPS 폴리라인 검증 결과 새 가설(Hypothesis C: route_lookahead
+윈도우 경계 진입 시 curvature 이산적 출현) SUCCESS — 실측과 동일 규모
+(Δ-19.8kph 단일프레임) 재현. 코드 미수정, NEEDS_VALIDATION. 상세는
+WIP.md/FINDINGS.md 131차 항목 참고. **다음은 실제 도로좌표 확보 후
+정밀매칭 + 패치 방향 설계.**
+
+[갱신, 같은 131차 세션] "실제 교차로 좌표 확보"는 rlog의 `gpsLocation`
+(1Hz) 채널 + 실제 회전구간 desiredCurvature 반경역산(17.3m)만으로
+지도 API 없이 해결됨. 이 반경 대입 재검증 결과 Δ-20.65kph 단일프레임
+급락 재현 — 129차 실측(Δ-24.0)과 거의 동일 규모로 정밀매칭 완료.
+Hypothesis C SUCCESS 확정. 다음은 패치(윈도우 경계 완충) 설계.
