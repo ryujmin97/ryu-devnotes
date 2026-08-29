@@ -1,3 +1,52 @@
+## 127차 계속 (완료 — scons 컴파일 검증 완료, unused-private-field 버그 발견+수정 패치 전달) — TurnInfoDrawer::icon_size 제거
+
+**상태**: 127차에서 보류했던 scons 컴파일 검증 진행. 사용자 파일 업로드 없이
+샌드박스에서 `tools/install_ubuntu_dependencies.sh` 패키지 목록 수동 설치
+(apt) + `uv sync --frozen --extra docs --extra testing --extra dev`
+(metadrive-simulator 포함된 `tools` extra는 해시 불일치로 실패하여 제외,
+UI 빌드엔 불필요) + `scons -j1 selfdrive/ui/` 로 실제 컴파일 시도.
+
+**환경 이슈 1 (빌드와 무관, 우회만 함)**: 샌드박스가 1코어라 `SConstruct`의
+`SetOption('num_jobs', int(os.cpu_count()/2))`가 0을 넘겨 즉시 크래시.
+로컬 테스트용으로만 `max(1, ...)` 가드를 임시로 넣어 우회했고, 검증 후
+`SConstruct`는 원본으로 복구함(커밋/패치 대상 아님, 실차/일반 PC에선
+발생 안 하는 문제로 판단).
+
+**핵심 발견 — 127차 패치의 실제 컴파일 버그**: `carrot.o` 컴파일 시
+`selfdrive/ui/carrot.cc:963: error: private field 'icon_size' is not used
+[-Werror,-Wunused-private-field]`. 127차 패치가 `TurnInfoDrawer` 클래스
+내부에서 아이콘 크기를 기존 `icon_size`(256) 대신 새 상수
+`TBT_ICON_SIZE`(140)로 교체하면서, 클래스 멤버로 남아있던 `icon_size`
+선언 자체를 지우지 않아 죽은 코드가 됨 → 이 레포의 `-Werror` 빌드 설정상
+100% 컴파일 실패. (주의: `carrot.cc` 안에 동명의 `icon_size`가 다른
+클래스에 3곳 더 있으나 전부 별개 클래스에서 실제로 사용 중 — 그쪽은
+정상, `TurnInfoDrawer`만의 문제였음.)
+
+**조치**: `TurnInfoDrawer` 클래스의 미사용 `int icon_size = 256;` 멤버
+선언 1줄 제거. 제거 후 `selfdrive/ui/carrot.o` 정상 컴파일 확인
+(`0002-127-scons-unused-private-field-TurnInfoDrawer-icon_s.patch`,
+127차 커밋 `0ad61ea` 위에 적용).
+
+**전체 바이너리 링크는 별도 무관 이슈로 미완주 — 참고용**: `main.o` 컴파일
+단계에서 `selfdrive/ui/qt/screenrecorder/omx_encoder.h:70: error: unknown
+type name 'AVCodecContext'` 발생. 이건 127차 패치와 전혀 무관한 화면
+녹화(OMX, comma 3 하드웨어 전용) 서브시스템 헤더 문제로, 이 파일이
+`libavformat/avformat.h`만 include하고 `libavcodec/avcodec.h`를 직접
+include하지 않는데, 샌드박스에 설치된 Ubuntu 24.04 기본 ffmpeg
+6.1.1이 예전처럼 avformat.h에서 avcodec.h를 전이 include 해주지 않아
+발생. **이 문제는 이번 세션에서 손대지 않음** — TBT HUD 패치 검증
+범위 밖이고, 실차/기존 빌드 환경(다른 ffmpeg 버전 또는 별도 헤더 경로)
+에서는 애초에 발생하지 않았을 가능성이 높음(그렇지 않았다면 이전
+회차들의 정상 빌드 자체가 불가능했을 것). 다음에 전체 링크까지
+검증하려면 이 헤더 문제를 별도로 먼저 봐야 함 — 사용자가 필요하다고
+판단하면 별도 세션에서 조사 제안.
+
+**결론**: `selfdrive/ui` 타겟의 **컴파일 유닛 레벨**(carrot.o) 검증은
+완료 — 패치 적용 후 반드시 `0002` fix 패치까지 같이 적용해야 컴파일됨.
+전체 바이너리 링크/실행 검증은 무관 이슈로 인해 이번 세션에서 미완주.
+
+---
+
 ## 127차 (체크포인트 — UI 경로안내창(TBT HUD) 폭 축소 패치 전달, scons 컴파일 검증은 다음 세션으로 이월) — drawTurnInfoHud 790px→460px
 
 **요청**: 우측하단 경로안내창(TurnInfoDrawer::drawTurnInfoHud, `selfdrive/ui/carrot.cc`)
