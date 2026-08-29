@@ -1,3 +1,44 @@
+## 137차 — [CONFIRMED-OK, 코드변경 없음] PathOffset 파라미터의 레인리스 모드 적용 여부 분석
+
+**결론: PathOffset은 레인모드/레인리스 모드 구분 없이 항상 적용됨(코드상 정상, 버그 아님).**
+
+**적용 지점**: `lateral_planner.py` line 163
+```python
+self.path_xyz, self.lanelines_active = self.LP.get_d_path(...)   # line 150
+if self.lanelines_active:
+    self.plan_yaw, self.plan_yaw_rate = yaw_from_path_no_scipy(...)  # line 152-158, 레인모드에서만 실행
+self.path_xyz[:, 1] += self.pathOffset   # line 163, 조건문 없음 — 레인/레인리스 무관 항상 실행
+```
+`get_d_path()` 호출 결과(레인모드/레인리스 모드 어느 쪽이든)에 대해 line 163이
+분기 없이 무조건 y좌표에 `pathOffset`을 더함. 즉 `useLaneLineMode=False`거나
+`laneless_only=True`인 상황(고속 직선 등 레인리스 조건)에서도 동일하게 반영됨.
+
+**값 흐름**: UI(`settings.cc`, cm 단위 -150~150) → `params_keys.h`
+(`PathOffset`, PERSISTENT INT, 기본값 0) → `lateral_planner.py`에서
+`get_int("PathOffset") * 0.01`로 m 단위 환산 → 100프레임(`self.readParams`)마다
+재조회.
+
+**부수 확인 — yaw 재계산과의 정합성(문제 없음)**: 레인리스 모드에서는
+`plan_yaw`/`plan_yaw_rate`가 모델 원본(`md.orientation.z` 등, line 110-111)을
+그대로 쓰고 재계산되지 않음 — 오직 `lanelines_active=True`(레인모드)일 때만
+`yaw_from_path_no_scipy()`로 path_xyz 기반 재계산(line 152-158). 그러나
+PathOffset은 전 구간에 걸친 **상수 평행이동**(모든 33개 포인트에 동일한 값을
+더함)이므로 헤딩/곡률에는 수학적으로 영향이 없음 — 재계산 생략은 이 경우
+정합성 문제를 일으키지 않음.
+
+**별개로 발견된 참고사항(PathOffset과는 무관, 별도 오프셋 계통)**:
+`lane_planner_2.py` line 249 `path_xyz[:, 1] += (CAMERA_OFFSET +
+self.lane_offset_filtered.x)`도 `get_d_path()` 내부에서 분기 없이 항상
+실행됨. `lane_offset_filtered.x`는 `AdjustLaneOffset`/커브옵셋
+(`offset_curve`, `offset_lane`) 기반 값으로, `lane_change_multiplier>=0.5`이고
+차선이 조금이라도 인식되면(`d_prob>0`) 레인리스 모드에서도 계속 업데이트되어
+0이 아닌 값이 은근히 섞여 들어갈 수 있음. `PathOffset`(사용자 수동 설정,
+좌우 고정 오프셋)과는 목적이 다른 별개 파라미터라 혼동 소지는 적으나, "레인리스인데
+왜 미세하게 옆으로 붙는 느낌이 있다"는 제보가 들어오면 이 라인(`lane_offset_filtered.x`
+잔류값)이 원인 후보가 될 수 있음 — 이번 세션 범위 밖이라 조치 없이 기록만.
+
+**변경사항 없음** — 순수 코드 분석, 패치 미적용.
+
 ## 135차 계속 — [RESOLVED (1번), CLOSED-보류 (2번), DEFERRED (3번)] cruise.py 죽은분기 처리 확정
 
 **1번(line 500) 처리 완료**: `pass`로 대체 패치 적용(로컬 커밋

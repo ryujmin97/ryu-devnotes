@@ -1,3 +1,15 @@
+## 137차 (완료 — 분석만, 코드변경 없음) — PathOffset 파라미터 레인리스 모드 적용 여부 코드 분석
+
+`lateral_planner.py` line 163 `self.path_xyz[:, 1] += self.pathOffset`가
+`get_d_path()` 결과에 대해 레인/레인리스 구분 없이 조건문 없이 항상 실행됨을
+확인 — **PathOffset은 레인리스 모드에서도 정상 적용됨(버그 아님)**.
+레인리스 모드에서 yaw/yaw_rate가 재계산되지 않는 점(`lanelines_active`일
+때만 `yaw_from_path_no_scipy` 호출)도 PathOffset이 전 구간 상수 평행이동이라
+정합성 문제 없음. 상세 근거/코드 경로는 FINDINGS.md 137차 참고. 별개로
+`lane_planner_2.py`의 `lane_offset_filtered.x`(AdjustLaneOffset 계통)가
+레인리스에서도 잔류값이 섞여들 수 있다는 참고사항 발견(조치는 안 함, 기록만).
+패치 없음.
+
 ## 136차 (완료 — 분석만, 코드변경 없음) — 실차 params.json 백업 파일 검토(carrot_settings.json 대조)
 
 **배경**: 사용자가 실차 params 백업(`params_backup-4.json`, 161개 키)을
