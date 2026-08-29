@@ -1,6351 +1,6351 @@
-﻿## 143李?(?꾨즺 ??127李?TBT HUD ??異뺤냼 ?⑥튂 ?ㅼ감 諛섏쁺 ?뺤씤) ??drawTurnInfoHud 790px??60px ?ㅼ감 寃利?
+## 143차 (완료 — 127차 TBT HUD 폭 축소 패치 실차 반영 확인) — drawTurnInfoHud 790px→460px 실차 검증
 
-**?붿껌**: ?ъ슜?먭? ??쒖틺 ?ㅽ겕由곗꺑 1???쒓났, "?곗륫?섎떒 寃쎈줈?덈궡李??ш린?섏젙 諛섏쁺?? ?뺤씤.
+**요청**: 사용자가 대시캠 스크린샷 1장 제공, "우측하단 경로안내창 크기수정 반영됨" 확인.
 
-**?뺤씤 ?댁슜**: ?ㅽ겕由곗꺑 ???곗륫 ?섎떒 TBT(寃쎈줈?덈궡) 諛뺤뒪媛 異뺤냼????쑝濡?
-?뺤긽 ?뚮뜑留곷맖. "?묒궛" 紐⑹쟻吏紐? ?붿궡???꾩씠肄? "?꾩갑: 15.9遺?07:23)
-9.0km", "怨좎젙??怨쇱냽?꾪뿕 援ш컙(諛뺤뒪??" ?섎떒 ?띿뒪?멸퉴吏 諛뺤뒪 ?댁뿉??
-?띿뒪???섎┝ ?놁씠 ?쒖떆?? 127李??⑥튂(`0001-127-TBT-HUD-790px-460px.patch`,
-而ㅻ컠 `14d9a6b`, `TBT_BOX_W`=460/`TBT_BOX_H`=300/`TBT_ICON_SIZE`=140)?
-127李④퀎??scons 鍮뚮뱶 ?섏젙(`0002-127-scons-unused-private-field-TurnInfoDrawer-icon_s.patch`)??
-?ㅼ감???뺤긽 ?곸슜쨌鍮뚮뱶?섏뼱 ?붾㈃??諛섏쁺??寃껋쑝濡??먮떒.
+**확인 내용**: 스크린샷 상 우측 하단 TBT(경로안내) 박스가 축소된 폭으로
+정상 렌더링됨. "양산" 목적지명, 화살표 아이콘, "도착: 15.9분(07:23)
+9.0km", "고정식 과속위험 구간(박스형)" 하단 텍스트까지 박스 내에서
+텍스트 잘림 없이 표시됨. 127차 패치(`0001-127-TBT-HUD-790px-460px.patch`,
+커밋 `14d9a6b`, `TBT_BOX_W`=460/`TBT_BOX_H`=300/`TBT_ICON_SIZE`=140)와
+127차계속 scons 빌드 수정(`0002-127-scons-unused-private-field-TurnInfoDrawer-icon_s.patch`)이
+실차에 정상 적용·빌드되어 화면에 반영된 것으로 판단.
 
-128李??고듃 ?먮룞異뺤냼 ?⑥튂(`0001-128-tbt-hud-bottom-text-font-shrink.patch`)
-諛섏쁺 ?щ??????ㅽ겕由곗꺑留뚯쑝濡쒕뒗 ?고듃 ?ш린 ?ㅼ륫(px) 鍮꾧탳媛 遺덇???
-蹂꾨룄 ?뺤씤 ???????ㅻ쭔 ?섎떒 ?덈궡?띿뒪?멸? 諛뺤뒪 ???덉뿉???섎━吏 ?딄퀬
-?쒖떆??寃껋쑝濡?蹂댁븘 ?뺤긽 ?숈옉 ?뺥솴? ?덉쓬. ?꾩슂???ㅼ쓬 ?몄뀡?먯꽌
-?띿뒪?멸? ?좊룆 湲??꾨줈紐?耳?댁뒪濡??ы솗??沅뚯옣.
+128차 폰트 자동축소 패치(`0001-128-tbt-hud-bottom-text-font-shrink.patch`)
+반영 여부는 이 스크린샷만으로는 폰트 크기 실측(px) 비교가 불가해
+별도 확인 안 함 — 다만 하단 안내텍스트가 박스 폭 안에서 잘리지 않고
+표시된 것으로 보아 정상 동작 정황은 있음. 필요시 다음 세션에서
+텍스트가 유독 긴 도로명 케이스로 재확인 권장.
 
-**?곹깭 ?꾪솚**: 127李?TBT HUD ??異뺤냼) ???ㅼ감 諛섏쁺 ?뺤씤, **VALIDATED**.
-128李??고듃 ?먮룞異뺤냼) ???뺥솴???뺤긽, **NEEDS_VALIDATION ?좎?**(?λЦ
-?띿뒪??耳?댁뒪 誘명솗??.
+**상태 전환**: 127차(TBT HUD 폭 축소) — 실차 반영 확인, **VALIDATED**.
+128차(폰트 자동축소) — 정황상 정상, **NEEDS_VALIDATION 유지**(장문
+텍스트 케이스 미확인).
 
 ---
 
-## 142李?(?꾨즺 ??遺꾩꽍留? 肄붾뱶蹂寃??놁쓬) ???덉씤紐⑤뱶/?덉씤由ъ뒪 횞 PathOffset(0/+/?? curvature ?뚯뒪 8-?쒕굹由ъ삤 ?뺣━
+## 142차 (완료 — 분석만, 코드변경 없음) — 레인모드/레인리스 × PathOffset(0/+/−) curvature 소스 8-시나리오 정리
 
-137~141李⑥뿉 嫄몄퀜 異뺤쟻??"PathOffset/?덉씤由ъ뒪/curvature ?뚯뒪" 遺꾩꽍??
-?ъ슜???붿껌?쇰줈 ?덉씤紐⑤뱶쨌?덉씤由ъ뒪 횞 PathOffset(0/+n/?뭤) 6媛??듭떖 議고빀 +
-?덉쟾 ?대갚 2媛?curvatures 鍮꾩뼱?덉쓬, mpcSolutionValid=False) = 8媛?
-?쒕굹由ъ삤濡??ъ젙由? ?꾩옱 `origin/c3-ms-dev`(140/141李??⑥튂 諛섏쁺???곹깭,
-`3ec4e5c`) 肄붾뱶瑜?吏곸젒 ?쎌뼱 ?뺤씤, 湲곗〈 `toolkit/sim_path_offset_laneless_curvature_source.py`
-?ъ떎?됱쑝濡?遺꾧린 濡쒖쭅 8/8 PASS ?ы솗??肄붾뱶 蹂寃??놁뿀?쇰?濡?寃곌낵 ?숈씪 ?덉긽?濡?.
+137~141차에 걸쳐 축적된 "PathOffset/레인리스/curvature 소스" 분석을
+사용자 요청으로 레인모드·레인리스 × PathOffset(0/+n/−n) 6개 핵심 조합 +
+안전 폴백 2개(curvatures 비어있음, mpcSolutionValid=False) = 8개
+시나리오로 재정리. 현재 `origin/c3-ms-dev`(140/141차 패치 반영된 상태,
+`3ec4e5c`) 코드를 직접 읽어 확인, 기존 `toolkit/sim_path_offset_laneless_curvature_source.py`
+재실행으로 분기 로직 8/8 PASS 재확인(코드 변경 없었으므로 결과 동일 예상대로).
 
-**寃곕줎 留ㅽ듃由?뒪**:
-| # | 紐⑤뱶 | PathOffset | 理쒖쥌 議고뼢 curvature ?뚯뒪 |
+**결론 매트릭스**:
+| # | 모드 | PathOffset | 최종 조향 curvature 소스 |
 |---|------|-----------|--------------------------|
-| 1 | ?덉씤紐⑤뱶 | 0 | `lat_plan.curvatures`(MPC) ??offset=0?대씪 ?먮낯怨??숈씪媛?|
-| 2 | ?덉씤紐⑤뱶 | +n | `lat_plan.curvatures`(MPC, path_xyz[:,1]+=+n 諛섏쁺) |
-| 3 | ?덉씤紐⑤뱶 | ?뭤 | `lat_plan.curvatures`(MPC, path_xyz[:,1]+=?뭤 諛섏쁺) |
-| 4 | ?덉씤由ъ뒪 | 0 | `model_v2.action.desiredCurvature`(modeld ?좉꼍留?吏곸젒異쒕젰, lateral_planner.py? ?꾩쟾 蹂꾧컻 ?뚯씠?꾨씪?? |
-| 5 | ?덉씤由ъ뒪 | +n | `lat_plan.curvatures`(140李??⑥튂濡??꾪솚, offset 諛섏쁺) |
-| 6 | ?덉씤由ъ뒪 | ?뭤 | `lat_plan.curvatures`(140李??⑥튂濡??꾪솚, offset 諛섏쁺) |
-| 7 | ?덉씤由ъ뒪, offset??, curvatures 諛곗뿴 鍮꾩뼱?덉쓬 | 吏곸쟾 `desired_curvature` ?좎?(?덉쟾 ?대갚) |
-| 8 | 紐⑤뱶 臾닿?, mpcSolutionValid=False | 吏곸쟾 `desired_curvature` ?좎?(141李??좉퇋 ?덉쟾?μ튂) |
+| 1 | 레인모드 | 0 | `lat_plan.curvatures`(MPC) — offset=0이라 원본과 동일값 |
+| 2 | 레인모드 | +n | `lat_plan.curvatures`(MPC, path_xyz[:,1]+=+n 반영) |
+| 3 | 레인모드 | −n | `lat_plan.curvatures`(MPC, path_xyz[:,1]+=−n 반영) |
+| 4 | 레인리스 | 0 | `model_v2.action.desiredCurvature`(modeld 신경망 직접출력, lateral_planner.py와 완전 별개 파이프라인) |
+| 5 | 레인리스 | +n | `lat_plan.curvatures`(140차 패치로 전환, offset 반영) |
+| 6 | 레인리스 | −n | `lat_plan.curvatures`(140차 패치로 전환, offset 반영) |
+| 7 | 레인리스, offset≠0, curvatures 배열 비어있음 | 직전 `desired_curvature` 유지(안전 폴백) |
+| 8 | 모드 무관, mpcSolutionValid=False | 직전 `desired_curvature` 유지(141차 신규 안전장치) |
 
-?듭떖 ?ъ씤?? **offset 遺??+/????`use_mpc_curvature` 遺꾧린 ?좏깮???꾪?
-?곹뼢 ?놁쓬**(`PathOffset != 0` boolean留?寃?? ??遺?몃뒗 遺꾧린 ?좏깮 ?댄썑
-MPC ?낅젰媛?`path_xyz[:,1]`)?먮쭔 諛섏쁺?? ?덉씤紐⑤뱶(1~3)??PathOffset 媛믨낵
-臾닿??섍쾶 ?좎큹遺????긽 MPC ?뚯뒪瑜??곕?濡? ?덉씤由ъ뒪(4~6)? ?щ━ "offset
-?곸슜 ?щ????곕Ⅸ ?뚯뒪 ?꾪솚" ?먯껜媛 ?쇱뼱?섏? ?딆쓬.
+핵심 포인트: **offset 부호(+/−)는 `use_mpc_curvature` 분기 선택에 전혀
+영향 없음**(`PathOffset != 0` boolean만 검사) — 부호는 분기 선택 이후
+MPC 입력값(`path_xyz[:,1]`)에만 반영됨. 레인모드(1~3)는 PathOffset 값과
+무관하게 애초부터 항상 MPC 소스를 쓰므로, 레인리스(4~6)와 달리 "offset
+적용 여부에 따른 소스 전환" 자체가 일어나지 않음.
 
-**?좉퇋 諛쒓껄(137~141李?湲곕줉???녿뜕 ?뷀뀒??**: `lateral_planner.py`?먯꽌
-`path_xyz[:,1] += self.pathOffset`(line 163)??`yaw_from_path_no_scipy()`
-?몄텧(heading/yaw_rate 怨꾩궛, line 152~157) **?댄썑**???ㅽ뻾?? 利?MPC??
-?ㅼ뼱媛??`heading_pts`/`yaw_rate_pts`??offset 誘몃컲???곹깭 洹몃?濡쒖씠怨?
-`y_pts`(?꾩튂)留??곸닔 ?대룞 ??offset? "?됲뻾?대룞??紐⑺몴 寃쎈줈"瑜??섎??섎ŉ
-?대줎???뺤긽?곹깭 怨〓쪧(寃쎈줈 ?뺥깭)?먮뒗 ?곹뼢???녾퀬 二쇰줈 **?꾪솚 援ш컙??
-怨쇰룄(transient) 怨〓쪧**?먮쭔 ?곹뼢??以?媛?μ꽦???덉쓬. 肄붾뱶 ?뺤쟻遺꾩꽍 湲곕컲
-異붿젙?대ŉ ?ㅼ감/?쒕??덉씠??寃利앹? ???????ㅼ쓬 ?몄뀡 ?꾨낫濡??④?.
+**신규 발견(137~141차 기록에 없던 디테일)**: `lateral_planner.py`에서
+`path_xyz[:,1] += self.pathOffset`(line 163)는 `yaw_from_path_no_scipy()`
+호출(heading/yaw_rate 계산, line 152~157) **이후**에 실행됨. 즉 MPC에
+들어가는 `heading_pts`/`yaw_rate_pts`는 offset 미반영 상태 그대로이고
+`y_pts`(위치)만 상수 이동 — offset은 "평행이동된 목표 경로"를 의미하며
+이론상 정상상태 곡률(경로 형태)에는 영향이 없고 주로 **전환 구간의
+과도(transient) 곡률**에만 영향을 줄 가능성이 있음. 코드 정적분석 기반
+추정이며 실차/시뮬레이션 검증은 안 함 — 다음 세션 후보로 남김.
 
-**誘멸?利??ы빆**: (a) ??"?뺤긽?곹깭 怨〓쪧 臾댁쁺?? 媛?ㅼ쓽 ?ㅼ감 濡쒓렇 寃利?
-(b) `_use_lane_line_curve_speed` 寃뚯씠?몃줈 ?덉씤紐⑤뱶 ?먯젙??而ㅻ툕 吏꾩엯
-?쒓컙 ?쇱떆?곸쑝濡?False媛 ?????덈떎??138李?誘명솗?뺤궗???ъ쟾??誘명빐寃?.
+**미검증 사항**: (a) 위 "정상상태 곡률 무영향" 가설의 실차 로그 검증,
+(b) `_use_lane_line_curve_speed` 게이트로 레인모드 판정이 커브 진입
+순간 일시적으로 False가 될 수 있다는 138차 미확정사항(여전히 미해결).
 
-**蹂寃??뚯씪**: WIP.md, FINDINGS.md留?肄붾뱶/?댄궥 蹂寃??놁쓬 ??湲곗〈
-`sim_path_offset_laneless_curvature_source.py`媛 ?대? 遺꾧린 寃利앹쓣
-異⑸텇??而ㅻ쾭).
+**변경 파일**: WIP.md, FINDINGS.md만(코드/툴킷 변경 없음 — 기존
+`sim_path_offset_laneless_curvature_source.py`가 이미 분기 검증을
+충분히 커버).
 
-## 141李?(?꾨즺 ??援ы쁽+?⑹꽦寃利??⑥튂?꾨떖 ?꾨즺, ?ㅼ감寃利??湲? ??mpcSolutionValid 泥댄겕 異붽?(140李?由щ럭 吏?곸궗??蹂댁셿)
+## 141차 (완료 — 구현+합성검증+패치전달 완료, 실차검증 대기) — mpcSolutionValid 체크 추가(140차 리뷰 지적사항 보완)
 
-**[異붽? ?뺤씤] origin/c3-ms-dev???ㅼ젣 push ?꾨즺**: ?ъ슜?먭? 濡쒖뺄(`~/ryu`)?먯꽌
-`0001`/`0002` ?⑥튂瑜?`git am`?쇰줈 ?곸슜 ??`git push origin c3-ms-dev` ?ㅽ뻾,
-`1706706..3ec4e5c` ?뺤긽 諛섏쁺 ?뺤씤. 利?**140/141李?肄붾뱶???댁젣
-`origin/c3-ms-dev` HEAD(`3ec4e5c`)???대? ?ы븿?섏뼱 ?덉쓬** ???ㅼ쓬 ?몄뀡??
-`ryu`瑜??덈줈 clone?섎㈃ ???⑥튂?ㅼ씠 ?대? ?곸슜???곹깭濡?諛쏄쾶 ???⑥튂?뚯씪
-?ъ쟻??遺덊븘?? ?ㅽ엳???ъ쟻???쒕룄?섎㈃ ?대? ?곸슜??肄붾뱶??異⑸룎/以묐났 諛쒖깮
-二쇱쓽). 濡쒖뺄 而ㅻ컠 ?댁떆??`git am` ?뱀꽦???먮낯(`d7b1e2a`/`c48ba30`)怨?
-?ㅻⅤ寃??ъ깮?깅맖(`27f4d23`/`3ec4e5c`) ???댁슜? ?숈씪, ?댁떆留??ㅻ쫫.
-?⑥? 寃껋? ?ㅼ젣 ?μ튂(Genesis DH) 諛섏쁺 + ?ㅼ감 ?뚯뒪?몃퓧.
+**[추가 확인] origin/c3-ms-dev에 실제 push 완료**: 사용자가 로컬(`~/ryu`)에서
+`0001`/`0002` 패치를 `git am`으로 적용 후 `git push origin c3-ms-dev` 실행,
+`1706706..3ec4e5c` 정상 반영 확인. 즉 **140/141차 코드는 이제
+`origin/c3-ms-dev` HEAD(`3ec4e5c`)에 이미 포함되어 있음** — 다음 세션이
+`ryu`를 새로 clone하면 이 패치들이 이미 적용된 상태로 받게 됨(패치파일
+재적용 불필요, 오히려 재적용 시도하면 이미 적용된 코드라 충돌/중복 발생
+주의). 로컬 커밋 해시는 `git am` 특성상 원본(`d7b1e2a`/`c48ba30`)과
+다르게 재생성됨(`27f4d23`/`3ec4e5c`) — 내용은 동일, 해시만 다름.
+남은 것은 실제 장치(Genesis DH) 반영 + 실차 테스트뿐.
 
-?몃? 由щ럭?먯꽌 140李⑥쓽 `len(curvatures)==0` ?대갚留뚯쑝濡쒕뒗 "諛곗뿴? 梨꾩썙議뚯?留?
-?꾩쭅 ?좏슚?섏? ?딆? MPC ??瑜?紐?嫄곕Ⅸ?ㅻ뒗 吏????肄붾뱶 ?뺤씤 寃곌낵 ?뺥솗??
-(?덉씤紐⑤뱶?먯꽌??`mpcSolutionValid`媛 ?먮옒遺??泥댄겕?????놁뿀?? 140李④?
-留뚮뱺 由ъ뒪???꾨떂). `state_control()`??MPC curvature ?ъ슜 議곌굔??
-`or not lat_plan.mpcSolutionValid`瑜?異붽????덉씤/?덉씤由ъ뒪 怨듯넻 ?덉쟾?μ튂濡?
-諛섏쁺. **二쇱쓽**: ?대줈 ?명빐 `mpcSolutionValid==False`???쒕Ц ?곹솴?먯꽑
-?덉씤紐⑤뱶 湲곗〈 ?숈옉??141李??댁쟾怨??щ씪吏??섎룄???덉쟾 媛쒖꽑, ?꾩쟾
-臾대??붾뒗 ?꾨떂 ???곸꽭??FINDINGS.md 141李?李멸퀬). `sim_path_offset_
-laneless_curvature_source.py` 8/8 PASS(mpc_solution_valid 耳?댁뒪 異붽?
-媛깆떊), `py_compile` ?듦낵. ?⑥튂?뚯씪 `0002-mpc-solution-valid-check.patch`
-(濡쒖뺄 而ㅻ컠 `c48ba30`, base `d7b1e2a`=140李? ??140李??⑥튂 ?곸슜 ???쒖꽌?濡?
-`git am`. **?ㅼ감寃利??꾩슂**: 140李⑥? ?④퍡 PathOffset!=0 ?덉씤由ъ뒪 二쇳뻾
-?뚯뒪??+ `mpcSolutionValid=False` 諛쒖깮 鍮덈룄 濡쒓렇 ?뺤씤.
+외부 리뷰에서 140차의 `len(curvatures)==0` 폴백만으로는 "배열은 채워졌지만
+아직 유효하지 않은 MPC 해"를 못 거른다는 지적 — 코드 확인 결과 정확함
+(레인모드에서도 `mpcSolutionValid`가 원래부터 체크된 적 없었음, 140차가
+만든 리스크 아님). `state_control()`의 MPC curvature 사용 조건에
+`or not lat_plan.mpcSolutionValid`를 추가해 레인/레인리스 공통 안전장치로
+반영. **주의**: 이로 인해 `mpcSolutionValid==False`인 드문 상황에선
+레인모드 기존 동작도 141차 이전과 달라짐(의도된 안전 개선, 완전
+무변화는 아님 — 상세는 FINDINGS.md 141차 참고). `sim_path_offset_
+laneless_curvature_source.py` 8/8 PASS(mpc_solution_valid 케이스 추가
+갱신), `py_compile` 통과. 패치파일 `0002-mpc-solution-valid-check.patch`
+(로컬 커밋 `c48ba30`, base `d7b1e2a`=140차) — 140차 패치 적용 후 순서대로
+`git am`. **실차검증 필요**: 140차와 함께 PathOffset!=0 레인리스 주행
+테스트 + `mpcSolutionValid=False` 발생 빈도 로그 확인.
 
-## 140李?(?꾨즺 ??援ы쁽+?⑹꽦寃利??⑥튂?꾨떖 ?꾨즺, ?ㅼ감寃利??湲? ??PathOffset ?덉씤由ъ뒪 理쒖쥌 議고뼢 諛섏쁺 ?⑥튂
+## 140차 (완료 — 구현+합성검증+패치전달 완료, 실차검증 대기) — PathOffset 레인리스 최종 조향 반영 패치
 
-`controlsd.py`??curvature ?뚯뒪 ?좏깮 遺꾧린瑜?`use_mpc_curvature =
-lanefull_mode_enabled or self._path_offset_active`濡??섏젙?? `PathOffset`
-?ㅼ젙 ??Params `PathOffset != 0`) ?덉씤由ъ뒪?먯꽌??`lateralPlan.curvatures`
-(offset 諛섏쁺??MPC 異쒕젰)瑜??곕룄濡??? `PathOffset==0`(湲곕낯媛??대㈃ 湲곗〈
-?숈옉怨?100% ?숈씪(由ш렇?덉뀡 ?놁쓬). `sim_path_offset_laneless_curvature_source.py`
-(?좉퇋, toolkit ?몄엯)濡?6/6 PASS, `py_compile` ?듦낵. cereal ?ㅽ궎留?蹂寃?
-?놁씠 `Params()` 吏곸젒 ?쎄린濡?援ы쁽(37李?capnp ?щ옒???꾨? ?뚰뵾).
-?⑥튂?뚯씪 `0001-path-offset-laneless-curvature.patch`(濡쒖뺄 而ㅻ컠 `d7b1e2a`,
-base `1706706`) ?꾨떖, `git am`?쇰줈 ?곸슜. **?ㅼ감寃利??꾩슂**: PathOffset!=0
-?ㅼ젙 ???덉씤由ъ뒪 援ш컙 ?ㅼ＜?됲븯硫?議고뼢 遺?쒕윭?/異붿쥌 ?뺥솗???뺤씤. ?곸꽭??
-FINDINGS.md 140李?李멸퀬.
+`controlsd.py`의 curvature 소스 선택 분기를 `use_mpc_curvature =
+lanefull_mode_enabled or self._path_offset_active`로 수정해, `PathOffset`
+설정 시(Params `PathOffset != 0`) 레인리스에서도 `lateralPlan.curvatures`
+(offset 반영된 MPC 출력)를 쓰도록 함. `PathOffset==0`(기본값)이면 기존
+동작과 100% 동일(리그레션 없음). `sim_path_offset_laneless_curvature_source.py`
+(신규, toolkit 편입)로 6/6 PASS, `py_compile` 통과. cereal 스키마 변경
+없이 `Params()` 직접 읽기로 구현(37차 capnp 크래시 전례 회피).
+패치파일 `0001-path-offset-laneless-curvature.patch`(로컬 커밋 `d7b1e2a`,
+base `1706706`) 전달, `git am`으로 적용. **실차검증 필요**: PathOffset!=0
+설정 후 레인리스 구간 실주행하며 조향 부드러움/추종 정확도 확인. 상세는
+FINDINGS.md 140차 참고.
 
-## 139李?(?꾨즺 ??遺꾩꽍留? 肄붾뱶蹂寃??놁쓬) ??lane_offset_filtered.x??pathOffset怨??숈씪?섍쾶 ?덉씤由ъ뒪 誘몃컲???뺤씤 (?몃? 媛먯궗 ?곗꽑?쒖쐞 ?쒖븞 諛섎컯)
+## 139차 (완료 — 분석만, 코드변경 없음) — lane_offset_filtered.x도 pathOffset과 동일하게 레인리스 미반영 확인 (외부 감사 우선순위 제안 반박)
 
-?몃?(? AI) 媛먯궗媛 "PathOffset蹂대떎 `lane_offset_filtered.x`媛 ?덉씤由ъ뒪?먯꽌
-???섏떖?쒕떎"怨??쒖븞?덉쑝?? ?ㅼ젣 肄붾뱶 ?ъ텛??寃곌낵 **洹쇨굅 ?놁쓬?쇰줈 ?뺤씤**.
-`lane_offset_filtered.x`??`get_d_path()` ?대??먯꽌 `pathOffset`蹂대떎 癒쇱?
-媛숈? `path_xyz` 諛곗뿴???뷀빐吏怨? ?댄썑 138李⑥뿉???뺤씤??寃껉낵 ?꾩쟾???숈씪??
-寃쎈줈(`lat_mpc ??lateralPlan.curvatures ??controlsd.py lanefull_mode_enabled
-遺꾧린`)瑜?嫄곗퀜 ?덉씤由ъ뒪?먯꽌 ?묎컳??踰꾨젮吏? 利???蹂??紐⑤몢 ?덉씤由ъ뒪?먯꽌??
-理쒖쥌 議고뼢???곹뼢 ?놁쓬 ???곗꽑?쒖쐞 李⑥씠 ?놁쓬. "?덉씤由ъ뒪?먯꽌 誘몄꽭?섍쾶
-遺숇뒗 ?꾩긽"???먯씤 ?꾨낫???ㅽ엳??`model_v2.action.desiredCurvature`(?좉꼍留?
-吏곸젒異쒕젰) ?명뼢?대굹 移대찓??罹섎━釉뚮젅?댁뀡 履쎌쑝濡?醫곹?吏?議곗궗?????? 湲곕줉留?.
-?곸꽭 洹쇨굅??FINDINGS.md 139李?李멸퀬. ?⑥튂 ?놁쓬.
+외부(타 AI) 감사가 "PathOffset보다 `lane_offset_filtered.x`가 레인리스에서
+더 의심된다"고 제안했으나, 실제 코드 재추적 결과 **근거 없음으로 확인**.
+`lane_offset_filtered.x`는 `get_d_path()` 내부에서 `pathOffset`보다 먼저
+같은 `path_xyz` 배열에 더해지고, 이후 138차에서 확인한 것과 완전히 동일한
+경로(`lat_mpc → lateralPlan.curvatures → controlsd.py lanefull_mode_enabled
+분기`)를 거쳐 레인리스에서 똑같이 버려짐. 즉 두 변수 모두 레인리스에서는
+최종 조향에 영향 없음 — 우선순위 차이 없음. "레인리스에서 미세하게
+붙는 현상"의 원인 후보는 오히려 `model_v2.action.desiredCurvature`(신경망
+직접출력) 편향이나 카메라 캘리브레이션 쪽으로 좁혀짐(조사는 안 함, 기록만).
+상세 근거는 FINDINGS.md 139차 참고. 패치 없음.
 
-## 138李?(?꾨즺 ??遺꾩꽍留? 肄붾뱶蹂寃??놁쓬, 137李?寃곕줎 ?뺤젙) ??PathOffset ?덉씤由ъ뒪 理쒖쥌 議고뼢 誘몃컲??諛쒓껄
+## 138차 (완료 — 분석만, 코드변경 없음, 137차 결론 정정) — PathOffset 레인리스 최종 조향 미반영 발견
 
-`path_xyz`/`lateralPlan` ?ㅼ슫?ㅽ듃由?異붿쟻 寃곌낵, **137李?寃곕줎???뺤젙**:
-`lateral_planner.py`媛 pathOffset??諛섏쁺??`lateralPlan.curvatures`源뚯???
-怨꾩궛?섏?留? `controlsd.py`??`lanefull_mode_enabled = lat_plan.useLaneLines
-and curve_speed_abs > threshold` 議곌굔 ?뚮Ц???덉씤由ъ뒪?먯꽌????媛믪씠
-踰꾨젮吏怨?`model_v2.action.desiredCurvature`(modeld.py ?좉꼍留?吏곸젒異쒕젰,
-path_xyz/pathOffset怨?臾닿?)媛 理쒖쥌 議고뼢???곗엫. **?덉씤由ъ뒪 二쇳뻾 以?
-PathOffset??議곗젙?대룄 ?ㅼ젣 李⑤웾 嫄곕룞?먮뒗 諛섏쁺 ????媛?μ꽦 ?믪쓬.**
-?섎룄???ㅺ퀎?몄? 踰꾧렇?몄???誘명솗?????ъ슜???뺤씤 ?꾩슂. ?섏젙 諛⑺뼢 2媛吏
-?꾨낫(FINDINGS.md 138李?李멸퀬)???덉쑝???⑥튂 誘몄쟻?? ?ъ슜??寃곗젙 ?湲?
-?ㅼ감 濡쒓렇濡?curvature ?뚯뒪 ?꾪솚 ?쒖젏 寃利앹? ?ㅼ쓬 ?④퀎 怨쇱젣濡??④?.
+`path_xyz`/`lateralPlan` 다운스트림 추적 결과, **137차 결론을 정정**:
+`lateral_planner.py`가 pathOffset을 반영해 `lateralPlan.curvatures`까지는
+계산하지만, `controlsd.py`의 `lanefull_mode_enabled = lat_plan.useLaneLines
+and curve_speed_abs > threshold` 조건 때문에 레인리스에서는 이 값이
+버려지고 `model_v2.action.desiredCurvature`(modeld.py 신경망 직접출력,
+path_xyz/pathOffset과 무관)가 최종 조향에 쓰임. **레인리스 주행 중
+PathOffset을 조정해도 실제 차량 거동에는 반영 안 될 가능성 높음.**
+의도된 설계인지 버그인지는 미확정 — 사용자 확인 필요. 수정 방향 2가지
+후보(FINDINGS.md 138차 참고)는 있으나 패치 미적용, 사용자 결정 대기.
+실차 로그로 curvature 소스 전환 시점 검증은 다음 단계 과제로 남김.
 
-## 137李?(?꾨즺 ??遺꾩꽍留? 肄붾뱶蹂寃??놁쓬) ??PathOffset ?뚮씪誘명꽣 ?덉씤由ъ뒪 紐⑤뱶 ?곸슜 ?щ? 肄붾뱶 遺꾩꽍
+## 137차 (완료 — 분석만, 코드변경 없음) — PathOffset 파라미터 레인리스 모드 적용 여부 코드 분석
 
-`lateral_planner.py` line 163 `self.path_xyz[:, 1] += self.pathOffset`媛
-`get_d_path()` 寃곌낵??????덉씤/?덉씤由ъ뒪 援щ텇 ?놁씠 議곌굔臾??놁씠 ??긽 ?ㅽ뻾?⑥쓣
-?뺤씤 ??**PathOffset? ?덉씤由ъ뒪 紐⑤뱶?먯꽌???뺤긽 ?곸슜??踰꾧렇 ?꾨떂)**.
-?덉씤由ъ뒪 紐⑤뱶?먯꽌 yaw/yaw_rate媛 ?ш퀎?곕릺吏 ?딅뒗 ??`lanelines_active`??
-?뚮쭔 `yaw_from_path_no_scipy` ?몄텧)??PathOffset????援ш컙 ?곸닔 ?됲뻾?대룞?대씪
-?뺥빀??臾몄젣 ?놁쓬. ?곸꽭 洹쇨굅/肄붾뱶 寃쎈줈??FINDINGS.md 137李?李멸퀬. 蹂꾧컻濡?
-`lane_planner_2.py`??`lane_offset_filtered.x`(AdjustLaneOffset 怨꾪넻)媛
-?덉씤由ъ뒪?먯꽌???붾쪟媛믪씠 ?욎뿬?????덈떎??李멸퀬?ы빆 諛쒓껄(議곗튂?????? 湲곕줉留?.
-?⑥튂 ?놁쓬.
+`lateral_planner.py` line 163 `self.path_xyz[:, 1] += self.pathOffset`가
+`get_d_path()` 결과에 대해 레인/레인리스 구분 없이 조건문 없이 항상 실행됨을
+확인 — **PathOffset은 레인리스 모드에서도 정상 적용됨(버그 아님)**.
+레인리스 모드에서 yaw/yaw_rate가 재계산되지 않는 점(`lanelines_active`일
+때만 `yaw_from_path_no_scipy` 호출)도 PathOffset이 전 구간 상수 평행이동이라
+정합성 문제 없음. 상세 근거/코드 경로는 FINDINGS.md 137차 참고. 별개로
+`lane_planner_2.py`의 `lane_offset_filtered.x`(AdjustLaneOffset 계통)가
+레인리스에서도 잔류값이 섞여들 수 있다는 참고사항 발견(조치는 안 함, 기록만).
+패치 없음.
 
-## 136李?(?꾨즺 ??遺꾩꽍留? 肄붾뱶蹂寃??놁쓬) ???ㅼ감 params.json 諛깆뾽 ?뚯씪 寃??carrot_settings.json ?議?
+## 136차 (완료 — 분석만, 코드변경 없음) — 실차 params.json 백업 파일 검토(carrot_settings.json 대조)
 
-**諛곌꼍**: ?ъ슜?먭? ?ㅼ감 params 諛깆뾽(`params_backup-4.json`, 161媛?????
-?낅줈?쒗븯怨?"?섏젙?섍굅??異붿쿇媛??덈굹" 吏덈Ц. 濡쒓렇遺꾩꽍/?⑥튂 ?몄뀡 ?꾨땲怨?
-?꾩옱 UI ?ㅼ젙媛??ㅻ깄?룹뿉 ???1?뚯꽦 由щ럭 ?붿껌.
+**배경**: 사용자가 실차 params 백업(`params_backup-4.json`, 161개 키)을
+업로드하고 "수정하거나 추천값 있나" 질문. 로그분석/패치 세션 아니고
+현재 UI 설정값 스냅샷에 대한 1회성 리뷰 요청.
 
-**諛⑸쾿**: `ryu/selfdrive/carrot_settings.json`(UI ?뚮씪誘명꽣 硫뷀?: title/
-min/max/default)怨??議고빐 湲곕낯媛믨낵 ?ㅻⅨ 73媛???ぉ 異붿텧 ??洹몄쨷 ?ㅼ젣
-肄붾뱶(controlsd.py/latcontrol_torque.py/modeld.py/radard.py) 寃뚯씠??
-濡쒖쭅源뚯? ?뺤씤??"?꾩옱 媛믪씠 ?ㅼ젣濡??곸슜?섎뒗吏"源뚯? 寃利앺븳 ??ぉ留?寃곕줎
-?뺤젙.
+**방법**: `ryu/selfdrive/carrot_settings.json`(UI 파라미터 메타: title/
+min/max/default)과 대조해 기본값과 다른 73개 항목 추출 → 그중 실제
+코드(controlsd.py/latcontrol_torque.py/modeld.py/radard.py) 게이팅
+로직까지 확인해 "현재 값이 실제로 적용되는지"까지 검증한 항목만 결론
+확정.
 
-**?듭떖 諛쒓껄 (?ъ슜?먯뿉寃?蹂닿퀬 ?꾨즺)**:
-1. **`LateralTorqueCustom=0`?몃뜲 `LateralTorqueKf/Ki/Kd/Kp/Friction/
-   AccelFactor`媛 ?꾨? 湲곕낯媛믨낵 ?ㅻⅤ寃?而ㅼ뒪????덉쓬** ??
-   `latcontrol_torque.py` L145 `if lateralTorqueCustom > 0:` 寃뚯씠?멸?
-   爰쇱졇 ?덉뼱 ??6媛?而ㅼ뒪?媛믪? **?꾪? ?곸슜?섏? ?딄퀬 ?덉쓬** (???openpilot
-   live torque ?먮룞異붿젙媛??ъ슜 以?. ?섎룄?곸쑝濡?而ㅼ뒪? ?쒕떇媛믪쓣 ?ｌ뼱??
-   嫄곕씪硫?`LateralTorqueCustom`??1濡?耳쒖빞 諛섏쁺????諛섎?濡??먮룞異붿젙??
-   ?먰븳?ㅻ㈃ ?꾩옱 ?곹깭媛 留욊퀬 而ㅼ뒪? ?꾨뱶媛믩뱾? 洹몃깷 二쎌? ?ㅼ젙?쇰줈 ?щ룄
-   臾대갑.
-2. `LatSuspendAngleDeg=45` ???덉슜踰붿쐞(45~300)??**理쒖냼媛?*. ?먮룞議고뼢??
-   ?쇱떆以묐떒?섎뒗 ?ㅽ떚?대쭅??媛곷룄 ?꾧퀎媛믪씠?? `CustomSteerMax=408`(?믪?
-   ?좏겕?덉슜)怨?議고빀?섎㈃ ?뺤옉 媛뺥븳 ?좏겕媛 ?꾩슂??湲됱빱釉?湲됱감?좊?寃?
-   援ш컙?먯꽌 洹??꾩뿉 癒쇱? 議고뼢蹂댁“媛 爰쇱쭏 ?꾪뿕 ???섎룄???ㅼ젙?몄? ?뺤씤
-   沅뚯옣.
-3. `SteerActuatorDelay=0` ???닿굔 踰꾧렇 ?꾨떂, `modeld.py` L430 濡쒖쭅??
-   0? "怨좎젙媛????`liveDelay.lateralDelay`(?먮룞痢≪젙移? ?ъ슜" 紐⑤뱶.
-   湲곕낯媛?30(0.30s 怨좎젙)怨??ㅻⅨ 寃??뺤긽 ?숈옉 諛⑹떇 李⑥씠??肉?
-4. `EnableRadarTracks=-1` ???꾨줈?앺듃媛 怨꾩냽 異붿쟻 以묒씤 SCC ?⑥씪??
-   ?덉씠??`track_scc`, trackId=0) ?대갚 梨꾪깮 議곌굔(`radard.py` L946)怨?
-   吏곴껐. 37李⑥뿉????媛믪씠 `-1`?????놁감濡??ㅼ씤???꾪뿕??洹쇰낯?먯씤?쇰줈
-   吏紐⑸릱?덉쑝?? ?댄썑 `SCC_FALLBACK_DPATH_GATE`(dPath<2.0m) ?⑥튂媛
-   ?대? ?곸슜???꾪솕??PARAMS_REGISTRY 李멸퀬, ?ㅻ쭔 ?ㅼ감 ?꾩쟾寃利앹? ?꾩쭅).
-   ?꾩옱 -1 ?좎???"臾몄젣"???꾨땲怨?湲곗〈??吏꾪뻾 以묒씤 寃利??몃옓怨?洹몃?濡?
-   ?곌껐?섎뒗 ??ぉ?대씪???먮쭔 ?뺤씤/湲곕줉.
-5. `VEgoStopping=5`(=0.05, x0.01 ?ㅼ??? ??UI ???쇰컲?곸쑝濡??곗씠??
-   媛?50=0.50) ?鍮?10諛?誘쇨컧. modeld.py/carrot ?뺤??먯젙 ?꾧퀎媛믪씠??
-   ?덈Т ??쑝硫??뺤??먯젙??怨쇰?(?뱀? 諛섎?濡?吏???????덉쓬 ???ㅼ＜??
-   泥닿컧(?뺤?/異쒕컻 ?쒖젏 ?댁깋?? ?덉뿀?붿? ?뺤씤 ??議곗젙 沅뚯옣, ?대쾲??
-   肄붾뱶 寃쎈줈源뚯? 源딄쾶 異붿쟻?섏? ?딆쓬(NEEDS_VALIDATION ?깃꺽, ?꾩냽 ?꾩슂??
-   ?ъ“??.
+**핵심 발견 (사용자에게 보고 완료)**:
+1. **`LateralTorqueCustom=0`인데 `LateralTorqueKf/Ki/Kd/Kp/Friction/
+   AccelFactor`가 전부 기본값과 다르게 커스텀돼 있음** —
+   `latcontrol_torque.py` L145 `if lateralTorqueCustom > 0:` 게이트가
+   꺼져 있어 이 6개 커스텀값은 **전혀 적용되지 않고 있음** (대신 openpilot
+   live torque 자동추정값 사용 중). 의도적으로 커스텀 튜닝값을 넣어둔
+   거라면 `LateralTorqueCustom`을 1로 켜야 반영됨 — 반대로 자동추정을
+   원한다면 현재 상태가 맞고 커스텀 필드값들은 그냥 죽은 설정으로 둬도
+   무방.
+2. `LatSuspendAngleDeg=45` — 허용범위(45~300)의 **최소값**. 자동조향이
+   일시중단되는 스티어링휠 각도 임계값이라, `CustomSteerMax=408`(높은
+   토크허용)과 조합하면 정작 강한 토크가 필요한 급커브/급차선변경
+   구간에서 그 전에 먼저 조향보조가 꺼질 위험 — 의도적 설정인지 확인
+   권장.
+3. `SteerActuatorDelay=0` — 이건 버그 아님, `modeld.py` L430 로직상
+   0은 "고정값 대신 `liveDelay.lateralDelay`(자동측정치) 사용" 모드.
+   기본값 30(0.30s 고정)과 다른 게 정상 동작 방식 차이일 뿐.
+4. `EnableRadarTracks=-1` — 프로젝트가 계속 추적 중인 SCC 단일점
+   레이더(`track_scc`, trackId=0) 폴백 채택 조건(`radard.py` L946)과
+   직결. 37차에서 이 값이 `-1`일 때 옆차로 오인식 위험이 근본원인으로
+   지목됐었으나, 이후 `SCC_FALLBACK_DPATH_GATE`(dPath<2.0m) 패치가
+   이미 적용돼 완화됨(PARAMS_REGISTRY 참고, 다만 실차 완전검증은 아직).
+   현재 -1 유지는 "문제"는 아니고 기존에 진행 중인 검증 트랙과 그대로
+   연결되는 항목이라는 점만 확인/기록.
+5. `VEgoStopping=5`(=0.05, x0.01 스케일) — UI 상 일반적으로 쓰이는
+   값(50=0.50) 대비 10배 민감. modeld.py/carrot 정지판정 임계값이라
+   너무 낮으면 정지판정이 과민(혹은 반대로 지연)할 수 있음 — 실주행
+   체감(정지/출발 시점 어색함) 있었는지 확인 후 조정 권장, 이번엔
+   코드 경로까지 깊게 추적하지 않음(NEEDS_VALIDATION 성격, 후속 필요시
+   재조사).
 
-**?섎㉧吏 68媛?李⑥씠媛?*(CruiseSpeed1~5/CruiseMaxVals0~6/AutoNaviSpeed*/
-AutoCurveSpeed* ??? ?щ（利덉냽???꾨━?떷룰??랁봽濡쒗뙆?셋룸궡鍮꾩뿰???ㅼ젙瑜섎줈
-?ъ슜??痍⑦뼢 而ㅼ뒪?곕쭏?댁쭠 踰붿＜濡??먮떒, ?밸퀎???댁긽 ?좏샇 ?놁쓬 ???곸꽭
-鍮꾧탳?쒕뒗 ?꾨옒 李멸퀬?⑹쑝濡쒕쭔 work ?대뜑???덉뿀???덊룷?먮뒗 ???????
-1?뚯꽦 ?ㅻ깄??鍮꾧탳???ъ궗??媛移???떎怨??먮떒).
+**나머지 68개 차이값**(CruiseSpeed1~5/CruiseMaxVals0~6/AutoNaviSpeed*/
+AutoCurveSpeed* 등)은 크루즈속도 프리셋·가속프로파일·내비연동 설정류로
+사용자 취향 커스터마이징 범주로 판단, 특별한 이상 신호 없음 — 상세
+비교표는 아래 참고용으로만 work 폴더에 있었음(레포에는 저장 안 함,
+1회성 스냅샷 비교라 재사용 가치 낮다고 판단).
 
-**寃곕줎**: 肄붾뱶/?⑥튂 蹂寃??놁쓬, ?대쾲 ?몄뀡? ?쒖닔 由щ럭. 1踰?LateralTorqueCustom)
-??媛???ㅼ쭏?곸씤 諛쒓껄 ???ъ슜???섎룄 ?뺤씤 ?꾩슂.
+**결론**: 코드/패치 변경 없음, 이번 세션은 순수 리뷰. 1번(LateralTorqueCustom)
+이 가장 실질적인 발견 — 사용자 의도 확인 필요.
 
-**?ъ슜???뺤씤 ?꾩슂**: (1) LateralTorqueKf ??而ㅼ뒪? ?좏겕媛믪쓣 ?ㅼ젣濡??곌퀬
-?띠뿀?붿?(洹몃읆 LateralTorqueCustom=1 ?꾩슂), (2) LatSuspendAngleDeg=45媛
-?섎룄?곸씤吏, (3) VEgoStopping=5 愿??泥닿컧 ?댁긽 ?щ?.
+**사용자 확인 필요**: (1) LateralTorqueKf 등 커스텀 토크값을 실제로 쓰고
+싶었는지(그럼 LateralTorqueCustom=1 필요), (2) LatSuspendAngleDeg=45가
+의도적인지, (3) VEgoStopping=5 관련 체감 이상 여부.
 
-## 135李?怨꾩냽 (?꾨즺 ??1踰??⑥튂 ?곸슜, 2踰?blame 議곗궗 ?꾨즺/蹂대쪟 ?뺤젙, 3踰?蹂대쪟) ??cruise.py line500 二쎌?遺꾧린 ?쒓굅 + line562 ?섎룄 議곗궗
+## 135차 계속 (완료 — 1번 패치 적용, 2번 blame 조사 완료/보류 확정, 3번 보류) — cruise.py line500 죽은분기 제거 + line562 의도 조사
 
-**諛곌꼍**: 135李?泥댄겕?ъ씤?몄뿉??李얠? 3媛???ぉ(cruise.py 二쎌?遺꾧린 2嫄?
-誘몄궗??import/蹂????????ъ슜?먭? "1踰덉? ?뺣━, 2踰덉? 而ㅻ컠 寃?좏빐??
-?섎룄 ?뺤씤, 3踰덉? 蹂대쪟"濡?寃곗젙.
+**배경**: 135차 체크포인트에서 찾은 3개 항목(cruise.py 죽은분기 2건,
+미사용 import/변수)에 대해 사용자가 "1번은 정리, 2번은 커밋 검토해서
+의도 확인, 3번은 보류"로 결정.
 
-**1踰???line 500 ?⑥튂 ?곸슜**: `elif self._cruise_ready or
-CS.cruiseState.standstill or self.carrot_cruise_active:` ?덉쓽
-`if False: #self._cruise_button_mode in [2, 3]:` 3以?釉붾줉??`pass`濡?
-?泥?elif ?먯껜???좎? ????젣 ??議곌굔 泥댁씤 ?됯? ?쒖꽌媛 諛붾뚯뼱 ?숈옉??
-蹂?????덉뼱 elif 援ъ“??蹂댁〈?섍퀬 ?대?留?臾대젰??. `py_compile` ?듦낵,
-濡쒖뺄 而ㅻ컠 `34911dc`(base `976fefd`). ?⑥튂?뚯씪:
+**1번 — line 500 패치 적용**: `elif self._cruise_ready or
+CS.cruiseState.standstill or self.carrot_cruise_active:` 안의
+`if False: #self._cruise_button_mode in [2, 3]:` 3줄 블록을 `pass`로
+대체(elif 자체는 유지 — 삭제 시 조건 체인 평가 순서가 바뀌어 동작이
+변할 수 있어 elif 구조는 보존하고 내부만 무력화). `py_compile` 통과,
+로컬 커밋 `34911dc`(base `976fefd`). 패치파일:
 `0001-cruise-line500-dead-branch.patch`.
 
-**2踰???line 562 ?섎룄 議곗궗(`git blame`)**: line 500/562 ????
-`c1361f8`(?묒꽦??boramee, 2026-02-27, 而ㅻ컠硫붿떆吏 "怨꾧린??LFA ?꾩씠肄?
-?쒖떆(5W,CANFD,鍮꾨”而? (#253)")?먯꽌 ?좎엯????**ryu ?꾨줈?앺듃 ?몄뀡?먯꽌
-?꾩엯??肄붾뱶媛 ?꾨땲???낆뒪?몃┝(carrot-openpilot ?먮낯 ??μ냼)?먯꽌 洹몃?濡?
-諛쏆븘??肄붾뱶**. 洹?而ㅻ컠 硫붿떆吏 ?먯껜??LFA 怨꾧린???꾩씠肄??쒖떆 愿?⑥씠??
-`if False`/`# ?섏젙?꾩슂...` 濡쒖쭅怨?吏곸젒 愿?⑥씠 ?놁뼱 蹂댁엫 ???꾨쭏???洹쒕え
-squash/rebase 而ㅻ컠?????뚯씪???듭㎏濡??ㅻ젮??寃껋쑝濡?異붿젙, ?ㅼ젣濡???
-遺꾧린瑜?"?몄젣/?? 鍮꾪솢?깊솕?덈뒗吏??????μ냼 ?덉뒪?좊━留뚯쑝濡쒕뒗 ??
-異붿쟻?섏? ?딆쓬(?낆뒪?몃┝ ??μ냼 ?먯껜瑜?遊먯빞 ???섎룄 ?덉쓬, ?대쾲 ?몄뀡
-踰붿쐞 諛?.
+**2번 — line 562 의도 조사(`git blame`)**: line 500/562 둘 다
+`c1361f8`(작성자 boramee, 2026-02-27, 커밋메시지 "계기판 LFA 아이콘
+표시(5W,CANFD,비롱컨) (#253)")에서 유입됨 — **ryu 프로젝트 세션에서
+도입된 코드가 아니라 업스트림(carrot-openpilot 원본 저장소)에서 그대로
+받아온 코드**. 그 커밋 메시지 자체는 LFA 계기판 아이콘 표시 관련이라
+`if False`/`# 수정필요...` 로직과 직접 관련이 없어 보임 — 아마도 대규모
+squash/rebase 커밋에 이 파일이 통째로 실려온 것으로 추정, 실제로 이
+분기를 "언제/왜" 비활성화했는지는 이 저장소 히스토리만으로는 더
+추적되지 않음(업스트림 저장소 자체를 봐야 할 수도 있음, 이번 세션
+범위 밖).
 
-**寃곕줎(2踰? ?ъ슜???뺤씤 ?꾩슂 ?놁씠 ?먮떒 媛?ν븳 ?좉퉴吏)**: ?먯옉??蹂몄씤??
-"?섏젙?꾩슂" 硫붾え媛 ?щ┛ 誘몄셿??肄붾뱶濡? ?곕━ ?꾨줈?앺듃媛 留뚮뱺 寃껊룄 ?꾨땲怨?
-?섎룄瑜??ш뎄?깊븷 洹쇨굅???놁쓬 -> **??젣?섏? ?딄퀬 洹몃?濡?蹂대쪟**媛 留욎쓬
-(?ъ슜??寃곗젙: 蹂대쪟 ?뺤젙, ?대쾲 ?몄뀡?먯꽌???⑥튂 ????. ?ν썑 ?ㅼ젣濡?
-lfaButton??`_paddle_decel_active` 愿???댁긽 ?숈옉 ?쒕낫媛 ?ㅼ뼱?ㅻ㈃ 洹몃븣
-??遺꾧린瑜??ㅼ떆 ?댄렣蹂??꾨낫濡?FINDINGS.md???④꺼??
+**결론(2번, 사용자 확인 필요 없이 판단 가능한 선까지)**: 원작자 본인의
+"수정필요" 메모가 달린 미완성 코드로, 우리 프로젝트가 만든 것도 아니고
+의도를 재구성할 근거도 없음 -> **삭제하지 않고 그대로 보류**가 맞음
+(사용자 결정: 보류 확정, 이번 세션에서는 패치 안 함). 향후 실제로
+lfaButton의 `_paddle_decel_active` 관련 이상 동작 제보가 들어오면 그때
+이 분기를 다시 살펴볼 후보로 FINDINGS.md에 남겨둠.
 
-**3踰???誘몄궗??import/蹂???뺣━**: ?ъ슜??寃곗젙?쇰줈 蹂대쪟, ?묒뾽 ?놁쓬.
+**3번 — 미사용 import/변수 정리**: 사용자 결정으로 보류, 작업 없음.
 
-## 135李?(泥댄겕?ъ씤????遺꾩꽍留??꾨즺, ?⑥튂 誘몄쟻???ъ슜??寃곗젙 ?湲? ??c3-ms-dev ?꾩껜 二쎌?肄붾뱶/遺덊븘?붿퐫??CPU-硫붾え由??ъ젏寃
+## 135차 (체크포인트 — 분석만 완료, 패치 미적용/사용자 결정 대기) — c3-ms-dev 전체 죽은코드/불필요코드/CPU-메모리 재점검
 
-**諛곌꼍**: ?ъ슜???붿껌?쇰줈 理쒖떊 HEAD(`976fefd`, 134李?諛섏쁺蹂? ?꾩껜?먯꽌
-二쎌?肄붾뱶/遺덊븘?뷀븳 肄붾뱶/CPU쨌硫붾え由?遺덊븘???먯쑀 ?щ?瑜?硫대????ъ젏寃.
-97/99/100/102李??댄썑 泥??꾨㈃ ?ъ젏寃(湲곗? 而ㅻ컠 `bc1bcb0`, 101李?.
+**배경**: 사용자 요청으로 최신 HEAD(`976fefd`, 134차 반영본) 전체에서
+죽은코드/불필요한 코드/CPU·메모리 불필요 점유 여부를 면밀히 재점검.
+97/99/100/102차 이후 첫 전면 재점검(기준 커밋 `bc1bcb0`, 101차).
 
-**吏꾪뻾**: (1) 湲곗〈 `toolkit/scan_perf_antipatterns.sh` ?ъ떎??
-(2) `bc1bcb0..HEAD` diff(?ㅼ젣濡?諛붾?3媛??뚯씪: `carrot_man.py`/
-`radard.py`/`long_mpc.py`留? ?뺣? 寃?? (3) `pip install pyflakes`濡?
-誘몄궗??import/蹂???뺤쟻遺꾩꽍 3媛吏 蹂묓뻾 ?????ㅽ겕由쏀듃 ?묒꽦 ?놁씠 湲곗〈
-?꾧뎄 ?ъ궗???먯튃 以??
+**진행**: (1) 기존 `toolkit/scan_perf_antipatterns.sh` 재실행,
+(2) `bc1bcb0..HEAD` diff(실제로 바뀐 3개 파일: `carrot_man.py`/
+`radard.py`/`long_mpc.py`만) 정밀 검토, (3) `pip install pyflakes`로
+미사용 import/변수 정적분석 3가지 병행 — 새 스크립트 작성 없이 기존
+도구 재사용 원칙 준수.
 
-**寃곌낵 ?붿빟** (?곸꽭??FINDINGS.md "135李? 李멸퀬):
-- 101李??댄썑 ?좉퇋 濡쒖쭅(94~134李?利앸텇)? CPU/硫붾え由?臾몄젣 ?놁쓬 ?뺤씤
-  (?좉퇋 ?곹깭媛??꾨? ?ㅼ뭡??O(1), ?덉뒪?좊━ 踰꾪띁 ?꾨? `deque(maxlen=)`
+**결과 요약** (상세는 FINDINGS.md "135차" 참고):
+- 101차 이후 신규 로직(94~134차 증분)은 CPU/메모리 문제 없음 확인
+  (신규 상태값 전부 스칼라 O(1), 히스토리 버퍼 전부 `deque(maxlen=)`
   bounded).
-- **?좉퇋 諛쒓껄**: `cruise.py`??99/100李④? ?볦튇 `if False:` 二쎌? 遺꾧린
-  2嫄?line 500, 562 ???꾩옄??`# ?섏젙?꾩슂...` 二쇱꽍 ?덉뼱 ?ъ슜???뺤씤
-  ?꾩슂), `print("lfaButton")` ?붾쾭洹??붿옱 1嫄?
-- `pyflakes` ?ㅼ틪: 誘몄궗??import ?ㅼ닔(`carrot_man.py`/`carrot_serv.py`/
+- **신규 발견**: `cruise.py`에 99/100차가 놓친 `if False:` 죽은 분기
+  2건(line 500, 562 — 후자는 `# 수정필요...` 주석 있어 사용자 확인
+  필요), `print("lfaButton")` 디버그 잔재 1건.
+- `pyflakes` 스캔: 미사용 import 다수(`carrot_man.py`/`carrot_serv.py`/
   `controlsd.py`/`radard.py`/`longitudinal_planner.py`/`long_mpc.py`),
-  誘몄궗??吏?????4嫄?洹?以?`longitudinal_planner.py`
-  `steer_angle_without_offset`留?20Hz ?ル（?꾩뿉??留??꾨젅???ㅽ뻾?섎뒗
-  臾댁쓽誘명븳 ?곗궛 ??鍮꾩슜? 洹뱁엳 誘몃?).
-- ?ㅼ젣 comma 湲곌린 CPU/硫붾え由??ㅼ륫(`top`)? ?대쾲?먮룄 誘몄떎??
+  미사용 지역변수 4건(그 중 `longitudinal_planner.py`
+  `steer_angle_without_offset`만 20Hz 핫루프에서 매 프레임 실행되는
+  무의미한 연산 — 비용은 극히 미미).
+- 실제 comma 기기 CPU/메모리 실측(`top`)은 이번에도 미실시.
 
-**?ㅼ쓬 ?④퀎 (?ъ슜??寃곗젙 ?湲?**: cruise.py 二쎌? 遺꾧린 2嫄?+ 誘몄궗??
-import/蹂???쇨큵 ?뺣━瑜??⑥튂?좎? ?щ? ?뺤씤 ?꾩슂. ?뱀씤 ???ㅼ쓬 ?몄뀡?먯꽌
-援ы쁽.
+**다음 단계 (사용자 결정 대기)**: cruise.py 죽은 분기 2건 + 미사용
+import/변수 일괄 정리를 패치할지 여부 확인 필요. 승인 시 다음 세션에서
+구현.
 
-## 134李?(?꾨즺 ???뺤쟻 由щ럭 + 諛쒓껄?ы빆 ?⑥튂 ?곸슜 + 濡쒖쭅?⑥쐞 ?쒕??덉씠??寃利??꾨즺, ?ㅼ감寃利??湲? ??理쒓렐 ?⑥튂 ?곹샇?곹뼢 寃?? 112李?遺?ㅽ듃 arm 媛??鍮꾨?移??섏젙
+## 134차 (완료 — 정적 리뷰 + 발견사항 패치 적용 + 로직단위 시뮬레이션 검증 완료, 실차검증 대기) — 최근 패치 상호영향 검토, 112차 부스트 arm 가드 비대칭 수정
 
-**諛곌꼍**: ?ъ슜???붿껌?쇰줈 origin/c3-ms-dev(HEAD `f24cbf8`, 132李? ?꾩껜瑜??뺤쟻
-由щ럭 ??理쒓렐 ?щ윭 ?몄뀡 ?⑥튂?ㅼ씠 ?쒕줈 ?ㅻⅨ 濡쒖쭅???곹뼢??二쇰뒗吏 寃???ㅼ＜??
-濡쒓렇 ?놁씠 肄붾뱶留????.
+**배경**: 사용자 요청으로 origin/c3-ms-dev(HEAD `f24cbf8`, 132차) 전체를 정적
+리뷰 — 최근 여러 세션 패치들이 서로 다른 로직에 영향을 주는지 검토(실주행
+로그 없이 코드만 대상).
 
-**寃??踰붿쐞**: `long_mpc.py`??discontinuity/jerk-boost/lane-change
-?곹샇?곕룞 ?쒖뒪??67/72/73/76/94/109/112李? ?몃━嫄??뚯뒪 4醫?
+**검토 범위**: `long_mpc.py`의 discontinuity/jerk-boost/lane-change
+상호연동 시스템(67/72/73/76/94/109/112차, 트리거 소스 4종:
 discontinuity/discontinuity_lc/handoff/low_speed_strong_decel), `radard.py`
-LeadBlend BIG_JUMP ?좊ː??寃뚯씠??104/130李????援먯감, `carrot_man.py`
-route lookahead ?⑦봽 由щ???132李?????낅┰??
+LeadBlend BIG_JUMP 신뢰도 게이트(104/130차)와의 교차, `carrot_man.py`
+route lookahead 램프 리미터(132차)와의 독립성.
 
-**寃곌낵**: 4醫?遺?ㅽ듃 ?몃━嫄??곹샇?묒슜, LeadBlend BIG_JUMP 寃뚯씠?몄? long_mpc
-discontinuity 媛먯? 媛?諛⑺뼢???덉쟾諛⑺뼢 ?먰봽 vs ?묎렐諛⑺뼢 湲됰씫) 鍮꾩땐??
-132李??⑦봽 由щ??곗쓽 route ?꾩슜 ?낅┰?깆쓣 紐⑤몢 ?뺤씤 ??由щ럭 踰붿쐞 ?댁뿉?쒕뒗
-媛??⑥튂媛 ?대? ?곹샇?묒슜???곸꽭 二쇱꽍?쇰줈 寃利앺빐???곹깭?怨??덈줈???뚭???
-?놁뿀?? **?좉퇋 諛쒓껄 1嫄?*: 112李?boost-arm 媛??`_discontinuity_jerk_boost_
-timer <= 0.0`???뚮쭔 arm)媛 鍮꾨?移?쟻 ???먭린 ?먯떊? ?ㅻⅨ ?뚯뒪??吏꾪뻾 以묒씤
-boost瑜???뼱?곗? ?딅룄濡?蹂댄샇?섏?留? 諛섎?濡??먯떊??癒쇱? arm????discontinuity/
-handoff ???ㅻⅨ ?몃━嫄곌? 諛쒖깮?섎㈃ (湲곗〈 ?ㅺ퀎?濡? 臾댁“嫄???뼱?⑥?怨? 洹??꾩뿏
-`low_speed_strong_lead_decel` 議곌굔??怨꾩냽 True濡??좎? 以묒씠?대룄 False?뭈rue
-?ｌ?媛 ?ㅼ떆 諛쒖깮?섍린 ?꾧퉴吏??촡rm?섏? ?딆쓬(?ｌ? ?뚮퉬 ?먯껜??媛???듦낵 ?щ??
-臾닿??섍쾶 ??긽 ?쇱뼱?? L875-880). **?곹뼢? ?덉쟾 諛섏쓳 ?ш린(`w=1.0`, 利됱떆
-臾닿컧??媛 ?꾨땲??MPC ?꾨떖 ??щ퉬???꾨쭔??吏?띿떆媛꾩뿉留?援?븳** ?????
-?ш컖?꾨줈 ?먮떒. 諛쒖깮?섎젮硫?"????욎감 媛뺥븳媛먯냽"怨?"?숈떆媛꾨? dRel 遺덉뿰??
-(?쇱뼱?ㅺ린/李⑥꽑蹂寃???"??寃뱀퀜?????ㅼ감 諛쒖깮鍮덈룄 ?먯껜媛 ??쓣 寃껋쑝濡?異붿젙.
-?곸꽭??FINDINGS.md "134李? 李멸퀬.
+**결과**: 4종 부스트 트리거 상호작용, LeadBlend BIG_JUMP 게이트와 long_mpc
+discontinuity 감지 간 방향성(안전방향 점프 vs 접근방향 급락) 비충돌,
+132차 램프 리미터의 route 전용 독립성을 모두 확인 — 리뷰 범위 내에서는
+각 패치가 이미 상호작용을 상세 주석으로 검증해둔 상태였고 새로운 회귀는
+없었음. **신규 발견 1건**: 112차 boost-arm 가드(`_discontinuity_jerk_boost_
+timer <= 0.0`일 때만 arm)가 비대칭적 — 자기 자신은 다른 소스의 진행 중인
+boost를 덮어쓰지 않도록 보호하지만, 반대로 자신이 먼저 arm된 뒤 discontinuity/
+handoff 등 다른 트리거가 발생하면 (기존 설계대로) 무조건 덮어써지고, 그 후엔
+`low_speed_strong_lead_decel` 조건이 계속 True로 유지 중이어도 False→True
+엣지가 다시 발생하기 전까진 재arm되지 않음(엣지 소비 자체는 가드 통과 여부와
+무관하게 항상 일어남, L875-880). **영향은 안전 반응 크기(`w=1.0`, 즉시
+무감쇠)가 아니라 MPC 도달 저크비용 완만화 지속시간에만 국한** — 낮은
+심각도로 판단. 발생하려면 "저속+앞차 강한감속"과 "동시간대 dRel 불연속
+(끼어들기/차선변경 등)"이 겹쳐야 해 실차 발생빈도 자체가 낮을 것으로 추정.
+상세는 FINDINGS.md "134차" 참고.
 
-**134李?怨꾩냽(媛숈? ?몄뀡, ?⑥튂 ?곸슜)**: ?ъ슜??吏?쒕줈 ??諛쒓껄?ы빆??利됱떆
-?⑥튂. `long_mpc.py`??plain 'discontinuity' arm 吏??60李⑤? dRel 遺덉뿰??
-媛먯? 釉붾줉)??`elif (timer<=0.0 or source=='discontinuity')` 媛?쒕? 異붽? ??
-handoff/discontinuity_lc/low_speed_strong_decel(?꾨? 4.0s hard-hold)??
-吏꾪뻾 以묒씪 ??plain discontinuity(1.0s)媛 ?대? ??뼱???⑥텞?쒗궎吏 ?딅룄濡?
-蹂댁〈(?쒓렇/??대㉧/handoff_release_value/lc_danger_confirm_timer ?꾨?
-誘몃?寃?. discontinuity_lc/handoff/low_speed_strong_decel ???뚯뒪?쇰━??
-?꾨? ?숈씪?섍쾶 4.0s????뼱?⑤룄 湲곌컙 ?⑥텞???놁쑝誘濡?湲곗〈泥섎읆 臾댁“嫄?
-??뼱?곕뒗 ?ㅺ퀎 洹몃?濡??좎?(蹂寃??놁쓬). ?좉퇋
-`toolkit/sim_boost_arm_priority.py`(README/CHANGELOG ?깅줉 ?꾨즺)濡?7媛?
-?쒕굹由ъ삤 濡쒖쭅?⑥쐞 寃利????좉퇋 ?섏젙 3嫄?low_speed_strong_decel/
-discontinuity_lc/handoff 媛곴컖 吏꾪뻾 以?plain discontinuity????뼱?⑥?吏
-?딆쓬, discontinuity_lc??confirm ??대㉧ 蹂댁〈源뚯? ?뺤씤) + ?뚭? ?놁쓬 ?뺤씤
-3嫄?媛숈? ?뚯뒪 ?ы듃由ш굅 ?뺤긽 由ы봽?덉떆, ?뚯쭊??stale ?뚯뒪 臾닿? ?뺤긽 arm,
-4.0s ?뚯뒪?쇰━??湲곗〈泥섎읆 臾댁“嫄???뼱?) ?꾨? PASS(7/7). 臾몃쾿 寃利?
-(`py_compile`) ?듦낵. **?꾩쭅 ?ㅼ감 濡쒓렇 ?ъ깮寃利앹? ?놁쓬** ????議고빀 ?먯껜媛
-???媛뺥븳 ?좏뻾李?媛먯냽怨?dRel 遺덉뿰???쇱뼱?ㅺ린/李⑥꽑蹂寃????숈떆??寃뱀튂??
-?쒕Ц ?곹솴?대씪, ?ㅼ쓬 ?몄뀡?먯꽌 ?대떦 議고빀???ы븿??濡쒓렇 ?뺣낫 ???ъ깮寃利?
-沅뚯옣.
+**134차 계속(같은 세션, 패치 적용)**: 사용자 지시로 위 발견사항을 즉시
+패치. `long_mpc.py`의 plain 'discontinuity' arm 지점(60차대 dRel 불연속
+감지 블록)에 `elif (timer<=0.0 or source=='discontinuity')` 가드를 추가 —
+handoff/discontinuity_lc/low_speed_strong_decel(전부 4.0s hard-hold)이
+진행 중일 때 plain discontinuity(1.0s)가 이를 덮어써 단축시키지 않도록
+보존(태그/타이머/handoff_release_value/lc_danger_confirm_timer 전부
+미변경). discontinuity_lc/handoff/low_speed_strong_decel 세 소스끼리는
+전부 동일하게 4.0s라 덮어써도 기간 단축이 없으므로 기존처럼 무조건
+덮어쓰는 설계 그대로 유지(변경 없음). 신규
+`toolkit/sim_boost_arm_priority.py`(README/CHANGELOG 등록 완료)로 7개
+시나리오 로직단위 검증 — 신규 수정 3건(low_speed_strong_decel/
+discontinuity_lc/handoff 각각 진행 중 plain discontinuity에 덮어써지지
+않음, discontinuity_lc는 confirm 타이머 보존까지 확인) + 회귀 없음 확인
+3건(같은 소스 재트리거 정상 리프레시, 소진된 stale 소스 무관 정상 arm,
+4.0s 소스끼리는 기존처럼 무조건 덮어씀) 전부 PASS(7/7). 문법 검증
+(`py_compile`) 통과. **아직 실차 로그 재생검증은 없음** — 이 조합 자체가
+저속+강한 선행차 감속과 dRel 불연속(끼어들기/차선변경)이 동시에 겹치는
+드문 상황이라, 다음 세션에서 해당 조합이 포함된 로그 확보 시 재생검증
+권장.
 
-## 133李?(?꾨즺 ??132李??⑥튂 ?ㅼ륫 濡쒓렇 ?ш?利? 肄붾뱶 誘몃?寃? ??129李?131李??먮낯 route(306de77a28 seg15) ?ъ뾽濡쒕뱶濡??⑦봽 由щ????⑥튂瑜??ㅼ륫 desiredSpeed(route) ?먮낯??吏곸젒 ?ы썑?곸슜 寃利?
+## 133차 (완료 — 132차 패치 실측 로그 재검증, 코드 미변경) — 129차/131차 원본 route(306de77a28 seg15) 재업로드로 램프 리미터 패치를 실측 desiredSpeed(route) 원본에 직접 사후적용 검증
 
-**諛곌꼍**: 132李??⑦봽 由щ????⑥튂)???⑹꽦 ?쒕굹由ъ삤濡쒕쭔 ?ъ쟾寃利앸릱??
-?ъ슜?먭? 129李?131李????곕뜕 ?먮낯 route(`306de77a28` seg15, GPS 醫뚰몴
-?ы븿)瑜??ъ뾽濡쒕뱶 -> ?ㅼ륫 濡쒓렇 湲곕컲 ?ш?利?吏꾪뻾.
+**배경**: 132차(램프 리미터 패치)는 합성 시나리오로만 사전검증됐음.
+사용자가 129차/131차 때 쓰던 원본 route(`306de77a28` seg15, GPS 좌표
+포함)를 재업로드 -> 실측 로그 기반 재검증 진행.
 
-**?듭떖 寃곌낵**: 媛???좊ː???믪? 諛⑸쾿(?⑥튂???먯씤 遺덈Ц 理쒖쥌 out_speed?먮쭔
-?ы썑 ?곸슜?섎뒗 援ъ“?대?濡? 濡쒓렇???ㅼ젣 湲곕줉??`desiredSpeed(src=='route')`
-?쒓퀎??洹??먯껜??132李?`RampLimiterState`瑜?洹몃?濡??듦낵)?쇰줈 寃利앺븳 寃곌낵:
+**핵심 결과**: 가장 신뢰도 높은 방법(패치는 원인 불문 최종 out_speed에만
+사후 적용되는 구조이므로, 로그에 실제 기록된 `desiredSpeed(src=='route')`
+시계열 그 자체에 132차 `RampLimiterState`를 그대로 통과)으로 검증한 결과:
 
-- **1李?湲됰씫(t=4.25, ?ㅼ륫 86->61kph, ?-25.0, ?⑥씪?꾨젅??**: patched??
-  86kph 遺洹쇱뿉???쒖옉??珥덈떦 accel_limit_kmh(??.52kph/s, `AutoNaviSpeedDecelRate`
-  0.70 媛?? ?띾룄濡??쒖꽌???섍컯 ??湲됰씫 ?쒖젏 ?꾪썑 ??珥덇컙 patched??怨꾩냽
-  84~86kph?瑜??좎?(recorded??洹??꾨젅?꾩뿉 利됱떆 61濡?異붾씫). ?댁쟾??泥닿컧??
-  "媛묒옄湲???以꾩뼱?쒕뒗" 寃껋씠 ?꾨땲??留ㅻ걚?ъ슫 ?곗냽 媛먯냽?쇰줈 諛붾?
-- **2李?湲됰씫(t=28.35, ?ㅼ륫 65->41kph, ?-24.0)**: 131李④? Hypothesis C濡?
-  ?뺣?留ㅼ묶?덈뜕 諛붾줈 洹??대깽?? patched??67kph??먯꽌 珥덈떦 ?곹븳 ?띾룄濡쒕쭔
-  ?섍컯, ?ㅼ륫泥섎읆 ???꾨젅?꾩뿉 41濡?爰쇱?吏 ?딆쓬.
-- **3李?吏??t=43.70, ?ㅼ륫 46->30)**: ?ш???寃곌낵 ?닿굔 怨꾩궛??遺덉뿰?띿씠
-  ?꾨땲??**?뚯뒪 ?꾪솚 ?꾪떚?⑺듃**?꾩쓣 ?뺤씤 ??洹?吏곸쟾 `gas` override 援ш컙
-  (t=43.35~43.65) ?숈븞 route???대? ?대??곸쑝濡?30 洹쇰갑源뚯? 怨꾩궛???덉뿀怨?
-  gas ?댁젣 ??`route` ?뚯뒪媛 ?ㅼ떆 ?몄텧?섎㈃??desiredSpeed ?쒖떆媛믩쭔 46->30濡?
-  "?먰봽"??寃? patched??recorded? ?숈씪?섍쾶 30?쇰줈 ?섑????뺤긽 -- ??
-  吏?먯??좎큹???⑥튂媛 媛쒖엯?????遺덉뿰?띿씠 ?꾨떂).
-- **?⑥튂 ?ъ쭊??由ъ뀑 寃쎄퀎**: `gas`/`vturn` 援ш컙??嫄곗퀜 `route`媛 ?ㅼ떆
-  ?쒖꽦?붾릺??泥??꾨젅?꾩? ?ㅺ퀎?濡?利됱떆 ?듦낵(由ъ뀑) -- 132李④? ?대? ?섎룄??
-  ?숈옉?濡??뺤긽 ?뺤씤.
-- **?숈감???ы뙋??*: ?ㅼ젣 濡쒓렇??20Hz媛 ?뺥솗??洹좎씪?섏? ?딆쓬(?꾨젅???쒕엻?쇰줈
-  dt 0.02~0.08s ??議댁옱 ?뺤씤, ?? t=4.25->4.33 dt=0.075s). 怨좎젙 dt=0.05
-  媛??????꾨젅?꾨퀎 ?ㅼ젣 dt濡?"kph/s" ?숈감?⑥쓣 怨꾩궛??`accel_limit_kmh`
-  (珥덈떦 臾쇰━ ?곹븳, 2.52kph/s)? 鍮꾧탳 -> ??援ш컙 PASS.
+- **1차 급락(t=4.25, 실측 86->61kph, Δ-25.0, 단일프레임)**: patched는
+  86kph 부근에서 시작해 초당 accel_limit_kmh(≈2.52kph/s, `AutoNaviSpeedDecelRate`
+  0.70 가정) 속도로 서서히 하강 — 급락 시점 전후 수 초간 patched는 계속
+  84~86kph대를 유지(recorded는 그 프레임에 즉시 61로 추락). 운전자 체감상
+  "갑자기 훅 줄어드는" 것이 아니라 매끄러운 연속 감속으로 바뀜.
+- **2차 급락(t=28.35, 실측 65->41kph, Δ-24.0)**: 131차가 Hypothesis C로
+  정밀매칭했던 바로 그 이벤트. patched는 67kph대에서 초당 상한 속도로만
+  하강, 실측처럼 한 프레임에 41로 꺼지지 않음.
+- **3차 지점(t=43.70, 실측 46->30)**: 재검토 결과 이건 계산상 불연속이
+  아니라 **소스 전환 아티팩트**임을 확인 — 그 직전 `gas` override 구간
+  (t=43.35~43.65) 동안 route는 이미 내부적으로 30 근방까지 계산돼 있었고,
+  gas 해제 후 `route` 소스가 다시 노출되면서 desiredSpeed 표시값만 46->30로
+  "점프"한 것. patched도 recorded와 동일하게 30으로 나타남(정상 -- 이
+  지점은애초에 패치가 개입할 대상 불연속이 아님).
+- **패치 재진입 리셋 경계**: `gas`/`vturn` 구간을 거쳐 `route`가 다시
+  활성화되는 첫 프레임은 설계대로 즉시 통과(리셋) -- 132차가 이미 의도한
+  동작대로 정상 확인.
+- **낙차율 재판정**: 실제 로그는 20Hz가 정확히 균일하지 않음(프레임 드랍으로
+  dt 0.02~0.08s 폭 존재 확인, 예: t=4.25->4.33 dt=0.075s). 고정 dt=0.05
+  가정 대신 프레임별 실제 dt로 "kph/s" 낙차율을 계산해 `accel_limit_kmh`
+  (초당 물리 상한, 2.52kph/s)와 비교 -> 전 구간 PASS.
 
-**vturn ?곹샇?묒슜**: ?ㅼ젣 ??route?먯꽌??route(30)->vturn(30~32) ?꾪솚
-(t=45.15~45.20, steer 89??遺洹???濡쒓렇 ?먮낯?먯꽌???대? 留ㅻ걚?ъ썱??
-(遺덉뿰???놁쓬) -- 132李??⑥튂媛 媛쒖엯???꾩슂媛 ?녿뒗 援ш컙?닿퀬 ?ㅼ젣濡쒕룄
-?꾨Т ?곹뼢 ?놁쓬 ?뺤씤. `vTurnSpeed` 而щ읆???遺遺?援ш컙?먯꽌 ?뚯닔濡?湲곕줉?섎뒗
-寃껊룄 愿李곕릱?붾뜲(遺???섎???誘명솗??-- steer 諛⑺뼢怨?臾닿???蹂댁엫, ?ㅼ쓬
-?몄뀡 議곗궗 ?꾨낫), ?대쾲 寃利?寃곕줎?먮뒗 ?곹뼢 ?놁쓬.
+**vturn 상호작용**: 실제 이 route에서는 route(30)->vturn(30~32) 전환
+(t=45.15~45.20, steer 89도 부근)이 로그 원본에서도 이미 매끄러웠음
+(불연속 없음) -- 132차 패치가 개입할 필요가 없는 구간이고 실제로도
+아무 영향 없음 확인. `vTurnSpeed` 컬럼이 대부분 구간에서 음수로 기록되는
+것도 관찰됐는데(부호 의미는 미확인 -- steer 방향과 무관해 보임, 다음
+세션 조사 후보), 이번 검증 결론에는 영향 없음.
 
-**蹂댁“ 寃利?李멸퀬?? ?쒓퀎 ?덉쓬)**: `carrot_navi_route_core`(131李???
-?ㅼ젣 GPS ?몃옓(1Hz, `gpsLocation` 梨꾨꼸)??navi_points ?꾨줉?쒕줈 ?ｌ뼱
-?ш뎄?깊븯??諛⑹떇???쒕룄. 2李?湲됰씫(t=28.35)? ?ш뎄?깆뿉?쒕룄 raw 66.6->37.9
-?⑥씪?꾨젅???ㅻ깄?쇰줈 **?낅┰?곸쑝濡??ы쁽**??Hypothesis C媛 ?ㅼ륫 GPS濡쒕룄
-?뺤씤??, patched???대? 留ㅻ걚?쎄쾶 ?꾪솕?⑥씠 ?ㅼ떆 ?뺤씤?? ?ㅻ쭔 1李?湲됰씫?
-?ш뎄???ㅽ뙣(lookahead 300m ?덈룄???덉뿉 援먯감濡쒓? ?꾩쭅 ???ㅼ뼱? raw媛
-300 ?좎?) -- ?닿굔 GPS 1Hz ?꾨줉???덈룄???쒓퀎?댁? ?⑥튂??臾몄젣???꾨떂(??
-吏곸젒?곸슜 寃곌낵媛 理쒖쥌 ?먮떒 洹쇨굅).
+**보조 검증(참고용, 한계 있음)**: `carrot_navi_route_core`(131차)에
+실제 GPS 트랙(1Hz, `gpsLocation` 채널)을 navi_points 프록시로 넣어
+재구성하는 방식도 시도. 2차 급락(t=28.35)은 재구성에서도 raw 66.6->37.9
+단일프레임 스냅으로 **독립적으로 재현**돼(Hypothesis C가 실측 GPS로도
+확인됨), patched는 이를 매끄럽게 완화함이 다시 확인됨. 다만 1차 급락은
+재구성 실패(lookahead 300m 윈도우 안에 교차로가 아직 안 들어와 raw가
+300 유지) -- 이건 GPS 1Hz 프록시/윈도우 한계이지 패치의 문제는 아님(위
+직접적용 결과가 최종 판단 근거).
 
-**寃곕줎**: 132李??⑥튂???ㅼ륫 濡쒓렇 3媛?湲됰씫 吏??以?吏꾩쭨 怨꾩궛??遺덉뿰?띿씤
-2嫄?1李?2李? 紐⑤몢?먯꽌 ?ㅺ퀎?濡??뺥솗???숈옉 -- 湲됰씫??珥덈떦 臾쇰━ ?곹븳
-?띾룄???곗냽 媛먯냽?쇰줈 ?泥댄븿???ㅼ륫?쇰줈 ?뺤씤. 3李⑤뒗?좎큹???⑥튂 ??곸씠
-?꾨떂???ы솗?? **?꾩쭅 ?ㅼ감(?섎뱶?⑥뼱) ?ъ깮 寃利앹? ?꾨떂** -- ?대쾲 寃利앹?
-濡쒓렇??湲곕줉媛믪뿉 ????ㅽ봽?쇱씤 ?ш퀎?곗씠硫? ?ㅼ젣 李⑤웾??patched
-desiredSpeed瑜??곕씪 ?대뼸寃?議고뼢/媛媛먯냽?덉쓣吏??acados MPC源뚯? ?ы븿??
-?ㅼ감 ?ъ깮???꾩슂.
+**결론**: 132차 패치는 실측 로그 3개 급락 지점 중 진짜 계산상 불연속인
+2건(1차/2차) 모두에서 설계대로 정확히 동작 -- 급락을 초당 물리 상한
+속도의 연속 감속으로 대체함을 실측으로 확인. 3차는애초에 패치 대상이
+아님을 재확인. **아직 실차(하드웨어) 재생 검증은 아님** -- 이번 검증은
+로그의 기록값에 대한 오프라인 재계산이며, 실제 차량이 patched
+desiredSpeed를 따라 어떻게 조향/가감속했을지는 acados MPC까지 포함한
+실차 재생이 필요.
 
-**?좉퇋 toolkit ?ㅽ겕由쏀듃 2媛?*:
-- `extract_gps.py` ??gpsLocation(1Hz) capnp 梨꾨꼸 異붿텧(131李??몃씪??
-  ?묒뾽???ъ궗??媛?ν븯寃??뺤떇??.
-- `replay_route_ramp_limiter_direct.py` ???ㅼ륫 desiredSpeed(route)
-  ?먮낯??132李??⑥튂 吏곸젒 ?ы썑?곸슜(媛???좊ː???믪? 諛⑸쾿, ?대쾲 寃곕줎??
-  洹쇨굅).
-- `replay_route_boundary_ramp_limiter.py` ???ㅼ륫 GPS瑜?navi_points
-  ?꾨줉?쒕줈 ???ш뎄??寃利?蹂댁“/李멸퀬?? ???쒓퀎 李멸퀬).
+**신규 toolkit 스크립트 2개**:
+- `extract_gps.py` — gpsLocation(1Hz) capnp 채널 추출(131차 인라인
+  작업을 재사용 가능하게 정식화).
+- `replay_route_ramp_limiter_direct.py` — 실측 desiredSpeed(route)
+  원본에 132차 패치 직접 사후적용(가장 신뢰도 높은 방법, 이번 결론의
+  근거).
+- `replay_route_boundary_ramp_limiter.py` — 실측 GPS를 navi_points
+  프록시로 쓴 재구성 검증(보조/참고용, 위 한계 참고).
 
-**?ㅼ쓬 ?몄뀡**: (1) ?ㅼ감 ?ъ깮(acados MPC ?ы븿) 寃利????대쾲 ?몄뀡?
-?곗씠???덈꺼 寃利앷퉴吏留? (2) vTurnSpeed 而щ읆 ?뚯닔 遺???섎? ?뺤씤(?ъ냼,
-?곗꽑?쒖쐞 ??쓬). (3) Routes 2/3(`a_change_cost` 遺?ㅽ듃) ?먮뒗 諛⑹븞 D
-以??앹씪??吏꾪뻾.
-
----
-
-## 132李?(?꾨즺 ??援ы쁽+?ъ쟾寃利??⑥튂?꾨떖 ?꾨즺, ?ㅼ감寃利??湲? ??131李?Hypothesis C ???`carrot_navi_route()` out_speed ?꾨젅?꾧컙 ?⑦봽 由щ????⑥튂
-
-**諛곌꼍**: 131李④? [SUCCESS, ?뺣?留ㅼ묶 ?꾨즺]濡?寃⑹긽??Hypothesis C(129李?
-援먯감濡??묎렐 route "怨꾨떒??湲됰씫"??吏꾩쭨 ?먯씤: `route_lookahead_m` ?덈룄??
-寃쎄퀎濡?湲됱빱釉뚭? curvature 諛곗뿴???댁궛?곸쑝濡?"異쒗쁽"?섎ŉ ??갑??DP媛 洹?
-?꾨젅?꾩뿉 利됱떆 ?꾩껜 ?ш퀎??????? ?ъ슜??吏??"131李??댁뼱?? Hypothesis
-C ?⑥튂 ?묒꽦遺???쒖옉")濡??⑥튂 ?ㅺ퀎/援ы쁽 李⑹닔.
-
-**?⑥튂 ?ㅺ퀎**: `carrot_man.py::carrot_navi_route()`??理쒖쥌 諛섑솚媛?
-`out_speed`(=`out_speeds[0]`)??20Hz ?ъ씠??`ROUTE_SPEED_LOOP_DT=0.05s`,
-`broadcast_version_info()`??`Ratekeeper(20)`怨??쇱튂) 湲곗? ?꾨젅?꾧컙 ?⑦봽
-由щ??곕? ?곸슜 ???곹븳? `accel_limit_kmh * dt`濡? ???쒕떇 ?곸닔 ?놁씠 湲곗〈
-`AutoNaviSpeedDecelRate`(?ъ슜???ㅼ젙)瑜?洹몃?濡??ъ궗?? `route_lookahead_m`
-?먯껜媛 "??媛먯냽瑜좊줈 異⑸텇??媛먯냽 媛?ν븳 嫄곕━"瑜?紐⑺몴濡??숈쟻 ?곗젙?섎?濡?
-(84李?85李?, ??由щ??곕뒗 ???쒖빟 異붽?媛 ?꾨땲??"?덈룄??寃쎄퀎 ?ㅻ깄???놁뿀?ㅻ㈃
-留??꾨젅???대? ?깅┰?덉뼱????遺덈????꾨젅?꾨떦 蹂??<= accel_limit_kmh*dt)"??
-理쒖쥌 異쒕젰?먯꽌 媛뺤젣 蹂듭썝?섎뒗 寃껋뿉 媛源앸떎. 利앷컧 ?묐갑???移??곸슜 ??129李?131李④?
-蹂닿퀬??"?뚯쟾 醫낅즺 利됱떆 ?먮났" 怨꾨떒(?먮났痢??ㅻ깄)??媛숈? 硫붿빱?덉쬁?대씪 ?④퍡
-?꾪솕?? ?곹깭 由ъ뀑 洹쒖튃(?덉쟾 ?곗꽑): (1) route 鍮꾪솢?깊솕/理쒖큹 ?쒖꽦????
-由щ????곹깭瑜?`None`?쇰줈 由ъ뀑??怨쇨굅 媛믪쓣 ?뚭퀬 ?ㅼ? ?딆쓬. (2) ?덈룄????
-?좏슚 ?ъ씤??遺議?`out_speed=300` ?쇳떚?? "?쒖빟 ?놁쓬") ?꾪솚 ?쒖뿉??利됱떆
-由ъ뀑 ????諛⑺뼢(?덉슜?띾룄 ?곸듅)? ?덉쟾???꾪솕 諛⑺뼢?대?濡?吏???놁씠 諛섏쁺.
-
-**?ъ쟾寃利?*: `toolkit/sim_route_boundary_ramp_limiter.py`(?좉퇋) ??
-131李?`sim_route_lookahead_boundary_snap.py`???쒖닔?⑥닔(`carrot_navi_route_core`)瑜?
-洹몃?濡??ъ궗?? 洹??꾩뿉 ?⑥튂 濡쒖쭅留??뱀뼱 patched/unpatched 鍮꾧탳. `curve_R=10~25m`,
-`v_ego=74~90kph`, `accel=0.70~1.2` 議고빀 ?꾨??먯꽌 ?뺤긽二쇳뻾 援ш컙(300 ?쇳떚??
-?꾪솚 ?쒖쇅) 理쒕? ?꾨젅?꾧컙 ?숈감媛 ?대줎 ?곹븳(`accel_limit_kmh*dt`) ?대궡濡?
-?듭젣?⑥쓣 ?뺤씤(PASS) ???? 131李??뺣?留ㅼ묶 議곌굔(諛섍꼍17.3m, v_ego74kph, accel0.70)?먯꽌
-unpatched 理쒕??숈감 20.54kph ??patched 0.13kph. **二쇱쓽**: 珥덇린 ?먯젙 濡쒖쭅??
-?쒕??덉씠???섎꽕??寃쎄퀎 ?꾪떚?⑺듃(300<->?ㅼ젣媛??꾪솚, 131李④? ?대? "?먰샇
-吏꾩엯??怨쇱옣"?쇰줈 臾몄꽌?뷀븳 寃껉낵 ?숈씪 ?깃꺽)瑜??듭떖 吏?쒖? ?쇰룞??FAIL濡?
-?ㅽ뙋?덈뜕 寃껋쓣 諛쒓껄/?섏젙 ???뺤긽二쇳뻾 援ш컙留?遺꾨━ 吏묎퀎?섎룄濡??ㅽ겕由쏀듃 媛쒖꽑.
-
-**?⑥튂/寃利??곹깭**: `git format-patch` ?앹꽦 ??
-`0001-132-route_lookahead-Hypothesis-C-131-out_speed.patch` ??`verify-am`
-釉뚮옖移?base `1cc2bf3`)??`git am` ?곸슜 ?깃났 + `py_compile` ?듦낵 + diff-0
-(?⑥튂 ?곸슜 寃곌낵? ?먮낯 ?섏젙蹂??꾩쟾 ?쇱튂) ?뺤씤. ?ъ슜?먯뿉寃??⑥튂 ?꾨떖,
-濡쒖뺄 `git am` ?곸슜/push???ъ슜??紐?
-
-**?곹깭**: **?ㅼ감 寃利??꾩슂.** 濡쒖쭅/?⑹꽦 ?쒕??덉씠??寃利앸쭔 ?꾨즺 ??
-`carrot_navi_route()`媛 acados MPC ???ㅼ젣 ?뚯씠?꾨씪?몄뿉????由щ??곕줈
-?명빐 ?뺤긽 而ㅻ툕 吏꾩엯/?먮났 ??泥닿컧 吏?곗씠 ?녿뒗吏, 129李④? 寃れ? 怨꾨떒??
-湲됰씫???ㅼ젣濡??댁냼?섎뒗吏??129李⑥? ?숈씪??援먯감濡??먮뒗 ?좎궗 route)
-?ъ＜?됱쑝濡??뺤씤 ?꾩슂. ?ㅼ쓬 ?몄뀡: (1) ?ㅼ감寃利? (2) margin_kph=0/25
-?議?131李?誘몄셿猷???ぉ, ?대쾲 ?몄뀡?먯꽌??誘몄떎???????⑥튂????낅┰?곸씤
-?꾩냽 ?뺤씤?ы빆). (3) `c3-ms-curv` ???ㅻⅨ branch ?묒뾽怨쇱쓽 ?곗꽑?쒖쐞 議곗쑉.
+**다음 세션**: (1) 실차 재생(acados MPC 포함) 검증 — 이번 세션은
+데이터 레벨 검증까지만. (2) vTurnSpeed 컬럼 음수 부호 의미 확인(사소,
+우선순위 낮음). (3) Routes 2/3(`a_change_cost` 부스트) 또는 방안 D
+중 택일해 진행.
 
 ---
 
-## 131李?(泥댄겕?ъ씤?????먯씤媛??SUCCESS ?ы쁽, 肄붾뱶 誘몄닔?? ?ㅼ감寃利??꾩슂) ??129李?route "怨꾨떒??湲됰씫" 吏꾩쭨 ?먯씤: route_lookahead ?덈룄??寃쎄퀎 吏꾩엯 ?댁궛??遺덉뿰??Hypothesis C)
+## 132차 (완료 — 구현+사전검증+패치전달 완료, 실차검증 대기) — 131차 Hypothesis C 대응 `carrot_navi_route()` out_speed 프레임간 램프 리미터 패치
 
-?ъ슜?먭? route `306de77a28` seg15 ?ъ뾽濡쒕뱶("?⑥튂 ?곸슜?꾩뿉 ?쒕??덉씠??
-?섏옄")濡?129李??꾩냽 吏꾪뻾. ?곸꽭??FINDINGS.md "131李? ??ぉ 李멸퀬.
+**배경**: 131차가 [SUCCESS, 정밀매칭 완료]로 격상한 Hypothesis C(129차
+교차로 접근 route "계단형 급락"의 진짜 원인: `route_lookahead_m` 윈도우
+경계로 급커브가 curvature 배열에 이산적으로 "출현"하며 역방향 DP가 그
+프레임에 즉시 전체 재계산)에 대해, 사용자 지시("131차 이어서: Hypothesis
+C 패치 작성부터 시작")로 패치 설계/구현 착수.
 
-**?듭떖 寃곌낵 ?붿빟**:
-1. rlog ?꾩닔議곗궗濡??ㅼ젣 navi ?대━?쇱씤???대뼡 濡쒓렇 梨꾨꼸?먮룄 ?놁쓬??
-   ?뺤씤(navRoute count=0, navInstructionCarrot? 醫뚰몴 ?놁쓬).
-2. `sim_route_step_drop_repro.py`(?좉퇋, NEGATIVE): desiredCurvature
-   ?ш뎄??諛⑹떇?쇰줈???ㅼ륫 ?-25kph ?⑥씪?꾨젅??湲됰씫???ы쁽 紐???
-   (理쒕? 1.84kph) ??129李⑥쓽 margin_kph 媛?ㅼ씠 怨꾨떒???먯껜???먯씤?
-   ?꾨떂???쒖궗, 諛⑸쾿濡??쒓퀎???뺤씤.
-3. `sim_route_lookahead_boundary_snap.py`(?좉퇋, **SUCCESS**):
-   `carrot_man.py`(1cc2bf3) ?ㅼ젣 ?쒖닔?⑥닔瑜?洹몃?濡?蹂듭젣, ?⑹꽦 GPS
-   ?대━?쇱씤(吏곸꽑+?먰샇)?쇰줈 寃利???"route_lookahead ?덈룄??寃쎄퀎瑜?
-   ?섏뼱 湲됱빱釉뚭? curvature 諛곗뿴???댁궛?곸쑝濡?異쒗쁽, ??갑?쩊P媛 洹?
-   ?꾨젅?꾩뿉 利됱떆 ?꾩껜 ?ш퀎???섎뒗 硫붿빱?덉쬁???ㅼ륫怨??숈씪 洹쒕え/?뺥깭
-   (?-19.8kph, ?⑥씪 20Hz ?꾨젅??濡??ы쁽??
-4. `ryu` 肄붾뱶??誘몄닔????devnotes(FINDINGS/WIP/toolkit README+
-   CHANGELOG)留?媛깆떊, ?좉퇋 ?ㅽ겕由쏀듃 2媛?toolkit?????
+**패치 설계**: `carrot_man.py::carrot_navi_route()`의 최종 반환값
+`out_speed`(=`out_speeds[0]`)에 20Hz 사이클(`ROUTE_SPEED_LOOP_DT=0.05s`,
+`broadcast_version_info()`의 `Ratekeeper(20)`과 일치) 기준 프레임간 램프
+리미터를 적용 — 상한은 `accel_limit_kmh * dt`로, 새 튜닝 상수 없이 기존
+`AutoNaviSpeedDecelRate`(사용자 설정)를 그대로 재사용. `route_lookahead_m`
+자체가 "이 감속률로 충분히 감속 가능한 거리"를 목표로 동적 산정되므로
+(84차/85차), 이 리미터는 새 제약 추가가 아니라 "윈도우 경계 스냅이 없었다면
+매 프레임 이미 성립했어야 할 불변식(프레임당 변화 <= accel_limit_kmh*dt)"을
+최종 출력에서 강제 복원하는 것에 가깝다. 증감 양방향 대칭 적용 — 129차/131차가
+보고한 "회전 종료 즉시 원복" 계단(원복측 스냅)도 같은 메커니즘이라 함께
+완화됨. 상태 리셋 규칙(안전 우선): (1) route 비활성화/최초 활성화 시
+리미터 상태를 `None`으로 리셋해 과거 값을 끌고 오지 않음. (2) 윈도우 내
+유효 포인트 부족(`out_speed=300` 센티널, "제약 없음") 전환 시에도 즉시
+리셋 — 이 방향(허용속도 상승)은 안전한 완화 방향이므로 지연 없이 반영.
 
-**[媛숈? ?몄뀡 異붽? 媛깆떊] ?뺣?留ㅼ묶 SUCCESS**: "?ㅼ젣 援먯감濡?醫뚰몴 ?뺣낫"??
-吏??API ?놁씠??媛?ν뻽????rlog??`gpsLocation`(1Hz) 梨꾨꼸濡??ㅼ젣
-GPS 醫뚰몴(35.3050/129.0868 ?? 遺?? 吏곸젒 異붿텧 + ?ㅼ젣 ?뚯쟾 援ш컙
-desiredCurvature 理쒕?媛?0.05786)?먯꽌 諛섍꼍 17.3m ??궛. ??諛섍꼍??
-?쒕??덉씠?섏뿉 ??낇빐 ?ъ떎?됲븳 寃곌낵 **60.8->40.2(?-20.65, ?⑥씪
-?꾨젅??** ?ы쁽 ??129李??ㅼ륫(65->41, ?-24.0)怨?嫄곗쓽 ?숈씪 洹쒕え濡?
-?뺣? 留ㅼ묶. ?ㅼ씠? 怨꾨떒???④퀎???섍컯???ㅼ륫 "湲됰씫 ???뺤껜" ?⑦꽩怨?
-?쇱튂. Hypothesis C媛 [SUCCESS, ?뺣?留ㅼ묶 ?꾨즺]濡?寃⑹긽.
+**사전검증**: `toolkit/sim_route_boundary_ramp_limiter.py`(신규) —
+131차 `sim_route_lookahead_boundary_snap.py`의 순수함수(`carrot_navi_route_core`)를
+그대로 재사용, 그 위에 패치 로직만 얹어 patched/unpatched 비교. `curve_R=10~25m`,
+`v_ego=74~90kph`, `accel=0.70~1.2` 조합 전부에서 정상주행 구간(300 센티널
+전환 제외) 최대 프레임간 낙차가 이론 상한(`accel_limit_kmh*dt`) 이내로
+억제됨을 확인(PASS) — 예: 131차 정밀매칭 조건(반경17.3m, v_ego74kph, accel0.70)에서
+unpatched 최대낙차 20.54kph → patched 0.13kph. **주의**: 초기 판정 로직이
+시뮬레이션 하네스 경계 아티팩트(300<->실제값 전환, 131차가 이미 "원호
+진입점 과장"으로 문서화한 것과 동일 성격)를 핵심 지표와 혼동해 FAIL로
+오판했던 것을 발견/수정 — 정상주행 구간만 분리 집계하도록 스크립트 개선.
 
-**?ㅼ쓬 ?몄뀡**: (1) [?꾨즺] 醫뚰몴/諛섍꼍 ?뺣낫. (2) ?덈룄??寃쎄퀎 ?꾩땐
-(???넻怨??⑦봽 由щ??? ?⑥튂 諛⑺뼢 ?ㅺ퀎 ???ㅼ륫 諛섍꼍 湲곕컲 ?쒕굹由ъ삤濡?
-諛붾줈 ????鍮꾧탳 媛?? (3) margin_kph=0/25 ?議곕줈 91李??⑥튂??湲곗뿬??
-?뺤씤 ???⑥튂 ?ㅺ퀎 李⑹닔.
+**패치/검증 상태**: `git format-patch` 생성 →
+`0001-132-route_lookahead-Hypothesis-C-131-out_speed.patch` → `verify-am`
+브랜치(base `1cc2bf3`)에 `git am` 적용 성공 + `py_compile` 통과 + diff-0
+(패치 적용 결과와 원본 수정본 완전 일치) 확인. 사용자에게 패치 전달,
+로컬 `git am` 적용/push는 사용자 몫.
+
+**상태**: **실차 검증 필요.** 로직/합성 시뮬레이션 검증만 완료 —
+`carrot_navi_route()`가 acados MPC 등 실제 파이프라인에서 이 리미터로
+인해 정상 커브 진입/원복 시 체감 지연이 없는지, 129차가 겪은 계단형
+급락이 실제로 해소되는지는 129차와 동일한 교차로(또는 유사 route)
+재주행으로 확인 필요. 다음 세션: (1) 실차검증. (2) margin_kph=0/25
+대조(131차 미완료 항목, 이번 세션에서도 미실시 — 이 패치와는 독립적인
+후속 확인사항). (3) `c3-ms-curv` 등 다른 branch 작업과의 우선순위 조율.
 
 ---
 
-## 130李?(?꾨즺 ???먯씤?뺤젙+援ы쁽+?⑹꽦寃利??⑥튂?꾨떖 ?꾨즺, ?ㅼ감寃利??湲? ??104李?Finding A(而ㅻ툕+?덉씠?붿쑀??vision ?먭굅由??ㅽ뙋) `LeadBlend` BIG_JUMP ?좊ː??寃뚯씠???⑥튂
+## 131차 (체크포인트 — 원인가설 SUCCESS 재현, 코드 미수정, 실차검증 필요) — 129차 route "계단형 급락" 진짜 원인: route_lookahead 윈도우 경계 진입 이산적 불연속(Hypothesis C)
 
-**?붿껌**: "?댁뼱??怨꾩냽, A濡?吏꾪뻾?섏옄" ??104李?Finding A(?ㅽ깘, 25?뚯감媛?
-NEEDS_VALIDATION 諛⑹튂)瑜??댁뼱??吏꾪뻾.
+사용자가 route `306de77a28` seg15 재업로드("패치 적용전에 시뮬레이션
+하자")로 129차 후속 진행. 상세는 FINDINGS.md "131차" 항목 참고.
 
-**吏꾪뻾**:
-1. devnotes 遺?몄뒪?몃옪(129李??뺤씤) + FINDINGS.md 104李?Finding A ?ы솗??
-2. ???ㅼ감 濡쒓렇 ?놁쓬 ??肄붾뱶 ?뺤쟻遺꾩꽍?쇰줈 ?먯씤 洹쒕챸: `radard.py`
-   `LeadBlend.update()`??BIG_JUMP(15m) 利됱떆-?ㅻ깄 濡쒖쭅???좊ː??
-   (radar/modelProb) 寃利??놁씠 ??긽 ?곸슜?섎뜕 寃껋쓣 ?뺤씤 ??104李?愿李?
-   (?덉씠???좎떎 ??vision ??좊ː 84~89m 利됱떆 諛섏쁺)怨??뺥솗???쇱튂.
-3. ?⑥튂 ?ㅺ퀎: `LEAD_BLEND_BIG_JUMP_PROB_GATE=0.70` ?좎꽕, 利됱떆-?ㅻ깄??
-   `radar=True` ?먮뒗 `modelProb>=GATE`濡??쒖젙. `radard.py` 吏곸젒 ?섏젙.
-4. `toolkit/sim_lead_blend_far_jump_gate.py`(?좉퇋) 5媛??쒕굹由ъ삤 ?⑹꽦
-   寃利??꾨? PASS(104李??ы쁽/怨좎떊猶컑ision ?뚭??놁쓬/?덉씠?붽탳李④?利?
-   ?뚭??놁쓬/closer_jump 諛섏쓳吏?곗뾾???뺤긽異붿쥌 ?꾩쟾?숈씪).
-5. `git format-patch` ??`verify-am` 釉뚮옖移?寃利?base `b63063a`,
-   `git am` ?곸슜 + `py_compile`) ?듦낵.
-6. devnotes 媛깆떊: FINDINGS.md(104李?Finding A ?곹깭 媛깆떊 + 130李??좉퇋
-   ?뱀뀡), PARAMS_REGISTRY.md(`LEAD_BLEND_BIG_JUMP_PROB_GATE` ?깅줉),
+**핵심 결과 요약**:
+1. rlog 전수조사로 실제 navi 폴리라인이 어떤 로그 채널에도 없음을
+   확인(navRoute count=0, navInstructionCarrot은 좌표 없음).
+2. `sim_route_step_drop_repro.py`(신규, NEGATIVE): desiredCurvature
+   재구성 방식으로는 실측 Δ-25kph 단일프레임 급락을 재현 못 함
+   (최대 1.84kph) — 129차의 margin_kph 가설이 계단형 자체의 원인은
+   아님을 시사, 방법론 한계도 확인.
+3. `sim_route_lookahead_boundary_snap.py`(신규, **SUCCESS**):
+   `carrot_man.py`(1cc2bf3) 실제 순수함수를 그대로 복제, 합성 GPS
+   폴리라인(직선+원호)으로 검증 — "route_lookahead 윈도우 경계를
+   넘어 급커브가 curvature 배열에 이산적으로 출현, 역방향DP가 그
+   프레임에 즉시 전체 재계산"하는 메커니즘이 실측과 동일 규모/형태
+   (Δ-19.8kph, 단일 20Hz 프레임)로 재현됨.
+4. `ryu` 코드는 미수정 — devnotes(FINDINGS/WIP/toolkit README+
+   CHANGELOG)만 갱신, 신규 스크립트 2개 toolkit에 저장.
+
+**[같은 세션 추가 갱신] 정밀매칭 SUCCESS**: "실제 교차로 좌표 확보"는
+지도 API 없이도 가능했음 — rlog의 `gpsLocation`(1Hz) 채널로 실제
+GPS 좌표(35.3050/129.0868 등, 부산) 직접 추출 + 실제 회전 구간
+desiredCurvature 최대값(0.05786)에서 반경 17.3m 역산. 이 반경을
+시뮬레이션에 대입해 재실행한 결과 **60.8->40.2(Δ-20.65, 단일
+프레임)** 재현 — 129차 실측(65->41, Δ-24.0)과 거의 동일 규모로
+정밀 매칭. 뒤이은 계단형 단계적 하강도 실측 "급락 후 정체" 패턴과
+일치. Hypothesis C가 [SUCCESS, 정밀매칭 완료]로 격상.
+
+**다음 세션**: (1) [완료] 좌표/반경 확보. (2) 윈도우 경계 완충
+(저역통과/램프 리미터) 패치 방향 설계 — 실측 반경 기반 시나리오로
+바로 전/후 비교 가능. (3) margin_kph=0/25 대조로 91차 패치의 기여도
+확인 후 패치 설계 착수.
+
+---
+
+## 130차 (완료 — 원인확정+구현+합성검증+패치전달 완료, 실차검증 대기) — 104차 Finding A(커브+레이더유실 vision 원거리 오판) `LeadBlend` BIG_JUMP 신뢰도 게이트 패치
+
+**요청**: "이어서 계속, A로 진행하자" — 104차 Finding A(오탐, 25회차간
+NEEDS_VALIDATION 방치)를 이어서 진행.
+
+**진행**:
+1. devnotes 부트스트랩(129차 확인) + FINDINGS.md 104차 Finding A 재확인.
+2. 새 실차 로그 없음 → 코드 정적분석으로 원인 규명: `radard.py`
+   `LeadBlend.update()`의 BIG_JUMP(15m) 즉시-스냅 로직이 신뢰도
+   (radar/modelProb) 검증 없이 항상 적용되던 것을 확인 — 104차 관찰
+   (레이더 유실 후 vision 저신뢰 84~89m 즉시 반영)과 정확히 일치.
+3. 패치 설계: `LEAD_BLEND_BIG_JUMP_PROB_GATE=0.70` 신설, 즉시-스냅을
+   `radar=True` 또는 `modelProb>=GATE`로 한정. `radard.py` 직접 수정.
+4. `toolkit/sim_lead_blend_far_jump_gate.py`(신규) 5개 시나리오 합성
+   검증 전부 PASS(104차 재현/고신뢰vision 회귀없음/레이더교차검증
+   회귀없음/closer_jump 반응지연없음/정상추종 완전동일).
+5. `git format-patch` → `verify-am` 브랜치 검증(base `b63063a`,
+   `git am` 적용 + `py_compile`) 통과.
+6. devnotes 갱신: FINDINGS.md(104차 Finding A 상태 갱신 + 130차 신규
+   섹션), PARAMS_REGISTRY.md(`LEAD_BLEND_BIG_JUMP_PROB_GATE` 등록),
    toolkit/README.md + CHANGELOG.md.
 
-**寃곌낵臾?*:
-- ?⑥튂: `0001-130-LeadBlend-BIG_JUMP-104-Finding-A.patch`
-  (radard.py, `git am` 寃利??꾨즺, 濡쒖뺄 ?곸슜/push???ъ슜??紐?
+**결과물**:
+- 패치: `0001-130-LeadBlend-BIG_JUMP-104-Finding-A.patch`
+  (radard.py, `git am` 검증 완료, 로컬 적용/push는 사용자 몫)
 - devnotes: WIP.md/FINDINGS.md/PARAMS_REGISTRY.md/toolkit/README.md/
   toolkit/CHANGELOG.md/toolkit/sim_lead_blend_far_jump_gate.py
 
-**?ㅼ쓬 ?몄뀡**:
-- ?ㅼ감 acados MPC ?뚯씠?꾨씪??寃利??숈씪 而ㅻ툕+?덉씠?붿쑀???ы쁽 濡쒓렇 ?꾩슂
-  ??104李??먮낯 route????⑸웾 ?뺤콉??而⑦뀒?대꼫 誘몃낫愿, ?ы솗蹂??꾩슂)
-- 吏꾩쭨 far-jump(?ㅻⅨ 李⑤웾?쇰줈 ?꾪솚?섎뒗 ?뺤긽 耳?댁뒪)?먯꽌 0.35s 釉붾젋??
-  吏?곗씠 泥닿컧 臾몄젣 ?녿뒗吏 ?ㅼ감 ?뺤씤
-- GATE=0.70??怨쇰낫?섏쟻?몄?, ?꾩슂??VisionTrack ?덈꺼(???곷쪟)?먯꽌
-  ?뚮줈?쒕퉴由ы떚 寃뚯씠?몃? 異붽??좎? ?ш???
-- Finding B(諛섏쓳 ?붽컧, route/vturn ?띾룄 紐⑺몴 ?곗꽑?쒖쐞 臾몄젣)??104李?
-  ?댄썑 ?꾩쭅 李⑹닔 ???????ㅼ쓬 ?곗꽑?쒖쐞 ?꾨낫
+**다음 세션**:
+- 실차 acados MPC 파이프라인 검증(동일 커브+레이더유실 재현 로그 필요
+  — 104차 원본 route는 대용량 정책상 컨테이너 미보관, 재확보 필요)
+- 진짜 far-jump(다른 차량으로 전환되는 정상 케이스)에서 0.35s 블렌딩
+  지연이 체감 문제 없는지 실차 확인
+- GATE=0.70이 과보수적인지, 필요시 VisionTrack 레벨(더 상류)에서
+  플로시빌리티 게이트를 추가할지 재검토
+- Finding B(반응 둔감, route/vturn 속도 목표 우선순위 문제)는 104차
+  이후 아직 착수 안 됨 — 다음 우선순위 후보
 
 ---
 
-## 129李?(泥댄겕?ъ씤?????먯씤遺꾩꽍 ?꾨즺, 援ы쁽諛⑺뼢 誘멸껐?? 肄붾뱶 蹂寃??놁쓬) ??援먯감濡?route ?ъ쟾媛먯냽 怨꾨떒??怨좎젙 ?먯씤遺꾩꽍
+## 129차 (체크포인트 — 원인분석 완료, 구현방향 미결정, 코드 변경 없음) — 교차로 route 사전감속 계단형 고정 원인분석
 
-**?붿껌**: 援먯감濡?醫??고쉶?? ?묎렐 ??route ?ъ쟾媛먯냽???덈Т ?쇱컢 理쒖??띾룄(30km/h)濡?
-怨좎젙???쒗뻾??湲몃떎 ??怨쇱냽移대찓?쇱쿂???곗냽媛먯냽(70??5??..??0)?쇰줈 諛붽씀怨??띕떎.
+**요청**: 교차로(좌/우회전) 접근 시 route 사전감속이 너무 일찍 최저속도(30km/h)로
+고정돼 서행이 길다 — 과속카메라처럼 연속감속(70→65→...→30)으로 바꾸고 싶다.
 
-**吏꾪뻾**: route `306de77a28` seg15 ?ㅼ감濡쒓렇 ?낅줈??rlog+??쒖틺?대┰) ??
-extract_log.py 異붿텧 ??desiredSpeed/src/vTurnSpeed/steeringAngleDeg 20Hz
-?쒓퀎??遺꾩꽍 ??desiredSpeed 怨꾨떒??湲됰씫 2嫄??24~25kph, 0.05珥??대궡,
-steer 吏곸쭊 ?섏?????諛쒖깮) ?뺤씤 ??carrot_man.py::carrot_navi_route()
-91李?ROUTE_ENTRY_MARGIN_KPH 留덉쭊 濡쒖쭅 肄붾뱶 ?ш?????援ъ“???먯씤 媛???섎┰
-(v_ego_kph瑜?嫄곕━ 臾닿??섍쾶 ?꾩뿭 ?ъ슜 ??time_delay 怨쇰떎?곗젙 ???κ굅由?
-"怨좎젙媛??뺤껜" 諛쒖깮). ?곸꽭 洹쇨굅/?섏튂??FINDINGS.md "129李? 李멸퀬.
+**진행**: route `306de77a28` seg15 실차로그 업로드(rlog+대시캠클립) →
+extract_log.py 추출 → desiredSpeed/src/vTurnSpeed/steeringAngleDeg 20Hz
+시계열 분석 → desiredSpeed 계단형 급락 2건(Δ24~25kph, 0.05초 이내,
+steer 직진 수준일 때 발생) 확인 → carrot_man.py::carrot_navi_route()
+91차 ROUTE_ENTRY_MARGIN_KPH 마진 로직 코드 재검토 → 구조적 원인 가설 수립
+(v_ego_kph를 거리 무관하게 전역 사용 → time_delay 과다산정 → 장거리
+"고정값 정체" 발생). 상세 근거/수치는 FINDINGS.md "129차" 참고.
 
-**?곹깭**: NEEDS_VALIDATION ??媛???섏?, ?쒕??덉씠???ы쁽 誘몄떎?? 肄붾뱶 蹂寃??놁쓬.
+**상태**: NEEDS_VALIDATION — 가설 수준, 시뮬레이션 재현 미실시. 코드 변경 없음.
 
-**?ㅼ쓬**: (1) ?ъ슜?먯뿉寃????A(margin 濡쒖쭅 嫄곕━蹂댁젙)/B(calculate_current_speed
-?ㅽ??쇰줈 ?ш뎄??/C(margin_kph ?꾪솕) 以?諛⑺뼢 ?뺤씤, (2) ?ㅼ젣 device ?뚯썾??
-而ㅻ컠 ?뺤씤(異붿텧 CSV??commit=b63063a5fe89??濡쒖뺄 repo HEAD??肉??ㅼ륫
-?꾨떂 ??115李??숈뒿 ?ъ쟻???꾩슂), (3) 諛⑺뼢 ?뺤젙 ??sim_route_margin_regression_scan.py
-?뺤옣 ?ш?利????⑥튂.
-
----
-
-## 128李?怨꾩냽2 (?꾨즺 ??scons 而댄뙆??寃利??꾨즺) ??(a) ?대┛ 而댄뙆???뺤씤, (b) ?ㅼ쭏 寃利?遺덊븘?뷀븿???뺤씤
-
-**scons 寃利?吏꾪뻾** (127李④퀎?띻낵 ?숈씪 apt+uv+scons 諛⑹떇):
-
-**(a) 寃利?寃곌낵 ???대┛**: `carrot.o`(?고듃 ?먮룞異뺤냼 ?⑥튂 ?ы븿) 而댄뙆?????먮윭/寃쎄퀬 0嫄? 留곹겕源뚯?
-?뺤긽 吏꾪뻾(蹂꾨룄 臾닿? ?댁뒋濡?理쒖쥌 留곹겕留?誘몄셿二? ?꾨옒 李멸퀬).
-
-**(b) 愿??異붽? 諛쒓껄 ??omx_encoder.h include ?먯껜??寃利???곸씠 ?꾨땲?덉쓬**:
-- ?ㅻ뜑 include 異붽? ??`omx_encoder.cc` 而댄뙆???쒕룄 ??`AVCodecContext` ?먮윭???щ씪議뚯쑝?????
-  `av_free_packet`(ffmpeg 3.1+?먯꽌 ?쒓굅), `av_register_all`(ffmpeg 4.0+?먯꽌 ?쒓굅),
-  `avcodec_find_encoder`媛 `const AVCodec*` 諛섑솚(ffmpeg 5.0+) ??**?⑥뵮 ?ㅻ옒??ffmpeg API??留욎떠吏?
-  肄붾뱶媛 理쒖떊 ffmpeg 6.1.1怨?3以묒쑝濡???留욌뒗** ?ъ떎??諛쒓껄.
-- ?먯씤 異붿쟻: `selfdrive/ui/SConscript`??`is_running_on_wsl2()`媛 `/proc/version`??"WSL2" ?먮뒗
-  "Ubuntu" 臾몄옄?댁씠 ?덉쑝硫?**`omx_encoder.cc`/`screenrecorder.cc`瑜?鍮뚮뱶?먯꽌 ?듭㎏濡??쒖쇅**??
-  ?ъ슜?먯쓽 ?ㅼ젣 媛쒕컻 ?섍꼍(Windows PC, WSL2)?먯꽌????議곌굔??嫄몃젮 ?좎큹?????뚯씪??鍮뚮뱶?섏? ?딆쓬.
-  ?뚮뱶諛뺤뒪 而ㅻ꼸 踰꾩쟾 臾몄옄??`6.18.44-fc-v22`)留????⑦꽩????嫄몃젮???덉쇅?곸쑝濡?而댄뙆?쇱씠 ?쒕룄??寃?
-- **寃곕줎**: omx_encoder.h/cc??ffmpeg API 遺덉씪移섎뒗 ?ㅼ젣 媛쒕컻 ?섍꼍?먯꽌 留덉＜移??쇱씠 ?녿뒗 ?뚮뱶諛뺤뒪
-  ?꾩슜 ?덉긽 ?댁뒋. 128李?b) include ?⑥튂???덉쟾??諛⑹뼱???섏젙?쇰줈 ?좎??섎릺, 3以?API 遺덉씪移섎?
-  ?꾨? 怨좎튂??嫄?遺덊븘?뷀븳 踰붿쐞 ?뺤옣?대씪 吏꾪뻾?섏? ?딆쓬(?꾩뿭 ?섏젙 吏???먯튃).
-- 寃利앹쓣 ?꾪빐 ?뚮뱶諛뺤뒪?먯꽌留?`is_running_on_wsl2()`瑜?媛뺤젣 True濡??꾩떆 ?⑥튂???ㅼ젣 WSL2 ?섍꼍怨?
-  ?숈씪?섍쾶 ?대떦 ?뚯씪?ㅼ쓣 鍮뚮뱶?먯꽌 ?쒖쇅?????ъ뺨?뚯씪 ??`carrot.o` ?ы븿 ?꾩껜 ?뺤긽 而댄뙆???뺤씤.
-  ???꾩떆 ?⑥튂??寃利???利됱떆 ?먮났(而ㅻ컠 ????꾨떂).
-
-**理쒖쥌 留곹겕 誘몄셿二?(臾닿? ?댁뒋, 李멸퀬??**: `libQMapLibre.so`媛 ?붽뎄?섎뒗 ICU 66 ?щ낵
-(`ubidi_*_66`, `u_shapeArabic_66` ?? 誘명빐寃곕줈 留곹겕 ?ㅽ뙣. 吏???쒕뱶?뚰떚 prebuilt 諛붿씠?덈━?
-?뚮뱶諛뺤뒪 ICU 踰꾩쟾 遺덉씪移???127李④퀎?띿쓽 avcodec ?댁뒋? 媛숈? ?깃꺽???섍꼍 臾몄젣, 肄붾뱶 臾닿?.
-
-**鍮뚮뱶 遺?곕Ъ ?뺣━**: scons ?ㅽ뻾 以?`lupdate`媛 踰덉뿭 ?뚯씪(`*.ts`) 11媛쒕? ?먮룞 ?ъ깮?깊븿 ??
-?⑥튂? 臾닿???鍮뚮뱶 遺?곕Ъ?대씪 `git checkout`?쇰줈 ?먮났, 而ㅻ컠 ????
-
-**理쒖쥌 而ㅻ컠 ?곹깭**: `03482e6`(a), `6a3b61b`(b) ???먭꺽 ?鍮???2媛??뚯씪 diff留?議댁옱, ?대┛.
+**다음**: (1) 사용자에게 대안 A(margin 로직 거리보정)/B(calculate_current_speed
+스타일로 재구현)/C(margin_kph 완화) 중 방향 확인, (2) 실제 device 펌웨어
+커밋 확인(추출 CSV의 commit=b63063a5fe89는 로컬 repo HEAD일 뿐 실측
+아님 — 115차 학습 재적용 필요), (3) 방향 확정 후 sim_route_margin_regression_scan.py
+확장 재검증 → 패치.
 
 ---
 
-## 128李?怨꾩냽 (?꾨즺 ???⑥튂 2嫄??꾨떖 + scons 寃利??꾨즺, ??128李④퀎?? 李멸퀬) ??TBT HUD ?고듃 ?먮룞異뺤냼 + omx_encoder.h avcodec.h include
+## 128차 계속2 (완료 — scons 컴파일 검증 완료) — (a) 클린 컴파일 확인, (b) 실질 검증 불필요함을 확인
 
-**?붿껌**: ?ъ슜???뱀씤 ??(a) ?고듃 ?먮룞 異뺤냼 ?⑥튂 ?묒꽦, (b) ?ㅻ뜑 include 1以?異붽? ?⑥튂 ?묒꽦.
+**scons 검증 진행** (127차계속과 동일 apt+uv+scons 방식):
 
-**(a) ?⑥튂** (`0001-128-tbt-hud-bottom-text-font-shrink.patch`, 而ㅻ컠 `03482e6`, base `b63063a`):
-- `drawTurnInfoHud()` ?섎떒 ?덈궡?띿뒪??szSdiDescr/szPosRoadName) 援ш컙??`fit_bottom_text_size` ?뚮떎 異붽?.
-- 媛????= `TBT_BOX_W - 40`(420px). `nvgTextBounds`濡??고듃 30遺??痢≪젙, 珥덇낵 ??2px??異뺤냼??20源뚯? ?쒕룄.
-- 20源뚯? 異뺤냼?대룄 ?섏튂硫?20 ?좎?(?섎┝ 媛먯닔) ???꾩쟾??留먯쨪??2以?諛곗튂???대쾲???곸슜 ????踰붿쐞 理쒖냼??.
+**(a) 검증 결과 — 클린**: `carrot.o`(폰트 자동축소 패치 포함) 컴파일 시 에러/경고 0건. 링크까지
+정상 진행(별도 무관 이슈로 최종 링크만 미완주, 아래 참고).
 
-**(b) ?⑥튂** (`0002-128-omx-encoder-avcodec-include.patch`, 而ㅻ컠 `6a3b61b`, base `03482e6`):
-- `omx_encoder.h`??`extern "C"` 釉붾줉??`#include <libavcodec/avcodec.h>` 1以?異붽? (avformat.h include ??.
-- ryu ?먯껜 踰꾧렇 ?꾨떂(?먮낯 openpilot 援ъ“), ?ㅼ감 鍮뚮뱶 ?곹뼢 ?놁쓣 媛?μ꽦 ?믪쑝???덉쟾??紐낆떆??include濡?諛⑹뼱.
+**(b) 관련 추가 발견 — omx_encoder.h include 자체는 검증 대상이 아니었음**:
+- 헤더 include 추가 후 `omx_encoder.cc` 컴파일 시도 → `AVCodecContext` 에러는 사라졌으나 대신
+  `av_free_packet`(ffmpeg 3.1+에서 제거), `av_register_all`(ffmpeg 4.0+에서 제거),
+  `avcodec_find_encoder`가 `const AVCodec*` 반환(ffmpeg 5.0+) 등 **훨씬 오래된 ffmpeg API에 맞춰진
+  코드가 최신 ffmpeg 6.1.1과 3중으로 안 맞는** 사실을 발견.
+- 원인 추적: `selfdrive/ui/SConscript`의 `is_running_on_wsl2()`가 `/proc/version`에 "WSL2" 또는
+  "Ubuntu" 문자열이 있으면 **`omx_encoder.cc`/`screenrecorder.cc`를 빌드에서 통째로 제외**함.
+  사용자의 실제 개발 환경(Windows PC, WSL2)에서는 이 조건이 걸려 애초에 이 파일이 빌드되지 않음.
+  샌드박스 커널 버전 문자열(`6.18.44-fc-v22`)만 이 패턴에 안 걸려서 예외적으로 컴파일이 시도된 것.
+- **결론**: omx_encoder.h/cc의 ffmpeg API 불일치는 실제 개발 환경에서 마주칠 일이 없는 샌드박스
+  전용 허상 이슈. 128차(b) include 패치는 안전한 방어적 수정으로 유지하되, 3중 API 불일치를
+  전부 고치는 건 불필요한 범위 확장이라 진행하지 않음(전역 수정 지양 원칙).
+- 검증을 위해 샌드박스에서만 `is_running_on_wsl2()`를 강제 True로 임시 패치해 실제 WSL2 환경과
+  동일하게 해당 파일들을 빌드에서 제외한 뒤 재컴파일 → `carrot.o` 포함 전체 정상 컴파일 확인.
+  이 임시 패치는 검증 후 즉시 원복(커밋 대상 아님).
 
-**寃利??곹깭**:
-- ?????⑥튂 紐⑤몢 ?대┛ ?대줎(base ?????쒖감 ?곸슜 媛??`03482e6` ??`6a3b61b`), git format-patch濡?媛쒕퀎 ?앹꽦.
-- ??carrot.cc 以묎큵??洹좏삎: ?섏젙 ??483/482(湲곗〈 遺덇퇏??1, 臾몄옄??由ы꽣??湲곗씤 異붿젙) ???섏젙 ??485/484(遺덇퇏??洹몃?濡?1 ?좎?, ?닿? 異붽????뚮떎 釉붾줉? ?移? ??援ъ“??源⑥쭚 ?놁쓬 ?뺤씤.
-- ??**scons 而댄뙆??寃利?誘몄떎??* ???대쾲 ?몄뀡?먯꽌 ?쒕룄 ???? ?ㅼ쓬 ?몄뀡?먯꽌 127李④퀎?띻낵 ?숈씪 諛⑹떇(apt ?⑦궎吏 ?섎룞?ㅼ튂 + scons -j1 selfdrive/ui/)?쇰줈 吏꾪뻾 媛??
-- ???ㅼ감 諛섏쁺 ???고듃 異뺤냼 寃곌낵 ?ㅼ륫 ?꾩슂(nvg ?ㅼ젣 ?뚮뜑留???씠 紐⑹뾽 異붿젙移섏? ?ㅻ? ???덉쓬).
+**최종 링크 미완주 (무관 이슈, 참고용)**: `libQMapLibre.so`가 요구하는 ICU 66 심볼
+(`ubidi_*_66`, `u_shapeArabic_66` 등) 미해결로 링크 실패. 지도 서드파티 prebuilt 바이너리와
+샌드박스 ICU 버전 불일치 — 127차계속의 avcodec 이슈와 같은 성격의 환경 문제, 코드 무관.
 
-**?곸꽭**: `FINDINGS.md` 128李???ぉ(遺꾩꽍 洹쇨굅) 李멸퀬.
+**빌드 부산물 정리**: scons 실행 중 `lupdate`가 번역 파일(`*.ts`) 11개를 자동 재생성함 —
+패치와 무관한 빌드 부산물이라 `git checkout`으로 원복, 커밋 안 함.
 
-**?ㅼ쓬**: scons 而댄뙆??寃利????ㅼ감 諛섏쁺 ??(a) ?ㅼ젣 ?뚮뜑留곸뿉???ъ쟾???섎━硫?留먯쨪??2以?諛곗튂濡?異붽? 蹂댁셿 寃??
+**최종 커밋 상태**: `03482e6`(a), `6a3b61b`(b) — 원격 대비 이 2개 파일 diff만 존재, 클린.
 
 ---
 
-## 127李?怨꾩냽 (?꾨즺 ??scons 而댄뙆??寃利??꾨즺, unused-private-field 踰꾧렇 諛쒓껄+?섏젙 ?⑥튂 ?꾨떖) ??TurnInfoDrawer::icon_size ?쒓굅
+## 128차 계속 (완료 — 패치 2건 전달 + scons 검증 완료, 위 128차계속2 참고) — TBT HUD 폰트 자동축소 + omx_encoder.h avcodec.h include
 
-**?곹깭**: 127李⑥뿉??蹂대쪟?덈뜕 scons 而댄뙆??寃利?吏꾪뻾. ?ъ슜???뚯씪 ?낅줈???놁씠
-?뚮뱶諛뺤뒪?먯꽌 `tools/install_ubuntu_dependencies.sh` ?⑦궎吏 紐⑸줉 ?섎룞 ?ㅼ튂
+**요청**: 사용자 승인 — (a) 폰트 자동 축소 패치 작성, (b) 헤더 include 1줄 추가 패치 작성.
+
+**(a) 패치** (`0001-128-tbt-hud-bottom-text-font-shrink.patch`, 커밋 `03482e6`, base `b63063a`):
+- `drawTurnInfoHud()` 하단 안내텍스트(szSdiDescr/szPosRoadName) 구간에 `fit_bottom_text_size` 람다 추가.
+- 가용 폭 = `TBT_BOX_W - 40`(420px). `nvgTextBounds`로 폰트 30부터 측정, 초과 시 2px씩 축소해 20까지 시도.
+- 20까지 축소해도 넘치면 20 유지(잘림 감수) — 완전한 말줄임/2줄 배치는 이번엔 적용 안 함(범위 최소화).
+
+**(b) 패치** (`0002-128-omx-encoder-avcodec-include.patch`, 커밋 `6a3b61b`, base `03482e6`):
+- `omx_encoder.h`의 `extern "C"` 블록에 `#include <libavcodec/avcodec.h>` 1줄 추가 (avformat.h include 위).
+- ryu 자체 버그 아님(원본 openpilot 구조), 실차 빌드 영향 없을 가능성 높으나 안전한 명시적 include로 방어.
+
+**검증 상태**:
+- ✅ 두 패치 모두 클린 클론(base 위)에 순차 적용 가능(`03482e6` → `6a3b61b`), git format-patch로 개별 생성.
+- ✅ carrot.cc 중괄호 균형: 수정 전 483/482(기존 불균형 1, 문자열 리터럴 기인 추정) → 수정 후 485/484(불균형 그대로 1 유지, 내가 추가한 람다 블록은 대칭) — 구조적 깨짐 없음 확인.
+- ❌ **scons 컴파일 검증 미실시** — 이번 세션에서 시도 안 함. 다음 세션에서 127차계속과 동일 방식(apt 패키지 수동설치 + scons -j1 selfdrive/ui/)으로 진행 가능.
+- ❌ 실차 반영 전 폰트 축소 결과 실측 필요(nvg 실제 렌더링 폭이 목업 추정치와 다를 수 있음).
+
+**상세**: `FINDINGS.md` 128차 항목(분석 근거) 참고.
+
+**다음**: scons 컴파일 검증 → 실차 반영 → (a) 실제 렌더링에서 여전히 잘리면 말줄임/2줄 배치로 추가 보완 검토.
+
+---
+
+## 127차 계속 (완료 — scons 컴파일 검증 완료, unused-private-field 버그 발견+수정 패치 전달) — TurnInfoDrawer::icon_size 제거
+
+**상태**: 127차에서 보류했던 scons 컴파일 검증 진행. 사용자 파일 업로드 없이
+샌드박스에서 `tools/install_ubuntu_dependencies.sh` 패키지 목록 수동 설치
 (apt) + `uv sync --frozen --extra docs --extra testing --extra dev`
-(metadrive-simulator ?ы븿??`tools` extra???댁떆 遺덉씪移섎줈 ?ㅽ뙣?섏뿬 ?쒖쇅,
-UI 鍮뚮뱶??遺덊븘?? + `scons -j1 selfdrive/ui/` 濡??ㅼ젣 而댄뙆???쒕룄.
+(metadrive-simulator 포함된 `tools` extra는 해시 불일치로 실패하여 제외,
+UI 빌드엔 불필요) + `scons -j1 selfdrive/ui/` 로 실제 컴파일 시도.
 
-**?섍꼍 ?댁뒋 1 (鍮뚮뱶? 臾닿?, ?고쉶留???**: ?뚮뱶諛뺤뒪媛 1肄붿뼱??`SConstruct`??
-`SetOption('num_jobs', int(os.cpu_count()/2))`媛 0???섍꺼 利됱떆 ?щ옒??
-濡쒖뺄 ?뚯뒪?몄슜?쇰줈留?`max(1, ...)` 媛?쒕? ?꾩떆濡??ｌ뼱 ?고쉶?덇퀬, 寃利???
-`SConstruct`???먮낯?쇰줈 蹂듦뎄??而ㅻ컠/?⑥튂 ????꾨떂, ?ㅼ감/?쇰컲 PC?먯꽑
-諛쒖깮 ???섎뒗 臾몄젣濡??먮떒).
+**환경 이슈 1 (빌드와 무관, 우회만 함)**: 샌드박스가 1코어라 `SConstruct`의
+`SetOption('num_jobs', int(os.cpu_count()/2))`가 0을 넘겨 즉시 크래시.
+로컬 테스트용으로만 `max(1, ...)` 가드를 임시로 넣어 우회했고, 검증 후
+`SConstruct`는 원본으로 복구함(커밋/패치 대상 아님, 실차/일반 PC에선
+발생 안 하는 문제로 판단).
 
-**?듭떖 諛쒓껄 ??127李??⑥튂???ㅼ젣 而댄뙆??踰꾧렇**: `carrot.o` 而댄뙆????
+**핵심 발견 — 127차 패치의 실제 컴파일 버그**: `carrot.o` 컴파일 시
 `selfdrive/ui/carrot.cc:963: error: private field 'icon_size' is not used
-[-Werror,-Wunused-private-field]`. 127李??⑥튂媛 `TurnInfoDrawer` ?대옒??
-?대??먯꽌 ?꾩씠肄??ш린瑜?湲곗〈 `icon_size`(256) ??????곸닔
-`TBT_ICON_SIZE`(140)濡?援먯껜?섎㈃?? ?대옒??硫ㅻ쾭濡??⑥븘?덈뜕 `icon_size`
-?좎뼵 ?먯껜瑜?吏?곗? ?딆븘 二쎌? 肄붾뱶媛 ???????덊룷??`-Werror` 鍮뚮뱶 ?ㅼ젙??
-100% 而댄뙆???ㅽ뙣. (二쇱쓽: `carrot.cc` ?덉뿉 ?숇챸??`icon_size`媛 ?ㅻⅨ
-?대옒?ㅼ뿉 3怨????덉쑝???꾨? 蹂꾧컻 ?대옒?ㅼ뿉???ㅼ젣濡??ъ슜 以???洹몄そ?
-?뺤긽, `TurnInfoDrawer`留뚯쓽 臾몄젣???)
+[-Werror,-Wunused-private-field]`. 127차 패치가 `TurnInfoDrawer` 클래스
+내부에서 아이콘 크기를 기존 `icon_size`(256) 대신 새 상수
+`TBT_ICON_SIZE`(140)로 교체하면서, 클래스 멤버로 남아있던 `icon_size`
+선언 자체를 지우지 않아 죽은 코드가 됨 → 이 레포의 `-Werror` 빌드 설정상
+100% 컴파일 실패. (주의: `carrot.cc` 안에 동명의 `icon_size`가 다른
+클래스에 3곳 더 있으나 전부 별개 클래스에서 실제로 사용 중 — 그쪽은
+정상, `TurnInfoDrawer`만의 문제였음.)
 
-**議곗튂**: `TurnInfoDrawer` ?대옒?ㅼ쓽 誘몄궗??`int icon_size = 256;` 硫ㅻ쾭
-?좎뼵 1以??쒓굅. ?쒓굅 ??`selfdrive/ui/carrot.o` ?뺤긽 而댄뙆???뺤씤
+**조치**: `TurnInfoDrawer` 클래스의 미사용 `int icon_size = 256;` 멤버
+선언 1줄 제거. 제거 후 `selfdrive/ui/carrot.o` 정상 컴파일 확인
 (`0002-127-scons-unused-private-field-TurnInfoDrawer-icon_s.patch`,
-127李?而ㅻ컠 `0ad61ea` ?꾩뿉 ?곸슜).
+127차 커밋 `0ad61ea` 위에 적용).
 
-**?꾩껜 諛붿씠?덈━ 留곹겕??蹂꾨룄 臾닿? ?댁뒋濡?誘몄셿二???李멸퀬??*: `main.o` 而댄뙆??
-?④퀎?먯꽌 `selfdrive/ui/qt/screenrecorder/omx_encoder.h:70: error: unknown
-type name 'AVCodecContext'` 諛쒖깮. ?닿굔 127李??⑥튂? ?꾪? 臾닿????붾㈃
-?뱁솕(OMX, comma 3 ?섎뱶?⑥뼱 ?꾩슜) ?쒕툕?쒖뒪???ㅻ뜑 臾몄젣濡? ???뚯씪??
-`libavformat/avformat.h`留?include?섍퀬 `libavcodec/avcodec.h`瑜?吏곸젒
-include?섏? ?딅뒗?? ?뚮뱶諛뺤뒪???ㅼ튂??Ubuntu 24.04 湲곕낯 ffmpeg
-6.1.1???덉쟾泥섎읆 avformat.h?먯꽌 avcodec.h瑜??꾩씠 include ?댁＜吏 ?딆븘
-諛쒖깮. **??臾몄젣???대쾲 ?몄뀡?먯꽌 ?먮?吏 ?딆쓬** ??TBT HUD ?⑥튂 寃利?
-踰붿쐞 諛뽰씠怨? ?ㅼ감/湲곗〈 鍮뚮뱶 ?섍꼍(?ㅻⅨ ffmpeg 踰꾩쟾 ?먮뒗 蹂꾨룄 ?ㅻ뜑 寃쎈줈)
-?먯꽌???좎큹??諛쒖깮?섏? ?딆븯??媛?μ꽦???믪쓬(洹몃젃吏 ?딆븯?ㅻ㈃ ?댁쟾
-?뚯감?ㅼ쓽 ?뺤긽 鍮뚮뱶 ?먯껜媛 遺덇??ν뻽??寃?. ?ㅼ쓬???꾩껜 留곹겕源뚯?
-寃利앺븯?ㅻ㈃ ???ㅻ뜑 臾몄젣瑜?蹂꾨룄濡?癒쇱? 遊먯빞 ?????ъ슜?먭? ?꾩슂?섎떎怨?
-?먮떒?섎㈃ 蹂꾨룄 ?몄뀡?먯꽌 議곗궗 ?쒖븞.
+**전체 바이너리 링크는 별도 무관 이슈로 미완주 — 참고용**: `main.o` 컴파일
+단계에서 `selfdrive/ui/qt/screenrecorder/omx_encoder.h:70: error: unknown
+type name 'AVCodecContext'` 발생. 이건 127차 패치와 전혀 무관한 화면
+녹화(OMX, comma 3 하드웨어 전용) 서브시스템 헤더 문제로, 이 파일이
+`libavformat/avformat.h`만 include하고 `libavcodec/avcodec.h`를 직접
+include하지 않는데, 샌드박스에 설치된 Ubuntu 24.04 기본 ffmpeg
+6.1.1이 예전처럼 avformat.h에서 avcodec.h를 전이 include 해주지 않아
+발생. **이 문제는 이번 세션에서 손대지 않음** — TBT HUD 패치 검증
+범위 밖이고, 실차/기존 빌드 환경(다른 ffmpeg 버전 또는 별도 헤더 경로)
+에서는 애초에 발생하지 않았을 가능성이 높음(그렇지 않았다면 이전
+회차들의 정상 빌드 자체가 불가능했을 것). 다음에 전체 링크까지
+검증하려면 이 헤더 문제를 별도로 먼저 봐야 함 — 사용자가 필요하다고
+판단하면 별도 세션에서 조사 제안.
 
-**寃곕줎**: `selfdrive/ui` ?寃잛쓽 **而댄뙆???좊떅 ?덈꺼**(carrot.o) 寃利앹?
-?꾨즺 ???⑥튂 ?곸슜 ??諛섎뱶??`0002` fix ?⑥튂源뚯? 媛숈씠 ?곸슜?댁빞 而댄뙆?쇰맖.
-?꾩껜 諛붿씠?덈━ 留곹겕/?ㅽ뻾 寃利앹? 臾닿? ?댁뒋濡??명빐 ?대쾲 ?몄뀡?먯꽌 誘몄셿二?
-
----
-
-## 127李?(泥댄겕?ъ씤????UI 寃쎈줈?덈궡李?TBT HUD) ??異뺤냼 ?⑥튂 ?꾨떖, scons 而댄뙆??寃利앹? ?ㅼ쓬 ?몄뀡?쇰줈 ?댁썡) ??drawTurnInfoHud 790px??60px
-
-**?붿껌**: ?곗륫?섎떒 寃쎈줈?덈궡李?TurnInfoDrawer::drawTurnInfoHud, `selfdrive/ui/carrot.cc`)
-?ш린瑜?以꾩뿬?щ씪???붿껌. ?ъ슜?먭? ?ㅽ겕由곗꺑???몃? 諛뺤뒪濡?紐⑺몴 ?ш린瑜??쒖떆.
-
-**遺꾩꽍**: ?ㅽ겕由곗꺑(1152x648, fb ?ㅼ???0.6諛곗쑉=1920x1080 異붿젙) ?쎌? ??궛 寃곌낵
-紐⑺몴 諛뺤뒪 ?ш린???????425~460px / ?믪씠 300px ?댁쇅. 湲곗〈 諛뺤뒪????790px,
-?믪씠 300px ??**?믪씠???ㅼ륫移섏? 嫄곗쓽 ?숈씪, ??쭔 吏諛곗쟻?쇰줈 以꾩씠硫???*???뺤씤.
-
-**?⑥튂 ?댁슜** (`0001-127-TBT-HUD-790px-460px.patch`, 而ㅻ컠 14d9a6b, base 21adb2c):
-- `TBT_BOX_W`(460)/`TBT_BOX_H`(300)/`TBT_ICON_SIZE`(140) ?곸닔?????댄썑 誘몄꽭議곗젙 ??
-  ??3媛?媛믩쭔 蹂寃쏀븯硫???
-- ?뚯쟾/遺꾧린 ?꾩씠肄?256px??40px 異뺤냼
-- "?꾩갑: X遺?HH:MM)" / "X.Xkm"??湲곗〈 ?媛곸꽑 諛곗튂(醫곸? ??뿉???띿뒪???섎┝ ?꾪뿕)?먯꽌
-  ?몃줈 2以?諛곗튂濡?蹂寃? ?고듃 40~50 ??30~32濡?異뺤냼
-- ?좏샇怨쇱냽(szSdiDescr)/?꾨줈紐?szPosRoadName) ?띿뒪?? 醫뚯륫 ?뺣젹 + ?고듃 30?쇰줈 異뺤냼
-  (湲곗〈? tbt_x+200 湲곗??대씪 醫곸븘吏???뿉???곗륫 ?대━???곕젮 ?덉뿀??
-- ?곗륫 ?뺣젹 湲곗?(?붾㈃ ?곗륫 ?щ갚 10px)? 湲곗〈怨??숈씪 ?좎?
-
-**寃利??곹깭 (以묒슂 ???ㅼ쓬 ?몄뀡 ?꾩닔 ?뺤씤 ?ы빆)**:
-- ???대┛ ?대줎(base 21adb2c, c3-ms-dev)??`git am` ?뺤긽 ?곸슜 ?뺤씤
-- ???먮낯 ?鍮?以묎큵??愿꾪샇 媛쒖닔 洹좏삎 ?숈씪 (援ъ“??源⑥쭚 ?놁쓬)
-- ??**scons 而댄뙆??寃利?誘몄떎??* ???대쾲 ?몄뀡 ?뚮뱶諛뺤뒪?먯꽑 ?쒕룄 ?????ъ슜?먭?
-  "寃利앹? ?ㅼ쓬 ?몄뀡"?쇰줈 紐낆떆??蹂대쪟 寃곗젙). 議곗궗 寃곌낵 `ryu`??cereal/opendbc媛
-  git submodule ?꾨땶 vendored 援ъ“???쒕툕紐⑤뱢 珥덇린??遺덊븘?? `tools/ubuntu_setup.sh`
-  + `SConstruct`濡?PC ?ㅼ씠?곕툕 鍮뚮뱶 寃쎈줈 議댁옱. ?뚮뱶諛뺤뒪 ?ㅽ듃?뚰겕 ?덉슜 ?꾨찓?몄뿉
-  `archive.ubuntu.com`/`security.ubuntu.com`/`github.com`???대? ?ы븿???덉뼱
-  **?ㅼ쓬 ?몄뀡?먯꽌 ?ъ슜???뚯씪 ?쒓났 ?놁씠 apt-get + scons濡??ㅼ젣 而댄뙆???쒕룄 媛??*?⑥쓣
-  ?뺤씤?? ?ㅼ쓬 ?몄뀡 ?쒖옉?섎㈃ ??諛⑹떇?쇰줈 `selfdrive/ui` ?寃?鍮뚮뱶 寃利앸???吏꾪뻾.
-- ?ㅼ감 諛섏쁺 ??諛섎뱶??PC/?ㅼ감 鍮뚮뱶濡??덉씠?꾩썐 ?쒓컖 ?뺤씤 ?꾩슂 (寃뱀묠/?대━???녿뒗吏)
-
-**?ㅼ쓬 ?몄뀡 ?곗꽑?쒖쐞**:
-1. `tools/install_ubuntu_dependencies.sh` 湲곕컲 ?섏〈???ㅼ튂 ?쒕룄 ??`scons` selfdrive/ui 鍮뚮뱶
-2. 鍮뚮뱶 ?깃났 ???ㅼ젣 ?붾㈃ ?ㅽ겕由곗꺑?쇰줈 ?덉씠?꾩썐 ?ш????뱁엳 ?꾩갑?뺣낫 ?띿뒪????珥덇낵 ?щ?)
-3. ?ㅼ감 寃利???臾몄젣 ?놁쑝硫?devnotes???꾨즺 泥섎━(## 127李?怨꾩냽 or ?꾨즺濡?媛깆떊)
+**결론**: `selfdrive/ui` 타겟의 **컴파일 유닛 레벨**(carrot.o) 검증은
+완료 — 패치 적용 후 반드시 `0002` fix 패치까지 같이 적용해야 컴파일됨.
+전체 바이너리 링크/실행 검증은 무관 이슈로 인해 이번 세션에서 미완주.
 
 ---
 
-## 126李?怨꾩냽 (?꾨즺 ??而룹씤 ?꾩슜 濡쒖쭅 援ъ“???쒓퀎 ?뺤씤, ?ъ슜??寃곗젙?쇰줈 而룹씤 愿??寃???꾩껜 蹂대쪟) ??SCC ?⑥씪???섎뱶?⑥뼱?먯꽌 leadsCutIn 濡쒖쭅 ?먯껜媛 嫄곗쓽 諛쒕룞 遺덇??ν븿???뺤씤
+## 127차 (체크포인트 — UI 경로안내창(TBT HUD) 폭 축소 패치 전달, scons 컴파일 검증은 다음 세션으로 이월) — drawTurnInfoHud 790px→460px
 
-**?곹깭**: 126李??댄썑 ?ъ슜?먭? "而룹씤 ?먮떒 濡쒖쭅??蹂꾨룄濡??덈굹" 吏덈Ц ??
-`compute_leads()`??`cut_in_count`/`leadCutIn`/`_pick_lead_one_from_state`
-3?④퀎 ?꾩슜 濡쒖쭅(李⑥꽑??`in_lane_prob`???蹂꾧컻) ?뺤씤???듬?. ?댁뼱??
-**?ъ슜?먭? "而룹씤愿??寃?좊뒗 蹂대쪟"濡?寃곗젙** ???ㅼ쓬 ?몄뀡? ??二쇱젣瑜?
-癒쇱? 爰쇰궡吏 留먭퀬, ?ъ슜?먭? ?ㅼ떆 ?붿껌???뚭퉴吏 ?湲?
+**요청**: 우측하단 경로안내창(TurnInfoDrawer::drawTurnInfoHud, `selfdrive/ui/carrot.cc`)
+크기를 줄여달라는 요청. 사용자가 스크린샷에 노란 박스로 목표 크기를 표시.
 
-**?듭떖 ?좉퇋 諛쒓껄(125/126李⑤낫?????④퀎 ??洹쇰낯?곸씤 ?먯씤)**:
-而룹씤 ?꾩슜 濡쒖쭅? `tracks.values()`(RadarD媛 愿由ы븯??**?덉씠??* ?몃옓
-?뺤뀛?덈━)留??쒗쉶 ??`self.vision_tracks`(鍮꾩쟾 ?꾩슜)???좎큹???쒗쉶
-??곸씠 ?꾨떂. ??李⑤웾? 37李④? ?대? ?뺤씤???濡?肄붾꼫?덉씠???녿뒗 SCC
-?⑥씪?먯씠??`tracks`???숈떆??議댁옱?섎뒗 ?덉씠???ъ씤?멸? ?ъ떎??1媛쒕퓧
-(`trackId` ??긽 0). 利?"leadOne ?꾨낫"? "?놁뿉??而룹씤 以묒씤 ?꾨낫"媛
-?숈떆??蹂꾨룄 ?덉씠???몃옓?쇰줈 議댁옱?댁빞 ??濡쒖쭅???묐룞?섎뒗?? ?섎뱶?⑥뼱媛
-援ъ“?곸쑝濡?洹???踰덉㎏ ?몃옓??留뚮뱾?대궡吏 紐삵븿. **125/126李⑥쓽
-leadsCutIn n=0? "李⑥꽑???꾧퀎媛?誘몄뒪留ㅼ튂"肉??꾨땲?? ???섎뱶?⑥뼱
-援ъ꽦(SCC ?⑥씪??+ 肄붾꼫?덉씠??誘몄옣李??먯꽌??而룹씤 ?꾩슜 濡쒖쭅 ?먯껜媛
-?뺤긽 二쇳뻾 以?嫄곗쓽 諛쒕룞?????녿뒗 援ъ“?쇰뒗 寃?洹쇰낯 ?먯씤.** 肄붾꼫?덉씠?붽?
-?ㅼ젣 ?μ갑?섍퀬 `EnableCornerRadar`媛 耳쒖졇??`tracks`???ㅼ쨷 ?ъ씤?멸?
-?앷꺼 ??濡쒖쭅???섎?瑜?媛吏?媛?μ꽦????
+**분석**: 스크린샷(1152x648, fb 스케일 0.6배율=1920x1080 추정) 픽셀 역산 결과
+목표 박스 크기는 대략 폭 425~460px / 높이 300px 내외. 기존 박스는 폭 790px,
+높이 300px — **높이는 실측치와 거의 동일, 폭만 지배적으로 줄이면 됨**을 확인.
 
-**?ъ슜??寃곗젙???곕Ⅸ 泥섎━**: 而룹씤 ?먯젙/李⑥꽑??discontinuity 議곗씤??
-寃뚯씠????而룹씤 怨꾩뿴 肄붾뵫 諛⑺뼢? ?꾨? **蹂대쪟 ?곹깭濡??좎?**. 肄붾뱶 蹂寃?
-?놁쓬. ?ㅼ쓬 ?몄뀡?먯꽌 ?ъ슜?먭? ??二쇱젣瑜??ㅼ떆 爰쇰궡湲??꾧퉴吏???ш???
-?쒖옉?섏? ?딆쓬.
+**패치 내용** (`0001-127-TBT-HUD-790px-460px.patch`, 커밋 14d9a6b, base 21adb2c):
+- `TBT_BOX_W`(460)/`TBT_BOX_H`(300)/`TBT_ICON_SIZE`(140) 상수화 — 이후 미세조정 시
+  이 3개 값만 변경하면 됨
+- 회전/분기 아이콘 256px→140px 축소
+- "도착: X분(HH:MM)" / "X.Xkm"을 기존 대각선 배치(좁은 폭에서 텍스트 잘림 위험)에서
+  세로 2줄 배치로 변경, 폰트 40~50 → 30~32로 축소
+- 신호과속(szSdiDescr)/도로명(szPosRoadName) 텍스트: 좌측 정렬 + 폰트 30으로 축소
+  (기존은 tbt_x+200 기준이라 좁아진 폭에서 우측 클리핑 우려 있었음)
+- 우측 정렬 기준(화면 우측 여백 10px)은 기존과 동일 유지
 
-## 126李?(?꾨즺 ???좉퇋 route ?ы꽣而룹씤 ?ㅽ겕由곗꺑 遺꾩꽍 ?꾨즺, 肄붾뱶 誘몄닔?? ???꾪뿕 ?꾨떂 ?뺤씤 + "李⑥꽑 ???볧엳湲? 2踰덉㎏ 臾대젰???ы솗?? ?⑦봽?⑸쪟 ?좉퇋 愿李?
+**검증 상태 (중요 — 다음 세션 필수 확인 사항)**:
+- ✅ 클린 클론(base 21adb2c, c3-ms-dev)에 `git am` 정상 적용 확인
+- ✅ 원본 대비 중괄호/괄호 개수 균형 동일 (구조적 깨짐 없음)
+- ❌ **scons 컴파일 검증 미실시** — 이번 세션 샌드박스에선 시도 안 함(사용자가
+  "검증은 다음 세션"으로 명시적 보류 결정). 조사 결과 `ryu`는 cereal/opendbc가
+  git submodule 아닌 vendored 구조라 서브모듈 초기화 불필요, `tools/ubuntu_setup.sh`
+  + `SConstruct`로 PC 네이티브 빌드 경로 존재. 샌드박스 네트워크 허용 도메인에
+  `archive.ubuntu.com`/`security.ubuntu.com`/`github.com`이 이미 포함돼 있어
+  **다음 세션에서 사용자 파일 제공 없이 apt-get + scons로 실제 컴파일 시도 가능**함을
+  확인함. 다음 세션 시작하면 이 방식으로 `selfdrive/ui` 타겟 빌드 검증부터 진행.
+- 실차 반영 전 반드시 PC/실차 빌드로 레이아웃 시각 확인 필요 (겹침/클리핑 없는지)
 
-**?곹깭**: ?ъ슜?먭? ?좉퇋 zip(`820cae021b` seg17/18) + ?ㅽ겕由곗꺑(13:46,
-dRel 45.6??7.3, ?곗륫李⑤줈 ?ы꽣 而룹씤 異붿젙) ?낅줈?? "李⑥꽑 ??湲곗? ?볧엳??
-諛⑺뼢??留욌뒗吏" ?ш????붿껌. 125李⑥? ?숈씪 二쇱젣 ??踰덉㎏ ?낅┰ ?ㅼ륫.
-?곸꽭??FINDINGS.md "126李? 李멸퀬.
+**다음 세션 우선순위**:
+1. `tools/install_ubuntu_dependencies.sh` 기반 의존성 설치 시도 → `scons` selfdrive/ui 빌드
+2. 빌드 성공 시 실제 화면 스크린샷으로 레이아웃 재검토(특히 도착정보 텍스트 폭 초과 여부)
+3. 실차 검증 후 문제 없으면 devnotes에 완료 처리(## 127차 계속 or 완료로 갱신)
 
-**?듭떖 寃곌낵**:
-1. t=1107.00~1107.66 留ㅼ묶 ?뺤씤(45.5??7.4m 湲됰씫, ?덉씠???щ씫??.
-   湲됰씫??4.1m(<94李?15.0m ?꾧퀎媛? 誘몄뒪?뚯씠???놁쓬 ?뺤긽), 援ш컙 理쒖냼
-   TTC 7.08珥? harsh_brake 0嫄?brakePressed ?쒖쥌 False, aEgo -0.7遺??
-   ?좎젣 媛먯냽 以묒씠?덉쓬) ??**?꾪뿕 ?꾨땲?덉쓬**.
-2. `extract_cutin_lists.py` ?ъ깮 寃곌낵 ?대쾲?먮룄 `leadsCutIn`/`leadsLeft`/
-   `leadsRight` ??援ш컙 n=0 ??leadOne??prob 0.82~0.98濡?tentative
-   寃뚯씠?몃? 嫄곗튌 ?꾩슂 ?놁씠 泥섏쓬遺???뺤떇 ?깅줉???덉뿀湲??뚮Ц.
-   **"李⑥꽑 ???볧엳湲???125李⑥뿉 ?댁뼱 ?대쾲?먮룄 臾대젰???뺤씤.**
-3. **?좉퇋 愿李?*: qcamera ?꾨젅???議?寃곌낵 ??援ш컙? ?됰쾾???ㅼ감濡?
-   吏곸꽑?꾨줈媛 ?꾨땲??怨좎냽?꾨줈 異쒓뎄?⑦봽?믪?諛⑸룄 1李⑤줈 ?⑸쪟 吏?먯씠?덉쓬.
-   yRel??-3??6.8???쇰줈 ?ш쾶 異쒕쟻?대뒗 沅ㅼ쟻? ?쇰컲 而ㅻ툕 dPath ?몄씠利?
-   (118/119李?湲곕줉 짹0.3~0.9m)蹂대떎 ?⑥뵮 而ㅼ꽌, ?⑦봽 ?⑸쪟??湲고븯?숈쟻
-   ?섎졃?쇰줈 蹂대뒗 寃????⑸━????"洹좎씪 李⑤줈 ???몄젒李⑥꽑 而룹씤"??
-   ?꾩젣濡???李⑥꽑???곸닔 ?쒕떇 ?먯껜媛 ?대윴 ?⑸쪟遺????留욎쓣 ???덉쓬.
+---
 
-**?ㅼ쓬 ?몄뀡 ?꾩슂 ??肄붾뵫 諛⑺뼢, ?꾩옱源뚯? 寃곕줎**:
-1. `lane_half_width`/`VISION_TRACK_TENTATIVE_DPATH_ABS_GATE` ?섏젙?
-   2嫄??쒕낯 紐⑤몢 "寃뚯씠??誘멸컻???꾪뿕?꾨떂"?대씪 洹쇨굅 遺議???**蹂대쪟 沅뚯옣**.
-2. 94李?discontinuity 議곗씤??寃뚯씠???뺤옣??125李??쒖븞)? ?대쾲 ?щ?
-   (4.1m, ?꾧퀎媛?誘몃쭔)濡쒕뒗 寃利?遺덇? ???????숉룺 ?ㅼ궗濡 ?꾩슂.
-3. ?⑦봽/?명꽣泥댁씤吏 ?⑸쪟遺??????yRel 蹂???⑦꽩? ?대쾲??泥?愿李???
-   肄붾뱶 ?섏젙 洹쇨굅???꾩쭅 ?꾨땲?? ?좎궗 ?щ? ?섏삤硫?異뺤쟻 媛移??덉쓬.
+## 126차 계속 (완료 — 컷인 전용 로직 구조적 한계 확인, 사용자 결정으로 컷인 관련 검토 전체 보류) — SCC 단일점 하드웨어에서 leadsCutIn 로직 자체가 거의 발동 불가능함을 확인
 
-?먮낯 zip/route_new.csv??work/?먮쭔 ?덉뼱 而⑦뀒?대꼫 由ъ뀑 ???뚯떎 ??
-?ш?利??꾩슂 ???ъ뾽濡쒕뱶 ?꾩슂.
+**상태**: 126차 이후 사용자가 "컷인 판단 로직이 별도로 있나" 질문 →
+`compute_leads()`의 `cut_in_count`/`leadCutIn`/`_pick_lead_one_from_state`
+3단계 전용 로직(차선폭/`in_lane_prob`와는 별개) 확인해 답변. 이어서
+**사용자가 "컷인관련 검토는 보류"로 결정** — 다음 세션은 이 주제를
+먼저 꺼내지 말고, 사용자가 다시 요청할 때까지 대기.
 
-## 125李?(泥댄겕?ъ씤????124李?TTC 寃곕줎 ?뺤젙, "李⑥꽑 ???볧엳湲? ?쒖븞 湲곌컖, 肄붾뵫諛⑺뼢 誘멸껐?뺤쑝濡?以묐떒) ??133212 ?ъ젙諛遺꾩꽍, SCC ?⑥씪???덉씠???寃??ㅼ쐞移??좉퇋 ?뺤씤
+**핵심 신규 발견(125/126차보다 한 단계 더 근본적인 원인)**:
+컷인 전용 로직은 `tracks.values()`(RadarD가 관리하는 **레이더** 트랙
+딕셔너리)만 순회 — `self.vision_tracks`(비전 전용)는 애초에 순회
+대상이 아님. 이 차량은 37차가 이미 확인한 대로 코너레이더 없는 SCC
+단일점이라 `tracks`에 동시에 존재하는 레이더 포인트가 사실상 1개뿐
+(`trackId` 항상 0). 즉 "leadOne 후보"와 "옆에서 컷인 중인 후보"가
+동시에 별도 레이더 트랙으로 존재해야 이 로직이 작동하는데, 하드웨어가
+구조적으로 그 두 번째 트랙을 만들어내지 못함. **125/126차의
+leadsCutIn n=0은 "차선폭 임계값 미스매치"뿐 아니라, 이 하드웨어
+구성(SCC 단일점 + 코너레이더 미장착)에서는 컷인 전용 로직 자체가
+정상 주행 중 거의 발동할 수 없는 구조라는 게 근본 원인.** 코너레이더가
+실제 장착되고 `EnableCornerRadar`가 켜져야 `tracks`에 다중 포인트가
+생겨 이 로직이 의미를 가질 가능성이 큼.
 
-**?곹깭**: ?ъ슜?먭? route354 seg3(133212 ?ш굔) rlog/qcamera zip ?ъ뾽濡쒕뱶.
-"臾쇰━?곸쑝濡?異⑸룎?꾪뿕 ?덉뿀?? 李⑥꽑 ???볧????쇱컢 媛먯??섍퀬 媛먯냽?쒖폒?щ씪"??
-?붿껌???먮낯 rlog瑜?`liveTracks`/`radarState`/`modelV2` ?덈꺼源뚯? 吏곸젒
-?ъ깮?섏뿬 ?ъ젙諛遺꾩꽍. ?좉퇋 ?ㅽ겕由쏀듃 `extract_cutin_lists.py` ?묒꽦??
-toolkit ?몄엯. ?곸꽭??FINDINGS.md "125李? 李멸퀬.
+**사용자 결정에 따른 처리**: 컷인 판정/차선폭/discontinuity 조인트
+게이트 등 컷인 계열 코딩 방향은 전부 **보류 상태로 유지**. 코드 변경
+없음. 다음 세션에서 사용자가 이 주제를 다시 꺼내기 전까지는 재검토
+시작하지 않음.
 
-**?듭떖 寃곌낵**:
-1. **124李⑥쓽 TTC 怨꾩궛(7珥?, ??꾪뿕) 泥좏쉶 ???ъ슜???먮떒??留욎븯??**
-   124李⑤뒗 t=296.5~296.9(?덉씠???щ씫???ㅻ깄, yRel??)留?蹂닿퀬 寃곕줎?덈뒗??
-   洹?吏곹썑 t=297.0遺??dRel 5.3??.8??.8m + yRel 0??.6~0.8m濡??숈떆
-   湲됰??섎뒗 ?⑥뵮 湲됯꺽??2李??ш굔???덉뿀??124李④? 愿李?援ш컙??嫄곌린源뚯?
-   ?뺤옣?섏? ?딆븘 ?볦묠). 釉뚮젅?댄겕 媛쒖엯 ?쒖젏(t=297.419) ?ㅼ륫 TTC ??3.1珥?
-2. **"李⑥꽑 ???볧엳湲? ?쒖븞? ???щ???臾대젰?⑥쓣 ?ㅼ륫?쇰줈 ?뺤씤.**
-   `radard.py`???ㅼ젣 `leadsCutIn`/`leadsLeft`/`leadsRight` 由ъ뒪?몃?
-   ?먮낯 洹몃?濡??ъ깮??寃곌낵 ?ш굔 ?꾩껜 援ш컙?먯꽌 ?꾨? n=0(????踰덈룄
-   ?꾨낫濡??≫엺 ???놁쓬) ???놁감 yRel 理쒕? 0.83m媛 `in_lane_prob` 怨꾩궛??
-   "?ъ쟾??李⑤줈 ???쇰줈 遺꾨쪟???좎큹??"李⑤줈 諛??꾨낫" 寃뚯씠?멸? 媛쒖엯??
-   ?곸씠 ?놁뿀?? lane_half_width 怨꾩뿴 ?꾧퀎媛믪쓣 ?볧????대? 諛쒕룞 ???섎뒗
-   寃뚯씠?몃? ??愿??섍쾶 留뚮뱾 肉먯씠???④낵 ?놁쓬.
-3. **?좉퇋 硫붿빱?덉쬁 ?뺤씤 ??SCC ?⑥씪???덉씠?붿쓽 "?寃??ㅼ쐞移?.**
-   `modelV2.leadsV3[0]`(鍮꾩쟾 ?⑤룆)? ??援ш컙 ?대궡 留ㅻ걚?쎄쾶 媛먯냼?섎뒗
-   蹂꾧컻??臾쇱껜 ?섎굹瑜?怨꾩냽 異붿쟻 以묒씠?덉쓬(y?? ?좎?, 湲됰? ?놁쓬). 諛섎㈃
-   ?덉씠?붾뒗 ?щ씫??????媛源앷퀬 ?놁쑝濡?移섏슦移??ㅻⅨ 臾쇱껜濡?媛덉븘??寃껋쑝濡?
-   蹂댁엫 ????李⑤웾? 肄붾꼫?덉씠???녿뒗 SCC ?⑥씪?먯씠??`radarTrackId`媛
-   ??긽 0 怨좎젙(107李??뺤씤 ?ы빆)?대씪, **124李④? 洹쇨굅濡??쇱븯??"trackId
-   遺덈?=?숈씪 臾쇱껜" 異붾줎 ?먯껜媛 ???섎뱶?⑥뼱?먯꽌 ?깅┰?섏? ?딆쓬**??
-   ?ы솗??
+## 126차 (완료 — 신규 route 포터컷인 스크린샷 분석 완료, 코드 미수정) — 위험 아님 확인 + "차선 폭 넓히기" 2번째 무력함 재확인, 램프합류 신규 관찰
 
-**?ㅼ쓬 ?몄뀡 ?꾩슂 ??肄붾뵫 諛⑺뼢 誘멸껐?? ?꾨옒 ?쒖꽌濡?寃???쒖븞**:
-1. `DREL_DISCONTINUITY_DROP_THRESH`瑜?dRel ?⑤룆???꾨땲??dRel 湲됰씫 +
-   dPath/yRel ?숈떆 湲됱쬆(=?寃??ㅼ쐞移??섏떖 ?좏샇)??蹂대뒗 議곗씤??寃뚯씠?몃줈
-   ?뺤옣 + radar_locked ?꾨젅?꾩뿉?쒕룄 ?곸슜 寃??湲곗〈??鍮꾩쟾?⑤룆 援ш컙留?
-   寃?? 63李?94李④? 諛쒓껄???ш컖吏?? ?곌껐??
-2. ?쒕낯 1嫄대퓧?대?濡??ㅻⅨ ?쇱슦???뺤긽 而룹씤/李⑤줈蹂寃??щ씫???곹솴)濡?
-   ?ㅽ깘瑜?寃利??꾩슂
-3. "李⑥꽑 ?? 怨꾩뿴 ?곸닔(`VISION_TRACK_TENTATIVE_DPATH_ABS_GATE` ??
-   ?먯껜???먮옒 紐⑹쟻 湲곗? ?쒕떇 媛移섎뒗 ?대쾲 遺꾩꽍怨?蹂꾧컻濡??ъ쟾??誘멸???
+**상태**: 사용자가 신규 zip(`820cae021b` seg17/18) + 스크린샷(13:46,
+dRel 45.6→37.3, 우측차로 포터 컷인 추정) 업로드, "차선 폭 기준 넓히는
+방향이 맞는지" 재검토 요청. 125차와 동일 주제 두 번째 독립 실측.
+상세는 FINDINGS.md "126차" 참고.
 
-?먮낯 zip(route354 seg3)? 而⑦뀒?대꼫 由ъ뀑 ???뚯떎 ???ㅼ쓬 ?몄뀡?먯꽌
-?댁뼱媛?ㅻ㈃ ?ъ뾽濡쒕뱶 ?꾩슂?????덉쓬. route354/356 ?ㅻⅨ ?멸렇癒쇳듃(r354.csv/
-r356.csv, 124李④? ?곕뜕 CSV)??留덉갔媛吏濡?誘몃낫??
+**핵심 결과**:
+1. t=1107.00~1107.66 매칭 확인(45.5→37.4m 급락, 레이더 재락온).
+   급락폭 4.1m(<94차 15.0m 임계값, 미스파이어 없음 정상), 구간 최소
+   TTC 7.08초, harsh_brake 0건(brakePressed 시종 False, aEgo -0.7부터
+   선제 감속 중이었음) — **위험 아니었음**.
+2. `extract_cutin_lists.py` 재생 결과 이번에도 `leadsCutIn`/`leadsLeft`/
+   `leadsRight` 전 구간 n=0 — leadOne이 prob 0.82~0.98로 tentative
+   게이트를 거칠 필요 없이 처음부터 정식 등록돼 있었기 때문.
+   **"차선 폭 넓히기"는 125차에 이어 이번에도 무력함 확인.**
+3. **신규 관찰**: qcamera 프레임 대조 결과 이 구간은 평범한 다차로
+   직선도로가 아니라 고속도로 출구램프→지방도 1차로 합류 지점이었음.
+   yRel이 -3→-6.8→0으로 크게 출렁이는 궤적은 일반 커브 dPath 노이즈
+   (118/119차 기록 ±0.3~0.9m)보다 훨씬 커서, 램프 합류의 기하학적
+   수렴으로 보는 게 더 합리적 — "균일 차로 폭 인접차선 컷인"을
+   전제로 한 차선폭 상수 튜닝 자체가 이런 합류부엔 안 맞을 수 있음.
 
-## 124李?(泥댄겕?ъ씤????而룹씤 5?대┰ ?꾩닔遺꾩꽍 ?꾨즺, 肄붾뵫諛⑺뼢 誘멸껐?뺤쑝濡?以묐떒) ??123李??먯씤媛??2嫄?紐⑤몢 怨좏빐?곷룄 ?ш?利앹쑝濡?湲곌컖, ??硫붿빱?덉쬁 諛쒓껄
+**다음 세션 필요 — 코딩 방향, 현재까지 결론**:
+1. `lane_half_width`/`VISION_TRACK_TENTATIVE_DPATH_ABS_GATE` 수정은
+   2건 표본 모두 "게이트 미개입+위험아님"이라 근거 부족 — **보류 권장**.
+2. 94차 discontinuity 조인트 게이트 확장안(125차 제안)은 이번 사례
+   (4.1m, 임계값 미만)로는 검증 불가 — 더 큰 낙폭 실사례 필요.
+3. 램프/인터체인지 합류부의 큰 폭 yRel 변동 패턴은 이번이 첫 관찰 —
+   코드 수정 근거는 아직 아니나, 유사 사례 나오면 축적 가치 있음.
 
-**?곹깭**: 而⑦뀒?대꼫 ?ъ떆????route354/356 zip ?ъ뾽濡쒕뱶諛쏆븘 CSV
-?ъ텛異??꾨즺. ?ъ슜???붿껌("而룹씤?곹솴留??뺣?遺꾩꽍?섍퀬 肄붾뵫諛⑺뼢
-?뺥븯??)???곕씪 ?⑥? 而룹씤 ?대┰ 4媛?141434/133149/134659/141833)
-?꾨? 遺꾩꽍. ?곸꽭??FINDINGS.md "124李? 李멸퀬.
+원본 zip/route_new.csv는 work/에만 있어 컨테이너 리셋 시 소실 —
+재검증 필요 시 재업로드 필요.
 
-**?듭떖 寃곌낵**:
-1. 而룹씤 ?대┰ 5媛?以?吏꾩쭨 臾몄젣 ?щ???**1嫄대퓧**(133212=133149,
-   ?숈씪?ш굔). 141434???댁쟾??蹂몄씤 ?섎룞 李⑥꽑蹂寃?而룹씤 ?꾨떂),
-   134659/141833? ?뺤긽 泥섎━.
-2. **123李④? ?쒖떆?덈뜕 ?먯씤媛??2嫄?`VISION_TRACK_TENTATIVE_
-   DPATH_ABS_GATE`, `DREL_DISCONTINUITY_DROP_THRESH`) 紐⑤몢
-   0.05珥??⑥쐞 ?ш?利앹쑝濡?湲곌컖??* ???ㅼ젣 硫붿빱?덉쬁? "?숈씪
-   trackId=0媛 2?꾨젅??~0.1s) ?덉씠?붾? ?좉퉸 ?볦낀?ㅺ? ?щ씫?⑦븯硫?
-   嫄곕━媛믪쓣 5.5m濡??ㅻ깄 蹂댁젙"?섎뒗 寃껋쑝濡? ???곸닔 紐⑤몢 ???곹솴??
-   ?ㅻ（吏 ?딆쓬(?좉퇋?깅줉 寃뚯씠?몃룄 ?꾨땲怨? discontinuity 濡쒖쭅?
-   radar_locked ?꾨젅?꾩뿉???ㅽ엳???덉뒪?좊━瑜?珥덇린?뷀븿).
-3. ??援ш컙 `vRel`? -0.5~-1.1m/s濡?臾쇰━???꾪뿕?꾨뒗 ??븯??TTC 7珥?
-   ?댁긽) ???댁쟾??釉뚮젅?댄겕 媛쒖엯??"?붾㈃???レ옄媛 媛묒옄湲?諛섑넗留?
-   ?섎뒗 寃껋뿉 ???諛섏궗 諛섏쓳"?댁뿀??媛?μ꽦???쒖뒪??寃고븿蹂대떎 ??
-4. `sim_drel_discontinuity.py`(湲곗〈 toolkit ?ъ궗?? threshold=8.0
-   ?쒕??덉씠??寃곌낵 ?ъ쟾??誘명깘吏 ?뺤씤. 6.0?濡???텛???덈룄 寃?좏뻽?쇰굹
-   r354/r356 ?꾩껜?먯꽌 6~15m ?숉룺 ?대깽??134嫄??뺤씤?섏뼱 ?ㅽ깘 湲됱쬆
-   由ъ뒪?щ줈 蹂대쪟.
+## 125차 (체크포인트 — 124차 TTC 결론 정정, "차선 폭 넓히기" 제안 기각, 코딩방향 미결정으로 중단) — 133212 재정밀분석, SCC 단일점 레이더 타겟 스위칭 신규 확인
 
-**?ㅼ쓬 ?몄뀡 ?꾩슂 ??肄붾뵫 諛⑺뼢 誘멸껐?? 4媛吏 ?듭뀡 以??좏깮 ?꾩슂**:
-1. ?덉씠???щ씫??湲됰낫???숈씪 trackId, 嫄곕━媛??ㅻ깄) ???濡쒖쭅 ?좉퇋 ?ㅺ퀎
-2. 臾쇰━???꾪뿕????븯??媛?μ꽦 ?덉쑝??肄붾뱶?섏젙 蹂대쪟, ?щ? 異붽? ?섏쭛 ???ы뙋??
-3. 洹몃옒??`VISION_TRACK_TENTATIVE_DPATH_ABS_GATE`/
-   `DREL_DISCONTINUITY_DROP_THRESH`??媛곸옄 ?먮옒 紐⑹쟻?먯꽌 ?쒕떇 媛移?
-   ?덉쓣 ???덉쑝??(?대쾲 ?щ?? 臾닿??섍쾶) 蹂꾧컻濡?寃??
-4. ?먮낯 rlog ?뺣?遺꾩꽍 ?뺤옣(dPath/yRel ??異붽? ?꾨뱶濡?"??2?꾨젅?꾧컙
-   ?덉씠?붽? ?볦낀?붿?" 洹쇰낯?먯씤 ?ы깘??
+**상태**: 사용자가 route354 seg3(133212 사건) rlog/qcamera zip 재업로드.
+"물리적으로 충돌위험 있었다, 차선 폭 넓혀서 일찍 감지하고 감속시켜달라"는
+요청에 원본 rlog를 `liveTracks`/`radarState`/`modelV2` 레벨까지 직접
+재생하여 재정밀분석. 신규 스크립트 `extract_cutin_lists.py` 작성해
+toolkit 편입. 상세는 FINDINGS.md "125차" 참고.
 
-route354/356 CSV(r354.csv, r356.csv)??work/???덉쑝??而⑦뀒?대꼫
-由ъ뀑 ???뚯떎 ???ㅼ쓬 ?몄뀡?먯꽌 ?댁뼱媛?ㅻ㈃ zip ?ъ뾽濡쒕뱶 ?꾩슂?????덉쓬.
+**핵심 결과**:
+1. **124차의 TTC 계산(7초+, 저위험) 철회 — 사용자 판단이 맞았음.**
+   124차는 t=296.5~296.9(레이더 재락온 스냅, yRel≈0)만 보고 결론냈는데,
+   그 직후 t=297.0부터 dRel 5.3→3.8→1.8m + yRel 0→0.6~0.8m로 동시
+   급변하는 훨씬 급격한 2차 사건이 있었음(124차가 관찰 구간을 거기까지
+   확장하지 않아 놓침). 브레이크 개입 시점(t=297.419) 실측 TTC ≈ 3.1초.
+2. **"차선 폭 넓히기" 제안은 이 사례엔 무력함을 실측으로 확인.**
+   `radard.py`의 실제 `leadsCutIn`/`leadsLeft`/`leadsRight` 리스트를
+   원본 그대로 재생한 결과 사건 전체 구간에서 전부 n=0(단 한 번도
+   후보로 잡힌 적 없음) — 옆차 yRel 최대 0.83m가 `in_lane_prob` 계산상
+   "여전히 차로 안"으로 분류돼 애초에 "차로 밖 후보" 게이트가 개입한
+   적이 없었음. lane_half_width 계열 임계값을 넓혀도 이미 발동 안 하는
+   게이트를 더 관대하게 만들 뿐이라 효과 없음.
+3. **신규 메커니즘 확인 — SCC 단일점 레이더의 "타겟 스위칭".**
+   `modelV2.leadsV3[0]`(비전 단독)은 이 구간 내내 매끄럽게 감소하는
+   별개의 물체 하나를 계속 추적 중이었음(y≈0 유지, 급변 없음). 반면
+   레이더는 재락온 시 더 가깝고 옆으로 치우친 다른 물체로 갈아탄 것으로
+   보임 — 이 차량은 코너레이더 없는 SCC 단일점이라 `radarTrackId`가
+   항상 0 고정(107차 확인 사항)이라, **124차가 근거로 삼았던 "trackId
+   불변=동일 물체" 추론 자체가 이 하드웨어에서 성립하지 않음**을
+   재확인.
 
-## 123李?(泥댄겕?ъ씤?????몃쾲吏?寃利?以묐떒, 而⑦뀒?대꼫 由ъ뀑?쇰줈 誘몄셿猷? ??而룹븘??2嫄?寃利??꾨즺 + 而룹씤 李⑥꽑??媛??肄붾뱶洹쇨굅 諛쒓껄, ?섎㉧吏 5?대┰ 誘몄갑??
+**다음 세션 필요 — 코딩 방향 미결정, 아래 순서로 검토 제안**:
+1. `DREL_DISCONTINUITY_DROP_THRESH`를 dRel 단독이 아니라 dRel 급락 +
+   dPath/yRel 동시 급증(=타겟 스위칭 의심 신호)을 보는 조인트 게이트로
+   확장 + radar_locked 프레임에서도 적용 검토(기존엔 비전단독 구간만
+   검사, 63차/94차가 발견한 사각지대와 연결됨)
+2. 표본 1건뿐이므로 다른 라우트(정상 컷인/차로변경/재락온 상황)로
+   오탐률 검증 필요
+3. "차선 폭" 계열 상수(`VISION_TRACK_TENTATIVE_DPATH_ABS_GATE` 등)
+   자체의 원래 목적 기준 튜닝 가치는 이번 분석과 별개로 여전히 미검토
 
-**?곹깭**: ?몄뀡 以묎컙??而⑦뀒?대꼫媛 由ъ뀑?섏뼱 route CSV(r354~357) ?뚯떎.
-遺꾩꽍 寃곌낵?????湲곕줉?먯꽌 蹂듦뎄??FINDINGS.md??湲곕줉 ?꾨즺(?곸꽭??
-FINDINGS.md "123李? 李멸퀬). ??臾몃떒? ?ㅼ쓬 ?몄뀡 ?ш컻???붿빟.
+원본 zip(route354 seg3)은 컨테이너 리셋 시 소실 — 다음 세션에서
+이어가려면 재업로드 필요할 수 있음. route354/356 다른 세그먼트(r354.csv/
+r356.csv, 124차가 쓰던 CSV)도 마찬가지로 미보유.
 
-**?꾨즺??寃?*:
-- 而룹븘??135527(r355 t??666~1696), 而룹븘??141322(r356 t??760~2774)
-  ????留ㅻ걟?섍쾶 泥섎━???뺤씤. ??119李?LANE_DEPARTURE 寃뚯씠?멸?
-  ?ㅼ젣濡?諛쒕룞??耳?댁뒪???꾨땲?덉쓬(?먯뿰 prob 媛먯뇿/target-switch濡?
-  ?댁냼).
-- 而룹씤_?닿굅??李⑥꽑_??쓣_?볤쾶_133212 ??r354 t??96~302 留ㅼ묶, ?뺣?遺꾩꽍
-  ?꾨즺. ?먯씤 ?꾨낫 ?뱀젙: `radard.py` L420
-  `VISION_TRACK_TENTATIVE_DPATH_ABS_GATE=1.75` (而룹씤 以묒씤 李⑤웾??
-  tentative ?깅줉??dPath ???숈븞 諛곗젣?섎뒗 援ъ“) + 蹂댁“?곸쑝濡?
-  `long_mpc.py`??`DREL_DISCONTINUITY_DROP_THRESH=15.0`(6.66m湲?
-  ?꾨쭔??dRel 湲됰씫? 誘명깘吏). ?ъ슜??媛??"而룹씤? 李⑥꽑??湲곗???
-  ?볧???) 吏吏?섎뒗 肄붾뱶 援ъ“ ?뺤씤. **????肄붾뱶 誘몄닔?? ?ㅺ퀎
-  ?쒖븞 ?④퀎.**
+## 124차 (체크포인트 — 컷인 5클립 전수분석 완료, 코딩방향 미결정으로 중단) — 123차 원인가설 2건 모두 고해상도 재검증으로 기각, 새 메커니즘 발견
 
-**?ㅼ쓬 ?몄뀡?먯꽌 ????*:
-1. route354~357 zip **?ъ뾽濡쒕뱶 ?꾩슂**(work/ ?뚯떎) ???ъ텛異?
-2. 而룹씤_141434(r356) 留ㅼ묶/遺꾩꽍 ?댁뼱??吏꾪뻾 (?쒖옉留??섍퀬 以묐떒??
-3. 蹂듯빀 ?대┰ 3嫄?而룹븘??而룹씤_133149 / 而룹씤_而룹븘??134659 /
-   而룹씤_而룹븘??141833) 誘몄갑????遺꾩꽍 ?쒖옉
-4. 5媛??대┰ 寃곌낵 醫낇빀 ?? `VISION_TRACK_TENTATIVE_DPATH_ABS_GATE`
-   ?곹뼢 議곗젙???? 1.75??.0~2.3m?) ?쒕??덉씠??寃利??ㅽ겕由쏀듃 ?꾩슂
-   ?щ? ?먮떒 ???덈줈 留뚮뱾湲???toolkit/README.md?먯꽌 dPath/而룹씤
-   愿??湲곗〈 sim ?ㅽ겕由쏀듃(`sim_lane_departure_gate.py` ?? ?ъ궗??
-   媛?μ꽦遺???뺤씤??寃?
-5. 理쒖쥌 寃곕줎 ?섏삤硫??ъ슜???뱀씤 ?섏뿉 肄붾뱶 ?⑥튂 吏꾪뻾
+**상태**: 컨테이너 재시작 후 route354/356 zip 재업로드받아 CSV
+재추출 완료. 사용자 요청("컷인상황만 정밀분석하고 코딩방향
+정하자")에 따라 남은 컷인 클립 4개(141434/133149/134659/141833)
+전부 분석. 상세는 FINDINGS.md "124차" 참고.
 
-## 122李?(?꾨즺 ???먮쾲吏?寃利? ??띻뎄媛?媛媛먯냽 ?ㅼ감 ?ш?利?+ 119李?理쒖떊?⑥튂 ?ы솗?? 肄붾뱶 蹂寃??놁쓬) ??route356 ???stop-and-go 3嫄??꾨? ?대┛
+**핵심 결과**:
+1. 컷인 클립 5개 중 진짜 문제 사례는 **1건뿐**(133212=133149,
+   동일사건). 141434는 운전자 본인 수동 차선변경(컷인 아님),
+   134659/141833은 정상 처리.
+2. **123차가 제시했던 원인가설 2건(`VISION_TRACK_TENTATIVE_
+   DPATH_ABS_GATE`, `DREL_DISCONTINUITY_DROP_THRESH`) 모두
+   0.05초 단위 재검증으로 기각됨** — 실제 메커니즘은 "동일
+   trackId=0가 2프레임(~0.1s) 레이더를 잠깐 놓쳤다가 재락온하며
+   거리값을 5.5m로 스냅 보정"하는 것으로, 두 상수 모두 이 상황을
+   다루지 않음(신규등록 게이트도 아니고, discontinuity 로직은
+   radar_locked 프레임에서 오히려 히스토리를 초기화함).
+3. 이 구간 `vRel`은 -0.5~-1.1m/s로 물리적 위험도는 낮았음(TTC 7초
+   이상) — 운전자 브레이크 개입이 "화면상 숫자가 갑자기 반토막
+   나는 것에 대한 반사 반응"이었을 가능성이 시스템 결함보다 큼.
+4. `sim_drel_discontinuity.py`(기존 toolkit 재사용) threshold=8.0
+   시뮬레이션 결과 여전히 미탐지 확인. 6.0대로 낮추는 안도 검토했으나
+   r354/r356 전체에서 6~15m 낙폭 이벤트 134건 확인되어 오탐 급증
+   리스크로 보류.
 
-**諛곌꼍**: ?ъ슜?먭? ?좉퇋 ?ㅼ감 route356(20260829_140924, x20seg, 20遺?
-commit `21adb2c013f4`=119李?諛섏쁺 ?곹깭) + "???媛媛먯냽" ?쇰꺼 ?붾㈃?뱁솕
-?대┰ 3媛?141048/141556/142300) ?낅줈?? "??띻뎄媛?媛媛먯냽 ?곹솴 遺꾩꽍 +
-濡쒓렇 ?먯꽭??遺꾩꽍 + 理쒖떊 ?⑥튂(119李? ???곸슜?먮뒗吏 寃利? ?붿껌. 121李④?
-"?ㅼ쓬 ?몄뀡 ?꾩슂"濡??④릿 route356 ??ぉ???댁뼱??吏꾪뻾.
+**다음 세션 필요 — 코딩 방향 미결정, 4가지 옵션 중 선택 필요**:
+1. 레이더 재락온 급보정(동일 trackId, 거리값 스냅) 대응 로직 신규 설계
+2. 물리적 위험도 낮았을 가능성 있으니 코드수정 보류, 사례 추가 수집 후 재판단
+3. 그래도 `VISION_TRACK_TENTATIVE_DPATH_ABS_GATE`/
+   `DREL_DISCONTINUITY_DROP_THRESH`는 각자 원래 목적에서 튜닝 가치
+   있을 수 있으니 (이번 사례와 무관하게) 별개로 검토
+4. 원본 rlog 정밀분석 확장(dPath/yRel 등 추가 필드로 "왜 2프레임간
+   레이더가 놓쳤는지" 근본원인 재탐색)
 
-**?대┰-route 留ㅼ묶**: 121李⑥쓽 "?뚯씪紐??鍮???긽 +52珥?媛 怨좎젙 ?곸닔媛
-?꾨떂???대쾲???ы솗?????대쾲 ?몄뀡 ?대┰?ㅼ? offset??+30.6s/+31.5s/
-+13.5s濡??대┰留덈떎 ?몄감 ?덉쓬(?ㅽ겕由곕젅肄붾뜑 ??μ??곗씠 留ㅻ쾲 ?ㅻ쫫??
-?쒖궗, match_dashcam_clip_to_route.py??blinker ?대윭?ㅽ꽣 留ㅼ묶? ?대쾲
-?대┰?ㅼ씠 李⑥꽑蹂寃쎌씠 ?꾨땲??????뺤껜 ?쒕굹由ъ삤??blinker ?쒖꽦???놁뼱
-?곸슜 遺덇? ?????HUD ?ㅻ쾭?덉씠 ?섏튂(dRel/vEgo/aEgo)瑜?route CSV?
-?뚯닔???⑥쐞濡?吏곸젒 ?議?+ qcamera ?꾨젅??3嫄??꾨? ?쒓컖 ?ы솗?몄쑝濡?
-留ㅼ묶 ?뺤젙):
-- Clip1(141048) ??r356 t??592.9 (seg1, dRel=8.3m/vEgo??km/h ?뺣?
-  ?쇱튂 + qcamera ?꾨젅???쒓컖 ?쇱튂 ?뺤씤)
-- Clip2(141556) ??r356 t??901.8 (seg7, dRel=6.4m/vEgo??km/h/
-  aEgo??0.90 ?쇱튂 + qcamera ?꾨젅???쒓컖 ?쇱튂 ?뺤씤)
-- Clip3(142300) ??r356 t??307.8 (seg13, dRel=4.5m/vEgo=0 ?뺤? +
-  qcamera ?꾨젅???쒓컖 ?쇱튂 ?뺤씤, ?붾챸??洹몃옖? 313??030 諛곌꼍 ?숈씪)
+route354/356 CSV(r354.csv, r356.csv)는 work/에 있으나 컨테이너
+리셋 시 소실 — 다음 세션에서 이어가려면 zip 재업로드 필요할 수 있음.
 
-**119李?理쒖떊?⑥튂(鍮④컙諛뺤뒪 LANE_DEPARTURE 媛뺤젣?댁젣 寃뚯씠?? 寃利?*:
-`replay_lane_departure_gate.py`(120李??꾧뎄 ?ъ궗??濡?route356 ?꾩껜
-23999???ㅼ틪 ???꾨낫 2嫄?t=2547.35/t=3418.60) **?꾨? PASS**, 120李④?
-諛쒓껄?덈뜕 LeadBlend 臾대젰??踰꾧렇 誘몄옱?? ?????대깽??紐⑤몢 3媛??대┰
-援ш컙 諛????媛媛먯냽 ?먯껜? 吏곸젒 ?곌? ?녿뒗 蹂꾧컻 吏???대씪 "119李④?
-?뺤긽 ?숈옉 以??대씪??諛⑺뼢???ы솗???뺣룄濡쒕쭔 湲곕줉, ?대쾲 ?몄뀡?????
-媛媛먯냽 遺꾩꽍 ?먯껜????낅┰??寃곌낵.
+## 123차 (체크포인트 — 세번째 검증 중단, 컨테이너 리셋으로 미완료) — 컷아웃 2건 검증 완료 + 컷인 차선폭 가설 코드근거 발견, 나머지 5클립 미착수
 
-**???媛媛먯냽 3媛?援ш컙 ?곸꽭 遺꾩꽍 寃곌낵 ???꾨? ?대┛**:
-- harsh_brake_events(湲됯컧??-0.8 ?댄븯) 3媛?援ш컙 ?꾨? 0嫄?(route356
-  ?꾩껜 30嫄?以?clip 援ш컙??寃뱀튂???щ? ?놁쓬 ??clip1/2/3 洹쇱젒
-  harsh_brake ?대깽?몃뒗 媛곴컖 clip ?쒖옉 ????蹂꾨룄 吏??
-- ttc_danger_events 3媛?援ш컙 ?꾨? 0嫄?
-- congestion_stop_launch_lurch_scan(58李?2踰? "?뺤껜 遺뺣걮") route356
-  ?꾩껜 ?ㅼ틪 0嫄?
-- dRel??m discontinuity ?대깽??3媛?援ш컙 ?꾨? 0嫄? leadStatus ?꾪솚??
-  0嫄?異붿쟻 ?덉젙)
-- Clip1(t=2592~2622): ?뺤껜 ?щ━?? vEgo 0~11.3km/h 諛섎났, min
-  aEgo=-0.53(寃쎈?) ?????놁씠 ?꾨쭔???뺤?/?ъ텧諛?諛섎났
-- Clip2(t=2901~2931): vEgo 10.2??.7km/h 媛먯냽 ???ш??? min
-  aEgo=-1.75(112李?LOW_SPEED_STRONG_DECEL 臾명꽦 -2.5 誘몃룄?? 寃뚯씠??
-  誘몃컻?숈씠 ?곸젅) ??leadALeadK/leadDRel怨?aEgo 諛섏쓳???쒓컙異뺤긽
-  ?먯뿰?ㅻ읇寃??숈“(怨꾨떒?????놁쓬), ?좏샇怨쇱냽 移대찓??55km/h 援ш컙)
-  寃쎄퀬 HUD? 寃뱀튂??ADAS 醫낅갑??濡쒖쭅怨쇰뒗 臾닿???蹂꾨룄 ?쒖떆
-- Clip3(t=3307~3337): ?꾩쟾?뺤?, min aEgo=-0.90, dRel 4.5m濡??덉젙??
-  ?좎?, ?뺤감 以??붾뱾由??놁쓬
+**상태**: 세션 중간에 컨테이너가 리셋되어 route CSV(r354~357) 소실.
+분석 결과는 대화 기록에서 복구해 FINDINGS.md에 기록 완료(상세는
+FINDINGS.md "123차" 참고). 이 문단은 다음 세션 재개용 요약.
 
-**寃곕줎**: commit `21adb2c`(119李? ?곹깭?먯꽌 ??띻뎄媛?媛媛먯냽??3媛?
-?щ? ?꾨? 留ㅻ걟?섍쾶 泥섎━????112李?LOW_SPEED_STRONG_DECEL threshold
--2.5)/116쨌117李?gap-open damping)/94李?discontinuity 由ъ뀑)???ㅼ감
-?숈옉???대쾲 ????쒕굹由ъ삤?먯꽌???뚭? ?놁씠 ?좎??섎뒗 寃껋쑝濡??먮떒.
-119李?LANE_DEPARTURE 寃뚯씠?몃룄 ??route???ㅻⅨ 吏???대┰ 臾닿?)?먯꽌
-?뺤긽 PASS ?ы솗??
+**완료된 것**:
+- 컷아웃_135527(r355 t≈1666~1696), 컷아웃_141322(r356 t≈2760~2774)
+  둘 다 매끈하게 처리됨 확인. 단 119차 LANE_DEPARTURE 게이트가
+  실제로 발동한 케이스는 아니었음(자연 prob 감쇠/target-switch로
+  해소).
+- 컷인_이거는_차선_폭을_넓게_133212 → r354 t≈296~302 매칭, 정밀분석
+  완료. 원인 후보 특정: `radard.py` L420
+  `VISION_TRACK_TENTATIVE_DPATH_ABS_GATE=1.75` (컷인 중인 차량의
+  tentative 등록을 dPath 큰 동안 배제하는 구조) + 보조적으로
+  `long_mpc.py`의 `DREL_DISCONTINUITY_DROP_THRESH=15.0`(6.66m급
+  완만한 dRel 급락은 미탐지). 사용자 가설("컷인은 차선폭 기준을
+  넓혀야") 지지하는 코드 구조 확인. **둘 다 코드 미수정, 설계
+  제안 단계.**
 
-**?ㅼ쓬 ?몄뀡 ?꾩슂**:
-1. route357(121李④? "誘몄텛異?濡??④릿 ?섎㉧吏 援ш컙) ?꾩슂???댁뼱???뺤씤.
-2. ?대쾲??clip???뺤씤??qcamera ?꾨젅??1?μ뵫留?異붿텧(留ㅼ묶 寃利?
-   紐⑹쟻) ???대┰ ?꾩껜 30珥?援ш컙???꾨젅???⑥쐞 ?뺣? ?議곕뒗 誘몄떎??
-   ?꾩슂???ㅼ쓬 ?몄뀡 怨쇱젣.
-3. 119李?寃뚯씠???꾨낫 2嫄?t=2547.35/t=3418.60)? ?대쾲 ?대┰怨?臾닿???
-   吏?먯씠???곸꽭 ?꾨젅???議곕뒗 ???????꾩슂???ㅼ쓬 ?몄뀡?먯꽌 寃??
+**다음 세션에서 할 일**:
+1. route354~357 zip **재업로드 필요**(work/ 소실) → 재추출
+2. 컷인_141434(r356) 매칭/분석 이어서 진행 (시작만 하고 중단됨)
+3. 복합 클립 3건(컷아웃_컷인_133149 / 컷인_컷아웃_134659 /
+   컷인_컷아웃_141833) 미착수 — 분석 시작
+4. 5개 클립 결과 종합 후, `VISION_TRACK_TENTATIVE_DPATH_ABS_GATE`
+   상향 조정안(예: 1.75→2.0~2.3m대) 시뮬레이션 검증 스크립트 필요
+   여부 판단 — 새로 만들기 전 toolkit/README.md에서 dPath/컷인
+   관련 기존 sim 스크립트(`sim_lane_departure_gate.py` 등) 재사용
+   가능성부터 확인할 것
+5. 최종 결론 나오면 사용자 승인 하에 코드 패치 진행
 
-**CSV ?곗텧臾?*: `r356.csv`(23999?? ?덊룷 誘몄빱諛???⑸웾 ?뺤콉),
-`work/`?먮쭔 議댁옱 ??而⑦뀒?대꼫 由ъ뀑 ???뚯떎.
+## 122차 (완료 — 두번째 검증: 저속구간 가감속 실차 재검증 + 119차 최신패치 재확인, 코드 변경 없음) — route356 저속 stop-and-go 3건 전부 클린
 
-## 121李?(?꾨즺 ??76/94李?諛⑹븞D discontinuity 由ъ뀑 ?ㅼ감 ?ш?利? 肄붾뱶 蹂寃??놁쓬) ??"李⑥꽑蹂寃?以?湲됯컧?? ?щ컻 ?놁쓬 ?뺤씤
+**배경**: 사용자가 신규 실차 route356(20260829_140924, x20seg, 20분,
+commit `21adb2c013f4`=119차 반영 상태) + "저속_가감속" 라벨 화면녹화
+클립 3개(141048/141556/142300) 업로드, "저속구간 가감속 상황 분석 +
+로그 자세히 분석 + 최신 패치(119차) 잘 적용됐는지 검증" 요청. 121차가
+"다음 세션 필요"로 남긴 route356 항목의 이어서 진행.
 
-**諛곌꼍**: ?ъ슜?먭? ?좉퇋 ?ㅼ감 4媛?route(354~357) + "?댁감 李⑥꽑蹂寃?
-?대┰ 4媛??낅줈?? "李⑥꽑蹂寃쎌떆 ?놁감???욎감 諛섏쓳 ?뺤긽?몄? / ?덉쟾
-湲됯컧?띿씠 ?놁뼱吏?寃?留욌뒗吏" 寃利??붿껌.
+**클립-route 매칭**: 121차의 "파일명 대비 항상 +52초"가 고정 상수가
+아님을 이번에 재확인 — 이번 세션 클립들은 offset이 +30.6s/+31.5s/
++13.5s로 클립마다 편차 있음(스크린레코더 저장지연이 매번 다름을
+시사, match_dashcam_clip_to_route.py의 blinker 클러스터 매칭은 이번
+클립들이 차선변경이 아니라 저속 정체 시나리오라 blinker 활성이 없어
+적용 불가 — 대신 HUD 오버레이 수치(dRel/vEgo/aEgo)를 route CSV와
+소수점 단위로 직접 대조 + qcamera 프레임 3건 전부 시각 재확인으로
+매칭 확정):
+- Clip1(141048) → r356 t≈2592.9 (seg1, dRel=8.3m/vEgo≈5km/h 정밀
+  일치 + qcamera 프레임 시각 일치 확인)
+- Clip2(141556) → r356 t≈2901.8 (seg7, dRel=6.4m/vEgo≈3km/h/
+  aEgo≈-0.90 일치 + qcamera 프레임 시각 일치 확인)
+- Clip3(142300) → r356 t≈3307.8 (seg13, dRel=4.5m/vEgo=0 정지 +
+  qcamera 프레임 시각 일치 확인, 화명동/그랜저 313노1030 배경 동일)
 
-**?묒뾽**:
-1. `extract_log.py`濡?route354(22797??/route355(24000?? 異붿텧
-   (而ㅻ컠 `21adb2c013f4`=119李?諛섏쁺 ?곹깭, route356/357? ?대┰??
-   留ㅼ묶 ?????대쾲??誘몄텛異?.
-2. `match_dashcam_clip_to_route.py` ?먮━(blinker ?대윭?ㅽ꽣 ?곷?媛꾧꺽
-   ?議?濡??대┰ 4媛??꾨? ?뺣? 留ㅼ묶(?ㅼ감 <1.5s) ???뚯씪紐??鍮???긽
-   **+52珥?* ?ㅽ봽???뺤씤(111李?"理쒕?~50珥? 異붿젙怨??ъ떎???숈씪媛?
-   ?대쾲???뺣? ?ы솗??.
-3. ?좉퇋 ?ㅼ틪 ?ㅽ겕由쏀듃(1?뚯꽦, 誘몄??????꾨옒 "?ㅼ쓬 ?몄뀡" 李멸퀬)濡?
-   dRel??m ?쒓컙?먰봽(discontinuity) ?대깽??route354/355 ?꾩껜
-   151嫄??먮룞 ?먯? + 媛??대깽????3珥?min_aEgo 怨꾩궛.
-4. 4媛??대┰ ?대깽??+ 誘몃ℓ移?媛뺢컧??1嫄?t=827.81~831.45, min_aEgo
-   -2.703) ?곸꽭 遺꾩꽍. ?곸꽭 洹쇨굅??FINDINGS.md "121李? 李멸퀬.
+**119차 최신패치(빨간박스 LANE_DEPARTURE 강제해제 게이트) 검증**:
+`replay_lane_departure_gate.py`(120차 도구 재사용)로 route356 전체
+23999행 스캔 — 후보 2건(t=2547.35/t=3418.60) **전부 PASS**, 120차가
+발견했던 LeadBlend 무력화 버그 미재현. 단 두 이벤트 모두 3개 클립
+구간 밖(저속 가감속 자체와 직접 연관 없는 별개 지점)이라 "119차가
+정상 동작 중"이라는 방향성 재확인 정도로만 기록, 이번 세션의 저속
+가감속 분석 자체와는 독립적 결과.
 
-**?듭떖 寃곕줎**:
-- 4媛??대┰ ?꾨? min_aEgo -0.32~-1.01 踰붿쐞(寃쎈?~?④굔) ??援щ쾭洹멸?
-  蹂닿퀬?덈뜕 "-2.75源뚯? 湲됯컯?? ?ы쁽 ???? 76李?94李?諛⑹븞D) discontinuity
-  ?몃━嫄???`_vision_dRel_rate`/`window` 由ъ뀑???ㅼ＜?됱뿉???섎룄?濡?
-  ?묐룞 以묒씤 寃껋쑝濡??먮떒(媛꾩젒 ?뺤씤, ?대? ?꾪꽣 ?곹깭 吏곸젒 ?ы쁽? ?꾨떂).
-- 誘몃ℓ移?媛뺢컧??1嫄?-2.70)? **踰꾧렇 ?ы쁽???꾨땲???뺤긽 諛섏쓳**?쇰줈
-  ?먯젙 ???덉씠?붽? 吏곸젒 痢≪젙??vRel=-6.3m/s(vision 誘몃텇媛??꾨떂)??
-  ???留ㅻ걚?쎄퀬 鍮꾨??곸씤 媛먯냽, TTC??.8s 湲곗? 怨쇰룄?섏? ?딆쓬.
-- route354/355 ?꾩닔 ?ㅼ틪?먯꽌 李⑥꽑蹂寃??몄젒 媛뺢컧??-2.0 ?댄븯) ?щ???
-  洹뱀냼?섏씠怨? 李⑥꽑蹂寃?臾닿? ?쇰컲二쇳뻾?먯꽌???좎궗 媛뺣룄 媛먯냽???좎궗
-  鍮덈룄濡??섑?????李⑥꽑蹂寃??뱀씠??踰꾧렇媛 ?꾨땲???뺤긽 ACC 異붿쥌 諛섏쓳.
+**저속 가감속 3개 구간 상세 분석 결과 — 전부 클린**:
+- harsh_brake_events(급감속 -0.8 이하) 3개 구간 전부 0건 (route356
+  전체 30건 중 clip 구간에 겹치는 사례 없음 — clip1/2/3 근접
+  harsh_brake 이벤트는 각각 clip 시작 전/후 별도 지점)
+- ttc_danger_events 3개 구간 전부 0건
+- congestion_stop_launch_lurch_scan(58차 2번, "정체 붕끗") route356
+  전체 스캔 0건
+- dRel≥6m discontinuity 이벤트 3개 구간 전부 0건, leadStatus 전환도
+  0건(추적 안정)
+- Clip1(t=2592~2622): 정체 크리핑, vEgo 0~11.3km/h 반복, min
+  aEgo=-0.53(경미) — 튐 없이 완만한 정지/재출발 반복
+- Clip2(t=2901~2931): vEgo 10.2→1.7km/h 감속 후 재가속, min
+  aEgo=-1.75(112차 LOW_SPEED_STRONG_DECEL 문턱 -2.5 미도달, 게이트
+  미발동이 적절) — leadALeadK/leadDRel과 aEgo 반응이 시간축상
+  자연스럽게 동조(계단식 튐 없음), 신호과속 카메라(55km/h 구간)
+  경고 HUD와 겹치나 ADAS 종방향 로직과는 무관한 별도 표시
+- Clip3(t=3307~3337): 완전정지, min aEgo=-0.90, dRel 4.5m로 안정적
+  유지, 정차 중 흔들림 없음
 
-**?ъ슜??泥닿컧("?덉쟾 湲됯컧???놁뼱吏???)怨??뺣웾 ?곗씠???쇱튂 ?뺤씤.**
+**결론**: commit `21adb2c`(119차) 상태에서 저속구간 가감속이 3개
+사례 전부 매끈하게 처리됨 — 112차(LOW_SPEED_STRONG_DECEL threshold
+-2.5)/116·117차(gap-open damping)/94차(discontinuity 리셋)의 실차
+동작이 이번 저속 시나리오에서도 회귀 없이 유지되는 것으로 판단.
+119차 LANE_DEPARTURE 게이트도 이 route의 다른 지점(클립 무관)에서
+정상 PASS 재확인.
 
-**?ㅼ쓬 ?몄뀡 ?꾩슂**:
-1. ?대쾲??吏?discontinuity ?먮룞?ㅼ틪 ?ㅽ겕由쏀듃??1?뚯꽦 ?몃씪??肄붾뱶濡쒕쭔
-   ?ㅽ뻾?섍퀬 toolkit???몄엯 ?????ㅽ겕由쏀듃 吏?띿꽦 ?뺤콉 ?꾨컲 ???ㅼ쓬
-   ?몄뀡?먯꽌 `toolkit/scan_lead_discontinuities.py`濡??뺤떇 ?몄엯 ?꾩슂,
-   ?ъ궗??媛移??믪쓬).
-2. route356/357(14:09:24~14:34, 誘몄텛異? ???⑥? 援ш컙 李⑥꽑蹂寃?
-   ?대깽???뺤씤 ?꾩슂???댁뼱??吏꾪뻾.
-3. ?대? ?꾪꽣 ?곹깭(`_vision_dRel_rate` ?? 吏곸젒 ?ы쁽?섎뒗 ?ㅼ륫 CSV
-   湲곕컲 replay ?ㅽ겕由쏀듃 遺?????대쾲 寃곕줎? aEgo 愿痢≪튂 湲곕컲 媛꾩젒
-   ?뺤씤?대?濡? ???뺤떎???멸낵 ?뺤씤???꾩슂?섎㈃ ?좉퇋 replay ?꾧뎄 ?묒꽦
-   寃??
-4. 120李④? ?④릿 "LeadBlend媛 LANE_DEPARTURE 寃뚯씠??由ъ뀑 臾대젰??
-   踰꾧렇(radard.py 誘몄닔???곹깭)???대쾲 ?몄뀡怨?蹂꾧컻 ?몃옓?쇰줈 洹몃?濡?
-   ?⑥븘?덉쓬 ???ㅼ쓬 ?몄뀡?먯꽌 ?댁뼱??泥섎━ ?꾩슂(?꾨옒 120李?湲곕줉 李멸퀬).
+**다음 세션 필요**:
+1. route357(121차가 "미추출"로 남긴 나머지 구간) 필요시 이어서 확인.
+2. 이번엔 clip당 확인용 qcamera 프레임 1장씩만 추출(매칭 검증
+   목적) — 클립 전체 30초 구간의 프레임 단위 정밀 대조는 미실시,
+   필요시 다음 세션 과제.
+3. 119차 게이트 후보 2건(t=2547.35/t=3418.60)은 이번 클립과 무관한
+   지점이라 상세 프레임 대조는 안 함 — 필요시 다음 세션에서 검토.
 
-**?꾩쭅 ????寃?*: qcamera ?꾨젅??吏곸젒 ?議?誘몄떎??CSV ?뺣웾遺꾩꽍留?.
-route356/357 CSV 誘몄텛異?
+**CSV 산출물**: `r356.csv`(23999행) 레포 미커밋(대용량 정책),
+`work/`에만 존재 — 컨테이너 리셋 시 소실.
 
-**CSV ?곗텧臾?*: `r354.csv`(22797??, `r355.csv`(24000?? ?덊룷
-誘몄빱諛???⑸웾 ?뺤콉), `work/`?먮쭔 議댁옱 ??而⑦뀒?대꼫 由ъ뀑 ???뚯떎.
+## 121차 (완료 — 76/94차 방안D discontinuity 리셋 실차 재검증, 코드 변경 없음) — "차선변경 중 급감속" 재발 없음 확인
 
-## 120李?(泥댄겕?ъ씤????119李??⑥튂 ?ㅼ감寃利??꾨즺, 遺遺?臾대젰??踰꾧렇 諛쒓껄, 肄붾뱶 誘몄닔?? ??LeadBlend媛 LANE_DEPARTURE 寃뚯씠??由ъ뀑???ㅼ떆 ??뼱?
+**배경**: 사용자가 신규 실차 4개 route(354~357) + "내차 차선변경"
+클립 4개 업로드, "차선변경시 옆차선 앞차 반응 정상인지 / 예전
+급감속이 없어진 게 맞는지" 검증 요청.
 
-**諛곌꼍**: ?ъ슜?먭? 119李??⑥튂(`21adb2c`) ?곸슜 ???ㅼ감 二쇳뻾(4媛?route
-zip, 13:30:24~14:34 ?곗냽 64遺?+ CarrotWeb ?붾㈃?뱁솕 ?대┰ 19媛? ?낅줈??
-"?⑥튂?곸슜 ???먮뒗吏" 寃利??붿껌.
+**작업**:
+1. `extract_log.py`로 route354(22797행)/route355(24000행) 추출
+   (커밋 `21adb2c013f4`=119차 반영 상태, route356/357은 클립이
+   매칭 안 돼 이번엔 미추출).
+2. `match_dashcam_clip_to_route.py` 원리(blinker 클러스터 상대간격
+   대조)로 클립 4개 전부 정밀 매칭(오차 <1.5s) — 파일명 대비 항상
+   **+52초** 오프셋 확인(111차 "최대~50초" 추정과 사실상 동일값,
+   이번에 정밀 재확인).
+3. 신규 스캔 스크립트(1회성, 미저장 — 아래 "다음 세션" 참고)로
+   dRel≥6m 순간점프(discontinuity) 이벤트 route354/355 전체
+   151건 자동 탐지 + 각 이벤트 후 3초 min_aEgo 계산.
+4. 4개 클립 이벤트 + 미매칭 강감속 1건(t=827.81~831.45, min_aEgo
+   -2.703) 상세 분석. 상세 근거는 FINDINGS.md "121차" 참고.
 
-**?묒뾽**:
-1. `extract_log.py`濡?4媛?route ?꾩껜 CSV 異붿텧(89996?? ?꾨? commit
-   `21adb2c`=119李?諛섏쁺 ?곹깭?먯꽌 異붿텧 ?뺤씤 ???? ??而ㅻ컠?댁떆??"遺꾩꽍
-   ?뱀떆 濡쒖뺄 repo ?곹깭"??肉?"濡쒓렇 ?뱁솕 ?뱀떆 湲곌린 ?뚯썾??瑜?蹂댁쬆?섎뒗
-   媛믪? ?꾨떂???좎쓽, ?ㅼ젣 寃利앹? ?꾨옒 replay 寃곌낵濡???.
-2. ?붾㈃?뱁솕 ?대┰ 19媛??뚯씪紐??좊땲肄붾뱶 ?댁뒪耳?댄봽 ?붿퐫???꾩슂?덉쓬,
-   `#Uxxxx` ?뺤떇) ?꾨? ?뺤씤 ???쒕굹由ъ삤 ?쇰꺼: ?댁감 李⑥꽑蹂寃??⑥튂寃利앹슜
-   ?ы븿)/而룹씤/而룹븘?????媛媛먯냽/?좊졊?뚮?諛뺤뒪/援먯감濡?議곌린媛먯냽 ??
-3. **?좉퇋 `replay_lane_departure_gate.py`(toolkit ?몄엯)**: 119李?
-   寃뚯씠??濡쒖쭅??CSV ?꾩뿉??洹몃?濡?蹂듭젣??"?덉륫 諛쒕룞 ?쒓컖"??怨꾩궛?섍퀬
-   ?ㅼ젣 leadStatus ?꾪솚怨??議고븯??寃利??꾧뎄 ?묒꽦(119李?WIP.md媛
-   "?ㅼ쓬 ?몄뀡 ?꾩슂"濡??④꺼????ぉ).
-4. 4媛?route ?꾩껜 ?ㅼ틪 寃곌낵: ?꾨낫 9嫄?以?PASS 5嫄?FAIL 3嫄??먯꽭??
-   ?댁슜/洹쇰낯?먯씤? FINDINGS.md "120李? 李멸퀬). **?듭떖**: 119李?寃뚯씠?멸?
-   ?꾩쟾??"二쎌?" 寃??꾨땲?? `LeadBlend.update()`媛 寃뚯씠?몄쓽 ?곹깭由ъ뀑??
-   ?ㅼ떆 媛濡쒖콈 理쒕? 0.6珥?吏?곗떆?ㅺ굅??寃쎌슦???곕씪 ?꾩쟾 臾대젰?? ?섎뒗
-   遺遺꾩쟻 ?ㅽ뙣 ??118/119李④? ?먮옒 ?≪쑝?ㅻ뜕 "outer 濡쒖쭅???대?
-   ?곹깭由ъ뀑??臾대젰?? 踰꾧렇 ?대옒?ㅺ? LeadBlend瑜?留ㅺ컻濡??щ컻.
-5. "?댁감 李⑥꽑蹂寃??⑥튂?곸슜?щ? 寃利? ??ego 李⑥꽑蹂寃??대┰ 援ш컙?
-   dPath ?ㅽ뙆?댄겕媛 留ㅻ쾲 0.5珥?誘몃쭔?대씪 寃뚯씠??誘몃컻?????뺤긽
-   李⑥꽑蹂寃?以??ㅽ깘(由щ뱶 ?ㅼ넀?? ?놁쓬 ?뺤씤(湲띿젙??遺??寃곌낵).
+**핵심 결론**:
+- 4개 클립 전부 min_aEgo -0.32~-1.01 범위(경미~온건) — 구버그가
+  보고했던 "-2.75까지 급강하" 재현 안 됨. 76차/94차(방안D) discontinuity
+  트리거 시 `_vision_dRel_rate`/`window` 리셋이 실주행에서 의도대로
+  작동 중인 것으로 판단(간접 확인, 내부 필터 상태 직접 재현은 아님).
+- 미매칭 강감속 1건(-2.70)은 **버그 재현이 아니라 정상 반응**으로
+  판정 — 레이더가 직접 측정한 vRel=-6.3m/s(vision 미분값 아님)에
+  대한 매끄럽고 비례적인 감속, TTC≈4.8s 기준 과도하지 않음.
+- route354/355 전수 스캔에서 차선변경 인접 강감속(-2.0 이하) 사례는
+  극소수이고, 차선변경 무관 일반주행에서도 유사 강도 감속이 유사
+  빈도로 나타나 — 차선변경 특이적 버그가 아니라 정상 ACC 추종 반응.
 
-**?ㅼ쓬 ?몄뀡 ?꾩슂**:
-1. get_lead() 寃뚯씠??諛쒕룞 ??`self.lead_blend.prev/miss_cnt/
-   danger_hold_cnt`???④퍡 由ъ뀑?섎뒗 ?⑥튂 ?ㅺ퀎+?묒꽦 (RadarD.update()
-   鍮④컙諛뺤뒪 耳?댁뒪, L859~860怨??숈씪 ?⑦꽩 李멸퀬).
-2. ???⑥튂瑜?`replay_lane_departure_gate.py`??PATCHED 踰꾩쟾?쇰줈
-   異붽????대쾲 ?ㅼ륫 FAIL 3嫄댁씠 ?댁냼?섎뒗吏 ?ш?利?
-3. 寃利??듦낵 ???ㅼ젣 `git format-patch` ?묒꽦 -> ?ъ슜??`git am`
-   ?곸슜 -> ?ъ떎李④?利?媛숈? ?쒕굹由ъ삤濡??ъ＜??沅뚯옣).
+**사용자 체감("예전 급감속 없어진 듯")과 정량 데이터 일치 확인.**
 
-**?꾩쭅 ????寃?*: 肄붾뱶(radard.py) ?섏젙 ?놁쓬(?먯씤 ?뺤젙留?. ?붾㈃?뱁솕
-?대┰ 19媛쒕뒗 ?쒓컙? ?ㅼ틪 ?꾩＜濡쒕쭔 ?쒖슜, 媛쒕퀎 ?꾨젅???≪븞 ?뺤씤? ????
-(?좏겙 ?덉궛 怨좊젮, ?꾩슂???ㅼ쓬 ?몄뀡???뱀젙 ?대┰留??좊퀎?댁꽌 吏꾪뻾).
+**다음 세션 필요**:
+1. 이번에 짠 discontinuity 자동스캔 스크립트는 1회성 인라인 코드로만
+   실행하고 toolkit에 편입 안 함(스크립트 지속성 정책 위반 — 다음
+   세션에서 `toolkit/scan_lead_discontinuities.py`로 정식 편입 필요,
+   재사용 가치 높음).
+2. route356/357(14:09:24~14:34, 미추출) — 남은 구간 차선변경
+   이벤트 확인 필요시 이어서 진행.
+3. 내부 필터 상태(`_vision_dRel_rate` 등) 직접 재현하는 실측 CSV
+   기반 replay 스크립트 부재 — 이번 결론은 aEgo 관측치 기반 간접
+   확인이므로, 더 확실한 인과 확인이 필요하면 신규 replay 도구 작성
+   검토.
+4. 120차가 남긴 "LeadBlend가 LANE_DEPARTURE 게이트 리셋 무력화"
+   버그(radard.py 미수정 상태)는 이번 세션과 별개 트랙으로 그대로
+   남아있음 — 다음 세션에서 이어서 처리 필요(아래 120차 기록 참고).
 
-**CSV ?곗텧臾?*: `route354~357.csv`(珥?89996?? ?덊룷 誘몄빱諛???⑸웾
-?뺤콉), `work/`?먮쭔 議댁옱 ??而⑦뀒?대꼫 由ъ뀑 ???뚯떎, ?щ텇???꾩슂?섎㈃
-?먮낯 zip ?ъ뾽濡쒕뱶 ?꾩슂.
+**아직 안 한 것**: qcamera 프레임 직접 대조 미실시(CSV 정량분석만).
+route356/357 CSV 미추출.
 
-## 119李?怨꾩냽 (?꾨즺 ???⑥튂 ?묒꽦+`git am` ?ъ쟻??寃利??꾨떖 ?꾨즺, ?ъ슜???뺤씤 ?湲? ??`radard.py`??LANE_DEPARTURE 寃뚯씠??1.75m/0.5s) ?ㅼ젣 諛섏쁺, `0001-lane-departure-gate.patch`
+**CSV 산출물**: `r354.csv`(22797행), `r355.csv`(24000행) 레포
+미커밋(대용량 정책), `work/`에만 존재 — 컨테이너 리셋 시 소실.
 
-**?묒뾽**: ?꾨옒 119李??뚮씪誘명꽣 ?⑹꽦寃利? 吏곹썑, ?ъ슜?먭? "?⑥튂?묒뾽"
-?붿껌 ??寃利??놁씠 route1 ?ㅼ륫 replay???꾩쭅 ???먯?留?"?좎젙移?濡?
-紐낆떆?섍퀬) ?ъ슜??吏?쒖뿉 ?곕씪 諛붾줈 ?⑥튂 ?묒꽦?쇰줈 吏꾪뻾.
+## 120차 (체크포인트 — 119차 패치 실차검증 완료, 부분 무력화 버그 발견, 코드 미수정) — LeadBlend가 LANE_DEPARTURE 게이트 리셋을 다시 덮어씀
 
-**蹂寃??댁슜** (`selfdrive/controls/radard.py`, base
-`76c985c`=117李?:
-1. ?곸닔 3媛??좉퇋 異붽? (L42~ 遺洹?: `LANE_DEPARTURE_DPATH_THRESH=1.75`,
+**배경**: 사용자가 119차 패치(`21adb2c`) 적용 후 실차 주행(4개 route
+zip, 13:30:24~14:34 연속 64분 + CarrotWeb 화면녹화 클립 19개) 업로드,
+"패치적용 잘 됐는지" 검증 요청.
+
+**작업**:
+1. `extract_log.py`로 4개 route 전체 CSV 추출(89996행, 전부 commit
+   `21adb2c`=119차 반영 상태에서 추출 확인 — 단, 이 커밋해시는 "분석
+   당시 로컬 repo 상태"일 뿐 "로그 녹화 당시 기기 펌웨어"를 보증하는
+   값은 아님에 유의, 실제 검증은 아래 replay 결과로 함).
+2. 화면녹화 클립 19개 파일명(유니코드 이스케이프 디코딩 필요했음,
+   `#Uxxxx` 형식) 전부 확인 — 시나리오 라벨: 내차 차선변경(패치검증용
+   포함)/컷인/컷아웃/저속 가감속/유령파란박스/교차로 조기감속 등.
+3. **신규 `replay_lane_departure_gate.py`(toolkit 편입)**: 119차
+   게이트 로직을 CSV 위에서 그대로 복제해 "예측 발동 시각"을 계산하고
+   실제 leadStatus 전환과 대조하는 검증 도구 작성(119차 WIP.md가
+   "다음 세션 필요"로 남겨둔 항목).
+4. 4개 route 전체 스캔 결과: 후보 9건 중 PASS 5건/FAIL 3건(자세한
+   내용/근본원인은 FINDINGS.md "120차" 참고). **핵심**: 119차 게이트가
+   완전히 "죽은" 게 아니라, `LeadBlend.update()`가 게이트의 상태리셋을
+   다시 가로채 최대 0.6초 지연시키거나(경우에 따라 완전 무력화) 하는
+   부분적 실패 — 118/119차가 원래 잡으려던 "outer 로직이 내부
+   상태리셋을 무력화" 버그 클래스가 LeadBlend를 매개로 재발.
+5. "내차 차선변경 패치적용여부 검증" 등 ego 차선변경 클립 구간은
+   dPath 스파이크가 매번 0.5초 미만이라 게이트 미발동 — 정상
+   차선변경 중 오탐(리드 오손실) 없음 확인(긍정적 부수 결과).
+
+**다음 세션 필요**:
+1. get_lead() 게이트 발동 시 `self.lead_blend.prev/miss_cnt/
+   danger_hold_cnt`도 함께 리셋하는 패치 설계+작성 (RadarD.update()
+   빨간박스 케이스, L859~860과 동일 패턴 참고).
+2. 위 패치를 `replay_lane_departure_gate.py`에 PATCHED 버전으로
+   추가해 이번 실측 FAIL 3건이 해소되는지 재검증.
+3. 검증 통과 후 실제 `git format-patch` 작성 -> 사용자 `git am`
+   적용 -> 재실차검증(같은 시나리오로 재주행 권장).
+
+**아직 안 한 것**: 코드(radard.py) 수정 없음(원인 확정만). 화면녹화
+클립 19개는 시간대 스캔 위주로만 활용, 개별 프레임 육안 확인은 안 함
+(토큰 예산 고려, 필요시 다음 세션에 특정 클립만 선별해서 진행).
+
+**CSV 산출물**: `route354~357.csv`(총 89996행) 레포 미커밋(대용량
+정책), `work/`에만 존재 — 컨테이너 리셋 시 소실, 재분석 필요하면
+원본 zip 재업로드 필요.
+
+## 119차 계속 (완료 — 패치 작성+`git am` 재적용 검증+전달 완료, 사용자 확인 대기) — `radard.py`에 LANE_DEPARTURE 게이트(1.75m/0.5s) 실제 반영, `0001-lane-departure-gate.patch`
+
+**작업**: 아래 119차(파라미터 합성검증) 직후, 사용자가 "패치작업"
+요청 → 검증 없이 route1 실측 replay는 아직 안 됐지만("잠정치"로
+명시하고) 사용자 지시에 따라 바로 패치 작성으로 진행.
+
+**변경 내용** (`selfdrive/controls/radard.py`, base
+`76c985c`=117차):
+1. 상수 3개 신규 추가 (L42~ 부근): `LANE_DEPARTURE_DPATH_THRESH=1.75`,
    `LANE_DEPARTURE_CONFIRM_S=0.5`,
-   `LANE_DEPARTURE_VREL_GATE=CUTOUT_VREL_GATE`(-0.5). 媛??곸닔 ?놁뿉
-   118李??먯씤/119李?寃利?洹쇨굅瑜?二쇱꽍?쇰줈 ?④?.
-2. `RadarD.__init__()`??`self._lane_departure_cnt = {0: 0.0, 1: 0.0}`
-   ?붾컮?댁뒪 移댁슫??異붽?.
-3. `RadarD.get_lead()` ??`lead_dict` ?뺤젙 吏곹썑(corner_radar 蹂댁젙
-   ?댄썑, `low_speed_override` ?댁쟾)??寃뚯씠???쎌엯 ??**index==0
-   (leadOne)?먮쭔 ?곸슜**, leadTwo??118李?誘멸껐??3踰?cut-in 媛먯? ??
-   ?⑸룄 ?곸씠) 洹몃?濡?蹂대쪟. `lead_dict['status']`媛 True?닿퀬
-   `|dPath|>1.75` ?닿퀬 `vRel>-0.5`(媛뺤젒洹??꾨떂)???꾨젅?꾩씠
-   `DT_MDL` ?⑥쐞濡??꾩쟻??0.5珥??댁긽 吏?띾릺硫?
-   `lead_dict={'status': False}; radar=False`濡?媛뺤젣 ?꾪솚. ??
-   寃쎈줈??radar-lock(鍮④컙諛뺤뒪) ?곹깭瑜??ы븿??`lead_dict`媛 ?대뒓
-   寃쎈줈濡??뺤젙?먮뱺 留??꾨젅???ы룊媛?섎?濡? 118李④? ?뺤씤??
-   "`lead_one_raw.get('radar') and not lead_one_scc_fallback`??
-   ??`LeadBlend.update()` ?먯껜媛 ?ㅽ궢?섎뒗" ?고쉶 臾몄젣瑜?援ъ“?곸쑝濡?
-   ?닿껐.
+   `LANE_DEPARTURE_VREL_GATE=CUTOUT_VREL_GATE`(-0.5). 각 상수 옆에
+   118차 원인/119차 검증 근거를 주석으로 남김.
+2. `RadarD.__init__()`에 `self._lane_departure_cnt = {0: 0.0, 1: 0.0}`
+   디바운스 카운터 추가.
+3. `RadarD.get_lead()` 내 `lead_dict` 확정 직후(corner_radar 보정
+   이후, `low_speed_override` 이전)에 게이트 삽입 — **index==0
+   (leadOne)에만 적용**, leadTwo는 118차 미결정 3번(cut-in 감지 등
+   용도 상이) 그대로 보류. `lead_dict['status']`가 True이고
+   `|dPath|>1.75` 이고 `vRel>-0.5`(강접근 아님)인 프레임이
+   `DT_MDL` 단위로 누적돼 0.5초 이상 지속되면
+   `lead_dict={'status': False}; radar=False`로 강제 전환. 이
+   경로는 radar-lock(빨간박스) 상태를 포함해 `lead_dict`가 어느
+   경로로 확정됐든 매 프레임 재평가되므로, 118차가 확인한
+   "`lead_one_raw.get('radar') and not lead_one_scc_fallback`일
+   때 `LeadBlend.update()` 자체가 스킵되는" 우회 문제를 구조적으로
+   해결.
 
-**capnp ?ㅽ궎留??덉쟾??*: `lead_dict`??湲곗〈?먮룄 留?寃쎈줈?먯꽌 ?대?
-`dict`濡??ш뎄?깅릺??媛믪씠怨? ?대쾲 蹂寃쎌? 硫붿떆吏 ?꾨뱶 ?좉퇋 ?묎렐/?좉퇋
-?곌린 ?놁씠 湲곗〈 `lead_dict`/`radar` 濡쒖뺄 蹂??媛믩쭔 議곌굔遺濡???뼱?
-??capnp ?ㅽ궎留?蹂寃??놁쓬(40李⑤쪟 ?щ옒??由ъ뒪???놁쓬, key_learnings
-?먯튃 ?뺤씤).
+**capnp 스키마 안전성**: `lead_dict`는 기존에도 매 경로에서 이미
+`dict`로 재구성되던 값이고, 이번 변경은 메시지 필드 신규 접근/신규
+쓰기 없이 기존 `lead_dict`/`radar` 로컬 변수 값만 조건부로 덮어씀
+— capnp 스키마 변경 없음(40차류 크래시 리스크 없음, key_learnings
+원칙 확인).
 
-**寃利?*:
-- `python3 -m py_compile selfdrive/controls/radard.py` ??OK
-- `git format-patch -1 HEAD` ??`0001-lane-departure-gate.patch`
-  ?앹꽦 ??蹂꾨룄 釉뚮옖移?`verify-am`, base `76c985c`)?먯꽌 `git am`
-  ?ъ쟻?????깃났, `py_compile` ?ы솗??OK.
+**검증**:
+- `python3 -m py_compile selfdrive/controls/radard.py` → OK
+- `git format-patch -1 HEAD` → `0001-lane-departure-gate.patch`
+  생성 → 별도 브랜치(`verify-am`, base `76c985c`)에서 `git am`
+  재적용 → 성공, `py_compile` 재확인 OK.
 
-**?꾩쭅 ????寃?(?ъ슜???뺤씤 ??紐낆떆?곸쑝濡??④?)**:
-- 1.75m/0.5s??**洹쇱궗 ?ы쁽(route1.csv ?ㅼ륫 replay ?꾨떂) 湲곕컲
-  ?좎젙移?* ??119李??⑹꽦寃利??먯꽌 ?대? 諛앺엺 ?쒓퀎 洹몃?濡??좎?. ?ㅼ륫
-  replay, ?뺤긽二쇳뻾 濡쒓렇 ?꾩닔 ?ㅼ틪(?ㅽ깘???ㅼ륫 ?뺤씤)? ?꾩쭅 ????
-- ?ㅼ감 寃利??꾨Т(?⑥튂留??묒꽦?? ?ъ슜?먭? 濡쒖뺄?먯꽌 `git am` ?곸슜 ??
-  ?ㅼ＜??replay濡??뺤씤 ?꾩슂).
-- leadTwo ?곸슜 ?щ? 誘멸껐??洹몃?濡?
+**아직 안 된 것 (사용자 확인 전 명시적으로 남김)**:
+- 1.75m/0.5s는 **근사 재현(route1.csv 실측 replay 아님) 기반
+  잠정치** — 119차(합성검증)에서 이미 밝힌 한계 그대로 유지. 실측
+  replay, 정상주행 로그 전수 스캔(오탐율 실측 확인)은 아직 안 함.
+- 실차 검증 전무(패치만 작성됨, 사용자가 로컬에서 `git am` 적용 후
+  실주행/replay로 확인 필요).
+- leadTwo 적용 여부 미결정 그대로.
 
-**?ㅼ쓬 ?몄뀡**: ?ъ슜?먭? ???⑥튂瑜??곸슜/?ㅼ감 寃利??먮뒗 route1 ?먮낯
-?뺣낫 ???뺣? replay ?ъ슂泥???洹몄뿉 留욎떠 吏꾪뻾. `radar_state.leadOne`
-履?downstream(long_mpc.py ?????대쾲 蹂寃쎌쑝濡??명븳 遺?묒슜 ?녿뒗吏??
-?꾩슂???ㅼ쓬 ?몄뀡???ы솗??
+**다음 세션**: 사용자가 이 패치를 적용/실차 검증 또는 route1 원본
+확보 후 정밀 replay 재요청 시 그에 맞춰 진행. `radar_state.leadOne`
+쪽 downstream(long_mpc.py 등)에 이번 변경으로 인한 부작용 없는지도
+필요시 다음 세션에 재확인.
 
-## 119李?(泥댄겕?ъ씤????118李??쒖븞 LANE_DEPARTURE 寃뚯씠???뚮씪誘명꽣 ?꾨낫 ?⑹꽦寃利? 肄붾뱶 誘몃컲?? ???ъ슜???쒖븞 THRESH=1.75m/CONFIRM_S=0.5s瑜?`sim_lane_departure_gate.py`(?좉퇋, toolkit ?몄엯)濡?寃利?
+## 119차 (체크포인트 — 118차 제안 LANE_DEPARTURE 게이트 파라미터 후보 합성검증, 코드 미반영) — 사용자 제안 THRESH=1.75m/CONFIRM_S=0.5s를 `sim_lane_departure_gate.py`(신규, toolkit 편입)로 검증
 
-**諛곌꼍**: 118李⑥뿉???쒖븞??"鍮④컙 諛뺤뒪(寃利앸맂 ?덉씠?붾씫) ?곹깭?먯꽌??
-?곸슜?섎뒗 李⑥꽑?댄깉 媛뺤젣?댁젣 寃뚯씠?? ?ㅺ퀎??誘멸껐???ы빆 以?1踰??꾧퀎媛???
-??? ?ъ슜?먭? `CUTOUT_DPATH_THRESH`(2.0m)蹂대떎 醫곹엺 **1.75m**瑜?
-1李??꾨낫濡??쒖븞, `LANE_DEPARTURE_CONFIRM_S`(0.5s, 118李?湲곕낯媛??
-議고빀?댁꽌 寃利??붿껌.
+**배경**: 118차에서 제안한 "빨간 박스(검증된 레이더락) 상태에서도
+적용되는 차선이탈 강제해제 게이트" 설계의 미결정 사항 중 1번(임계값)에
+대해, 사용자가 `CUTOUT_DPATH_THRESH`(2.0m)보다 좁힌 **1.75m**를
+1차 후보로 제안, `LANE_DEPARTURE_CONFIRM_S`(0.5s, 118차 기본값)와
+조합해서 검증 요청.
 
-**?묒뾽**: `toolkit/sim_lane_departure_gate.py` ?좉퇋 ?묒꽦(118李??쒖븞
-濡쒖쭅??臾몄옄 洹몃?濡??ы쁽, `_is_cutout()` ?곸닔 ?議?. 4媛??쒕굹由ъ삤濡?
-2.00m/1.75m/2.30m(118李④? ?멸툒??"蹂댁닔?? ??? 3媛??꾨낫 鍮꾧탳.
-route1.csv ?먮낯?????몄뀡???놁뼱(罹먯떆/?낅줈??紐⑤몢 ?놁쓬) ?ㅼ륫 ?꾨젅??
-replay??遺덇? ??118李?WIP.md 湲곕줉 ?섏튂(t=5915.03 dPath??.2m ??
-t=5931.02 dPath=-1.97m ??t=5932.53 ?먯뿰?댁젣, -1.98~-1.99 ?뺤껜)留뚯쑝濡?
-留뚮뱺 **洹쇱궗** ?꾨줈?뚯씪 ?ъ슜.
+**작업**: `toolkit/sim_lane_departure_gate.py` 신규 작성(118차 제안
+로직을 문자 그대로 재현, `_is_cutout()` 상수 대조). 4개 시나리오로
+2.00m/1.75m/2.30m(118차가 언급한 "보수적" 대안) 3개 후보 비교.
+route1.csv 원본이 이 세션에 없어(캐시/업로드 모두 없음) 실측 프레임
+replay는 불가 — 118차 WIP.md 기록 수치(t=5915.03 dPath≈0.2m →
+t=5931.02 dPath=-1.97m → t=5932.53 자연해제, -1.98~-1.99 정체)만으로
+만든 **근사** 프로파일 사용.
 
-**?듭떖 諛쒓껄**:
-1. **2.0m 洹몃?濡??ъ궗??118李?湲곕낯??? ???ㅼ륫 ?대깽?몄뿉 ?꾪?
-   ?몃━嫄?????* ??dPath 理쒕?移섍? -1.97~-1.99m濡?2.0m 臾명꽦????
-   踰덈룄 紐??섍린 ?뚮Ц. 利?"湲곗〈 而룹븘??泥좏븰 洹몃?濡??ъ궗?? ?듭뀡?
-   ?ъ슜?먭? ?ㅼ젣濡?蹂닿퀬?????щ??먮뒗 臾대젰?⑥씠 ?뺣웾 ?뺤씤??
-2. 1.75m/confirm_s=0.5 議고빀? 洹쇱궗 ?ы쁽 湲곗? t??5.25s(?먮낯 ?섏궛
-   t??930.28) ?쒖젏??媛뺤젣?댁젣 ?몃━嫄????먯뿰?댁젣(17.50s ?뚯슂)
-   ?鍮?**??2.25珥??⑥텞**.
-3. 2.30m(118李④? ?멸툒??"??蹂댁닔?? ????????대깽?몄뿉?쒕뒗
-   ?몃━嫄?????2.0m蹂대떎????紐?誘몄묠 ???좎큹??理쒕? dPath媛
-   2.0m 誘몃쭔?대?濡??뱀뿰??寃곌낵).
-4. ?뺤긽 而ㅻ툕 dPath ?몄씠利?118李?湲곕줉 ?ㅼ륫 ?ㅼ쐷 짹0.3~0.9m 湲곕컲
-   200??紐ы뀒移대?濡? 湲곗? 1.75m/2.0m/2.30m 紐⑤몢 ?ㅽ깘 0嫄? ?? ??
-   ?몄씠利?紐⑤뜽? 118李④? 愿李고븳 ?щ? 1嫄댁쓽 踰붿쐞?먮쭔 洹쇨굅 ??
-   ??湲됲븳 而ㅻ툕???뺤긽 dPath 嫄곕룞? ???紐??????덉쓬(?쒓퀎濡?
-   toolkit/README.md??紐낆떆).
-5. ?⑥씪 ?꾨젅???ㅽ뙆?댄겕(?붾컮?댁뒪 ?뺤씤)쨌媛뺤젒洹?以?dPath 珥덇낵
-   (danger override ?곗꽑?쒖쐞 ?뺤씤) ???쒕굹由ъ삤 紐⑤몢 3媛??꾨낫 ?꾨?
-   ?뺤긽(PASS) ??confirm_s=0.5s ?붾컮?댁뒪? vRel 寃뚯씠?몃뒗 ?꾧퀎媛?
-   ?좏깮怨?臾닿??섍쾶 ???묐룞.
+**핵심 발견**:
+1. **2.0m 그대로 재사용(118차 기본안)은 이 실측 이벤트에 전혀
+   트리거 안 됨** — dPath 최대치가 -1.97~-1.99m로 2.0m 문턱을 한
+   번도 못 넘기 때문. 즉 "기존 컷아웃 철학 그대로 재사용" 옵션은
+   사용자가 실제로 보고한 이 사례에는 무력함이 정량 확인됨.
+2. 1.75m/confirm_s=0.5 조합은 근사 재현 기준 t≈15.25s(원본 환산
+   t≈5930.28) 시점에 강제해제 트리거 → 자연해제(17.50s 소요)
+   대비 **약 2.25초 단축**.
+3. 2.30m(118차가 언급한 "더 보수적" 대안)도 이 이벤트에서는
+   트리거 안 됨(2.0m보다도 더 못 미침 — 애초에 최대 dPath가
+   2.0m 미만이므로 당연한 결과).
+4. 정상 커브 dPath 노이즈(118차 기록 실측 스윙 ±0.3~0.9m 기반
+   200회 몬테카를로) 기준 1.75m/2.0m/2.30m 모두 오탐 0건. 단, 이
+   노이즈 모델은 118차가 관찰한 사례 1건의 범위에만 근거 —
+   더 급한 커브의 정상 dPath 거동은 대표 못 할 수 있음(한계로
+   toolkit/README.md에 명시).
+5. 단일 프레임 스파이크(디바운스 확인)·강접근 중 dPath 초과
+   (danger override 우선순위 확인) 두 시나리오 모두 3개 후보 전부
+   정상(PASS) — confirm_s=0.5s 디바운스와 vRel 게이트는 임계값
+   선택과 무관하게 잘 작동.
 
-**寃곕줎(?좎젙, ?ㅼ륫 replay ??**: ?ъ슜?먭? ?쒖븞??1.75m 諛⑺뼢??118李?
-?곗씠??湲곗??쇰줈????뱁븿 ???ㅽ엳??2.0m 洹몃?濡쒕뒗 ???대깽?몃? 紐?
-?〓뒗?ㅻ뒗 ?먯씠 ?대쾲???덈줈 ?쒕윭????以묒슂???ъ떎. ?ㅻ쭔 ??寃곕줎?
-洹쇱궗 ?꾨줈?뚯씪 + ?몄씠利?紐⑤뜽 ?쒕낯 1嫄댁뿉 湲곕컲?섎?濡? 118李④? ?대?
-?쒖븞?덈뜕 ?ㅼ쓬 ?④퀎(?ㅼ륫 replay)濡??뺤씤 ?꾧퉴吏??"?뺤젙"???꾨땲??
-"1.75m媛 ?좊젰 ?꾨낫"濡?痍④툒.
+**결론(잠정, 실측 replay 전)**: 사용자가 제안한 1.75m 방향이 118차
+데이터 기준으로는 타당함 — 오히려 2.0m 그대로는 이 이벤트를 못
+잡는다는 점이 이번에 새로 드러난 더 중요한 사실. 다만 이 결론은
+근사 프로파일 + 노이즈 모델 표본 1건에 기반하므로, 118차가 이미
+제안했던 다음 단계(실측 replay)로 확인 전까지는 "확정"이 아니라
+"1.75m가 유력 후보"로 취급.
 
-**誘멸껐???ㅼ쓬 ?몄뀡 ?꾩슂 ?ы빆**:
-1. route1(`ce1f43d848`) ?먮낯 rlog ?뺣낫 ??
-   `replay_lane_departure_gate.py`(?좉퇋 ?덉젙, toolkit 誘몃낫??濡?
-   ?뺣? replay ??洹쇱궗媛 ?꾨땶 ?ㅼ젣 ?꾨젅???⑥쐞濡?1.75m/0.5s 議고빀??
-   議곌린?댁젣 ?쒖젏쨌?⑥텞???ы솗???꾩슂.
-2. ?뺤긽 而ㅻ툕 dPath ?몄씠利??쒕낯??118李??щ? 1嫄댁뿉???섎━湲???
-   route1/route2 ?꾩껜(?먮뒗 異붽? ?뺤긽二쇳뻾 濡쒓렇)?먯꽌 "李⑥꽑?댄깉
-   ?꾨땶??dPath媛 1.5m ?댁긽 ?? 援ш컙???덈뒗吏 ?꾩닔 ?ㅼ틪?댁꽌 1.75m
-   臾명꽦???ㅼ젣 ?ㅽ깘 ?꾪뿕???몄씠利?紐⑤뜽???꾨땶 ?ㅼ륫?쇰줈 ?뺤씤.
-3. ??1~2踰?寃곌낵???곕씪 1.75m 理쒖쥌 ?뺤젙 ?먮뒗 ?ъ“????
-   `radard.py` ?ㅼ젣 ?⑥튂 ?묒꽦 ??`git format-patch` ???ъ슜??
-   `git am` ?곸슜.
-4. leadTwo(index=1) ?곸슜 ?щ?(118李?誘멸껐??3踰????꾩쭅 誘몃끉??
+**미결정/다음 세션 필요 사항**:
+1. route1(`ce1f43d848`) 원본 rlog 확보 후
+   `replay_lane_departure_gate.py`(신규 예정, toolkit 미보유)로
+   정밀 replay — 근사가 아닌 실제 프레임 단위로 1.75m/0.5s 조합의
+   조기해제 시점·단축량 재확인 필요.
+2. 정상 커브 dPath 노이즈 표본을 118차 사례 1건에서 늘리기 —
+   route1/route2 전체(또는 추가 정상주행 로그)에서 "차선이탈
+   아닌데 dPath가 1.5m 이상 튄" 구간이 있는지 전수 스캔해서 1.75m
+   문턱의 실제 오탐 위험을 노이즈 모델이 아닌 실측으로 확인.
+3. 위 1~2번 결과에 따라 1.75m 최종 확정 또는 재조정 후
+   `radard.py` 실제 패치 작성 → `git format-patch` → 사용자
+   `git am` 적용.
+4. leadTwo(index=1) 적용 여부(118차 미결정 3번)는 아직 미논의.
 
-**?꾩쭅 紐삵븳 寃?*: 肄붾뱶(`radard.py`) 誘몃?寃?118李⑥? ?숈씪?섍쾶 ?ㅺ퀎/
-?뚮씪誘명꽣 寃利??④퀎). route1 ?ㅼ륫 replay 誘몄떎???먮낯 誘몃낫??.
+**아직 못한 것**: 코드(`radard.py`) 미변경(118차와 동일하게 설계/
+파라미터 검증 단계). route1 실측 replay 미실시(원본 미보유).
 
-## 118李?(泥댄겕?ъ씤????"?욎감 而룹븘??李⑥꽑?댄깉 ???덉씠???쎌삩 誘명빐?쒋넂異쒕컻吏?? ?먯씤 ?뺤젙, 肄붾뱶 ?ㅺ퀎 ?쒖븞, ?⑥튂???ъ슜???뺤씤 ?湲? ??get_lead()媛 寃利앸맂 ?덉씠????red box)??諛쒗뻾????LeadBlend??dPath 而룹븘??濡쒖쭅???꾩쟾???고쉶?⑥쓣 ?뺤씤
+## 118차 (체크포인트 — "앞차 컷아웃/차선이탈 시 레이더 락온 미해제→출발지연" 원인 확정, 코드 설계 제안, 패치는 사용자 확인 대기) — get_lead()가 검증된 레이더 락(red box)을 발행할 때 LeadBlend의 dPath 컷아웃 로직이 완전히 우회됨을 확인
 
-**諛곌꼍**: ?ъ슜???쒕낫 ??"?욎감媛 李⑥꽑???댄깉?섏??붾뜲???덉씠???쎌삩????
-?由? 洹몃줈?명빐 ?댁감??異쒕컻????쓬. ?욎감??李⑥꽑?댄깉???뺤떎?섎떎怨?
-?먮떒?섎㈃ ?쎌삩?댁젣 諛⑸쾿 肄붾뵫 ?쇱쓽". ?낅줈??`?욎감_而룹븘??Zip`): CarrotWeb
-?붾㈃?뱁솕 ?대┰ 2媛?`_clip.mp4`, 媛?~30珥? HUD ?ㅻ쾭?덉씠 ?ы븿) + route
-rlog 2?명듃(route1: `ce1f43d848` x20seg, 12:16:14~12:36:14 / route2:
-`bc5b8243eb` x5seg, 12:36:14~12:40:01). 而ㅻ컠 `76c985ca86f5`(117李?諛섏쁺).
+**배경**: 사용자 제보 — "앞차가 차선을 이탈하였는데도 레이더 락온이 안
+풀림. 그로인해 내차의 출발이 늦음. 앞차의 차선이탈이 확실하다고
+판단되면 락온해제 방법 코딩 논의". 업로드(`앞차_컷아웃.Zip`): CarrotWeb
+화면녹화 클립 2개(`_clip.mp4`, 각 ~30초, HUD 오버레이 포함) + route
+rlog 2세트(route1: `ce1f43d848` x20seg, 12:16:14~12:36:14 / route2:
+`bc5b8243eb` x5seg, 12:36:14~12:40:01). 커밋 `76c985ca86f5`(117차 반영).
 
-**遺꾩꽍 ?덉감**:
-1. `extract_log.py`濡?route1/route2 CSV 異붿텧(`leadDPath`/`leadYRel`
-   而щ읆 ?대? ?ы븿 ??88李??댁쟾怨??щ━ 蹂꾨룄 ?ㅽ겕由쏀듃 遺덊븘?뷀뻽??.
-2. ?대┰ ?뚯씪紐??쒓컖(12:19:25 / 12:37:48) 吏곸젒 留ㅼ묶 ?쒕룄 ??111李④? ?대?
-   寃쎄퀬??"HUD ??遺??쒖떆 + screenrecorder ??μ떆媛??닿툔??理쒕?
-   ~50珥?" 臾몄젣濡??⑥닚 ?ㅽ봽??留ㅼ묶? ?좊ː 遺덇? ?뺤씤(?ㅼ젣濡?route1 ?먮낯
-   ?꾩튂? ?닿툔??. `match_dashcam_clip_to_route.py`(111李???**?대┰
-   2媛??댁긽??媛숈? ?쇱슦???덉뿉 ?덉뼱??* ?곷??쒓컙李⑤줈 留ㅼ묶 媛?ν븳?? ?대쾲
-   ???대┰? ?쒕줈 ?ㅻⅨ ?쇱슦??route1 1媛?route2 1媛???媛곴컖 1媛쒖뵫?대씪
-   ???꾧뎄瑜?吏곸젒 ?곸슜 遺덇? ??**?쒓퀎濡?湲곕줉, ?ㅼ쓬??媛숈? ?쇱슦????
-   ?대┰ 2媛???寃쎌슦?먮쭔 ???꾧뎄 ?ъ슜**.
-3. ??덉쑝濡??대┰ ?먯껜(HUD ?ㅻ쾭?덉씠 ?ы븿 ?붾㈃?뱁솕)瑜?1fps濡??꾨젅??
-   異붿텧??吏곸젒 ?≪븞 遺꾩꽍 ??CarrotWeb HUD媛 dRel/lead box(???덉씠?붾씫,
-   泥?鍮꾩쟾?꾩슜)/a_ego쨌a_target 洹몃옒??vEgo/vCruise瑜??꾨? ?쒖떆?섎?濡?
-   qcamera+rlog ?놁씠?????먯껜濡?1李?利앷굅濡??좏슚.
-4. **clip2(12:37?) ?꾨젅??遺꾩꽍**: t=6~8s 援ш컙?먯꽌 ?곗깋 SUV 由щ뱶媛
-   鍮④컙 諛뺤뒪(?덉씠???? dRel 16.4~16.9m)濡?怨꾩냽 異붿쟻?섎떎媛, ?꾨줈媛
-   醫뚰쉶??而ㅻ툕?몃뜲 SUV???곗륫(援먯감濡?媛덈┝湲?諛⑺뼢)?쇰줈 吏꾪뻾 ??紐낅갚??
-   李⑥꽑/寃쎈줈 ?댄깉 ?λ㈃ ?뺤씤. t=8s ?꾨젅?꾩뿉???대? 諛뺤뒪媛 ?щ씪吏??먯뿰
-   ?댁젣??寃껋쑝濡?蹂댁엫 ?????뱀젙 ?щ???寃곌낵?곸쑝濡???吏???놁씠
-   ?댁젣?? "Signal slowing" ?띿뒪?몃줈 遊먯꽌 ?댄썑 媛먯냽? ?좏샇/而ㅻ툕
-   ?띾룄?쒖뼱 履??먯씤??媛?μ꽦).
-5. ?대┰1(12:19?)???좎궗?섍쾶 ?뺤씤?덉쑝???뚯씪紐?route 留ㅽ븨 遺덊솗?ㅼ꽦
-   ?뚮Ц??route1 CSV ?꾩껜瑜??ㅼ틪?섎뒗 履쎌쑝濡??꾪솚(?꾨옒 6踰?.
-6. **route1.csv ?꾩껜 ?ㅼ틪(?좉퇋, ?꾨옒 "?좉퇋 遺꾩꽍 肄붾뱶" 李멸퀬)**:
-   `leadStatus=True & leadRadar=True`(?덉씠?????좎? 以????숈븞
-   `|leadDPath|>1.8m`媛 0.8珥??댁긽 吏?띾릺??援ш컙???먯? ??2嫄?諛쒓껄.
-   洹몄쨷 **t=5915.03~5932.53(??17.5珥? ?대깽??*瑜??곸꽭 ?뺤씤:
-   - dPath媛 t=5915(??0.2m)遺???먯쭊?곸쑝濡?而ㅼ졇 t=5931.02??泥섏쓬
-     **-1.97m**(CUTOUT_DPATH_THRESH=2.0m??洹쇱젒) ?꾨떖, ?댄썑
-     **-1.98~-1.99m 遺洹쇱뿉???뺤껜??梨?leadStatus=True媛 怨꾩냽
-     ?좎?**?섎떎媛, t=5932.53?먯꽌??leadStatus媛 ?먯뿰?ㅻ읇寃?False濡?
-     ?꾪솚(?덉씠???먯껜媛 ?꾨땲??**鍮꾩쟾 紐⑤뜽(leadsV3[0])???ㅼ뒪濡?
-     prob瑜???떠??* 諛쒖깮??寃껋쑝濡?異붿젙 ?????꾨젅?꾧퉴吏 radard ?대?
-     ?대뼡 肄붾뱶??dPath 湲곗? ?λ룞???댁젣瑜??쒕룄?섏? ?딆쓬).
-   - **dPath媛 ?ъ떎?곸쓽 臾명꽦(2.0m)???꾨떖??t=5931.02遺???ㅼ젣
-     ?댁젣(t=5932.53)源뚯? ??1.5珥?怨듬갚** ????援ш컙 ?숈븞 ?덉씠?붾뒗
-     怨꾩냽 ??李⑤웾??"???욎쓽 ?좏슚 由щ뱶"濡??좎?. ?ㅽ뻾?????뱀젙
-     ?щ???vEgo媛 ?대? 7.8??.6km/h濡?怨꾩냽 媛??以묒씠?덉뼱???꾩쟾
-     ?뺤감 ???ъ텧諛??곹솴? ?꾨땲?덉쓬) 泥닿컧 ?곹뼢???쒗븳?곸씠?덉쑝??
-     **?숈씪 硫붿빱?덉쬁???뺤감 吏곹썑(launch) ?곹솴?먯꽌 諛쒖깮?섎㈃ ?ъ슜?먭?
-     蹂닿퀬??"異쒕컻 吏???쇰줈 吏곴껐**???먮━?곸쑝濡?dRel???묎퀬 aLead媛
-     0 洹쇱쿂濡??좎??섎뒗 ?뺤감 ?곹솴?쇱닔濡??댁젣媛 ??뼱吏??꾪뿕????????
-     ?뱀옣 ???대┰?먯꽌 ?꾩쟾 ?뺤감?믪옱異쒕컻 援?㈃??dPath 吏???щ?瑜?
-     ?뺥솗??紐??≪븯?쇰굹 ?먯씤 肄붾뱶 援ъ“ ?먯껜媛 ?뺤씤??.
+**분석 절차**:
+1. `extract_log.py`로 route1/route2 CSV 추출(`leadDPath`/`leadYRel`
+   컬럼 이미 포함 — 88차 이전과 달리 별도 스크립트 불필요했음).
+2. 클립 파일명 시각(12:19:25 / 12:37:48) 직접 매칭 시도 — 111차가 이미
+   경고한 "HUD 시:분 표시 + screenrecorder 저장시각 어긋남(최대
+   ~50초)" 문제로 단순 오프셋 매칭은 신뢰 불가 확인(실제로 route1 원본
+   위치와 어긋남). `match_dashcam_clip_to_route.py`(111차)는 **클립
+   2개 이상이 같은 라우트 안에 있어야** 상대시간차로 매칭 가능한데, 이번
+   두 클립은 서로 다른 라우트(route1 1개/route2 1개)에 각각 1개씩이라
+   이 도구를 직접 적용 불가 — **한계로 기록, 다음에 같은 라우트 내
+   클립 2개+인 경우에만 이 도구 사용**.
+3. 대안으로 클립 자체(HUD 오버레이 포함 화면녹화)를 1fps로 프레임
+   추출해 직접 육안 분석 — CarrotWeb HUD가 dRel/lead box(적=레이더락,
+   청=비전전용)/a_ego·a_target 그래프/vEgo/vCruise를 전부 표시하므로
+   qcamera+rlog 없이도 이 자체로 1차 증거로 유효.
+4. **clip2(12:37대) 프레임 분석**: t=6~8s 구간에서 흰색 SUV 리드가
+   빨간 박스(레이더 락, dRel 16.4~16.9m)로 계속 추적되다가, 도로가
+   좌회전 커브인데 SUV는 우측(교차로/갈림길 방향)으로 진행 — 명백한
+   차선/경로 이탈 장면 확인. t=8s 프레임에서 이미 박스가 사라짐(자연
+   해제된 것으로 보임 — 이 특정 사례는 결과적으로 큰 지연 없이
+   해제됨, "Signal slowing" 텍스트로 봐서 이후 감속은 신호/커브
+   속도제어 쪽 원인일 가능성).
+5. 클립1(12:19대)도 유사하게 확인했으나 파일명-route 매핑 불확실성
+   때문에 route1 CSV 전체를 스캔하는 쪽으로 전환(아래 6번).
+6. **route1.csv 전체 스캔(신규, 아래 "신규 분석 코드" 참고)**:
+   `leadStatus=True & leadRadar=True`(레이더 락 유지 중)인 동안
+   `|leadDPath|>1.8m`가 0.8초 이상 지속되는 구간을 탐지 → 2건 발견.
+   그중 **t=5915.03~5932.53(약 17.5초) 이벤트**를 상세 확인:
+   - dPath가 t=5915(약 0.2m)부터 점진적으로 커져 t=5931.02에 처음
+     **-1.97m**(CUTOUT_DPATH_THRESH=2.0m에 근접) 도달, 이후
+     **-1.98~-1.99m 부근에서 정체된 채 leadStatus=True가 계속
+     유지**되다가, t=5932.53에서야 leadStatus가 자연스럽게 False로
+     전환(레이더 자체가 아니라 **비전 모델(leadsV3[0])이 스스로
+     prob를 낮춰서** 발생한 것으로 추정 — 이 프레임까지 radard 내부
+     어떤 코드도 dPath 기준 능동적 해제를 시도하지 않음).
+   - **dPath가 사실상의 문턱(2.0m)에 도달한 t=5931.02부터 실제
+     해제(t=5932.53)까지 약 1.5초 공백** — 이 구간 동안 레이더는
+     계속 이 차량을 "내 앞의 유효 리드"로 유지. 다행히 이 특정
+     사례는 vEgo가 이미 7.8→8.6km/h로 계속 가속 중이었어서(완전
+     정차 후 재출발 상황은 아니었음) 체감 영향이 제한적이었으나,
+     **동일 메커니즘이 정차 직후(launch) 상황에서 발생하면 사용자가
+     보고한 "출발 지연"으로 직결**됨(원리적으로 dRel이 작고 aLead가
+     0 근처로 유지되는 정차 상황일수록 해제가 늦어질 위험이 더 큼 —
+     당장 두 클립에서 완전 정차→재출발 국면의 dPath 지연 사례를
+     정확히 못 잡았으나 원인 코드 구조 자체가 확인됨).
 
-**洹쇰낯 ?먯씤 ?뺤젙 (肄붾뱶 由щ뵫, `radard.py`)**:
+**근본 원인 확정 (코드 리딩, `radard.py`)**:
 - `LeadBlend._is_cutout()`(L659~662, `CUTOUT_DPATH_THRESH=2.0m`
-  湲곗?)? **?대? 46李?37李??뚮???議댁옱?섎뒗 ?뺤긽 ?ㅺ퀎**?댁?留?
-  **`RadarD.update()`(L826~838)瑜?蹂대㈃ `lead_one_raw.get('radar') and
-  not lead_one_scc_fallback`(鍮꾩쟾-?덉씠??援먯감寃利앸맂 ?덉젙???? 利?
-  "鍮④컙 諛뺤뒪" ?곹깭)???뚮뒗 `LeadBlend.update()` ?몄텧 ?먯껜瑜??꾩쟾??
-  嫄대꼫?곌퀬 `lead_one_raw`瑜?洹몃?濡?`radar_state.leadOne`??
-  諛쒗뻾**?쒕떎(二쇱꽍??"?대? ?덉젙?곸씤 ?ㅼ륫媛믪씠誘濡?釉붾젋??吏???놁씠
-  洹몃?濡??ъ슜"?대씪怨?紐낆떆???덉쓬 ???뚮?諛뺤뒪?믩퉬???꾩슜/sccFallback
-  寃쎈줈濡??⑥뼱吏??뚮쭔 `LeadBlend.update()`媛 ?몄텧?섍퀬, 洹몃븣 鍮꾨줈??
-  `_is_cutout()`???됯???.
-- 利?**CUTOUT_DPATH_THRESH 濡쒖쭅? "?쎌씠 ?대? ??멸굅??遺덉븞?뺥븳
-  寃쎌슦"?먮쭔 ?묐룞?섍퀬, ?뺤옉 媛???뷀븳 ?곹깭("鍮④컙 諛뺤뒪", ?꾩껜 異붿쟻
-  ?쒓컙??74~82%濡?肄붾뱶 二쇱꽍??紐낆떆)?먯꽌??dPath媛 ?꾨Т由?而ㅼ졇??
-  ?꾨Т 寃???놁씠 洹몃?濡??듦낵**?쒕떎. ?ъ슜?먭? 寃れ? "李⑥꽑???뺤떎??
-  踰쀬뼱?щ뒗?곕룄 ?쎌삩?????由?? 諛붾줈 ???고쉶 寃쎈줈媛 ?먯씤 ??鍮꾩쟾
-  紐⑤뜽???ㅼ뒪濡?洹?李⑤웾?????confidence瑜??⑥뼱?⑤━湲??꾧퉴吏??
-  (?먮뒗 ?덉씠???몃옓 ?먯껜媛 臾쇰━?곸쑝濡??щ씪吏湲??꾧퉴吏?? ?꾨Т 寃껊룄
-  ?λ룞?곸쑝濡??쎌쓣 ?吏 ?딅뒗??
+  기준)은 **이미 46차/37차 때부터 존재하는 정상 설계**이지만,
+  **`RadarD.update()`(L826~838)를 보면 `lead_one_raw.get('radar') and
+  not lead_one_scc_fallback`(비전-레이더 교차검증된 안정적 락, 즉
+  "빨간 박스" 상태)일 때는 `LeadBlend.update()` 호출 자체를 완전히
+  건너뛰고 `lead_one_raw`를 그대로 `radar_state.leadOne`에
+  발행**한다(주석에 "이미 안정적인 실측값이므로 블렌딩 지연 없이
+  그대로 사용"이라고 명시돼 있음 — 파란박스→비전 전용/sccFallback
+  경로로 떨어질 때만 `LeadBlend.update()`가 호출되고, 그때 비로소
+  `_is_cutout()`이 평가됨).
+- 즉 **CUTOUT_DPATH_THRESH 로직은 "락이 이미 풀렸거나 불안정한
+  경우"에만 작동하고, 정작 가장 흔한 상태("빨간 박스", 전체 추적
+  시간의 74~82%로 코드 주석에 명시)에서는 dPath가 아무리 커져도
+  아무 검사 없이 그대로 통과**된다. 사용자가 겪은 "차선을 확실히
+  벗어났는데도 락온이 안 풀림"은 바로 이 우회 경로가 원인 — 비전
+  모델이 스스로 그 차량에 대한 confidence를 떨어뜨리기 전까지는
+  (또는 레이더 트랙 자체가 물리적으로 사라지기 전까지는) 아무 것도
+  능동적으로 락을 풀지 않는다.
 
-**?좉퇋 遺꾩꽍 肄붾뱶 (toolkit 誘명렪?? 1?뚯꽦 ?ㅼ틪 ???ъ궗?????뺤떇 ?몄엯 ?꾩슂)**:
-- `/home/claude/work` ???꾩떆 ?ㅽ겕由쏀듃濡?`leadStatus/leadRadar/
-  leadDPath` ?댁쓣 ?댁슜??"???좎? 以?dPath 吏??珥덇낵" 援ш컙??李얠쓬.
-  媛꾨떒??濡쒖쭅?대씪 ?꾩쭅 toolkit???뺤떇 ?몄엯?섏? ?딆쓬 ??**?ㅼ쓬 ?몄뀡??
-  ???⑦꽩 ?ъ궗???꾩슂?댁?硫?`toolkit/scan_locked_lane_departure.py`
-  ?뺣룄濡??뺤떇 ?몄엯 寃??* (吏湲덉? 1?뚯꽦?대씪 蹂대쪟, README ?좉퇋 ?꾧뎄
-  泥댄겕由ъ뒪??誘몄쟻???곹깭?꾩쓣 紐낆떆).
+**신규 분석 코드 (toolkit 미편입, 1회성 스캔 — 재사용 시 정식 편입 필요)**:
+- `/home/claude/work` 내 임시 스크립트로 `leadStatus/leadRadar/
+  leadDPath` 열을 이용해 "락 유지 중 dPath 지속 초과" 구간을 찾음.
+  간단한 로직이라 아직 toolkit에 정식 편입하지 않음 — **다음 세션에
+  이 패턴 재사용 필요해지면 `toolkit/scan_locked_lane_departure.py`
+  정도로 정식 편입 검토** (지금은 1회성이라 보류, README 신규 도구
+  체크리스트 미적용 상태임을 명시).
 
-**?쒖븞?섎뒗 肄붾뱶 ?ㅺ퀎 (?꾩쭅 誘멸뎄?? ?ъ슜???뺤씤 ?꾩슂)**:
-`radard.py` `get_lead()` ?? `track`???좏깮??`lead_dict =
-track.get_RadarState(...)`媛 留뚮뱾?댁쭊 吏곹썑(L899~901 遺洹???**"寃利앸맂
-???곹깭?먯꽌???곸슜?섎뒗" ?ъ쟾 李⑥꽑?댄깉 媛먯? 寃뚯씠??*瑜?異붽??섎뒗 諛⑺뼢
-?쒖븞:
+**제안하는 코드 설계 (아직 미구현, 사용자 확인 필요)**:
+`radard.py` `get_lead()` 내, `track`이 선택돼 `lead_dict =
+track.get_RadarState(...)`가 만들어진 직후(L899~901 부근)에 **"검증된
+락 상태에서도 적용되는" 사전 차선이탈 감지 게이트**를 추가하는 방향
+제안:
 ```python
-LANE_DEPARTURE_DPATH_THRESH = CUTOUT_DPATH_THRESH  # 2.0m, 湲곗〈 而룹븘??
-                                                     # 泥좏븰 ?ъ궗??
-LANE_DEPARTURE_CONFIRM_S = 0.5  # s, ?⑥씪 ?꾨젅???몄씠利?怨≪꽑援ш컙 dPath
-                                 # 吏꾨룞, ?ㅼ륫???뺤긽李⑤웾??짹0.3~0.9m
-                                 # ?붾뱾由??덉쓬)濡??ㅽ깘 諛⑹?
-LANE_DEPARTURE_VREL_GATE = CUTOUT_VREL_GATE  # -0.5 m/s, 媛뺥븯寃?
-                                               # ?묎렐以묒씤 臾쇱껜??洹몃?濡??좎?
-                                               # (danger override? 泥좏븰 ?쇱튂)
+LANE_DEPARTURE_DPATH_THRESH = CUTOUT_DPATH_THRESH  # 2.0m, 기존 컷아웃
+                                                     # 철학 재사용
+LANE_DEPARTURE_CONFIRM_S = 0.5  # s, 단일 프레임 노이즈(곡선구간 dPath
+                                 # 진동, 실측상 정상차량도 ±0.3~0.9m
+                                 # 흔들림 있음)로 오탐 방지
+LANE_DEPARTURE_VREL_GATE = CUTOUT_VREL_GATE  # -0.5 m/s, 강하게
+                                               # 접근중인 물체는 그대로 유지
+                                               # (danger override와 철학 일치)
 ```
-`RadarD.__init__()`??`self._lane_departure_cnt = {0: 0, 1: 0}` 媛숈?
-?몃뜳?ㅻ퀎 ?붾컮?댁뒪 移댁슫??異붽? ??`get_lead()`?먯꽌 `lead_dict['status']`
-True?닿퀬 ??議곌굔 留뚯” ??`DT_MDL` ?⑥쐞濡??꾩쟻, `LANE_DEPARTURE_CONFIRM_S`
-?댁긽 吏?띾릺硫?`lead_dict = {'status': False}; radar = False`濡?媛뺤젣
-?꾪솚. **?대젃寃??섎㈃ "鍮④컙 諛뺤뒪 ?고쉶 寃쎈줈"?먯꽌???곸슜?섍퀬, 湲곗〈
-LeadBlend 寃쎈줈(?뚮?諛뺤뒪/sccFallback)??`_is_cutout()`怨쇰뒗 ?낅┰?곸쑝濡?
-怨듭〈** ??媛뺤젣濡?status瑜?爰쇱＜硫??댄썑 ?먯뿰?ㅻ읇寃??ㅼ쓬 ?ъ씠?댁뿉
-`match_vision_to_track`媛 ?ㅻⅨ(?먮뒗 ?녿뒗) 由щ뱶瑜??ы룊媛?섍쾶 ??
+`RadarD.__init__()`에 `self._lane_departure_cnt = {0: 0, 1: 0}` 같은
+인덱스별 디바운스 카운터 추가 → `get_lead()`에서 `lead_dict['status']`
+True이고 위 조건 만족 시 `DT_MDL` 단위로 누적, `LANE_DEPARTURE_CONFIRM_S`
+이상 지속되면 `lead_dict = {'status': False}; radar = False`로 강제
+전환. **이렇게 하면 "빨간 박스 우회 경로"에서도 적용되고, 기존
+LeadBlend 경로(파란박스/sccFallback)의 `_is_cutout()`과는 독립적으로
+공존** — 강제로 status를 꺼주면 이후 자연스럽게 다음 사이클에
+`match_vision_to_track`가 다른(또는 없는) 리드를 재평가하게 됨.
 
-**誘멸껐???ъ슜???뺤씤 ?꾩슂 ?ы빆**:
-1. ?꾧퀎媛믪쓣 湲곗〈 `CUTOUT_DPATH_THRESH`(2.0m) 洹몃?濡??ъ궗?⑺븷吏, ?꾨땲硫?
-   "?대? ?쎌씠 嫄몃┛ ?곹깭?먯꽌???댁젣"????蹂댁닔?곸쑝濡??? 2.3~2.5m)
-   ?≪쓣吏 ???ㅽ깘(?뺤긽 李⑤줈??李⑤웾??而ㅻ툕 ?깆뿉???깃툒???볦묠) vs
-   誘명깘(?ъ슜?먭? 寃れ? 吏?? ?몃젅?대뱶?ㅽ봽.
-2. `LANE_DEPARTURE_CONFIRM_S` 0.5s媛 ?곸젅?쒖? ???ㅼ륫 ?대깽????
-   t=5931.02~5932.53)?먯꽌 dPath媛 臾명꽦???섏? ??理쒖쥌 ?먯뿰?댁젣源뚯?
-   ?ㅼ젣 ??1.5珥덉??쇰?濡? confirm 0.5s硫????щ??먯꽌 **??1珥덈?
-   ?욌떦湲????덉뿀??寃?*?쇰줈 異붿젙(?뺣웾 replay 寃利??꾩슂, ?꾩쭅 ????.
-3. ??濡쒖쭅??leadOne肉??꾨땲??leadTwo(index=1)?먮룄 ?숈씪 ?곸슜?좎? ??
-   leadTwo??cut-in 媛먯??⑹쑝濡??곗씠?????⑸룄媛 ?щ씪 ?좎쨷 寃???꾩슂.
-4. **?ㅼ쓬 ?몄뀡 吏꾪뻾 ?쒖꽌 ?쒖븞**(遺꾩꽍 ?곗꽑 ?먯튃): (a) ?대쾲 諛쒓껄??
-   `sim_*.py`瑜??⑹꽦 ?쒕굹由ъ삤濡??쒖닔?⑥닔 寃利???(b) 媛?ν븯硫?
-   `replay_*.py`瑜섎줈 route1 t=5915~5932 ?ㅼ륫 ?ъ깮 ?ы쁽(?뺣웾?곸쑝濡?
-   "confirm 0.5s??ㅻ㈃ 紐?珥??욌떦寃⑥죱?꾩?" ?뺤씤) ??(c) ?ъ슜???뺤젙 ??
-   ?ㅼ젣 `radard.py` ?⑥튂 ?묒꽦.
+**미결정/사용자 확인 필요 사항**:
+1. 임계값을 기존 `CUTOUT_DPATH_THRESH`(2.0m) 그대로 재사용할지, 아니면
+   "이미 락이 걸린 상태에서의 해제"는 더 보수적으로(예: 2.3~2.5m)
+   잡을지 — 오탐(정상 차로내 차량을 커브 등에서 성급히 놓침) vs
+   미탐(사용자가 겪은 지연) 트레이드오프.
+2. `LANE_DEPARTURE_CONFIRM_S` 0.5s가 적절한지 — 실측 이벤트(위
+   t=5931.02~5932.53)에서 dPath가 문턱을 넘은 뒤 최종 자연해제까지
+   실제 약 1.5초였으므로, confirm 0.5s면 이 사례에서 **약 1초를
+   앞당길 수 있었을 것**으로 추정(정량 replay 검증 필요, 아직 안 함).
+3. 이 로직을 leadOne뿐 아니라 leadTwo(index=1)에도 동일 적용할지 —
+   leadTwo는 cut-in 감지용으로 쓰이는 등 용도가 달라 신중 검토 필요.
+4. **다음 세션 진행 순서 제안**(분석 우선 원칙): (a) 이번 발견을
+   `sim_*.py`류 합성 시나리오로 순수함수 검증 → (b) 가능하면
+   `replay_*.py`류로 route1 t=5915~5932 실측 재생 재현(정량적으로
+   "confirm 0.5s였다면 몇 초 앞당겨졌을지" 확인) → (c) 사용자 확정 후
+   실제 `radard.py` 패치 작성.
 
-**?꾩쭅 紐삵븳 寃?*:
-- ?꾩쟾 ?뺤감?믪옱異쒕컻(launch) ?곹솴?먯꽌??"李⑥꽑?댄깉+?쎌삩吏?? ?щ?瑜??대쾲
-  ???대┰?먯꽌 ?꾨젅???⑥쐞濡??뺥솗???뱀젙?섏? 紐삵븿(?대┰-route 留ㅽ븨
-  遺덊솗?ㅼ꽦 ?뚮Ц ????2踰?李멸퀬). route1/route2 CSV?먮뒗 ?대쾲 諛쒓껄??
-  route1 t=5915 ?щ? 1嫄????좎궗 ?⑦꽩?????덉쓣 ???덉쑝???꾩닔議곗궗??
-  ?꾩쭅 ????2嫄대쭔 諛쒓껄, min_dur=0.8s/threshold=1.8m 議곌굔?먯꽌).
-- 肄붾뱶 誘몃?寃?(?ㅺ퀎 ?쒖븞 ?④퀎, ?ъ슜???뺤씤 ?湲?.
-## 117李?(?꾨즺 ??116李?F ?⑥감 ???諛⑺뼢 ?뺤젙+援ы쁽+寃利??⑥튂?꾨떖 ?꾨즺) ??罹?吏꾩엯/?댁젣 ?꾨쭔??rise-rate 釉붾젋?? 異붽?, long_mpc.py patch ?곸슜
+**아직 못한 것**:
+- 완전 정차→재출발(launch) 상황에서의 "차선이탈+락온지속" 사례를 이번
+  두 클립에서 프레임 단위로 정확히 특정하지 못함(클립-route 매핑
+  불확실성 때문 — 위 2번 참고). route1/route2 CSV에는 이번 발견한
+  route1 t=5915 사례 1건 외 유사 패턴이 더 있을 수 있으나 전수조사는
+  아직 안 함(2건만 발견, min_dur=0.8s/threshold=1.8m 조건에서).
+- 코드 미변경 (설계 제안 단계, 사용자 확인 대기).
+## 117차 (완료 — 116차 F 단차 대응 방향 확정+구현+검증+패치전달 완료) — 캡 진입/해제 완만화(rise-rate 블렌드) 추가, long_mpc.py patch 적용
 
-**寃곗젙**: 116李?誘멸껐?뺤궗??1踰?"F ?⑥감瑜?洹몃?濡??먭퀬 ?ㅼ륫 replay遺??
-?좎? vs ?꾨쭔?붾? 癒쇱? 異붽??좎?") ???ъ슜?먭? **?꾨쭔???곗꽑 ?뺤젙**.
-"罹?吏꾩엯/?댁젣瑜?`LEAD_ACCEL_WEIGHT_RISE_RATE`泥섎읆 ?ъ씠?대떦 蹂?뷀룺??
-?쒗븳?섎뒗 諛⑹떇?쇰줈 諛붽퓭???⑥감 ?먯껜瑜?以꾩씤????諛⑺뼢?쇰줈, 39李⑥? ?숈씪
-?⑦꽩(釉붾젋??weight rise-rate ?쒗븳) ?ъ궗?⑺빐 吏꾪뻾.
+**결정**: 116차 미결정사항 1번("F 단차를 그대로 두고 실측 replay부터
+할지 vs 완만화를 먼저 추가할지") — 사용자가 **완만화 우선 확정**.
+"캡 진입/해제를 `LEAD_ACCEL_WEIGHT_RISE_RATE`처럼 사이클당 변화폭을
+제한하는 방식으로 바꿔서 단차 자체를 줄인다"는 방향으로, 39차와 동일
+패턴(블렌드 weight rise-rate 제한) 재사용해 진행.
 
-**援ы쁽**: `long_mpc.py` `process_lead()`??`LOW_SPEED_GAP_OPEN_*` ?곸닔
-(寃뚯씠??議곌굔? 116李??ㅺ퀎 洹몃?濡? + `LOW_SPEED_GAP_OPEN_WEIGHT_RISE_RATE`
-(1.0/s, ?좉퇋) 異붽?. 罹≪쓣 ?섎뱶?대옩?꾪븯吏 ?딄퀬 釉붾젋??weight(`cap_w`)瑜?
-?먯뼱 `a_lead*(1-cap_w) + min(a_lead,CAP)*cap_w`濡??곸슜, cap_w??紐⑺몴
-(gate on=1.0/off=0.0)瑜??ν빐 ?ъ씠?대떦 `RISE_RATE*dt`留뚰겮留??대룞(吏꾩엯/
-?댁젣 ?묐갑??. launch bypass 以묒뿏 ??rise-rate??利됱떆 ?고쉶??cap_w=0.0
-媛뺤젣(45李?defense-in-depth). ?곹깭(`_gap_open_cap_weight_prev`)??
-`_lead_accel_weight_prev`? ?숈씪?섍쾶 由щ뱶 ?뚯떎 ??0.0(?덉쟾痢??쇰줈 由ъ뀑.
-39李⑥? 李⑥씠?? 39李⑤뒗 rising(?꾪뿕 ?由? 諛⑺뼢留??쒗븳?섏?留???諛⑹븞?
-"?꾪뿕 ?좏샇"媛 ?꾨땲??"媛???곹븳"?대씪 ?묐갑??紐⑤몢 ?꾨쭔???꾩슂.
+**구현**: `long_mpc.py` `process_lead()`에 `LOW_SPEED_GAP_OPEN_*` 상수
+(게이트 조건은 116차 설계 그대로) + `LOW_SPEED_GAP_OPEN_WEIGHT_RISE_RATE`
+(1.0/s, 신규) 추가. 캡을 하드클램프하지 않고 블렌드 weight(`cap_w`)를
+두어 `a_lead*(1-cap_w) + min(a_lead,CAP)*cap_w`로 적용, cap_w는 목표
+(gate on=1.0/off=0.0)를 향해 사이클당 `RISE_RATE*dt`만큼만 이동(진입/
+해제 양방향). launch bypass 중엔 이 rise-rate도 즉시 우회해 cap_w=0.0
+강제(45차 defense-in-depth). 상태(`_gap_open_cap_weight_prev`)는
+`_lead_accel_weight_prev`와 동일하게 리드 소실 시 0.0(안전측)으로 리셋.
+39차와 차이점: 39차는 rising(위험 풀림) 방향만 제한하지만 이 방안은
+"위험 신호"가 아니라 "가속 상한"이라 양방향 모두 완만화 필요.
 
-**?⑹꽦寃利?*: `toolkit/sim_gap_open_damping.py`???꾨쭔??踰꾩쟾
-(`apply_gap_open_cap_smoothed`) + ?좉퇋 ?쒕굹由ъ삤 G/H/I 異붽?(湲곗〈 A~F??
-?섎뱶?대옩??踰꾩쟾 鍮꾧탳湲곗??쇰줈 蹂댁〈). **G**: 116李?F? ?숈씪 寃쎄퀎 ?뺣났
-?ъ떎?????ъ씠?대떦 理쒕? a_lead 蹂?뷀룺 1.500??*0.075 m/s짼**(95% 媛먯냼,
-?대줎媛?`RISE_RATE*dt*discontinuity`=1.0*0.05*1.5=0.075? ?뺥솗???쇱튂).
-**H**: cap_w媛 以묎컙媛?0.5)?쇰줈 ?⑦봽 以묒씪 ??bypass ?쒖꽦????媛숈?
-?꾨젅?꾩뿉 利됱떆 cap_w=0.0 媛뺤젣 ?뺤씤. **I**: 寃뚯씠??5s ?좎? ???섎뱶?대옩??
-踰꾩쟾怨??숈씪 ?뺤긽?곹깭(a_lead=0.5, cap_w=1.0) ?꾨떖 ?뺤씤(吏?곕쭔 ?덇퀬
-寃곌낵???숈씪). 湲곗〈 A~E???뚭? ?놁쓬. **9媛??쒕굹由ъ삤 ?꾨? PASS.**
+**합성검증**: `toolkit/sim_gap_open_damping.py`에 완만화 버전
+(`apply_gap_open_cap_smoothed`) + 신규 시나리오 G/H/I 추가(기존 A~F는
+하드클램프 버전 비교기준으로 보존). **G**: 116차 F와 동일 경계 왕복
+재실행 — 사이클당 최대 a_lead 변화폭 1.500→**0.075 m/s²**(95% 감소,
+이론값 `RISE_RATE*dt*discontinuity`=1.0*0.05*1.5=0.075와 정확히 일치).
+**H**: cap_w가 중간값(0.5)으로 램프 중일 때 bypass 활성화 시 같은
+프레임에 즉시 cap_w=0.0 강제 확인. **I**: 게이트 5s 유지 시 하드클램프
+버전과 동일 정상상태(a_lead=0.5, cap_w=1.0) 도달 확인(지연만 있고
+결과는 동일). 기존 A~E도 회귀 없음. **9개 시나리오 전부 PASS.**
 
-**?⑥튂 寃利?*: 濡쒖뺄 而ㅻ컠(`7529bfd`, base `8a7baa0`) ??`git format-patch`
-??蹂꾨룄 temp branch(`verify-tmp`)??`git am` ?곸슜 ??diff 0 + `py_compile`
-?듦낵(?뚯씪???먮옒遺??UTF-8 BOM ?쒖옉?대씪 湲곕낯 encoding?쇰줎 ast.parse
-?ㅽ뙣 ??`utf-8-sig`濡??뺤긽 ?뺤씤, 湲곗〈 ?뚯씪 ?뱀꽦?댁? ?대쾲 ?⑥튂 臾몄젣
-?꾨떂). ?⑥튂 ?뚯씪: `0001-117-gap-opening-a_lead-116-rise-rate.patch`.
+**패치 검증**: 로컬 커밋(`7529bfd`, base `8a7baa0`) → `git format-patch`
+→ 별도 temp branch(`verify-tmp`)에 `git am` 적용 → diff 0 + `py_compile`
+통과(파일이 원래부터 UTF-8 BOM 시작이라 기본 encoding으론 ast.parse
+실패 — `utf-8-sig`로 정상 확인, 기존 파일 특성이지 이번 패치 문제
+아님). 패치 파일: `0001-117-gap-opening-a_lead-116-rise-rate.patch`.
 
-**devnotes 媛깆떊**: FINDINGS.md(117李???ぉ ?좉퇋)/PARAMS_REGISTRY.md
-(LOW_SPEED_GAP_OPEN_* 2媛????좉퇋)/toolkit/README.md(sim_gap_open_damping.py
-?뱀뀡 117李?媛깆떊)/toolkit/CHANGELOG.md(117李??쒖쨪 ?붿빟) ?꾨? ?꾨즺.
+**devnotes 갱신**: FINDINGS.md(117차 항목 신규)/PARAMS_REGISTRY.md
+(LOW_SPEED_GAP_OPEN_* 2개 행 신규)/toolkit/README.md(sim_gap_open_damping.py
+섹션 117차 갱신)/toolkit/CHANGELOG.md(117차 한줄 요약) 전부 완료.
 
-**?⑥? 寃?(?ㅼ쓬 ?몄뀡 ?곗꽑?쒖쐞)**:
-1. ?ㅼ륫 濡쒓렇(115李?湲곗〈 lowspeed_a/b/c ??4媛??쇱슦??濡?寃뚯씠??諛쒕룞/
-   ?ㅽ깘 ?щ? replay 寃利????꾩쭅 ?ㅽ뻾 ????
-2. `ACCEL_CAP=0.5`/`A_LEAD_THRESH=1.0`/`WEIGHT_RISE_RATE=1.0` ?꾨? 媛먯쑝濡?
-   ?≪? 媛????ㅼ륫 湲곕컲 ?쒕떇 ?꾩슂
-3. ?ㅼ감 泥닿컧 寃利??꾨Т
+**남은 것 (다음 세션 우선순위)**:
+1. 실측 로그(115차 기존 lowspeed_a/b/c 등 4개 라우트)로 게이트 발동/
+   오탐 여부 replay 검증 — 아직 실행 안 함
+2. `ACCEL_CAP=0.5`/`A_LEAD_THRESH=1.0`/`WEIGHT_RISE_RATE=1.0` 전부 감으로
+   잡은 값 — 실측 기반 튜닝 필요
+3. 실차 체감 검증 전무
 
-## 116李?(泥댄겕?ъ씤?????좉퇋 諛⑹븞 "???gap-opening a_lead 罹? ?ㅺ퀎+?⑹꽦寃利??꾨즺, ?ㅼ륫 replay ??寃곗젙 ?湲? ??LOW_SPEED_GAP_OPEN_* 6媛??쒕굹由ъ삤 ?껺ASS, 寃쎄퀎?꾩씠 ?⑥감(1.5 m/s^2) 諛쒓껄
+## 116차 (체크포인트 — 신규 방안 "저속 gap-opening a_lead 캡" 설계+합성검증 완료, 실측 replay 전 결정 대기) — LOW_SPEED_GAP_OPEN_* 6개 시나리오 전PASS, 경계전이 단차(1.5 m/s^2) 발견
 
-**諛곌꼍**: 6???쒕낫 ??"???30~40km/h ?댄븯)?먯꽌 ?욎감媛 硫?댁쭏 ???먯감媛
-?덈Т 湲됲븯寃??ш??랁븯硫? ?댄썑 ?욎감媛 ?ㅼ떆 ?뺤?/媛먯냽?????먯감媛 湲됲븯寃?
-諛섏쓳?섍쾶 ?섎뒗 寃??꾨땲?????좉퇋 媛?? 湲곗〈 諛⑹븞I/C/58李??꾨? "?욎감 媛먯냽??
-?대뼸寃?諛섏쓳?좉퉴")? ?щ━, **"?욎감媛 硫?댁쭏 ???먯감 媛?띿쓣 ?대뼸寃??꾨쭔?섍쾶
-?좎?"**瑜??ㅻ（??泥?諛⑹븞.
+**배경**: 6님 제보 — "저속(30~40km/h 이하)에서 앞차가 멀어질 때 자차가
+너무 급하게 재가속하면, 이후 앞차가 다시 정지/감속할 때 자차가 급하게
+반응하게 되는 것 아니냐"는 신규 가설. 기존 방안I/C/58차(전부 "앞차 감속에
+어떻게 반응할까")와 달리, **"앞차가 멀어질 때 자차 가속을 어떻게 완만하게
+할지"**를 다루는 첫 방안.
 
-**肄붾뱶 由щ뵫 寃곌낵 (湲곗〈 濡쒖쭅 ?ㅽ깭)**:
-1. `dynamic_t_follow()`(jLead 湲곕컲 t_follow/jerk 蹂댁젙)??`DynamicTFollow`
-   ?뚮씪誘명꽣 湲곕낯媛?0 ???꾩쟾 鍮꾪솢?? ?ъ슜???ㅼ젣 params_backup ?뺤씤 寃곌낵??
-   `DynamicTFollow:"0"`, `EnableSpeedTF:"0"`, `JLeadFactor3:"0"` ?꾨?
-   鍮꾪솢???뺤젙 ???먯씤? ?댁そ???꾨떂.
-2. `long_mpc.py`??lead accel damping(`dist_w`/`ttc_w`)? ?꾪뿕(closing)
-   諛⑺뼢 媛먯뇿留?議댁옱 ???욎감媛 硫?댁???v_lead>v_ego) 諛⑺뼢??damping
-   ?먯껜媛 ?놁뼱 `a_lead`媛 媛먯뇿 ?놁씠 洹몃?濡?MPC ?源껋뿉 諛섏쁺??(?듭떖 ?먯씤
-   吏?먯쑝濡??뱀젙).
-3. `get_carrot_accel()`? ?쒖닔 ?띾룄湲곕컲 媛???곹븳?대씪 lead/gap ?곹깭 臾닿?.
+**코드 리딩 결과 (기존 로직 실태)**:
+1. `dynamic_t_follow()`(jLead 기반 t_follow/jerk 보정)는 `DynamicTFollow`
+   파라미터 기본값 0 → 완전 비활성. 사용자 실제 params_backup 확인 결과도
+   `DynamicTFollow:"0"`, `EnableSpeedTF:"0"`, `JLeadFactor3:"0"` 전부
+   비활성 확정 — 원인은 이쪽이 아님.
+2. `long_mpc.py`의 lead accel damping(`dist_w`/`ttc_w`)은 위험(closing)
+   방향 감쇠만 존재 — 앞차가 멀어지는(v_lead>v_ego) 방향엔 damping
+   자체가 없어 `a_lead`가 감쇠 없이 그대로 MPC 타깃에 반영됨 (핵심 원인
+   지점으로 특정).
+3. `get_carrot_accel()`은 순수 속도기반 가속 상한이라 lead/gap 상태 무관.
 
-**諛⑺뼢 A(DynamicTFollow ?뚮씪誘명꽣 ?쒖꽦?? vs 諛⑺뼢 B(long_mpc ?덈꺼 ?좉퇋
-寃뚯씠?? 鍮꾧탳 寃????諛⑺뼢 B 梨꾪깮**: A??jLead ?좏샇媛 toolkit CSV??
-誘몄닔吏?cereal??議댁옱, extract_log.py 誘몄텛異??대씪 寃利??명봽???좎꽕 ?꾩슂 +
-?꾩뿭 ?ㅼ쐞移섎씪 遺?묒슜 踰붿쐞媛 ?볦쓬. B??湲곗〈 ?좏샇(aLeadK/vRel/dRel)濡?利됱떆
-replay 寃利?媛??+ ???gap-opening?쇰줈 ?곹뼢踰붿쐞 援?븳.
+**방향 A(DynamicTFollow 파라미터 활성화) vs 방향 B(long_mpc 레벨 신규
+게이트) 비교 검토 → 방향 B 채택**: A는 jLead 신호가 toolkit CSV에
+미수집(cereal엔 존재, extract_log.py 미추출)이라 검증 인프라 신설 필요 +
+전역 스위치라 부작용 범위가 넓음. B는 기존 신호(aLeadK/vRel/dRel)로 즉시
+replay 검증 가능 + 저속+gap-opening으로 영향범위 국한.
 
-**?ㅺ퀎 (`long_mpc.py` ?쎌엯 ?꾩튂: `dist_w`/`ttc_w` 怨꾩궛遺 ?몄젒)**:
+**설계 (`long_mpc.py` 삽입 위치: `dist_w`/`ttc_w` 계산부 인접)**:
 ```
-LOW_SPEED_GAP_OPEN_V_EGO_GATE = 40.0 / 3.6       # ~40km/h (6???뺤씤媛?
+LOW_SPEED_GAP_OPEN_V_EGO_GATE = 40.0 / 3.6       # ~40km/h (6님 확인값)
 LOW_SPEED_GAP_OPEN_A_LEAD_THRESH = 1.0           # m/s^2
 LOW_SPEED_GAP_OPEN_ACCEL_CAP = 0.5               # m/s^2
-gap_ratio = x_lead / desired_distance             # desired_distance<=1.0?대㈃ ?ㅽ궢
+gap_ratio = x_lead / desired_distance             # desired_distance<=1.0이면 스킵
 apply = (v_ego <= GATE and a_lead >= THRESH
          and not self._launch_bypass_active
-         and gap_ratio >= MARGIN_ACCEL_GATE_FULL)  # 1.5, 湲곗〈 dist_w 寃쎄퀎 ?ъ궗??
+         and gap_ratio >= MARGIN_ACCEL_GATE_FULL)  # 1.5, 기존 dist_w 경계 재사용
 if apply: a_lead = min(a_lead, ACCEL_CAP)
 ```
-**"?뺤? ??異쒕컻 媛???쏀솕"(45李? ?щ컻 諛⑹?媛 ?듭떖 ?ㅺ퀎 ?ъ씤??*: (1)
-`_launch_bypass_active` 援ш컙 紐낆떆???쒖쇅, (2) gap_ratio媛 ???(?꾩쭅
-desired_distance ?대궡濡??뺤긽 異붿쥌 以? 援ш컙? 寃뚯씠???먯껜媛 ???대┝ ??
-?뺤긽 異쒕컻??"?덈Т 泥쒖쿇?? ?섎뒗 ?ㅽ깘??援ъ“?곸쑝濡?李⑤떒.
+**"정지 후 출발 가속 약화"(45차) 재발 방지가 핵심 설계 포인트**: (1)
+`_launch_bypass_active` 구간 명시적 제외, (2) gap_ratio가 낮은(아직
+desired_distance 이내로 정상 추종 중) 구간은 게이트 자체가 안 열림 →
+정상 출발이 "너무 천천히" 되는 오탐을 구조적으로 차단.
 
-**?⑹꽦寃利?(`toolkit/sim_gap_open_damping.py`, ?좉퇋, 6媛??쒕굹由ъ삤 ?꾨?
-PASS)**: A(怨좎냽 ?뚭? diff=0)/B(launch bypass 以?罹?誘몄쟻??
-defense-in-depth)/C(bypass ?댁젣 ??18~40km/h ?뺤긽 異쒕컻 ?곗옣 援ш컙 罹?
-誘몄쟻?????ㅽ깘諛⑹? ?듭떖 寃利?/D(?대깽???ы쁽, gap_ratio>=1.5+媛뺥븳媛??
-吏????a_lead媛 0.5濡??뺤긽 ?대옩??/E(?꾨쭔媛???ㅽ깘諛⑹? diff=0)/
-**F(gap_ratio 1.5 寃쎄퀎 ?꾩씠 ???덉쇅 ?놁씠 利됱떆 ?좉??섎굹, 罹?吏꾩엯 ?쒓컙
-a_lead??理쒕? 1.5 m/s^2 ?⑥감(?섎뱶?대옩?? ?꾨쭔???놁쓬) 諛쒖깮 諛쒓껄 ??
-諛⑹븞I瑜?jerk ?꾨쭔??蹂묓뻾 ?꾩슂 ?щ???NEEDS_VALIDATION)**.
+**합성검증 (`toolkit/sim_gap_open_damping.py`, 신규, 6개 시나리오 전부
+PASS)**: A(고속 회귀 diff=0)/B(launch bypass 중 캡 미적용,
+defense-in-depth)/C(bypass 해제 후 18~40km/h 정상 출발 연장 구간 캡
+미적용 — 오탐방지 핵심 검증)/D(이벤트 재현, gap_ratio>=1.5+강한가속
+지속 시 a_lead가 0.5로 정상 클램프)/E(완만가속 오탐방지 diff=0)/
+**F(gap_ratio 1.5 경계 전이 — 예외 없이 즉시 토글되나, 캡 진입 순간
+a_lead에 최대 1.5 m/s^2 단차(하드클램프, 완만화 없음) 발생 발견 —
+방안I류 jerk 완만화 병행 필요 여부는 NEEDS_VALIDATION)**.
 
-**誘멸껐???ы빆 (?ㅼ쓬 ?몄뀡 ?쒖옉 ??理쒖슦???뺤씤)**:
-1. F?먯꽌 諛쒓껄??寃쎄퀎?꾩씠 ?⑥감(1.5 m/s^2)瑜?洹몃?濡??먭퀬 ?ㅼ륫 replay遺??
-   ?좎?, ?꾨땲硫??꾨쭔??rise-rate瑜?瑜?癒쇱? 異붽?????replay?좎? ??諛⑺뼢
-   誘명솗???곹깭濡??몄뀡 醫낅즺??
+**미결정 사항 (다음 세션 시작 시 최우선 확인)**:
+1. F에서 발견된 경계전이 단차(1.5 m/s^2)를 그대로 두고 실측 replay부터
+   할지, 아니면 완만화(rise-rate류)를 먼저 추가한 뒤 replay할지 — 방향
+   미확정 상태로 세션 종료됨
 2. `LOW_SPEED_GAP_OPEN_ACCEL_CAP=0.5`/`A_LEAD_THRESH=1.0`/
-   `MARGIN_RATIO=1.5(?ъ궗??` ?꾨? ?ㅼ륫 濡쒓렇 ?놁씠 媛먯쑝濡??≪? 媛???
-   湲곗〈 4媛??ㅼ륫 ?쇱슦??lowspeed_a/b/c ?? 115李?李멸퀬)濡?replay 寃利?
-   ?꾩슂
-3. ryu 肄붾뱶(long_mpc.py) ?먯껜???꾩쭅 誘몄닔????諛⑺뼢 ?뺤젙 ??patch ?앹꽦
+   `MARGIN_RATIO=1.5(재사용)` 전부 실측 로그 없이 감으로 잡은 값 —
+   기존 4개 실측 라우트(lowspeed_a/b/c 등, 115차 참고)로 replay 검증
+   필요
+3. ryu 코드(long_mpc.py) 자체는 아직 미수정 — 방향 확정 후 patch 생성
 
-## 115李?(泥댄겕?ъ씤????pre-112李?b67c291) ?ㅼ륫 濡쒓렇 4嫄?遺꾩꽍, 112李?threshold ?ㅼ륫寃利? ??SMOOTH ?꾩쟾PASS/ROUTE_A 遺遺꾧컻??ROUTE_B ??띻쾶?댄듃臾닿? 吏꾩쭨湲됯컧??
+## 115차 (체크포인트 — pre-112차(b67c291) 실측 로그 4건 분석, 112차 threshold 실측검증) — SMOOTH 완전PASS/ROUTE_A 부분개선/ROUTE_B 저속게이트무관 진짜급감속
 
-**?낅젰**: ?ъ슜???낅줈??zip 2嫄????쇱슦??4嫄댁쑝濡?遺꾨━쨌異붿텧.
-- `smooth(1028)`: 08/28 10:28, 1?멸렇, "10??8遺?8珥??꾪썑 媛먯냽遺꾩꽍 湲됯컧?놁씠
-  遺?쒕윭?" ??鍮꾧탳援??묒꽦 ?щ?)
-- `lowspeed_a`: 08/27 11:26, 2?멸렇 ?????14.3km/h) 洹쇱젒異붿쥌 ?뺤감 吏곸쟾
-- `lowspeed_b`: 08/27 12:06, 3?멸렇 ????띻쾶?댄듃 臾닿? 援ш컙(t??349) +
-  硫붿씤 湲됯컧??t??376, vEgo 33.5km/h, min aEgo **-4.02**)
-- `lowspeed_c`: 08/27 12:21, 3?멸렇 ???꾨쭔??媛먯냽(min aEgo -2.18)
+**입력**: 사용자 업로드 zip 2건 → 라우트 4건으로 분리·추출.
+- `smooth(1028)`: 08/28 10:28, 1세그, "10시28분28초 전후 감속분석 급감없이
+  부드러움" — 비교군(양성 사례)
+- `lowspeed_a`: 08/27 11:26, 2세그 — 저속(14.3km/h) 근접추종 정차 직전
+- `lowspeed_b`: 08/27 12:06, 3세그 — 저속게이트 무관 구간(t≈4349) +
+  메인 급감속(t≈4376, vEgo 33.5km/h, min aEgo **-4.02**)
+- `lowspeed_c`: 08/27 12:21, 3세그 — 완만한 감속(min aEgo -2.18)
 
-**以묒슂, 理쒖슦???뺤씤?ы빆**: `extract_log.py` meta.json??`commit` ?꾨뱶??
-濡쒖뺄 clone ?쒖젏 repo HEAD(112李? `8a7baa0`)??肉?**?ㅼ젣 ?쒕씪?대툕 ?뱀떆
-device ?뚯썾?댁? 臾닿?**. **?ъ슜?먭? ?ㅼ젣 ?뚯썾??而ㅻ컠???뺤씤**:
+**중요, 최우선 확인사항**: `extract_log.py` meta.json의 `commit` 필드는
+로컬 clone 시점 repo HEAD(112차, `8a7baa0`)일 뿐 **실제 드라이브 당시
+device 펌웨어와 무관**. **사용자가 실제 펌웨어 커밋을 확인**:
 `b67c2912a2d34b983f2c25fed9ec21547b9ea331`("Merge c3-ms-curv into
-c3-ms-dev (81,82,84,85,87,91李??듯빀)", 2026-08-27 10:23 KST) ??利???
-4媛??쇱슦?몃뒗 **94/98/100/101/109/112李??꾨? 誘몃컲???곹깭**?먯꽌 罹≪쿂??
-(?ν썑 ?ㅼ륫 濡쒓렇 ?낅줈??????긽 "?뺥솗??紐?李??뚯썾?댁씤吏" 癒쇱? ?뺤씤??寃?
-??meta.json留뚯쑝濡쒕뒗 ?????놁쓬, ?대쾲泥섎읆 ?ъ슜?먯뿉寃?臾쇱뼱????)
+c3-ms-dev (81,82,84,85,87,91차 통합)", 2026-08-27 10:23 KST) — 즉 이
+4개 라우트는 **94/98/100/101/109/112차 전부 미반영 상태**에서 캡처됨.
+(향후 실측 로그 업로드 시 항상 "정확히 몇 차 펌웨어인지" 먼저 확인할 것
+— meta.json만으로는 알 수 없음, 이번처럼 사용자에게 물어야 함.)
 
-**[?⑹뼱 ?뺤젙, 以묒슂]** 4媛?濡쒓렇 ?꾨? **112李??⑥튂 誘몄쟻??commit
-b67c291) ?곹깭???ㅼ＜??濡쒓렇** ????濡쒓렇??raw 媛믪뿉 112李?patch 濡쒖쭅??
-`replay_low_speed_strong_decel.py`濡?**?ㅽ봽?쇱씤 ?ъ깮(replay)**??
-寃껋씠吏, ?⑥튂媛 ?ㅼ젣濡?device?먯꽌 援щ룞??寃곌낵瑜?愿痢≫븳 寃??꾨떂. ?꾨옒
-"PASS"/"?꾩쟾???쒓굅?? ?깆? ?꾨? ???ъ깮 ?쒕??덉씠??湲곗?.
+**[용어 정정, 중요]** 4개 로그 전부 **112차 패치 미적용(commit
+b67c291) 상태의 실주행 로그** — 이 로그의 raw 값에 112차 patch 로직을
+`replay_low_speed_strong_decel.py`로 **오프라인 재생(replay)**한
+것이지, 패치가 실제로 device에서 구동된 결과를 관측한 게 아님. 아래
+"PASS"/"완전히 제거함" 등은 전부 이 재생 시뮬레이션 기준.
 
-**?묒뾽**: 湲곗〈 `toolkit/replay_low_speed_strong_decel.py`(112李?怨꾩냽
-?곗텧臾? ?댁젣源뚯? ROUTE1 罹먯떆?먮쭔 ?곸슜?먮뜕 ?꾧뎄)瑜??대쾲 ?좉퇋 4?쇱슦?몄뿉
-洹몃?濡??ъ궗?⑺빐 112李?threshold ?⑥튂(-1.8??2.5)媛 ?곸슜?먮떎硫??대뼸寃?
-?먯젙?먯쓣吏瑜??ㅽ봽?쇱씤?쇰줈 ?ы쁽. ?좉퇋 ?ㅽ겕由쏀듃 ?묒꽦 ?놁쓬(README ?곗꽑
-?뺤씤 ?먯튃 以??.
+**작업**: 기존 `toolkit/replay_low_speed_strong_decel.py`(112차 계속
+산출물, 이제까지 ROUTE1 캐시에만 적용됐던 도구)를 이번 신규 4라우트에
+그대로 재사용해 112차 threshold 패치(-1.8→-2.5)가 적용됐다면 어떻게
+판정됐을지를 오프라인으로 재현. 신규 스크립트 작성 없음(README 우선
+확인 원칙 준수).
 
-**?듭떖 諛쒓껄**:
-1. **smooth(1028): ?ъ깮 ?쒕??덉씠?섏긽 ?꾩쟾 PASS.** 援촷hreshold(-1.8)
-   湲곗? 26?꾨젅??1.247s 議곌린援ш컙) 諛쒕룞 **?덉긽**?섎뜕 寃??쟴hreshold
-   (-2.5)?먯꽌??0?꾨젅???덉긽 ??112李?patch 濡쒖쭅????낇븯硫????쇱슦?몄쓽
-   ??띻쾶?댄듃 ?ㅽ깘???꾩쟾???щ씪吏??寃껋쑝濡??ы쁽??
-2. **lowspeed_a(14.3km/h): 遺遺?媛쒖꽑.** 援?16?꾨젅??議곌린 0.900s)/??
-   9?꾨젅??議곌린 0.700s) ???꾩쟾 ?쒓굅???꾨땲怨?議곌린諛쒕룞 援ш컙留?異뺤냼.
-   ?ㅻ쭔 ??援ш컙 ?ㅼ륫 leadALeadK媛 ?먯뿰?ㅻ읇寃?-2.96源뚯? ?꾨떖?섎뒗 **吏꾩쭨
-   吏??媛먯냽**?대씪(112李?怨꾩뿴 replay媛 112李???耳?댁뒪?먯꽌 ?대? ?뺤씤??
-   ?⑦꽩怨??숈씪), threshold瑜?????떠???꾩쟾 ?쒓굅??臾쇰━?곸쑝濡??대젮??
-   媛?μ꽦.
-3. **lowspeed_b: 2媛?蹂꾧컻 ?대깽??**
-   - t??349~4351(25??0km/h): ??띻쾶?댄듃 ???援ш컙, leadALeadK
-     -2.6~-2.7 ?꾨떖. 援?諛쒕룞/???쇰?諛쒕룞(8?꾨젅?? ??a? ?좎궗 ?⑦꽩.
-   - t??373~4377(**硫붿씤 ?대깽??*, vEgo 33.5~44km/h): **??띻쾶?댄듃
-     ?먯껜媛 ?곸슜 ???섎뒗 踰붿쐞(LOW_SPEED_STRONG_DECEL_V_EGO_GATE=
-     30km/h ?댁긽)**. dRel 34??8m, leadVRel +1.3??*-7.0m/s**濡?2.5珥덇컙
-     ?곗냽?겶룸Ъ由ъ쟻?쇰줈 ?쇨??섍쾶 蹂???먰봽/遺덉뿰???놁쓬, leadRadar ?좎?,
-     李⑥꽑蹂寃??놁쓬) ??**?몄씠利덈굹 踰꾧렇媛 ?꾨땲???좏뻾李⑤웾???ㅼ젣 媛뺥븳
-     媛먯냽??????뺤긽???곗냽 異붿쥌 諛섏쓳**?쇰줈 ?먮떒?? min aEgo -4.02媛
-     ?뱀감媛먯긽 怨쇳뻽?붿???蹂꾧컻 臾몄젣 ????쒖틺(`260827_120658_clip.mp4`)
-     ?議??꾩슂(?ㅼ쓬 ?몄뀡 ?꾨낫).
-4. **lowspeed_c: ??띻쾶?댄듃 ?꾩쟾 臾닿?.** 援???threshold ?꾨? 0?꾨젅??
-   諛쒕룞 ?????쇱슦?몄쓽 ?꾨쭔??媛먯냽(min aEgo -2.18)? margin/ttc weight
-   ?먯뿰?섎졃 寃쎈줈濡?吏꾪뻾??寃껋쑝濡?蹂댁씠硫? 112李??⑥튂? 臾닿?.
-5. **harsh_brake_events() 湲곕낯 ?뚮씪誘명꽣(accel_drop_thresh=-0.8,
-   window_s=0.5)濡쒕뒗 4?쇱슦???꾨? 0嫄?* ???ㅼ젣 ?대깽?몃뱾??1.5~3珥덉뿉
-   嫄몄튇 ?먯쭊??蹂?붾씪 吏㏃? 李?湲곕컲 ?먯? 濡쒖쭅 ?먯껜媛 ??嫄몃┝(李멸퀬??
-   湲곕줉, ?⑥닔 媛쒖꽑? ?꾩쭅 誘몄갑??.
+**핵심 발견**:
+1. **smooth(1028): 재생 시뮬레이션상 완전 PASS.** 구threshold(-1.8)
+   기준 26프레임(1.247s 조기구간) 발동 **예상**되던 게 신threshold
+   (-2.5)에서는 0프레임 예상 — 112차 patch 로직을 대입하면 이 라우트의
+   저속게이트 오탐이 완전히 사라지는 것으로 재현됨.
+2. **lowspeed_a(14.3km/h): 부분 개선.** 구 16프레임(조기 0.900s)/신
+   9프레임(조기 0.700s) — 완전 제거는 아니고 조기발동 구간만 축소.
+   다만 이 구간 실측 leadALeadK가 자연스럽게 -2.96까지 도달하는 **진짜
+   지속 감속**이라(112차 계열 replay가 112차 원 케이스에서 이미 확인한
+   패턴과 동일), threshold를 더 낮춰도 완전 제거는 물리적으로 어려울
+   가능성.
+3. **lowspeed_b: 2개 별개 이벤트.**
+   - t≈4349~4351(25→20km/h): 저속게이트 대상 구간, leadALeadK
+     -2.6~-2.7 도달. 구 발동/신 일부발동(8프레임) — a와 유사 패턴.
+   - t≈4373~4377(**메인 이벤트**, vEgo 33.5~44km/h): **저속게이트
+     자체가 적용 안 되는 범위(LOW_SPEED_STRONG_DECEL_V_EGO_GATE=
+     30km/h 이상)**. dRel 34→18m, leadVRel +1.3→**-7.0m/s**로 2.5초간
+     연속적·물리적으로 일관되게 변화(점프/불연속 없음, leadRadar 유지,
+     차선변경 없음) — **노이즈나 버그가 아니라 선행차량의 실제 강한
+     감속에 대한 정상적 연속 추종 반응**으로 판단됨. min aEgo -4.02가
+     승차감상 과했는지는 별개 문제 — 대시캠(`260827_120658_clip.mp4`)
+     대조 필요(다음 세션 후보).
+4. **lowspeed_c: 저속게이트 완전 무관.** 구/신 threshold 전부 0프레임
+   발동 — 이 라우트의 완만한 감속(min aEgo -2.18)은 margin/ttc weight
+   자연수렴 경로로 진행된 것으로 보이며, 112차 패치와 무관.
+5. **harsh_brake_events() 기본 파라미터(accel_drop_thresh=-0.8,
+   window_s=0.5)로는 4라우트 전부 0건** — 실제 이벤트들이 1.5~3초에
+   걸친 점진적 변화라 짧은 창 기반 탐지 로직 자체가 안 걸림(참고용
+   기록, 함수 개선은 아직 미착수).
 
-**?ㅼ쓬 ?몄뀡(?ъ슜???뺤씤 ?꾩슂)**:
-1. lowspeed_b 硫붿씤 ?대깽??t??376) ??쒖틺 ?꾨젅???議????ㅼ젣 ?욎감
-   湲됱젣?숈씠 留욌뒗吏, 泥닿컧??-4.0m/s짼媛 怨쇳뻽?붿?.
-2. lowspeed_a/b????띻쾶?댄듃 "遺遺꾧컻??(?꾩쟾?쒓굅 ?꾨떂) 寃곌낵瑜?112李?
-   FINDINGS.md 寃곕줎??諛섏쁺?좎?(?쟴hreshold濡쒕룄 ?ъ쟾??0.7~1.0s 議곌린
-   援ш컙 議댁옱).
-3. lowspeed_c泥섎읆 ??띻쾶?댄듃 臾닿? ?꾨쭔 媛먯냽 耳?댁뒪??"泥닿컧 湲됯컧" ?먯씤?
-   ?대쾲 遺꾩꽍?쇰줈 紐?諛앺옒 ??洹쇱젒異붿쥌 媛??ㅼ떎?덉씠??seg7 誘명빐寃??⑦꽩)
-   ?곌? 媛?μ꽦, ?꾩슂 ??蹂꾨룄 遺꾩꽍.
-4. 114李?泥댄겕?ъ씤???먮퀎吏???ъ꽕怨?113李??좎떎 諛깆뾽 ?뺤씤)???ъ쟾??
-   誘멸껐 ???대쾲 115李⑥? 蹂꾧컻濡?怨꾩냽 ?湲?以?
+**다음 세션(사용자 확인 필요)**:
+1. lowspeed_b 메인 이벤트(t≈4376) 대시캠 프레임 대조 — 실제 앞차
+   급제동이 맞는지, 체감상 -4.0m/s²가 과했는지.
+2. lowspeed_a/b의 저속게이트 "부분개선"(완전제거 아님) 결과를 112차
+   FINDINGS.md 결론에 반영할지(신threshold로도 여전히 0.7~1.0s 조기
+   구간 존재).
+3. lowspeed_c처럼 저속게이트 무관 완만 감속 케이스의 "체감 급감" 원인은
+   이번 분석으로 못 밝힘 — 근접추종 갭 오실레이션(seg7 미해결 패턴)
+   연관 가능성, 필요 시 별도 분석.
+4. 114차 체크포인트(판별지표 재설계/113차 유실 백업 확인)는 여전히
+   미결 — 이번 115차와 별개로 계속 대기 중.
 
-**?대쾲 ?몄뀡 蹂寃??뚯씪**: `devnotes`: `WIP.md`/`FINDINGS.md`/
-`LAST_ANALYZED.md`(115李?湲곕줉 異붽?, ?ㅽ겕由쏀듃 ?좉퇋 ?묒꽦 ?놁쓬).
-`ryu`: 蹂寃??놁쓬.
+**이번 세션 변경 파일**: `devnotes`: `WIP.md`/`FINDINGS.md`/
+`LAST_ANALYZED.md`(115차 기록 추가, 스크립트 신규 작성 없음).
+`ryu`: 변경 없음.
 
-## 115李?怨꾩냽 (泥댄겕?ъ씤????lowspeed_a/b遺??"?꾩쟾?쒓굅" 諛⑺뼢 ?ъ링遺꾩꽍, 肄붾뱶 蹂寃??놁쓬) ??threshold留??щ━??嫄??꾪뿕, 硫붿빱?덉쬁(利됱떆?먰봽?믩튌瑜몃옩?? 援먯껜 ?쒖븞
+## 115차 계속 (체크포인트 — lowspeed_a/b부수 "완전제거" 방향 심층분석, 코드 변경 없음) — threshold만 올리는 건 위험, 메커니즘(즉시점프→빠른램프) 교체 제안
 
-**?붿껌**: lowspeed_a/lowspeed_b遺??遺遺꾧컻?좎뿉 洹몄튇 ???щ?)瑜?吏묒쨷遺꾩꽍??
-?꾩쟾 ?쒓굅 媛?ν븯?꾨줉 ?꾨㈃ ?ш???
+**요청**: lowspeed_a/lowspeed_b부수(부분개선에 그친 두 사례)를 집중분석해
+완전 제거 가능하도록 전면 재검토.
 
-**[?듭떖 ?좉퇋 諛쒓껄] TTC 沅ㅼ쟻??蹂대㈃ ???щ?媛 ?쒕줈 ?ㅻⅨ ?깃꺽** ??吏??
-115李?湲곕줉? 媛??대깽?몄쓽 "理쒖? leadALeadK ?쒖젏" ?⑥씪 ?꾨젅?꾩쓽 TTC留?
-遊ㅻ뒗??a: 5.66s, b遺?? 5.28s), **?쟴hreshold(-2.5) 諛쒕룞援ш컙 ?꾩껜??
-TTC 沅ㅼ쟻**???ㅼ떆 戮묒븘蹂대㈃:
-- **lowspeed_a**: 諛쒕룞援ш컙(t=1939.17~1939.62) ?숈븞 TTC媛 **6.86s ??
-  4.18s**源뚯? 湲됯꺽???⑥뼱吏?0.45珥?留뚯뿉). closing?띾룄(v_ego-v_lead)??
-  1.59??.35m/s濡?怨꾩냽 利앷? 以???利?"?먭툔???꾨쭔媛먯냽"???꾨땲??**TTC媛
-  ?ㅼ젣濡?danger(2.5s) 履쎌쑝濡?鍮좊Ⅴ寃??ㅺ?媛??以묒씤 ?대깽??*.
-- **lowspeed_b遺??*: 諛쒕룞援ш컙(t=4349.38~4350.32) ?숈븞 TTC??
-  12.93s ??5.1~5.4s??먯꽌 硫덉땄(?????대젮媛? ??a蹂대떎 ?⑥뵮 ?ъ쑀濡쒖?.
+**[핵심 신규 발견] TTC 궤적을 보면 두 사례가 서로 다른 성격** — 지난
+115차 기록은 각 이벤트의 "최저 leadALeadK 시점" 단일 프레임의 TTC만
+봤는데(a: 5.66s, b부수: 5.28s), **신threshold(-2.5) 발동구간 전체의
+TTC 궤적**을 다시 뽑아보면:
+- **lowspeed_a**: 발동구간(t=1939.17~1939.62) 동안 TTC가 **6.86s →
+  4.18s**까지 급격히 떨어짐(0.45초 만에). closing속도(v_ego-v_lead)도
+  1.59→2.35m/s로 계속 증가 중 — 즉 "느긋한 완만감속"이 아니라 **TTC가
+  실제로 danger(2.5s) 쪽으로 빠르게 다가가는 중인 이벤트**.
+- **lowspeed_b부수**: 발동구간(t=4349.38~4350.32) 동안 TTC는
+  12.93s → 5.1~5.4s대에서 멈춤(더 안 내려감) — a보다 훨씬 여유로움.
 
-**[?꾪뿕 ?좏샇] threshold留??щ젮??"?꾩쟾 ?쒓굅"?섎㈃ ?먮옒 ??湲곕뒫??
-?뺣떦?뷀븳 ?щ?(58李?踰? route `a3a55cb808` seg12, ?ㅼ륫 min TTC=4.45s)
-?먯껜瑜?紐??≪쓣 媛?μ꽦????** `sim_low_speed_decel.py`??
-`scenario_B_event_reproduction()`??肄붾뱶濡??뺤씤?대낫?? ???쒕굹由ъ삤??
-**a_lead瑜?`LOW_SPEED_STRONG_DECEL_A_LEAD_THRESH` ?곸닔 ?먯껜瑜?洹몃?濡?
-媛?몃떎 ?곕뒗 援ъ“**(二쇱꽍: "?ㅼ륫 洹쇱궗移?-1.5~-2.0")??**threshold瑜?
-?щ━硫??쒕굹由ъ삤??媛숈씠 ?щ씪媛 踰꾨젮????긽 ?먮룞?쇰줈 PASS????利???
-?⑹꽦寃利앹? "threshold瑜??쇰쭏濡??щ젮??臾댁“嫄??듦낵"?섎뒗 ?숈뼱諛섎났?대씪
-threshold ?몄긽???덉쟾??洹쇨굅濡??????놁쓬(以묒슂, 吏湲덇퉴吏 ??留뱀젏??
-?몄??섏? ?딆븯??寃껋쑝濡?蹂댁엫).** a3a55cb808??吏꾩쭨 ?ㅼ륫 leadALeadK
-媛믪? CSV媛 濡쒖뺄/?덊룷???놁뼱(memory 罹먯떆紐⑸줉???덉쑝???ㅻЪ ?뚯씪
-誘몃낫????Google Drive 蹂닿? ?뺤콉) ?대쾲 ?몄뀡??吏곸젒 ?議?遺덇?.
-**lowspeed_a??TTC 4.18s???????щ?(4.45s)蹂대떎 ?ㅽ엳????
-湲됰컯??異뺤뿉 ?랁븿** ??留뚯빟 a3a55cb808???ㅼ륫 aLeadK媛 -1.5~-2.0
-洹쇱쿂?쇰㈃, lowspeed_a(-2.96)瑜????〓뒗 threshold??a3a55cb808??
-?뱀뿰?????〓뒗?ㅻ뒗 ?살? ?꾨땲吏留??쒕줈 ?ㅻⅨ 異?, **"aLeadK留?蹂대뒗
-?꾩옱 ?ㅺ퀎濡?a瑜?嫄몃윭?대젮硫?threshold瑜?留ㅼ슦 ?ш쾶(-3.0 ?댁긽) ?щ젮??
-?섍퀬, 洹?寃쎌슦 ????꾨쭔 aLeadK+湲됯꺽 TTC?섍컯 議고빀???ㅻⅨ 誘몃옒 ?щ?瑜?
-?볦튌 ?꾪뿕???덉쓬**.
+**[위험 신호] threshold만 올려서 "완전 제거"하면 원래 이 기능을
+정당화한 사례(58차2번, route `a3a55cb808` seg12, 실측 min TTC=4.45s)
+자체를 못 잡을 가능성이 큼.** `sim_low_speed_decel.py`의
+`scenario_B_event_reproduction()`을 코드로 확인해보니, 이 시나리오는
+**a_lead를 `LOW_SPEED_STRONG_DECEL_A_LEAD_THRESH` 상수 자체를 그대로
+가져다 쓰는 구조**(주석: "실측 근사치 -1.5~-2.0")라 **threshold를
+올리면 시나리오도 같이 올라가 버려서 항상 자동으로 PASS함 — 즉 이
+합성검증은 "threshold를 얼마로 올려도 무조건 통과"하는 동어반복이라
+threshold 인상의 안전성 근거로 쓸 수 없음(중요, 지금까지 이 맹점이
+인지되지 않았던 것으로 보임).** a3a55cb808의 진짜 실측 leadALeadK
+값은 CSV가 로컬/레포에 없어(memory 캐시목록엔 있으나 실물 파일
+미보유 — Google Drive 보관 정책) 이번 세션에 직접 대조 불가.
+**lowspeed_a의 TTC 4.18s는 이 원 사례(4.45s)보다 오히려 더
+급박한 축에 속함** — 만약 a3a55cb808의 실측 aLeadK가 -1.5~-2.0
+근처라면, lowspeed_a(-2.96)를 안 잡는 threshold는 a3a55cb808도
+당연히 안 잡는다는 뜻은 아니지만(서로 다른 축), **"aLeadK만 보는
+현재 설계로 a를 걸러내려면 threshold를 매우 크게(-3.0 이상) 올려야
+하고, 그 경우 저속+완만 aLeadK+급격 TTC하강 조합의 다른 미래 사례를
+놓칠 위험이 있음**.
 
-**?쒖븞 諛⑺뼢(肄붾뱶 蹂寃??? ?ъ슜???뺤씤 ?꾩슂) ??threshold 議곗젙???꾨땲??
-諛섏쓳 硫붿빱?덉쬁 援먯껜**:
-1. **臾몄젣??吏꾩쭨 ?먯씤 ?ъ젙??*: ?ъ슜?먭? "harsh"?섍쾶 ?먮겮??嫄?
-   aLeadK媛 threshold瑜??섎뒗?ㅻ뒗 ?ъ떎 ?먯껜媛 ?꾨땲?? **?섎뒗 ?쒓컙
-   weight媛 rise-rate ?놁씠 利됱떆 0.x??.0?쇰줈 ?ㅽ뀦(怨꾨떒)?쇰줈 ???
-   援ъ“** ?뚮Ц??媛?μ꽦???믪쓬(112李④퀎??媛 ?대? ?쒖븞?덈뜕 ?듭뀡2?
-   ?숈씪 諛⑺뼢, ?대쾲??TTC ?곗씠?곕줈 ?룸컺移?.
-2. **利됱떆 w=1.0 ???"鍮좊Ⅸ 怨좎젙?⑦봽"濡?援먯껜**: ??띻쾶?댄듃 議곌굔 ?깅┰
-   ?쒖뿉??danger override泥섎읆 利됱떆 1.0???꾨땲?? ?됱냼 rise-rate
-   (1.0/s)蹂대떎 ?⑥뵮 鍮좊Ⅸ ?꾩슜 rise-rate(?? 3.0/s, ?쒕떇 ???濡??곸듅.
-   **媛쒕왂 怨꾩궛**(?꾩옱 ?ㅼ륫 ?곗씠??湲곗? 異붿젙):
-   - lowspeed_a: 諛쒕룞?쒖젏 w_base??.150 ??3.0/s ?⑦봽硫?1.0 ?꾨떖源뚯?
-     ??0.28s. baseline ?먯뿰?섎졃(0.7s ??蹂대떎???ъ쟾??0.42s 鍮좊쫫
-     ??利?"TTC媛 4.18s源뚯? ?⑥뼱吏??湲됰컯??援ш컙?먯꽌 baseline蹂대떎
-     ?먮━寃?諛섏쓳?섎뒗" ?뚭????놁쓬.
-   - lowspeed_b遺?? 諛쒕룞?쒖젏 w_base??.000 ??3.0/s ?⑦봽硫???0.33s
-     ?뚯슂. baseline(1.0s ???섎졃)蹂대떎 0.67s 鍮좊쫫 ??留덉갔媛吏濡??댁젏
-     ?좎?.
-   - ?뺥솗??rise-rate 媛믪? 媛??먮굦)???꾨땲??`sim_low_speed_decel.py`
-     ?뺤옣(?꾩옱 tautology???쒕굹由ъ삤B瑜??ㅼ륫 怨좎젙媛믪쑝濡??듭빱留곹빐
-     ?ъ옉?? + 4媛??좉퇋 ?쇱슦??replay濡??쒕떇?댁빞 ?????대쾲 ?몄뀡?
-     諛⑺뼢 ?ㅼ?移섍퉴吏留? 肄붾뱶/?뺥솗???곸닔???ㅼ쓬 ?뱀씤 ??
-3. **(?듭뀡, 異붽? ?덉쟾?μ튂)** TTC媛 吏꾩쭨 danger 洹쇱젒(?? <=4.0~4.5s
-   洹쇱쿂)濡??⑥뼱吏???꾨젅?꾩뿉?쒕뒗 湲곗〈泥섎읆 利됱떆 1.0 ?좎?(danger
-   override? ?ъ떎???숆툒 痍④툒), TTC媛 洹몃낫???ъ쑀濡쒖슫 ?곹깭?먯꽌留?
-   ?⑦봽 ?곸슜 ???대윭硫?lowspeed_a???꾨컲遺(TTC 4.18~4.28s ?꾨젅????
-   ?ъ쟾??利됱떆 諛섏쓳, ?꾨컲遺(TTC 6.86~5.0s?)? lowspeed_b遺???꾩껜??
-   ?⑦봽濡??꾪솕. ?ㅻ쭔 寃뚯씠?멸? 2?⑥씠 ?섏뼱 蹂듭옟?꾧? ?섏뼱?섎뒗 ?몃젅?대뱶?ㅽ봽
-   ?덉쓬 ???⑥닚 3.0/s 怨좎젙?⑦봽 ?섎굹濡?異⑸텇?쒖? ?ㅼ쓬 ?몄뀡 sim?먯꽌 癒쇱?
-   ?뺤씤 ???꾩슂?쒖뿉留?異붽?.
+**제안 방향(코드 변경 전, 사용자 확인 필요) — threshold 조정이 아니라
+반응 메커니즘 교체**:
+1. **문제의 진짜 원인 재정의**: 사용자가 "harsh"하게 느끼는 건
+   aLeadK가 threshold를 넘는다는 사실 자체가 아니라, **넘는 순간
+   weight가 rise-rate 없이 즉시 0.x→1.0으로 스텝(계단)으로 튀는
+   구조** 때문일 가능성이 높음(112차계속2가 이미 제안했던 옵션2와
+   동일 방향, 이번에 TTC 데이터로 뒷받침).
+2. **즉시 w=1.0 대신 "빠른 고정램프"로 교체**: 저속게이트 조건 성립
+   시에도 danger override처럼 즉시 1.0이 아니라, 평소 rise-rate
+   (1.0/s)보다 훨씬 빠른 전용 rise-rate(예: 3.0/s, 튜닝 대상)로 상승.
+   **개략 계산**(현재 실측 데이터 기준 추정):
+   - lowspeed_a: 발동시점 w_base≈0.150 → 3.0/s 램프면 1.0 도달까지
+     약 0.28s. baseline 자연수렴(0.7s 후)보다는 여전히 0.42s 빠름
+     — 즉 "TTC가 4.18s까지 떨어지는 급박한 구간에서 baseline보다
+     느리게 반응하는" 회귀는 없음.
+   - lowspeed_b부수: 발동시점 w_base≈0.000 → 3.0/s 램프면 약 0.33s
+     소요. baseline(1.0s 후 수렴)보다 0.67s 빠름 — 마찬가지로 이점
+     유지.
+   - 정확한 rise-rate 값은 감(느낌)이 아니라 `sim_low_speed_decel.py`
+     확장(현재 tautology인 시나리오B를 실측 고정값으로 앵커링해
+     재작성) + 4개 신규 라우트 replay로 튜닝해야 함 — 이번 세션은
+     방향 스케치까지만, 코드/정확한 상수는 다음 승인 후.
+3. **(옵션, 추가 안전장치)** TTC가 진짜 danger 근접(예: <=4.0~4.5s
+   근처)로 떨어지는 프레임에서는 기존처럼 즉시 1.0 유지(danger
+   override와 사실상 동급 취급), TTC가 그보다 여유로운 상태에서만
+   램프 적용 — 이러면 lowspeed_a의 후반부(TTC 4.18~4.28s 프레임)는
+   여전히 즉시 반응, 전반부(TTC 6.86~5.0s대)와 lowspeed_b부수 전체는
+   램프로 완화. 다만 게이트가 2단이 되어 복잡도가 늘어나는 트레이드오프
+   있음 — 단순 3.0/s 고정램프 하나로 충분한지 다음 세션 sim에서 먼저
+   확인 후 필요시에만 추가.
 
-**?ъ슜???뺤씤/寃곗젙 ?꾩슂**:
-1. ??諛⑺뼢(threshold ?좎?, 諛섏쓳 硫붿빱?덉쬁??利됱떆?먰봽?믩튌瑜몃옩?꾨줈 援먯껜)
-   ?쇰줈 吏꾪뻾?좎?, ?꾨땲硫?洹몃옒??threshold瑜?異붽?濡??щ젮???????щ?
-   ?먯껜瑜??꾩삁 寃뚯씠??諛뽰쑝濡?類꾩?(?? ??寃쎌슦 a3a55cb808湲??щ???
-   誘몃옒 ?щ컻 ?꾪뿕??媛먯닔?쒕떎???섎??꾩쓣 ?몄? ?꾩슂).
-2. **a3a55cb808 seg12 ?먮낯 CSV(?먮뒗 zip) ?ы솗蹂?媛?ν븳吏** ????
-   feature ?꾩껜瑜??뺣떦?뷀븳 ?듭빱 ?щ????ㅼ륫 aLeadK瑜?吏곸젒 ?뺤씤?댁빞
-   threshold 愿???쇱쓽(1踰?瑜??쒕?濡??????덉쓬. ?놁쑝硫??대쾲 洹쇱궗移?
-   (-1.5~-2.0)瑜?洹몃?濡??좊ː?섍퀬 吏꾪뻾.
-3. ?뱀씤?섎㈃ ?ㅼ쓬 ?몄뀡?먯꽌 `sim_low_speed_decel.py` ?쒕굹由ъ삤B瑜?
-   鍮?tautology ?뺥깭濡??ъ옉??a_lead瑜?threshold? 蹂꾧컻??怨좎젙
-   ?ㅼ륫媛믪쑝濡??듭빱留? ???⑦봽 rise-rate ?꾨낫媛??ㅼ쐲 ??4媛??좉퇋
-   ?쇱슦??罹먯떆 ?쇱슦???꾩껜 ?뚭?寃利???`long_mpc.py` ?⑥튂 ??
+**사용자 확인/결정 필요**:
+1. 이 방향(threshold 유지, 반응 메커니즘을 즉시점프→빠른램프로 교체)
+   으로 진행할지, 아니면 그래도 threshold를 추가로 올려서 이 두 사례
+   자체를 아예 게이트 밖으로 뺄지(단, 이 경우 a3a55cb808급 사례의
+   미래 재발 위험을 감수한다는 의미임을 인지 필요).
+2. **a3a55cb808 seg12 원본 CSV(또는 zip) 재확보 가능한지** — 이
+   feature 전체를 정당화한 앵커 사례의 실측 aLeadK를 직접 확인해야
+   threshold 관련 논의(1번)를 제대로 할 수 있음. 없으면 이번 근사치
+   (-1.5~-2.0)를 그대로 신뢰하고 진행.
+3. 승인되면 다음 세션에서 `sim_low_speed_decel.py` 시나리오B를
+   비-tautology 형태로 재작성(a_lead를 threshold와 별개의 고정
+   실측값으로 앵커링) → 램프 rise-rate 후보값 스윕 → 4개 신규
+   라우트+캐시 라우트 전체 회귀검증 → `long_mpc.py` 패치 순.
 
-**肄붾뱶 蹂寃??놁쓬(?ㅺ퀎 諛⑺뼢 ?ㅼ?移섎쭔).**
+**코드 변경 없음(설계 방향 스케치만).**
 
-## 114李?(泥댄겕?ъ씤????margin_accel_weight ?ы븿 ?꾩쟾 ?ы쁽 ?꾨즺, [湲닿툒] 113李??좎떎 ?뺤씤, ?ъ슜???뺤씤 ?꾩슂) ??ROUTE1? ?대? ?댁냼??ROUTE2쨌3留?吏꾩쭨 臾몄젣
+## 114차 (체크포인트 — margin_accel_weight 포함 완전 재현 완료, [긴급] 113차 유실 확인, 사용자 확인 필요) — ROUTE1은 이미 해소됨/ROUTE2·3만 진짜 문제
 
-**[湲닿툒, 癒쇱? ?뺤씤] 113李?devnotes ?좎떎 諛쒓껄**: ?몄뀡 ?쒖옉 ??WIP.md 理쒖긽?⑥씠
-"112李?怨꾩냽2"???113李???ぉ ?놁쓬). ?뺤씤 寃곌낵 `toolkit/replay_rise_rate_
-saturation.py`(113李④? 留뚮뱾?덈떎怨?FINDINGS.md??湲곕줉???좉퇋 ?ㅽ겕由쏀듃)媛
-**?덊룷??議댁옱?섏? ?딆쓬** ??`toolkit/README.md`/`CHANGELOG.md`?먮룄 ?깅줉
-???? FINDINGS.md 113李??쒖닠 ?띿뒪?몃쭔 ?댁븘?④퀬 ?ㅽ겕由쏀듃 ?뚯씪 ?먯껜?
-WIP.md 113李???ぉ? 而⑦뀒?대꼫 由ъ뀑?쇰줈 ?좎떎??寃껋쑝濡?異붿젙(SETUP.md
-"寃利??ㅽ겕由쏀듃????긽 toolkit????? ?먯튃???덉뿀?뚯뿉???대쾲??
-吏耳쒖?吏 紐삵븿 ???먯씤 誘몄긽, 而ㅻ컠 ?덉뒪?좊━ ?먯껜媛 ?대쾲 ?몄뀡 ?쒖옉 ??
-?⑥씪 "?ъ옉?? 而ㅻ컠(`5d0c517`)?쇰줈 ?⑥븘?덉뼱 ?몄뀡 以묎컙 由ъ뀑 ?쒖젏 ?뱀젙 遺덇?).
-**?ъ슜???뺤씤 ?꾩슂**: 濡쒖뺄??`replay_rise_rate_saturation.py` 諛깆뾽??
-?덈뒗吏 ?뺤씤 ?붾쭩(?덈떎硫??꾨옒 114李??ㅽ겕由쏀듃? 蹂꾧컻濡?蹂댁〈 沅뚯옣).
+**[긴급, 먼저 확인] 113차 devnotes 유실 발견**: 세션 시작 시 WIP.md 최상단이
+"112차 계속2"였음(113차 항목 없음). 확인 결과 `toolkit/replay_rise_rate_
+saturation.py`(113차가 만들었다고 FINDINGS.md에 기록된 신규 스크립트)가
+**레포에 존재하지 않음** — `toolkit/README.md`/`CHANGELOG.md`에도 등록
+안 됨. FINDINGS.md 113차 서술 텍스트만 살아남고 스크립트 파일 자체와
+WIP.md 113차 항목은 컨테이너 리셋으로 유실된 것으로 추정(SETUP.md
+"검증 스크립트는 항상 toolkit에 저장" 원칙이 있었음에도 이번엔
+지켜지지 못함 — 원인 미상, 커밋 히스토리 자체가 이번 세션 시작 시
+단일 "재작성" 커밋(`5d0c517`)으로 남아있어 세션 중간 리셋 시점 특정 불가).
+**사용자 확인 필요**: 로컬에 `replay_rise_rate_saturation.py` 백업이
+있는지 확인 요망(있다면 아래 114차 스크립트와 별개로 보존 권장).
 
-**?묒뾽**: 113李④? 誘몃， 怨쇱젣("margin_accel_weight(dist_w)源뚯? ?ы븿???꾩쟾
-?ы쁽") ?섑뻾. ?좉퇋 `toolkit/replay_margin_accel_weight_full.py` ?묒꽦 ??
-`long_mpc.py`??desired_distance 泥댁씤(`get_safe_obstacle_distance`/
-`desired_follow_distance`/`carrot.get_T_FOLLOW`)??**carrot_functions.py??
-Params 湲곕낯媛?*(TFollowGap2=1.20/ComfortBrake=2.4/StopDistanceCarrot=5.5/
-EnableSpeedTF=0/DynamicTFollow=0/MyDrivingMode=Normal)?쇰줈 ??낇빐 ?ы쁽.
-`margin_accel_weight`/`ttc_accel_weight`肉??꾨땲??**LOW_SPEED_STRONG_DECEL
-寃뚯씠??+ TTC danger override(????rise-rate ?고쉶, w=1.0 利됱떆 ?곸슜)源뚯?
-?ы븿** ????遺遺꾩씠 113李??좎떎) ?ㅽ겕由쏀듃??鍮좎졇?덉뿀??媛?μ꽦???믪쓬(?꾨옒
-?듭떖諛쒓껄 李멸퀬, 吏곸젒 ?議곕뒗 ?뚯씪???놁뼱 遺덇?).
+**작업**: 113차가 미룬 과제("margin_accel_weight(dist_w)까지 포함한 완전
+재현") 수행. 신규 `toolkit/replay_margin_accel_weight_full.py` 작성 —
+`long_mpc.py`의 desired_distance 체인(`get_safe_obstacle_distance`/
+`desired_follow_distance`/`carrot.get_T_FOLLOW`)을 **carrot_functions.py의
+Params 기본값**(TFollowGap2=1.20/ComfortBrake=2.4/StopDistanceCarrot=5.5/
+EnableSpeedTF=0/DynamicTFollow=0/MyDrivingMode=Normal)으로 대입해 재현.
+`margin_accel_weight`/`ttc_accel_weight`뿐 아니라 **LOW_SPEED_STRONG_DECEL
+게이트 + TTC danger override(둘 다 rise-rate 우회, w=1.0 즉시 적용)까지
+포함** — 이 부분이 113차(유실) 스크립트에 빠져있었을 가능성이 높음(아래
+핵심발견 참고, 직접 대조는 파일이 없어 불가).
 
-**?듭떖 諛쒓껄 (以묒슂, 113李?寃곕줎 ?뺤젙)**:
-1. **ROUTE1 saturation: 0.951s(113李? ??0.250s(114李? danger override
-   ?ы븿)濡????媛먯냼.** ?꾨젅?꾨퀎 ?議?寃곌낵 t=1939.173(aLeadK=-2.76)?먯꽌
-   `LOW_SPEED_STRONG_DECEL`(112李④? ?대? -1.8??2.5濡?媛뺥솕, ?꾩옱 origin??
-   諛섏쁺???곹깭)???뺥솗??諛쒕룞??saturation??0.25s留뚯뿉 ?딆뼱踰꾨┝ ??
-   SMOOTH??0.298s? 嫄곗쓽 ?숆툒. 113李⑥쓽 0.951s??112李④퀎????
-   "override ?녿뒗 baseline ?먯뿰?섎졃" ?섏튂(?ㅻⅨ 吏덈Ц???????瑜?
-   "?꾩옱 肄붾뱶??saturation"?쇰줈 ?섎せ ?쒖뿉 ?ｌ뿀??媛?μ꽦?????ㅽ겕由쏀듃媛
-   ?놁뼱 吏곸젒 ?議?遺덇?, 異붿젙).
-   **??ROUTE1? ?대? 112李??⑥튂濡??ъ떎???댁냼??寃껋쑝濡??ы룊媛.**
-2. **ROUTE2(0.999s)/ROUTE3(0.903s)??113李⑥? 嫄곗쓽 ?숈씪** ?????쇱슦????
-   `LOW_SPEED_STRONG_DECEL`(v_ego>30km/h??寃뚯씠??諛?/TTC danger(ttc>2.5s
-   ?좎?) ?대뒓 override????嫄몃━怨? rise-rate ?대옩?꾧? ?⑥쟾??紐⑺몴瑜?
-   ?ㅼ쳯??怨쇱젙??洹몃?濡?嫄곗묠 ??**?????쇱슦?멸? ?ㅼ젣 ?⑥? 臾몄젣.**
-3. **margin_accel_weight(dist_w)??4?쇱슦???대깽??援ш컙 ?꾨??먯꽌 1.000
-   怨좎젙**(dRel/desired_distance ratio媛 GATE_NONE 諛? ??利?113李④?
-   ?곕젮??"dist_w 洹쇱궗 ?ㅼ감濡??명븳 怨쇰??됯?"??**??4媛??대깽?몄뿉 ?쒗빐?쒕뒗
-   湲곗슦???*(dist_w媛 泥섏쓬遺???꾩삁 ??嫄몃┝, ttc_w/override留뚯씠
-   ?좏슚?덉쓬). ?ㅻ쭔 ?대뒗 ?대쾲 4媛??щ???援?븳??愿李???怨좎냽/?κ굅由?異붿쥌
-   ?쒕굹由ъ삤?먯꽌??dist_w媛 ?ㅼ젣濡??묐룞?????덉쓬(38李????щ? 李멸퀬),
-   ?쇰컲??湲덉?.
-4. **[?좉퇋 寃쎄퀬, ?먮퀎吏???ш????꾩슂] SMOOTH ?쇱슦???꾩껜 ?ㅼ틪?먯꽌
-   0.448s ?먰뵾?뚮뱶 諛쒓껄(t??794.13, 遺꾩꽍 ??곸씠??t??768.92/0.298s
-   ?대깽?몄???蹂꾧컻 吏??** ???꾨젅???議?寃곌낵 t=5794.573?먯꽌 dRel??
-   23.28??1.70m, vLead媛 6.19??3.75m/s濡??쒓컙 ?먰봽(track-switch/?ы쉷??
-   ?꾪떚?⑺듃濡?異붿젙, radarTrackId 誘명솗????ttc_w媛 ?몄쐞?곸쑝濡?移섏넖??
-   ?딄릿 寃껋쑝濡?蹂댁엫 ??**吏꾩쭨 ?꾪뿕 媛먯냽???꾨땶?곕룄 ROUTE1??理쒕?
-   saturation(0.25s)蹂대떎 湲?0.448s瑜?湲곕줉**. 113李④? ?쒖븞??"SMOOTH
-   理쒖옣 0.298s / harsh 理쒖냼 0.903s ?ъ씠 ?대뵒???덉쟾??遺꾨━???대씪??
-   ?꾩젣媛 114李??곗씠?곕줈??源⑥쭚(SMOOTH ?대???0.448s ?몄씠利덉꽦
-   ?먰뵾?뚮뱶 議댁옱, ROUTE1? ?댁젣 0.25s濡?SMOOTH蹂대떎 ?ㅽ엳????쓬) ??
-   **?⑥닚 threshold ?섎굹濡쒕뒗 紐?媛瑜몃떎.** ?곸꽭??FINDINGS.md 李멸퀬.
+**핵심 발견 (중요, 113차 결론 정정)**:
+1. **ROUTE1 saturation: 0.951s(113차) → 0.250s(114차, danger override
+   포함)로 대폭 감소.** 프레임별 대조 결과 t=1939.173(aLeadK=-2.76)에서
+   `LOW_SPEED_STRONG_DECEL`(112차가 이미 -1.8→-2.5로 강화, 현재 origin에
+   반영된 상태)이 정확히 발동해 saturation을 0.25s만에 끊어버림 —
+   SMOOTH의 0.298s와 거의 동급. 113차의 0.951s는 112차계속2의
+   "override 없는 baseline 자연수렴" 수치(다른 질문에 대한 답)를
+   "현재 코드의 saturation"으로 잘못 표에 넣었을 가능성이 큼(스크립트가
+   없어 직접 대조 불가, 추정).
+   **→ ROUTE1은 이미 112차 패치로 사실상 해소된 것으로 재평가.**
+2. **ROUTE2(0.999s)/ROUTE3(0.903s)는 113차와 거의 동일** — 두 라우트 다
+   `LOW_SPEED_STRONG_DECEL`(v_ego>30km/h라 게이트 밖)/TTC danger(ttc>2.5s
+   유지) 어느 override도 안 걸리고, rise-rate 클램프가 온전히 목표를
+   뒤쫓는 과정을 그대로 거침 — **이 두 라우트가 실제 남은 문제.**
+3. **margin_accel_weight(dist_w)는 4라우트 이벤트 구간 전부에서 1.000
+   고정**(dRel/desired_distance ratio가 GATE_NONE 밑) — 즉 113차가
+   우려한 "dist_w 근사 오차로 인한 과대평가"는 **이 4개 이벤트에 한해서는
+   기우였음**(dist_w가 처음부터 아예 안 걸림, ttc_w/override만이
+   유효했음). 다만 이는 이번 4개 사례에 국한된 관찰 — 고속/장거리 추종
+   시나리오에서는 dist_w가 실제로 작동할 수 있음(38차 원 사례 참고),
+   일반화 금지.
+4. **[신규 경고, 판별지표 재검토 필요] SMOOTH 라우트 전체 스캔에서
+   0.448s 에피소드 발견(t≈5794.13, 분석 대상이던 t≈5768.92/0.298s
+   이벤트와는 별개 지점)** — 프레임 대조 결과 t=5794.573에서 dRel이
+   23.28→11.70m, vLead가 6.19→13.75m/s로 순간 점프(track-switch/재획득
+   아티팩트로 추정, radarTrackId 미확인)해 ttc_w가 인위적으로 치솟다
+   끊긴 것으로 보임 — **진짜 위험 감속이 아닌데도 ROUTE1의 최대
+   saturation(0.25s)보다 긴 0.448s를 기록**. 113차가 제안한 "SMOOTH
+   최장 0.298s / harsh 최소 0.903s 사이 어디든 안전한 분리선"이라는
+   전제가 114차 데이터로는 깨짐(SMOOTH 내부에 0.448s 노이즈성
+   에피소드 존재, ROUTE1은 이제 0.25s로 SMOOTH보다 오히려 낮음) —
+   **단순 threshold 하나로는 못 가른다.** 상세는 FINDINGS.md 참고.
 
-**?꾩껜 ?쇱슦??threshold ?ㅼ쐲 寃곌낵(?ㅽ깘瑜??뺤씤, `scan_route_saturation_
-episodes`)**: FINDINGS.md 114李???李멸퀬 ???붿빟?섎㈃ 0.40s 臾명꽦 湲곗?
-SMOOTH 1嫄?ROUTE1 0嫄?ROUTE2 4嫄?ROUTE3 2嫄?嫄몃┝. ROUTE1???댁젣 ??
-threshold?먯꽌 0嫄댁씠??理쒕? 0.25s) ?좎큹??"????硫붿빱?덉쬁???꾩슂??
-?щ?" 紐⑸줉?먯꽌 鍮좎???????**113李④? ?몄썱??"ROUTE1????쒖궗濡濡?
-???듯빀 ?몃━嫄? ?ㅺ퀎 ?꾩젣 ?먯껜瑜??ш??좏빐????**
+**전체 라우트 threshold 스윕 결과(오탐률 확인, `scan_route_saturation_
+episodes`)**: FINDINGS.md 114차 표 참고 — 요약하면 0.40s 문턱 기준
+SMOOTH 1건/ROUTE1 0건/ROUTE2 4건/ROUTE3 2건 걸림. ROUTE1이 이제 전
+threshold에서 0건이라(최대 0.25s) 애초에 "이 새 메커니즘이 필요한
+사례" 목록에서 빠지는 셈 — **113차가 세웠던 "ROUTE1을 대표사례로
+한 통합 트리거" 설계 전제 자체를 재검토해야 함.**
 
-**?ㅼ쓬 ?몄뀡(?ъ슜???뺤씤 ??吏꾪뻾, 諛⑺뼢 誘명솗??**:
-1. **?먮퀎吏???ъ꽕怨?*: ?꾩옱 "?곗냽 saturation ?쒓컙" ?⑥씪 吏?쒕줈??
-   SMOOTH??track-switch ?몄씠利?0.448s)瑜?紐?嫄곕쫫 ??radarTrackId
-   遺덉뿰??泥댄겕(63李?諛⑹븞C/D ?먯궛 ?ъ궗??媛?μ꽦)瑜?異붽? 寃뚯씠?몃줈
-   寃고빀?좎? 寃??
-2. **ROUTE2/ROUTE3 ?꾩슜 ?묎렐?쇰줈 異뺤냼?좎? ?먮떒**: ROUTE1??鍮좎?誘濡?
-   "???怨좎냽 怨듯넻 ?쇰컲???몃━嫄?蹂대떎 "怨좎냽 異붿쥌 以?rise-rate
-   ?μ떆媛???.9s+) saturation" 醫곸? ?쒕굹由ъ삤濡?踰붿쐞瑜?醫곹엳????寃??
-3. (怨꾩냽) 臾명꽦 ?ㅼ쐲 異붽? ?쇱슦???뺣낫 ???대쾲 ?몄뀡? 湲곗〈 4?쇱슦??
-   ?ъ궗?⑸퓧, ?좉퇋 ?쇱슦???놁쓬(?ъ슜?먭? ?쒓났???뚯씪 2嫄?紐⑤몢 湲곗〈
-   112/113李??쇱슦?몄쓽 ?ъ뾽濡쒕뱶???.
-4. 113李??좎떎 ?ㅽ겕由쏀듃 諛깆뾽 ?щ? ?ъ슜???뺤씤.
-5. 諛⑺뼢 ?뺤젙 ??`long_mpc.py` ?⑥튂 援ы쁽.
+**다음 세션(사용자 확인 후 진행, 방향 미확정)**:
+1. **판별지표 재설계**: 현재 "연속 saturation 시간" 단일 지표로는
+   SMOOTH의 track-switch 노이즈(0.448s)를 못 거름 — radarTrackId
+   불연속 체크(63차 방안C/D 자산 재사용 가능성)를 추가 게이트로
+   결합할지 검토.
+2. **ROUTE2/ROUTE3 전용 접근으로 축소할지 판단**: ROUTE1이 빠지므로
+   "저속+고속 공통 일반화 트리거"보다 "고속 추종 중 rise-rate
+   장시간(≈0.9s+) saturation" 좁은 시나리오로 범위를 좁히는 안 검토.
+3. (계속) 문턱 스윕 추가 라우트 확보 — 이번 세션은 기존 4라우트
+   재사용뿐, 신규 라우트 없음(사용자가 제공한 파일 2건 모두 기존
+   112/113차 라우트의 재업로드였음).
+4. 113차 유실 스크립트 백업 여부 사용자 확인.
+5. 방향 확정 후 `long_mpc.py` 패치 구현.
 
-**?대쾲 ?몄뀡 蹂寃??뚯씪**: `devnotes`: `toolkit/replay_margin_accel_weight_
-full.py`(?좉퇋), `toolkit/README.md`, `toolkit/CHANGELOG.md`,
-`FINDINGS.md`(114李?, `LAST_ANALYZED.md`, ??WIP.md ??ぉ. `ryu` 肄붾뱶
-蹂寃??놁쓬(遺꾩꽍留?.
+**이번 세션 변경 파일**: `devnotes`: `toolkit/replay_margin_accel_weight_
+full.py`(신규), `toolkit/README.md`, `toolkit/CHANGELOG.md`,
+`FINDINGS.md`(114차), `LAST_ANALYZED.md`, 이 WIP.md 항목. `ryu` 코드
+변경 없음(분석만).
 
-CSV(`smooth.csv`/`r1.csv`/`r2.csv`/`r3.csv`)???꾨줈?앺듃 ?뺤콉(?덊룷 而ㅻ컠
-湲덉?)???곕씪 devnotes??而ㅻ컠?섏? ?딆쓬 ??`/home/claude/work/`?먮쭔 議댁옱,
-而⑦뀒?대꼫 由ъ뀑 ???뚯떎. Google Drive 而ㅻ꽖??誘몄뿰寃곗씠???대쾲 ?몄뀡?
-work/ ?ㅽ겕?섏튂濡쒕쭔 ????**?ъ궗???꾩슂?섎㈃ ?ㅼ쓬 ?몄뀡?먯꽌 ?먮낯 zip
-?ъ뾽濡쒕뱶 ?꾩슂**(114李??ㅽ겕由쏀듃留??덉쑝硫??ъ텛異쒖? 鍮좊쫫).
-
----
-
-## 112李?怨꾩냽2 (泥댄겕?ъ씤????[以묒슂 ?뺤젙] replay 寃利?寃곌낵 threshold 媛뺥솕 ?④낵 ?ъ젙?됲솕, ?ъ슜???먮떒 ?꾩슂) ??"?ㅽ깘 ?쒓굅"媛 ?꾨땲??"議곌린諛쒕룞 46% ?⑥텞"
-
-**?묒뾽**: ?ъ슜?먭? ?쇱슦?? ?먮낯 CSV ?ъ뾽濡쒕뱶 ??`extract_log.py` ?ъ텛異?
-???좉퇋 `toolkit/replay_low_speed_strong_decel.py`濡??ㅼ륫 replay 寃利?
-
-**?듭떖 諛쒓껄**: 湲곗〈 112李⑥쓽 "?쇱긽 ?쒕룞?먮룄 嫄몃━???ㅽ깘" ?먯젙? ?⑥씪
-?쒖젏(aLeadK=-2.07)留?蹂?遺덉셿?꾪븳 遺꾩꽍?댁뿀?? ?ㅼ륫 ?꾩껜 沅ㅼ쟻? aLeadK媛
-理쒕? -2.96源뚯? ?낇솕?섎뒗 **吏꾩쭨 吏?띿쟻 媛먯냽 ?대깽??*?怨? TTC??媛숈?
-援ш컙?먯꽌 6.85s??.15s濡??먯뿰 ?섍컯??**?ㅻ쾭?쇱씠???놁씠???뺤긽寃쎈줈媛
-t=1939.873???먯뿰 ?섎졃**?덉쓣 寃껋쑝濡??뺤씤(baseline ?쒕??덉씠??.
-threshold 媛뺥솕(-1.8??2.5)???ㅼ젣 ?④낵??"議곌린諛쒕룞 援ш컙 0.754s??.410s
-(??46%) ?⑥텞"?댁? "?ㅽ깘 ?쒓굅"媛 ?꾨떂. ?곸꽭 ?섏튂??FINDINGS.md 112李?
-怨꾩냽2 李멸퀬.
-
-**?ㅼ쓬(?ъ슜???뺤씤 ?꾩슂 ??3媛吏 諛⑺뼢 以??좏깮)**:
-1. ?꾩옱 ?⑥튂瑜?"遺遺?媛쒖꽑"?쇰줈 ?몄젙?섍퀬 洹몃?濡??ㅼ감寃利?吏꾪뻾.
-2. ?ㅻ쾭?쇱씠???꾩슜 吏㏃? 怨좎젙?⑦봽(??0.2~0.3s) ?덉땐??異붽? 寃??
-   (湲곌컖??"rise-rate ?꾩껜 ?섏궡由ш린"????ㅻⅨ ?묎렐).
-3. ?대쾲 ?대깽?멸? ?ㅼ젣濡?媛뺥븳 媛먯냽?댁뿀?쇰?濡??꾩옱 諛섏쓳???곸젅?덉쓣
-   媛?μ꽦???댁뼱?먭퀬 ?쇱슦??/3怨??④퍡 ?ㅼ감寃利앹뿉???ы룊媛.
-
-**?대쾲 ?몄뀡 蹂寃??뚯씪**: `devnotes`: `toolkit/
-replay_low_speed_strong_decel.py`(?좉퇋), `toolkit/README.md`,
-`toolkit/CHANGELOG.md`, `FINDINGS.md`(112李?怨꾩냽2), ??WIP.md ??ぉ.
-`ryu` 肄붾뱶 蹂寃??놁쓬(吏???뚯감 ?⑥튂 洹몃?濡??좎?, ?섎룎由ъ? ?딆쓬 ??
-?ъ슜???먮떒 ?꾧퉴吏 蹂댁닔?곸쑝濡??꾩긽 ?좎?).
+CSV(`smooth.csv`/`r1.csv`/`r2.csv`/`r3.csv`)는 프로젝트 정책(레포 커밋
+금지)에 따라 devnotes에 커밋하지 않음 — `/home/claude/work/`에만 존재,
+컨테이너 리셋 시 소실. Google Drive 커넥터 미연결이라 이번 세션은
+work/ 스크래치로만 둠 — **재사용 필요하면 다음 세션에서 원본 zip
+재업로드 필요**(114차 스크립트만 있으면 재추출은 빠름).
 
 ---
 
-## 112李?怨꾩냽 (泥댄겕?ъ씤?????쇱슦?? ?⑥튂 援ы쁽+?⑥쐞寃利??꾨즺, replay寃利?蹂대쪟) ??LOW_SPEED_STRONG_DECEL threshold 媛뺥솕 + jerk_boost ?좉퇋 ?뚯뒪 異붽?
+## 112차 계속2 (체크포인트 — [중요 정정] replay 검증 결과 threshold 강화 효과 재정량화, 사용자 판단 필요) — "오탐 제거"가 아니라 "조기발동 46% 단축"
 
-**?묒뾽**: 112李?????ぉ) ?⑹쓽 諛⑺뼢?濡?`long_mpc.py` 援ы쁽 ?꾨즺:
-1. `LOW_SPEED_STRONG_DECEL_A_LEAD_THRESH`: -1.8 ??-2.5.
-2. `discontinuity_jerk_boost`???좉퇋 ?몃━嫄??뚯뒪 `low_speed_strong_decel`
-   異붽? (handoff/discontinuity_lc? ?숈씪??hold 4.0s+release 100/s
-   寃쎈줈 ?ъ궗?? danger 吏??以묒뿏 base ?좎?쨌?댁젣 ?꾩뿉留??꾨쭔????rise-rate
-   ?섏궡由ш린 湲곌컖 寃곗젙怨??뺥빀).
-3. `toolkit/sim_low_speed_decel.py` ?뺤옣: ?쒕굹由ъ삤 E/F/G 異붽?, 湲곗〈 B??
-   threshold ?곸닔 李몄“濡??섏젙. **7/7 PASS**.
+**작업**: 사용자가 라우트1 원본 CSV 재업로드 → `extract_log.py` 재추출
+→ 신규 `toolkit/replay_low_speed_strong_decel.py`로 실측 replay 검증.
 
-**蹂대쪟(?ㅼ쓬 ?몄뀡 理쒖슦??**: ?쇱슦?? ?먮낯 CSV媛 而⑦뀒?대꼫???놁뼱(?덊룷
-誘몄빱諛??뺤콉 + 而⑦뀒?대꼫 由ъ뀑, Drive 誘몄뿰寃? replay 寃利?遺덇? ???ъ슜?먭?
-?쇱슦?? CSV ?먮뒗 ?먮낯 zip ?ъ뾽濡쒕뱶 ?꾩슂. ?댄썑 ?쒖꽌:
-1. `patched_replay` 怨꾩뿴濡??쇱슦?? ?ㅼ륫 replay 寃利?(min_aEgo/吏?띿떆媛?
-   ?⑥튂 ?꾪썑 鍮꾧탳).
-2. `git format-patch`濡??⑥튂 ?뚯씪 ?앹꽦쨌?꾨떖.
-3. ?쇱슦??/3 a_change_cost boost ?뺤옣 ?щ????쇱슦?? ?ㅼ감寃利?寃곌낵
-   蹂닿퀬 ?щ끉??湲곗〈 ?⑹쓽 ?좎?).
+**핵심 발견**: 기존 112차의 "일상 제동에도 걸리는 오탐" 판정은 단일
+시점(aLeadK=-2.07)만 본 불완전한 분석이었음. 실측 전체 궤적은 aLeadK가
+최대 -2.96까지 악화되는 **진짜 지속적 감속 이벤트**였고, TTC도 같은
+구간에서 6.85s→4.15s로 자연 하강해 **오버라이드 없이도 정상경로가
+t=1939.873에 자연 수렴**했을 것으로 확인(baseline 시뮬레이션).
+threshold 강화(-1.8→-2.5)의 실제 효과는 "조기발동 구간 0.754s→0.410s
+(약 46%) 단축"이지 "오탐 제거"가 아님. 상세 수치는 FINDINGS.md 112차
+계속2 참고.
 
-**?대쾲 ?몄뀡 蹂寃??뚯씪**: `ryu`: `selfdrive/controls/lib/
+**다음(사용자 확인 필요 — 3가지 방향 중 선택)**:
+1. 현재 패치를 "부분 개선"으로 인정하고 그대로 실차검증 진행.
+2. 오버라이드 전용 짧은 고정램프(예 0.2~0.3s) 절충안 추가 검토
+   (기각된 "rise-rate 전체 되살리기"와는 다른 접근).
+3. 이번 이벤트가 실제로 강한 감속이었으므로 현재 반응이 적절했을
+   가능성도 열어두고 라우트2/3과 함께 실차검증에서 재평가.
+
+**이번 세션 변경 파일**: `devnotes`: `toolkit/
+replay_low_speed_strong_decel.py`(신규), `toolkit/README.md`,
+`toolkit/CHANGELOG.md`, `FINDINGS.md`(112차 계속2), 이 WIP.md 항목.
+`ryu` 코드 변경 없음(지난 회차 패치 그대로 유지, 되돌리지 않음 —
+사용자 판단 전까지 보수적으로 현상 유지).
+
+---
+
+## 112차 계속 (체크포인트 — 라우트1 패치 구현+단위검증 완료, replay검증 보류) — LOW_SPEED_STRONG_DECEL threshold 강화 + jerk_boost 신규 소스 추가
+
+**작업**: 112차(위 항목) 합의 방향대로 `long_mpc.py` 구현 완료:
+1. `LOW_SPEED_STRONG_DECEL_A_LEAD_THRESH`: -1.8 → -2.5.
+2. `discontinuity_jerk_boost`에 신규 트리거 소스 `low_speed_strong_decel`
+   추가 (handoff/discontinuity_lc와 동일한 hold 4.0s+release 100/s
+   경로 재사용, danger 지속 중엔 base 유지·해제 후에만 완만화 — rise-rate
+   되살리기 기각 결정과 정합).
+3. `toolkit/sim_low_speed_decel.py` 확장: 시나리오 E/F/G 추가, 기존 B는
+   threshold 상수 참조로 수정. **7/7 PASS**.
+
+**보류(다음 세션 최우선)**: 라우트1 원본 CSV가 컨테이너에 없어(레포
+미커밋 정책 + 컨테이너 리셋, Drive 미연결) replay 검증 불가 — 사용자가
+라우트1 CSV 또는 원본 zip 재업로드 필요. 이후 순서:
+1. `patched_replay` 계열로 라우트1 실측 replay 검증 (min_aEgo/지속시간
+   패치 전후 비교).
+2. `git format-patch`로 패치 파일 생성·전달.
+3. 라우트2/3 a_change_cost boost 확장 여부는 라우트1 실차검증 결과
+   보고 재논의(기존 합의 유지).
+
+**이번 세션 변경 파일**: `ryu`: `selfdrive/controls/lib/
 longitudinal_mpc_lib/long_mpc.py`. `devnotes`: `toolkit/
 sim_low_speed_decel.py`, `toolkit/README.md`, `toolkit/CHANGELOG.md`,
-`FINDINGS.md`(112李?怨꾩냽 ??ぉ), ??WIP.md ??ぉ.
+`FINDINGS.md`(112차 계속 항목), 이 WIP.md 항목.
 
 ---
 
-## 112李?(泥댄겕?ъ씤?????먯씤 ?뺤젙, ?⑥튂 諛⑺뼢 ?쇱쓽 ?꾨즺, 肄붾뱶 蹂寃??놁쓬) ??"??띿＜?됱쨷 ?욎감 ?쒗뻾/?뺤???湲됯컧?? ?쒕낫 3?쇱슦??遺꾩꽍, ?쇱슦?? LOW_SPEED_STRONG_DECEL 寃뚯씠???ㅽ깘 ?뺤젙
+## 112차 (체크포인트 — 원인 확정, 패치 방향 논의 완료, 코드 변경 없음) — "저속주행중 앞차 서행/정지시 급감속" 제보 3라우트 분석, 라우트1 LOW_SPEED_STRONG_DECEL 게이트 오탐 확정
 
-**?붿껌**: ?ъ슜?먭? "??띿＜?됯툒媛?Zip"(??쒖틺 ?대┰ 3嫄?+ route 3嫄?
+**요청**: 사용자가 "저속주행급감.Zip"(대시캠 클립 3건 + route 3건,
 `00000336--4a688572c0`(seg10-11), `00000338--c60bf8189f`(seg9-11),
-`00000339--ce1f43d848`(seg4-6)) ?낅줈?? "??띿＜?됱떆 ?욎감媛 ?쒗뻾?섍굅??
-?뺤????댁감媛 湲됲븯寃??뺤?"?섎뒗 利앹긽 ?쒕낫 + 遺?쒕윭???뺤? 肄붾뵫 ?붿껌.
+`00000339--ce1f43d848`(seg4-6)) 업로드, "저속주행시 앞차가 서행하거나
+정지시 내차가 급하게 정지"하는 증상 제보 + 부드러운 정지 코딩 요청.
 
-**?묒뾽**: extract_log.py濡?3?쇱슦??CSV 異붿텧(commit `02e1f9355f42`,
-c3-ms-dev) ??媛??쇱슦??理쒖? aEgo 援ш컙 ?뺤씤 ??`leadALeadK` ?꾨뱶源뚯?
-?ы븿???ъ텛異쑣룹떆怨꾩뿴 遺꾩꽍(3嫄?紐⑤몢 radar=True ?ㅼ젣 由щ뱶, danger
-override TTC??.5s 臾명꽦? 遺덉묠踰??뺤씤).
+**작업**: extract_log.py로 3라우트 CSV 추출(commit `02e1f9355f42`,
+c3-ms-dev) → 각 라우트 최저 aEgo 구간 확인 → `leadALeadK` 필드까지
+포함해 재추출·시계열 분석(3건 모두 radar=True 실제 리드, danger
+override TTC≤2.5s 문턱은 불침범 확인).
 
-**寃곌낵 (?쇱슦?몃퀎 ?먯씤 ?곸씠 ??以묒슂)**:
-1. **?쇱슦??(t??940, 理쒖? aEgo=-2.58, vEgo 14~20km/h)**: 紐낇솗??踰꾧렇.
-   t=1938.97??`aLeadK=-2.07`(vEgo=19.2km/h, <30km/h 寃뚯씠?? ?쒖젏??
-   `LOW_SPEED_STRONG_DECEL`(58李?踰? `V_EGO_GATE=30km/h`/
-   `A_LEAD_THRESH=-1.8m/s짼`) ?뺥솗??諛쒕룞 ?뺤씤 ?????쒓컙 `w=1.0` 利됱떆
-   ?곸슜?섎ŉ `LEAD_ACCEL_WEIGHT_RISE_RATE` rise-rate ?쒗븳源뚯? ?꾩쟾
-   ?고쉶. ??0.7~1珥???aEgo媛 -0.5??2.58源뚯? 湲됰씫(t=1939.5~1940.07).
-   ??援ш컙 dRel 8~9m濡??ъ쑀 ?덉뿀???ㅼ젣 ?꾪뿕 ?꾨떂). **58李?踰덉쓽 ?먮옒
-   紐⑹쟻(?뺤껜援ш컙 ?ъ텧??遺뺣걮 ???怨?臾닿??섍쾶, ?됰쾾???쇱긽 ?쒕룞
-   媛뺣룄(-1.8m/s짼)?먮룄 嫄몃━??臾명꽦???덈Т ??퀬 ?꾩땐 ?놁씠 ?媛뺣룄濡?
-   ???寃껋씠 ?먯씤.**
-2. **?쇱슦??(t??376, 理쒖? aEgo=-4.02, vEgo 33~44km/h)/?쇱슦??(t??221,
-   理쒖? aEgo=-2.18, vEgo 30~39km/h)**: `LOW_SPEED_STRONG_DECEL` 寃뚯씠??
-   **誘몃컻??*(vEgo媛 30km/h 珥덇낵 援ш컙?먯꽌 由щ뱶 媛뺥븳 媛먯냽 諛쒖깮, 寃뚯씠??
-   議곌굔 ?먯껜媛 ??嫄몃┝). `ttc_accel_weight`/`margin_accel_weight` ?뺤긽
-   寃쎈줈濡?w媛 ?쒖꽌???곸듅 ??ego ?묐떟(-4.02, -2.18)??由щ뱶 ?ㅼ륫 媛먯냽
-   (aLeadK 理쒕? -4.2, -2.0)怨??泥대줈 鍮꾨?. **?ㅺ퀎?濡??숈옉???뺤긽
-   耳?댁뒪??媛源뚯?**(?ㅻ쭔 泥닿컧??湲됲븯寃??먭뺨吏????덉쓬, ?꾨떖 怨쇱젙
-   jerk ?꾩땐 硫붿빱?덉쬁 ?먯껜媛 ?녿뒗 援ъ“??怨듬갚? ?쇱슦??怨?怨듯넻).
+**결과 (라우트별 원인 상이 — 중요)**:
+1. **라우트1(t≈1940, 최저 aEgo=-2.58, vEgo 14~20km/h)**: 명확한 버그.
+   t=1938.97에 `aLeadK=-2.07`(vEgo=19.2km/h, <30km/h 게이트) 시점에
+   `LOW_SPEED_STRONG_DECEL`(58차2번, `V_EGO_GATE=30km/h`/
+   `A_LEAD_THRESH=-1.8m/s²`) 정확히 발동 확인 — 이 순간 `w=1.0` 즉시
+   적용되며 `LEAD_ACCEL_WEIGHT_RISE_RATE` rise-rate 제한까지 완전
+   우회. 약 0.7~1초 후 aEgo가 -0.5→-2.58까지 급락(t=1939.5~1940.07).
+   전 구간 dRel 8~9m로 여유 있었음(실제 위험 아님). **58차2번의 원래
+   목적(정체구간 재출현 붕끗 대응)과 무관하게, 평범한 일상 제동
+   강도(-1.8m/s²)에도 걸리는 문턱이 너무 낮고 완충 없이 풀강도로
+   튀는 것이 원인.**
+2. **라우트2(t≈4376, 최저 aEgo=-4.02, vEgo 33~44km/h)/라우트3(t≈5221,
+   최저 aEgo=-2.18, vEgo 30~39km/h)**: `LOW_SPEED_STRONG_DECEL` 게이트
+   **미발동**(vEgo가 30km/h 초과 구간에서 리드 강한 감속 발생, 게이트
+   조건 자체가 안 걸림). `ttc_accel_weight`/`margin_accel_weight` 정상
+   경로로 w가 서서히 상승 — ego 응답(-4.02, -2.18)이 리드 실측 감속
+   (aLeadK 최대 -4.2, -2.0)과 대체로 비례. **설계대로 동작한 정상
+   케이스에 가까움**(다만 체감상 급하게 느껴질 순 있음, 도달 과정
+   jerk 완충 메커니즘 자체가 없는 구조적 공백은 라우트1과 공통).
 
-**?ъ슜?먯? ?⑥튂 諛⑺뼢 ?쇱쓽 ?꾨즺**:
-- ?쇱슦??: (A) ?꾧퀎媛?媛뺥솕(-1.8?믪빟 -2.5, 3?쇱슦???ㅼ륫 湲곕컲 蹂댁젙) +
-  (B) `discontinuity_jerk_boost` 硫붿빱?덉쬁(66~73李?湲?寃利? "紐⑺몴??
-  ??諛붽씀怨???щ쭔 ?꾪솕")???좉퇋 ?몃━嫄??뚯뒪(`low_speed_strong_decel`)
-  濡??뺤옣 ??**rise-rate ?쒗븳 ?섏궡由ш린(?먯븞 B)??湲곌컖**: ??遺꾧린媛
-  `lead0_danger_now`??臾띠뿬 TTC-danger? ?숆툒 痍④툒?섎?濡? ?ш린??
-  rise-rate瑜??ㅼ떆 嫄몃㈃ 58李??먮옒 痍⑥?(?뺤껜 遺뺣걮????? ?딄쾶 諛섏쓳)瑜?
-  遺遺?臾대젰?뷀븯???덉씠??諛섎???
-- ?쇱슦??/3: a_change_cost boost ?뺤옣 ??곸뿉 **?ы븿**?섍린濡???洹쇰낯
-  援ъ“??怨듬갚??3?쇱슦??怨듯넻?대?濡? ???? ?뚭? ?먯씤 異붿쟻???꾪빐
-  **?쇱슦?? 癒쇱? 遺꾨━ ?⑥튂+寃利? 洹??ㅼ쓬 ?쇱슦??/3 ?⑦꽩(TTC 寃쎈줈 ?뺤긽
-  ?곸듅 耳?댁뒪)??boost ?뺤옣 ?щ?瑜??ㅼ감寃利?寃곌낵 蹂닿퀬 ?먮떒**?섎뒗
-  ?쒖꽌濡?吏꾪뻾 ?⑹쓽.
+**사용자와 패치 방향 논의 완료**:
+- 라우트1: (A) 임계값 강화(-1.8→약 -2.5, 3라우트 실측 기반 보정) +
+  (B) `discontinuity_jerk_boost` 메커니즘(66~73차 기 검증, "목표는
+  안 바꾸고 저크만 완화")을 신규 트리거 소스(`low_speed_strong_decel`)
+  로 확장 — **rise-rate 제한 되살리기(원안 B)는 기각**: 이 분기가
+  `lead0_danger_now`에 묶여 TTC-danger와 동급 취급되므로, 여기에
+  rise-rate를 다시 걸면 58차 원래 취지(정체 붕끗에 늦지 않게 반응)를
+  부분 무력화하는 셈이라 반대함.
+- 라우트2/3: a_change_cost boost 확장 대상에 **포함**하기로 함(근본
+  구조적 공백이 3라우트 공통이므로) — 단, 회귀 원인 추적을 위해
+  **라우트1 먼저 분리 패치+검증, 그 다음 라우트2/3 패턴(TTC 경로 정상
+  상승 케이스)에 boost 확장 여부를 실차검증 결과 보고 판단**하는
+  순서로 진행 합의.
 
-**?ㅼ쓬(?ъ슜???뺤젙 ?湲?**:
-1. ?쇱슦?? ?⑥튂 援ы쁽: `LOW_SPEED_STRONG_DECEL_A_LEAD_THRESH` 媛?議곗젙
-   + `low_speed_strong_decel`??`discontinuity_jerk_boost` ?몃━嫄?
-   ?뚯뒪濡?異붽?(hold ?쒓컙/release rate??湲곗〈 諛⑹븞G/I 媛??ъ궗???щ?
-   寃???꾩슂).
-2. `sim_low_speed_decel.py` ?ъ궗???뺤옣??patch ????鍮꾧탳 寃利?
-   (湲곗〈 ?쒕굹由ъ삤 A~D + ?대쾲 3?쇱슦???ㅼ륫 耳?댁뒪 異붽?).
-3. ?쇱슦?? CSV濡?replay 寃利???git format-patch ???ъ슜???꾨떖.
-4. ?쇱슦??/3 a_change_cost boost ?뺤옣 ?щ????쇱슦?? ?ㅼ감寃利????щ끉??
+**다음(사용자 확정 대기)**:
+1. 라우트1 패치 구현: `LOW_SPEED_STRONG_DECEL_A_LEAD_THRESH` 값 조정
+   + `low_speed_strong_decel`을 `discontinuity_jerk_boost` 트리거
+   소스로 추가(hold 시간/release rate는 기존 방안G/I 값 재사용 여부
+   검토 필요).
+2. `sim_low_speed_decel.py` 재사용/확장해 patch 전/후 비교 검증
+   (기존 시나리오 A~D + 이번 3라우트 실측 케이스 추가).
+3. 라우트1 CSV로 replay 검증 → git format-patch → 사용자 전달.
+4. 라우트2/3 a_change_cost boost 확장 여부는 라우트1 실차검증 후 재논의.
 
-**肄붾뱶 蹂寃??놁쓬(遺꾩꽍 + 諛⑺뼢 ?⑹쓽留? ?대쾲 ?몄뀡)**.
-
----
-
-## 111李?(泥댄겕?ъ씤?????ъ슜???쒕낫 ?대┰ 2嫄?遺꾩꽍 ?꾨즺, 肄붾뱶 蹂寃??놁쓬) ??dashcam clip-route ?쒓컙留ㅼ묶 ?좉퇋 ?꾧뎄 + ?⑥튂 ?곹뼢踰붿쐞 ?뺤씤
-
-**?붿껌**: ?ъ슜?먭? ??쒖틺 ?대┰ 2嫄?`_113702_clip.mp4`,`_113848_clip.mp4`)
-?낅줈?? "李⑥꽑蹂寃쎌떆 ?붾㈃ 媛?띾룄 洹몃옒?꾧? ?⑥튂 ???대뼸寃?諛붾뚮뒗吏" 吏덈Ц.
-
-**?묒뾽**:
-1. ?뚯씪紐???遺꾩큹 ?⑥닚留ㅼ묶 ?ㅽ뙣(理쒕? 53~55珥??몄감) ???좉퇋
-   `toolkit/match_dashcam_clip_to_route.py` ?묒꽦(blinker ?대윭?ㅽ꽣
-   ?곷??쒓컙李?湲됯컧?띻컯??留ㅼ묶). README/CHANGELOG 諛섏쁺.
-2. ?대┰1=106李?"以묎컙" ?щ?(t??574-2578, discontinuity_lc 誘몃컻????
-   ?⑥튂 臾닿?, 洹몃옒???숈씪), ?대┰2=106李?108李?"?ш컖" ?щ?(t??683-2687,
-   109李?110李④? ?대? 寃利앺븳 洹?force_revert ?먰뵾?뚮뱶) ?앸퀎.
-3. ?대┰2 援ш컙 ?꾨젅?꾨떒???ъ깮 鍮꾧탳 ???ㅼ젣 李⑥씠??t=2685.72~2685.92
-   (0.19珥?肉? 吏꾩쭨 ?꾪뿕?대씪 PATCHED??0.35s留뚯뿉 confirm??base濡?
-   ?섎졃 ??109李?110李?寃곕줎(min_aEgo 蹂댁〈, 吏?띿떆媛꾨쭔 ?⑥텞)怨??뺥빀.
-4. FINDINGS.md 111李???ぉ 湲곕줉.
-
-**?쒓퀎**: ?붾㈃ `a_ego/a_target/a_out` 怨≪꽑 ?먯껜???ㅼ젣 MPC ?붾쾭
-?ъ떎???놁씠???ы쁽 紐삵븿(?꾨젅?꾨떒??jerk-cost 鍮꾧탳濡??泥? ???ъ슜?먯뿉寃?
-怨좎? ?꾨즺, ?꾩슂???ㅼ쓬 ?몄뀡 怨쇱젣濡??⑥쓣 ???덉쓬.
-
-**?ㅼ쓬 ?몄뀡 理쒖슦??*: (蹂寃??놁쓬, ?댁썡)
-- **?ㅼ감 ?쒕씪?대툕 寃利?*(?좎씪?섍쾶 ?⑥? 109李?patch 寃利?怨쇱젣).
-- (湲곗〈 ?댁썡) 91李?curve pre-decel ?ㅼ감寃利? 諛⑹븞E/G ?ㅼ감寃利? 45李?
-  stop-to-launch bypass 誘몄셿??援ы쁽.
-
-**?대쾲 ?몄뀡 蹂寃??뚯씪**: `toolkit/match_dashcam_clip_to_route.py`(?좉퇋),
-`toolkit/README.md`, `toolkit/CHANGELOG.md`, `FINDINGS.md`(111李?,
-??WIP.md ??ぉ. `ryu` 肄붾뱶 蹂寃??놁쓬.
+**코드 변경 없음(분석 + 방향 합의만, 이번 세션)**.
 
 ---
 
-## 110李?(?꾨즺 ??109李?寃利?怨듬갚 ?댁냼, 肄붾뱶 蹂寃??놁쓬) ??947fbb7dc6/ad830211ff ?ъ뾽濡쒕뱶 ??PATCHED ?ш?利?
+## 111차 (체크포인트 — 사용자 제보 클립 2건 분석 완료, 코드 변경 없음) — dashcam clip-route 시간매칭 신규 도구 + 패치 영향범위 확인
 
-**?붿껌**: 109李④? 而⑦뀒?대꼫 由ъ뀑?쇰줈 寃利?紐??????щ?(`947fbb7dc6`
-理쒖떖媛??щ?, `ad830211ff` handoff 2嫄? ?ъ슜?먭? ?ъ뾽濡쒕뱶.
+**요청**: 사용자가 대시캠 클립 2건(`_113702_clip.mp4`,`_113848_clip.mp4`)
+업로드, "차선변경시 화면 가속도 그래프가 패치 후 어떻게 바뀌는지" 질문.
 
-**?묒뾽**:
-1. 濡쒓렇 ?대뜑 ??꾩뒪?ы봽(2026-08-27) vs 109李??⑥튂 而ㅻ컠 `02e1f93`
-   author date(2026-08-28) 援먯감寃利???濡쒓렇媛 ?⑥튂 ?댁쟾 raw 湲곕줉?꾩쓣
-   ?뺤씤(replay ?쒕??덉씠??紐⑹쟻??臾몄젣 ?놁쓬, ?ㅼ감寃利??泥??꾨떂).
-2. `extract_log.py`濡????쇱슦??CSV 異붿텧 (`work/csv_947fbb7dc6.csv`,
-   `work/csv_ad830211ff.csv`, ?덊룷 誘몄빱諛?.
+**작업**:
+1. 파일명 시:분초 단순매칭 실패(최대 53~55초 편차) → 신규
+   `toolkit/match_dashcam_clip_to_route.py` 작성(blinker 클러스터
+   상대시간차+급감속강도 매칭). README/CHANGELOG 반영.
+2. 클립1=106차 "중간" 사례(t≈2574-2578, discontinuity_lc 미발동 —
+   패치 무관, 그래프 동일), 클립2=106차/108차 "심각" 사례(t≈2683-2687,
+   109차/110차가 이미 검증한 그 force_revert 에피소드) 식별.
+3. 클립2 구간 프레임단위 재생 비교 — 실제 차이는 t=2685.72~2685.92
+   (0.19초)뿐, 진짜 위험이라 PATCHED도 0.35s만에 confirm돼 base로
+   수렴 — 109차/110차 결론(min_aEgo 보존, 지속시간만 단축)과 정합.
+4. FINDINGS.md 111차 항목 기록.
+
+**한계**: 화면 `a_ego/a_target/a_out` 곡선 자체는 실제 MPC 솔버
+재실행 없이는 재현 못함(프레임단위 jerk-cost 비교로 대체) — 사용자에게
+고지 완료, 필요시 다음 세션 과제로 남을 수 있음.
+
+**다음 세션 최우선**: (변경 없음, 이월)
+- **실차 드라이브 검증**(유일하게 남은 109차 patch 검증 과제).
+- (기존 이월) 91차 curve pre-decel 실차검증, 방안E/G 실차검증, 45차
+  stop-to-launch bypass 미완성 구현.
+
+**이번 세션 변경 파일**: `toolkit/match_dashcam_clip_to_route.py`(신규),
+`toolkit/README.md`, `toolkit/CHANGELOG.md`, `FINDINGS.md`(111차),
+이 WIP.md 항목. `ryu` 코드 변경 없음.
+
+---
+
+## 110차 (완료 — 109차 검증 공백 해소, 코드 변경 없음) — 947fbb7dc6/ad830211ff 재업로드 후 PATCHED 재검증
+
+**요청**: 109차가 컨테이너 리셋으로 검증 못 한 두 사례(`947fbb7dc6`
+최심각 사례, `ad830211ff` handoff 2건) 사용자가 재업로드.
+
+**작업**:
+1. 로그 폴더 타임스탬프(2026-08-27) vs 109차 패치 커밋 `02e1f93`
+   author date(2026-08-28) 교차검증 — 로그가 패치 이전 raw 기록임을
+   확인(replay 시뮬레이션 목적엔 문제 없음, 실차검증 대체 아님).
+2. `extract_log.py`로 두 라우트 CSV 추출 (`work/csv_947fbb7dc6.csv`,
+   `work/csv_ad830211ff.csv`, 레포 미커밋).
 3. `scan_force_revert_episodes`(UNPATCHED)/`patched_replay_v109`
-   (PATCHED) ?섎????ㅽ뻾, before/after 鍮꾧탳.
-4. **寃곌낵**: `947fbb7dc6` 理쒖떖媛??щ? ??min_aEgo -3.40 洹몃?濡?蹂댁〈,
-   吏?띿떆媛?0.457s??.209s ?⑥텞(54%??. `ad830211ff` handoff 2嫄???
-   PATCHED/UNPATCHED ?꾨젅?꾨떒???꾩쟾 ?숈씪(?곹뼢 ?놁쓬, ?ㅺ퀎?濡?.
-5. FINDINGS.md 110李???ぉ 湲곕줉.
+   (PATCHED) 나란히 실행, before/after 비교.
+4. **결과**: `947fbb7dc6` 최심각 사례 — min_aEgo -3.40 그대로 보존,
+   지속시간 0.457s→0.209s 단축(54%↓). `ad830211ff` handoff 2건 —
+   PATCHED/UNPATCHED 프레임단위 완전 동일(영향 없음, 설계대로).
+5. FINDINGS.md 110차 항목 기록.
 
-**寃곕줎**: 109李??듭뀡1 patch??濡쒓렇 湲곕컲 replay 寃利앹씠 紐⑤몢 ?꾨즺??
-(108李?30?쇱슦??+ 109李?罹먯떆 12?쇱슦??+ ?대쾲 2嫄?. 肄붾뱶 蹂寃??놁쓬
-(109李??⑥튂 `b84eeb8` 洹몃?濡??좎?).
+**결론**: 109차 옵션1 patch의 로그 기반 replay 검증이 모두 완료됨
+(108차 30라우트 + 109차 캐시 12라우트 + 이번 2건). 코드 변경 없음
+(109차 패치 `b84eeb8` 그대로 유지).
 
-**?ㅼ쓬 ?몄뀡 理쒖슦??*:
-- **?ㅼ감 ?쒕씪?대툕 寃利?*(?좎씪?섍쾶 ?⑥? 怨쇱젣) ??李⑥꽑蹂寃?以?湲됯컧??
-  ?꾪솕 泥닿컧, ?쒖닔 discontinuity/handoff 諛섏쓳 ?뚭? ?놁쓬,
-  `LANE_CHANGE_DISCONTINUITY_DANGER_CONFIRM_S=0.25s` ?곸젙???먮떒.
-- (湲곗〈 ?댁썡) 91李?curve pre-decel ?ㅼ감寃利? 諛⑹븞E/G ?ㅼ감寃利? 45李?
-  stop-to-launch bypass 誘몄셿??援ы쁽.
+**다음 세션 최우선**:
+- **실차 드라이브 검증**(유일하게 남은 과제) — 차선변경 중 급감속
+  완화 체감, 순수 discontinuity/handoff 반응 회귀 없음,
+  `LANE_CHANGE_DISCONTINUITY_DANGER_CONFIRM_S=0.25s` 적정성 판단.
+- (기존 이월) 91차 curve pre-decel 실차검증, 방안E/G 실차검증, 45차
+  stop-to-launch bypass 미완성 구현.
 
-**?대쾲 ?몄뀡 蹂寃??뚯씪**: `FINDINGS.md`(110李???ぉ), ??WIP.md ??ぉ.
-`toolkit/`, `ryu` 肄붾뱶 蹂寃??놁쓬.
-
----
-
-## 109李?(?꾨즺 ???듭뀡1 patch 援ы쁽+?쒕??덉씠??寃利? ?ㅼ감寃利??? ??discontinuity_lc danger confirm-hold, ?⑥튂?꾨떖 ?꾨즺
-
-**?붿껌**: 108李??뺤젙 洹쇨굅濡??듭뀡1 patch 援ы쁽 李⑹닔.
-
-**?묒뾽**:
-1. `long_mpc.py`(c3-ms-dev)??`LANE_CHANGE_DISCONTINUITY_DANGER_
-   CONFIRM_S=0.25s` ?좉퇋 ?곸닔 + `_lc_danger_confirm_timer` ?곹깭 異붽?.
-   `discontinuity_lc` ?뚯뒪???쒗빐 danger_active媛 0.25s ?곗냽 ?좎??쇱빞
-   force_revert ?몄젙?섎룄濡?寃뚯씠??濡쒖쭅 ?섏젙. `handoff`/?쒖닔
-   `discontinuity`???꾩쟾 洹몃?濡?遺꾧린 議곌굔???뚯뒪紐낆쑝濡??쒖젙??援ъ“??
-   ?뚭? 遺덇?). 而ㅻ컠 `b84eeb8`.
-2. ?좉퇋 `toolkit/patched_replay_v109.py` ?묒꽦(`LaneChangeGateReplay`
-   ?곸냽) ??罹먯떆 12?쇱슦???ъ깮 寃利? `a5b1ce4e42`??discontinuity_lc
-   2嫄?以?寃쎈???1嫄댁? ?꾩쟾 ?≪닔, 吏???щ? 1嫄댁? 0.55s??.35s濡??⑥텞
-   (吏꾩쭨 ?꾪뿕 諛섏쓳? 蹂댁〈). ?섎㉧吏 ?쇱슦?몃뒗 ?좎큹 ?대깽???놁쓬.
-3. **寃利?怨듬갚**: 108李⑥쓽 媛???ы븳 ?щ?(`947fbb7dc6`, aEgo -3.40)?
-   `handoff` 2嫄?`ad830211ff`)? ?먮낯 CSV媛 而⑦뀒?대꼫 由ъ뀑?쇰줈 ?뚯떎??
-   ?대쾲 ?몄뀡?먯꽌 ?ш?利?紐삵븿 ??**?ъ뾽濡쒕뱶 ?꾩슂**.
-4. ?⑥튂 ?뚯씪 ?꾨떖(`0001-discontinuity-lc-danger-confirm-hold.patch`).
-
-**?ㅼ쓬 ?몄뀡 理쒖슦??*:
-- `947fbb7dc6`/`ad830211ff` ?ъ뾽濡쒕뱶 ???⑥튂 ?ш?利?媛??以묒슂 ???ш컖
-  ?щ??????寃利앹씠 ?꾩쭅 ?녿뒗 ?곹깭).
-- ?ㅼ감 ?쒕씪?대툕 寃利?泥닿컧/?뚭? 泥댄겕, CONFIRM_S=0.25s ?곸젙???먮떒).
-- (湲곗〈 ?댁썡) 91李?curve pre-decel ?ㅼ감寃利? 諛⑹븞E/G ?ㅼ감寃利? 45李?
-  stop-to-launch bypass 誘몄셿??援ы쁽.
-
-## 108李?(?꾨즺 ???ㅼ＜??30?쇱슦???뺣?寃利?+ ?쒕??덉씠??踰꾧렇 2嫄?諛쒓껄/?섏젙, 肄붾뱶蹂寃??놁쓬) ??discontinuity_lc(李⑥꽑蹂寃?以? force_revert ?꾩슂議곌굔 ?ы솗?? ?듭뀡1 ?ㅺ퀎 洹쇨굅 ?뺤젙
-
-**?붿껌**: ?ъ슜?먭? ?ㅼ＜??濡쒓렇 18媛?2.7GB, 92bb45496d/947fbb7dc6 ?먮낯
-?ы븿) ?좉퇋 ?낅줈?? 107李?怨꾩냽(罹먯떆 12?쇱슦?? 寃곕줎???????쒕낯?쇰줈
-寃利????ㅺ퀎 諛⑹븞 ?쒖떆 ?붿껌.
-
-**?묒뾽**:
-1. 18媛??쇱슦??`extract_log.py`濡?CSV 異붿텧 (`/home/claude/work/csv/`,
-   ?덊룷 誘몄빱諛?????⑸웾 ?뺤콉). 湲곗〈 罹먯떆 12媛??좉퇋 18媛?30媛??쇱슦??
-2. 1李??ш?利??꾧뎄(`flicker_cluster_boost_replay.py`) ?묒꽦 以?踰꾧렇 2嫄?
-   諛쒓껄: (a) ?대윭?ㅽ꽣 warm-start ?ъ깮 ??pad_s???곕씪 寃곌낵媛 ?щ씪吏??
-   ?꾪떚?⑺듃 ???쇱슦???꾩껜 ?곗냽 ?ъ깮?쇰줈 ?닿껐. (b) **?몃━嫄??뚯뒪蹂?
-   boost_s(discontinuity=1.0s vs handoff/discontinuity_lc=4.0s)瑜?
-   援щ텇 ?????덉쐞 severe ?щ? ?ㅼ닔 諛쒖깮** ???먯떆?곗씠???議곕줈 ?뺤씤,
-   ???꾧뎄???먭린.
-3. 湲곗〈 75-76李??꾧뎄 `replay_lane_change_discontinuity_gate.py`??
-   `LaneChangeGateReplay(duration_mode='full')`(?ㅼ젣 肄붾뱶? 100% ?숈씪)
-   湲곕컲?쇰줈 ?좉퇋 `toolkit/scan_force_revert_episodes.py` ?묒꽦 ??
-   30?쇱슦???꾩껜 ?뺥솗 ?ъ뒪罹?
-4. **理쒖쥌 寃곌낵: force_revert 5嫄?* ??`discontinuity_lc` 3嫄??꾨?
-   blinker=True, 106李??먮낯 947fbb7dc6 -3.40 ?ы븿), `handoff` 2嫄?
-   (blinker=False, ????뺤긽踰붿쐞 -1.75~-1.81), ?쒖닔 `discontinuity`??
-   0嫄? ??106李?107李?寃곕줎(李⑥꽑蹂寃쎌씠 force_revert ?꾩슂議곌굔) ?ы솗??
-5. FINDINGS.md 108李???ぉ 湲곕줉, toolkit README/CHANGELOG 媛깆떊.
-
-**?ш퀬 湲곕줉**: 108李?理쒖큹 ?묒뾽遺꾩씠 ?꾧뎄 ?몄텧 ?쒕룄濡?push ??而⑦뀒?대꼫
-由ъ뀑???좎떎 ???ㅼ쓬 ?몄뀡?먯꽌 ?댁쟾 ?몄뀡 寃곌낵瑜?洹몃?濡??ш뎄?깊빐 湲곕줉
-(?ш퀎??遺덇?, ?먮낯 CSV 18媛쒕룄 ?뚯떎). ?곸꽭??FINDINGS.md 108李?"二쇱쓽"
-??ぉ 李멸퀬.
-
-**?ㅼ쓬 ?몄뀡 理쒖슦??*: ?듭뀡1 patch 援ы쁽 李⑹닔 ??`long_mpc.py`??
-`_discontinuity_trigger_source == 'discontinuity_lc'`??寃쎌슦???쒗빐
-danger_active confirm-hold(0.2~0.3s) ?곸슜, `handoff`??利됱떆 revert
-?좎?. ?ㅼ감 寃利앹? ?꾩쭅 ?놁쓬(30?쇱슦?몃뒗 ?꾨? 濡쒓렇 湲곕컲 replay ?ы쁽).
-
-## 107李?怨꾩냽 (泥댄겕?ъ씤?????뺣? ?ш?利??꾨즺, 肄붾뱶 蹂寃??놁쓬) ??replay_boost_duration.py濡?51?대윭?ㅽ꽣 ?뺣? ?ы쁽, 106李?blinker ?멸낵愿怨??뺤젙
-
-**107李?蹂명렪?먯꽌 ?쒓린???ш???"李⑥꽑蹂寃??뱀쑀 ?꾨땺 ???덉쓬") ?곕젮瑜?
-媛숈? ?몄뀡?먯꽌 ?뺣? ?ы쁽?쇰줈 ?ш?利?** `replay_boost_duration.py`(73李?
-湲곗〈 ?꾧뎄, ?꾩옱 肄붾뱶? ?숈씪 ?ㅼ젙 boost_s=4.0/release_rate=100.0/
-split_gate=True)瑜?51媛??뚮━而??대윭?ㅽ꽣 ?꾩껜???ㅽ뻾.
-
-**寃곌낵**: boost force_revert(danger override濡?boost媛 ?뺤옉 ?꾩슂????
-爰쇱???106李??⑦꽩) ?ы쁽 **3嫄??꾨? blinker_overlap=True, blinker臾닿?
-30嫄?以??ы쁽 0嫄?** 1李?洹쇱궗 ?ㅼ틪??`would_trigger_ttc_danger`??
-怨쇰?異붿젙(?몄씠利??댁뿀??寃껋쑝濡??뺤씤 ???뺣? ?ы쁽???⑥뵮 ?곸? ?섎쭔
-?ㅼ젣 ?꾪뿕?쇰줈 ?뺤젙. **寃곕줎: 106李⑥쓽 "李⑥꽑蹂寃?blinker)???먯씤"?대씪??
-?멸낵愿怨꾨뒗 ?뺣웾?곸쑝濡??룸컺移⑤맖 ???쒕낯?명뼢 ?곕젮??湲곌컖.**
-
-?ㅻ쭔 ?덈줈 李얠? 3嫄댁쓽 ?ㅼ젣 媛먯냽 媛뺣룄??寃쎈?~以묎컙(min aEgo: +0.05,
--0.08, -1.18) ??106李??щ?3(-3.78, severe)留뚰겮 ?ш컖???щ????대쾲
-12媛?罹먯떆 ?쇱슦?몄뿏 ?놁뿀?? 硫붿빱?덉쬁? 吏꾩쭨吏留??ш컖?꾨뒗 ?곹솴(?ㅼ젣
-?묎렐 ?띾룄 ????醫뚯슦?? ?곸꽭??FINDINGS.md 107李??꾨컲遺 李멸퀬.
-
-**寃곕줎?곸쑝濡??⑥튂 踰붿쐞瑜?"李⑥꽑蹂寃?blinker 而⑦뀓?ㅽ듃 ?쒖젙"?쇰줈 醫곹엳??
-寃껋씠 ??뱁븿???뺤씤??* ??107李?蹂명렪 珥덈컲???ъ슜?먯뿉寃??쒖떆?덈뜕
-?듭뀡1(沅뚯옣, ?뚮━而?媛먯? ?꾩뿉留?confirm-hold)/?듭뀡2(?⑥닚, blinker 以?
-??긽 confirm-hold) 以??섎굹濡??⑥튂 ?ㅺ퀎 ?ъ갑??媛?ν븳 ?곹깭.
-
-**?ㅼ쓬 ?몄뀡(?먮뒗 ?댁뼱?? 理쒖슦??*:
-1. ?듭뀡1 ?먮뒗 ?듭뀡2 ?뺤젙 ??`radard.py`(get_lead()~LeadBlend ?ъ씠)??
-   confirm-hold ?⑥튂 援ы쁽.
-2. ?⑥튂 ??罹먯떆??12媛??쇱슦?몃줈 ?뚭?寃利?3媛?force_revert ?щ?媛
-   ?댁냼?섎뒗吏 + ?ㅻⅨ ?뺤긽 耳?댁뒪 ?뚭? ?녿뒗吏) ??`replay_boost_duration.py`
-   ?뺤옣 ?먮뒗 蹂꾨룄 ?ㅽ겕由쏀듃濡?
-3. 92bb45496d/947fbb7dc6(106李??ㅼ궗濡, severe ?ы븿) ?ш?利앺븯?ㅻ㈃
-   ?ъ슜?먭? `?댁감_李⑥꽑蹂寃?Zip` ?ъ뾽濡쒕뱶 ?꾩슂(誘몄틦?? ?뚯떎 ?곹깭).
-
-**?대쾲 ?몄뀡 蹂寃??뚯씪**: `FINDINGS.md`(107李???ぉ ?꾨컲遺 異붽?), ??
-WIP.md ??ぉ. `toolkit/`, `ryu` 肄붾뱶 蹂寃??놁쓬(?댁쟾 泥댄겕?ъ씤?몄? ?숈씪).
+**이번 세션 변경 파일**: `FINDINGS.md`(110차 항목), 이 WIP.md 항목.
+`toolkit/`, `ryu` 코드 변경 없음.
 
 ---
 
-## 107李?(泥댄겕?ъ씤????106李??꾩냽 ?⑥튂?ㅺ퀎 ?ш??? 肄붾뱶 蹂寃??놁쓬) ??leadRadar ?뚮━而??뺣웾???꾧뎄 ?좉퇋 + 106李?"李⑥꽑蹂寃??뱀쑀" 寃곕줎 ?ш????꾩슂??諛쒓껄
+## 109차 (완료 — 옵션1 patch 구현+시뮬레이션 검증, 실차검증 전) — discontinuity_lc danger confirm-hold, 패치전달 완료
 
-**諛곌꼍**: 106李④? ?④릿 "leadRadar ?몃뱶?ㅽ봽 諛섎났 湲됯컧?? ?먯씤??諛뷀깢?쇰줈
-?ъ슜?먭? ?⑥튂 ?ㅺ퀎/援ы쁽 吏꾪뻾???붿껌. ?덉쟾critical 肄붾뱶???ㅺ퀎???듭뀡1/
-?듭뀡2) ?쒖떆 ???ъ슜?먭? "珥덈낫?ㅻ챸 + ?꾨㈃ ?ш??? ?붿껌 ???먮옒 WIP
-怨꾪쉷(?몃옓ID 而щ읆 異붽? ???뺣웾???쇰줈 ?섎룎?꾧?湲곕줈 ?⑹쓽.
+**요청**: 108차 확정 근거로 옵션1 patch 구현 착수.
 
-**以묒슂 諛쒓껄 1**: `leadRadarTrackId` 而щ읆? 63李?怨꾩냽3?먯꽌 ?대?
-`extract_log.py`??異붽????덉뿀??106李④? "?놁쓬"?쇰줈 ?ㅽ뙋, 湲곗〈 ?꾧뎄
-誘명솗??. ?ㅻ쭔 ??李⑤웾(SCC ?⑥씪???덉씠?? 肄붾꼫?덉씠???놁쓬) 援ъ“??
-radar=True ?꾨젅?꾩쓽 ?몃옓ID媛 ??긽 0 怨좎젙 ???몃옓ID濡쒕뒗 ?좎큹??
-"媛숈? 臾쇱껜 vs ?ㅻⅨ 臾쇱껜" 援щ텇??遺덇??ν븿??罹먯떆 ?쇱슦??3嫄댁쑝濡??뺤씤.
+**작업**:
+1. `long_mpc.py`(c3-ms-dev)에 `LANE_CHANGE_DISCONTINUITY_DANGER_
+   CONFIRM_S=0.25s` 신규 상수 + `_lc_danger_confirm_timer` 상태 추가.
+   `discontinuity_lc` 소스에 한해 danger_active가 0.25s 연속 유지돼야
+   force_revert 인정하도록 게이트 로직 수정. `handoff`/순수
+   `discontinuity`는 완전 그대로(분기 조건이 소스명으로 한정돼 구조적
+   회귀 불가). 커밋 `b84eeb8`.
+2. 신규 `toolkit/patched_replay_v109.py` 작성(`LaneChangeGateReplay`
+   상속) — 캐시 12라우트 재생 검증: `a5b1ce4e42`의 discontinuity_lc
+   2건 중 경미한 1건은 완전 흡수, 지속 사례 1건은 0.55s→0.35s로 단축
+   (진짜 위험 반응은 보존). 나머지 라우트는 애초 이벤트 없음.
+3. **검증 공백**: 108차의 가장 심한 사례(`947fbb7dc6`, aEgo -3.40)와
+   `handoff` 2건(`ad830211ff`)은 원본 CSV가 컨테이너 리셋으로 소실돼
+   이번 세션에서 재검증 못함 — **재업로드 필요**.
+4. 패치 파일 전달(`0001-discontinuity-lc-danger-confirm-hold.patch`).
 
-**以묒슂 諛쒓껄 2 (106李?寃곕줎 ?ш????꾩슂)**: ?몃옓ID ???leadRadar
-True/False ?ｌ? ?먯껜瑜??대윭?ㅽ꽣留곹븯??`radar_source_flicker_scan()`
-?좉퇋 ?묒꽦(toolkit/analysis_helpers.py, README/CHANGELOG 諛섏쁺 ?꾨즺).
-罹먯떆???쇰컲 二쇳뻾 12媛??쇱슦??72李?寃利앹뀑 2媛?+ 86李?寃利앹뀑 10媛?
-?꾩껜 ?ㅼ틪 寃곌낵 **珥?51?대윭?ㅽ꽣 以?blinker 寃뱀묠? 21嫄?41%)肉? 59%??
-blinker 臾닿?** ??利?leadRadar 諛섎났?좉?+dRel?먰봽 ?꾩긽 ?먯껜??李⑥꽑蹂寃쎌뿉
-援?븳??寃??꾨땲???대? 寃利??앸궃 ?쇰컲 二쇳뻾?먯꽌???뷀븿. 106李④? ?뺣낫??
-3嫄댁? ?붾㈃?뱁솕媛 ?덉뼱 寃利?媛?ν뻽???쒕낯??遺덇낵?덉쓣 媛?μ꽦 ??
-"李⑥꽑蹂寃쎌씠 ?먯씤"?대씪???멸낵愿怨꾨뒗 ?쒕낯?명뼢?????덉쓬(?꾩쭅 諛섏쬆?
-?꾨떂). ?곸꽭??FINDINGS.md 107李?李멸퀬.
+**다음 세션 최우선**:
+- `947fbb7dc6`/`ad830211ff` 재업로드 후 패치 재검증(가장 중요 — 심각
+  사례에 대한 검증이 아직 없는 상태).
+- 실차 드라이브 검증(체감/회귀 체크, CONFIRM_S=0.25s 적정성 판단).
+- (기존 이월) 91차 curve pre-decel 실차검증, 방안E/G 실차검증, 45차
+  stop-to-launch bypass 미완성 구현.
 
-**蹂대쪟??寃?*: ?듭뀡1/?듭뀡2 ?⑥튂(confirm-hold 諛⑹떇)??李⑹닔 ??????
-???ш??좉? ?앸굹湲??꾧퉴吏??踰붿쐞(李⑥꽑蹂寃??쒖젙 vs ?쇰컲)議곗감 ?뺤젙 ????
+## 108차 (완료 — 실주행 30라우트 확대검증 + 시뮬레이션 버그 2건 발견/수정, 코드변경 없음) — discontinuity_lc(차선변경 중) force_revert 필요조건 재확정, 옵션1 설계 근거 확정
 
-**?ㅼ쓬 ?몄뀡 理쒖슦??*:
-1. `replay_boost_duration.py`(73李? ?대? 議댁옱)瑜?51媛??뚮━而??대윭?ㅽ꽣
-   援ш컙(?뱁엳 would_trigger_ttc_danger=True 22嫄??댁쇅)???ㅽ뻾 ??
-   "danger override媛 boost瑜?媛뺤젣蹂듦??쒗궎?? 106李??щ?3 ?⑦꽩??
-   blinker 臾닿? 援ш컙?먯꽌???ㅼ젣濡??ы쁽?섎뒗吏 ?뺤씤. **?꾩쭅 誘몄떎??*.
-2. ?ы쁽 ?щ????곕씪 ?⑥튂 踰붿쐞(李⑥꽑蹂寃??쒖젙 vs leadRadar ?뚮━而??쇰컲)
-   ?ы솗?????⑥튂 ?ㅺ퀎 ?ъ갑??
-3. 92bb45496d/947fbb7dc6(105/106李??ㅼ궗濡) ?ш?利앺븯?ㅻ㈃ ?ъ슜?먭?
-   `?댁감_李⑥꽑蹂寃?Zip` ?ъ뾽濡쒕뱶 ?꾩슂(devnotes??誘몄틦?? 而⑦뀒?대꼫
-   由ъ뀑?쇰줈 ?뚯떎).
+**요청**: 사용자가 실주행 로그 18개(2.7GB, 92bb45496d/947fbb7dc6 원본
+포함) 신규 업로드, 107차 계속(캐시 12라우트) 결론을 더 큰 표본으로
+검증 후 설계 방안 제시 요청.
 
-**?대쾲 ?몄뀡 蹂寃??뚯씪**: `toolkit/analysis_helpers.py`(?⑥닔 異붽?),
-`toolkit/README.md`, `toolkit/CHANGELOG.md`, `FINDINGS.md`, ??WIP.md
-??ぉ. `ryu` 肄붾뱶 蹂寃??놁쓬.
+**작업**:
+1. 18개 라우트 `extract_log.py`로 CSV 추출 (`/home/claude/work/csv/`,
+   레포 미커밋 — 대용량 정책). 기존 캐시 12개+신규 18개=30개 라우트.
+2. 1차 재검증 도구(`flicker_cluster_boost_replay.py`) 작성 중 버그 2건
+   발견: (a) 클러스터 warm-start 재생 시 pad_s에 따라 결과가 달라지는
+   아티팩트 → 라우트 전체 연속 재생으로 해결. (b) **트리거 소스별
+   boost_s(discontinuity=1.0s vs handoff/discontinuity_lc=4.0s)를
+   구분 안 해 허위 severe 사례 다수 발생** — 원시데이터 대조로 확인,
+   이 도구는 폐기.
+3. 기존 75-76차 도구 `replay_lane_change_discontinuity_gate.py`의
+   `LaneChangeGateReplay(duration_mode='full')`(실제 코드와 100% 동일)
+   기반으로 신규 `toolkit/scan_force_revert_episodes.py` 작성 —
+   30라우트 전체 정확 재스캔.
+4. **최종 결과: force_revert 5건** — `discontinuity_lc` 3건(전부
+   blinker=True, 106차 원본 947fbb7dc6 -3.40 포함), `handoff` 2건
+   (blinker=False, 저속 정상범위 -1.75~-1.81), 순수 `discontinuity`는
+   0건. → 106차/107차 결론(차선변경이 force_revert 필요조건) 재확정.
+5. FINDINGS.md 108차 항목 기록, toolkit README/CHANGELOG 갱신.
+
+**사고 기록**: 108차 최초 작업분이 도구 호출 한도로 push 전 컨테이너
+리셋돼 유실 → 다음 세션에서 이전 세션 결과를 그대로 재구성해 기록
+(재계산 불가, 원본 CSV 18개도 소실). 상세는 FINDINGS.md 108차 "주의"
+항목 참고.
+
+**다음 세션 최우선**: 옵션1 patch 구현 착수 — `long_mpc.py`의
+`_discontinuity_trigger_source == 'discontinuity_lc'`인 경우에 한해
+danger_active confirm-hold(0.2~0.3s) 적용, `handoff`는 즉시 revert
+유지. 실차 검증은 아직 없음(30라우트는 전부 로그 기반 replay 재현).
+
+## 107차 계속 (체크포인트 — 정밀 재검증 완료, 코드 변경 없음) — replay_boost_duration.py로 51클러스터 정밀 재현, 106차 blinker 인과관계 확정
+
+**107차 본편에서 제기한 재검토("차선변경 특유 아닐 수 있음") 우려를
+같은 세션에서 정밀 재현으로 재검증.** `replay_boost_duration.py`(73차,
+기존 도구, 현재 코드와 동일 설정 boost_s=4.0/release_rate=100.0/
+split_gate=True)를 51개 플리커 클러스터 전체에 실행.
+
+**결과**: boost force_revert(danger override로 boost가 정작 필요할 때
+꺼지는 106차 패턴) 재현 **3건 전부 blinker_overlap=True, blinker무관
+30건 중 재현 0건.** 1차 근사 스캔의 `would_trigger_ttc_danger`는
+과대추정(노이즈)이었던 것으로 확인 — 정밀 재현이 훨씬 적은 수만
+실제 위험으로 확정. **결론: 106차의 "차선변경(blinker)이 원인"이라는
+인과관계는 정량적으로 뒷받침됨 — 표본편향 우려는 기각.**
+
+다만 새로 찾은 3건의 실제 감속 강도는 경미~중간(min aEgo: +0.05,
+-0.08, -1.18) — 106차 사례3(-3.78, severe)만큼 심각한 사례는 이번
+12개 캐시 라우트엔 없었음. 메커니즘은 진짜지만 심각도는 상황(실제
+접근 속도 등)에 좌우됨. 상세는 FINDINGS.md 107차 후반부 참고.
+
+**결론적으로 패치 범위를 "차선변경/blinker 컨텍스트 한정"으로 좁히는
+것이 타당함이 확인됨** — 107차 본편 초반에 사용자에게 제시했던
+옵션1(권장, 플리커 감지 후에만 confirm-hold)/옵션2(단순, blinker 중
+항상 confirm-hold) 중 하나로 패치 설계 재착수 가능한 상태.
+
+**다음 세션(또는 이어서) 최우선**:
+1. 옵션1 또는 옵션2 확정 후 `radard.py`(get_lead()~LeadBlend 사이)에
+   confirm-hold 패치 구현.
+2. 패치 후 캐시된 12개 라우트로 회귀검증(3개 force_revert 사례가
+   해소되는지 + 다른 정상 케이스 회귀 없는지) — `replay_boost_duration.py`
+   확장 또는 별도 스크립트로.
+3. 92bb45496d/947fbb7dc6(106차 실사례, severe 포함) 재검증하려면
+   사용자가 `내차_차선변경.Zip` 재업로드 필요(미캐싱, 소실 상태).
+
+**이번 세션 변경 파일**: `FINDINGS.md`(107차 항목 후반부 추가), 이
+WIP.md 항목. `toolkit/`, `ryu` 코드 변경 없음(이전 체크포인트와 동일).
 
 ---
 
-## 106李?(?꾨즺 ??105李?泥댄겕?ъ씤???꾧껐, 肄붾뱶 蹂寃??놁쓬) ??李⑥꽑蹂寃?以?leadRadar ?몃뱶?ㅽ봽 湲됯컧???먯씤 ?뺤젙 (92bb45496d/947fbb7dc6 ?ы쁽)
+## 107차 (체크포인트 — 106차 후속 패치설계 재검토, 코드 변경 없음) — leadRadar 플리커 정량화 도구 신규 + 106차 "차선변경 특유" 결론 재검토 필요성 발견
 
-**?낅젰**: 105李⑥? ?숈씪 ?뚯씪紐?`?댁감_李⑥꽑蹂寃?Zip`) ?ъ뾽濡쒕뱶 ???대쾲??
-260827 ?대┰ 2嫄댁뿉 ??묓븯???뺤젙???쇱슦??`947fbb7dc6`, seg0~3)媛
-?ы븿?섏뼱 105李⑥쓽 "留ㅼ묶 遺덉씪移? 臾몄젣媛 ?댁냼??
+**배경**: 106차가 남긴 "leadRadar 핸드오프 반복 급감속" 원인을 바탕으로
+사용자가 패치 설계/구현 진행을 요청. 안전critical 코드라 설계안(옵션1/
+옵션2) 제시 후 사용자가 "초보설명 + 전면 재검토" 요청 → 원래 WIP
+계획(트랙ID 컬럼 추가 후 정량화)으로 되돌아가기로 합의.
 
-**?쒓컖 留ㅽ븨**: ?대┰ ?뚯씪紐????대윮) vs ?쇱슦???대뜑紐??붾컮?댁뒪 ?대윮)
-?ъ씠 **~23珥??ㅽ봽??*???ㅼ륫 ?뺤씤(qcamera ?꾨젅??vs ?대┰ ?꾨젅??
-HUD ?議곕줈 ?뺤젙) ???대┰ ?앸?遺?1~2珥덇? ?ㅼ젣 ?ш굔 ?쒓컖怨??쇱튂.
+**중요 발견 1**: `leadRadarTrackId` 컬럼은 63차 계속3에서 이미
+`extract_log.py`에 추가돼 있었음(106차가 "없음"으로 오판, 기존 도구
+미확인). 다만 이 차량(SCC 단일점 레이더, 코너레이더 없음) 구조상
+radar=True 프레임의 트랙ID가 항상 0 고정 — 트랙ID로는 애초에
+"같은 물체 vs 다른 물체" 구분이 불가능함을 캐시 라우트 3건으로 확인.
 
-**?듭떖 寃곕줎**: 諛⑺뼢吏?쒕벑(blinker) 耳쒖???李⑥꽑蹂寃??쒕룄留덈떎
-`leadRadar` ?뚮옒洹멸? `True/False`濡?諛섎났 ?좉??섎ŉ 留??좉?留덈떎
-`leadDRel`??臾쇰━?곸쑝濡?遺덇??ν븳 ?쒓컙蹂?붿쑉濡??먰봽(?덉씠???몃뱶?ㅽ봽
-遺덉뿰?? 73李?76李④? ?대? ?ㅻ（???⑦꽩). 3媛??낅┰ ?щ?濡??뺤씤:
-- 92bb45496d seg4 t=4758.22 (mild, aEgo -1.12) ???붾㈃?뱁솕 HUD濡?
-  由щ뱶 ?몃옓ID `99??02??04` ?ㅼ쐞移??쒓컖 ?뺤씤(105李?"?꾨낫?대깽?퇐" ?먯씤 ?뺤젙)
-- 947fbb7dc6 seg1 t=2575.37 (以묎컙, aEgo -2.4)
-- 947fbb7dc6 seg3 t=2683.88~2685.73 (**severe**, 1.85珥덇컙 4?? ?좉?
-  ??TTC danger ?몃━嫄?min_ttc=1.55s, aEgo 理쒖? **-3.78**) ???ъ슜??
-  泥닿컧 "湲됯컧??怨?媛??遺?⑺븯??洹쒕え, **76李④? 誘멸?利앹쑝濡??④릿
-  "harsh braking ?ㅼ궗濡" 理쒖큹 ?뺣낫**
+**중요 발견 2 (106차 결론 재검토 필요)**: 트랙ID 대신 leadRadar
+True/False 엣지 자체를 클러스터링하는 `radar_source_flicker_scan()`
+신규 작성(toolkit/analysis_helpers.py, README/CHANGELOG 반영 완료).
+캐시된 일반 주행 12개 라우트(72차 검증셋 2개 + 86차 검증셋 10개)
+전체 스캔 결과 **총 51클러스터 중 blinker 겹침은 21건(41%)뿐, 59%는
+blinker 무관** — 즉 leadRadar 반복토글+dRel점프 현상 자체는 차선변경에
+국한된 게 아니라 이미 검증 끝난 일반 주행에서도 흔함. 106차가 확보한
+3건은 화면녹화가 있어 검증 가능했던 표본에 불과했을 가능성 —
+"차선변경이 원인"이라는 인과관계는 표본편향일 수 있음(아직 반증은
+아님). 상세는 FINDINGS.md 107차 참고.
 
-**以묒슂 諛쒓껄**: 73李?76李⑥쓽 4.0s hard-hold + release-rate ?꾪솕
-硫붿빱?덉쬁? ?대? ?곸슜??肄붾뱶(`bc1bcb0f6ff0`)?먯꽌 ?묐룞 以묒씠?덉쑝??
-severe ?щ??먯꽌??TTC danger override媛 ?⑤뒗 ?쒓컙 boost媛 ?ㅺ퀎??
-利됱떆 base濡?媛뺤젣蹂듦?(`force_revert`) ???뺤옉 媛???꾩슂???쒓컙??
-jerk ?꾪솕媛 爰쇱???援ъ“. ?곸꽭??FINDINGS.md 106李???ぉ 李멸퀬.
+**보류된 것**: 옵션1/옵션2 패치(confirm-hold 방식)는 착수 안 함 —
+위 재검토가 끝나기 전까지는 범위(차선변경 한정 vs 일반)조차 확정 안 됨.
 
-**?ㅼ쓬 ?몄뀡 理쒖슦??*:
-1. `extract_log.py`??`leadTrackId`(cereal `trackId` ?꾨뱶 議댁옱 ?뺤씤??
-   而щ읆 異붽? ???꾩옱???붾㈃?뱁솕 HUD ?≪븞?議곗뿉留??섏〈???몃옓 ?ㅼ쐞移섎?
-   ?뺤씤 媛???붾㈃?뱁솕 ?녿뒗 濡쒓렇??寃利?遺덇?), ?뺣웾???꾩슂.
-2. severe ?щ?(947fbb7dc6 seg3)??"?덉젙?곸쑝濡?蹂댁씠??-9.2m/s ?묎렐"??
-   吏꾩쭨 ?꾪뿕?몄? ?몃옓 遺덉븞???곗옣?좎씤吏 ?먮떒 ???몃옓ID 而щ읆 ?뺣낫 ??
-   ?ш???
-3. ??遺꾩꽍 湲곕컲?쇰줈 諛⑹븞 ?ㅺ퀎 李⑹닔(danger override? ?몃뱶?ㅽ봽 吏곹썑
-   ?좎삁湲곌컙 ?곹샇?묒슜 議곗젙 ?? ??**?꾩쭅 ?⑥튂 ?놁쓬, ?ㅺ퀎 ?쇱쓽 ?꾩슂**.
+**다음 세션 최우선**:
+1. `replay_boost_duration.py`(73차, 이미 존재)를 51개 플리커 클러스터
+   구간(특히 would_trigger_ttc_danger=True 22건 내외)에 실행 —
+   "danger override가 boost를 강제복귀시키는" 106차 사례3 패턴이
+   blinker 무관 구간에서도 실제로 재현되는지 확인. **아직 미실시**.
+2. 재현 여부에 따라 패치 범위(차선변경 한정 vs leadRadar 플리커 일반)
+   재확정 후 패치 설계 재착수.
+3. 92bb45496d/947fbb7dc6(105/106차 실사례) 재검증하려면 사용자가
+   `내차_차선변경.Zip` 재업로드 필요(devnotes에 미캐싱, 컨테이너
+   리셋으로 소실).
 
-**?대쾲 ?몄뀡 ?곗텧臾?*: `/home/claude/work/route_92bb45496d.csv`,
-`route_947fbb7dc6.csv`, `frames_qcam/`, `frames_clip/` ???꾨? 而⑦뀒?대꼫
-由ъ뀑 ???뚯떎, ?ы쁽 ?꾩슂???먮낯 zip ?ъ뾽濡쒕뱶 ???숈씪 而ㅻ㎤?쒕줈 ?ъ텛異?
-FINDINGS.md/WIP.md 蹂寃?????ぉ??留?devnotes??諛섏쁺, `toolkit/` 蹂寃?
-?놁쓬(湲곗〈 ?꾧뎄濡??꾨? 泥섎━ 媛?ν뻽??.
+**이번 세션 변경 파일**: `toolkit/analysis_helpers.py`(함수 추가),
+`toolkit/README.md`, `toolkit/CHANGELOG.md`, `FINDINGS.md`, 이 WIP.md
+항목. `ryu` 코드 변경 없음.
 
 ---
 
-## 105李?(?꾨즺 ??106李⑥뿉??寃곕줎 ?뺤젙) ???ъ슜???쒕낫 "李⑥꽑蹂寃?以?湲됯컧?? ?ㅼ감 濡쒓렇 遺꾩꽍 (?댁감_李⑥꽑蹂寃?zip)
+## 106차 (완료 — 105차 체크포인트 완결, 코드 변경 없음) — 차선변경 중 leadRadar 핸드오프 급감속 원인 확정 (92bb45496d/947fbb7dc6 재현)
 
-### ?붿껌 諛곌꼍
-?ъ슜?먭? ?붾㈃?뱁솕(clip.mp4) 3嫄?+ qcamera/rlog/qlog ?쇱슦??3嫄?+ 20?멸렇 zip 1嫄댁쓣
-`?댁감_李⑥꽑蹂寃?Zip`?쇰줈 ?낅줈?? "李⑥꽑蹂寃쎌떆 蹂寃쏀븯?ㅻ뒗 李⑥꽑???욎감?????
-湲됯컧??諛쒖깮" ?ы쁽 濡쒓렇 遺꾩꽍 ?붿껌. **?뚯씪紐낆씠 cp437/cp949 源⑥쭚 ?곹깭濡??닿꺼?덉뼱
-`zipfile` + `filename.encode('cp437').decode('cp949')` ?ы빐?????뺤긽 異붿텧??*
-(二쇱쓽: ?ν썑 ?좎궗 ?낅줈?쒕룄 ???⑦꽩 ?곗꽑 ?쒕룄).
+**입력**: 105차와 동일 파일명(`내차_차선변경.Zip`) 재업로드 — 이번엔
+260827 클립 2건에 대응하는 정정된 라우트(`947fbb7dc6`, seg0~3)가
+포함되어 105차의 "매칭 불일치" 문제가 해소됨.
 
-### ?낅줈???뚯씪 留ㅽ븨 ?꾪솴
-- `?댁감 李⑥꽑蹂寃?湲됯컧??260828_101139_clip.mp4` (30珥? ???쇱슦??
-  `92bb45496d` ?멸렇3/4/5 (`20260828_101055`/`101155`/`101256`, 媛?60珥?
-  珥?180珥?= wall 10:10:55~10:13:56) ??**?대뜑紐??쒓컖?媛 寃뱀퀜 ???대┰怨?
-  ??묐릺???쇱슦?몃줈 ?뺤젙**. `extract_log.py`濡?3600??CSV 異붿텧 ?꾨즺
+**시각 매핑**: 클립 파일명(폰 클럭) vs 라우트 폴더명(디바이스 클럭)
+사이 **~23초 오프셋**을 실측 확인(qcamera 프레임 vs 클립 프레임
+HUD 대조로 확정) — 클립 끝부분 1~2초가 실제 사건 시각과 일치.
+
+**핵심 결론**: 방향지시등(blinker) 켜지는 차선변경 시도마다
+`leadRadar` 플래그가 `True/False`로 반복 토글되며 매 토글마다
+`leadDRel`이 물리적으로 불가능한 순간변화율로 점프(레이더 핸드오프
+불연속, 73차/76차가 이미 다루는 패턴). 3개 독립 사례로 확인:
+- 92bb45496d seg4 t=4758.22 (mild, aEgo -1.12) — 화면녹화 HUD로
+  리드 트랙ID `99→102→104` 스위치 시각 확인(105차 "후보이벤트A" 원인 확정)
+- 947fbb7dc6 seg1 t=2575.37 (중간, aEgo -2.4)
+- 947fbb7dc6 seg3 t=2683.88~2685.73 (**severe**, 1.85초간 4회+ 토글
+  후 TTC danger 트리거 min_ttc=1.55s, aEgo 최저 **-3.78**) — 사용자
+  체감 "급감속"과 가장 부합하는 규모, **76차가 미검증으로 남긴
+  "harsh braking 실사례" 최초 확보**
+
+**중요 발견**: 73차/76차의 4.0s hard-hold + release-rate 완화
+메커니즘은 이미 적용된 코드(`bc1bcb0f6ff0`)에서 작동 중이었으나,
+severe 사례에서는 TTC danger override가 뜨는 순간 boost가 설계상
+즉시 base로 강제복귀(`force_revert`) — 정작 가장 필요한 순간에
+jerk 완화가 꺼지는 구조. 상세는 FINDINGS.md 106차 항목 참고.
+
+**다음 세션 최우선**:
+1. `extract_log.py`에 `leadTrackId`(cereal `trackId` 필드 존재 확인함)
+   컬럼 추가 — 현재는 화면녹화 HUD 육안대조에만 의존해 트랙 스위치를
+   확인 가능(화면녹화 없는 로그는 검증 불가), 정량화 필요.
+2. severe 사례(947fbb7dc6 seg3)의 "안정적으로 보이는 -9.2m/s 접근"이
+   진짜 위험인지 트랙 불안정 연장선인지 판단 — 트랙ID 컬럼 확보 후
+   재검토.
+3. 위 분석 기반으로 방안 설계 착수(danger override와 핸드오프 직후
+   유예기간 상호작용 조정 등) — **아직 패치 없음, 설계 논의 필요**.
+
+**이번 세션 산출물**: `/home/claude/work/route_92bb45496d.csv`,
+`route_947fbb7dc6.csv`, `frames_qcam/`, `frames_clip/` — 전부 컨테이너
+리셋 시 소실, 재현 필요시 원본 zip 재업로드 후 동일 커맨드로 재추출.
+FINDINGS.md/WIP.md 변경(이 항목들)만 devnotes에 반영, `toolkit/` 변경
+없음(기존 도구로 전부 처리 가능했음).
+
+---
+
+## 105차 (완료 — 106차에서 결론 확정) — 사용자 제보 "차선변경 중 급감속" 실차 로그 분석 (내차_차선변경.zip)
+
+### 요청 배경
+사용자가 화면녹화(clip.mp4) 3건 + qcamera/rlog/qlog 라우트 3건 + 20세그 zip 1건을
+`내차_차선변경.Zip`으로 업로드. "차선변경시 변경하려는 차선의 앞차에 대해
+급감속 발생" 재현 로그 분석 요청. **파일명이 cp437/cp949 깨짐 상태로 담겨있어
+`zipfile` + `filename.encode('cp437').decode('cp949')` 재해석 후 정상 추출됨**
+(주의: 향후 유사 업로드도 이 패턴 우선 시도).
+
+### 업로드 파일 매핑 현황
+- `내차 차선변경 급감속_260828_101139_clip.mp4` (30초) ↔ 라우트
+  `92bb45496d` 세그3/4/5 (`20260828_101055`/`101155`/`101256`, 각 60초,
+  총 180초 = wall 10:10:55~10:13:56) — **폴더명 시각대가 겹쳐 이 클립과
+  대응되는 라우트로 확정**. `extract_log.py`로 3600행 CSV 추출 완료
   (`/home/claude/work/route_92bb45496d.csv`, commit `bc1bcb0f6ff0`
   `c3-ms-dev`, `segment_state_carryover_fix: true`).
-- `?댁감 李⑥꽑蹂寃?湲됯컧??260827_113702_clip.mp4`,
-  `..._260827_113848_clip.mp4` (2嫄? ??????쇱슦??**遺덉씪移?諛쒓껄**.
-  ?낅줈?쒕맂 `20260827_121614_00000339--ce1f43d848_x20seg.zip`(20?멸렇)??
-  ?댁뼱 ?멸렇 ?대뜑紐??뺤씤??寃곌낵 ???쇱슦?몃뒗 wall **12:16:14~12:36:14**
-  援ш컙留??ы븿 ?????대┰ ?쒓컖(11:37:02, 11:38:48)怨?**??39~40遺?李⑥씠**濡?
-  ?꾪? 寃뱀튂吏 ?딆쓬. 利?**??2嫄??대┰????묓븯??濡쒓렇媛 ?대쾲 ?낅줈?쒖뿉
-  ?놁쓬** (?붾컮?댁뒪 ?쒓퀎 ?ㅽ봽??臾몄젣?몄?, ?섎せ???쇱슦???낅줈?쒖씤吏??
-  誘명솗??. ??**?ㅼ쓬 ?몄뀡 ?쒖옉 ???ъ슜?먯뿉寃??뺤씤 ?꾩슂**: (a) ?щ컮瑜?
-  ?쇱슦?몃? ?ㅼ떆 ?낅줈?쒗븯嫄곕굹 (b) ?????대┰ 遺꾩꽍? 蹂대쪟.
+- `내차 차선변경 급감속_260827_113702_clip.mp4`,
+  `..._260827_113848_clip.mp4` (2건) ↔ 대응 라우트 **불일치 발견**.
+  업로드된 `20260827_121614_00000339--ce1f43d848_x20seg.zip`(20세그)을
+  열어 세그 폴더명 확인한 결과 이 라우트는 wall **12:16:14~12:36:14**
+  구간만 포함 — 두 클립 시각(11:37:02, 11:38:48)과 **약 39~40분 차이**로
+  전혀 겹치지 않음. 즉 **이 2건 클립에 대응하는 로그가 이번 업로드에
+  없음** (디바이스 시계 오프셋 문제인지, 잘못된 라우트 업로드인지는
+  미확인). → **다음 세션 시작 전 사용자에게 확인 필요**: (a) 올바른
+  라우트를 다시 업로드하거나 (b) 이 두 클립 분석은 보류.
 
-### 92bb45496d(260828_101139 ?대┰) 遺꾩꽍 吏꾪뻾 ?곹솴 ??寃곕줎 誘명솗??
-- CSV?먯꽌 `laneChangeState`????援ш컙 `off`濡쒕쭔 李랁옒(???쇱슦?몄뿉?쒕뒗
-  李⑥꽑蹂寃쎌씠 openpilot ?먮룞 議고뼢???섑븳 寃껋씠 ?꾨땲??**?댁쟾???섎룞
-  李⑥꽑蹂寃?*?댁뿀??媛?μ꽦 ??`rightBlinker` True 援ш컙 t=4713.5~4717.07
-  (seg3), `leftBlinker` True 援ш컙 t=4756.3~4759.87(seg4) ?뺤씤??
-- **?꾨낫 ?대깽??A (seg4, t??759.7~4760.0, wall??0:12:34)**: `leftBlinker`
-  爰쇱????쒖젏 吏곹썑 `leadDRel`??**18.4m ??58.8m濡????꾨젅??留뚯뿉 ?먰봽**,
-  ?숈떆??`leadVRel`??**-1.3 ??+5.5濡?遺??諛섏쟾**?섎ŉ `aEgo`媛 ??援ш컙
-  ?꾩껜 ?쇱슦??以?**理쒖?移?-1.12 m/s짼**(global min)源뚯? ?섎씫. ???⑦꽩?
-  devnotes??湲곕줉??**鍮꾩쟾?믩젅?대뜑 ?몃뱶?ㅽ봽 vRel 遺덉뿰??72~73李? 諛⑹븞
-  I/G ?곸뿭)怨?留ㅼ슦 ?좎궗** ??醫뚯륫 李⑥꽑蹂寃??꾨즺 吏곹썑 ??李⑥꽑???좏뻾李⑤?
-  ?섎せ/遺덉븞?뺥븯寃??ы룷李⑺븯硫?湲됯컧?랁뻽??媛?μ꽦???덈뒗 **?좊젰 ?꾨낫**.
-- ?ㅻ쭔 **???대깽??wall??0:12:34)媛 ?대┰(10:11:09~10:11:39 異붿젙) ?쒓컙?
-  ?덉뿉 ?ㅼ젣濡??ы븿?섎뒗吏 ?꾩쭅 ?꾨젅???議곕줈 ?뺤젙 紐삵븿** ???쇱슦??
-  ?대뜑紐?湲곗? ?쒓컖怨??붾㈃?뱁솕 ?뚯씪紐??쒓컖???뺥솗???쇱튂?쒕떎??蹂댁옣??
-  ?놁뼱(?붾컮?댁뒪 ?대윮 vs ???대윮 ?ㅼ감 媛??, `extract_dashcam_frames.py`濡?
-  qcamera ?꾨젅?꾩쓣 ?щ윭 ?꾨낫 ?쒓컖(seg3 t=4661/4664/4667/4670/4673/4676,
-  4679/4684/4690/4700/4706/4712)?먯꽌 戮묒븘 ?대┰ ?꾨젅??ffmpeg濡?1珥?
-  媛꾧꺽 異붿텧, `/home/claude/work/frame_1s_*.png`)怨?**?꾨줈 ?띻꼍(媛?쒕젅??
-  怨≪꽑, 諛⑹쓬踰? ?좏뻾 李⑤웾 ?꾩튂)???≪븞 ?議?以묒씠?덉쑝???꾨즺 ??泥댄겕?ъ씤??*.
-- **李멸퀬濡??뺤씤???ъ떎(湲됯컧?띻낵 臾닿?, ?ㅼ씤 二쇱쓽)**: seg3 援ш컙 t??660~4691,
-  t??691~4716??vEgo媛 95??1kph濡??⑥뼱吏??**?꾨쭔??媛먯냽 2??*媛 ?덈뒗??
-  ?대뒗 `desiredSpeed`媛 200??8濡??⑥뼱吏???⑦꽩怨??뺥솗???쇱튂 ??
-  **怨좎젙??怨쇱냽移대찓??88kph ?쒗븳) ?묎렐???곕Ⅸ ?뺤긽 媛먯냽**?대ŉ 由щ뱶李⑤웾怨?
-  臾닿?(`leadStatus=False` ??援ш컙). ?대┰ 珥덈컲 ?붾㈃??"怨쇱냽(怨좎젙?? 88,
-  504m" 諛곕꼫? ?쇱튂?섎뒗 ?뺤긽 ?숈옉?대?濡?"湲됯컧???먯씤"?먯꽌 諛곗젣??寃?
+### 92bb45496d(260828_101139 클립) 분석 진행 상황 — 결론 미확정
+- CSV에서 `laneChangeState`는 전 구간 `off`로만 찍힘(이 라우트에서는
+  차선변경이 openpilot 자동 조향에 의한 것이 아니라 **운전자 수동
+  차선변경**이었을 가능성 — `rightBlinker` True 구간 t=4713.5~4717.07
+  (seg3), `leftBlinker` True 구간 t=4756.3~4759.87(seg4) 확인됨.
+- **후보 이벤트 A (seg4, t≈4759.7~4760.0, wall≈10:12:34)**: `leftBlinker`
+  꺼지는 시점 직후 `leadDRel`이 **18.4m → 58.8m로 한 프레임 만에 점프**,
+  동시에 `leadVRel`이 **-1.3 → +5.5로 부호 반전**하며 `aEgo`가 이 구간
+  전체 라우트 중 **최저치 -1.12 m/s²**(global min)까지 하락. 이 패턴은
+  devnotes에 기록된 **비전→레이더 핸드오프 vRel 불연속(72~73차, 방안
+  I/G 영역)과 매우 유사** — 좌측 차선변경 완료 직후 새 차선의 선행차를
+  잘못/불안정하게 재포착하며 급감속했을 가능성이 있는 **유력 후보**.
+- 다만 **이 이벤트(wall≈10:12:34)가 클립(10:11:09~10:11:39 추정) 시간대
+  안에 실제로 포함되는지 아직 프레임 대조로 확정 못함** — 라우트
+  폴더명 기준 시각과 화면녹화 파일명 시각이 정확히 일치한다는 보장이
+  없어(디바이스 클럭 vs 폰 클럭 오차 가능), `extract_dashcam_frames.py`로
+  qcamera 프레임을 여러 후보 시각(seg3 t=4661/4664/4667/4670/4673/4676,
+  4679/4684/4690/4700/4706/4712)에서 뽑아 클립 프레임(ffmpeg로 1초
+  간격 추출, `/home/claude/work/frame_1s_*.png`)과 **도로 풍경(가드레일
+  곡선, 방음벽, 선행 차량 위치)을 육안 대조 중이었으나 완료 전 체크포인트**.
+- **참고로 확인된 사실(급감속과 무관, 오인 주의)**: seg3 구간 t≈4660~4691,
+  t≈4691~4716에 vEgo가 95→81kph로 떨어지는 **완만한 감속 2회**가 있는데,
+  이는 `desiredSpeed`가 200→88로 떨어지는 패턴과 정확히 일치 —
+  **고정식 과속카메라(88kph 제한) 접근에 따른 정상 감속**이며 리드차량과
+  무관(`leadStatus=False` 전 구간). 클립 초반 화면의 "과속(고정식) 88,
+  504m" 배너와 일치하는 정상 동작이므로 "급감속 원인"에서 배제할 것.
 
-### ?⑥? ?묒뾽 (?ㅼ쓬 ?몄뀡 ?쒖옉??
-1. qcamera ?꾨젅??vs ?대┰ ?꾨젅???≪븞 ?議?留덈Т由????대┰???ㅼ젣濡?
-   ?닿퀬 ?덈뒗 route t 援ш컙???뺤젙 (?꾩옱 ?좊젰 ???꾨낫: (a) 珥덈컲 諛⑹쓬踰?
-   援ш컙 t??660~4680?, (b) ?꾨낫?대깽?퇐 遺洹?t??756~4762? ???대뜑紐?
-   ?쒓컖 怨꾩궛???대┰? (a)????媛源앹?留??뺤젙 ?꾨떂).
-2. ?뺤젙?섎㈃ `analysis_helpers.dRel_jump_ego_maneuver_overlap()` /
-   `curve_lead_dRel_jump_events()`??seg3+seg4 ?꾩껜???뚮젮 ?꾨낫?대깽?퇐
-   ??異붽? ?먰봽 ?대깽???좊Т ?ㅼ틪.
-3. ?꾨낫?대깽?퇐媛 ?대┰怨?臾닿???寃껋쑝濡??먮챸?섎㈃, ?대┰ 援ш컙 ?먯껜?먯꽌
-   蹂꾨룄??湲됯컧???대깽?몃? 泥섏쓬遺???ы깘??
-4. 260827 ?대┰ 2嫄? ?ъ슜?먯뿉寃?濡쒓렇 留ㅼ묶 遺덉씪移??덈궡 ???ъ뾽濡쒕뱶 ?붿껌.
-5. 寃곕줎 ?뺤젙 ??FINDINGS.md???뺤떇 湲곕줉 + ?꾩슂??諛⑹븞 ?ㅺ퀎(諛⑹븞 I/C
-   ?뺤옣 寃??.
+### 남은 작업 (다음 세션 시작점)
+1. qcamera 프레임 vs 클립 프레임 육안 대조 마무리 → 클립이 실제로
+   담고 있는 route t 구간을 확정 (현재 유력 두 후보: (a) 초반 방음벽
+   구간 t≈4660~4680대, (b) 후보이벤트A 부근 t≈4756~4762대 — 폴더명
+   시각 계산상 클립은 (a)에 더 가깝지만 확정 아님).
+2. 확정되면 `analysis_helpers.dRel_jump_ego_maneuver_overlap()` /
+   `curve_lead_dRel_jump_events()`을 seg3+seg4 전체에 돌려 후보이벤트A
+   외 추가 점프 이벤트 유무 스캔.
+3. 후보이벤트A가 클립과 무관한 것으로 판명되면, 클립 구간 자체에서
+   별도의 급감속 이벤트를 처음부터 재탐색.
+4. 260827 클립 2건: 사용자에게 로그 매칭 불일치 안내 후 재업로드 요청.
+5. 결론 확정 시 FINDINGS.md에 정식 기록 + 필요시 방안 설계(방안 I/C
+   확장 검토).
 
-### ?대쾲 泥댄겕?ъ씤???쒖젏 ?곗텧臾?
-- `/home/claude/work/route_92bb45496d.csv` (+`.meta.json`) ??而⑦뀒?대꼫
-  由ъ뀑 ???뚯떎, ?ъ궗???꾩슂?섎㈃ ?ㅼ쓬 ?몄뀡?먯꽌 ?숈씪 而ㅻ㎤?쒕줈 ?ъ텛異?
+### 이번 체크포인트 시점 산출물
+- `/home/claude/work/route_92bb45496d.csv` (+`.meta.json`) — 컨테이너
+  리셋 시 소실, 재사용 필요하면 다음 세션에서 동일 커맨드로 재추출
   (`extract_log.py /home/claude/work/route_92bb45496d ... --repo
-  /home/claude/ryu`, ?먮낯 ?멸렇 ?대뜑???낅줈??zip ?ы빐???꾩슂).
-- 肄붾뱶/devnotes ?뚯씪 蹂寃??놁쓬(??WIP.md ??ぉ 異붽?媛 ?좎씪??蹂寃? ??
-  FINDINGS.md/PARAMS_REGISTRY.md/toolkit/ 蹂寃??놁쓬.
-## 104李?(?꾨즺 ??遺꾩꽍留? 肄붾뱶 蹂寃??놁쓬) ???ㅽ깘(A)/諛섏쓳?붽컧(B) ?쒕낫 ?ㅼ감 濡쒓렇 2嫄?遺꾩꽍
+  /home/claude/ryu`, 원본 세그 폴더는 업로드 zip 재해동 필요).
+- 코드/devnotes 파일 변경 없음(이 WIP.md 항목 추가가 유일한 변경) —
+  FINDINGS.md/PARAMS_REGISTRY.md/toolkit/ 변경 없음.
+## 104차 (완료 — 분석만, 코드 변경 없음) — 오탐(A)/반응둔감(B) 제보 실차 로그 2건 분석
 
-**?낅젰**: dashcam zip 2嫄?seg10/seg11) + ?붾㈃?뱁솕 mp4 1嫄? ?쒕낫 ?댁슜
-"?뱁솕?곸긽蹂대㈃ ?ㅽ깘 諛??욎감??諛섏쓳 ?붽컧".
+**입력**: dashcam zip 2건(seg10/seg11) + 화면녹화 mp4 1건, 제보 내용
+"녹화영상보면 오탐 및 앞차에 반응 둔감".
 
-**?묒뾽 ?쒖꽌**: ?몄뀡 ?쒖옉(devnotes/ryu clone) ??WIP.md ?뚯감 ?뺤씤(103李?
-?뺤씤) ???낅줈???뚯씪 ?뺤씤 ??toolkit/README.md?먯꽌 dashcam 遺꾩꽍 ?꾧뎄
-?뺤씤 ??zip ?댁슜臾??뺤씤 ??mp4 硫뷀??곗씠???뺤씤 ??seg10/seg11 ?듯빀 route
-?대뜑 援ъ꽦 ??`extract_log.py`濡?CSV 異붿텧 ??meta.json?쇰줈 而ㅻ컠 ?쒖젏 ?뺤씤
-(101李??댄썑, 肄붾뱶 蹂寃??녿뒗 ?쒖닔 遺꾩꽍 ?몄뀡?쇰줈 寃곗젙) ??`analysis_helpers.py`
-湲곗〈 ?⑥닔(`five_item_scan`, TTC danger ?먯?, harsh_brake ?먯? ??濡?
-湲곕낯 ?ㅼ틪 ???꾪뿕/?ㅽ깘 ?꾨낫 援ш컙 ?곸꽭 濡쒓렇 ?議?t=683~689, t=726~731) ??
-議고뼢媛?怨〓쪧/?몃옓ID濡?而ㅻ툕 ?щ? 諛??寃??ㅼ쐞移??щ? ?뺤씤 ??
-`extract_dashcam_frames.py`濡???援ш컙 ?듭떖 ?쒖젏 qcamera ?꾨젅??異붿텧/
-?뺤씤(t=682/683.2/684.3/686.7/688.3, t=727.5/730.5/731.1) ??FINDINGS.md
-以묐났 ?뺤씤(grep) ??104李???ぉ ?묒꽦.
+**작업 순서**: 세션 시작(devnotes/ryu clone) → WIP.md 회차 확인(103차
+확인) → 업로드 파일 확인 → toolkit/README.md에서 dashcam 분석 도구
+확인 → zip 내용물 확인 → mp4 메타데이터 확인 → seg10/seg11 통합 route
+폴더 구성 → `extract_log.py`로 CSV 추출 → meta.json으로 커밋 시점 확인
+(101차 이후, 코드 변경 없는 순수 분석 세션으로 결정) → `analysis_helpers.py`
+기존 함수(`five_item_scan`, TTC danger 탐지, harsh_brake 탐지 등)로
+기본 스캔 → 위험/오탐 후보 구간 상세 로그 대조(t=683~689, t=726~731) →
+조향각/곡률/트랙ID로 커브 여부 및 타겟 스위치 여부 확인 →
+`extract_dashcam_frames.py`로 두 구간 핵심 시점 qcamera 프레임 추출/
+확인(t=682/683.2/684.3/686.7/688.3, t=727.5/730.5/731.1) → FINDINGS.md
+중복 확인(grep) → 104차 항목 작성.
 
-**寃곌낵**: Finding A(?ㅽ깘, NEEDS_VALIDATION)/Finding B(諛섏쓳?붽컧 ??
-?먯??ㅻ쪟 ?꾨땶 寃껋쑝濡??щ텇瑜? 2嫄댁쓣 FINDINGS.md??湲곕줉. ?곸꽭??
-FINDINGS.md "104李? ??ぉ 李멸퀬. 肄붾뱶 蹂寃??놁뼱 LAST_ANALYZED.md??
-遺꾩꽍 ?몄뀡 湲곕줉留?異붽?(?⑥튂 ?놁쓬).
+**결과**: Finding A(오탐, NEEDS_VALIDATION)/Finding B(반응둔감 —
+탐지오류 아닌 것으로 재분류) 2건을 FINDINGS.md에 기록. 상세는
+FINDINGS.md "104차" 항목 참고. 코드 변경 없어 LAST_ANALYZED.md엔
+분석 세션 기록만 추가(패치 없음).
 
-**?ㅼ쓬 ?몄뀡**:
-1. Finding A: 議고뼢媛?利앷?+?덉씠???좎떎 援ш컙?먯꽌 vision-only 異붿젙??
-   ?먭굅由щ줈 ?ㅽ뙋?섎뒗 ?ш컖吏? ???ы쁽 濡쒓렇 異붽? ?뺣낫 ??諛⑹븞 ?ㅺ퀎 李⑹닔.
-2. Finding B: ?덉젙???덉씠???묎렐 以?desiredSpeed(route/vturn)媛
-   ?곗꽑?쒕뤌 媛먯냽??吏?곕릺???곗꽑?쒖쐞 濡쒖쭅 臾몄젣 ??`carrot_serv.py`
-   min() ?뚯뒪?좏깮/`long_mpc.py` 由щ뱶 寃뚯씠??援먯감??肄붾뱶由щ뵫遺??
-3. mp4 ?대┰? ?대쾲 ???щ? ?쒓컖怨?寃뱀튂吏 ?딆븘 誘명솢?????ν썑 ?쒕낫 ??
-   ?대┰ ??꾩뒪?ы봽? ?ㅼ젣 ?대깽???쒓컖??癒쇱? ?議고븷 寃?
+**다음 세션**:
+1. Finding A: 조향각 증가+레이더 유실 구간에서 vision-only 추정이
+   원거리로 오판하는 사각지대 — 재현 로그 추가 확보 후 방안 설계 착수.
+2. Finding B: 안정적 레이더 접근 중 desiredSpeed(route/vturn)가
+   우선시돼 감속이 지연되는 우선순위 로직 문제 — `carrot_serv.py`
+   min() 소스선택/`long_mpc.py` 리드 게이팅 교차점 코드리딩부터.
+3. mp4 클립은 이번 두 사례 시각과 겹치지 않아 미활용 — 향후 제보 시
+   클립 타임스탬프와 실제 이벤트 시각을 먼저 대조할 것.
 
 ---
 
-## 103李?(?꾨즺 ??WIP.md/LAST_ANALYZED.md ?몄퐫???먯긽 蹂듦뎄 + Downloads 泥섎━ Copy?묺ove ?덉감 媛쒖젙) ??devnotes push ?몄퐫???ш퀬 ???
+## 103차 (완료 — WIP.md/LAST_ANALYZED.md 인코딩 손상 복구 + Downloads 처리 Copy→Move 절차 개정) — devnotes push 인코딩 사고 대응
 
-**諛곌꼍**: 102李?devnotes push 怨쇱젙?먯꽌 rebase 異⑸룎??諛쒖깮, Claude媛
-?ъ슜?먯뿉寃?`(Get-Content WIP.md) | Where-Object {...} | Set-Content
-WIP.md` ?뺥깭??PowerShell 紐낅졊??蹂묓빀?⑹쑝濡??덈궡?덉쓬. Windows
-PowerShell 5.1??`Get-Content`/`Set-Content` 湲곕낯 ?몄퐫?⑹씠 UTF-8??
-?꾨땲?댁꽌, ??紐낅졊???ㅽ뻾?섎ŉ WIP.md/LAST_ANALYZED.md ?꾩껜(100李?
-?댁긽 ?꾩쟻???쒓? 湲곕줉)??鍮?ASCII 臾몄옄媛 ?꾨? `?`(由ы꽣???먯떎)濡?
-源⑥쭊 梨?而ㅻ컠(`ac0ddbb`)?섏뼱 origin/main??push??
+**배경**: 102차 devnotes push 과정에서 rebase 충돌이 발생, Claude가
+사용자에게 `(Get-Content WIP.md) | Where-Object {...} | Set-Content
+WIP.md` 형태의 PowerShell 명령을 병합용으로 안내했음. Windows
+PowerShell 5.1의 `Get-Content`/`Set-Content` 기본 인코딩이 UTF-8이
+아니어서, 이 명령이 실행되며 WIP.md/LAST_ANALYZED.md 전체(100차
+이상 누적된 한글 기록)의 비-ASCII 문자가 전부 `?`(리터럴 손실)로
+깨진 채 커밋(`ac0ddbb`)되어 origin/main에 push됨.
 
-**?먯긽 ?뺤씤**: 103李??몄뀡 ?쒖옉 ??devnotes fresh clone ??諛붿씠???⑥쐞
-寃??`0x80` ?댁긽 諛붿씠???ㅼ뿉 ?ㅻ뒗 由ы꽣??`0x3F` 移댁슫??濡?諛쒓껄 ??
-WIP.md 12,931怨? LAST_ANALYZED.md 2,637怨??먯긽. `toolkit/*`(?대쾲
-merge?먯꽌 ?먮?吏 ?딆? ?뚯씪)? 0怨녹쑝濡??뺤긽 ???먯긽 ?먯씤???대떦
-PowerShell 紐낅졊 ?ㅽ뻾 踰붿쐞? ?뺥솗???쇱튂?⑥쓣 ?뺤씤.
+**손상 확인**: 103차 세션 시작 시 devnotes fresh clone 후 바이트 단위
+검사(`0x80` 이상 바이트 뒤에 오는 리터럴 `0x3F` 카운트)로 발견 —
+WIP.md 12,931곳, LAST_ANALYZED.md 2,637곳 손상. `toolkit/*`(이번
+merge에서 손대지 않은 파일)은 0곳으로 정상 — 손상 원인이 해당
+PowerShell 명령 실행 범위와 정확히 일치함을 확인.
 
-**蹂듦뎄**: ?먯긽 ?댁쟾 而ㅻ컠 `495b8de`(101李④퉴吏, origin???⑥븘?덈뜕 ?뺤긽
-?곹깭)??WIP.md/LAST_ANALYZED.md瑜?湲곗??쇰줈 101李??댄븯 ?꾩껜 ?대젰??
-諛붿씠???⑥쐞濡??꾩쟾 蹂듦뎄(?붿퐫??移댁슫??寃利??꾨즺, ?섏떖 `?` 0~3嫄?
-?섏??쇰줈 ?뺤긽 踰붿쐞). 洹??꾩뿉 102李??좉퇋 ??ぉ???뱀쓬:
-- `LAST_ANALYZED.md` 102李???ぉ: ??????댁쟾 ?댁뿉 ?⑥븘?덈뜕 ?먮Ц
-  ?꾩껜瑜?洹몃?濡??ъ슜 ??**?꾩쟾 蹂듦뎄**.
-- `WIP.md` 102李???ぉ: ????붿뿉 ?⑥븘?덈뜕 ?먮Ц? ?욌?遺??붿껌/踰붿쐞/
-  諛⑸쾿 臾몃떒)源뚯?留??뺣낫?? ?섎㉧吏(寃곌낵/?곗텧臾??ㅼ쓬 ?④퀎 臾몃떒)??
-  `LAST_ANALYZED.md` ?붿빟怨??몄뀡 留λ씫??洹쇨굅濡?**?ш뎄??*?덉쑝硫?
-  ??ぉ ?섎떒???ш뎄???ъ떎怨?踰붿쐞瑜?紐낆떆?섎뒗 ?몄쭛 硫붾え瑜??④꺼????
-  ?먮낯怨?100% ?쇱튂 蹂댁옣 ????
+**복구**: 손상 이전 커밋 `495b8de`(101차까지, origin에 남아있던 정상
+상태)의 WIP.md/LAST_ANALYZED.md를 기준으로 101차 이하 전체 이력을
+바이트 단위로 완전 복구(디코딩/카운트 검증 완료, 의심 `?` 0~3건
+수준으로 정상 범위). 그 위에 102차 신규 항목을 얹음:
+- `LAST_ANALYZED.md` 102차 항목: 이 대화 이전 턴에 남아있던 원문
+  전체를 그대로 사용 — **완전 복구**.
+- `WIP.md` 102차 항목: 이 대화에 남아있던 원문은 앞부분(요청/범위/
+  방법 문단)까지만 확보됨. 나머지(결과/산출물/다음 단계 문단)는
+  `LAST_ANALYZED.md` 요약과 세션 맥락을 근거로 **재구성**했으며,
+  항목 하단에 재구성 사실과 범위를 명시하는 편집 메모를 남겨둠 —
+  원본과 100% 일치 보장 안 됨.
 
-**?щ컻 諛⑹? 洹쒖튃 ?좎꽕** (`PROJECT_INSTRUCTIONS.md` 媛쒖젙, 103李?:
-?쒓? ??鍮?ASCII ?띿뒪?멸? ?ы븿???뚯씪???댁슜 ?몄쭛/蹂묓빀(git rebase
-異⑸룎 ?닿껐 ?ы븿)? ?욎쑝濡??ъ슜??PowerShell?먯꽌 吏곸젒 ?섏? ?딅뒗??
-Claude媛 而⑦뀒?대꼫 ?덉뿉???꾩꽦???뚯씪??留뚮뱾???ㅼ슫濡쒕뱶?쒗궎怨?
-?ъ슜?먮뒗 洹??뚯씪???대룞(Move)留??섎룄濡??덉감 蹂寃?
+**재발 방지 규칙 신설** (`PROJECT_INSTRUCTIONS.md` 개정, 103차):
+한글 등 비-ASCII 텍스트가 포함된 파일의 내용 편집/병합(git rebase
+충돌 해결 포함)은 앞으로 사용자 PowerShell에서 직접 하지 않는다.
+Claude가 컨테이너 안에서 완성된 파일을 만들어 다운로드시키고,
+사용자는 그 파일을 이동(Move)만 하도록 절차 변경.
 
-**異붽? ?붿껌 泥섎━**: "?ㅼ슫濡쒕뱶 ?대뜑 ???덊룷"濡??뚯씪????만 ??湲곗〈
-`Copy-Item`(蹂듭궗, Downloads???뚯씪??怨꾩냽 ?볦엫) 諛⑹떇??`Move-Item`
-(?대룞, Downloads?먯꽌 ?쒓굅?? 諛⑹떇?쇰줈 ?꾨㈃ 援먯껜 ??`Copy-Latest`
-?⑥닔瑜?`Move-Latest`濡?媛쒖젙?섍퀬 `PROJECT_INSTRUCTIONS.md`??"?묒뾽
-寃곌낵臾??꾨떖 ?먯튃" ?덉뿉 諛섏쁺.
+**추가 요청 처리**: "다운로드 폴더 → 레포"로 파일을 옮길 때 기존
+`Copy-Item`(복사, Downloads에 파일이 계속 쌓임) 방식을 `Move-Item`
+(이동, Downloads에서 제거됨) 방식으로 전면 교체 — `Copy-Latest`
+함수를 `Move-Latest`로 개정하고 `PROJECT_INSTRUCTIONS.md`의 "작업
+결과물 전달 원칙" 절에 반영.
 
-**援먰썕**: (1) WIP.md ?뚯감 ?쒓린 洹쒖튃??"?뚯감媛 ?덈Т 湲몄뼱吏硫?異뺤빟
-怨좊젮 媛???대씪??臾멸뎄媛 ?덉뿀吏留? ?대쾲 ?ш퀬濡??ㅼ젣 ?꾪뿕? ?뚯씪
-鍮꾨??붽? ?꾨땲??**濡쒖뺄 ?띿뒪??泥섎━ ?꾧뎄???몄퐫??遺덉씪移?*?????
-?욎쑝濡?devnotes ?띿뒪???뚯씪??????대뼡 ?뺥깭??濡쒖뺄 媛怨듬룄 ?몄퐫?⑹쓣
-紐낆떆?섏? ?딆쑝硫??꾪뿕?섎떎???먯쓣 ?먯튃?쇰줈 ?깅줉. (2) git 而ㅻ컠?
-?ㅻ깄?룹씠誘濡? push?섏? ?딆? 濡쒖뺄 ?꾩슜 而ㅻ컠(?? 由щ쿋?댁뒪 ??
-`56708a3`)? ?먭꺽???붿쟻???⑥? ?딆븘 蹂듦뎄 洹쇨굅媛 ?????녿떎 ??蹂듦뎄??
-寃곌뎅 **origin???ㅼ젣濡?議댁옱?덈뜕 留덉?留??뺤긽 而ㅻ컠**(`495b8de`)源뚯?留?
-蹂댁옣?쒕떎?????ы솗??
+**교훈**: (1) WIP.md 회차 표기 규칙에 "회차가 너무 길어지면 축약
+고려 가능"이라는 문구가 있었지만, 이번 사고로 실제 위험은 파일
+비대화가 아니라 **로컬 텍스트 처리 도구의 인코딩 불일치**였음 —
+앞으로 devnotes 텍스트 파일에 대한 어떤 형태의 로컬 가공도 인코딩을
+명시하지 않으면 위험하다는 점을 원칙으로 등록. (2) git 커밋은
+스냅샷이므로, push되지 않은 로컬 전용 커밋(예: 리베이스 전
+`56708a3`)은 원격에 흔적이 남지 않아 복구 근거가 될 수 없다 — 복구는
+결국 **origin에 실제로 존재했던 마지막 정상 커밋**(`495b8de`)까지만
+보장된다는 점 재확인.
 
-**?ㅼ쓬 ?④퀎**: ?놁쓬(devnotes 臾몄꽌/湲곕줉 ?뺤젙 ?몄뀡, ryu 肄붾뱶 蹂寃??놁쓬).
+**다음 단계**: 없음(devnotes 문서/기록 정정 세션, ryu 코드 변경 없음).
 
-## 102李?(?꾨즺 ???꾩껜肄붾뱶 CPU/硫붾え由??뺤쟻 ?ъ젏寃, ?좉퇋 ?댁뒋 ?놁쓬 ?뺤씤) ??c3-ms-dev 理쒖떊蹂?101李?諛섏쁺 `bc1bcb0`) ?ㅼ떆媛?猷⑦봽 ?뚯씪 ?꾩닔 ?ш???
+## 102차 (완료 — 전체코드 CPU/메모리 정적 재점검, 신규 이슈 없음 확인) — c3-ms-dev 최신본(101차 반영 `bc1bcb0`) 실시간 루프 파일 전수 재검토
 
-**?붿껌**: 101李?carrot_man ?щ옒???섏젙) ?꾨즺 ?? "理쒖떊 c3-ms-dev 釉뚮옖移?
-?꾩껜肄붾뱶瑜?硫대???遺꾩꽍?댁꽌 CPU/硫붾え由??먯쑀?⑥쓣 ?믪씠??肄붾뱶媛 ?녿뒗吏"
-?ъ젏寃 ?붿껌.
+**요청**: 101차(carrot_man 크래시 수정) 완료 후, "최신 c3-ms-dev 브랜치
+전체코드를 면밀히 분석해서 CPU/메모리 점유율을 높이는 코드가 없는지"
+재점검 요청.
 
-**踰붿쐞**: ?ㅼ떆媛?猷⑦봽媛 ?꾨뒗 ?듭떖 ?뚯씪 8媛???`carrot_man.py`(20Hz),
+**범위**: 실시간 루프가 도는 핵심 파일 8개 — `carrot_man.py`(20Hz),
 `carrot_functions.py`, `carrot_serv.py`, `controlsd.py`(100Hz),
 `radard.py`(20Hz), `longitudinal_planner.py`, `long_mpc.py`(MPC),
-`cruise.py`. base `bc1bcb0`(101李?諛섏쁺蹂?.
+`cruise.py`. base `bc1bcb0`(101차 반영본).
 
-**諛⑸쾿**: `toolkit/scan_perf_antipatterns.sh`(?대쾲 ?몄뀡 ?좉퇋 ?묒꽦,
-toolkit ?깅줉 ?꾨즺) ??deepcopy/誘몄틦??Params.get/print/re.compile/
-threading쨌subprocess/unbounded append/?꾩쟻 dict/鍮꾨깹?고솕 for-loop
-grep ?ㅼ틪 ?? 留ㅼ튂 ?꾨? 而⑦뀓?ㅽ듃(?몄텧 鍮덈룄/罹먯떛 寃뚯씠??bounded ?щ?)
-?뺤씤?섎ŉ 8媛??뚯씪 ?꾩닔 ?ш???
+**방법**: `toolkit/scan_perf_antipatterns.sh`(이번 세션 신규 작성,
+toolkit 등록 완료) — deepcopy/미캐싱 Params.get/print/re.compile/
+threading·subprocess/unbounded append/누적 dict/비벡터화 for-loop
+grep 스캔 후, 매치 전부 컨텍스트(호출 빈도/캐싱 게이트/bounded 여부)
+확인하며 8개 파일 전수 재검토.
 
-**寃곌낵**: ?덈줈???깅뒫 ?댁뒋 ?놁쓬.
-- Params I/O: 97~100李⑥뿉 嫄몄퀜 ?대? 罹먯떛(readParams ?⑦꽩)???곸슜??
-  ?곹깭 洹몃?濡??좎??섍퀬 ?덉쓬???ы솗??
-- deepcopy: 97李⑥뿉 ?쒓굅???곹깭 ?좎?, ?щ컻 ?놁쓬.
-- ?덉뒪?좊━/踰꾪띁瑜? ?꾨? `deque(maxlen=...)` ?깆쑝濡?bounded ?곹깭 ?뺤씤.
-- ?ㅻ젅??subprocess ?앹꽦: 1?뚯꽦 珥덇린???몄텧 ??猷⑦봽 ??諛섎났 ?앹꽦 ?놁쓬.
-- ?좎씪?섍쾶 ?⑥? 鍮꾨깹?고솕 Python 猷⑦봽??`get_path_after_distance()`
-  (haversine 湲곕컲 嫄곕━ 怨꾩궛, 20Hz ?몄텧)??利앸텇 ?먯깋 + lookahead 罹?
-  援ъ“濡??대? ?ㅼ쭏?곸씤 諛섎났 ?곹븳???덉뼱, 利됱떆 議곗튂媛 ?꾩슂??臾몄젣??
-  ?꾨땲怨??곗꽑?쒖쐞 ??? 踰≫꽣???꾨낫濡쒕쭔 湲곕줉.
+**결과**: 새로운 성능 이슈 없음.
+- Params I/O: 97~100차에 걸쳐 이미 캐싱(readParams 패턴)이 적용된
+  상태 그대로 유지되고 있음을 재확인.
+- deepcopy: 97차에 제거된 상태 유지, 재발 없음.
+- 히스토리/버퍼류: 전부 `deque(maxlen=...)` 등으로 bounded 상태 확인.
+- 스레드/subprocess 생성: 1회성 초기화 호출 외 루프 내 반복 생성 없음.
+- 유일하게 남은 비벡터화 Python 루프인 `get_path_after_distance()`
+  (haversine 기반 거리 계산, 20Hz 호출)는 증분 탐색 + lookahead 캡
+  구조로 이미 실질적인 반복 상한이 있어, 즉시 조치가 필요한 문제는
+  아니고 우선순위 낮은 벡터화 후보로만 기록.
 
-**?곗텧臾?*: `toolkit/scan_perf_antipatterns.sh` ?좉퇋 ?묒꽦 諛?
-`toolkit/README.md`/`toolkit/CHANGELOG.md` ?깅줉 ?꾨즺(?ъ궗??媛??.
+**산출물**: `toolkit/scan_perf_antipatterns.sh` 신규 작성 및
+`toolkit/README.md`/`toolkit/CHANGELOG.md` 등록 완료(재사용 가능).
 
-**?ㅼ쓬 ?④퀎**: ?놁쓬(肄붾뱶 蹂寃??녿뒗 ?뺤쟻 ?ъ젏寃 ?몄뀡). 101李??⑥튂??
-device ?щ???寃利앹? ?대? ?꾨즺???곹깭.
+**다음 단계**: 없음(코드 변경 없는 정적 재점검 세션). 101차 패치의
+device 재부팅 검증은 이미 완료된 상태.
 
-> ?좑툘 ?몄쭛 硫붾え(103李??몄뀡 蹂듦뎄): ??102李???ぉ? devnotes 蹂묓빀 怨쇱젙?먯꽌
-> Windows PowerShell `Get-Content | Set-Content` 紐낅졊??湲곕낯 ?몄퐫??
-> 臾몄젣濡??쒓???源⑤쑉???먮낯 ?띿뒪???쇰?媛 ?좎떎???? 媛숈? ?????
-> ?댁쟾 ?댁뿉 ?⑥븘?덈뜕 ?먮Ц 議곌컖怨?`LAST_ANALYZED.md` 102李???ぉ??
-> 洹쇨굅濡??ш뎄?깊븳 踰꾩쟾?대떎. ?곷떒 "?붿껌/踰붿쐞/諛⑸쾿" 臾몃떒? ?먮Ц 洹몃?濡?
-> 蹂듦뎄?섏뿀?쇰굹 "寃곌낵/?곗텧臾??ㅼ쓬 ?④퀎" 臾몃떒? ?ш뎄?깅텇?대?濡? ?몃?
-> 臾멸뎄媛 ?먮낯怨?100% ?쇱튂?섏? ?딆쓣 ???덉쓬.
+> ⚠️ 편집 메모(103차 세션 복구): 이 102차 항목은 devnotes 병합 과정에서
+> Windows PowerShell `Get-Content | Set-Content` 명령이 기본 인코딩
+> 문제로 한글을 깨뜨려 원본 텍스트 일부가 유실된 뒤, 같은 대화 내
+> 이전 턴에 남아있던 원문 조각과 `LAST_ANALYZED.md` 102차 항목을
+> 근거로 재구성한 버전이다. 상단 "요청/범위/방법" 문단은 원문 그대로
+> 복구되었으나 "결과/산출물/다음 단계" 문단은 재구성분이므로, 세부
+> 문구가 원본과 100% 일치하지 않을 수 있음.
 
-## 101李?(?꾨즺 ???먯씤 ?뺤젙+?⑥튂 ?곸슜+device ?щ???寃利앷퉴吏 ?꾨즺) ??100李??⑥튂媛 ?좊컻??carrot_man __init__ AttributeError ?щ옒???먯씤 ?뺤젙 諛??섏젙
+## 101차 (완료 — 원인 확정+패치 적용+device 재부팅 검증까지 완료) — 100차 패치가 유발한 carrot_man __init__ AttributeError 크래시 원인 확정 및 수정
 
-**諛곌꼍**: 100李??⑥튂(`eaee8b5`) ?곸슜 ??device?먯꽌 carrot_man??
-?뺤긽 湲곕룞?섏? 紐삵븯??臾몄젣 諛쒖깮. managerState?먯꽌
-`carrot_man`??`running=False, exitCode=1`濡???珥?媛꾧꺽 諛섎났
-?ъ떆?묒쓣 ?쒕룄?섎떎 ?ㅽ뙣(鍮꾩젙??crash loop). 臾몄젣??rlog/qlog
-?대뵒?먮룄 carrot_man??Python traceback???꾪? ?⑥? ?딆븯?ㅻ뒗 ??
-??`logMessage`/`logCarrotMessage`瑜??꾨? ?묒뼱??愿???먮윭 濡쒓렇
-0嫄? stdout/stderr 罹≪쿂???놁쓬. ?대뒗 ?щ옒?쒓? `cloudlog` ?ㅼ젙??
-?앸굹湲곕룄 ?? 利?`__init__` 洹뱀큹諛섏뿉??諛쒖깮?덉쓬???쒖궗.
+**배경**: 100차 패치(`eaee8b5`) 적용 후 device에서 carrot_man이
+정상 기동하지 못하는 문제 발생. managerState에서
+`carrot_man`이 `running=False, exitCode=1`로 수 초 간격 반복
+재시작을 시도하다 실패(비정상 crash loop). 문제는 rlog/qlog
+어디에도 carrot_man의 Python traceback이 전혀 남지 않았다는 점
+— `logMessage`/`logCarrotMessage`를 전부 훑어도 관련 에러 로그
+0건, stdout/stderr 캡처도 없음. 이는 크래시가 `cloudlog` 설정이
+끝나기도 전, 즉 `__init__` 극초반에서 발생했음을 시사.
 
-**?먯씤 ?뺤젙** (?ㅼ젣 肄붾뱶 ?뺤씤, 100李??⑥튂蹂?`selfdrive/carrot/
-carrot_man.py` 吏곸젒 遺꾩꽍): `__init__` 312踰덉㎏ 以꾩쓽
-`self.carrot_curve_speed_params()` ?몄텧?? 洹??⑥닔(1048踰덉㎏ 以?媛
-李몄“?섎뒗 罹먯떆 ?꾨뱶 `self._auto_curve_speed_factor`/
-`self._auto_curve_speed_aggressiveness`蹂대떎 **癒쇱?** ?ㅽ뻾??
-100李??⑥튂媛 ??罹먯떆 ?꾨뱶 珥덇린??釉붾줉(`readParams` ?ы븿)??
-`__init__` 留???`self.is_metric = ...` ?ㅼ쓬)???덈줈 異붽??섎㈃??
-?대? ?꾩そ(312踰덉㎏ 以????덈뜕 `carrot_curve_speed_params()` ?몄텧??
-洹??꾨옒濡??④퍡 ??린吏 ?딆? 寃??먯씤. 寃곌낵?곸쑝濡?`__init__` ?꾩쨷
+**원인 확정** (실제 코드 확인, 100차 패치본 `selfdrive/carrot/
+carrot_man.py` 직접 분석): `__init__` 312번째 줄의
+`self.carrot_curve_speed_params()` 호출이, 그 함수(1048번째 줄)가
+참조하는 캐시 필드 `self._auto_curve_speed_factor`/
+`self._auto_curve_speed_aggressiveness`보다 **먼저** 실행됨.
+100차 패치가 이 캐시 필드 초기화 블록(`readParams` 포함)을
+`__init__` 맨 끝(`self.is_metric = ...` 다음)에 새로 추가하면서,
+이미 위쪽(312번째 줄)에 있던 `carrot_curve_speed_params()` 호출을
+그 아래로 함께 옮기지 않은 게 원인. 결과적으로 `__init__` 도중
 `AttributeError: 'CarrotMan' object has no attribute
-'_auto_curve_speed_factor'`媛 諛쒖깮???꾨줈?몄뒪媛 利됱떆 醫낅즺??
-99李??댁쟾(?⑥튂 ?? 肄붾뱶?먯꽌??`carrot_curve_speed_params()`媛
-`self.params.get_*()`瑜?吏곸젒 ?몄텧?덇린 ?뚮Ц???쒖꽌 ?섏〈???먯껜媛
-?놁뿀????100李⑥쓽 罹먯떛 由ы뙥?곕쭅???덈줈 留뚮뱾?대궦 ?쒖꽌 踰꾧렇.
+'_auto_curve_speed_factor'`가 발생해 프로세스가 즉시 종료됨.
+99차 이전(패치 전) 코드에서는 `carrot_curve_speed_params()`가
+`self.params.get_*()`를 직접 호출했기 때문에 순서 의존성 자체가
+없었음 — 100차의 캐싱 리팩터링이 새로 만들어낸 순서 버그.
 
-**?섏젙** (base `eaee8b5`, c3-ms-dev HEAD/100李?諛섏쁺蹂? 濡쒖뺄 而ㅻ컠
-`6bbccca`): 罹먯떆 ?꾨뱶 珥덇린??釉붾줉(二쇱꽍 ?ы븿 4以?
+**수정** (base `eaee8b5`, c3-ms-dev HEAD/100차 반영본, 로컬 커밋
+`6bbccca`): 캐시 필드 초기화 블록(주석 포함 4줄:
 `readParams`/`_is_onroad_cached`/`_auto_curve_speed_factor`/
-`_auto_curve_speed_aggressiveness`)??`__init__` 留??앹뿉??
-`self.carrot_curve_speed_params()` ?몄텧 吏곸쟾(`curvatureFilter`
-?ㅼ젙 吏곹썑)?쇰줈 ?대룞. 濡쒖쭅/罹먯떆媛??ъ“??二쇨린 ??100李⑥쓽 ?ㅼ젣
-?숈옉? ?꾪? 蹂寃쏀븯吏 ?딄퀬 **珥덇린???쒖꽌留?* 諛붾줈?≪쓬. ?대룞??
-釉붾줉?먮뒗 101李??먯씤 ?ㅻ챸 二쇱꽍 異붽?.
+`_auto_curve_speed_aggressiveness`)을 `__init__` 맨 끝에서
+`self.carrot_curve_speed_params()` 호출 직전(`curvatureFilter`
+설정 직후)으로 이동. 로직/캐시값/재조회 주기 등 100차의 실제
+동작은 전혀 변경하지 않고 **초기화 순서만** 바로잡음. 이동한
+블록에는 101차 원인 설명 주석 추가.
 
-**寃利?*: `python3 -c "import ast; ast.parse(...)"` 臾몃쾿 寃利?
-?듦낵. `git diff`濡??대룞留??덇퀬 濡쒖쭅/媛?蹂寃??놁쓬???뺤씤.
-capnp/msgq ?섏〈???뚮Ц??而⑦뀒?대꼫?먯꽌 `long_mpc`瑜섏? 留덉갔媛吏濡?
-?ㅼ젣 `CarrotMan()` ?몄뒪?댁뒪???고??? ?뚯뒪?몃뒗 遺덇? ??**?붾컮?댁뒪
-遺?낆쑝濡쒕쭔 ?щ옒???댁냼瑜?理쒖쥌 ?뺤씤 媛??* (`PARAMS_REGISTRY.md`
-"?뺤쟻 ?щ옒??寃利? ?먯튃 李멸퀬).
+**검증**: `python3 -c "import ast; ast.parse(...)"` 문법 검증
+통과. `git diff`로 이동만 있고 로직/값 변경 없음을 확인.
+capnp/msgq 의존성 때문에 컨테이너에서 `long_mpc`류와 마찬가지로
+실제 `CarrotMan()` 인스턴스화(런타임) 테스트는 불가 — **디바이스
+부팅으로만 크래시 해소를 최종 확인 가능** (`PARAMS_REGISTRY.md`
+"정적 크래시 검증" 원칙 참고).
 
-**?⑥튂 ?꾨떖**: `/mnt/user-data/outputs/0001-carrot-man-init-order-fix.patch`
-(base `eaee8b5`, 利?100李?諛섏쁺蹂??꾩뿉 ?곸슜). `C:\dev\patch\`
-(PC) ?먮뒗 Termux ?섍꼍?대㈃ ?대떦 ?꾩튂???????`git am` ?곸슜.
+**패치 전달**: `/mnt/user-data/outputs/0001-carrot-man-init-order-fix.patch`
+(base `eaee8b5`, 즉 100차 반영본 위에 적용). `C:\dev\patch\`
+(PC) 또는 Termux 환경이면 해당 위치에 저장 후 `git am` 적용.
 
-**理쒖쥌 寃利?(device)**: ?⑥튂(`bc1bcb0`) ?곸슜 ??device ?щ?????
-carrot_man crash loop ?꾩쟾???댁냼, ?뺤긽 湲곕룞 ?뺤씤. 101李⑤뒗 ?닿구濡?
-?꾨즺.
+**최종 검증 (device)**: 패치(`bc1bcb0`) 적용 후 device 재부팅 —
+carrot_man crash loop 완전히 해소, 정상 기동 확인. 101차는 이걸로
+완료.
 
-**李멸퀬**: crash媛 ?댁냼?섏뼱 carrot_man???뺤긽 湲곕룞?섍쾶 ?먯쓣 肉?
-100李??⑥튂 ?먯껜(Params I/O 罹먯떛 + Shapely->numpy 踰≫꽣?????ㅼ젣
-二쇳뻾 以??숈옉(泥닿컧/?뚭? ?щ?)? ?꾩쭅 ?뺤씤 ????100李???ぉ "?ㅼ감寃利?
-?湲? ?곹깭??蹂꾧컻濡?洹몃?濡??댁뼱吏?101李⑤뒗 ?대뵒源뚯???100李④?
-留뚮뱺 ?щ옒??踰꾧렇留??닿껐??寃?.
+**참고**: crash가 해소되어 carrot_man이 정상 기동하게 됐을 뿐,
+100차 패치 자체(Params I/O 캐싱 + Shapely->numpy 벡터화)의 실제
+주행 중 동작(체감/회귀 여부)은 아직 확인 전 — 100차 항목 "실차검증
+대기" 상태는 별개로 그대로 이어짐(101차는 어디까지나 100차가
+만든 크래시 버그만 해결한 것).
 
 ---
 
-## 100李?(?꾨즺 ??援ы쁽+?뺤쟻寃利??꾨즺, ?ㅼ감寃利??湲? ??99李?諛쒓껄?ы빆 ?꾨? ?⑥튂: carrot_man.py Params I/O 罹먯떛 + Shapely interpolate?뭤umpy 踰≫꽣??+ 二쎌?肄붾뱶 2嫄??쒓굅
+## 100차 (완료 — 구현+정적검증 완료, 실차검증 대기) — 99차 발견사항 전부 패치: carrot_man.py Params I/O 캐싱 + Shapely interpolate→numpy 벡터화 + 죽은코드 2건 제거
 
-**諛곌꼍**: 99李??뺤쟻 肄붾뱶由щ럭)媛 李얠? 3媛???ぉ("?⑥튂援ы쁽" ?ъ슜???뺤씤 ??
-?꾨? ?⑥튂.
+**배경**: 99차(정적 코드리뷰)가 찾은 3개 항목("패치구현" 사용자 확인 후)
+전부 패치.
 
-**援ы쁽** (base `6ab8ad6`, c3-ms-dev HEAD, 濡쒖뺄 而ㅻ컠 `8354ed6`):
-1. `carrot_man.py` `__init__`??`readParams`(移댁슫?몃떎?? +
+**구현** (base `6ab8ad6`, c3-ms-dev HEAD, 로컬 커밋 `8354ed6`):
+1. `carrot_man.py` `__init__`에 `readParams`(카운트다운) +
    `_is_onroad_cached`/`_auto_curve_speed_factor`/
-   `_auto_curve_speed_aggressiveness` 罹먯떆 ?꾨뱶 異붽?, ?좉퇋 硫붿꽌??
-   `_refresh_cached_params()`(100?꾨젅?꾨쭏???ъ“?? 異붽?. ??硫붿꽌?쒕?
-   `broadcast_version_info()` 猷⑦봽??`self.sm.update(0)` 吏곹썑 留?
-   ?ъ씠???몄텧. `carrot_navi_route()`/`carrot_curve_speed_params()`??
-   `self.params.get_*()` 吏곸젒?몄텧 ???罹먯떆媛?李몄“濡?蹂寃?
-2. ?좉퇋 紐⑤뱢?⑥닔 `resample_10m_np(points_xy, distance_interval)`
-   (numpy ?꾩쟻嫄곕━ 諛곗뿴 + 踰≫꽣???좏삎蹂닿컙) 異붽?, `carrot_navi_route()`
-   ??`LineString(...)`+`while`+`.interpolate()` 釉붾줉?????⑥닔
-   ?몄텧 1以꾨줈 援먯껜. 理쒖긽??`try: from shapely.geometry import
-   LineString ... SHAPELY_AVAILABLE` 釉붾줉 諛?`carrot_navi_route()`??
-   `not SHAPELY_AVAILABLE` 媛??議곌굔 ?쒓굅(???댁긽 shapely 遺덊븘??.
-   `selfdrive/carrot/server/core.py`媛 蹂꾨룄濡?shapely瑜??곌퀬 ?덉뼱
-   `pyproject.toml`??`shapely` ?섏〈???먯껜???먮?吏 ?딆쓬.
+   `_auto_curve_speed_aggressiveness` 캐시 필드 추가, 신규 메서드
+   `_refresh_cached_params()`(100프레임마다 재조회) 추가. 이 메서드를
+   `broadcast_version_info()` 루프의 `self.sm.update(0)` 직후 매
+   사이클 호출. `carrot_navi_route()`/`carrot_curve_speed_params()`는
+   `self.params.get_*()` 직접호출 대신 캐시값 참조로 변경.
+2. 신규 모듈함수 `resample_10m_np(points_xy, distance_interval)`
+   (numpy 누적거리 배열 + 벡터화 선형보간) 추가, `carrot_navi_route()`
+   내 `LineString(...)`+`while`+`.interpolate()` 블록을 이 함수
+   호출 1줄로 교체. 최상단 `try: from shapely.geometry import
+   LineString ... SHAPELY_AVAILABLE` 블록 및 `carrot_navi_route()`의
+   `not SHAPELY_AVAILABLE` 가드 조건 제거(더 이상 shapely 불필요).
+   `selfdrive/carrot/server/core.py`가 별도로 shapely를 쓰고 있어
+   `pyproject.toml`의 `shapely` 의존성 자체는 손대지 않음.
 3. `carrot_man.py:404`(`if False and self.navd_active:`),
-   `controlsd.py:278`(`if False: # command` + `desire_map`) 二쎌?
-   遺꾧린 ??젣.
+   `controlsd.py:278`(`if False: # command` + `desire_map`) 죽은
+   분기 삭제.
 
-**?ъ쟾寃利?* (`toolkit/verify_resample_np.py`, 100李??좉퇋 ??README/
-CHANGELOG ?깅줉 ?꾨즺): ?먮낯 Shapely 諛⑹떇怨??좉퇋 numpy 諛⑹떇???쒕뜡
-寃쎈줈 20媛?+ 湲됱빱釉?+ 吏곸꽑 + 寃쎄퀎議곌굔(珥덈떒嫄곕━ 2?? 湲몄씠媛
-distance_interval???뺥솗??諛곗닔) + 600m湲?湲?寃쎈줈?????醫뚰몴 鍮꾧탳 ??
-?꾨? PASS, 理쒕??ㅼ감 1.2e-13m(遺?숈냼?섏젏 ?ㅼ감 ?섏?)濡?100% ?쇱튂.
+**사전검증** (`toolkit/verify_resample_np.py`, 100차 신규 — README/
+CHANGELOG 등록 완료): 원본 Shapely 방식과 신규 numpy 방식을 랜덤
+경로 20개 + 급커브 + 직선 + 경계조건(초단거리 2점, 길이가
+distance_interval의 정확한 배수) + 600m급 긴 경로에 대해 좌표 비교 —
+전부 PASS, 최대오차 1.2e-13m(부동소수점 오차 수준)로 100% 일치.
 
-**?곸슜寃利?*: `py_compile` ?듦낵. 蹂꾨룄 ?대┛ clone(`/home/claude/verify_apply`)
-?먯꽌 `git reset --hard 6ab8ad6` ??`git am
-0001-carrot-man-perf-cleanup.patch` 異⑸룎 ?놁씠 ?곸슜 ?뺤씤, ?곸슜 ??
-?ъ뺨?뚯씪???듦낵.
+**적용검증**: `py_compile` 통과. 별도 클린 clone(`/home/claude/verify_apply`)
+에서 `git reset --hard 6ab8ad6` 후 `git am
+0001-carrot-man-perf-cleanup.patch` 충돌 없이 적용 확인, 적용 후
+재컴파일도 통과.
 
-**?⑥튂 ?꾨떖**: `/mnt/user-data/outputs/0001-carrot-man-perf-cleanup.patch`
-(base `6ab8ad6`). `C:\dev\patch\0001-carrot-man-perf-cleanup.patch`濡?
-?????`C:\dev\ryu`?먯꽌 `git am` ?곸슜.
+**패치 전달**: `/mnt/user-data/outputs/0001-carrot-man-perf-cleanup.patch`
+(base `6ab8ad6`). `C:\dev\patch\0001-carrot-man-perf-cleanup.patch`로
+저장 후 `C:\dev\ryu`에서 `git am` 적용.
 
-**?ㅼ감寃利??湲?*: (a) `IsOnroad`/而ㅻ툕?띾룄 怨꾩닔(`AutoCurveSpeedFactor`/
-`Aggressiveness`) 蹂寃쎌씠 5s 吏????諛섏쁺?섎뒗 寃껋씠 泥닿컧??臾몄젣?녿뒗吏,
-(b) numpy 由ъ깦?뚯씠 ?ㅼ젣 GPS route(?⑹꽦 ?곗씠?곌? ?꾨땶 ?ㅼ＜??濡쒓렇)?먯꽌??
-怨〓쪧/out_speed ?곗텧 寃곌낵媛 湲곗〈怨??숈씪?쒖? ???ъ쟾寃利앹? ?⑹꽦(?쒕뜡+
-?섏옉??耳?댁뒪) ?곗씠??湲곗??댁뿀?? ?ㅼ젣 route 醫뚰몴濡쒕뒗 ?꾩쭅 ?ы솗??
-????
+**실차검증 대기**: (a) `IsOnroad`/커브속도 계수(`AutoCurveSpeedFactor`/
+`Aggressiveness`) 변경이 5s 지연 후 반영되는 것이 체감상 문제없는지,
+(b) numpy 리샘플이 실제 GPS route(합성 데이터가 아닌 실주행 로그)에서도
+곡률/out_speed 산출 결과가 기존과 동일한지 — 사전검증은 합성(랜덤+
+수작업 케이스) 데이터 기준이었음, 실제 route 좌표로는 아직 재확인
+안 함.
 
-## 99李?(泥댄겕?ъ씤????遺꾩꽍留??꾨즺, ?⑥튂 誘몄쟻???ъ슜??寃곗젙 ?湲? ??carrot_man.py 20Hz 猷⑦봽 ?뺤쟻由щ럭: Params I/O 誘몄틦??2嫄?+ Shapely interpolate 諛섎났?몄텧 + 二쎌?肄붾뱶 2嫄?諛쒓껄
+## 99차 (체크포인트 — 분석만 완료, 패치 미적용/사용자 결정 대기) — carrot_man.py 20Hz 루프 정적리뷰: Params I/O 미캐싱 2건 + Shapely interpolate 반복호출 + 죽은코드 2건 발견
 
-**?붿껌**: "肄붾뱶 泥좎???遺꾩꽍?댁꽌 ?ㅼ떆 cpu 諛?硫붾え由?留롮씠 李⑥??섍굅??遺덊븘?뷀븳
-肄붾뱶 李얠븘遊? ??97李?98李④? ?ㅻ（吏 ?딆? 踰붿쐞(`carrot_man.py`) ?꾩＜ ?ш???
+**요청**: "코드 철저히 분석해서 다시 cpu 및 메모리 많이 차지하거나 불필요한
+코드 찾아봐" — 97차/98차가 다루지 않은 범위(`carrot_man.py`) 위주 재검토.
 
-**寃곌낵 ?붿빟** (?곸꽭??FINDINGS.md 99李?李멸퀬):
-1. `carrot_curve_speed_params()`/`carrot_navi_route()`媛 20Hz 猷⑦봽?먯꽌
-   Params 3媛?`AutoCurveSpeedFactor`,`AutoCurveSpeedAggressiveness`,
-   `IsOnroad`)瑜?留??ъ씠??臾댁틦??議고쉶 ??97李⑥? ?숈씪 ?좏삎, `carrot_man.py`留?
-   ?꾨씫???덉뿀??
-2. `carrot_navi_route()`??怨〓쪧 由ъ깦?뚮쭅??Shapely `LineString.interpolate()`瑜?
-   20Hz 횞 理쒕? ~60???ъ씠??諛섎났?몄텧 ??GEOS媛 留??몄텧留덈떎 ?꾩쟻嫄곕━瑜?
-   泥섏쓬遺???ы깘?됲븯誘濡?遺덊븘?뷀븳 ?ш퀎?? numpy 踰≫꽣?붾줈 ?泥?媛??
-3. 二쎌? 肄붾뱶 2嫄?`carrot_man.py:404`, `controlsd.py:278`??`if False` 釉붾줉) ??
-   ?고???鍮꾩슜? ?놁쑝???뺣━ ???
-4. 二쇱꽍 435以?"5m 媛꾧꺽")怨??ㅼ젣 肄붾뱶(`distance_interval=10.0`) 遺덉씪移???臾몄꽌留?
-   ?뺤젙 ?꾩슂.
+**결과 요약** (상세는 FINDINGS.md 99차 참고):
+1. `carrot_curve_speed_params()`/`carrot_navi_route()`가 20Hz 루프에서
+   Params 3개(`AutoCurveSpeedFactor`,`AutoCurveSpeedAggressiveness`,
+   `IsOnroad`)를 매 사이클 무캐싱 조회 — 97차와 동일 유형, `carrot_man.py`만
+   누락돼 있었음.
+2. `carrot_navi_route()`의 곡률 리샘플링이 Shapely `LineString.interpolate()`를
+   20Hz × 최대 ~60회/사이클 반복호출 — GEOS가 매 호출마다 누적거리를
+   처음부터 재탐색하므로 불필요한 재계산. numpy 벡터화로 대체 가능.
+3. 죽은 코드 2건(`carrot_man.py:404`, `controlsd.py:278`의 `if False` 블록) —
+   런타임 비용은 없으나 정리 대상.
+4. 주석 435줄("5m 간격")과 실제 코드(`distance_interval=10.0`) 불일치 — 문서만
+   정정 필요.
 
-**?꾩쭅 ????寃?*: ?⑥튂 援ы쁽 ?놁쓬(97李⑥? ?숈씪?섍쾶 遺꾩꽍留?. ?ъ슜?먭?
-吏꾪뻾 ?먰븯硫?100李⑥뿉??`carrot_functions.py`??`params_count % 10` 罹먯떛
-?⑦꽩 ?ъ궗??+ `toolkit/sim_route_curvature_sample.py` ?쒖슜??numpy 由ъ깦??
-?뚭?寃利앹쑝濡??⑥튂 ?덉젙.
+**아직 안 한 것**: 패치 구현 없음(97차와 동일하게 분석만). 사용자가
+진행 원하면 100차에서 `carrot_functions.py`의 `params_count % 10` 캐싱
+패턴 재사용 + `toolkit/sim_route_curvature_sample.py` 활용한 numpy 리샘플
+회귀검증으로 패치 예정.
 
-**base**: `6ab8ad6` (c3-ms-dev HEAD, 98李??⑥튂 ?ы븿蹂?, 肄붾뱶 蹂寃??놁쓬(?쒖닔
-由щ럭), ryu 濡쒖뺄 而ㅻ컠 ?놁쓬.
+**base**: `6ab8ad6` (c3-ms-dev HEAD, 98차 패치 포함본), 코드 변경 없음(순수
+리뷰), ryu 로컬 커밋 없음.
 
-## 98李?(?꾨즺 ??援ы쁽+?뺤쟻寃利??꾨즺, ?ㅼ감寃利??湲? ??97李?諛쒓껄?ы빆 ?꾨? ?⑥튂: Params I/O 罹먯떛 + compute_leads ?대??⑥닔 ?대룞 + deepcopy ?쒓굅
+## 98차 (완료 — 구현+정적검증 완료, 실차검증 대기) — 97차 발견사항 전부 패치: Params I/O 캐싱 + compute_leads 내부함수 이동 + deepcopy 제거
 
-**諛곌꼍**: 97李??뺤쟻 肄붾뱶由щ럭)媛 李얠? 3媛???ぉ???ъ슜???뺤씤 ???꾨? ?⑥튂.
+**배경**: 97차(정적 코드리뷰)가 찾은 3개 항목을 사용자 확인 후 전부 패치.
 
-**援ы쁽** (base `b67c291`, c3-ms-dev HEAD, 濡쒖뺄 而ㅻ컠 `05580ab`):
-1. **Params I/O 罹먯떛** (`lateral_planner.py`??`self.readParams` 移댁슫??
-   ?⑦꽩 洹몃?濡??ъ궗??:
+**구현** (base `b67c291`, c3-ms-dev HEAD, 로컬 커밋 `05580ab`):
+1. **Params I/O 캐싱** (`lateral_planner.py`의 `self.readParams` 카운터
+   패턴 그대로 재사용):
    - `controlsd.py` `state_control()`(100Hz): `SteerRatioRate`/`CustomSR`/
      `UseLaneLineCurveSpeed`/`LatSmoothSec`/`SteerActuatorDelay`/
-     `SpeedFromPCM`/`DisableDM` 7媛???100?꾨젅??~1s)留덈떎 1??
+     `SpeedFromPCM`/`DisableDM` 7개 → 100프레임(~1s)마다 1회
    - `radard.py` `update()`(20Hz): `EnableRadarTracks`/`EnableCornerRadar`/
-     `RadarLatFactor`/`RadarReactionFactor` 4媛???100?꾨젅??5s)留덈떎 1??
+     `RadarLatFactor`/`RadarReactionFactor` 4개 → 100프레임(5s)마다 1회
    - `longitudinal_planner.py` `update()`(20Hz): `CommaLongAcc`/
-     `LongActuatorDelay`/`VEgoStopping` 3媛???100?꾨젅??5s)留덈떎 1??
-2. **`compute_leads()` ?대??⑥닔 紐⑤뱢?덈꺼 ?대룞**: `radard.py`??`_ok()`/
-   `_pick_two_with_gap()`(20Hz留덈떎 ?ъ깮?깅릺???대줈?)瑜?紐⑤뱢?덈꺼
-   `_lead_cand_ok()`/`_pick_two_with_gap()`?쇰줈 ?대룞.
-3. **`leadTwo` deepcopy?뭖opy**: `get_RadarState()` 諛섑솚媛믪씠 float/bool/str留?
-   ?닿릿 flat dict(以묒꺽 媛蹂媛앹껜 ?놁쓬)?꾩쓣 肄붾뱶 ?뺤씤 ??`.copy()`濡?援먯껜,
-   `import copy` ?쒓굅.
+     `LongActuatorDelay`/`VEgoStopping` 3개 → 100프레임(5s)마다 1회
+2. **`compute_leads()` 내부함수 모듈레벨 이동**: `radard.py`의 `_ok()`/
+   `_pick_two_with_gap()`(20Hz마다 재생성되던 클로저)를 모듈레벨
+   `_lead_cand_ok()`/`_pick_two_with_gap()`으로 이동.
+3. **`leadTwo` deepcopy→copy**: `get_RadarState()` 반환값이 float/bool/str만
+   담긴 flat dict(중첩 가변객체 없음)임을 코드 확인 후 `.copy()`로 교체,
+   `import copy` 제거.
 
-**?쒖뼱 濡쒖쭅/?꾧퀎媛??먯껜???꾪? 蹂寃??놁쓬** ???대쾲 ?⑥튂???쒖닔 罹먯떛
-由ы뙥?? 遺?묒슜? UI ?뚮씪誘명꽣 媛?蹂寃???諛섏쁺 吏?곕퓧(controlsd 理쒕?~1s,
-radard/longitudinal_planner 理쒕?~5s) ???쒕떇 以?利됯컖 諛섏쁺??湲곕??섎뒗
-?ъ슜?깃낵???몃젅?대뱶?ㅽ봽?대굹, `lateral_planner.py`/`carrot_functions.py`媛
-?대? ???몃젅?대뱶?ㅽ봽瑜?梨꾪깮 以묒씠???쇨????덉쓬.
+**제어 로직/임계값 자체는 전혀 변경 없음** — 이번 패치는 순수 캐싱
+리팩터. 부작용은 UI 파라미터 값 변경 시 반영 지연뿐(controlsd 최대~1s,
+radard/longitudinal_planner 최대~5s) — 튜닝 중 즉각 반영을 기대하는
+사용성과는 트레이드오프이나, `lateral_planner.py`/`carrot_functions.py`가
+이미 이 트레이드오프를 채택 중이라 일관성 있음.
 
-**寃利?*: `py_compile` 3?뚯씪 ?꾨? ?듦낵. 濡쒓렇 ?ъ깮 ?쒕??덉씠?섏? ????꾨떂
-(?쒖뼱媛믪뿉 ?곹뼢 ?녿뒗 ?쒖닔 I/O 罹먯떛?대씪 route 濡쒓렇濡??뺤씤??????먯껜媛
-?놁쓬 ??behavior??Params 諛섏쁺 ??대컢留?蹂??.
+**검증**: `py_compile` 3파일 전부 통과. 로그 재생 시뮬레이션은 대상 아님
+(제어값에 영향 없는 순수 I/O 캐싱이라 route 로그로 확인할 대상 자체가
+없음 — behavior는 Params 반영 타이밍만 변함).
 
-**?꾨떖**: `0001-98李?Params-IO-罹먯떛-compute_leads-?대룞-deepcopy?쒓굅.patch`
-(base `b67c291`, ?꾩옱 origin `c3-ms-dev` HEAD ?꾩뿉 諛붾줈 `git am` 媛??.
+**전달**: `0001-98차-Params-IO-캐싱-compute_leads-이동-deepcopy제거.patch`
+(base `b67c291`, 현재 origin `c3-ms-dev` HEAD 위에 바로 `git am` 가능).
 
-**?섍꼍 蹂寃??ы빆 (?대쾲 ?몄뀡遺??**: ?ъ슜?먭? ?ㅻ쭏?명룿 + Termux ?섍꼍?쇰줈
-?꾪솚. ?댄썑 devnotes/patch 濡쒖뺄 ???寃쎈줈 諛?push ?덉감??PowerShell??
-?꾨땶 Termux(bash) 紐낅졊?대줈 ?덈궡.
+**환경 변경 사항 (이번 세션부터)**: 사용자가 스마트폰 + Termux 환경으로
+전환. 이후 devnotes/patch 로컬 저장 경로 및 push 절차는 PowerShell이
+아닌 Termux(bash) 명령어로 안내.
 
-**?ㅼ쓬(理쒖슦??**: ?ㅼ감 ?쒕씪?대툕 寃利???
-1. UI?먯꽌 ?쒕떇 ?뚮씪誘명꽣(?? `LatSmoothSec`, `TFollowGap1` ??罹먯떛 ???
-   蹂寃???諛섏쁺??泥닿컧???먮젮吏吏 ?딅뒗吏 (controlsd 理쒕? 1s, ?섎㉧吏 理쒕?
-   5s 吏?곗? ?ㅺ퀎???덉슜 踰붿쐞?대굹 ?ㅼ궗??泥닿컧 ?뺤씤 ?꾩슂).
-2. 罹먯떛 ????議고뼢쨌醫낅갑???쒖뼱 ?숈옉 ?뚭? ?녿뒗吏 (?뱁엳 `SpeedFromPCM`/
-   `DisableDM`泥섎읆 ?덉쟾 愿???뚮씪誘명꽣媛 吏??罹먯떛?쇰줈 ?명빐 ?꾪뿕 ?곹솴?먯꽌
-   遺덈━?섍쾶 ?묐룞?섏? ?딅뒗吏 ???? ???뚮씪誘명꽣 紐⑤몢 李⑤웾 ?ㅼ젙媛??깃꺽?대씪
-   二쇳뻾 以??ㅼ떆媛?蹂寃???곸씠 ?꾨떂???뺤씤?? ?꾪뿕????쓬).
-3. 97李?98李⑤뒗 濡쒓렇遺꾩꽍 踰붿쐞 諛???`LAST_ANALYZED.md` 媛깆떊 ????꾨떂.
+**다음(최우선)**: 실차 드라이브 검증 —
+1. UI에서 튜닝 파라미터(예: `LatSmoothSec`, `TFollowGap1` 등 캐싱 대상)
+   변경 시 반영이 체감상 느려지지 않는지 (controlsd 최대 1s, 나머지 최대
+   5s 지연은 설계상 허용 범위이나 실사용 체감 확인 필요).
+2. 캐싱 전/후 조향·종방향 제어 동작 회귀 없는지 (특히 `SpeedFromPCM`/
+   `DisableDM`처럼 안전 관련 파라미터가 지연 캐싱으로 인해 위험 상황에서
+   불리하게 작동하지 않는지 — 단, 두 파라미터 모두 차량 설정값 성격이라
+   주행 중 실시간 변경 대상이 아님을 확인함, 위험도 낮음).
+3. 97차/98차는 로그분석 범위 밖 — `LAST_ANALYZED.md` 갱신 대상 아님.
 
-## 97李?(?꾨즺 ???뺤쟻 肄붾뱶由щ럭留? 肄붾뱶 蹂寃??놁쓬) ??c3-ms-dev ?꾩껜 遺덊븘?붿퐫??CPU遺???먭?
+## 97차 (완료 — 정적 코드리뷰만, 코드 변경 없음) — c3-ms-dev 전체 불필요코드/CPU부하 점검
 
-**?붿껌**: c3-ms-dev 理쒖떊(`b67c291`) 肄붾뱶 ?꾩껜瑜???곸쑝濡?(1) 遺덊븘?뷀븳
-肄붾뱶 議댁옱 ?щ?, (2) comma 湲곌린 援щ룞 ??CPU ?곗궛??怨쇰떎 ?뚮え?섎뒗 肄붾뱶
-議댁옱 ?щ? ?먭?. 濡쒓렇遺꾩꽍/?ㅼ감寃利??꾨떂 ???쒖닔 ?뺤쟻 由щ럭.
+**요청**: c3-ms-dev 최신(`b67c291`) 코드 전체를 대상으로 (1) 불필요한
+코드 존재 여부, (2) comma 기기 구동 시 CPU 연산을 과다 소모하는 코드
+존재 여부 점검. 로그분석/실차검증 아님 — 순수 정적 리뷰.
 
-**寃곌낵 (?곸꽭??FINDINGS.md 97李???ぉ 李멸퀬)**:
-- **?듭떖 諛쒓껄**: `controlsd.py` `state_control()`(100Hz 猷⑦봽) ??
-  rate-limit ?녿뒗 `Params.get_*()` ?몄텧 10嫄???珥덈떦 理쒕? 1000??
-  遺덊븘?뷀븳 ?뚮씪誘명꽣 I/O 媛?μ꽦. `radard.py`(20Hz, 4嫄?,
-  `longitudinal_planner.py`(20Hz, 3嫄??먮룄 ?숈씪 ?⑦꽩 ?덉쓬.
-- **?議?*: `lateral_planner.py`/`carrot_functions.py`???대?
-  ?꾨젅??移댁슫?곕줈 遺꾩궛 罹먯떛?섎뒗 ?щ컮瑜??⑦꽩??援ы쁽?대???????
-  3媛??뚯씪留????⑦꽩??鍮좎졇 ?쇨????놁쓬.
-- **遺??諛쒓껄**: `radard.py` `compute_leads()` ?대??⑥닔 2媛쒓?
-  20Hz留덈떎 ?ъ깮???ㅻ쾭?ㅻ뱶), `leadTwo`??遺덊븘?뷀븳 `deepcopy`
-  (flat dict??`.copy()`濡?異⑸텇), `controlsd.py`??
-  `smooth_value()` ?대??⑥닔??100Hz留덈떎 ?ъ깮??
-- **遺덊븘??肄붾뱶 ?먯껜??諛쒓껄 ????*: 湲?二쇱꽍 釉붾줉?ㅼ? 臾몄꽌??二쇱꽍,
-  `frogpilot`? `fleet_manager`濡??ㅼ젣 ?ъ슜 以?二쎌? 肄붾뱶 ?꾨떂).
+**결과 (상세는 FINDINGS.md 97차 항목 참고)**:
+- **핵심 발견**: `controlsd.py` `state_control()`(100Hz 루프) 내
+  rate-limit 없는 `Params.get_*()` 호출 10건 — 초당 최대 1000회
+  불필요한 파라미터 I/O 가능성. `radard.py`(20Hz, 4건),
+  `longitudinal_planner.py`(20Hz, 3건)에도 동일 패턴 있음.
+- **대조**: `lateral_planner.py`/`carrot_functions.py`는 이미
+  프레임 카운터로 분산 캐싱하는 올바른 패턴을 구현해뒀음 — 위
+  3개 파일만 이 패턴이 빠져 일관성 없음.
+- **부수 발견**: `radard.py` `compute_leads()` 내부함수 2개가
+  20Hz마다 재생성(오버헤드), `leadTwo`의 불필요한 `deepcopy`
+  (flat dict라 `.copy()`로 충분), `controlsd.py`의
+  `smooth_value()` 내부함수도 100Hz마다 재생성.
+- **불필요 코드 자체는 발견 안 됨**: 긴 주석 블록들은 문서화 주석,
+  `frogpilot`은 `fleet_manager`로 실제 사용 중(죽은 코드 아님).
 
-**?ㅼ쓬 ?④퀎 (誘몄젙, ?ъ슜???뺤씤 ?꾩슂)**:
-1. ??諛쒓껄??????⑥튂 ?묒꽦 ?щ? ???붿껌 ??吏꾪뻾
-   (`state_control()`/`radard.update()`/`longitudinal_planner.update()`??
-   `carrot_functions.py` ?ㅽ???移댁슫??罹먯떛 ?곸슜 + `compute_leads()`
-   ?대??⑥닔 ?대옒?ㅻ젅踰??대룞 + `deepcopy`??.copy()` 援먯껜)
-2. ?⑥튂?뷀븯硫??ㅼ감 寃利???ぉ: (a) ?뚮씪誘명꽣 UI?먯꽌 媛?蹂寃???
-   諛섏쁺 吏?곗씠 泥닿컧?섏? ?딅뒗吏(罹먯떛 二쇨린 ?ㅺ퀎 ?뺤씤), (b) 湲곗〈
-   ?숈옉 ?뚭? ?녿뒗吏(zero-regression)
-3. ????ぉ? 濡쒓렇遺꾩꽍 踰붿쐞 諛뽰씠??`LAST_ANALYZED.md` 媛깆떊 ????꾨떂
+**다음 단계 (미정, 사용자 확인 필요)**:
+1. 위 발견에 대한 패치 작성 여부 — 요청 시 진행
+   (`state_control()`/`radard.update()`/`longitudinal_planner.update()`에
+   `carrot_functions.py` 스타일 카운터 캐싱 적용 + `compute_leads()`
+   내부함수 클래스레벨 이동 + `deepcopy`→`.copy()` 교체)
+2. 패치화하면 실차 검증 항목: (a) 파라미터 UI에서 값 변경 시
+   반영 지연이 체감되지 않는지(캐싱 주기 설계 확인), (b) 기존
+   동작 회귀 없는지(zero-regression)
+3. 이 항목은 로그분석 범위 밖이라 `LAST_ANALYZED.md` 갱신 대상 아님
 
-## 96李?(?꾨즺 ??援먯감寃?좊쭔, 肄붾뱶 蹂寃??놁쓬) ??c3-ms-curv 蹂묓빀遺?87李?怨?94李?濡쒖쭅 ?곹샇?묒슜 寃??
+## 96차 (완료 — 교차검토만, 코드 변경 없음) — c3-ms-curv 병합분(87차)과 94차 로직 상호작용 검토
 
-- 95李?蹂묓빀 吏곹썑 ?붿껌?쇰줈 吏꾪뻾: 蹂묓빀??81/82/84/85/87/91李⑥? 94李④?
-  肄붾뱶 ?덈꺼濡?寃뱀튂??吏?먯씠 ?덈뒗吏 ?뺤씤.
-- 81/82/84/85/91李?route/vturn/lookahead, carrot_man.py/carrot_serv.py)??
-  94李?long_mpc.py)? ?꾩쟾 ?낅┰ ???곹샇?묒슜 ?놁쓬.
-- 87李?radard.py, VisionTrack 怨좎뒪???섏튂 ?섏젙)留?94李?discontinuity
-  由ъ뀑)? 濡쒖쭅??寃뱀묠 ?뺤씤: 94李⑥쓽 discontinuity ?먯젙 議곌굔
-  (`lead_one_status_now and not radarstate.leadOne.radar`, 鍮꾩쟾 ?⑤룆
-  ?곹깭?먯꽌留??됯?)??87李④? ?ㅻ（??怨좎뒪??tentative ?몃옓怨??뺥솗??
-  媛숈? 議곌굔 怨듦컙. 87李⑤뒗 怨좎뒪?몄쓽 dRel ?몄씠利덇? 94李⑤? ?ㅽ벂由ъ뼱?ㅽ븯寃?
-  諛쒕룞?쒗궗 ???덈뒗 ?몄텧?쒓컙??理쒕? 120珥???理쒕? 3珥덈줈 異뺤냼(蹂댁셿愿怨?,
-  ??洹???珥?援ш컙 ?덉뿉?쒕뒗 ?ъ쟾??94李④? 諛섏쓳?????덈뒗 ?붿뿬 媛?議댁옱.
-- ?곸꽭 洹쇨굅/肄붾뱶 ?몄슜? FINDINGS.md 95李???ぉ 李멸퀬. **肄붾뱶 蹂寃??놁쓬,
-  愿李???곸쑝濡쒕쭔 湲곕줉.**
-- **?ㅼ쓬 ?몄뀡 ?뺤씤?ы빆**: ?ㅼ＜??濡쒓렇?먯꽌 "而ㅻ툕/?좊ℓ??臾쇱껜 ?ㅼ묠 吏곹썑
-  3珥??대궡 湲됯컧?????뺤긽 蹂듦?" ?⑦꽩 愿李곕릺硫?????ぉ怨??곌껐?댁꽌 ?뺤씤.
+- 95차 병합 직후 요청으로 진행: 병합된 81/82/84/85/87/91차와 94차가
+  코드 레벨로 겹치는 지점이 있는지 확인.
+- 81/82/84/85/91차(route/vturn/lookahead, carrot_man.py/carrot_serv.py)는
+  94차(long_mpc.py)와 완전 독립 — 상호작용 없음.
+- 87차(radard.py, VisionTrack 고스트 래치 수정)만 94차(discontinuity
+  리셋)와 로직상 겹침 확인: 94차의 discontinuity 판정 조건
+  (`lead_one_status_now and not radarstate.leadOne.radar`, 비전 단독
+  상태에서만 평가)이 87차가 다루는 고스트 tentative 트랙과 정확히
+  같은 조건 공간. 87차는 고스트의 dRel 노이즈가 94차를 스퓨리어스하게
+  발동시킬 수 있는 노출시간을 최대 120초 → 최대 3초로 축소(보완관계),
+  단 그 ≤3초 구간 안에서는 여전히 94차가 반응할 수 있는 잔여 갭 존재.
+- 상세 근거/코드 인용은 FINDINGS.md 95차 항목 참고. **코드 변경 없음,
+  관찰 대상으로만 기록.**
+- **다음 세션 확인사항**: 실주행 로그에서 "커브/애매한 물체 스침 직후
+  3초 이내 급감속 후 정상 복귀" 패턴 관찰되면 이 항목과 연결해서 확인.
 
-## 95李?(?꾨즺 ??c3-ms-curv ??c3-ms-dev 蹂묓빀 ?꾨즺, ?먭꺽 ?몄떆 ?뺤씤 ?湲? ??81/82/84/85/87/91李??듯빀
+## 95차 (완료 — c3-ms-curv → c3-ms-dev 병합 완료, 원격 푸시 확인 대기) — 81/82/84/85/87/91차 통합
 
-- merge-base: `2d5174e` (79李?
-- 蹂묓빀 ??c3-ms-dev ?⑤룆 而ㅻ컠: `6981b5d` (94李? 諛⑹븞D 由ъ뀑)
-- 蹂묓빀 ???c3-ms-curv ?⑤룆 而ㅻ컠(?ㅻ옒????: `d7a647f`(81李쮉,b) `451a3b9`(82李? `2a91c3f`(84李? `284457f`(85李? `cf32b5d`(87李? `6d15391`(91李?
-- 而⑦뀒?대꼫 dry-run(`git merge --no-commit --no-ff`) 諛??ъ슜??濡쒖뺄 ?ㅼ젣 蹂묓빀(`ort` strategy) ????**異⑸룎 ?놁씠 ?깃났**
-- 蹂寃??뚯씪: `selfdrive/carrot/carrot_man.py`, `selfdrive/carrot/carrot_serv.py`, `selfdrive/controls/radard.py` ??珥?3 files changed, 120 insertions(+), 7 deletions(-)
-- ?ъ슜?먭? 濡쒖뺄?먯꽌 `git merge origin/c3-ms-curv -m "Merge c3-ms-curv into c3-ms-dev (81,82,84,85,87,91李??듯빀)"` ?ㅽ뻾 ?꾨즺, ?댁뼱??`git push origin c3-ms-dev` ?덉젙
-- ?대쾲 蹂묓빀? 釉뚮옖移?蹂묓빀(2-parent merge commit)?대씪 湲곗〈 `NNNN-xxx.patch`(git am???⑥씪 ?⑥튂) 諛⑹떇 ????ъ슜??濡쒖뺄 `git merge` 吏곸젒 ?ㅽ뻾?쇰줈 泥섎━??
-- **?ㅼ쓬 ?몄뀡 ?뺤씤?ы빆**: `git log --oneline -5 origin/c3-ms-dev`濡?蹂묓빀 而ㅻ컠???먭꺽??諛섏쁺?먮뒗吏 ?뺤씤, ?댄썑 81/82/84/85/87/91李⑥? 94李?諛⑹븞D)媛 ??釉뚮옖移섏뿉 怨듭〈?섎뒗 ?곹깭?먯꽌 ?ㅼ＜??寃利??꾩슂
+- merge-base: `2d5174e` (79차)
+- 병합 전 c3-ms-dev 단독 커밋: `6981b5d` (94차, 방안D 리셋)
+- 병합 대상 c3-ms-curv 단독 커밋(오래된 순): `d7a647f`(81차a,b) `451a3b9`(82차) `2a91c3f`(84차) `284457f`(85차) `cf32b5d`(87차) `6d15391`(91차)
+- 컨테이너 dry-run(`git merge --no-commit --no-ff`) 및 사용자 로컬 실제 병합(`ort` strategy) 둘 다 **충돌 없이 성공**
+- 변경 파일: `selfdrive/carrot/carrot_man.py`, `selfdrive/carrot/carrot_serv.py`, `selfdrive/controls/radard.py` — 총 3 files changed, 120 insertions(+), 7 deletions(-)
+- 사용자가 로컬에서 `git merge origin/c3-ms-curv -m "Merge c3-ms-curv into c3-ms-dev (81,82,84,85,87,91차 통합)"` 실행 완료, 이어서 `git push origin c3-ms-dev` 예정
+- 이번 병합은 브랜치 병합(2-parent merge commit)이라 기존 `NNNN-xxx.patch`(git am용 단일 패치) 방식 대신 사용자 로컬 `git merge` 직접 실행으로 처리함
+- **다음 세션 확인사항**: `git log --oneline -5 origin/c3-ms-dev`로 병합 커밋이 원격에 반영됐는지 확인, 이후 81/82/84/85/87/91차와 94차(방안D)가 한 브랜치에 공존하는 상태에서 실주행 검증 필요
 
 
-**諛곌꼍**: ?ъ슜?먭? ?댁쟾 ?몄뀡(而⑦뀒?대꼫 由ъ뀑?쇰줈 以묐떒?? `?댁쟾?몄뀡.txt`濡??꾨떖)?먯꽌
-"?댁감_李⑥꽑蹂寃?zip"(李⑥꽑蹂寃????놁감???욎감 ?몄떇 湲됯컧?? 遺꾩꽍 ?꾩쨷 63李?怨꾩냽
-FINDINGS.md 湲곕줉(r1-14 ?ш컖吏?: 諛⑹븞C媛 `_lead_acq_timer`留?由ъ뀑?섍퀬
-`frac_rate`/`frac_ttc`媛 ?쎈뒗 `_vision_dRel_rate`??洹몃?濡??ъ꽌, radar ?쎌삩??
-湲됯컧??醫낅즺 ?댄썑濡???뒗 ?щ??먯꽌??frac_rate媛 discontinuity ?몃━嫄??댄썑?먮룄
-DANGER湲됱쑝濡?怨꾩냽 ?좎??섎뒗 臾몄젣)瑜??ш?????63李?怨꾩냽???대? ?쒖떆?덈뜕 "諛⑹븞D"
-(discontinuity ?몃━嫄???`_vision_dRel_rate`/`_vision_dRel_rate_window`???④퍡
-由ъ뀑)瑜??대쾲 ?몄뀡?먯꽌 ?ㅼ젣 援ы쁽쨌寃利앷퉴吏 ?꾨즺.
+**배경**: 사용자가 이전 세션(컨테이너 리셋으로 중단됨, `이전세션.txt`로 전달)에서
+"내차_차선변경.zip"(차선변경 시 옆차선 앞차 인식 급감속) 분석 도중 63차 계속
+FINDINGS.md 기록(r1-14 사각지대: 방안C가 `_lead_acq_timer`만 리셋하고
+`frac_rate`/`frac_ttc`가 읽는 `_vision_dRel_rate`는 그대로 둬서, radar 락온이
+급감속 종료 이후로 늦는 사례에서는 frac_rate가 discontinuity 트리거 이후에도
+DANGER급으로 계속 유지되는 문제)를 재검토 — 63차 계속이 이미 제시했던 "방안D"
+(discontinuity 트리거 시 `_vision_dRel_rate`/`_vision_dRel_rate_window`도 함께
+리셋)를 이번 세션에서 실제 구현·검증까지 완료.
 
-**援ы쁽** (`c3-ms-dev`, 濡쒖뺄 而ㅻ컠 `866e934`, base `2d5174e`(79李?HEAD)):
-`long_mpc.py`??discontinuity ?몃━嫄?釉붾줉(`_lead_acq_timer=0.0` 由ъ뀑 吏곹썑)??
+**구현** (`c3-ms-dev`, 로컬 커밋 `866e934`, base `2d5174e`(79차 HEAD)):
+`long_mpc.py`의 discontinuity 트리거 블록(`_lead_acq_timer=0.0` 리셋 직후)에
 `self._vision_dRel_rate=0.0`/`self._vision_dRel_rate_window.clear()`/
-`self._vision_dRel_prev=None` 3以?異붽?. ?몃━嫄?議곌굔 ?먯껜(`DREL_DISCONTINUITY_*`
-臾명꽦)???꾪? ??嫄대뱶由???discontinuity媛 ?꾩삁 ??嫄몃━???곹솴(?뺤긽 ?꾨쭔 ?묎렐)??
-援ъ“?곸쑝濡?媛쒖엯 遺덇???
+`self._vision_dRel_prev=None` 3줄 추가. 트리거 조건 자체(`DREL_DISCONTINUITY_*`
+문턱)는 전혀 안 건드림 — discontinuity가 아예 안 걸리는 상황(정상 완만 접근)엔
+구조적으로 개입 불가능.
 
-**寃利?* (`toolkit/sim_drel_discontinuity_d.py` ?좉퇋, 4媛??쒕굹由ъ삤 ?꾨? PASS):
-1. r1-14瑜?radar ?쎌삩??湲됯컧??醫낅즺 ?댄썑濡?吏?? ?ы쁽 ??UNPATCHED???몃━嫄?
-   ?꾨젅?꾩뿉?쒕룄, 洹??댄썑 ?꾨쭔???묎렐?쇰줈 諛붾??ㅼ뿉??frac_rate=1.0(DANGER湲???
-   怨꾩냽 ?좎??????넻怨??꾪꽣???⑥? 湲됰씫 ?붾쪟 ?ㅼ뿼 ?뚮Ц). **PATCHED???몃━嫄?
-   ?꾨젅?꾩뿉??利됱떆 frac_rate=0.000?쇰줈 由ъ뀑** ??63李?怨꾩냽??諛쒓껄??臾댄슚??臾몄젣
-   ?댁냼 ?뺤씤.
-2. ?뺤긽 ?꾨쭔 ?묎렐(discontinuity ?놁쓬) ??PATCHED/UNPATCHED rate ?꾩쟾 ?숈씪
-   (diff=0.000000, ?뚭? ?놁쓬).
-3. r1-3瑜?radar媛 湲됰씫 吏곹썑 諛붾줈 ?쎌삩) ??湲곗〈 肄붾뱶媛 ?쎌삩 ?꾨젅?꾩뿉???대?
-   rate/window/prev瑜?臾댁“嫄?由ъ뀑?섎뒗 蹂꾨룄 寃쎈줈瑜?媛뽮퀬 ?덉뼱?? ?쎌삩 ?댄썑??
-   諛⑹븞D ?좊Т? 臾닿??섍쾶 ??踰꾩쟾???꾩쟾???숈씪(diff=0.000000) ??63李?怨꾩냽??
-   ?뺤씤?덈뜕 "??議고빀? ?대? ?④낵 ?덉쓬" 寃곕줎???대쾲 ?⑥튂濡?源⑥?吏 ?딆쓬 ?뺤씤.
-4. danger override ?낅┰????`process_lead()`??`ttc_now`??`_vision_dRel_rate`?
-   肄붾뱶???꾩쟾??遺꾨━??蹂?섎씪 ?대쾲 由ъ뀑怨?臾닿??섍쾶 ??긽 利됱떆 諛섏쓳(?뺤쟻 ?뺤씤).
+**검증** (`toolkit/sim_drel_discontinuity_d.py` 신규, 4개 시나리오 전부 PASS):
+1. r1-14류(radar 락온이 급감속 종료 이후로 지연) 재현 — UNPATCHED는 트리거
+   프레임에서도, 그 이후 완만한 접근으로 바뀐 뒤에도 frac_rate=1.0(DANGER급)이
+   계속 유지됨(저역통과 필터에 남은 급락 잔류 오염 때문). **PATCHED는 트리거
+   프레임에서 즉시 frac_rate=0.000으로 리셋** — 63차 계속이 발견한 무효화 문제
+   해소 확인.
+2. 정상 완만 접근(discontinuity 없음) — PATCHED/UNPATCHED rate 완전 동일
+   (diff=0.000000, 회귀 없음).
+3. r1-3류(radar가 급락 직후 바로 락온) — 기존 코드가 락온 프레임에서 이미
+   rate/window/prev를 무조건 리셋하는 별도 경로를 갖고 있어서, 락온 이후엔
+   방안D 유무와 무관하게 두 버전이 완전히 동일(diff=0.000000) — 63차 계속이
+   확인했던 "이 조합은 이미 효과 있음" 결론이 이번 패치로 깨지지 않음 확인.
+4. danger override 독립성 — `process_lead()`의 `ttc_now`는 `_vision_dRel_rate`와
+   코드상 완전히 분리된 변수라 이번 리셋과 무관하게 항상 즉시 반응(정적 확인).
 
-`py_compile` ?듦낵, 濡쒖뺄 而ㅻ컠 `866e934`(base `2d5174e`).
+`py_compile` 통과, 로컬 커밋 `866e934`(base `2d5174e`).
 
-**?꾨떖**: `0001-94-諛⑹븞D-discontinuity-vision_dRel_rate-window-由ъ뀑.patch`瑜?
-`/mnt/user-data/outputs/`???꾨떖(base `2d5174e`, 利??꾩옱 origin `c3-ms-dev`
-HEAD ?꾩뿉 諛붾줈 `git am` 媛??.
+**전달**: `0001-94-방안D-discontinuity-vision_dRel_rate-window-리셋.patch`를
+`/mnt/user-data/outputs/`에 전달(base `2d5174e`, 즉 현재 origin `c3-ms-dev`
+HEAD 위에 바로 `git am` 가능).
 
-**?ㅼ쓬(理쒖슦??**:
-1. ?ъ슜?먭? `C:\dev\ryu`?먯꽌 `git am` ?곸슜 + `git push origin c3-ms-dev`.
-2. **?ㅼ감 ?쒕씪?대툕 寃利?* ??(a) ???쒕낫(李⑥꽑蹂寃????놁감???욎감 ?몄떇 湲됯컧??
-   ?뱁엳 radar ?쎌삩????뒗 耳?댁뒪)?먯꽌 ?ㅼ젣濡??꾪솕?섎뒗吏, (b) **?뚭? 寃利?
-   ?꾩닔** ??r1-3瑜?radar 利됱떆 ?쎌삩, ?대? 寃利앸맂 議고빀)?먯꽌 泥닿컧 蹂???녿뒗吏,
-   吏꾩쭨 ?꾪뿕(danger override, TTC<=2.5s)? ??由ъ뀑怨?臾닿??섍쾶 洹몃?濡?
-   利됱떆 諛섏쓳?섎뒗吏.
-3. `?댁쟾?몄뀡.txt`???멸툒??3媛?route(`00000329--d2a61d2a73`,
-   `0000032b--4a32e2c0d3`, `0000032c--bc4301a25d`, ?꾨? commit `2d5174e`
-   湲곕줉)濡????⑥튂 ?곸슜 ????`regression_report()` ?뺣웾 鍮꾧탳 寃????
-   ?먮낯 zip???대쾲 ?몄뀡???놁뼱(?댁쟾?몄뀡.txt???띿뒪??濡쒓렇留? ?щ텇?앺븯?ㅻ㈃
-   ?ъ슜???ъ뾽濡쒕뱶 ?꾩슂.
+**다음(최우선)**:
+1. 사용자가 `C:\dev\ryu`에서 `git am` 적용 + `git push origin c3-ms-dev`.
+2. **실차 드라이브 검증** — (a) 원 제보(차선변경 시 옆차선 앞차 인식 급감속,
+   특히 radar 락온이 늦는 케이스)에서 실제로 완화되는지, (b) **회귀 검증
+   필수** — r1-3류(radar 즉시 락온, 이미 검증된 조합)에서 체감 변화 없는지,
+   진짜 위험(danger override, TTC<=2.5s)은 이 리셋과 무관하게 그대로
+   즉시 반응하는지.
+3. `이전세션.txt`에 언급된 3개 route(`00000329--d2a61d2a73`,
+   `0000032b--4a32e2c0d3`, `0000032c--bc4301a25d`, 전부 commit `2d5174e`
+   기록)로 이 패치 적용 전/후 `regression_report()` 정량 비교 검토 —
+   원본 zip이 이번 세션엔 없어(이전세션.txt는 텍스트 로그만) 재분석하려면
+   사용자 재업로드 필요.
 
-## 93李?(?꾨즺 ???쒕??덉씠???뚭?寃利앸쭔, 肄붾뱶 蹂寃??놁쓬) ??91李?ROUTE_ENTRY_MARGIN_KPH) 援?룄 ?곗냽怨≪꽑 濡쒓렇(baseline) ?뺤떇 ?뚭?寃利? **臾몄젣 ?놁쓬**
+## 93차 (완료 — 시뮬레이션 회귀검증만, 코드 변경 없음) — 91차(ROUTE_ENTRY_MARGIN_KPH) 국도 연속곡선 로그(baseline) 정식 회귀검증, **문제 없음**
 
-**諛곌꼍**: 92李④? "91李??곸슜??濡쒓렇"濡??ㅻ텇瑜섑뻽??route(0000032d--c0e3054c4a,
-seg13~19)瑜??ъ슜?먭? "91李??곸슜 ?댁쟾 baseline"?쇰줈 ?ы솗?명빐以섏꽌, ?대쾲??
-?ㅼ젣 91李?濡쒖쭅(desiredCurvature ?곷텇 ?ш뎄????갑?쩊P, margin ?뚮씪誘명꽣??
-洹몃?濡???濡쒓렇 ?꾩껜 援ш컙???ъ깮???뺤떇 ?뚭?寃利??섑뻾(92李⑤뒗 baseline
-濡쒓렇??turn_speed_violation/harsh_brake留?遊ㅼ쓣 肉?91李?濡쒖쭅 ?먯껜瑜?
-?쒕??덉씠?섑븳 寃??꾨땲?덉쓬 ??洹?寃곕줎? ?대? 92李⑥뿉???먭린??.
+**배경**: 92차가 "91차 적용후 로그"로 오분류했던 route(0000032d--c0e3054c4a,
+seg13~19)를 사용자가 "91차 적용 이전 baseline"으로 재확인해줘서, 이번엔
+실제 91차 로직(desiredCurvature 적분 재구성+역방향DP, margin 파라미터화)
+그대로 이 로그 전체 구간에 재생해 정식 회귀검증 수행(92차는 baseline
+로그의 turn_speed_violation/harsh_brake만 봤을 뿐 91차 로직 자체를
+시뮬레이션한 게 아니었음 — 그 결론은 이미 92차에서 폐기됨).
 
-**?듭떖 寃곌낵** (?곸꽭??FINDINGS.md 93李?李멸퀬): 濡쒓렇 ?꾩껜(420珥? 3珥?
-媛꾧꺽 126媛??ㅻ깄???ㅼ쐲 ??
-1. 吏곸꽑援ш컙(臾닿끝瑜? ?ㅽ깘 0嫄?
-2. 75/126嫄댁뿉??議곌린媛쒖엯 ?뺤긽 ?뺤씤, ??援ш컙??**?뺤젏 紐⑺몴媛?min_speed)
-   李⑥씠 ?됯퇏/理쒕? 0.00km/h** ???ㅺ퀎 ?섎룄(?ㅼ?以꾨쭔 ?밴?, 紐⑺몴媛?遺덈?)
-   ?뺥솗???뺤씤.
-3. ??쟾 踰꾧렇(margin???ㅽ엳??媛쒖엯????텛??寃쎌슦) 0嫄?
-4. turn_speed_violation/harsh_brake??92李⑥? ?숈씪?섍쾶 ?꾨? src=vturn
-   湲곗씤, route/91李⑥? 臾닿? ?ы솗??
+**핵심 결과** (상세는 FINDINGS.md 93차 참고): 로그 전체(420초) 3초
+간격 126개 스냅샷 스윕 —
+1. 직선구간(무곡률) 오탐 0건.
+2. 75/126건에서 조기개입 정상 확인, 이 구간들 **정점 목표값(min_speed)
+   차이 평균/최대 0.00km/h** — 설계 의도(스케줄만 당김, 목표값 불변)
+   정확히 확인.
+3. 역전 버그(margin이 오히려 개입을 늦추는 경우) 0건.
+4. turn_speed_violation/harsh_brake는 92차와 동일하게 전부 src=vturn
+   기인, route/91차와 무관 재확인.
 
-**寃곕줎**: 91李④? bc4301a25d(89/90/91李???寃利?route) ?몄뿉 ?깃꺽???ㅻⅨ
-route(援?룄 ?곗냽怨≪꽑)?먯꽌??吏곸꽑 ?ㅽ깘 ?놁씠 ?ㅺ퀎?濡??숈옉?⑥쓣 ?뺤씤 ??
-89/90/91李?怨꾩뿴 泥?援먯감 route 寃利?
+**결론**: 91차가 bc4301a25d(89/90/91차 원 검증 route) 외에 성격이 다른
+route(국도 연속곡선)에서도 직선 오탐 없이 설계대로 동작함을 확인 —
+89/90/91차 계열 첫 교차 route 검증.
 
-**肄붾뱶 蹂寃?*: `toolkit/sim_route_margin_regression_scan.py` ?좉퇋
-(devnotes留? ryu 誘몃?寃?.
+**코드 변경**: `toolkit/sim_route_margin_regression_scan.py` 신규
+(devnotes만, ryu 미변경).
 
-**?ㅼ쓬(理쒖슦?? 蹂寃??놁쓬 ??81/82/84/85/87/91李??꾨? ?ъ쟾???ㅼ감寃利?
-?湲??곹깭)**:
-1. **?ㅼ감 ?쒕씪?대툕 寃利?* ??91李? (a) 而ㅻ툕 吏꾩엯 ??route媛 ?ㅼ젣濡?
-   vturn蹂대떎 癒쇱? 媛쒖엯?섎뒗 泥닿컧, (b) 吏곸꽑/?꾨쭔 援ш컙 ?ㅽ깘 ?녿뒗吏(?대쾲
-   ?쒕??덉씠?섏긽 0嫄댁씠?덉쑝???ㅼ젣 GPS ?몄씠利덈뒗 ?ㅻ? ???덉쓬), (c) 而ㅻ툕B瑜?
-   (TBT 洹쇱젒) 遺?묒슜 ?녿뒗吏.
-2. 81李?vturn_safe_time 2.0s/TBT 500m 寃뚯씠???쒓굅)/82李??먮났痢??移?
-   踰꾪띁)/84李??숈쟻 lookahead 罹?300~500m)/85李?罹?600m ?곹뼢)/87李?
-   (VisionTrack ghost timeout 3.0s) ?꾨? ?꾩쭅 ?ㅼ감 誘멸?利???91李⑥?
-   ?④퍡 媛숈? ?쒕씪?대툕?먯꽌 ?숈떆 ?뺤씤 媛??
+**다음(최우선, 변경 없음 — 81/82/84/85/87/91차 전부 여전히 실차검증
+대기 상태)**:
+1. **실차 드라이브 검증** — 91차: (a) 커브 진입 시 route가 실제로
+   vturn보다 먼저 개입하는 체감, (b) 직선/완만 구간 오탐 없는지(이번
+   시뮬레이션상 0건이었으나 실제 GPS 노이즈는 다를 수 있음), (c) 커브B류
+   (TBT 근접) 부작용 없는지.
+2. 81차(vturn_safe_time 2.0s/TBT 500m 게이트 제거)/82차(원복측 대칭
+   버퍼)/84차(동적 lookahead 캡 300~500m)/85차(캡 600m 상향)/87차
+   (VisionTrack ghost timeout 3.0s) 전부 아직 실차 미검증 — 91차와
+   함께 같은 드라이브에서 동시 확인 가능.
 
-## 90李?(?꾨즺 ???쒕??덉씠??寃利앸쭔, 肄붾뱶 蹂寃??놁쓬) ??89李????(route 怨〓쪧 chord 異뺤냼) 寃利? **?④낵 誘몃?濡??먯젙**
+## 90차 (완료 — 시뮬레이션 검증만, 코드 변경 없음) — 89차 대안1(route 곡률 chord 축소) 검증, **효과 미미로 판정**
 
-**諛곌꼍**: 89李?怨≪꽑_怨좎냽?꾨줈?⑦봽2(媛숈? route bc4301a25d) ?ъ뾽濡쒕뱶 ??
-89李④? ?쒖떆??媛쒖꽑 ???4媛?以?1踰?`sample` 4->2/3, chord 40m->20~30m)??
-寃利앺븯?쇰뒗 吏??
+**배경**: 89차 곡선_고속도로램프2(같은 route bc4301a25d) 재업로드 →
+89차가 제시한 개선 대안 4개 중 1번(`sample` 4->2/3, chord 40m->20~30m)을
+검증하라는 지시.
 
-**諛⑸쾿**: raw navi_points媛 濡쒓렇???놁뼱(navRoute capnp 誘멸린濡??뺤씤)
-`desiredCurvature` ?쒓컙?곷텇?쇰줈 ?ㅼ＜??寃쎈줈瑜??ш뎄?? `carrot_man.py`
-怨〓쪧+?띾룄+??갑?쩊P 濡쒖쭅??洹몃?濡?蹂듭젣(`toolkit/sim_route_curvature_sample.py`
-?좉퇋)??sample 2/3/4 鍮꾧탳.
+**방법**: raw navi_points가 로그에 없어(navRoute capnp 미기록 확인)
+`desiredCurvature` 시간적분으로 실주행 경로를 재구성, `carrot_man.py`
+곡률+속도+역방향DP 로직을 그대로 복제(`toolkit/sim_route_curvature_sample.py`
+신규)해 sample 2/3/4 비교.
 
-**?듭떖 寃곌낵**: ?뺤젏 洹쇱쿂 理쒖냼 紐⑺몴?띾룄媛 sample=4?먯꽌???대? 78km/h
-(vturn ?ㅼ륫 73km/h? 5km/h 李⑥씠)濡?洹쇱젒 ??sample=2濡???떠??75.7km/h
-(?④낵 ~2.5km/h肉?. ?ㅼ젣 濡쒓렇??route 理쒖?媛?121)-vturn ?ㅼ륫(73) 媛?
-48km/h 媛?뿉 鍮꾪빐 誘몃?. raw navi_points ?ъ냼??30/60/100m) ?ㅽ뿕??
-蹂묓뻾?덉쑝???ъ냼?깆씠 sample ?④낵瑜?泥닿퀎?곸쑝濡??ㅼ슦吏 ?딄퀬 ?ㅽ엳??
-?몄씠利덉꽦 ?ㅽ뙆?댄겕(怨쇰?異붿젙 諛⑺뼢)留??좊컻 ??"?깃릿 raw ?ъ씤??chord"
-媛?ㅻ룄 湲곌컖.
+**핵심 결과**: 정점 근처 최소 목표속도가 sample=4에서도 이미 78km/h
+(vturn 실측 73km/h와 5km/h 차이)로 근접 — sample=2로 낮춰도 75.7km/h
+(효과 ~2.5km/h뿐). 실제 로그의 route 최저값(121)-vturn 실측(73) 간
+48km/h 갭에 비해 미미. raw navi_points 희소성(30/60/100m) 실험도
+병행했으나 희소성이 sample 효과를 체계적으로 키우지 않고 오히려
+노이즈성 스파이크(과대추정 방향)만 유발 — "성긴 raw 포인트+chord"
+가설도 기각.
 
-**寃곕줎**: 89李???? ?⑤룆?쇰줈??愿李곕맂 怨쇱냼?됯? 媛?쓣 ?ㅻ챸/?댁냼?섍린
-遺議? 吏꾩쭨 ?먯씤? chord 湲몄씠蹂대떎 ?ㅼ젣 navi GPS ?대━?쇱씤 ?먯껜???뺤긽
-?뺣???吏???곗씠?곗쓽 ?⑦봽 ?쒗쁽) 履쎌씪 媛?μ꽦??而ㅼ쭚(NEEDS_VALIDATION,
-raw navi_points 吏곸젒 濡쒓퉭 ?놁씠???뺤젙 遺덇?). ?곸꽭??FINDINGS.md 90李?
-李멸퀬. **肄붾뱶 蹂寃??놁쓬(?쒕??덉씠?섎쭔).**
+**결론**: 89차 대안1 단독으로는 관찰된 과소평가 갭을 설명/해소하기
+부족. 진짜 원인은 chord 길이보다 실제 navi GPS 폴리라인 자체의 형상
+정밀도(지도 데이터의 램프 표현) 쪽일 가능성이 커짐(NEEDS_VALIDATION,
+raw navi_points 직접 로깅 없이는 확정 불가). 상세는 FINDINGS.md 90차
+참고. **코드 변경 없음(시뮬레이션만).**
 
-**?ㅼ쓬(?ъ슜??寃곗젙 ?湲?**:
-1. **[?좉퇋 ?쒖븞]** `carrot_man.py`??raw navi_points/curvature 諛곗뿴??
-   ?붾쾭洹?怨꾩륫 濡쒓퉭?섎뒗 ?⑥튂瑜?癒쇱? ?곸슜???ㅼ쓬 濡쒓렇?먯꽌 吏곸젒 寃利?
-   (89/90李④? 怨꾩냽 媛???섏???癒몃Т瑜대뒗 洹쇰낯 ?먯씤??raw ?곗씠??遺??
-   ?댁냼).
-2. 89李????(route/vturn 愿대━ 湲곕컲 蹂댁젙)/3(?덉쟾留덉쭊 ?대━?ㅽ떛) ?쒖쐞
-   ?ш?????1踰??④낵媛 ?묒븘 ?쒖쐞 ?ъ“???꾩슂.
-3. 而ㅻ툕B(t??259~9302, 湲됯꺽???⑦봽+援먯감濡????숈씪 諛⑹떇 援먯감寃利앺븯硫?
-   ?쒕낯 2嫄댁쑝濡?寃곕줎??蹂닿컯 媛??
+**다음(사용자 결정 대기)**:
+1. **[신규 제안]** `carrot_man.py`에 raw navi_points/curvature 배열을
+   디버그 계측 로깅하는 패치를 먼저 적용해 다음 로그에서 직접 검증
+   (89/90차가 계속 가설 수준에 머무르는 근본 원인인 raw 데이터 부재
+   해소).
+2. 89차 대안2(route/vturn 괴리 기반 보정)/3(안전마진 휴리스틱) 순위
+   재검토 — 1번 효과가 작아 순위 재조정 필요.
+3. 커브B(t≈9259~9302, 급격한 램프+교차로)도 동일 방식 교차검증하면
+   표본 2건으로 결론력 보강 가능.
 
-## 89李?(?꾨즺 ???먯씤遺꾩꽍留? 肄붾뱶 蹂寃??놁쓬) ??怨≪꽑_怨좎냽?꾨줈?⑦봽2, route ?ъ쟾媛먯냽 怨쇱냼?됯? ?먯씤 洹쒕챸 + 媛쒖꽑 ???4媛??쒖떆
+## 89차 (완료 — 원인분석만, 코드 변경 없음) — 곡선_고속도로램프2, route 사전감속 과소평가 원인 규명 + 개선 대안 4개 제시
 
-**諛곌꼍**: 88李⑥? 媛숈? route(`bc4301a25d`, `c3-ms-curv` 85李?HEAD `284457f`)??
-seg12/13??qcamera ?ы븿 ?ъ뾽濡쒕뱶. 而ㅻ툕A(?꾨쭔???⑦봽 吏꾩텧濡?/而ㅻ툕B(湲됯꺽??
-?⑦봽+援먯감濡? 遺꾩꽍, 而ㅻ툕A 吏꾩엯遺 turn_speed_violation(16.73km/h/4.55珥?
-?먯씤??"route媛 ?ъ쟾媛먯냽???덈뒗吏" 吏덈Ц???듯븯硫?洹쒕챸.
+**배경**: 88차와 같은 route(`bc4301a25d`, `c3-ms-curv` 85차 HEAD `284457f`)의
+seg12/13을 qcamera 포함 재업로드. 커브A(완만한 램프 진출로)/커브B(급격한
+램프+교차로) 분석, 커브A 진입부 turn_speed_violation(16.73km/h/4.55초)
+원인을 "route가 사전감속을 했는지" 질문에 답하며 규명.
 
-**?듭떖 諛쒓껄**: route媛 t=9211.27遺??媛쒖엯?덉쑝??desiredSpeed瑜?200??21
-km/h源뚯?留?10珥덉뿉 嫄몄퀜 ?꾨쭔????톬怨? 洹몃룞??vEgo??怨꾩냽 媛??以묒씠???ㅼ젣
-?쒕룞 ?④낵媛 ?꾪? ?놁뿀??"?쒕쪟???ъ쟾媛먯냽"). t=9221.26??vturn?쇰줈 ?꾪솚?섎ŉ
-121??3km/h瑜?5珥?留뚯뿉 湲됰씫 ????湲됰씫??overshoot??吏곸젒 ?먯씤. **route媛
-?곗텧??理쒖쥌 紐⑺몴媛?121) ?먯껜媛 vturn??理쒖쥌 ?붽뎄移?73~77)蹂대떎 ?⑥뵮 ?믪븘
-route媛 ??而ㅻ툕??議곗엫??怨쇱냼?됯??덉쓬??CSV濡??뺤씤??**
+**핵심 발견**: route가 t=9211.27부터 개입했으나 desiredSpeed를 200→121
+km/h까지만 10초에 걸쳐 완만히 낮췄고, 그동안 vEgo는 계속 가속 중이라 실제
+제동 효과가 전혀 없었음("서류상 사전감속"). t=9221.26에 vturn으로 전환되며
+121→73km/h를 5초 만에 급락 — 이 급락이 overshoot의 직접 원인. **route가
+산출한 최종 목표값(121) 자체가 vturn의 최종 요구치(73~77)보다 훨씬 높아
+route가 이 커브의 조임을 과소평가했음이 CSV로 확인됨.**
 
-**肄붾뱶 ?덈꺼 ?먯씤 ?꾨낫(NEEDS_VALIDATION)**: `carrot_navi_route()`??怨〓쪧
-怨꾩궛??3?먯쓣 40m 媛꾧꺽(`distance_interval=10.0 횞 sample=4`)?쇰줈 ?쇱뼱
-怨꾩궛 ??諛섍꼍 ?묒? ?⑦봽 而ㅻ툕?먯꽌 ?쒓컙怨〓쪧???됲솢??怨쇱냼?됯?)??媛?μ꽦.
-raw curvature/navi_points媛 CSV???놁뼱 吏곸젒寃利앹? 紐삵븿(媛??.
+**코드 레벨 원인 후보(NEEDS_VALIDATION)**: `carrot_navi_route()`의 곡률
+계산이 3점을 40m 간격(`distance_interval=10.0 × sample=4`)으로 떼어
+계산 — 반경 작은 램프 커브에서 순간곡률을 평활화(과소평가)할 가능성.
+raw curvature/navi_points가 CSV에 없어 직접검증은 못함(가설).
 
-**?쒖떆??媛쒖꽑 ???4媛??ъ슜??寃곗젙 ?湲? ?⑥튂 誘몄갑??**:
-1. 怨〓쪧 ?섑뵆留?chord 異뺤냼(`sample` 4??~3, 20~30m 媛꾧꺽) ??湲됱빱釉?誘쇨컧?꾟넁,
-   ?꾨쭔??而ㅻ툕/吏곸꽑 GPS ?몄씠利덉뿉 ?섑븳 ?ㅽ깘(遺덊븘??媛먯냽) ?뚭? 由ъ뒪???덉쓬,
-   ?щ윭 而ㅻ툕濡?A/B 寃利??꾩슂.
-2. route媛 ?곗텧??紐⑺몴媛믨낵 紐?珥???vturn???붽뎄??媛??ъ씠 愿대━媛 ?щ㈃
-   route 履쎌뿉?????쇱컢 ??? 媛믪쑝濡??밴린??"寃⑹감 湲곕컲 蹂댁젙" ??vturn??
-   lookahead ?뺣낫瑜?route DP 醫낆젏 議곌굔??諛섏쁺?섎뒗 援ъ“???곕룞, ?ㅺ퀎/寃利?
-   鍮꾩슜 ?덉쓬.
-3. (?鍮꾩슜) 湲됱“??媛먯? ??紐⑺몴?띾룄???덉쟾留덉쭊(margin_kph)??誘몃━
-   李④컧?섎뒗 ?대━?ㅽ떛 ??媛꾨떒?섏?留?怨〓쪧 ?먯껜瑜?蹂댁젙?섎뒗 寃??꾨땲???꾩떆諛⑺렪.
-4. (怨좊퉬?? 援ъ“?? route/vturn??min() ?뱀옄?낆떇 ??????뚯뒪??援ш컙蹂?
-   ?꾩슂?띾룄 ?꾨줈?뚯씪??臾쇰━?곸쑝濡?蹂묓빀???ш퀎????洹쇰낯?곸씠??由ъ뒪???묒뾽????
+**제시한 개선 대안 4개(사용자 결정 대기, 패치 미착수)**:
+1. 곡률 샘플링 chord 축소(`sample` 4→2~3, 20~30m 간격) — 급커브 민감도↑,
+   완만한 커브/직선 GPS 노이즈에 의한 오탐(불필요 감속) 회귀 리스크 있음,
+   여러 커브로 A/B 검증 필요.
+2. route가 산출한 목표값과 몇 초 뒤 vturn이 요구할 값 사이 괴리가 크면
+   route 쪽에서 더 일찍 낮은 값으로 당기는 "격차 기반 보정" — vturn의
+   lookahead 정보를 route DP 종점 조건에 반영하는 구조적 연동, 설계/검증
+   비용 있음.
+3. (저비용) 급조임 감지 시 목표속도에 안전마진(margin_kph)을 미리
+   차감하는 휴리스틱 — 간단하지만 곡률 자체를 보정하는 게 아니라 임시방편.
+4. (고비용, 구조적) route/vturn을 min() 승자독식 대신 두 소스의 구간별
+   필요속도 프로파일을 물리적으로 병합해 재계산 — 근본적이나 리스크/작업량 큼.
 
-?곗꽑?쒖쐞/援ы쁽 ?щ????ъ슜??寃곗젙 ?湲? 肄붾뱶 蹂寃??놁쓬.
+우선순위/구현 여부는 사용자 결정 대기. 코드 변경 없음.
 
-## 88李?(?꾨즺 ??遺꾩꽍留? 肄붾뱶 蹂寃??놁쓬, **[?뺤젙] 釉뚮옖移??ㅽ뙋 ?섏젙**) ??怨≪꽑_怨좎냽?꾨줈_?⑦봽 ?ㅼ감 濡쒓렇, c3-ms-curv(81/82李?諛섏쁺, 87李??댁쟾) route/vturn 寃고빀 ?ㅼ륫 ?뺤씤
+## 88차 (완료 — 분석만, 코드 변경 없음, **[정정] 브랜치 오판 수정**) — 곡선_고속도로_램프 실차 로그, c3-ms-curv(81/82차 반영, 87차 이전) route/vturn 결합 실측 확인
 
-**[以묒슂 ?뺤젙]**: 理쒖큹 遺꾩꽍 ???몄뀡?쒖옉 ?ㅽ겕由쏀듃媛 `ryu`瑜???긽 `c3-ms-dev` 釉뚮옖移섎줈留?
-clone?섍린 ?뚮Ц?? `extract_log.py`??`meta.json` commit ?쒓렇媛 ?ㅼ젣 濡쒓렇媛 湲곕줉??
-釉뚮옖移섏? 臾닿??섍쾶 `c3-ms-dev` HEAD(`2d5174e`, 79李?濡?李랁? "81/82李??댁쟾 baseline"
-?대씪怨??섎せ 寃곕줎?? **?ъ슜???뺤씤?쇰줈 ?ㅼ젣濡쒕뒗 `c3-ms-curv` 釉뚮옖移? 87李??좊졊 ?뚮?諛뺤뒪
-?⑥튂) 諛붾줈 ?댁쟾 ?곹깭(=85李?HEAD `284457f`, 81/82/84/85李??꾨? 諛섏쁺???꾩씠 諛앺?吏?* ??
-`ryu` ??μ냼瑜?`git fetch origin c3-ms-curv` + `git checkout 284457f` ???ъ텛異쒗빐 ?뺤씤
-?꾨즺(?ъ텛異쒗빐??CSV ?섏튂 ?먯껜??rlog ?먮낯 ?곗씠?곕씪 ?숈씪, `commit` 硫뷀? ?쒓렇留??뺤젙??.
-**[?꾨줈?몄뒪 援먰썕]** 蹂듭닔 釉뚮옖移?c3-ms-dev/c3-ms-curv)媛 議댁옱?섎뒗 ?꾩옱 ?곹깭?먯꽌??
-`meta.json`??commit ?쒓렇瑜?怨㏃씠怨㏓?濡??좊ː?섎㈃ ??????遺꾩꽍 ???ъ슜?먯뿉寃??ㅼ젣 二쇳뻾
-釉뚮옖移섎? 癒쇱? ?뺤씤?섍굅?? ?щ윭 釉뚮옖移섎? 紐⑤몢 fetch??肄붾뱶 ?댁슜(?? TBT 寃뚯씠??議댁옱 ?щ?)
-?쇰줈 援먯감寃利앺븷 寃? `SETUP.md`/?몄뀡?쒖옉 ?ㅽ겕由쏀듃媛 `c3-ms-dev`留?clone?섎뒗 援ъ“瑜?
-諛붽씀吏 ?딅뒗 ?????⑥젙???щ컻?????덉쓬 ???ㅼ쓬 ?몄뀡遺???좎쓽.
+**[중요 정정]**: 최초 분석 시 세션시작 스크립트가 `ryu`를 항상 `c3-ms-dev` 브랜치로만
+clone하기 때문에, `extract_log.py`의 `meta.json` commit 태그가 실제 로그가 기록된
+브랜치와 무관하게 `c3-ms-dev` HEAD(`2d5174e`, 79차)로 찍혀 "81/82차 이전 baseline"
+이라고 잘못 결론냄. **사용자 확인으로 실제로는 `c3-ms-curv` 브랜치, 87차(유령 파란박스
+패치) 바로 이전 상태(=85차 HEAD `284457f`, 81/82/84/85차 전부 반영됨)임이 밝혀짐** —
+`ryu` 저장소를 `git fetch origin c3-ms-curv` + `git checkout 284457f` 후 재추출해 확인
+완료(재추출해도 CSV 수치 자체는 rlog 원본 데이터라 동일, `commit` 메타 태그만 정정됨).
+**[프로세스 교훈]** 복수 브랜치(c3-ms-dev/c3-ms-curv)가 존재하는 현재 상태에서는
+`meta.json`의 commit 태그를 곧이곧대로 신뢰하면 안 됨 — 분석 전 사용자에게 실제 주행
+브랜치를 먼저 확인하거나, 여러 브랜치를 모두 fetch해 코드 내용(예: TBT 게이트 존재 여부)
+으로 교차검증할 것. `SETUP.md`/세션시작 스크립트가 `c3-ms-dev`만 clone하는 구조를
+바꾸지 않는 한 이 함정이 재발할 수 있음 — 다음 세션부터 유의.
 
-**?뺤젙??寃곕줎 (?щ텇??**: `284457f`(85李?HEAD) 湲곗? `carrot_serv.py`瑜??뺤씤??寃곌낵
-81李??⑥튂?濡?**`turnSpeedControlMode in [2,3,4]`硫?500m TBT寃뚯씠???놁씠 route媛 ??긽
-min() ?꾨낫??李멸?**?섎뒗 肄붾뱶媛 ?대? ?곸슜???덉뿀????利??댁쟾 寃곕줎("而ㅻ툕1?먯꽌 route媛
-寃뚯씠?몄뿉 留됲? ?꾩쟾??誘몄갭媛")? **?由?*. ?ㅼ젣濡쒕뒗:
-- **而ㅻ툕1(t??170~7190.6, ?고쉶??**: route????긽 ?꾨낫濡?寃쎌웳?덉쑝??412?꾨젅??以?**24?꾨젅??
-  (??%, t??177.8~7179.4 ?대윭?ㅽ꽣)?먯꽌留?route媛 ?밸━**, ?섎㉧吏??vturn?????꾧꺽(??? 媛???
-  vturn???遺遺??대떦. 寃뚯씠??諛곗젣媛 ?꾨땲??**min() 寃쎌웳?먯꽌 洹몃븣洹몃븣 吏?寃?*.
-- **而ㅻ툕2(t??193~7207.5, 醫뚰쉶??**: 290/290?꾨젅??100%) route媛 ?대떦 ????援ш컙? route??
-  GPS ?대━?쇱씤 湲곕컲 怨〓쪧 異붿젙??vturn(鍮꾩쟾)蹂대떎 吏?띿쟻?쇰줈 ???꾧꺽?덈뜕 寃껋쑝濡??댁꽍??
-- ??而ㅻ툕??route 李멸???李⑥씠(6% vs 100%)??TBT 寃뚯씠???뚮Ц???꾨땲?? **GPS ?대━?쇱씤
-  怨〓쪧 怨꾩궛??而ㅻ툕留덈떎 vturn ?鍮??쇰쭏???꾧꺽?섍쾶 ?섏삤?붿???李⑥씠**濡??ы빐???꾩슂 ??
-  ?꾨줈?앺듃 ?④퀬??愿?ъ궗??"GPS ?대━?쇱씤 ?덉쭏" ?댁뒋? ?곌껐?????덉쓬(NEEDS_VALIDATION,
-  route_speed ?먯껜瑜?蹂꾨룄 濡쒓퉭?섏? ?딅뒗 ???뺥솗???먯씤 ?뱀젙? ?대젮? ??`extract_log.py`??
-  route_speed/vturn 媛곴컖??raw ?꾨낫媛믪쓣 蹂꾨룄 而щ읆?쇰줈 異붽??섎뒗 怨꾩륫 蹂닿컯???꾩슂?????덉쓬).
+**정정된 결론 (재분석)**: `284457f`(85차 HEAD) 기준 `carrot_serv.py`를 확인한 결과
+81차 패치대로 **`turnSpeedControlMode in [2,3,4]`면 500m TBT게이트 없이 route가 항상
+min() 후보에 참가**하는 코드가 이미 적용돼 있었음 — 즉 이전 결론("커브1에서 route가
+게이트에 막혀 완전히 미참가")은 **틀림**. 실제로는:
+- **커브1(t≈7170~7190.6, 우회전)**: route도 항상 후보로 경쟁했으나 412프레임 중 **24프레임
+  (≈6%, t≈7177.8~7179.4 클러스터)에서만 route가 승리**, 나머지는 vturn이 더 엄격(낮은 값)해
+  vturn이 대부분 담당. 게이트 배제가 아니라 **min() 경쟁에서 그때그때 진 것**.
+- **커브2(t≈7193~7207.5, 좌회전)**: 290/290프레임(100%) route가 담당 — 이 구간은 route의
+  GPS 폴리라인 기반 곡률 추정이 vturn(비전)보다 지속적으로 더 엄격했던 것으로 해석됨.
+- 두 커브의 route 참가율 차이(6% vs 100%)는 TBT 게이트 때문이 아니라, **GPS 폴리라인
+  곡률 계산이 커브마다 vturn 대비 얼마나 엄격하게 나오는지의 차이**로 재해석 필요 —
+  프로젝트 온고잉 관심사인 "GPS 폴리라인 품질" 이슈와 연결될 수 있음(NEEDS_VALIDATION,
+  route_speed 자체를 별도 로깅하지 않는 한 정확한 원인 특정은 어려움 — `extract_log.py`에
+  route_speed/vturn 각각의 raw 후보값을 별도 컬럼으로 추가하는 계측 보강이 필요할 수 있음).
 
-**?섎㉧吏 愿痢??섏튂 ?먯껜??理쒖큹 遺꾩꽍怨??숈씪, ?좏슚)**:
-1. 理쒖? vEgo: 而ㅻ툕1 ??4.2km/h(desiredSpeed??9km/h, 理쒕?媛먯냽 -0.95m/s짼), 而ㅻ툕2 ??1.9km/h
-   (desiredSpeed??4km/h, 理쒕?媛먯냽 -0.94m/s짼).
-2. ?덉텧 ???뚮났: 而ㅻ툕1(vturn)? 3~4珥????꾩쟾 ?댁젣(89??00km/h) ??82李??먮났踰꾪띁媛 ?대?
-   諛섏쁺???곹깭?대?濡??닿쾶 82李??곸슜 ?꾩쓽 ?뺤긽 ?띾룄. 而ㅻ툕2(route)??怨꾨떒??湲됱젏??
-   (84??29km/h, ??1.6珥? ??DP ?뱀꽦?????넻怨??놁씠 ?곕뒗 ?뺤긽 ?숈옉.
-3. **src ?섎뱶-?ㅼ쐞移??뚮━而?*: ?꾩껜 濡쒓렇 51???꾪솚 以?39??76%)媛 1珥??대궡 ?ъ쟾????
-   81/82李?WIP "min() ?섎뱶-?ㅼ쐞移?由щ럭 ?꾩슂" 誘몄갑????ぉ???ㅼ젣濡?鍮덈쾲?⑥쓣 ?ы솗??
-   (寃곕줎 ?먯껜??釉뚮옖移??ㅽ뙋怨?臾닿??섍쾶 ?좏슚).
-4. ?덉쟾吏?? harsh_brake 0嫄? ttc_danger 0嫄? `turn_speed_violations` 2嫄?而ㅻ툕1 吏꾩엯
-   珥덉엯, overshoot 理쒕? 5.11km/h, 0.5~0.66珥? ??寃쎈?.
+**나머지 관측(수치 자체는 최초 분석과 동일, 유효)**:
+1. 최저 vEgo: 커브1 ≈84.2km/h(desiredSpeed≈89km/h, 최대감속 -0.95m/s²), 커브2 ≈81.9km/h
+   (desiredSpeed≈84km/h, 최대감속 -0.94m/s²).
+2. 탈출 후 회복: 커브1(vturn)은 3~4초 내 완전 해제(89→200km/h) — 82차 원복버퍼가 이미
+   반영된 상태이므로 이게 82차 적용 후의 정상 속도. 커브2(route)는 계단식 급점프
+   (84→129km/h, 약 1.6초) — DP 특성상 저역통과 없이 뛰는 정상 동작.
+3. **src 하드-스위치 플리커**: 전체 로그 51회 전환 중 39회(76%)가 1초 이내 재전환 —
+   81/82차 WIP "min() 하드-스위치 리뷰 필요" 미착수 항목이 실제로 빈번함을 재확인
+   (결론 자체는 브랜치 오판과 무관하게 유효).
+4. 안전지표: harsh_brake 0건, ttc_danger 0건. `turn_speed_violations` 2건(커브1 진입
+   초입, overshoot 최대 5.11km/h, 0.5~0.66초) — 경미.
 
-**肄붾뱶 蹂寃??놁쓬(遺꾩꽍留?.**
+**코드 변경 없음(분석만).**
 
-**?ㅼ쓬(?ъ슜??寃곗젙 ?湲?**:
-1. route_speed(raw route ?꾨낫媛? ?먯껜瑜?CSV??蹂꾨룄 而щ읆?쇰줈 ?④린??怨꾩륫 蹂닿컯 寃????
-   ?꾩옱??route媛 ?닿꼈????`src=='route'`)留?`desiredSpeed`濡?媛믪쓣 蹂????덇퀬, vturn??
-   ?닿린怨??덉쓣 ??route媛 ?쇰쭏??洹쇱젒?덉뿀?붿????????놁뼱 "??而ㅻ툕1?먯꽌 route媛 6%留?
-   ?닿꼈?붿?"瑜????뺣??섍쾶 洹쒕챸?섍린 ?대젮?.
-2. src ?섎뱶-?ㅼ쐞移??뚮━而?76%) ?꾪솕 ?щ? ???ъ쟾????곗꽑, ?꾩슂???덉뒪?뚮━?쒖뒪/釉붾젋??
-   ?ㅺ퀎 寃??
-3. `meta.json` 釉뚮옖移??ㅽ뙋 ?щ컻 諛⑹? ???ㅼ쓬 ?몄뀡遺??遺꾩꽍 李⑹닔 ???ㅼ젣 二쇳뻾 釉뚮옖移섎?
-   ?ъ슜?먯뿉寃??뺤씤?섍굅??肄붾뱶 ?뱀쭠(寃뚯씠??議댁옱 ?щ? ???쇰줈 援먯감寃利앺븯???덉감 怨좊젮.
+**다음(사용자 결정 대기)**:
+1. route_speed(raw route 후보값) 자체를 CSV에 별도 컬럼으로 남기는 계측 보강 검토 —
+   현재는 route가 이겼을 때(`src=='route'`)만 `desiredSpeed`로 값을 볼 수 있고, vturn이
+   이기고 있을 때 route가 얼마나 근접했었는지는 알 수 없어 "왜 커브1에서 route가 6%만
+   이겼는지"를 더 정밀하게 규명하기 어려움.
+2. src 하드-스위치 플리커(76%) 완화 여부 — 여전히 저우선, 필요시 히스테리시스/블렌딩
+   설계 검토.
+3. `meta.json` 브랜치 오판 재발 방지 — 다음 세션부터 분석 착수 전 실제 주행 브랜치를
+   사용자에게 확인하거나 코드 특징(게이트 존재 여부 등)으로 교차검증하는 절차 고려.
 
-## 87李?(?꾨즺 ???먯씤遺꾩꽍+援ы쁽+?쒕??덉씠?섍?利??⑥튂?꾨떖 ?꾨즺) ??VisionTrack ?ы?(?좊졊) 由щ뱶 ?몃옓 ?곴뎄怨좎갑 踰꾧렇 ?섏젙
+## 87차 (완료 — 원인분석+구현+시뮬레이션검증+패치전달 완료) — VisionTrack 팬텀(유령) 리드 트랙 영구고착 버그 수정
 
-**諛곌꼍**: ?ъ슜?먭? ?붾㈃ ?뱁솕(mp4)+route zip(`0000032d--c0e3054c4a`)???낅줈??
-"?⑥뒪 ?앹뿉 ?뚮?諛뺤뒪媛 怨꾩냽 ?쒖떆?섎ŉ 二쇳뻾媛먯씠 ?댁긽?댁쭊?? ?쒕낫.
+**배경**: 사용자가 화면 녹화(mp4)+route zip(`0000032d--c0e3054c4a`)을 업로드,
+"패스 끝에 파란박스가 계속 표시되며 주행감이 이상해진다" 제보.
 
-**?먯씤 遺꾩꽍**(qcamera+CSV ?議? `c3-ms-curv` HEAD `284457f` 湲곗?
-`radard.py` `VisionTrack`): t=9793~9913(??20珥? ?대궡 ?뚮? 諛뺤뒪(=
-`radarState.leadOne`, UI ?μ떇 ?꾨떂)媛 而ㅻ툕 諛붽묑履??섎Т/媛?쒕젅??洹쇱쿂??
-?좎엳?붾뜲 ?ㅼ젣 ?욎감???놁쓬. `leadModelProb` 理쒕? 0.095/理쒖냼 0.0003?쇰줈
-?뺤긽?깅줉(0.5)/?덈퉬?깅줉(0.35) 臾명꽦???쒖갭 紐?誘몄튂?붾뜲??`leadStatus=True`媛
-120珥??좎??? 洹쇰낯?먯씤: **60李?怨꾩냽6(B?????ш컖吏?** ??`tentative_cnt`媛
-?쒕쾲 `CNT_GATE`(10, 0.5s)???꾨떖??`register_ok`媛 ?섏튂?섎㈃, ?댄썑 prob媛
-`TENTATIVE_PROB_GATE`(0.35) 諛묒쑝濡?"?곴뎄?곸쑝濡? 二쇱??됱븘??湲곗〈 由ъ뀑
-寃쎈줈 3媛?dPath ?덈?媛?寃뚯씠??dRel jitter/dPath jitter)媛 ?꾨? prob媛
-[0.35,0.5] 援ш컙 ?덉뿉 ?덉쓣 ?뚮쭔 ?됯??섏뼱 ? 諛⑸쾿???놁뿀?? 留??꾨젅??
-?몄씠利덉꽦 `dRel_candidate`瑜??ㅼ젣 由щ뱶泥섎읆 諛섏쁺??`desiredSpeed`/
-`vTurnSpeed`瑜??붾뱾怨?遺덊븘?뷀븳 湲됯컧??t=9812~9814, aEgo -1.56) ?좊컻
-?ㅼ륫 ?뺤씤.
+**원인 분석**(qcamera+CSV 대조, `c3-ms-curv` HEAD `284457f` 기준
+`radard.py` `VisionTrack`): t=9793~9913(약120초) 내내 파란 박스(=
+`radarState.leadOne`, UI 장식 아님)가 커브 바깥쪽 나무/가드레일 근처에
+떠있는데 실제 앞차는 없음. `leadModelProb` 최대 0.095/최소 0.0003으로
+정상등록(0.5)/예비등록(0.35) 문턱에 한참 못 미치는데도 `leadStatus=True`가
+120초 유지됨. 근본원인: **60차 계속6(B안)의 사각지대** — `tentative_cnt`가
+한번 `CNT_GATE`(10, 0.5s)에 도달해 `register_ok`가 래치되면, 이후 prob가
+`TENTATIVE_PROB_GATE`(0.35) 밑으로 "영구적으로" 주저앉아도 기존 리셋
+경로 3개(dPath 절대값 게이트/dRel jitter/dPath jitter)가 전부 prob가
+[0.35,0.5] 구간 안에 있을 때만 평가되어 풀 방법이 없었음. 매 프레임
+노이즈성 `dRel_candidate`를 실제 리드처럼 반영해 `desiredSpeed`/
+`vTurnSpeed`를 흔들고 불필요한 급감속(t=9812~9814, aEgo -1.56) 유발
+실측 확인.
 
-**援ы쁽** (`c3-ms-curv` 釉뚮옖移? base `284457f`(85李?HEAD)): `radard.py`
-`VisionTrack`??`ghost_low_prob_time`(prob<`TENTATIVE_PROB_GATE` ?곗냽
-?좎??쒓컙 ?꾩쟻, `self.radar_ts` 湲곕컲) ?좉퇋 ?꾨뱶 異붽?, `GHOST_TIMEOUT_S`
-(3.0s) 珥덇낵 ??`tentative_cnt`瑜?媛뺤젣濡?0?쇰줈 由ъ뀑(?ㅼ쓬 ?꾨젅??
-`register_ok` ?ы룊媛 ???먯뿰?ㅻ읇寃?`self.reset()` 寃쎈줈濡?鍮좎쭚). 60李?
-B??痍⑥?(吏㏃? prob 異쒕쟻?꾩쑝濡?吏꾩쭨 由щ뱶瑜??ㅼ씤 由ъ뀑?섏? ?딆쓬)??洹몃?濡?
-蹂댁〈 ??"吏㏃? 異쒕쟻??怨?"?곴뎄 ?뚯떎"???쒓컙 湲몄씠(3.0s)濡?援щ텇.
+**구현** (`c3-ms-curv` 브랜치, base `284457f`(85차 HEAD)): `radard.py`
+`VisionTrack`에 `ghost_low_prob_time`(prob<`TENTATIVE_PROB_GATE` 연속
+유지시간 누적, `self.radar_ts` 기반) 신규 필드 추가, `GHOST_TIMEOUT_S`
+(3.0s) 초과 시 `tentative_cnt`를 강제로 0으로 리셋(다음 프레임
+`register_ok` 재평가 시 자연스럽게 `self.reset()` 경로로 빠짐). 60차
+B안 취지(짧은 prob 출렁임으로 진짜 리드를 오인 리셋하지 않음)는 그대로
+보존 — "짧은 출렁임"과 "영구 소실"을 시간 길이(3.0s)로 구분.
 
-**寃利?* (`work/sim_vision_track_ghost_timeout.py`, capnp ?섏〈???녿뒗
-?쒖닔 濡쒖쭅 ?ы쁽): 3媛??쒕굹由ъ삤 ?꾨? PASS ??
-1. 怨좎뒪??120s ?곴뎄?뚯떎): ?⑥튂 ???섏튂 怨좎갑 ?ы쁽(?앷퉴吏 True), ?⑥튂 ??
-   t=3.5s?먯꽌 ?뺤긽 ?댁젣.
-2. ?ㅼ젣 由щ뱶 prob ?몄씠利덉꽦 異쒕쟻??理쒕? ?곗냽???1.5s, GHOST_TIMEOUT 誘몃쭔):
-   ?⑥튂 ????`register_ok` ?쒗??**?꾩쟾 ?숈씪**(?뚭? ?놁쓬 ?뺤씤).
-3. ?ㅼ젣 由щ뱶媛 ?쒖빞瑜?踰쀬뼱???곴뎄 ?뚯떎(10s): ?⑥튂 ??10珥??대궡 怨좎갑(湲곗〈
-   踰꾧렇), ?⑥튂 ??t=3.5s ?뺤긽 ?댁젣.
-`py_compile` ?듦낵, `verify_am_87`(base `284457f`)?먯꽌 `git am`+diff 0 ?뺤씤.
+**검증** (`work/sim_vision_track_ghost_timeout.py`, capnp 의존성 없는
+순수 로직 재현): 3개 시나리오 전부 PASS —
+1. 고스트(120s 영구소실): 패치 전 래치 고착 재현(끝까지 True), 패치 후
+   t=3.5s에서 정상 해제.
+2. 실제 리드 prob 노이즈성 출렁임(최대 연속저하 1.5s, GHOST_TIMEOUT 미만):
+   패치 전/후 `register_ok` 시퀀스 **완전 동일**(회귀 없음 확인).
+3. 실제 리드가 시야를 벗어나 영구 소실(10s): 패치 전 10초 내내 고착(기존
+   버그), 패치 후 t=3.5s 정상 해제.
+`py_compile` 통과, `verify_am_87`(base `284457f`)에서 `git am`+diff 0 확인.
 
-**?꾨떖**: `0001-87-VisionTrack-tentative-GHOST_TIMEOUT_S-3.0s.patch`瑜?
-`/mnt/user-data/outputs/`???꾨떖(base `284457f`, `c3-ms-curv` 釉뚮옖移섏뿉
-?곸슜).
+**전달**: `0001-87-VisionTrack-tentative-GHOST_TIMEOUT_S-3.0s.patch`를
+`/mnt/user-data/outputs/`에 전달(base `284457f`, `c3-ms-curv` 브랜치에
+적용).
 
-**?좉퇋 ?곸닔**: `VISION_TRACK_GHOST_TIMEOUT_S = 3.0` (NEEDS_VALIDATION,
-?ㅼ감 諛섏쓳 蹂닿퀬 ?쒕떇 ?꾩슂 ??媛믪씠 ?덈Т 吏㏃쑝硫??ㅼ젣 由щ뱶???쇱떆??媛뺥븳
-媛由???킅 ?깆뿉??議곌린 由ъ뀑 媛?μ꽦, ?덈Т 湲몃㈃ ?ы? 吏?띿떆媛꾩씠 ?섏뼱??.
+**신규 상수**: `VISION_TRACK_GHOST_TIMEOUT_S = 3.0` (NEEDS_VALIDATION,
+실차 반응 보고 튜닝 필요 — 값이 너무 짧으면 실제 리드의 일시적 강한
+가림/역광 등에서 조기 리셋 가능성, 너무 길면 팬텀 지속시간이 늘어남).
 
-**[媛깆떊] ?곸슜/push ?꾨즺 ?뺤씤** ???ъ슜?먭? `C:\dev\ryu`?먯꽌
-`git remote set-branches --add origin c3-ms-curv`(濡쒖뺄??single-branch
-?대줎?대씪 c3-ms-curv媛 ??蹂댁씠??臾몄젣 ?닿껐) ??`git fetch` ??`git checkout -b
-c3-ms-curv origin/c3-ms-curv` ??`git am` ?곸슜(濡쒖뺄 而ㅻ컠 `cf32b5d`) ??
-`git push origin c3-ms-curv` ?꾨즺. 而⑦뀒?대꼫?먯꽌 `git fetch origin
-c3-ms-curv:refs/remotes/origin/c3-ms-curv` ??濡쒖뺄 寃利?而ㅻ컠(`8d10c06`)怨?
-diff 0(?꾩쟾 ?숈씪) ?ы솗?? origin `c3-ms-curv` HEAD: `284457f..cf32b5d`.
+**[갱신] 적용/push 완료 확인** — 사용자가 `C:\dev\ryu`에서
+`git remote set-branches --add origin c3-ms-curv`(로컬이 single-branch
+클론이라 c3-ms-curv가 안 보이던 문제 해결) → `git fetch` → `git checkout -b
+c3-ms-curv origin/c3-ms-curv` → `git am` 적용(로컬 커밋 `cf32b5d`) →
+`git push origin c3-ms-curv` 완료. 컨테이너에서 `git fetch origin
+c3-ms-curv:refs/remotes/origin/c3-ms-curv` 후 로컬 검증 커밋(`8d10c06`)과
+diff 0(완전 동일) 재확인. origin `c3-ms-curv` HEAD: `284457f..cf32b5d`.
 
-**?ㅼ쓬(理쒖슦??**:
-1. ~~?ъ슜??`git am` ?곸슜 + push ?뺤씤.~~ ??**?꾨즺**.
-2. **?ㅼ감 ?쒕씪?대툕 寃利?* ??(a) ?대쾲???ы쁽??寃껉낵 ?좎궗???곹솴(而ㅻ툕
-   吏꾩엯遺?먯꽌 吏㏐쾶 ?좊ℓ??臾쇱껜 ?ㅼ묠 ??????놁쓬)?먯꽌 ?뚮? 諛뺤뒪媛
-   3~4珥??대줈 ?щ씪吏?붿?, (b) ?ㅼ젣 由щ뱶(?뺤? ?욎감 ??瑜??볦튂吏 ?딄퀬
-   ?뺤긽 異붿쟻?섎뒗吏(?뚭? ?뺤씤), (c) 3.0s ??꾩븘?껋씠 泥닿컧???덈Т
-   吏㏃?吏/湲댁?.
-3. 86李⑥뿉???湲?以묒씠??ttc_danger 18嫄?route2 seg11 ?? 媛쒕퀎 ?뺤씤?
-   ?대쾲 ?몄뀡?먯꽌 誘몄갑?????ㅼ쓬 ?몄뀡 ?댁썡.
+**다음(최우선)**:
+1. ~~사용자 `git am` 적용 + push 확인.~~ → **완료**.
+2. **실차 드라이브 검증** — (a) 이번에 재현된 것과 유사한 상황(커브
+   진입부에서 짧게 애매한 물체 스침 후 대상 없음)에서 파란 박스가
+   3~4초 내로 사라지는지, (b) 실제 리드(정지 앞차 등)를 놓치지 않고
+   정상 추적하는지(회귀 확인), (c) 3.0s 타임아웃이 체감상 너무
+   짧은지/긴지.
+3. 86차에서 대기 중이던 ttc_danger 18건(route2 seg11 등) 개별 확인은
+   이번 세션에서 미착수 — 다음 세션 이월.
 
-## 86李?怨꾩냽 (泥댄겕?ъ씤????CSV ?ы솗蹂?+ 5??ぉ ?ㅼ틪 ?꾨즺, qcamera ?議?誘몄떎?? ??c3-ms-curv 10媛?route 醫낇빀遺꾩꽍
+## 86차 계속 (체크포인트 — CSV 재확보 + 5항목 스캔 완료, qcamera 대조 미실시) — c3-ms-curv 10개 route 종합분석
 
-**諛곌꼍**: 而⑦뀒?대꼫 ?ъ떆?묒쑝濡?86李??먮낯 zip???좎떎?먮떎媛, ?ъ슜?먭?
-Google Drive????ν빐??CSV zip(`ryu_c3-ms-curv_logs_20260826.zip`,
-qcamera 誘명룷?????щ떎?대줈?쒗빐 ?ъ뾽濡쒕뱶 ??10媛?route ?꾨? ?ы솗蹂?
+**배경**: 컨테이너 재시작으로 86차 원본 zip이 유실됐다가, 사용자가
+Google Drive에 저장해둔 CSV zip(`ryu_c3-ms-curv_logs_20260826.zip`,
+qcamera 미포함)을 재다운로드해 재업로드 — 10개 route 전부 재확보.
 
-**?묒뾽**: `five_item_scan.py`(55/56李?濡쒖쭅 ?ы쁽, ?대쾲??`toolkit/`
-?뺤떇 ?몄엯) ?좉퇋 ?묒꽦 ??10媛?route ?꾩껜??5??ぉ(移대찓?쇱씤?앷컧??
-?뺤??욎감媛먯냽/?뺤??꾩옱異쒕컻/?덉씠?붾씫?⑥???怨≪꽑援ш컙媛먯냽) + ?덉쟾吏??
-(harsh_brake/ttc_danger/cutin) ?쇨큵 ?ㅼ틪 ?꾨즺. 10媛?route瑜?
-`data/routes/<route_id>/`??gzip 罹먯떆濡??깅줉(?ㅼ쓬遺???ъ뾽濡쒕뱶 遺덊븘??.
+**작업**: `five_item_scan.py`(55/56차 로직 재현, 이번에 `toolkit/`
+정식 편입) 신규 작성 → 10개 route 전체에 5항목(카메라인식감속/
+정지앞차감속/정지후재출발/레이더락온저크/곡선구간감속) + 안전지표
+(harsh_brake/ttc_danger/cutin) 일괄 스캔 완료. 10개 route를
+`data/routes/<route_id>/`에 gzip 캐시로 등록(다음부터 재업로드 불필요).
 
-**?듭떖 寃곌낵** (?곸꽭??FINDINGS.md "86李? ??ぉ 李멸퀬):\n- 怨≪꽑?꾨컲 72嫄?以?vturn ?뚯뒪媛 3149?꾨젅?? route ?뚯뒪??12?꾨젅?꾨퓧 ??n  85李?route lookahead 600m)/82李??먮났踰꾪띁) ?⑥튂???뚭?媛 ?꾨땲??湲곗〈\n  vturn apex ?댁뒋 ?곗옣?쇰줈 ?좎젙 ?먮떒(寃곕줎???쏀븿, route ?뚯뒪留?嫄몃윭吏?n  媛쒕퀎 ?뺤씤 ?꾩슂).\n- ttc_danger 18嫄?以?route2(0000032f) seg11 t=661.88(vEgo 8.68m/s,\n  dRel 28.6m, vRel -11.8m/s)???곷???怨좎냽 湲됱젒洹??꾨낫濡?理쒖슦??\n- route7 t=658.0~660.0?먯꽌 vision-only dRel ?붾룞(74??8??6??1m) ??n  vRel -14.9m/s源뚯? 湲됯꺽 ?ы솕, aEgo -2.7源뚯? 媛먯냽 ???몄씠利덉꽦 ?ㅽ깘?몄?\n  ?ㅼ젣 cut-in?몄? qcamera ?놁씠 ?먯젙 遺덇?.\n- radar_lockon_jerk??leadVRel?? ?댁긽?⑦꽩??126嫄?41李⑤????댁썡??n  ??곗꽑 ??ぉ, ?쒕낯 洹쒕え留?而ㅼ쭚 ???좉퇋 寃⑹긽? ????.\n\n**?ㅼ쓬(理쒖슦??**:\n1. qcamera ?議곌? ?꾩슂?섎㈃ ?먮낯 zip(rlog+qcamera ?ы븿) ?ы솗蹂??꾩슂 ??n   ?대쾲 CSV-only ?щ떎?대줈?쒕줈??遺덇??? ?ъ슜?먯뿉寃??ъ뾽濡쒕뱶 ?붿껌?좎?\n   寃곗젙.\n2. ttc_danger 18嫄??뱁엳 route2 seg11, route10 9嫄?諛吏? 媛쒕퀎 ?뺤씤.\n3. 84/85李??댁쟾(85李??댁쟾 HEAD)???댁썡???덈뜕 ?ㅼ감寃利???ぉ??n   (84李?85李?82李??먯껜??泥닿컧 ?뺤씤 ??????10媛?route濡??④퍡 ?뺤씤\n   媛???щ? 寃??meta.json commit??`284457f`濡??쇱튂?섎?濡?85李?n   ?댄썑 ?쒕씪?대툕濡??뺤젙).\n\n## 86李?(?꾨즺 ??濡쒓렇 異붿텧留? ??\"86李?怨꾩냽\"?먯꽌 5??ぉ ?ㅼ틪?쇰줈 ?댁뼱吏? ??c3-ms-curv ?ㅼ＜??濡쒓렇 10媛?route CSV ?쇨큵 異붿텧
+**핵심 결과** (상세는 FINDINGS.md "86차" 항목 참고):\n- 곡선위반 72건 중 vturn 소스가 3149프레임, route 소스는 12프레임뿐 —\n  85차(route lookahead 600m)/82차(원복버퍼) 패치의 회귀가 아니라 기존\n  vturn apex 이슈 연장으로 잠정 판단(결론력 약함, route 소스만 걸러진\n  개별 확인 필요).\n- ttc_danger 18건 중 route2(0000032f) seg11 t=661.88(vEgo 8.68m/s,\n  dRel 28.6m, vRel -11.8m/s)이 상대적 고속 급접근 후보로 최우선.\n- route7 t=658.0~660.0에서 vision-only dRel 요동(74→68→56→61m) 후\n  vRel -14.9m/s까지 급격 심화, aEgo -2.7까지 감속 — 노이즈성 오탐인지\n  실제 cut-in인지 qcamera 없이 판정 불가.\n- radar_lockon_jerk의 leadVRel≈0 이상패턴이 126건(41차부터 이월된\n  저우선 항목, 표본 규모만 커짐 — 신규 격상은 안 함).\n\n**다음(최우선)**:\n1. qcamera 대조가 필요하면 원본 zip(rlog+qcamera 포함) 재확보 필요 —\n   이번 CSV-only 재다운로드로는 불가능. 사용자에게 재업로드 요청할지\n   결정.\n2. ttc_danger 18건(특히 route2 seg11, route10 9건 밀집) 개별 확인.\n3. 84/85차 이전(85차 이전 HEAD)에 이월돼 있던 실차검증 항목들\n   (84차/85차/82차 자체의 체감 확인 등)도 이 10개 route로 함께 확인\n   가능 여부 검토(meta.json commit이 `284457f`로 일치하므로 85차\n   이후 드라이브로 확정).\n\n## 86차 (완료 — 로그 추출만, 위 \"86차 계속\"에서 5항목 스캔으로 이어짐) — c3-ms-curv 실주행 로그 10개 route CSV 일괄 추출
 
-**諛곌꼍**: ?ъ슜?먭? `c3-ms-curv` 釉뚮옖移?85李?HEAD `284457f`, route lookahead
-600m ?곹뼢 諛섏쁺???곹깭)?먯꽌 ?ㅼ＜?됲븳 濡쒓렇 10媛?route瑜???踰덉뿉 ?낅줈??
-(00000329~00000332, 珥?142?멸렇, x1~x20seg ?쇱옱). 遺꾩꽍??CSV 異붿텧 +
-Google Drive ????붿껌.
+**배경**: 사용자가 `c3-ms-curv` 브랜치(85차 HEAD `284457f`, route lookahead
+600m 상향 반영된 상태)에서 실주행한 로그 10개 route를 한 번에 업로드
+(00000329~00000332, 총 142세그, x1~x20seg 혼재). 분석용 CSV 추출 +
+Google Drive 저장 요청.
 
-**吏꾪뻾**: `extract_log.py`濡?10媛?route ?꾨? CSV 異붿텧 ?꾨즺(21599~24033
-row, 珥?~152k row). ?대쾲 ?몄뀡? **異붿텧源뚯?留??꾨즺, 5??ぉ 遺꾩꽍/qcamera
-?議곕뒗 誘몄갑??* ???ㅼ쓬 ?몄뀡?먯꽌 ?댁뼱媛?
+**진행**: `extract_log.py`로 10개 route 전부 CSV 추출 완료(21599~24033
+row, 총 ~152k row). 이번 세션은 **추출까지만 완료, 5항목 분석/qcamera
+대조는 미착수** — 다음 세션에서 이어감.
 
-**?댁뒋 諛쒓껄 諛??섏젙**: `0000032e--8b55ac185d_x13seg`??留덉?留??멸렇癒쇳듃
-(12踰? `rlog.zst`媛 ?쒕씪?대툕 醫낅즺 ?쒖젏???뚯씪 ?먯껜媛 ?섎젮 湲곕줉??zstd
-?꾨젅??誘몄셿?? ??湲곗〈 `decode_rlog.py`媛 ?꾩껜 異붿텧??以묐떒?쒗궡. ?ㅽ듃由щ컢
-?대갚 異붽????닿껐(?섎┛ 吏?먭퉴吏 ?좏슚 ?곗씠???뚯닔, 785 row). ?뺤긽 ?뚯씪
-?뚭? ?뚯뒪???듦낵. ?곸꽭??`toolkit/CHANGELOG.md`/`README.md` 86李???ぉ
-李멸퀬 ??**?대? push??devnotes ?꾩슜 ?섏젙, ryu 肄붾뱶 ?꾨떂)**.
+**이슈 발견 및 수정**: `0000032e--8b55ac185d_x13seg`의 마지막 세그먼트
+(12번) `rlog.zst`가 드라이브 종료 시점에 파일 자체가 잘려 기록됨(zstd
+프레임 미완성) → 기존 `decode_rlog.py`가 전체 추출을 중단시킴. 스트리밍
+폴백 추가해 해결(잘린 지점까지 유효 데이터 회수, 785 row). 정상 파일
+회귀 테스트 통과. 상세는 `toolkit/CHANGELOG.md`/`README.md` 86차 항목
+참고 — **이미 push됨(devnotes 전용 수정, ryu 코드 아님)**.
 
-**Google Drive**: ?대뜑 `ryu_c3-ms-curv_logs_20260826` ?앹꽦 ???곌껐 ?꾨즺.
-?? **?먮낯 CSV(7~8.4MB湲? ?먯껜??Drive MCP ?꾧뎄濡?吏곸젒 ?낅줈??遺덇??ν븿??
-?뺤씤** ?????꾧뎄???뚯씪 ?꾩껜 ?댁슜??Claude ?묐떟 ?띿뒪?몃? ?듦낵?댁빞
-?섎뒗?? `view` ?꾧뎄媛 16,000??珥덇낵 ?뚯씪???먮룞?쇰줈 以묎컙 ?앸왂?섎뒗 援ъ“??
-MB湲??뚯씪? 而⑦뀓?ㅽ듃???⑥쟾??紐??ㅼ뼱??220KB吏쒕━???대? ?섎┝ ?뺤씤).
-??**???*: 10媛?CSV+meta.json??zip?쇰줈 臾띠뼱 `/mnt/user-data/outputs/`
-?꾨떖(?ъ슜?먭? 吏곸젒 Drive ?대뜑濡??쒕옒洹명븯??諛⑹떇 ?덈궡), ?듯빀 硫뷀? ?붿빟
-(`ALL_ROUTES_META.json`, 2.4KB)留?Drive??吏곸젒 ?낅줈?쒗빐?? **?ν썑
-?숈씪 ?붿껌 ????諛⑹떇(zip ?꾨떖 + ?ъ슜???섎룞 ?낅줈?? 洹몃?濡??ъ슜??寃?**
+**Google Drive**: 폴더 `ryu_c3-ms-curv_logs_20260826` 생성 후 연결 완료.
+단, **원본 CSV(7~8.4MB급) 자체는 Drive MCP 도구로 직접 업로드 불가능함을
+확인** — 이 도구는 파일 전체 내용이 Claude 응답 텍스트를 통과해야
+하는데, `view` 도구가 16,000자 초과 파일을 자동으로 중간 생략하는 구조라
+MB급 파일은 컨텍스트에 온전히 못 들어옴(220KB짜리도 이미 잘림 확인).
+→ **대안**: 10개 CSV+meta.json을 zip으로 묶어 `/mnt/user-data/outputs/`
+전달(사용자가 직접 Drive 폴더로 드래그하는 방식 안내), 통합 메타 요약
+(`ALL_ROUTES_META.json`, 2.4KB)만 Drive에 직접 업로드해둠. **향후
+동일 요청 시 이 방식(zip 전달 + 사용자 수동 업로드) 그대로 사용할 것.**
 
-**?ㅼ쓬(理쒖슦??**:
-1. ?ъ슜?먭? zip??Drive ?대뜑濡???꺼 ????꾨즺?덈뒗吏 ?뺤씤(?좏깮 ?ы빆).
-2. 10媛?route?????5??ぉ 遺꾩꽍 ?꾨젅?꾩썙??vision-to-radar crossover /
+**다음(최우선)**:
+1. 사용자가 zip을 Drive 폴더로 옮겨 저장 완료했는지 확인(선택 사항).
+2. 10개 route에 대해 5항목 분석 프레임워크(vision-to-radar crossover /
    stopped lead decel / launch-after-stop / radar lock-on jerk / curve
-   speed violation) ?곸슜, qcamera ?꾨젅???議??ы븿(5媛???ぉ ?꾨? ?꾩닔).
-3. `sim_boost_window_extension.py`(72李? DISCONTINUITY_JERK_COST_BOOST_S
-   1.0s??.0/2.5/3.0s 而ㅻ쾭由ъ?) 愿???꾩냽 寃利앸룄 ??濡쒓렇濡?媛?ν븳吏 寃??
-4. 85李?84李?82李?81李????ъ쟾???ㅼ감寃利??湲?以묒씤 ??ぉ?? ?대쾲 濡쒓렇濡?
-   ?④퍡 ?뺤씤 媛???щ? 寃??媛숈? `c3-ms-curv` ?쒕씪?대툕?몄? 癒쇱? ?뺤씤 ?꾩슂
-   ??meta.json commit??`284457f`濡??쇱튂?섎?濡?85李??댄썑 ?쒕씪?대툕濡?異붿젙).
+   speed violation) 적용, qcamera 프레임 대조 포함(5개 항목 전부 필수).
+3. `sim_boost_window_extension.py`(72차, DISCONTINUITY_JERK_COST_BOOST_S
+   1.0s→2.0/2.5/3.0s 커버리지) 관련 후속 검증도 이 로그로 가능한지 검토.
+4. 85차/84차/82차/81차 등 여전히 실차검증 대기 중인 항목들, 이번 로그로
+   함께 확인 가능 여부 검토(같은 `c3-ms-curv` 드라이브인지 먼저 확인 필요
+   — meta.json commit이 `284457f`로 일치하므로 85차 이후 드라이브로 추정).
 
-## 85李?(泥댄겕?ъ씤????援ы쁽+寃利??⑥튂 ?꾨떖 ?꾨즺, `git am`/?ㅼ감 ?곸슜 ?湲? ??route lookahead ?숈쟻 罹??곹븳 500m -> 600m ?곹뼢
+## 85차 (체크포인트 — 구현+검증+패치 전달 완료, `git am`/실차 적용 대기) — route lookahead 동적 캡 상한 500m -> 600m 상향
 
-**諛곌꼍**: 84李?PARAMS_REGISTRY.md 湲곕줉?먯꽌 "120->60km/h ?而ㅻ쾭??accel=0.70
-湲곗? ?대줎????95m ?꾩슂, 500m???덉땐媛??대씪 紐낆떆??吏?????ъ슜?먭? ?대쾲
-?몄뀡?먯꽌 ?곹븳??500m?먯꽌 600m濡??щ젮 ???대줎???꾩슂移???95m)瑜??⑥쟾??
-而ㅻ쾭?섎룄濡?寃곗젙.
+**배경**: 84차 PARAMS_REGISTRY.md 기록에서 "120->60km/h 풀커버는 accel=0.70
+기준 이론상 ≈595m 필요, 500m는 절충값"이라 명시된 지점 — 사용자가 이번
+세션에서 상한을 500m에서 600m로 올려 이 이론적 필요치(≈595m)를 온전히
+커버하도록 결정.
 
-**援ы쁽** (`c3-ms-curv` 釉뚮옖移? base `2a91c3f`(84李?HEAD)): `carrot_man.py`
-`compute_route_lookahead_distance()`??`max_m` 湲곕낯媛?500.0->600.0,
-二쇱꽍 媛깆떊(300~600m). 理쒖냼媛?300m)/`assumed_target_kph`(30.0)/怨꾩궛?앹?
-洹몃?濡????곹븳媛믩쭔 蹂寃?
+**구현** (`c3-ms-curv` 브랜치, base `2a91c3f`(84차 HEAD)): `carrot_man.py`
+`compute_route_lookahead_distance()`의 `max_m` 기본값 500.0->600.0,
+주석 갱신(300~600m). 최소값(300m)/`assumed_target_kph`(30.0)/계산식은
+그대로 — 상한값만 변경.
 
-**寃利?* (`toolkit/sim_route_dynamic_cap.py`, 84李??먮낯??600m 湲곗??쇰줈
-媛깆떊): ???<=50km/h) ??accel_limit?먯꽌 floor(300m) ?좎?(?뚭? ?놁쓬) /
-accel=0.70 湲곗? 110km/h+?먯꽌 ceil(600m) ?꾨떖(湲곗〈 100km/h+?먯꽌 501.5m濡?
-洹쇱젒?섎뜕 寃껋씠 ?뺤떎???곹븳源뚯? ?뺤옣?? / accel_limit ??쓣?섎줉 ?????
-?띾룄遺??罹??뺤옣(?⑥“???좎?) / accel_limit=0쨌None ?덉쟾 ?대갚 ??4媛?
-?쒕굹由ъ삤 ?꾨? PASS. `git format-patch` ??`verify-am-85`(base
-`2a91c3f`)?먯꽌 `git am`+diff 0+`py_compile` ?듦낵.
+**검증** (`toolkit/sim_route_dynamic_cap.py`, 84차 원본을 600m 기준으로
+갱신): 저속(<=50km/h) 전 accel_limit에서 floor(300m) 유지(회귀 없음) /
+accel=0.70 기준 110km/h+에서 ceil(600m) 도달(기존 100km/h+에서 501.5m로
+근접하던 것이 확실히 상한까지 확장됨) / accel_limit 낮을수록 더 낮은
+속도부터 캡 확장(단조성 유지) / accel_limit=0·None 안전 폴백 — 4개
+시나리오 전부 PASS. `git format-patch` → `verify-am-85`(base
+`2a91c3f`)에서 `git am`+diff 0+`py_compile` 통과.
 
-**?꾨떖**: `0001-85-route-lookahead-500m-600m.patch`瑜?
-`/mnt/user-data/outputs/`???꾨떖(base `2a91c3f`, `c3-ms-curv` 釉뚮옖移섏뿉
-?곸슜, 84李??⑥튂 ?꾩뿉 ?곸링).
+**전달**: `0001-85-route-lookahead-500m-600m.patch`를
+`/mnt/user-data/outputs/`에 전달(base `2a91c3f`, `c3-ms-curv` 브랜치에
+적용, 84차 패치 위에 적층).
 
-**[媛깆떊] ?곸슜/push ?꾨즺 ?뺤씤** ???ъ슜?먭? `C:\dev\ryu`?먯꽌 `git fetch`+
-`git reset --hard origin/c3-ms-curv`(2a91c3f ?숆린?? ??`git am` ?곸슜 +
-`git push origin c3-ms-curv` ?꾨즺. 而⑦뀒?대꼫?먯꽌 `git fetch origin
-c3-ms-curv:refs/remotes/origin/c3-ms-curv` ??濡쒖뺄 寃利?而ㅻ컠(`e608162`)怨?
-diff 0(?꾩쟾 ?숈씪) ?ы솗?? origin `c3-ms-curv` HEAD: `2a91c3f..284457f`.
+**[갱신] 적용/push 완료 확인** — 사용자가 `C:\dev\ryu`에서 `git fetch`+
+`git reset --hard origin/c3-ms-curv`(2a91c3f 동기화) 후 `git am` 적용 +
+`git push origin c3-ms-curv` 완료. 컨테이너에서 `git fetch origin
+c3-ms-curv:refs/remotes/origin/c3-ms-curv` 후 로컬 검증 커밋(`e608162`)과
+diff 0(완전 동일) 재확인. origin `c3-ms-curv` HEAD: `2a91c3f..284457f`.
 
-**?ㅼ쓬(理쒖슦??**:
-1. ~~?ъ슜?먭? `C:\dev\ryu`?먯꽌 `git checkout c3-ms-curv` + `git fetch`+
-   `git reset --hard origin/c3-ms-curv`(2a91c3f ?숆린?? ??`git am` ?곸슜 ??
-   `git push origin c3-ms-curv`.~~ ??**?꾨즺**.
-2. **?ㅼ감 ?쒕씪?대툕 寃利?* ??600m ?곹븳???ㅼ젣濡??곸슜?섎뒗 怨좎냽 援ш컙
-   (accel=0.70 湲곗? 110km/h+)?먯꽌 84李??鍮?泥닿컧 李⑥씠(???대Ⅸ 媛먯냽
-   媛쒖떆) ?뺤씤, ????꾩떖 援ш컙 ?뚭? ?녿뒗吏(floor 300m ?숈씪) ?ы솗??
-3. 84李???ぉ(84李??먯껜???ㅼ감寃利????ъ쟾???湲?以???85李⑥? ?④퍡 媛숈?
-   `c3-ms-curv` ?쒕씪?대툕?먯꽌 ?숈떆 ?뺤씤 媛??
+**다음(최우선)**:
+1. ~~사용자가 `C:\dev\ryu`에서 `git checkout c3-ms-curv` + `git fetch`+
+   `git reset --hard origin/c3-ms-curv`(2a91c3f 동기화) → `git am` 적용 →
+   `git push origin c3-ms-curv`.~~ → **완료**.
+2. **실차 드라이브 검증** — 600m 상한이 실제로 적용되는 고속 구간
+   (accel=0.70 기준 110km/h+)에서 84차 대비 체감 차이(더 이른 감속
+   개시) 확인, 저속/도심 구간 회귀 없는지(floor 300m 동일) 재확인.
+3. 84차 항목(84차 자체의 실차검증)도 여전히 대기 중 — 85차와 함께 같은
+   `c3-ms-curv` 드라이브에서 동시 확인 가능.
 
-## 84李?(?꾨즺 ??援ы쁽+寃利??⑥튂 ?곸슜/push ?꾨즺) ??route 而ㅻ툕 lookahead 300m 怨좎젙 罹?-> v_ego/accel_limit 湲곕컲 ?숈쟻 罹?300~500m, 85李⑥뿉??600m濡?異붽? ?곹뼢??
+## 84차 (완료 — 구현+검증+패치 적용/push 완료) — route 커브 lookahead 300m 고정 캡 -> v_ego/accel_limit 기반 동적 캡(300~500m, 85차에서 600m로 추가 상향됨)
 
-**諛곌꼍**: 83李?NEEDS_VALIDATION(`AutoNaviSpeedDecelRate=0.70`媛 怨좎냽+??
-媛먯냽??議고빀?먯꽌 300m ?곹븳??嫄몃┫ ???덉쓬)?????議곗튂. 300m 怨좎젙媛??곹뼢
-???**v_ego/accel_limit 湲곕컲 ?숈쟻 罹?300~500m)**?쇰줈 ?ъ슜??寃곗젙.
+**배경**: 83차 NEEDS_VALIDATION(`AutoNaviSpeedDecelRate=0.70`가 고속+큰
+감속폭 조합에서 300m 상한에 걸릴 수 있음)에 대한 조치. 300m 고정값 상향
+대신 **v_ego/accel_limit 기반 동적 캡(300~500m)**으로 사용자 결정.
 
-**援ы쁽** (`c3-ms-curv` 釉뚮옖移? base `451a3b9`(82李?HEAD) ??**c3-ms-dev ?꾨떂**,
-?숈씪 ?⑥닔(`carrot_navi_route`)瑜?81/82李④? ?대? ?섏젙?대몦 釉뚮옖移섎씪 諛섎뱶????
-?꾩뿉 ?곸링): `carrot_man.py`??`compute_route_lookahead_distance()` ?좉퇋
-?⑥닔 異붽? ??`(v_ego짼-target짼)/(2*accel_limit)`??300~500m濡?clip,
-`assumed_target_kph=30.0`? 罹??ш린 ?곗젙 ?꾩슜 媛?뺢컪(?ㅼ젣 紐⑺몴?띾룄? 臾닿?).
-`get_path_after_distance(..., 300)` ?섎뱶肄붾뵫????媛믪쑝濡?援먯껜.
+**구현** (`c3-ms-curv` 브랜치, base `451a3b9`(82차 HEAD) — **c3-ms-dev 아님**,
+동일 함수(`carrot_navi_route`)를 81/82차가 이미 수정해둔 브랜치라 반드시 이
+위에 적층): `carrot_man.py`에 `compute_route_lookahead_distance()` 신규
+함수 추가 — `(v_ego²-target²)/(2*accel_limit)`을 300~500m로 clip,
+`assumed_target_kph=30.0`은 캡 크기 산정 전용 가정값(실제 목표속도와 무관).
+`get_path_after_distance(..., 300)` 하드코딩을 이 값으로 교체.
 
-**寃利?* (`toolkit/sim_route_dynamic_cap.py`, ?좉퇋 ?뺤떇 ?몄엯): ???<=50km/h)
-??accel_limit?먯꽌 floor(300m) ?좎?(?뚭? ?놁쓬) / ?ъ슜???ㅼ륫 accel=0.70
-湲곗? 100km/h+?먯꽌 ceil(500m) ?꾨떖 / accel_limit ??쓣?섎줉 ????? ?띾룄遺??
-罹??뺤옣(?⑥“?? / accel_limit=0쨌None ?덉쟾 ?대갚 ??4媛??쒕굹由ъ삤 ?꾨? PASS.
-`git format-patch` ??`verify-am-84`(base `451a3b9`)?먯꽌 `git am`+diff 0+
-`py_compile` ?듦낵.
+**검증** (`toolkit/sim_route_dynamic_cap.py`, 신규 정식 편입): 저속(<=50km/h)
+전 accel_limit에서 floor(300m) 유지(회귀 없음) / 사용자 실측 accel=0.70
+기준 100km/h+에서 ceil(500m) 도달 / accel_limit 낮을수록 더 낮은 속도부터
+캡 확장(단조성) / accel_limit=0·None 안전 폴백 — 4개 시나리오 전부 PASS.
+`git format-patch` → `verify-am-84`(base `451a3b9`)에서 `git am`+diff 0+
+`py_compile` 통과.
 
-**?꾨떖**: `0001-84-route-lookahead-300m-v_ego-accel_limit-300-500m.patch`瑜?
-`/mnt/user-data/outputs/`???꾨떖(base `451a3b9`, `c3-ms-curv` 釉뚮옖移섏뿉 ?곸슜).
+**전달**: `0001-84-route-lookahead-300m-v_ego-accel_limit-300-500m.patch`를
+`/mnt/user-data/outputs/`에 전달(base `451a3b9`, `c3-ms-curv` 브랜치에 적용).
 
-**[媛깆떊] ?곸슜/push ?꾨즺 ?뺤씤** ???ъ슜?먭? `C:\dev\ryu`?먯꽌 `git fetch`+
-`git reset --hard origin/c3-ms-curv`(451a3b9 ?숆린?? ??`git am` ?곸슜 +
-`git push origin c3-ms-curv` ?꾨즺. 而⑦뀒?대꼫?먯꽌 `git fetch origin
-c3-ms-curv:refs/remotes/origin/c3-ms-curv` ??濡쒖뺄 寃利?而ㅻ컠(`c26fa91`)怨?
-diff 0(?꾩쟾 ?숈씪) ?ы솗?? origin `c3-ms-curv` HEAD: `451a3b9..2a91c3f`.
+**[갱신] 적용/push 완료 확인** — 사용자가 `C:\dev\ryu`에서 `git fetch`+
+`git reset --hard origin/c3-ms-curv`(451a3b9 동기화) 후 `git am` 적용 +
+`git push origin c3-ms-curv` 완료. 컨테이너에서 `git fetch origin
+c3-ms-curv:refs/remotes/origin/c3-ms-curv` 후 로컬 검증 커밋(`c26fa91`)과
+diff 0(완전 동일) 재확인. origin `c3-ms-curv` HEAD: `451a3b9..2a91c3f`.
 
-**?ㅼ쓬(理쒖슦??**:
-1. ~~?ъ슜?먭? `C:\dev\ryu`?먯꽌 `git checkout c3-ms-curv` + `git fetch`+
-   `git reset --hard origin/c3-ms-curv`(451a3b9 ?숆린?? ??`git am` ?곸슜 ??
-   `git push origin c3-ms-curv`.~~ ??**?꾨즺**.
-2. **?ㅼ감 ?쒕씪?대툕 寃利?* ??(a) 怨좎냽?꾨줈 ?쒗빆 以?route 湲곕컲 而ㅻ툕 媛먯냽??
-   ???대Ⅴ寃??쒖옉?섎뒗吏, (b) **?뚭? 寃利??꾩닔** ??????꾩떖 援ш컙 泥닿컧
-   李⑥씠 ?녿뒗吏(floor 300m濡??숈씪?댁빞 ??, 吏곸꽑 援ш컙 GPS ?ㅼ감濡??명븳
-   ?좉퇋 ?ㅽ깘 ?녿뒗吏, (c) ?곗궛 遺??泥닿컧(由ъ깦???ъ씤??理쒕? 1.67諛?利앷?).
-3. `assumed_target_kph=30.0`/`max_m=500.0`???ㅺ퀎 異붿젙移????ㅼ감 諛섏쓳
-   蹂닿퀬 ?쒕떇 ?꾩슂.
-4. 82李?vturn/route ?먮났痢??移?쾭?? ?ㅼ감寃利앸룄 ?ъ쟾???湲?以???84李⑥?
-   ?④퍡 媛숈? `c3-ms-curv` ?쒕씪?대툕?먯꽌 ?숈떆 ?뺤씤 媛??
+**다음(최우선)**:
+1. ~~사용자가 `C:\dev\ryu`에서 `git checkout c3-ms-curv` + `git fetch`+
+   `git reset --hard origin/c3-ms-curv`(451a3b9 동기화) → `git am` 적용 →
+   `git push origin c3-ms-curv`.~~ → **완료**.
+2. **실차 드라이브 검증** — (a) 고속도로 순항 중 route 기반 커브 감속이
+   더 이르게 시작되는지, (b) **회귀 검증 필수** — 저속/도심 구간 체감
+   차이 없는지(floor 300m로 동일해야 함), 직선 구간 GPS 오차로 인한
+   신규 오탐 없는지, (c) 연산 부하 체감(리샘플 포인트 최대 1.67배 증가).
+3. `assumed_target_kph=30.0`/`max_m=500.0`는 설계 추정치 — 실차 반응
+   보고 튜닝 필요.
+4. 82차(vturn/route 원복측 대칭버퍼) 실차검증도 여전히 대기 중 — 84차와
+   함께 같은 `c3-ms-curv` 드라이브에서 동시 확인 가능.
 
-## 78李?(?꾨즺 ??遺꾩꽍留? 肄붾뱶 蹂寃??놁쓬) ??77李⑥? ?숈씪 濡쒓렇(x15seg)?먯꽌 discontinuity_lc 理쒖큹 ?ㅼ감 寃利??꾨즺
+## 78차 (완료 — 분석만, 코드 변경 없음) — 77차와 동일 로그(x15seg)에서 discontinuity_lc 최초 실차 검증 완료
 
-**諛곌꼍**: 77李④? "?대쾲 濡쒓렇??laneChangeState媛 ??援ш컙 'off'??76李?
-discontinuity_lc瑜?寃利?紐삵븿"?대씪怨??④릿 吏?먯뿉???댁뼱媛? laneChangeState??
-怨꾩냽 off?吏留?leftBlinker/rightBlinker(?댁쟾???섎룞 李⑥꽑蹂寃?異붿젙)媛
-seg4/5/10/11?먯꽌 ?쒖꽦?붾맂 嫄?諛쒓껄 ??qcamera ?꾨젅???議곕줈 4媛??멸렇
-?꾨? ?ㅼ젣 李⑥꽑蹂寃??숈옉???덉뿀?뚯쓣 ?곸긽?쇰줈 ?뺤젙(?좏샇? 議고뼢 遺덉씪移?
-濡쒓퉭 ?ㅻ쪟 ?섏떖??湲곌컖).
+**배경**: 77차가 "이번 로그엔 laneChangeState가 전 구간 'off'라 76차
+discontinuity_lc를 검증 못함"이라고 남긴 지점에서 이어감. laneChangeState는
+계속 off였지만 leftBlinker/rightBlinker(운전자 수동 차선변경 추정)가
+seg4/5/10/11에서 활성화된 걸 발견 → qcamera 프레임 대조로 4개 세그
+전부 실제 차선변경 동작이 있었음을 영상으로 확정(신호와 조향 불일치
+로깅 오류 의심을 기각).
 
-**?듭떖 寃곌낵**: `long_mpc.py`??`_dRel_raw_history` 5?꾨젅??湲됰씫 ?먯젙
+**핵심 결과**: `long_mpc.py`의 `_dRel_raw_history` 5프레임 급락 판정
 (`DREL_DISCONTINUITY_DROP_THRESH=15.0m`)+`lane_change_blinker_active`
-遺꾧린 濡쒖쭅??CSV濡?吏곸젒 ?ы쁽???ㅼ틪 ??
-- **seg5 t=384.18**(rightBlinker ?쒖꽦 以? vision-only 5?꾨젅??47.79??
-  25.45m, -22.34m): `discontinuity_lc` ?뚯뒪濡??뺤긽 ?몃━嫄? 4.0s
-  hard-hold(RADAR_HANDOFF_JERK_BOOST_S) 遺?щ맖??肄붾뱶 濡쒖쭅 ?ы쁽?쇰줈
-  理쒖큹 ?뺤씤 ??**76李??⑥튂媛 ?ㅼ젣 李⑥꽑蹂寃??곹솴?먯꽌 ?몃━嫄곕릺??寃껋쓣
-  ?대쾲??泥섏쓬?쇰줈 ?ㅼ륫 ?뺤씤.**
-- **seg10 t=722.28**(leftBlinker ?쒖꽦, -28.02m 湲됰씫): ?숈씪?섍쾶
-  `discontinuity_lc` ?뺤긽 ?몃━嫄?
-- ???щ? 紐⑤몢 boost ?덈룄??4珥? ??aEgo??mild(seg5 min=-0.909,
-  seg10? ?ㅽ엳??媛??以?min=+0.081) ??**harsh braking ?먯껜媛 ?놁뼱
-  boost??"湲됯컧???먮났 ?꾪솕" ?④낵 ?먯껜???대쾲?먮룄 ?뺣웾 鍮꾧탳 紐삵븿**,
-  ???ㅽ깘/遺?묒슜(遺덊븘?뷀븳 怨쇱엵諛섏쓳) ?놁쓬? ?뺤씤(?뚭? ?덉쟾).
-- seg4 t=368.63: blinker 爰쇱쭊 吏 2.2珥???1.0s hold 留뚮즺) ???뚯뒪
-  `discontinuity`(?쇰컲)濡??뺤긽 遺꾨쪟, aEgo??mild(媛?띿쨷) ???뚯뒪 遺꾧린
-  濡쒖쭅(blinker ?쒖꽦/hold ?щ????곕Ⅸ discontinuity vs discontinuity_lc)
-  ?ㅼ젣濡??뺥솗??媛덈━??寃??뺤씤.
-- seg11: 李⑥꽑蹂寃쎌? ?뺤씤?먯쑝??dRel 湲됰씫 ?⑦꽩 ?먯껜媛 ?놁뼱(留ㅻ걟??lead
-  ?꾪솚) discontinuity ?몃━嫄??놁쓬 ???뺤긽.
+분기 로직을 CSV로 직접 재현해 스캔 —
+- **seg5 t=384.18**(rightBlinker 활성 중, vision-only 5프레임 47.79→
+  25.45m, -22.34m): `discontinuity_lc` 소스로 정상 트리거, 4.0s
+  hard-hold(RADAR_HANDOFF_JERK_BOOST_S) 부여됨을 코드 로직 재현으로
+  최초 확인 — **76차 패치가 실제 차선변경 상황에서 트리거되는 것을
+  이번에 처음으로 실측 확인.**
+- **seg10 t=722.28**(leftBlinker 활성, -28.02m 급락): 동일하게
+  `discontinuity_lc` 정상 트리거.
+- 두 사례 모두 boost 윈도우(4초) 내 aEgo는 mild(seg5 min=-0.909,
+  seg10은 오히려 가속 중 min=+0.081) — **harsh braking 자체가 없어
+  boost의 "급감후 원복 완화" 효과 자체는 이번에도 정량 비교 못함**,
+  단 오탐/부작용(불필요한 과잉반응) 없음은 확인(회귀 안전).
+- seg4 t=368.63: blinker 꺼진 지 2.2초 후(1.0s hold 만료) → 소스
+  `discontinuity`(일반)로 정상 분류, aEgo도 mild(가속중) — 소스 분기
+  로직(blinker 활성/hold 여부에 따른 discontinuity vs discontinuity_lc)
+  실제로 정확히 갈리는 것 확인.
+- seg11: 차선변경은 확인됐으나 dRel 급락 패턴 자체가 없어(매끈한 lead
+  전환) discontinuity 트리거 없음 — 정상.
 
-**harsh_brake_events 49嫄??ы솗??*: 77李?FINDINGS 湲곕줉怨??숈씪 ?대윭?ㅽ꽣
-(seg1/seg5 t=421~425/seg13) ??seg5 t=421~425 ?대윭?ㅽ꽣??`src=vturn`+
-`leadStatus=False`(由щ뱶 臾닿? 怨≪꽑媛먯냽, ?고쉶??援먯감濡?吏꾩엯?쇰줈 異붿젙)濡?
-discontinuity_lc/李⑥꽑蹂寃쎄낵 ?꾩쟾??臾닿????ы솗??77李?寃곕줎怨??쇱튂).
+**harsh_brake_events 49건 재확인**: 77차 FINDINGS 기록과 동일 클러스터
+(seg1/seg5 t=421~425/seg13) — seg5 t=421~425 클러스터는 `src=vturn`+
+`leadStatus=False`(리드 무관 곡선감속, 우회전 교차로 진입으로 추정)로
+discontinuity_lc/차선변경과 완전히 무관함 재확인(77차 결론과 일치).
 
-**寃곕줎**: 76李?紐⑺몴(discontinuity_lc瑜??ㅼ젣 李⑥꽑蹂寃?以??ы쁽 寃利?
-**?덈컲 ?ъ꽦** ???몃━嫄?諛쒕룞 ?먯껜? ?뚯뒪 遺꾧린(discontinuity vs
-discontinuity_lc)???ㅼ륫 ?뺤씤?먭퀬 ?뚭?(?ㅽ깘/遺?묒슜)???놁쓬. ??"harsh
-媛먯냽 ?곹솴?먯꽌 boost媛 ?ㅼ젣濡?湲됯컧???먮났???꾪솕?섎뒗吏"???대쾲 濡쒓렇??
-洹몃윴 harsh ?대깽?멸? ?놁뼱 ?ъ쟾??誘멸?利????ㅼ쓬? discontinuity_lc媛
-harsh braking怨?寃뱀튂??李⑥꽑蹂寃??щ?媛 ?꾩슂.
+**결론**: 76차 목표(discontinuity_lc를 실제 차선변경 중 재현 검증)
+**절반 달성** — 트리거 발동 자체와 소스 분기(discontinuity vs
+discontinuity_lc)는 실측 확인됐고 회귀(오탐/부작용)도 없음. 단 "harsh
+감속 상황에서 boost가 실제로 급감후 원복을 완화하는지"는 이번 로그에
+그런 harsh 이벤트가 없어 여전히 미검증 — 다음은 discontinuity_lc가
+harsh braking과 겹치는 차선변경 사례가 필요.
 
-**肄붾뱶 蹂寃??놁쓬**(遺꾩꽍 ?꾩슜).
+**코드 변경 없음**(분석 전용).
 
-**?ㅼ쓬 ?몄뀡 理쒖슦??*:
-1. discontinuity_lc ?몃━嫄?+ harsh braking(aEgo<=-1.5 湲????ㅼ젣濡?
-   寃뱀튂??李⑥꽑蹂寃?濡쒓렇 ?뺣낫 ??boost ?④낵(湲됯컧???먮났 ?꾪솕 ?щ?)
-   ?뺣웾 寃利?
-2. (??? ?곗꽑?쒖쐞) steering_oscillation_detector 4嫄?媛쒕퀎 誘몄“????
-   ?꾩슂??議곗궗.
+**다음 세션 최우선**:
+1. discontinuity_lc 트리거 + harsh braking(aEgo<=-1.5 급)이 실제로
+   겹치는 차선변경 로그 확보 시 boost 효과(급감후 원복 완화 여부)
+   정량 검증.
+2. (낮은 우선순위) steering_oscillation_detector 4건 개별 미조사 —
+   필요시 조사.
 
-## 77李?(?몄뀡 醫낅즺 ??遺꾩꽍留? 肄붾뱶 蹂寃??놁쓬) ??76李??ㅼ감 濡쒓렇 泥?寃利?handoff ?ы솗?? discontinuity_lc??誘멸?利?
+## 77차 (세션 종료 — 분석만, 코드 변경 없음) — 76차 실차 로그 첫 검증(handoff 재확인, discontinuity_lc는 미검증)
 
-76李??⑥튂 而ㅻ컠(`f3773b58`) ?꾩뿉??湲곕줉???ㅼ＜??濡쒓렇(x15seg,
-895.8s/4.26km, ?꾩떖)+30珥??붾㈃?뱁솕 ?대┰ 1媛?遺꾩꽍.
+76차 패치 커밋(`f3773b58`) 위에서 기록된 실주행 로그(x15seg,
+895.8s/4.26km, 도심)+30초 화면녹화 클립 1개 분석.
 
-**?듭떖**: ?대쾲 濡쒓렇??李⑥꽑蹂寃쎌씠 ??嫄대룄 ?놁뼱(`laneChangeState` ??
-援ш컙 'off') 76李⑥쓽 吏꾩쭨 ?源?李⑥꽑蹂寃?discontinuity_lc)? ?대쾲?먮룄
-寃利?紐삵븿. ???怨좎냽?꾨줈 ?먭굅由?109m) vision?믩젅?대뜑 ?쎌삩 handoff
-?щ?(seg6 t=440~452)媛 ?섎굹 ?≫???73李?handoff 硫붿빱?덉쬁(72李?諛⑹븞I
-+73李?duration ?뺤옣)???ㅻ룄濡쒖뿉???ㅼ떆 留ㅻ걟?섍쾶 ?묐룞?⑥쓣 ?ы솗????
-?쎌삩 ?쒓컙 vRel 遺덉뿰???먰봽(-12??8.6m/s)?먮룄 aEgo???꾩쟾???곗냽?곸쑝濡?
-媛먯냽, TTC danger override??異⑸룎 ?놁씠 寃뱀퀜 諛쒕룞, harsh_brake(?댁쟾??
-媛쒖엯) 0嫄? turn_speed_violation 2嫄댁? ?꾨? ?댁쟾???섎룞二쇳뻾 援ш컙?대씪
-ADAS 臾닿? ?뺤씤(?붾㈃?뱁솕 ?대┰?쇰줈 ?욎감 ?뺤? ?곹솴 吏곸젒 ?議?.
+**핵심**: 이번 로그엔 차선변경이 한 건도 없어(`laneChangeState` 전
+구간 'off') 76차의 진짜 타깃(차선변경+discontinuity_lc)은 이번에도
+검증 못함. 대신 고속도로 원거리(109m) vision→레이더 락온 handoff
+사례(seg6 t=440~452)가 하나 잡혀서 73차 handoff 메커니즘(72차 방안I
++73차 duration 확장)이 실도로에서 다시 매끈하게 작동함을 재확인 —
+락온 순간 vRel 불연속 점프(-12→-8.6m/s)에도 aEgo는 완전히 연속적으로
+감속, TTC danger override도 충돌 없이 겹쳐 발동, harsh_brake(운전자
+개입) 0건. turn_speed_violation 2건은 전부 운전자 수동주행 구간이라
+ADAS 무관 확인(화면녹화 클립으로 앞차 정지 상황 직접 대조).
 
-?곸꽭??FINDINGS.md/LAST_ANALYZED.md "77李? 李멸퀬. 肄붾뱶 蹂寃??놁쓬.
+상세는 FINDINGS.md/LAST_ANALYZED.md "77차" 참고. 코드 변경 없음.
 
-## ?ㅼ쓬 ?몄뀡 理쒖슦??
-1. **李⑥꽑蹂寃쎌씠 ?ы븿???ㅼ＜??濡쒓렇 ?뺣낫** ??76李?discontinuity_lc(4.0s
-   hard+release-rate 100/s) ?源??쒕굹由ъ삤 吏곸젒 寃利??꾩쭅 ??踰덈룄 ?ㅼ젣
-   李⑥꽑蹂寃??곹솴?먯꽌 ?ы쁽 ?뺤씤 紐삵븳 ?곹깭).
-2. (??? ?곗꽑?쒖쐞) steering_oscillation_detector 4嫄?媛쒕퀎 誘몄“????
-   ?꾩슂??議곗궗.
+## 다음 세션 최우선
+1. **차선변경이 포함된 실주행 로그 확보** → 76차 discontinuity_lc(4.0s
+   hard+release-rate 100/s) 타깃 시나리오 직접 검증(아직 한 번도 실제
+   차선변경 상황에서 재현 확인 못한 상태).
+2. (낮은 우선순위) steering_oscillation_detector 4건 개별 미조사 —
+   필요시 조사.
 
-## ?ㅼ쓬 ?몄뀡 ?쒖옉 ??
-??WIP.md??"77李? ?뱀뀡???덉쑝硫???吏?먮????댁뼱媛????뱁엳 李⑥꽑蹂寃?
-?ы븿 濡쒓렇媛 ?덈뒗吏遺???뺤씤.
+## 다음 세션 시작 시
+이 WIP.md에 "77차" 섹션이 있으면 이 지점부터 이어감 — 특히 차선변경
+포함 로그가 있는지부터 확인.
 
-## 76李?怨꾩냽2 (?몄뀡 醫낅즺 ???ㅼ감 ?곸슜/push ?꾨즺 ?뺤씤) ??discontinuity_lc ?⑥튂 諛섏쁺
+## 76차 계속2 (세션 종료 — 실차 적용/push 완료 확인) — discontinuity_lc 패치 반영
 
-?ъ슜?먭? `C:\dev\ryu`?먯꽌 `git am` ?곸슜 + `git push origin c3-ms-dev`
-?꾨즺(`f8e136e..f3773b5`). ?먭꺽 fetch濡?濡쒖뺄 寃利?而ㅻ컠(`f5c0e5c`)怨?diff
-?놁쓬 ?ы솗???댁슜 ?꾩쟾 ?숈씪).
+사용자가 `C:\dev\ryu`에서 `git am` 적용 + `git push origin c3-ms-dev`
+완료(`f8e136e..f3773b5`). 원격 fetch로 로컬 검증 커밋(`f5c0e5c`)과 diff
+없음 재확인(내용 완전 동일).
 
-**?ㅼ쓬 ?몄뀡 理쒖슦?? ?ㅼ감 ?쒕씪?대툕 寃利?* ??(a) 75李????쒕낫(李⑥꽑蹂寃?
-??湲됯컧???먮났) ?ㅼ젣 ?꾪솕 ?щ?, (b) **?뚭? 寃利??꾩닔** ??danger
-override(TTC<=2.5s) ?뺤긽 ?숈옉, ?쇰컲 cutin(discontinuity 鍮꾩감?좊?寃?/
-handoff(?덉씠???쎌삩) ??湲곗〈 寃利?議고빀 紐⑤몢 吏???녿뒗吏, (c)
-`discontinuity_lc`媛 4.0s+release-rate濡??ㅻ옒 ?좎??섎뒗 ?뱀꽦??李⑥꽑蹂寃쎌씠
-吏㏐쾶 ?щ윭 踰?諛섎났?섎뒗 ?곹솴(?곗냽 李⑥꽑蹂寃??먯꽌 boost媛 怨쇰룄?섍쾶 ?ㅻ옒
-嫄몃━吏 ?딅뒗吏 泥닿컧 ?뺤씤.
+**다음 세션 최우선: 실차 드라이브 검증** — (a) 75차 원 제보(차선변경
+시 급감후 원복) 실제 완화 여부, (b) **회귀 검증 필수** — danger
+override(TTC<=2.5s) 정상 동작, 일반 cutin(discontinuity 비차선변경)/
+handoff(레이더 락온) 두 기존 검증 조합 모두 지연 없는지, (c)
+`discontinuity_lc`가 4.0s+release-rate로 오래 유지되는 특성상 차선변경이
+짧게 여러 번 반복되는 상황(연속 차선변경)에서 boost가 과도하게 오래
+걸리지 않는지 체감 확인.
 
-## 76李?怨꾩냽 (泥댄겕?ъ씤???ш컻, 而⑦뀒?대꼫 ?ъ떆?????댁뼱媛? ???⑥튂 ?앹꽦/git am 寃利??꾨떖 ?꾨즺
+## 76차 계속 (체크포인트 재개, 컨테이너 재시작 후 이어감) — 패치 생성/git am 검증/전달 완료
 
-?댁쟾 ?몄뀡??肄붾뱶 援ы쁽+?쒕??덉씠??寃利앷퉴吏 ?앸궦 ?곹깭?먯꽌 而⑦뀒?대꼫媛
-?ъ떆???몄뀡 ?ъ떆????濡쒖뺄 ryu 而ㅻ컠???좎떎???곹깭濡??ш컻 ??HEAD媛
-?ъ쟾??`f8e136e`(73李??꾩쓣 ?뺤씤, ?꾨옒 76李?援ы쁽 ?댁슜??long_mpc.py??
-洹몃?濡??ъ쟻?????ㅼ쓬 ?④퀎 ?꾨즺:
+이전 세션이 코드 구현+시뮬레이션 검증까지 끝낸 상태에서 컨테이너가
+재시작(세션 재시작)돼 로컬 ryu 커밋이 유실된 상태로 재개 — HEAD가
+여전히 `f8e136e`(73차)임을 확인, 아래 76차 구현 내용을 long_mpc.py에
+그대로 재적용 후 다음 단계 완료:
 
-1. `git commit`(濡쒖뺄 `f5c0e5c`, base `f8e136e`) ??`git format-patch -1`
-   ??`verify-am-76` ?꾩떆 釉뚮옖移섏뿉??`git am`(base `f8e136e`) ?깃났,
-   ?⑥튂 ?곸슜 ??diff 0(?먮낯怨??꾩쟾 ?숈씪) ?뺤씤, `py_compile` ?듦낵.
-2. `devnotes/toolkit/replay_lane_change_discontinuity_gate.py` ?ъ떎????
-   ?댁쟾 ?몄뀡怨??숈씪??寃곌낵 ?ы쁽 ?뺤씤(route2 t=1472.401 理쒖??먯뿉??
-   76李?full) a_change_cost=500 ?좎?, 75李?gate_only)??20?쇰줈 臾대젰?붾맖
-   ?ы솗??. route1 ?뚭? diff 402嫄??꾨? ?뚯뒪=discontinuity_lc.
-3. ?⑥튂 ?뚯씪(`0001-76-discontinuity-73-handoff-duration-4.0s-release-ra.patch`)
-   `/mnt/user-data/outputs/`???꾨떖 ?꾨즺.
+1. `git commit`(로컬 `f5c0e5c`, base `f8e136e`) → `git format-patch -1`
+   → `verify-am-76` 임시 브랜치에서 `git am`(base `f8e136e`) 성공,
+   패치 적용 후 diff 0(원본과 완전 동일) 확인, `py_compile` 통과.
+2. `devnotes/toolkit/replay_lane_change_discontinuity_gate.py` 재실행 —
+   이전 세션과 동일한 결과 재현 확인(route2 t=1472.401 최저점에서
+   76차(full) a_change_cost=500 유지, 75차(gate_only)는 20으로 무력화됨
+   재확인). route1 회귀 diff 402건 전부 소스=discontinuity_lc.
+3. 패치 파일(`0001-76-discontinuity-73-handoff-duration-4.0s-release-ra.patch`)
+   `/mnt/user-data/outputs/`에 전달 완료.
 
-**?ㅼ쓬(理쒖슦??**: ?ъ슜?먭? `C:\dev\ryu`?먯꽌 `git am` ?곸슜 + `git push
-origin c3-ms-dev` ??**?ㅼ감 ?쒕씪?대툕 寃利?*(?뚭? 寃利??꾩닔 -- ?쇰컲
-cutin/handoff ??湲곗〈 寃利?議고빀???ㅼ감?먯꽌??吏???놁씠 洹몃?濡?
-?숈옉?섎뒗吏, 李⑥꽑蹂寃?諛섎났 ??boost媛 怨쇰룄?섍쾶 ?ㅻ옒 ?좎??섎뒗 泥닿컧
-?녿뒗吏, 75李????쒕낫(李⑥꽑蹂寃???湲됯컧???먮났) ?ㅼ젣 ?꾪솕 ?щ?).
+**다음(최우선)**: 사용자가 `C:\dev\ryu`에서 `git am` 적용 + `git push
+origin c3-ms-dev` → **실차 드라이브 검증**(회귀 검증 필수 -- 일반
+cutin/handoff 두 기존 검증 조합이 실차에서도 지연 없이 그대로
+동작하는지, 차선변경 반복 시 boost가 과도하게 오래 유지되는 체감
+없는지, 75차 원 제보(차선변경 시 급감후 원복) 실제 완화 여부).
 
-## 76李?(理쒖큹 援ы쁽/寃利?湲곕줉, 而⑦뀒?대꼫 ?ъ떆???? ??discontinuity+李⑥꽑蹂寃?議고빀??73李?handoff duration ?대쾿(4.0s+100/s) ?듯빀 ?곸슜
+## 76차 (최초 구현/검증 기록, 컨테이너 재시작 전) — discontinuity+차선변경 조합에 73차 handoff duration 해법(4.0s+100/s) 통합 적용
 
-**諛곌꼍**: 75李?怨꾩냽2?먯꽌 諛⑺뼢(b)(李⑥꽑蹂寃?以?discontinuity ?몃━嫄곕룄
-handoff? ?숈씪?섍쾶 frac 寃뚯씠??臾닿? ?꾪솕) 援ы쁽쨌寃利앷퉴吏 留덉낀?쇰굹,
-寃利??꾩쨷 ?좉퇋 ?쒓퀎 諛쒓껄 ??hard-hold ?먯껜媛 ?ъ쟾??
-`DISCONTINUITY_JERK_COST_BOOST_S`(1.0s)?쇱꽌, ???쒕굹由ъ삤???ㅼ젣 aEgo
-理쒖????몃━嫄???1.4~1.65珥???hard-hold ?뚯쭊 ?댄썑??諛쒖깮???ъ쟾??
-臾대젰?붾맖(72~73李④? handoff?먯꽌 ?대? 寃れ? "duration ?먯껜媛 吏㏃쓬" 援ъ“??
-?쒓퀎? ?숈씪 ?⑦꽩 ?ы쁽). ?ъ슜???붿껌: 73李④? handoff???곸슜???대쾿
-(hard-hold 4.0s + release-rate 100/s)??discontinuity+李⑥꽑蹂寃?
-議고빀?먮룄 ?곸슜????踰덉뿉 泥섎━.
+**배경**: 75차 계속2에서 방향(b)(차선변경 중 discontinuity 트리거도
+handoff와 동일하게 frac 게이트 무관 완화) 구현·검증까지 마쳤으나,
+검증 도중 신규 한계 발견 — hard-hold 자체가 여전히
+`DISCONTINUITY_JERK_COST_BOOST_S`(1.0s)라서, 이 시나리오의 실제 aEgo
+최저점(트리거 후 1.4~1.65초)이 hard-hold 소진 이후에 발생해 여전히
+무력화됨(72~73차가 handoff에서 이미 겪은 "duration 자체가 짧음" 구조적
+한계와 동일 패턴 재현). 사용자 요청: 73차가 handoff에 적용한 해법
+(hard-hold 4.0s + release-rate 100/s)을 discontinuity+차선변경
+조합에도 적용해 한 번에 처리.
 
-**援ы쁽** (`long_mpc.py`, base `f8e136e`(73李?HEAD, 75李??⑥튂???꾩쭅
-誘몄쟻???곹깭??????대쾲??75李?諛⑺뼢(b) + 76李?duration ?뺤옣???④퍡
-?섎굹??而ㅻ컠?쇰줈 援ы쁽):
-- discontinuity ?몃━嫄?吏??dRel 湲됰씫 媛먯?)?먯꽌, ?몃━嫄??쒖젏??
-  李⑥꽑蹂寃?以?`lane_change_blinker_active` ?먮뒗 吏곸쟾 ?꾨젅??
-  `_lane_change_vlead_hold_timer>0`)?대㈃ ?뚯뒪 ?쒓렇瑜??좉퇋
-  `'discontinuity_lc'`濡?遺?ы븯怨?`_discontinuity_jerk_boost_timer`瑜?
-  湲곗〈 1.0s(`DISCONTINUITY_JERK_COST_BOOST_S`) ???諛⑹븞I怨??숈씪??
-  4.0s(`RADAR_HANDOFF_JERK_BOOST_S`)濡??ㅼ젙. 李⑥꽑蹂寃쎄낵 臾닿????쇰컲
-  discontinuity???뚯뒪 `'discontinuity'`濡?湲곗〈 洹몃?濡?1.0s hard-hold).
-- a_change_cost ?곸슜遺??`is_handoff_source` ?먯젙??
-  `trigger_source in ('handoff', 'discontinuity_lc')`濡??뺤옣 ??
-  `'discontinuity_lc'`媛 `'handoff'`? ?꾩쟾???숈씪??肄붾뱶寃쎈줈(寃뚯씠??
-  frac 臾닿? + hard-hold 4.0s + release-rate 100/s 媛먯뇿)瑜???꾨줉
-  ?듯빀. ?좉퇋 ?곸닔 異붽? ?놁씠 `RADAR_HANDOFF_JERK_BOOST_S/RATE` ?ъ궗??
-  ?쇰컲 `'discontinuity'` ?뚯뒪??湲곗〈 遺꾧린(frac<=0.0 寃뚯씠??+ 1.0s
-  hard-cutoff) ?꾩쟾??洹몃?濡????뚭? ?놁쓬.
+**구현** (`long_mpc.py`, base `f8e136e`(73차 HEAD, 75차 패치는 아직
+미적용 상태였음 — 이번에 75차 방향(b) + 76차 duration 확장을 함께
+하나의 커밋으로 구현):
+- discontinuity 트리거 지점(dRel 급락 감지)에서, 트리거 시점에
+  차선변경 중(`lane_change_blinker_active` 또는 직전 프레임
+  `_lane_change_vlead_hold_timer>0`)이면 소스 태그를 신규
+  `'discontinuity_lc'`로 부여하고 `_discontinuity_jerk_boost_timer`를
+  기존 1.0s(`DISCONTINUITY_JERK_COST_BOOST_S`) 대신 방안I과 동일한
+  4.0s(`RADAR_HANDOFF_JERK_BOOST_S`)로 설정. 차선변경과 무관한 일반
+  discontinuity는 소스 `'discontinuity'`로 기존 그대로(1.0s hard-hold).
+- a_change_cost 적용부의 `is_handoff_source` 판정을
+  `trigger_source in ('handoff', 'discontinuity_lc')`로 확장 —
+  `'discontinuity_lc'`가 `'handoff'`와 완전히 동일한 코드경로(게이트
+  frac 무관 + hard-hold 4.0s + release-rate 100/s 감쇠)를 타도록
+  통합. 신규 상수 추가 없이 `RADAR_HANDOFF_JERK_BOOST_S/RATE` 재사용.
+  일반 `'discontinuity'` 소스는 기존 분기(frac<=0.0 게이트 + 1.0s
+  hard-cutoff) 완전히 그대로 — 회귀 없음.
 
-**寃利?* (`toolkit/replay_lane_change_discontinuity_gate.py` 媛깆떊 ??
-`duration_mode='gate_only'`(75李??먯븞)/`'full'`(76李? ?좉퇋) ?듭뀡 異붽?,
-release-rate 媛먯뇿 濡쒖쭅???ㅼ젣 肄붾뱶? ?숈씪?섍쾶 ?ы쁽):
-- route2 t=1470.75 ?대깽???ш?利???75李?gate_only)??理쒖???t=1472.401,
-  aEgo=-1.556)?먯꽌 hard-hold(1.0s, t=1471.75) ?대? ?뚯쭊??
-  a_change_cost=20(臾닿컧?좎뿉 媛源뚯?)?쇰줈 臾대젰???ы솗?? **76李?full)??
-  hard-hold媛 4.0s(t=1474.75源뚯?)??理쒖????꾩껜 援ш컙?먯꽌
-  a_change_cost=500(?꾩쟾遺?ㅽ듃) ?좎? ???쒓퀎 ?댁냼 ?뺤씤.**
-- route1/route2 ?꾩껜 ?ㅼ틪: full 紐⑤뱶 boost ?꾨젅???섍? gate_only蹂대떎
-  ??긽 ?ш굅??媛숈쓬(route1 730??028, route2 184??79) ??而ㅻ쾭由ъ? ?ㅼ젣
-  利앷?.
-- **?뚭? ?놁쓬 ?뺤씤**: route1/route2 ?꾩껜?먯꽌 UNPATCHED ?鍮?diff
-  ?꾨젅??402/409嫄?? ?꾨? ?뚯뒪=`'discontinuity_lc'`??寃쎌슦肉????쇰컲
-  discontinuity(李⑥꽑蹂寃?臾닿?)/handoff ?뚯뒪??diff 0嫄??꾩쟾 蹂댁〈),
-  danger_active ?꾨젅???섎룄 ??援ш컙 ?숈씪(?뚭? ?놁쓬).
-- `py_compile` ?듦낵.
+**검증** (`toolkit/replay_lane_change_discontinuity_gate.py` 갱신 —
+`duration_mode='gate_only'`(75차 원안)/`'full'`(76차, 신규) 옵션 추가,
+release-rate 감쇠 로직도 실제 코드와 동일하게 재현):
+- route2 t=1470.75 이벤트 재검증 — 75차(gate_only)는 최저점(t=1472.401,
+  aEgo=-1.556)에서 hard-hold(1.0s, t=1471.75) 이미 소진돼
+  a_change_cost=20(무감쇠에 가까움)으로 무력화 재확인. **76차(full)는
+  hard-hold가 4.0s(t=1474.75까지)라 최저점 전체 구간에서
+  a_change_cost=500(완전부스트) 유지 — 한계 해소 확인.**
+- route1/route2 전체 스캔: full 모드 boost 프레임 수가 gate_only보다
+  항상 크거나 같음(route1 730→1028, route2 184→479) — 커버리지 실제
+  증가.
+- **회귀 없음 확인**: route1/route2 전체에서 UNPATCHED 대비 diff
+  프레임(402/409건)은 전부 소스=`'discontinuity_lc'`인 경우뿐 — 일반
+  discontinuity(차선변경 무관)/handoff 소스는 diff 0건(완전 보존),
+  danger_active 프레임 수도 전 구간 동일(회귀 없음).
+- `py_compile` 통과.
 
-**?ㅼ쓬(理쒖슦??**:
-1. `git format-patch`濡?而ㅻ컠 ?앹꽦 ??`verify-am` ?꾩떆 釉뚮옖移섏뿉??`git am`
-   寃利?base `f8e136e`) ??`/mnt/user-data/outputs/`???꾨떖.
-2. **?ㅼ감 ?쒕씪?대툕 寃利?* ??(a) 李⑥꽑蹂寃???湲됯컧???먮났 ?꾩긽???대쾲??
-   ?ㅼ젣濡??꾪솕?섎뒗吏(75李????쒕낫 ?ы쁽), (b) **?뚭? 寃利??꾩닔** ??
-   danger override(TTC<=2.5s) ?뺤긽 ?숈옉, ?쇰컲 cutin(discontinuity
-   鍮꾩감?좊?寃?/handoff(?덉씠???쎌삩) ??議고빀 紐⑤몢 吏???녿뒗吏, (c)
-   `discontinuity_lc`媛 4.0s+release-rate濡??ㅻ옒 ?좎??섎뒗 ?뱀꽦??
-   李⑥꽑蹂寃쎌씠 吏㏐쾶 ?щ윭 踰?諛섎났?섎뒗 ?곹솴(?? ?곗냽 李⑥꽑蹂寃??먯꽌 boost媛
-   怨쇰룄?섍쾶 ?ㅻ옒 嫄몃━吏 ?딅뒗吏 泥닿컧 ?뺤씤.
-3. route1 t=522~533(75李?3踰? ?몃뱶?ㅽ봽 援ъ“???쒓퀎, 3.20珥?以?11%留?
-   而ㅻ쾭)???대쾲 76李?踰붿쐞 諛??몃뱶?ㅽ봽 ?먯껜??援ъ“???쒓퀎, discontinuity_lc
-   寃쎈줈? 臾닿?) ??怨꾩냽 ?댁썡.
-4. route2 t=1541~1545(75李??먮텇??2踰덉㎏ ?ш컖吏? ?꾨낫)???대쾲 寃利앹뿉??
-   aEgo<=-1.5 ?꾪뿕援ш컙 ?먯껜媛 媛먯? ????75李?怨꾩냽2? ?숈씪) ???꾩슂??
-   ?ㅻⅨ 湲곗?/qcamera濡??ы솗??
+**다음(최우선)**:
+1. `git format-patch`로 커밋 생성 → `verify-am` 임시 브랜치에서 `git am`
+   검증(base `f8e136e`) → `/mnt/user-data/outputs/`에 전달.
+2. **실차 드라이브 검증** — (a) 차선변경 시 급감후 원복 현상이 이번엔
+   실제로 완화되는지(75차 원 제보 재현), (b) **회귀 검증 필수** —
+   danger override(TTC<=2.5s) 정상 동작, 일반 cutin(discontinuity
+   비차선변경)/handoff(레이더 락온) 두 조합 모두 지연 없는지, (c)
+   `discontinuity_lc`가 4.0s+release-rate로 오래 유지되는 특성상,
+   차선변경이 짧게 여러 번 반복되는 상황(예: 연속 차선변경)에서 boost가
+   과도하게 오래 걸리지 않는지 체감 확인.
+3. route1 t=522~533(75차 3번, 핸드오프 구조적 한계, 3.20초 중 11%만
+   커버)는 이번 76차 범위 밖(핸드오프 자체의 구조적 한계, discontinuity_lc
+   경로와 무관) — 계속 이월.
+4. route2 t=1541~1545(75차 원분석 2번째 사각지대 후보)는 이번 검증에서
+   aEgo<=-1.5 위험구간 자체가 감지 안 됨(75차 계속2와 동일) — 필요시
+   다른 기준/qcamera로 재확인.
 
-**肄붾뱶 蹂寃?*: `long_mpc.py`(ryu, ?⑥튂 ?꾨떖 ?덉젙)/
+**코드 변경**: `long_mpc.py`(ryu, 패치 전달 예정)/
 `toolkit/replay_lane_change_discontinuity_gate.py`(devnotes,
-`duration_mode` ?듭뀡 異붽?)/`README.md`/`CHANGELOG.md`.
+`duration_mode` 옵션 추가)/`README.md`/`CHANGELOG.md`.
 
-## 75李?怨꾩냽2 (泥댄겕?ъ씤????諛⑺뼢(b) 援ы쁽/寃利??⑥튂 ?꾨떖 ?꾨즺, ?ㅼ감寃利??湲? **?좉퇋 ?쒓퀎 諛쒓껄**)
+## 75차 계속2 (체크포인트 — 방향(b) 구현/검증/패치 전달 완료, 실차검증 대기, **신규 한계 발견**)
 
-75李④? ?뺤젙??諛⑺뼢(b)(李⑥꽑蹂寃?以묒뿉 ?쒖젙??discontinuity ?뚯뒪??handoff?
-?숈씪?섍쾶 frac 寃뚯씠??臾닿? ?꾪솕)瑜?`long_mpc.py`??援ы쁽 ?꾨즺(濡쒖뺄 而ㅻ컠
-`e31f1e5`, base `f8e136e`) ??60李?怨꾩냽2媛 ?대? 諛곗꽑?대몦
-`lane_change_blinker_active`/`_lane_change_vlead_hold_timer`瑜?洹몃?濡?
-?ъ궗?? ?좉퇋 諛곗꽑 ?놁쓬. `replay_lane_change_discontinuity_gate.py`(?좉퇋,
-toolkit ?몄엯)濡?route1/route2 ?꾩껜 ?뚭? ?ㅼ틪 + route2 t=1470.75 ???
-?대깽???ш?利??꾨즺 ??**?뚭? ?놁쓬 ?뺤씤**(diff???꾨? 李⑥꽑蹂寃??곹솴?먯꽌留?
-諛쒖깮, ?쇰컲 cutin/湲곗〈 寃利앸맂 議고빀 ?꾩쟾 蹂댁〈, danger_active ?꾨젅????
-?숈씪). ??**[?좉퇋 諛쒓껄, 誘명빐寃? hard-hold(1.0s) 援ш컙 ?댁뿉?쒕뒗 boost
-而ㅻ쾭由ъ?媛 ?ㅼ젣濡??섏뼱?섏?留? ???대깽?몄쓽 ?ㅼ젣 aEgo<=-1.5 理쒖??먯?
-?몃━嫄???1.4~1.65珥?hard-hold ?대? ?뚯쭊)??諛쒖깮 ??72~73李?handoff?먯꽌
-?대? 遊ㅻ뜕 "duration ?먯껜媛 吏㏃쓬" 援ъ“???쒓퀎媛 discontinuity+李⑥꽑蹂寃?
-議고빀?먮룄 ?숈씪?섍쾶 ?ы쁽??** ?곸꽭??FINDINGS.md "75李?怨꾩냽2" 李멸퀬.
+75차가 확정한 방향(b)(차선변경 중에 한정해 discontinuity 소스도 handoff와
+동일하게 frac 게이트 무관 완화)를 `long_mpc.py`에 구현 완료(로컬 커밋
+`e31f1e5`, base `f8e136e`) — 60차 계속2가 이미 배선해둔
+`lane_change_blinker_active`/`_lane_change_vlead_hold_timer`를 그대로
+재사용, 신규 배선 없음. `replay_lane_change_discontinuity_gate.py`(신규,
+toolkit 편입)로 route1/route2 전체 회귀 스캔 + route2 t=1470.75 대상
+이벤트 재검증 완료 — **회귀 없음 확인**(diff는 전부 차선변경 상황에서만
+발생, 일반 cutin/기존 검증된 조합 완전 보존, danger_active 프레임 수
+동일). 단 **[신규 발견, 미해결] hard-hold(1.0s) 구간 내에서는 boost
+커버리지가 실제로 늘어나지만, 이 이벤트의 실제 aEgo<=-1.5 최저점은
+트리거 후 1.4~1.65초(hard-hold 이미 소진)에 발생 — 72~73차 handoff에서
+이미 봤던 "duration 자체가 짧음" 구조적 한계가 discontinuity+차선변경
+조합에도 동일하게 재현됨.** 상세는 FINDINGS.md "75차 계속2" 참고.
 
-**?꾨떖**: `0001-75-discontinuity-danger-b.patch`(base `f8e136e`) ?꾨떖,
-`git am`+`py_compile` 寃利??듦낵.
+**전달**: `0001-75-discontinuity-danger-b.patch`(base `f8e136e`) 전달,
+`git am`+`py_compile` 검증 통과.
 
-**?ㅼ쓬(理쒖슦?? ?ㅼ쓬 ?몄뀡?먯꽌 ?댁뼱媛?**:
-1. **?ㅼ감 ?쒕씪?대툕 寃利?* ??(a) ?대쾲 ?⑥튂(frac 寃뚯씠???꾪솕) ?먯껜??
-   泥닿컧 媛쒖꽑 ?щ?, (b) **?뚭? 寃利??꾩닔** ??danger override/?쇰컲 cutin
-   ?뺤긽 ?숈옉.
-2. **[?ъ슜??寃곗젙 ?湲?** duration 遺議??쒓퀎 ?댁냼 ?щ? ??73李?handoff
-   ?대쾿(4.0s+release-rate 100/s)??discontinuity+李⑥꽑蹂寃?議고빀?먮룄
-   ?곸슜?좎?, ?꾨땲硫??대쾲 ?⑥튂留뚯쑝濡??ㅼ감 泥닿컧 癒쇱? ?뺤씤?좎?.
-3. route2 t=1541~1545(-1.5 臾명꽦 誘몃룄?????ㅻⅨ 湲곗?/qcamera濡??ы솗???꾩슂.
-4. route1 t=522~533(75李?3踰? 援ъ“???쒓퀎)??怨꾩냽 ?댁썡.
+**다음(최우선, 다음 세션에서 이어감)**:
+1. **실차 드라이브 검증** — (a) 이번 패치(frac 게이트 완화) 자체의
+   체감 개선 여부, (b) **회귀 검증 필수** — danger override/일반 cutin
+   정상 동작.
+2. **[사용자 결정 대기]** duration 부족 한계 해소 여부 — 73차 handoff
+   해법(4.0s+release-rate 100/s)을 discontinuity+차선변경 조합에도
+   적용할지, 아니면 이번 패치만으로 실차 체감 먼저 확인할지.
+3. route2 t=1541~1545(-1.5 문턱 미도달)는 다른 기준/qcamera로 재확인 필요.
+4. route1 t=522~533(75차 3번, 구조적 한계)는 계속 이월.
 
-## 75李?(泥댄겕?ъ씤????肄붾뱶 蹂寃??놁쓬, 遺꾩꽍留? ??"李⑥꽑蹂寃???湲됯컧???먮났" ?쒕낫, 73李??⑥튂???愿怨?遺꾩꽍
+## 75차 (체크포인트 — 코드 변경 없음, 분석만) — "차선변경 시 급감후 원복" 제보, 73차 패치와의 관계 분석
 
-**諛곌꼍**: ?ъ슜?먭? ?ㅽ겕由곗꺑("李⑥꽑??蹂寃쏀빀?덈떎" ?쒖떆, dRel??5m?, 1.Accel
-洹몃옒???섍컯)怨??④퍡 "?댁감 李⑥꽑蹂寃???遺?쒕윭???뚮룄 ?덇퀬 湲됯컧???먮났?섎뒗
-寃쎌슦???덈떎" ?쒕낫. 泥⑤? 濡쒓렇 2媛?route1 `ea5bcc0566` x19seg/route2
-`a5b1ce4e42` x7seg)??**72~74李⑥뿉???대? 寃利앹뿉 ?곗씤 洹????쇱슦?몄?
-?숈씪**(devnotes `data/routes/`??罹먯떆???덉뼱 ?ъ텛異??놁씠 洹몃?濡??ъ궗??.
+**배경**: 사용자가 스크린샷("차선을 변경합니다" 표시, dRel≈55m대, 1.Accel
+그래프 하강)과 함께 "내차 차선변경 시 부드러울 때도 있고 급감후 원복하는
+경우도 있다" 제보. 첨부 로그 2개(route1 `ea5bcc0566` x19seg/route2
+`a5b1ce4e42` x7seg)는 **72~74차에서 이미 검증에 쓰인 그 두 라우트와
+동일**(devnotes `data/routes/`에 캐시돼 있어 재추출 없이 그대로 재사용).
 
-**遺꾩꽍 諛⑸쾿**: leftBlinker/rightBlinker/laneChangeState ?쒖꽦 援ш컙??
-李⑥꽑蹂寃??대깽?몃줈 ?먯?(route1 19嫄?route2 10嫄? ??媛??대깽???꾪썑
-aEgo 理쒖?移??뺤씤 ??`replay_boost_duration.py`??`BoostReplay`(73李?
-?⑥튂 濡쒖쭅 洹몃?濡?蹂듭젣)濡?UNPATCHED(1.0s hard)/PATCHED(73李? 4.0s+
-release100/split_gate) ??踰꾩쟾??李⑥꽑蹂寃?援ш컙???ъ깮, boost ?곸슜
-?щ? ?議?
+**분석 방법**: leftBlinker/rightBlinker/laneChangeState 활성 구간을
+차선변경 이벤트로 탐지(route1 19건/route2 10건) → 각 이벤트 전후
+aEgo 최저치 확인 → `replay_boost_duration.py`의 `BoostReplay`(73차
+패치 로직 그대로 복제)로 UNPATCHED(1.0s hard)/PATCHED(73차, 4.0s+
+release100/split_gate) 두 버전을 차선변경 구간에 재생, boost 적용
+여부 대조.
 
-**遺꾨쪟 寃곌낵** (harsh ?먯젙: 援ш컙 ??min_aEgo<=-1.0):
-1. **73李??⑥튂濡??대? 媛쒖꽑???щ? ?뺤씤** ??route2 t=1374~1381(?몃뱶?ㅽ봽
-   ?몃━嫄? aEgo -3.16): UNPATCHED ???꾪뿕援ш컙(aEgo<=-1.0, 2.70珥? ??
-   boost ?곸슜?쒓컙 0%??쇰굹 **PATCHED??100%(2.70/2.70珥? 而ㅻ쾭** ??
-   媛숈? ???대? push???⑥튂(`f8e136e`)媛 ?뺥솗?????좏삎???닿껐??
-   route1 t=363~369??UNPATCHED 18%?뭁ATCHED 56%濡?媛쒖꽑.
-2. **[?좉퇋 諛쒓껄, 誘명빐寃? discontinuity(諛⑹븞C/G) ?뚯뒪??frac 寃뚯씠?몄뿉
-   ?ъ쟾??留됲? boost媛 臾댄슚** ??route2 t=1469~1472/t=1541~1545: ?몃━嫄곕뒗
-   ?뺤긽 諛쒕룞?섎굹(discontinuity ?뚯뒪), PATCHED/UNPATCHED ????boost
-   ?곸슜?쒓컙 0%. ?먯씤: 73李⑥쓽 `split_gate`??**handoff ?뚯뒪?먮쭔**
-   frac 臾닿? 寃뚯씠?몃? ?곸슜?덇퀬, discontinuity ?뚯뒪??湲곗〈
-   `frac<=0.0` 寃뚯씠??洹몃?濡??좎?(63李⑤??곗쓽 ?ㅺ퀎 ?먯튃, 諛⑹븞C/G
-   ?ㅼ감寃利??꾨즺 議고빀 蹂댄샇 紐⑹쟻) ??洹몃윴??李⑥꽑蹂寃?????李⑤줈 由щ뱶媛
-   dRel 湲됰씫?쇰줈 ?≫엳???쒓컙 frac(TTC caution)???④퍡 鍮좊Ⅴ寃??щ씪媛??
-   寃쎌슦媛 留롮븘, 寃곌낵?곸쑝濡????쒕굹由ъ삤?먯꽑 boost媛 ?ъ떎????긽
-   臾대젰?붾맖. **73李④? 而ㅻ쾭??嫄?"?덉씠???몃뱶?ㅽ봽"肉? "李⑥꽑蹂寃?以?
-   鍮꾩쟾 dRel 湲됰씫(discontinuity)"? ?ъ쟾???ш컖吏?.**
-3. **?붿〈 援ъ“???쒓퀎 ?ы솗??* ??route1 t=522~533(?몃뱶?ㅽ봽): ?꾪뿕援ш컙
-   3.20珥?以?PATCHED/UNPATCHED ????0.35珥?11%)留?而ㅻ쾭 ???몃━嫄곌?
-   ?꾪뿕援ш컙 ?꾨컲遺?먯빞 諛쒕룞?섎뒗 74李⑤????뚮젮吏??쒓퀎, ?대쾲?먮룄 ?숈씪.
-4. **?ㅼ젣濡쒕뒗 踰꾧렇媛 ?꾨땶 ?뺣떦??湲됱젣???뺤씤** ??route1 t=1015~1023
-   (aEgo 理쒖? -4.01): qcamera ?놁씠??dRel/vRel 沅ㅼ쟻?쇰줈 ?먮떒 媛????
-   李⑥꽑蹂寃??꾨즺 ?쒖젏(blinker on 1015.3) 吏곹썑 ?덉씠?붽? 吏㏐쾶 ?볦낀?ㅺ?
-   vision-only濡???由щ뱶(71m)瑜??≪븯?붾뜲, ?댄썑 ~4珥덉뿉 嫄몄퀜 vRel??
-   吏?띿쟻?쇰줈 -13m/s?(臾쇰━?곸쑝濡??쇨?, ?⑤컻 ?ㅻ깄 ?꾨떂)濡??좎??섎ŉ
-   TTC媛 2.5s 誘몃쭔源뚯? ?대젮媛???**吏꾩쭨 湲됱젒洹?danger override ?뺤긽
-   諛쒕룞), ?쒖뒪?쒖씠 ?섎룄?濡??섎뱶釉뚮젅?댄겕???뺥깘**. ?ъ슜??泥닿컧??
-   "湲됯컧"?쇰줈 ?먭뺨吏????덉쑝??肄붾뱶 踰꾧렇 ?꾨떂.
-5. route1 t=1061~1066/t=1131~1137: harsh 媛먯냽?댁?留?`leadStatus=False`
-   (由щ뱶 ?먯껜媛 ?놁쓬) ??怨≪꽑(vturn) 愿?⑥쑝濡?異붿젙, 李⑥꽑蹂寃?由щ뱶
-   硫붿빱?덉쬁怨?臾닿???蹂꾧컻 ?댁뒋(?곗뿰??blinker? 寃뱀묠).
-6. route1 t=880~894, ?遺遺꾩쓽 ?섎㉧吏 ?대깽?? 留ㅻ걟???먯쭊??洹쇱젒
-   異붿쥌(min_aEgo -2.3 ?뺣룄源뚯? ?쒖꽌?? ???뺤긽 ?숈옉, "湲됯컧???먮났"
-   ?⑦꽩 ?꾨떂.
+**분류 결과** (harsh 판정: 구간 내 min_aEgo<=-1.0):
+1. **73차 패치로 이미 개선된 사례 확인** — route2 t=1374~1381(핸드오프
+   트리거, aEgo -3.16): UNPATCHED 시 위험구간(aEgo<=-1.0, 2.70초) 내
+   boost 적용시간 0%였으나 **PATCHED는 100%(2.70/2.70초) 커버** —
+   같은 날 이미 push된 패치(`f8e136e`)가 정확히 이 유형을 해결함.
+   route1 t=363~369도 UNPATCHED 18%→PATCHED 56%로 개선.
+2. **[신규 발견, 미해결] discontinuity(방안C/G) 소스는 frac 게이트에
+   여전히 막혀 boost가 무효** — route2 t=1469~1472/t=1541~1545: 트리거는
+   정상 발동하나(discontinuity 소스), PATCHED/UNPATCHED 둘 다 boost
+   적용시간 0%. 원인: 73차의 `split_gate`는 **handoff 소스에만**
+   frac 무관 게이트를 적용했고, discontinuity 소스는 기존
+   `frac<=0.0` 게이트 그대로 유지(63차부터의 설계 원칙, 방안C/G
+   실차검증 완료 조합 보호 목적) — 그런데 차선변경 시 새 차로 리드가
+   dRel 급락으로 잡히는 순간 frac(TTC caution)도 함께 빠르게 올라가는
+   경우가 많아, 결과적으로 이 시나리오에선 boost가 사실상 항상
+   무력화됨. **73차가 커버한 건 "레이더 핸드오프"뿐, "차선변경 중
+   비전 dRel 급락(discontinuity)"은 여전히 사각지대.**
+3. **잔존 구조적 한계 재확인** — route1 t=522~533(핸드오프): 위험구간
+   3.20초 중 PATCHED/UNPATCHED 둘 다 0.35초(11%)만 커버 — 트리거가
+   위험구간 후반부에야 발동하는 74차부터 알려진 한계, 이번에도 동일.
+4. **실제로는 버그가 아닌 정당한 급제동 확인** — route1 t=1015~1023
+   (aEgo 최저 -4.01): qcamera 없이도 dRel/vRel 궤적으로 판단 가능 —
+   차선변경 완료 시점(blinker on 1015.3) 직후 레이더가 짧게 놓쳤다가
+   vision-only로 새 리드(71m)를 잡았는데, 이후 ~4초에 걸쳐 vRel이
+   지속적으로 -13m/s대(물리적으로 일관, 단발 스냅 아님)로 유지되며
+   TTC가 2.5s 미만까지 내려감 — **진짜 급접근(danger override 정상
+   발동), 시스템이 의도대로 하드브레이크한 정탐**. 사용자 체감상
+   "급감"으로 느껴질 수 있으나 코드 버그 아님.
+5. route1 t=1061~1066/t=1131~1137: harsh 감속이지만 `leadStatus=False`
+   (리드 자체가 없음) — 곡선(vturn) 관련으로 추정, 차선변경/리드
+   메커니즘과 무관한 별개 이슈(우연히 blinker와 겹침).
+6. route1 t=880~894, 대부분의 나머지 이벤트: 매끈한 점진적 근접
+   추종(min_aEgo -2.3 정도까지 서서히) — 정상 동작, "급감후 원복"
+   패턴 아님.
 
-**寃곕줎**: "李⑥꽑蹂寃???遺?쒕윭? vs 湲됯컧???먮났"???ы쁽 媛?ν븳 ?먯씤
-?꾨낫??**2踰?discontinuity ?뚯뒪媛 frac 寃뚯씠?몄뿉 留됲? boost 臾대젰??**
-濡?醫곹?吏???73李④? handoff ?뚯뒪留?怨좎낀怨?discontinuity ?뚯뒪??洹몃?濡?
-??寃껋씠 ?대쾲 李⑥꽑蹂寃??쒕굹由ъ삤?먯꽌 ?ш컖吏?濡??⑥쓬. ?섎㉧吏 harsh
-?щ??ㅼ? 吏꾩쭨 ?꾪뿕(4踰? ?먮뒗 怨≪꽑 蹂꾧컻 ?댁뒋(5踰?濡??대쾲 ?쒕낫? 吏곸젒
-愿???놁쓬.
+**결론**: "차선변경 시 부드러움 vs 급감후 원복"의 재현 가능한 원인
+후보는 **2번(discontinuity 소스가 frac 게이트에 막혀 boost 무력화)**
+로 좁혀짐 — 73차가 handoff 소스만 고쳤고 discontinuity 소스는 그대로
+둔 것이 이번 차선변경 시나리오에서 사각지대로 남음. 나머지 harsh
+사례들은 진짜 위험(4번) 또는 곡선 별개 이슈(5번)로 이번 제보와 직접
+관련 없음.
 
-**?ㅼ쓬(?ъ슜???뺤씤 ?湲? ?⑥튂 誘몄갑??**:
-1. discontinuity ?뚯뒪?먮룄 split_gate(danger_active ?⑤룆 寃뚯씠??瑜?
-   ?곸슜?좎? ????73李?怨꾩냽 寃곗젙 ?뱀떆 "discontinuity(諛⑹븞C/G)???대?
-   ?ㅼ감寃利??앸궃 議고빀?대씪 ?뚭? 由ъ뒪??濡?紐낆떆?곸쑝濡?蹂댄샇 ???諛뽰뿉
-   ???寃껋씠誘濡? ?꾨㈃ ?곸슜? ?뚭? ?꾪뿕 ?ш????꾩슂. ??? 李⑥꽑蹂寃?
-   以?blinker ?쒖꽦+hold)???쒖젙?댁꽌留?discontinuity ?뚯뒪??frac 臾닿?
-   寃뚯씠?몃줈 ?꾪솕(60李?怨꾩냽2??LANE_CHANGE_VLEAD_CORRECTION_HOLD_S?
-   ?좎궗??"?쒕굹由ъ삤 ?쒖젙" ?먯튃 ?ъ궗?? ???뚭? 踰붿쐞瑜?李⑥꽑蹂寃??곹솴?쇰줈
-   醫곹엳??履쎌씠 ?ъ슜?먯쓽 湲곗〈 ?좏샇(?꾩뿭 ?ъ뒪?꾩튂 嫄곕?, ?쒕굹由ъ삤 ?쒖젙
-   ?좏샇, 60李?怨꾩냽2)? ?쇱튂.
-2. ??諛⑺뼢 ?뺤젙?섎㈃ `replay_boost_duration.py`瑜섎줈 route2 t=1469/1541
-   ?ш?利?boost 而ㅻ쾭?⑥씠 ?ㅼ젣濡??섏뼱?섎뒗吏) ???듦낵 ??`long_mpc.py`
-   ?⑥튂 ?ㅺ퀎.
-3. route1 t=522~533 援ъ“???쒓퀎(3踰????대쾲 ?몄뀡 踰붿쐞 諛? 湲곗〈 74李?
-   ?댁썡 ??ぉ("?ㅼ감 ?뺤꽦??泥닿컧 ?뺤씤" ??怨??④퍡 怨꾩냽 ?댁뼱??
+**다음(사용자 확인 대기, 패치 미착수)**:
+1. discontinuity 소스에도 split_gate(danger_active 단독 게이트)를
+   적용할지 — 단 73차 계속 결정 당시 "discontinuity(방안C/G)는 이미
+   실차검증 끝난 조합이라 회귀 리스크"로 명시적으로 보호 대상 밖에
+   뒀던 것이므로, 전면 적용은 회귀 위험 재검토 필요. 대안: 차선변경
+   중(blinker 활성+hold)에 한정해서만 discontinuity 소스도 frac 무관
+   게이트로 완화(60차 계속2의 LANE_CHANGE_VLEAD_CORRECTION_HOLD_S와
+   유사한 "시나리오 한정" 원칙 재사용) — 회귀 범위를 차선변경 상황으로
+   좁히는 쪽이 사용자의 기존 선호(전역 킬스위치 거부, 시나리오 한정
+   선호, 60차 계속2)와 일치.
+2. 위 방향 확정되면 `replay_boost_duration.py`류로 route2 t=1469/1541
+   재검증(boost 커버율이 실제로 늘어나는지) → 통과 시 `long_mpc.py`
+   패치 설계.
+3. route1 t=522~533 구조적 한계(3번)는 이번 세션 범위 밖, 기존 74차
+   이월 항목("실차 정성적 체감 확인" 등)과 함께 계속 열어둠.
 
-**肄붾뱶 蹂寃??놁쓬(ryu). devnotes留?蹂寃?**
+**코드 변경 없음(ryu). devnotes만 변경.**
 
 
-**[媛깆떊, 泥댄겕?ъ씤?? ?ъ슜???곸긽 ?뺤씤?쇰줈 2踰??먯씤 ?뺤젙 + 諛⑺뼢 (b) 梨꾪깮**:
-?ъ슜?먭? ?ㅽ겕由곗꺑 ?쒖젏 ?붾㈃?뱁솕瑜?吏곸젒 ?ы솗????李⑥꽑蹂寃?吏꾩엯 以?
-移대찓?쇨? 癒쇱? "?놁감濡??욎븵李?(??癒?李?瑜?由щ뱶濡??몄떇?덈떎媛, 李⑤줈??
-?꾩쟾???ㅼ뼱?쒕㈃???ㅼ젣 "諛붾줈 ?욎감"(??媛源뚯슫 吏꾩쭨 由щ뱶)濡?**?寃잛씠
-?꾪솚**?섎뒗 ?쒓컙 dRel??湲됰씫??寃껋쑝濡??뺤씤 ???ㅼ젣 ?묎렐???꾨땲??
-諛⑹븞C/G媛 ?먮옒 寃⑤깷??"?몃옓 ?꾪솚" ?⑦꽩??李⑥꽑蹂寃??곹솴?먯꽌 諛쒖깮??
-?щ??꾩쓣 ?ъ슜?먭? 吏곸젒 ?뺤씤. discontinuity ?몃━嫄??먯껜???뺤긽(吏꾩쭨
-?寃??꾪솚 媛먯?)?대굹, 李⑥꽑蹂寃?以묒씠??TTC caution(frac)??媛숈씠 ?⑤㈃??
-?꾪솕 寃뚯씠?멸? 留됲옒 ??75李???遺꾩꽍怨??뺥솗???쇱튂.
+**[갱신, 체크포인트] 사용자 영상 확인으로 2번 원인 확정 + 방향 (b) 채택**:
+사용자가 스크린샷 시점 화면녹화를 직접 재확인 — 차선변경 진입 중
+카메라가 먼저 "옆차로 앞앞차"(더 먼 차)를 리드로 인식했다가, 차로에
+완전히 들어서면서 실제 "바로 앞차"(더 가까운 진짜 리드)로 **타겟이
+전환**되는 순간 dRel이 급락한 것으로 확인 — 실제 접근이 아니라
+방안C/G가 원래 겨냥한 "트랙 전환" 패턴이 차선변경 상황에서 발생한
+사례임을 사용자가 직접 확인. discontinuity 트리거 자체는 정상(진짜
+타겟 전환 감지)이나, 차선변경 중이라 TTC caution(frac)이 같이 뜨면서
+완화 게이트가 막힘 — 75차 원 분석과 정확히 일치.
 
-**諛⑺뼢 ?뺤젙: (b) 李⑥꽑蹂寃?以?blinker ?쒖꽦+hold)?먮쭔 ?쒖젙?댁꽌
-discontinuity ?뚯뒪??danger 臾닿? ?꾪솕 寃뚯씠???곸슜.** 洹쇨굅: 諛⑹븞C/G??
-湲곗〈 寃利앸맂 議고빀(?쇰컲 cutin ??? 嫄대뱶由ъ? ?딆쓬, danger override
-(TTC<=2.5s)????긽 洹몃?濡?理쒖슦???좎?, 60李?怨꾩냽2(LANE_CHANGE_
-VLEAD_CORRECTION_HOLD_S)? ?숈씪??"?쒕굹由ъ삤 ?쒖젙" ?먯튃 ?ъ궗??
+**방향 확정: (b) 차선변경 중(blinker 활성+hold)에만 한정해서
+discontinuity 소스도 danger 무관 완화 게이트 적용.** 근거: 방안C/G의
+기존 검증된 조합(일반 cutin 등)은 건드리지 않음, danger override
+(TTC<=2.5s)는 항상 그대로 최우선 유지, 60차 계속2(LANE_CHANGE_
+VLEAD_CORRECTION_HOLD_S)와 동일한 "시나리오 한정" 원칙 재사용.
 
-**?ㅼ쓬(理쒖슦?? ?ㅼ쓬 ?몄뀡?먯꽌 ?댁뼱媛?**:
-1. ??諛⑺뼢?濡?寃뚯씠??議곌굔 ?ㅺ퀎 ??`_discontinuity_trigger_source`??
-   'discontinuity'媛 李랁엺 寃쎌슦?쇰룄, blinker ?쒖꽦(+LANE_CHANGE 瑜?
-   hold) 以묒씠硫?handoff? ?숈씪?섍쾶 danger_active留뚯쑝濡?寃뚯씠??frac
-   臾닿?)?섎룄濡?`long_mpc.py`??boost 寃뚯씠??議곌굔遺(L1167~1172 遺洹?
-   `is_handoff_source` ?먯젙遺)??李⑥꽑蹂寃?議곌굔 異붽?.
-   `longitudinal_planner.py`媛 ?대? 60李?怨꾩냽2?먯꽌 blinker瑜?
-   `lane_change_blinker_active`濡?mpc???섍린怨??덉쑝誘濡?洹??좏샇
-   ?ъ궗??媛??以묐났 諛곗꽑 遺덊븘?? ?뺤씤 ???ъ궗??.
-2. `replay_boost_duration.py`瑜섎줈 route2 t=1469~1472/t=1541~1545
-   ?ш?利?boost 而ㅻ쾭?⑥씠 ?ㅼ젣濡??섏뼱?섎뒗吏, ?쇰컲 cutin ?뚭? ?녿뒗吏)
-   ???듦낵 ??`long_mpc.py` ?⑥튂 ?ㅺ퀎 ??git am 寃利????꾨떖.
-3. route1 t=522~533 援ъ“???쒓퀎(75李?3踰???怨꾩냽 蹂꾨룄 ?댁썡.
+**다음(최우선, 다음 세션에서 이어감)**:
+1. 위 방향대로 게이트 조건 설계 — `_discontinuity_trigger_source`에
+   'discontinuity'가 찍힌 경우라도, blinker 활성(+LANE_CHANGE 류
+   hold) 중이면 handoff와 동일하게 danger_active만으로 게이트(frac
+   무관)하도록 `long_mpc.py`의 boost 게이트 조건부(L1167~1172 부근,
+   `is_handoff_source` 판정부)에 차선변경 조건 추가.
+   `longitudinal_planner.py`가 이미 60차 계속2에서 blinker를
+   `lane_change_blinker_active`로 mpc에 넘기고 있으므로 그 신호
+   재사용 가능(중복 배선 불필요, 확인 후 재사용).
+2. `replay_boost_duration.py`류로 route2 t=1469~1472/t=1541~1545
+   재검증(boost 커버율이 실제로 늘어나는지, 일반 cutin 회귀 없는지)
+   → 통과 시 `long_mpc.py` 패치 설계 → git am 검증 → 전달.
+3. route1 t=522~533 구조적 한계(75차 3번)는 계속 별도 이월.
 
-## 74李???73李?諛⑹븞I ?⑥튂(f8e136e) ?ㅼ감 ?꾩껜 ?쇱슦???ъ깮寃利??꾨즺, **?뺣웾 ?뚭? ?놁쓬 ?뺤씤**
+## 74차 — 73차 방안I 패치(f8e136e) 실차 전체 라우트 재생검증 완료, **정량 회귀 없음 확인**
 
-**諛곌꼍**: 73李⑥뿉??route1 seg10/route2 seg1 ???대깽??援ш컙留?寃利앺뻽??
-諛⑹븞I ?⑥튂瑜? ?ъ슜?먭? ?낅줈?쒗븳 route1(ea5bcc0566, x19seg, 11.06km)/
-route2(a5b1ce4e42, x7seg, 4.30km) **?꾩껜 援ш컙**??????ъ깮 寃利??붿껌:
-"?대쾲 ?⑥튂媛 ?ㅻⅨ 濡쒓렇?곹솴???대뼡 ?곹뼢??誘몄튂?붿???寃利?).
+**배경**: 73차에서 route1 seg10/route2 seg1 두 이벤트 구간만 검증했던
+방안I 패치를, 사용자가 업로드한 route1(ea5bcc0566, x19seg, 11.06km)/
+route2(a5b1ce4e42, x7seg, 4.30km) **전체 구간**에 대해 재생 검증(요청:
+"이번 패치가 다른 로그상황에 어떤 영향을 미치는지도 검증").
 
-**?듭떖 寃곌낵**(?곸꽭??FINDINGS.md "74李? 李멸퀬):
-- ?몃━嫄?寃異?議곌굔(discontinuity/handoff) patched=baseline ?꾩쟾 ?숈씪
-  (?ㅺ퀎?濡????⑥튂??hard-hold/release留?蹂寃?.
-- danger_active(TTC<=2.5s)? boost ?숈떆諛쒖깮 **0嫄?*(route1/route2 紐⑤몢,
-  baseline/patched 紐⑤몢) ??danger override ?뚭? ?놁쓬 ?뺤젙.
-- boost ?곸슜 ?꾨젅??鍮꾩쨷 ?ъ쟾???묒쓬(route1 0.68%->3.80%, route2
+**핵심 결과**(상세는 FINDINGS.md "74차" 참고):
+- 트리거 검출 조건(discontinuity/handoff) patched=baseline 완전 동일
+  (설계대로 — 패치는 hard-hold/release만 변경).
+- danger_active(TTC<=2.5s)와 boost 동시발생 **0건**(route1/route2 모두,
+  baseline/patched 모두) — danger override 회귀 없음 확정.
+- boost 적용 프레임 비중 여전히 작음(route1 0.68%->3.80%, route2
   0.25%->1.73%).
-- ?꾪뿕援ш컙(aEgo<=-1.5) ?鍮?boost 而ㅻ쾭??媛쒖꽑 ?뺤씤(route1 2.7%->18.6%,
-  route2 0.0%->68.4%) ??73李??ㅺ퀎 ?섎룄?濡??묐룞.
-- 湲곗〈 ?쒕떇 ???????handoff ?몃━嫄?3嫄?route1) 媛쒕퀎 ?뺤씤 ???꾨?
-  怨좎냽 ?쒗빆 以??먭굅由??덉씠???ы쉷??vRel ?몄씠利덈줈, ?ㅼ젣 湲됯컧???놁씠
-  臾댄빐?섍쾶 吏?섍컧(怨쇰룄珥됰컻 ?곕젮 湲곌컖).
-- harsh_brake ?대깽??35+20嫄? ?꾩닔 ?뺤씤 ??boost? 臾닿?, ?遺遺?
-  cruiseEnabled=False(?댁쟾??媛쒖엯/?댁젣 ?몄젒)濡?湲곗〈 ?숈뒿 ?⑦꽩怨??쇱튂.
+- 위험구간(aEgo<=-1.5) 대비 boost 커버율 개선 확인(route1 2.7%->18.6%,
+  route2 0.0%->68.4%) — 73차 설계 의도대로 작동.
+- 기존 튜닝 대상 외 새 handoff 트리거 3건(route1) 개별 확인 — 전부
+  고속 순항 중 원거리 레이더 재획득 vRel 노이즈로, 실제 급감속 없이
+  무해하게 지나감(과도촉발 우려 기각).
+- harsh_brake 이벤트(35+20건) 전수 확인 — boost와 무관, 대부분
+  cruiseEnabled=False(운전자 개입/해제 인접)로 기존 학습 패턴과 일치.
 
-**?ㅼ쓬(理쒖슦??**:
-1. ?뺤꽦???뱀감媛?泥닿컧(?뺣웾 ?뚭?寃利앹? ?대쾲 ?몄뀡?먯꽌 ?꾨즺) ???ㅼ감
-   ?쒕씪?대툕 ??湲됯컧???꾪솕媛 "泥닿컧?섎뒗吏" ?ъ슜???뺤씤.
-2. 諛⑹븞C/G(discontinuity)+諛⑹븞I(handoff) ?댁쨷 ?몃━嫄??곹솴 ?뱀감媛?濡쒖쭅??
-   ?뚯뒪 ?꾪솚? ?뺤씤?먯쑝??泥닿컧 誘명솗????73李⑥뿉???댁썡).
-3. full_route_replay.py(?꾩껜 ?쇱슦???ъ깮 ?ㅽ겕由쏀듃) toolkit ?뺤떇 ?몄엯
-   寃?????ν썑 ?⑥튂留덈떎 "?꾩껜 ?쇱슦???뚭?寃利? ?쒖? ?덉감??媛移??덉쓬.
+**다음(최우선)**:
+1. 정성적 승차감 체감(정량 회귀검증은 이번 세션에서 완료) — 실차
+   드라이브 시 급감속 완화가 "체감되는지" 사용자 확인.
+2. 방안C/G(discontinuity)+방안I(handoff) 이중 트리거 상황 승차감(로직상
+   소스 전환은 확인됐으나 체감 미확인 — 73차에서 이월).
+3. full_route_replay.py(전체 라우트 재생 스크립트) toolkit 정식 편입
+   검토 — 향후 패치마다 "전체 라우트 회귀검증" 표준 절차화 가치 있음.
 
-**肄붾뱶 蹂寃??놁쓬.** route1.csv, route2.csv, full_route_replay.py
-?좉퇋(?ㅽ겕?섏튂, toolkit 誘명렪??.
+**코드 변경 없음.** route1.csv, route2.csv, full_route_replay.py
+신규(스크래치, toolkit 미편입).
 
-## 73李?怨꾩냽4 ??long_mpc.py ?⑥튂 ?묒꽦/git am 寃利??꾨떖 ?꾨즺, **?곸슜/push ?꾨즺 ?뺤씤, ?ㅼ감 寃利??湲?*
+## 73차 계속4 — long_mpc.py 패치 작성/git am 검증/전달 완료, **적용/push 완료 확인, 실차 검증 대기**
 
-**諛곌꼍**: 73李?怨꾩냽3??寃곗젙(4.0s hard + 100/s release-rate, split_gate)?濡?
-`long_mpc.py`???ㅼ젣 ?⑥튂 援ы쁽.
+**배경**: 73차 계속3의 결정(4.0s hard + 100/s release-rate, split_gate)대로
+`long_mpc.py`에 실제 패치 구현.
 
-**援ы쁽**(base `4fa4a44`, 濡쒖뺄 而ㅻ컠 `8402d8b`/verify-am ?ы쁽 `40bdb2d`):
-- ?좉퇋 ?곸닔 `RADAR_HANDOFF_JERK_BOOST_S=4.0`/`RADAR_HANDOFF_JERK_BOOST_RELEASE_RATE=100.0`
-  (諛⑹븞C/G??湲곗〈 `DISCONTINUITY_JERK_COST_BOOST_S=1.0`怨쇰뒗 蹂꾧컻濡?遺꾨━).
-- `_discontinuity_trigger_source`('discontinuity'|'handoff') ?좉퇋 ?곹깭濡?
-  ?몃━嫄??뚯뒪 援щ텇 ??dRel discontinuity ?몃━嫄?吏??L901 遺洹?怨??덉씠??
-  ?몃뱶?ㅽ봽 vRel 遺덉뿰???몃━嫄?吏??L933 遺洹? 媛곴컖?먯꽌 ?뚯뒪 ?쒓렇 + ??묓븯??
-  hard-hold ?좎??쒓컙(1.0s vs 4.0s) ?ㅼ젙, 吏꾪뻾 以묒씠??諛섎?履?release 媛믪? ?뺣━.
-- `a_change_cost` ?곸슜遺(L1120?) ?ъ옉?? `is_handoff_source`濡?遺꾧린 ??
-  **諛⑹븞C/G???꾩쟾??湲곗〈 洹몃?濡?*(hard-cutoff, `frac<=0.0` 寃뚯씠?? ?뚭? ?놁쓬).
-  **諛⑹븞I? danger_active留?寃뚯씠??*(frac 臾닿?, 73李?怨꾩냽 寃곗젙), hard-hold
-  醫낅즺 ??`_handoff_release_value`媛 `RADAR_HANDOFF_JERK_BOOST_RELEASE_RATE`
-  (100/s)濡?base源뚯? ?좏삎 媛먯뇿, danger_active ?⑤㈃ 媛먯뇿 以묒씠?쇰룄 利됱떆 base濡?
-  媛뺤젣蹂듦?.
+**구현**(base `4fa4a44`, 로컬 커밋 `8402d8b`/verify-am 재현 `40bdb2d`):
+- 신규 상수 `RADAR_HANDOFF_JERK_BOOST_S=4.0`/`RADAR_HANDOFF_JERK_BOOST_RELEASE_RATE=100.0`
+  (방안C/G의 기존 `DISCONTINUITY_JERK_COST_BOOST_S=1.0`과는 별개로 분리).
+- `_discontinuity_trigger_source`('discontinuity'|'handoff') 신규 상태로
+  트리거 소스 구분 — dRel discontinuity 트리거 지점(L901 부근)과 레이더
+  핸드오프 vRel 불연속 트리거 지점(L933 부근) 각각에서 소스 태그 + 대응하는
+  hard-hold 유지시간(1.0s vs 4.0s) 설정, 진행 중이던 반대쪽 release 값은 정리.
+- `a_change_cost` 적용부(L1120대) 재작성: `is_handoff_source`로 분기 —
+  **방안C/G는 완전히 기존 그대로**(hard-cutoff, `frac<=0.0` 게이트, 회귀 없음).
+  **방안I은 danger_active만 게이트**(frac 무관, 73차 계속 결정), hard-hold
+  종료 후 `_handoff_release_value`가 `RADAR_HANDOFF_JERK_BOOST_RELEASE_RATE`
+  (100/s)로 base까지 선형 감쇠, danger_active 뜨면 감쇠 중이라도 즉시 base로
+  강제복귀.
 
-**寃利?*:
-- `py_compile` ?듦낵, `git format-patch` ??`verify-am-73` ?꾩떆 釉뚮옖移?base
-  `4fa4a44`)?먯꽌 `git am` 而⑦뀓?ㅽ듃 ?쇱튂 ?뺤씤.
-- **`replay_boost_duration.py`濡??⑥튂? ?숈씪 濡쒖쭅 ?ъ떎?됲빐 ?ы솗??* ??
-  route1(seg10, t=683~698) 68.6%, route2(seg1, t=1375~1388) 98.2% 而ㅻ쾭
-  (湲곗〈 baseline 1.0s hard??????0%) ??73李?怨꾩냽3 寃곗젙移?68.0/98.2%)?
-  ?쇱튂, ?ㅼ륫 寃利??ы솗???꾨즺.
+**검증**:
+- `py_compile` 통과, `git format-patch` → `verify-am-73` 임시 브랜치(base
+  `4fa4a44`)에서 `git am` 컨텍스트 일치 확인.
+- **`replay_boost_duration.py`로 패치와 동일 로직 재실행해 재확인** —
+  route1(seg10, t=683~698) 68.6%, route2(seg1, t=1375~1388) 98.2% 커버
+  (기존 baseline 1.0s hard는 둘 다 0%) — 73차 계속3 결정치(68.0/98.2%)와
+  일치, 실측 검증 재확인 완료.
 
-**?꾨떖**: `0001-73-handoff-boost-4.0s-release-rate-100.patch`瑜?
-`/mnt/user-data/outputs/`???앹꽦, `git am` ?덈궡(base `4fa4a44`) ?④퍡 ?꾨떖.
+**전달**: `0001-73-handoff-boost-4.0s-release-rate-100.patch`를
+`/mnt/user-data/outputs/`에 생성, `git am` 안내(base `4fa4a44`) 함께 전달.
 
-**[媛깆떊] ?곸슜/push ?꾨즺 ?뺤씤** ???ъ슜?먭? `C:\dev\ryu`?먯꽌 理쒖큹 `git am`
-?쒕룄 ??濡쒖뺄??origin蹂대떎 2而ㅻ컠 ?ㅼ쿂??`e6a00ae`, 67李?72李?誘몃컲??
-而⑦뀓?ㅽ듃 遺덉씪移섎줈 ?ㅽ뙣 ??`git fetch`+`git reset --hard origin/c3-ms-dev`
-濡??숆린?????ъ쟻???깃났(`f8e136e`) + `git push origin c3-ms-dev` ?꾨즺
-?뺤씤(`4fa4a44..f8e136e`).
+**[갱신] 적용/push 완료 확인** — 사용자가 `C:\dev\ryu`에서 최초 `git am`
+시도 시 로컬이 origin보다 2커밋 뒤처져(`e6a00ae`, 67차/72차 미반영)
+컨텍스트 불일치로 실패 → `git fetch`+`git reset --hard origin/c3-ms-dev`
+로 동기화 후 재적용 성공(`f8e136e`) + `git push origin c3-ms-dev` 완료
+확인(`4fa4a44..f8e136e`).
 
-**?ㅼ쓬(理쒖슦??**:
-1. **?ㅼ감 ?쒕씪?대툕 寃利?* ??(a) route1/route2瑜??ы쁽 ?곹솴(?뺤??욎감 ?덉씠??
-   ?쎌삩 ?? 湲됯컧???꾪솕 泥닿컧 ?щ?, (b) **?뚭? 寃利??꾩닔** ??danger
-   override(TTC<=2.5s) ?뺤긽 ?숈옉쨌吏???녿뒗吏, (c) 諛⑹븞C/G(鍮꾩쟾?⑤룆 dRel
-   湲됰씫)???대쾲 ?⑥튂濡??꾪? 蹂寃??놁쓬(?뚭? 由ъ뒪???대줎??0, 洹몃옒???ы솗??
-   沅뚯옣), (d) 諛⑹븞C/G? 諛⑹븞I ?댁쨷 ?몃━嫄????? route1泥섎읆 discontinuity
-   +handoff媛 洹쇱젒) ?뚯뒪 ?꾪솚??遺?쒕읇寃?泥섎━?섎뒗吏(???몃━嫄곌? ?댁쟾 吏꾪뻾
-   以묒씠??release瑜???뼱? ???ㅺ퀎?濡쒖씤吏 泥닿컧 ?뺤씤).
+**다음(최우선)**:
+1. **실차 드라이브 검증** — (a) route1/route2류 재현 상황(정지앞차 레이더
+   락온 시) 급감속 완화 체감 여부, (b) **회귀 검증 필수** — danger
+   override(TTC<=2.5s) 정상 동작·지연 없는지, (c) 방안C/G(비전단독 dRel
+   급락)는 이번 패치로 전혀 변경 없음(회귀 리스크 이론상 0, 그래도 재확인
+   권장), (d) 방안C/G와 방안I 이중 트리거 시(예: route1처럼 discontinuity
+   +handoff가 근접) 소스 전환이 부드럽게 처리되는지(새 트리거가 이전 진행
+   중이던 release를 덮어씀 — 설계대로인지 체감 확인).
 2. `RADAR_HANDOFF_JERK_BOOST_S=4.0`/`RADAR_HANDOFF_JERK_BOOST_RELEASE_RATE
-   =100.0`???ㅼ륫 而ㅻ쾭??湲곕컲 梨꾪깮媛믪씠???ъ쟾??NEEDS_VALIDATION(?ㅼ젣
-   acados MPC 諛섏쁺 ???뱀감媛?湲곗? ?ъ“???ъ? ?덉쓬).
-3. route1??68.6%(援ъ“???쒓퀎, discontinuity+handoff ?댁쨷?몃━嫄곕줈 8珥?
-   媛源뚯씠 ?꾪뿕援ш컙 吏?????대쾲 ?⑥튂濡쒕룄 ?꾩쟾 ?댁냼 ???????ㅼ감 泥닿컧?쇰줈
-   異붽? 議곗튂 ?꾩슂???щ끉??
+   =100.0`는 실측 커버율 기반 채택값이나 여전히 NEEDS_VALIDATION(실제
+   acados MPC 반영 후 승차감 기준 재조정 여지 있음).
+3. route1의 68.6%(구조적 한계, discontinuity+handoff 이중트리거로 8초
+   가까이 위험구간 지속)는 이번 패치로도 완전 해소 안 됨 — 실차 체감으로
+   추가 조치 필요성 재논의.
 
-## [泥댄겕?ъ씤?? ?몄뀡 醫낅즺 ?꾨떂] 73李?怨꾩냽3 ??boost_s 4~6.5s ?ㅼ쐵?ㅽ뙚 ?먯깋 + release-rate ?ㅽ겕由쏀듃 踰꾧렇 2嫄??섏젙, **4.0s+100/s 議고빀 梨꾪깮 寃곗젙**
+## [체크포인트, 세션 종료 아님] 73차 계속3 — boost_s 4~6.5s 스윗스팟 탐색 + release-rate 스크립트 버그 2건 수정, **4.0s+100/s 조합 채택 결정**
 
-**諛곌꼍**: 73李?怨꾩냽2?먯꽌 ?⑥? "boost_s瑜????щ┫吏" 吏덈Ц???듯븯湲??꾪빐
-`replay_boost_duration.py`(split_gate 紐⑤뱶)濡?boost_s 3.0~6.5s瑜??ㅼ틪.
+**배경**: 73차 계속2에서 남은 "boost_s를 더 올릴지" 질문에 답하기 위해
+`replay_boost_duration.py`(split_gate 모드)로 boost_s 3.0~6.5s를 스캔.
 
-**boost_s留??섎졇????hard cutoff, split_gate)**:
-- route1: 3.0s 19.2% ??4.0s 36.0% ??5.0s 52.0% ??6.0s 68.0% ??6.5s 76.0%
-  (100% ?꾨떖 遺덇? ??discontinuity(t=687.850)+handoff(t??90.0) ?댁쨷
-  ?몃━嫄곕줈 ?꾪뿕援ш컙??8珥?媛源뚯씠 ?댁뼱吏??援ъ“???쒓퀎, 6.5s濡쒕룄 ?쒓퀎).
-- route2: 3.0s 44.2% ??4.0s 62.2% ??5.0s 81.1% ??6.0s 98.2% ??6.5s 100.9%.
-- 寃뚯씠?몄감????援ш컙 0.00s(?뚭? ?놁쓬). ?? 6~6.5s源뚯? 諛硫?"李곕굹???꾪솕"
-  ?ㅺ퀎 痍⑥??먯꽌 硫?댁?怨??뱀감媛먯긽 "臾쇰윭吏?? 由ъ뒪???곕젮 ?쒓린 ??duration
-  ?⑤룆 利앷? ???release-rate ?꾨쭔??蹂묓뻾 寃?좊줈 諛⑺뼢 ?꾪솚.
+**boost_s만 늘렸을 때(hard cutoff, split_gate)**:
+- route1: 3.0s 19.2% → 4.0s 36.0% → 5.0s 52.0% → 6.0s 68.0% → 6.5s 76.0%
+  (100% 도달 불가 — discontinuity(t=687.850)+handoff(t≈690.0) 이중
+  트리거로 위험구간이 8초 가까이 이어지는 구조적 한계, 6.5s로도 한계).
+- route2: 3.0s 44.2% → 4.0s 62.2% → 5.0s 81.1% → 6.0s 98.2% → 6.5s 100.9%.
+- 게이트차단 전 구간 0.00s(회귀 없음). 단, 6~6.5s까지 밀면 "찰나성 완화"
+  설계 취지에서 멀어지고 승차감상 "물러지는" 리스크 우려 제기 → duration
+  단독 증가 대신 release-rate 완만화 병행 검토로 방향 전환.
 
-**[以묒슂] `replay_boost_duration.py` 踰꾧렇 2嫄?諛쒓껄쨌?섏젙** (release-rate
-?듭뀡??洹몃룞???ъ떎???꾩쟾??臾댄슚???:
-1. 媛먯뇿 以?"利됱떆 base濡?媛뺤젣蹂듦?" ?먯젙??split_gate??諛⑹븞I(handoff)
-   frac 硫댁젣 ?덉쇅瑜?諛섏쁺 ???댁꽌, ??대㉧ 留뚮즺 吏곹썑 frac>0(?몃뱶?ㅽ봽 吏곹썑
-   嫄곗쓽 ??긽 利됱떆 諛쒖깮)??嫄몃젮 媛먯뇿 ?쒖옉??紐??섍퀬 利됱떆 base濡?爰쇱쭚 ??
-   `force_revert` 蹂?섎줈 遺꾨━??split_gate+handoff ?몃━嫄곕뒗 danger_active留?
-   ?뺤씤?섎룄濡??섏젙.
+**[중요] `replay_boost_duration.py` 버그 2건 발견·수정** (release-rate
+옵션이 그동안 사실상 완전히 무효였음):
+1. 감쇠 중 "즉시 base로 강제복귀" 판정이 split_gate의 방안I(handoff)
+   frac 면제 예외를 반영 안 해서, 타이머 만료 직후 frac>0(핸드오프 직후
+   거의 항상 즉시 발생)에 걸려 감쇠 시작도 못 하고 즉시 base로 꺼짐 —
+   `force_revert` 변수로 분리해 split_gate+handoff 트리거는 danger_active만
+   확인하도록 수정.
 2. `self._release_value = max(base_cost, self._release_value -
-   release_rate * dt)`?먯꽌 `release_rate`媛 吏?????誘몄젙?섎씪 `self.
-   release_rate` ???李몄“ ?쒕룄 ??`NameError`(1李??ㅽ뻾?먯꽑 ?덉쇅媛 case
-   ??嫄몃젮 議곗슜???듦낵??寃??꾨땲???좎큹????遺꾧린 ?먯껜媛 踰꾧렇1 ?뚮Ц??
-   ?꾪? ?ㅽ뻾 ???쇱꽌 ??嫄몃졇??寃???踰꾧렇1 ?섏젙 ???ㅽ뻾?섎㈃??諛쒓껄).
-   `self.release_rate`濡??섏젙.
+   release_rate * dt)`에서 `release_rate`가 지역변수 미정의라 `self.
+   release_rate` 대신 참조 시도 → `NameError`(1차 실행에선 예외가 case
+   안 걸려 조용히 통과된 게 아니라 애초에 이 분기 자체가 버그1 때문에
+   전혀 실행 안 돼서 안 걸렸던 것 — 버그1 수정 후 실행하면서 발견).
+   `self.release_rate`로 수정.
 
-**踰꾧렇 ?섏젙 ???ш?利?(route1/route2, split_gate ?좎?)**:
+**버그 수정 후 재검증 (route1/route2, split_gate 유지)**:
 - 5.0s+300/s: 62.4%/92.8%, +200/s: 67.2%/98.2%, +150/s: 72.8%/100.9%.
 - 4.0s+150/s: 56.8%/85.6%, **4.0s+100/s: 68.0%/98.2%**.
 
-**寃곗젙**: **4.0s(hard) + 100/s(release-rate) 議고빀 梨꾪깮.** 洹쇨굅: 5.0s
-hard 怨꾩뿴怨?而ㅻ쾭?⑥씠 嫄곗쓽 ?숆툒(68.0/98.2% vs 72.8/100.9%)?대㈃?쒕룄,
-\"?꾩쟾遺?ㅽ듃(500) ?좎?\" 援ш컙??4.0s濡???吏㏐쾶 媛?멸?怨??섎㉧吏???꾨쭔??
-瑗щ━濡?而ㅻ쾭?섎뒗 援ъ“???먮옒 諛⑹븞G??\"李곕굹???꾪솕\" 痍⑥?????媛源뚯? ??
-5~6珥??대궡 ??щ퉬?⑹쓣 ??쾶 ?좎??섎뒗 寃껊낫???뱀감媛먯긽 ?먯뿰?ㅻ윭??媛?μ꽦.
-route1??68%濡?誘몃떖(援ъ“???쒓퀎, ??李멸퀬)???먯? ?ㅼ감 寃利앹쑝濡?泥닿컧
-?뺤씤 ???꾩슂???щ끉?섑븯湲곕줈 ??臾대━?섍쾶 duration/release_rate瑜???
-洹밸떒?뷀븯吏 ?딄린濡?.
+**결정**: **4.0s(hard) + 100/s(release-rate) 조합 채택.** 근거: 5.0s
+hard 계열과 커버율이 거의 동급(68.0/98.2% vs 72.8/100.9%)이면서도,
+\"완전부스트(500) 유지\" 구간을 4.0s로 더 짧게 가져가고 나머지는 완만한
+꼬리로 커버하는 구조라 원래 방안G의 \"찰나성 완화\" 취지에 더 가까움 —
+5~6초 내내 저크비용을 낮게 유지하는 것보다 승차감상 자연스러울 가능성.
+route1이 68%로 미달(구조적 한계, 위 참고)인 점은 실차 검증으로 체감
+확인 후 필요시 재논의하기로 함(무리하게 duration/release_rate를 더
+극단화하지 않기로).
 
-**?ㅼ쓬(理쒖슦??**:
-1. ??寃곗젙(諛⑹븞I ?몃━嫄??꾩슜 split_gate + boost_s 4.0s + release-rate
-   100/s ?꾨쭔???濡?`long_mpc.py` ?⑥튂 ?ㅺ퀎 ???몃━嫄??뚯뒪 援щ텇???곹깭
-   ?좉퇋 異붽?(`_discontinuity_jerk_boost_timer` ?⑥씪 ??대㉧瑜??뚯뒪蹂꾨줈
-   遺꾨━?섍굅??蹂꾨룄 bool ?뚮옒洹?異붽?, `_trigger_source` 諛⑹떇?
-   `replay_boost_duration.py`?먯꽌 ?대? 寃利앸맖) + release-rate 媛먯뇿 濡쒖쭅
-   ?좉퇋 援ы쁽.
-2. `replay_boost_duration.py`濡?理쒖쥌 ?뚮씪誘명꽣(4.0s/100/s)濡??ㅼ떆 ??踰?
-   route1/route2 ?ш?利??⑥튂 肄붾뱶? ?숈씪 濡쒖쭅?몄? diff ?뺤씤) ??`git am`
-   寃利????꾨떖.
-3. route1??dRel discontinuity ?몃━嫄?t=687.850, 諛⑹븞C/G 寃쎈줈)???대쾲?먮룄
-   split_gate ??곸뿉???쒖쇅(湲곗〈 寃뚯씠???좎?) ??73李?怨꾩냽 寃곗젙 ?ы솗??
-   蹂寃??놁쓬.
+**다음(최우선)**:
+1. 위 결정(방안I 트리거 전용 split_gate + boost_s 4.0s + release-rate
+   100/s 완만화)대로 `long_mpc.py` 패치 설계 — 트리거 소스 구분용 상태
+   신규 추가(`_discontinuity_jerk_boost_timer` 단일 타이머를 소스별로
+   분리하거나 별도 bool 플래그 추가, `_trigger_source` 방식은
+   `replay_boost_duration.py`에서 이미 검증됨) + release-rate 감쇠 로직
+   신규 구현.
+2. `replay_boost_duration.py`로 최종 파라미터(4.0s/100/s)로 다시 한 번
+   route1/route2 재검증(패치 코드와 동일 로직인지 diff 확인) → `git am`
+   검증 → 전달.
+3. route1의 dRel discontinuity 트리거(t=687.850, 방안C/G 경로)는 이번에도
+   split_gate 대상에서 제외(기존 게이트 유지) — 73차 계속 결정 재확인,
+   변경 없음.
 
-**肄붾뱶 蹂寃??놁쓬(ryu 誘몃?寃?. `toolkit/replay_boost_duration.py` 踰꾧렇
-?섏젙(release-rate ?듭뀡??泥섏쓬?쇰줈 ?뺤긽 ?숈옉) ??devnotes留?蹂寃?**
+**코드 변경 없음(ryu 미변경). `toolkit/replay_boost_duration.py` 버그
+수정(release-rate 옵션이 처음으로 정상 동작) — devnotes만 변경.**
 
-## [泥댄겕?ъ씤?? ?몄뀡 醫낅즺 ?꾨떂] 73李?怨꾩냽2 ??split_gate 寃利??꾨즺: 寃뚯씠?몄감???댁냼, duration怨?寃고빀??而ㅻ쾭???ㅼ젣 利앷?
+## [체크포인트, 세션 종료 아님] 73차 계속2 — split_gate 검증 완료: 게이트차단 해소, duration과 결합해 커버율 실제 증가
 
-**寃곌낵**: `replay_boost_duration.py`??`split_gate` ?듭뀡(諛⑹븞I ?몃━嫄곕쭔
-danger_active ?⑤룆 寃뚯씠?? 援ы쁽쨌寃利??꾨즺 ??route1 3.0s+split_gate
-19.2%, route2 3.0s+split_gate 44.2% 而ㅻ쾭(寃뚯씠?몄감??0.00s濡??꾩쟾 ?댁냼).
-danger_active ?꾨젅?????뚭? ?놁쓬(baseline怨??숈씪 ?뺤씤). ?곸꽭??
-FINDINGS.md 73李?怨꾩냽 李멸퀬.
+**결과**: `replay_boost_duration.py`에 `split_gate` 옵션(방안I 트리거만
+danger_active 단독 게이트) 구현·검증 완료 — route1 3.0s+split_gate
+19.2%, route2 3.0s+split_gate 44.2% 커버(게이트차단 0.00s로 완전 해소).
+danger_active 프레임 수 회귀 없음(baseline과 동일 확인). 상세는
+FINDINGS.md 73차 계속 참고.
 
-**?ㅼ쓬(理쒖슦??**:
-1. boost_s瑜?3.0s蹂대떎 ???щ┫吏(4.0~5.0s ?꾨낫) ??coverage媛 ?꾩쭅
-   100%??紐?誘몄묠(risk_dur 5.55~6.25珥?.
-2. route1 dRel discontinuity ?몃━嫄?諛⑹븞C/G 寃쎈줈, t=687.850)????
-   ?쒕굹由ъ삤?먯꽑 split ??곸뿉 ?ы븿?좎? ?먮떒.
-3. 諛⑺뼢 ?뺤젙?섎㈃ `long_mpc.py` ?⑥튂 ?ㅺ퀎 ???몃━嫄??뚯뒪 援щ텇???곹깭
-   ?좉퇋 異붽?(`_discontinuity_jerk_boost_timer` ?⑥씪 ??대㉧瑜??뚯뒪蹂꾨줈
-   遺꾨━?섍굅??蹂꾨룄 bool ?뚮옒洹?異붽?) ??`replay_boost_duration.py`濡?
-   理쒖쥌 ?ш?利???`git am` 寃利????꾨떖.
+**다음(최우선)**:
+1. boost_s를 3.0s보다 더 올릴지(4.0~5.0s 후보) — coverage가 아직
+   100%에 못 미침(risk_dur 5.55~6.25초).
+2. route1 dRel discontinuity 트리거(방안C/G 경로, t=687.850)도 이
+   시나리오에선 split 대상에 포함할지 판단.
+3. 방향 확정되면 `long_mpc.py` 패치 설계 — 트리거 소스 구분용 상태
+   신규 추가(`_discontinuity_jerk_boost_timer` 단일 타이머를 소스별로
+   분리하거나 별도 bool 플래그 추가) → `replay_boost_duration.py`로
+   최종 재검증 → `git am` 검증 → 전달.
 
-**肄붾뱶 蹂寃??놁쓬(ryu 誘몃?寃?. `toolkit/replay_boost_duration.py`
-媛깆떊(split_gate ?듭뀡 異붽?).**
+**코드 변경 없음(ryu 미변경). `toolkit/replay_boost_duration.py`
+갱신(split_gate 옵션 추가).**
 
-## [泥댄겕?ъ씤?? ?몄뀡 醫낅즺 ?꾨떂] 73李?怨꾩냽 ??諛⑺뼢 寃곗젙: **諛⑹븞I ?몃━嫄??꾩슜 寃뚯씠??遺꾨━(?쒗븳??1踰?**
+## [체크포인트, 세션 종료 아님] 73차 계속 — 방향 결정: **방안I 트리거 전용 게이트 분리(제한적 1번)**
 
-**寃곗젙**: 3媛??꾨낫(FINDINGS.md 73李?李멸퀬) 以?**1踰?frac 寃뚯씠???꾪솕)??
-諛⑹븞I ?몃━嫄곗뿉留??쒖젙** ?곸슜?섍린濡??뺤젙. 洹쇨굅:
-- 2踰?boost-frac 蹂묒〈 ?ъ꽕怨?? a_change_cost ?대텇踰?援ъ“ ?먯껜瑜?
-  諛붽퓭????踰붿쐞/由ъ뒪????
-- 1踰덉쓣 **?꾨㈃** ?꾪솕?섎㈃ 諛⑹븞C/G(dRel discontinuity, cutin/vision
-  ?몄씠利????源뚯? ?④퍡 ?由щ뒗?? ??議고빀(諛⑹븞C/G + frac 寃뚯씠???
-  ?대? ?ㅼ감寃利앷퉴吏 ?앸궃 議고빀?대씪 ?뚭? 由ъ뒪??
-- **諛⑹븞I(?덉씠???몃뱶?ㅽ봽)??寃⑤깷???쒕굹由ъ삤???뺤쓽??frac_ttc瑜?
-  利됱떆 ?뚯뼱?щ┝**(?뺤?/?쒗뻾 ?욎감??吏꾩쭨 ?곹깭媛 ?쎌삩 ?쒓컙 ?뺤젙?섎뒗
-  寃껋씠吏, ?덈줈??誘명솗???꾪뿕???꾨떂) ??danger override(TTC<=2.5s)留?
-  ?댁븘?덉쑝硫??덉쟾留앹? 異⑸텇?섎떎怨??먮떒.
-- ?곕씪???몃━嫄??뚯뒪(dRel discontinuity vs ?덉씠???몃뱶?ㅽ봽)蹂꾨줈
-  寃뚯씠?몃? 遺꾨━: **諛⑹븞I ?몃━嫄곕줈 arm??boost留?danger_active ?⑤룆
-  寃뚯씠??*(frac 臾닿?), **諛⑹븞C/G(dRel discontinuity) ?몃━嫄곕뒗 湲곗〈
-  `frac<=0.0` 寃뚯씠??洹몃?濡??좎?**.
+**결정**: 3개 후보(FINDINGS.md 73차 참고) 중 **1번(frac 게이트 완화)을
+방안I 트리거에만 한정** 적용하기로 확정. 근거:
+- 2번(boost-frac 병존 재설계)은 a_change_cost 이분법 구조 자체를
+  바꿔야 해 범위/리스크 큼.
+- 1번을 **전면** 완화하면 방안C/G(dRel discontinuity, cutin/vision
+  노이즈 대응)까지 함께 풀리는데, 이 조합(방안C/G + frac 게이트)은
+  이미 실차검증까지 끝난 조합이라 회귀 리스크.
+- **방안I(레이더 핸드오프)이 겨냥한 시나리오는 정의상 frac_ttc를
+  즉시 끌어올림**(정지/서행 앞차의 진짜 상태가 락온 순간 확정되는
+  것이지, 새로운 미확인 위험이 아님) — danger override(TTC<=2.5s)만
+  살아있으면 안전망은 충분하다고 판단.
+- 따라서 트리거 소스(dRel discontinuity vs 레이더 핸드오프)별로
+  게이트를 분리: **방안I 트리거로 arm된 boost만 danger_active 단독
+  게이트**(frac 무관), **방안C/G(dRel discontinuity) 트리거는 기존
+  `frac<=0.0` 게이트 그대로 유지**.
 
-**?ㅼ쓬(?댁뼱??吏꾪뻾)**: `replay_boost_duration.py`??"諛⑹븞I ?꾩슜 ?꾪솕
-寃뚯씠?? ?꾨낫 異붽? ??route1/route2 ?ш?利?而ㅻ쾭由ъ?媛 ?ㅼ젣濡??섏뼱?섎뒗吏,
-danger override ?뚭? ?녿뒗吏) ???듦낵 ??`long_mpc.py` ?⑥튂 ?ㅺ퀎
-(?몃━嫄??뚯뒪瑜?援щ텇?섎뒗 ?뚮옒洹??좉퇋 ?꾩슂 ???꾩옱 `_discontinuity_jerk_
-boost_timer`??dRel discontinuity/?덉씠???몃뱶?ㅽ봽 ???몃━嫄곌? 媛숈?
-??대㉧瑜?怨듭쑀?섎?濡? ?뚯뒪 援щ텇??蹂꾨룄 ?곹깭 異붽? 寃??.
+**다음(이어서 진행)**: `replay_boost_duration.py`에 "방안I 전용 완화
+게이트" 후보 추가 → route1/route2 재검증(커버리지가 실제로 늘어나는지,
+danger override 회귀 없는지) → 통과 시 `long_mpc.py` 패치 설계
+(트리거 소스를 구분하는 플래그 신규 필요 — 현재 `_discontinuity_jerk_
+boost_timer`는 dRel discontinuity/레이더 핸드오프 두 트리거가 같은
+타이머를 공유하므로, 소스 구분용 별도 상태 추가 검토).
 
-## [泥댄겕?ъ씤?? ?몄뀡 醫낅즺 ?꾨떂] 73李???boost duration ?곗옣 媛???ш?利? **[諛⑺뼢?꾪솚] ?먯씤? duration???꾨땲??frac<=0.0 寃뚯씠??*
+## [체크포인트, 세션 종료 아님] 73차 — boost duration 연장 가설 재검증, **[방향전환] 원인은 duration이 아니라 frac<=0.0 게이트**
 
-**諛곌꼍**: 72李?怨꾩냽4 "?ㅼ쓬(理쒖슦??" 1/2踰덈?濡?`data_routes.load_route()`
-濡?route1(`ea5bcc0566`)/route2(`a5b1ce4e42`) 遺덈윭? boost 吏?띿떆媛?
-?꾨낫(2.0/2.5/3.0s hard) + release-rate ?꾨쭔?붿븞(1.0s+300/s ?먮뒗
-200/s 媛먯뇿) ?뺣웾 鍮꾧탳 replay ?ㅽ겕由쏀듃(`toolkit/replay_boost_
-duration.py`, ?좉퇋) ?묒꽦쨌?ㅽ뻾.
+**배경**: 72차 계속4 "다음(최우선)" 1/2번대로 `data_routes.load_route()`
+로 route1(`ea5bcc0566`)/route2(`a5b1ce4e42`) 불러와 boost 지속시간
+후보(2.0/2.5/3.0s hard) + release-rate 완만화안(1.0s+300/s 또는
+200/s 감쇠) 정량 비교 replay 스크립트(`toolkit/replay_boost_
+duration.py`, 신규) 작성·실행.
 
-**?듭떖 寃곌낵**: boost_s瑜?1.0??.0s濡??섎젮???꾪뿕援ш컙(aEgo<=-1.5, 吏㏃?
-?뚮났 blip 0.5s ?대궡 臾댁떆) ???ㅼ젣 boost ?곸슜?쒓컙? route1/route2 ????
-**?ъ쟾??0.00珥?0.0%)** ??timer??boost_s??鍮꾨????쒖꽦 ?쒓컙??
-?섏뼱?섏?留?route2 湲곗? 1.0s??.45s/3.0s??.45s), 洹??쒖꽦 ?쒓컙 ?꾨?媛
-`frac<=0.0` 寃뚯씠?몄뿉 嫄몃젮 base_a_change_cost濡?媛뺣벑?? ?먯씤: radar
-?쎌삩 吏곹썑 closing??吏?띾릺硫?TTC媛 怨㏓컮濡?`LEAD_ACQ_TTC_CAUTION=6.0s`
-諛묒쑝濡?吏꾩엯??frac_ttc>0??嫄곗쓽 利됱떆 ?깅┰ ?????쒕굹由ъ삤(?뺤?/?쒗뻾
-?욎감 ?쎌삩) ?먯껜媛 ?뺤쓽??frac_ttc瑜??뚯뼱?щ━???곹솴?대씪 boost 寃뚯씠??
-`(timer>0 and not danger_active and frac<=0.0)`媛 ?먭린紐⑥닚?곸쑝濡?
-嫄곗쓽 ??긽 留됲옒. **72李⑥쓽 "boost 1.0s媛 吏㏃븘??遺議? 寃곕줎? ?뺤젙 ??
-duration ?먯껜??蹂묐ぉ???꾨땲?덉쓬.** ?곸꽭??FINDINGS.md 73李?李멸퀬.
+**핵심 결과**: boost_s를 1.0→3.0s로 늘려도 위험구간(aEgo<=-1.5, 짧은
+회복 blip 0.5s 이내 무시) 내 실제 boost 적용시간은 route1/route2 둘 다
+**여전히 0.00초(0.0%)** — timer는 boost_s에 비례해 활성 시간이
+늘어나지만(route2 기준 1.0s→0.45s/3.0s→2.45s), 그 활성 시간 전부가
+`frac<=0.0` 게이트에 걸려 base_a_change_cost로 강등됨. 원인: radar
+락온 직후 closing이 지속되며 TTC가 곧바로 `LEAD_ACQ_TTC_CAUTION=6.0s`
+밑으로 진입해 frac_ttc>0이 거의 즉시 성립 — 이 시나리오(정지/서행
+앞차 락온) 자체가 정의상 frac_ttc를 끌어올리는 상황이라 boost 게이트
+`(timer>0 and not danger_active and frac<=0.0)`가 자기모순적으로
+거의 항상 막힘. **72차의 "boost 1.0s가 짧아서 부족" 결론은 정정 —
+duration 자체는 병목이 아니었음.** 상세는 FINDINGS.md 73차 참고.
 
-route2?먯꽌 怨꾩궛???꾪뿕援ш컙(t=1379.400~1384.950, 5.55珥???72李?怨꾩냽3??
-?섍린 怨꾩궛怨??뺥솗???쇱튂???ㅽ겕由쏀듃 ?ы쁽 ?좊ː?꾨룄 ?뺤씤??
+route2에서 계산된 위험구간(t=1379.400~1384.950, 5.55초)이 72차 계속3의
+수기 계산과 정확히 일치해 스크립트 재현 신뢰도도 확인됨.
 
-**?ㅼ쓬(理쒖슦??**: 3媛?諛⑺뼢 ?꾨낫 以??ъ슜??寃곗젙 ?꾩슂(?쒖꽌 ?뺤젙 ?湲?:
-1. boost 寃뚯씠?몄뿉??`frac<=0.0`???꾪솕(danger_active留뚯쑝濡?寃뚯씠??
-   ?먮뒗 frac 臾명꽦????? ?묒닔濡? ??danger override(TTC<=2.5s)??
-   蹂꾨룄濡???긽 理쒖슦???좎??섎?濡??덉쟾留??먯껜???좎??? ?ш????꾩슂.
-2. boost? frac_ttc floor瑜??곹샇諛고?媛 ?꾨땲??蹂묒〈 媛?ν븯寃??ъ꽕怨?
-3. "李곕굹???몄씠利??꾪솕"(諛⑹븞G/C)? "紐?珥?吏??吏꾩쭨 湲됯컧?띿쓽 ???
-   ?꾨쭔??(諛⑹븞I)瑜?媛숈? boost 硫붿빱?덉쬁?쇰줈 臾띠? 援ъ“ ?먯껜瑜?遺꾨━
-   (frac gate 諛뽰뿉???숈옉?섎뒗 蹂꾨룄 寃쎈줈).
+**다음(최우선)**: 3개 방향 후보 중 사용자 결정 필요(순서 확정 대기):
+1. boost 게이트에서 `frac<=0.0`을 완화(danger_active만으로 게이트,
+   또는 frac 문턱을 낮은 양수로) — danger override(TTC<=2.5s)는
+   별도로 항상 최우선 유지되므로 안전망 자체는 유지됨, 재검토 필요.
+2. boost와 frac_ttc floor를 상호배타가 아니라 병존 가능하게 재설계.
+3. "찰나성 노이즈 완화"(방안G/C)와 "몇 초 지속 진짜 급감속의 저크
+   완만화"(방안I)를 같은 boost 메커니즘으로 묶은 구조 자체를 분리
+   (frac gate 밖에서 동작하는 별도 경로).
 
-諛⑺뼢 寃곗젙?섎㈃ ???대떦 諛⑺뼢?쇰줈 寃뚯씠??議곌굔 ?섏젙 ??
-`replay_boost_duration.py`濡??ш?利?boosted ?쒓컙???ㅼ젣濡??섏뼱?섎뒗吏
-?뺤씤) ???듦낵 ??`long_mpc.py` ?⑥튂.
+방향 결정되면 → 해당 방향으로 게이트 조건 수정 →
+`replay_boost_duration.py`로 재검증(boosted 시간이 실제로 늘어나는지
+확인) → 통과 시 `long_mpc.py` 패치.
 
-**肄붾뱶 蹂寃??놁쓬(ryu 誘몃?寃?. `toolkit/replay_boost_duration.py`
-?좉퇋(?뺤떇 ?몄엯, ?ㅽ겕?섏튂 ?꾨떂).**
+**코드 변경 없음(ryu 미변경). `toolkit/replay_boost_duration.py`
+신규(정식 편입, 스크래치 아님).**
 
-## [泥댄겕?ъ씤?? ?몄뀡 醫낅즺 ?꾨떂] 72李?怨꾩냽4 ??`data/routes/` 援ъ“ ?좎꽕 ?꾨즺(route1/route2 ?깅줉+push)
+## [체크포인트, 세션 종료 아님] 72차 계속4 — `data/routes/` 구조 신설 완료(route1/route2 등록+push)
 
-72李?怨꾩냽3?먯꽌 ?????쇱슦??route1 `ea5bcc0566` x19seg 22800??
-route2 `a5b1ce4e42` x7seg 7859????????而ㅻ컠 `4fa4a44b9311` ?곹깭?먯꽌
-異붿텧, meta.json ?뺤씤 寃곌낵 ?댁쟾 ?몄뀡怨??꾩쟾 ?숈씪 ?ы쁽)瑜?gzip ?뺤텞??
-`devnotes/data/routes/<route_id>/route.csv.gz`+`meta.json`?쇰줈 ?좉퇋
-??? 濡쒕뜑 `toolkit/data_routes.py`(`load_route`/`list_routes`) ?좉퇋
-?묒꽦 諛?寃利??꾨즺(???쇱슦??紐⑤몢 load ?깃났, meta ?쇱튂 ?뺤씤).
-`data/routes/README.md`(?깅줉 ?쇱슦????+ ?ъ슜踰?+ 異붽? ?덉감),
-`toolkit/README.md`/`CHANGELOG.md` ?숆린???꾨즺. ??泥댄겕?ъ씤?몄? ?④퍡
+72차 계속3에서 쓴 두 라우트(route1 `ea5bcc0566` x19seg 22800행,
+route2 `a5b1ce4e42` x7seg 7859행 — 둘 다 커밋 `4fa4a44b9311` 상태에서
+추출, meta.json 확인 결과 이전 세션과 완전 동일 재현)를 gzip 압축해
+`devnotes/data/routes/<route_id>/route.csv.gz`+`meta.json`으로 신규
+저장. 로더 `toolkit/data_routes.py`(`load_route`/`list_routes`) 신규
+작성 및 검증 완료(두 라우트 모두 load 성공, meta 일치 확인).
+`data/routes/README.md`(등록 라우트 표 + 사용법 + 추가 절차),
+`toolkit/README.md`/`CHANGELOG.md` 동기화 완료. 이 체크포인트와 함께
 push.
 
-**?ㅼ쓬(理쒖슦?? ?ъ쟾??誘몄갑??**: ?꾨옒 72李?怨꾩냽3 ??ぉ 洹몃?濡???
-1. boost 吏?띿떆媛??곗옣??2.5~3.0s ?꾨낫) ?먮뒗 release-rate ?꾨쭔?붿븞 ?ㅺ퀎
-2. `data_routes.load_route()`濡?route1/route2 遺덈윭? PATCHED vs
-   UNPATCHED ?뺣웾 鍮꾧탳 replay ?ㅽ겕由쏀듃 ?묒꽦(?좉퇋 ?ъ궗??媛???ㅽ겕由쏀듃??
-   toolkit/???뺤떇 ?몄엯)
-3. 寃利??듦낵 ??`long_mpc.py` ?⑥튂 ??git am 寃利????꾨떖
+**다음(최우선, 여전히 미착수)**: 아래 72차 계속3 항목 그대로 —
+1. boost 지속시간 연장안(2.5~3.0s 후보) 또는 release-rate 완만화안 설계
+2. `data_routes.load_route()`로 route1/route2 불러와 PATCHED vs
+   UNPATCHED 정량 비교 replay 스크립트 작성(신규 재사용 가능 스크립트는
+   toolkit/에 정식 편입)
+3. 검증 통과 시 `long_mpc.py` 패치 → git am 검증 → 전달
 
 ---
 
-## [泥댄겕?ъ씤?? ?몄뀡 醫낅즺 ?꾨떂] 72李?怨꾩냽3 ??route2(x7seg) 援먯감寃利??꾨즺: boost ?덈룄??1.0s) 援ъ“??遺議?媛?? **2媛??쇱슦?몄뿉???ы쁽 ?뺤씤**
+## [체크포인트, 세션 종료 아님] 72차 계속3 — route2(x7seg) 교차검증 완료: boost 윈도우(1.0s) 구조적 부족 가설, **2개 라우트에서 재현 확인**
 
-route2(`a5b1ce4e42`) seg1 t=1378.85 ?덉씠???쎌삩 ?대깽???뺤??욎감,
-vRel jump -5.11)?먯꽌 route1 seg10怨??숈씪 ?⑦꽩 ?ы솗?? boost ?뚯쭊
-(t=1379.85) ?쒖젏???꾩쭅 理쒖븙???꾨떖 ??aEgo=-2.229)?닿퀬, ?ㅼ젣 理쒕?
-媛먯냽(-3.157m/s짼)? boost ?뚯쭊 1.36珥???t=1381.207)??諛쒖깮. ?꾩껜 ?대깽??
-aEgo<=-1.5 湲곗? 5.55珥?吏?? ?곸꽭??FINDINGS.md "72李?怨꾩냽3" 李멸퀬.
+route2(`a5b1ce4e42`) seg1 t=1378.85 레이더 락온 이벤트(정지앞차,
+vRel jump -5.11)에서 route1 seg10과 동일 패턴 재확인: boost 소진
+(t=1379.85) 시점엔 아직 최악점 도달 전(aEgo=-2.229)이고, 실제 최대
+감속(-3.157m/s²)은 boost 소진 1.36초 후(t=1381.207)에 발생. 전체 이벤트
+aEgo<=-1.5 기준 5.55초 지속. 상세는 FINDINGS.md "72차 계속3" 참고.
 
-**?ㅼ쓬(理쒖슦?? ?ъ쟾??誘몄갑?????대쾲??李⑹닔 洹쇨굅媛 ?쒕낯 2嫄댁쑝濡?媛뺥솕??**:
-1. boost 吏?띿떆媛??곗옣??2.5~3.0s ?꾨낫, danger override???ъ쟾???곗꽑)
-   ?먮뒗 release-rate ?꾨쭔?붿븞 ?ㅺ퀎
-2. route1 seg10 + route2 seg1(?????щ?) 湲곕컲 ?뺤떇 replay ?ㅽ겕由쏀듃濡?
-   PATCHED vs UNPATCHED ?뺣웾 鍮꾧탳 寃利?(?꾩쭅 ?ㅽ겕由쏀듃??????
-3. 寃利??듦낵 ??`long_mpc.py` ?⑥튂 ?묒꽦 ??git am 寃利????꾨떖
+**다음(최우선, 여전히 미착수 — 이번엔 착수 근거가 표본 2건으로 강화됨)**:
+1. boost 지속시간 연장안(2.5~3.0s 후보, danger override는 여전히 우선)
+   또는 release-rate 완만화안 설계
+2. route1 seg10 + route2 seg1(위 두 사례) 기반 정식 replay 스크립트로
+   PATCHED vs UNPATCHED 정량 비교 검증 (아직 스크립트화 안 됨)
+3. 검증 통과 시 `long_mpc.py` 패치 작성 → git am 검증 → 전달
 
 ---
 
-## [泥댄겕?ъ씤?? ?몄뀡 醫낅즺 ?꾨떂] 72李?怨꾩냽2 ??諛⑹븞I 臾대젰???먯씤 ?ы쁽/?뱀젙: **boost ?덈룄??1.0s)媛 ?ㅼ젣 吏??湲됯컧???대깽?몄뿉 鍮꾪빐 洹쇰낯?곸쑝濡?吏㏃쓬**
+## [체크포인트, 세션 종료 아님] 72차 계속2 — 방안I 무력화 원인 재현/특정: **boost 윈도우(1.0s)가 실제 지속 급감속 이벤트에 비해 근본적으로 짧음**
 
-**諛곌꼍**: 吏곸쟾 ?몄뀡(??붾줉??"諛⑹븞I ?몃━嫄곕뒗 ?뺤긽 ?묐룞?섎굹 ?ㅼ젣 ??ъ셿??
-?④낵媛 臾댄슚?붾맖"源뚯? 寃⑸━寃利??꾨즺 ??FINDINGS 湲곕줉 吏곸쟾??以묐떒)??
-而⑦뀒?대꼫 由ъ뀑?쇰줈 ?좎떎 ???대쾲 ?몄뀡??work/ ?ㅽ겕由쏀듃쨌CSV ?꾨? ?덈줈
-?쒖옉, route2(x7seg) zip? ?대쾲 ?몄뀡???ъ뾽濡쒕뱶?섏? ?딆븘 route1留??ы솗蹂?
-?ъ슜?먭? route1 zip(x19seg, `0000031f--ea5bcc0566`)留??ъ뾽濡쒕뱶?댁쨾??
-72李???諛쒓껄 援ш컙(seg10, t??83.8~697, "?뺤??욎감 ?덉씠?붾씫?⑥떆 湲됯컧")??
-`extract_log.py`濡??ъ텛異???肄붾뱶(`long_mpc.py` L823~1140, ?꾩옱
-HEAD `4fa4a44` = 諛⑹븞I ?곸슜 ?곹깭) 洹몃?濡??꾨젅???⑥쐞 ?議?
+**배경**: 직전 세션(대화록상 "방안I 트리거는 정상 작동하나 실제 저크완화
+효과가 무효화됨"까지 격리검증 완료 후 FINDINGS 기록 직전에 중단)이
+컨테이너 리셋으로 유실 — 이번 세션도 work/ 스크립트·CSV 전부 새로
+시작, route2(x7seg) zip은 이번 세션엔 재업로드되지 않아 route1만 재확보.
+사용자가 route1 zip(x19seg, `0000031f--ea5bcc0566`)만 재업로드해줘서,
+72차 원 발견 구간(seg10, t≈683.8~697, "정지앞차 레이더락온시 급감")을
+`extract_log.py`로 재추출 후 코드(`long_mpc.py` L823~1140, 현재
+HEAD `4fa4a44` = 방안I 적용 상태) 그대로 프레임 단위 대조.
 
-**?ㅼ륫 ?ы솗???쇱씠釉?肄붾뱶 ?議? replay ?ㅽ겕由쏀듃 ?ъ옉???놁씠 吏곸젒 CSV
-異붿쟻?쇰줈 寃利???蹂꾨룄 ?ъ깮?ㅽ겕由쏀듃???ㅼ쓬 ?④퀎濡?誘몃８)**:
-- ?덉씠???쎌삩 ?ｌ? ?꾨젅??t=690.0027: vRel -3.957??10.8m/s(-6.84m/s
-  ?먰봽, `RADAR_HANDOFF_VREL_JUMP_THRESH=3.0` ?뺤긽 珥덇낵 ??諛⑹븞I ?몃━嫄?
-  ?뺤씤) / dRel? 99.8??1.8m?쇰줈 ???꾨젅???먯껜???꾩쭅 硫?댁꽌
-  `frac_ttc`(ttc_now??1.8/10.8??.5s > CAUTION 6.0)=0, `frac_rate`??
-  radar=True ?꾪솚?대씪 利됱떆 0, `_lead_acq_timer`???대? RAMP_TIME(5.0s)
-  珥덇낵(t??84.0遺??異붿쟻, 6s+ 寃쎄낵)??`frac_time`=0 ??**frac=0,
-  `_lead0_danger_active`=False(ttc_now ?숈씪?섍쾶 8.5s?) ??遺?ㅽ듃
-  寃뚯씠??L1129~1131) 議곌굔 ?뺤긽 異⑹”, ???꾨젅?꾩뿉 ?ㅼ젣濡?boost ?곸슜??
-  ?뺤씤.**
-- **洹몃윭???ㅼ젣 湲됯컧?띿? ???쒓컙 ?쒖옉??t??91.0~695.0源뚯? 4珥??댁긽
-  吏??*(aEgo媛 t=690? -0.1 ?섏??먯꽌 t=693? -2.0~-2.2源뚯? ?쒖꽌??
-  ?낇솕, ?뺤??욎감媛 ?ㅼ젣濡?紐?珥덉뿉 嫄몄퀜 媛뺥븯寃?媛먯냽 以묒씠?덉쓬
-  ??leadALeadK??t=690.2遺??-0.5, -0.8, -1.0, -1.35(t=691.4?쇳겕)源뚯?
-  袁몄????낇솕). **`DISCONTINUITY_JERK_COST_BOOST_S=1.0s` 遺?ㅽ듃 ?덈룄?곕뒗
-  t??91.0寃??뚯쭊?섎뒗?? 洹??쒖젏??諛붾줈 leadALeadK(=j_lead 洹쇱궗)媛
-  媛???섎튌吏??援ш컙怨?寃뱀묠 ??遺?ㅽ듃媛 爰쇱??먮쭏??
+**실측 재확인(라이브 코드 대조, replay 스크립트 재작성 없이 직접 CSV
+추적으로 검증 — 별도 재생스크립트는 다음 단계로 미룸)**:
+- 레이더 락온 엣지 프레임 t=690.0027: vRel -3.957→-10.8m/s(-6.84m/s
+  점프, `RADAR_HANDOFF_VREL_JUMP_THRESH=3.0` 정상 초과 → 방안I 트리거
+  확인) / dRel은 99.8→91.8m으로 이 프레임 자체는 아직 멀어서
+  `frac_ttc`(ttc_now≈91.8/10.8≈8.5s > CAUTION 6.0)=0, `frac_rate`도
+  radar=True 전환이라 즉시 0, `_lead_acq_timer`도 이미 RAMP_TIME(5.0s)
+  초과(t≈684.0부터 추적, 6s+ 경과)라 `frac_time`=0 → **frac=0,
+  `_lead0_danger_active`=False(ttc_now 동일하게 8.5s대) → 부스트
+  게이트(L1129~1131) 조건 정상 충족, 이 프레임에 실제로 boost 적용됨
+  확인.**
+- **그러나 실제 급감속은 이 순간 시작해 t≈691.0~695.0까지 4초 이상
+  지속**(aEgo가 t=690대 -0.1 수준에서 t=693대 -2.0~-2.2까지 서서히
+  악화, 정지앞차가 실제로 몇 초에 걸쳐 강하게 감속 중이었음
+  — leadALeadK도 t=690.2부터 -0.5, -0.8, -1.0, -1.35(t=691.4피크)까지
+  꾸준히 악화). **`DISCONTINUITY_JERK_COST_BOOST_S=1.0s` 부스트 윈도우는
+  t≈691.0경 소진되는데, 그 시점이 바로 leadALeadK(=j_lead 근사)가
+  가장 나빠지는 구간과 겹침 — 부스트가 꺼지자마자
   `base_a_change_cost = interp(abs(j_lead),[0.3,2.0],[A_CHANGE_COST=200,20])`
-  ?앹씠 j_lead 湲됱쬆?쇰줈 ?ㅼ떆 ??? 媛???0)源뚯? ?⑥뼱??=臾닿컧?좎뿉 媛源뚯슫
-  誘쇨컧???묐떟?쇰줈 蹂듦?) 遺?ㅽ듃 ?댁쟾怨??ъ떎???숈씪????щ줈 湲됯컧?띿씠
-  ?댁뼱吏?**
-- 遺媛 ?뺤씤: ??route1 seg10 耳?댁뒪??諛⑹븞C(?먮낯 discontinuity,
-  vision-only dRel ?먮낯媛?5?꾨젅?꾩갹 湲됰씫)???쎌삩 ?댁쟾 援ш컙?먯꽌 蹂꾨룄濡?
-  理쒖냼 1???몃━嫄곕맖(vision-only 援ш컙 ??5?섑뵆李?理쒕??숉룺 20.25m,
-  `DREL_DISCONTINUITY_DROP_THRESH=15.0` 珥덇낵) ??利???耳?댁뒪??諛⑹븞C
-  寃쎈줈? 諛⑹븞I 寃쎈줈 ???ㅼ뿉??遺?ㅽ듃媛 媛곴컖 arm?섏?留? **??寃쎈줈 紐⑤몢
-  媛숈? `_discontinuity_jerk_boost_timer`/媛숈? 1.0s ?덈룄?곕? 怨듭쑀**?섍퀬
-  ?ㅼ젣 ?꾪뿕? 洹몃낫???⑥뵮 湲멸쾶 吏?띾릺誘濡?寃곌낵???숈씪(臾대젰??.
-
-**寃곕줎(?먯씤 ?ы솗?? "諛⑹븞C????곹샇?묒슜 踰꾧렇"媛 ?꾨땲??"遺?ㅽ듃 ?먯껜??
-?ㅺ퀎 ?꾩젣 遺덉씪移?濡??ы빐??**: 吏곸쟾 ?몄뀡 ?붿빟???⑥? "諛⑹븞I ?몃━嫄곕뒗
-?섎뒗???ㅼ젣 ?④낵媛 臾댄슚???쇰뒗 愿李곗? ?대쾲 ?ы쁽?쇰줈???숈씪?섍쾶
-?뺤씤?섎굹, ?먯씤? 諛⑹븞C???吏곸젒???곹샇?묒슜(??대㉧ ??뼱?곌린 ???대씪湲?
-蹂대떎 ??**諛⑹븞G/C媛 ?먮옒 寃⑤깷???쒕굹由ъ삤(李곕굹??vision dRel ?몄씠利?
-cutin ?ㅻ깄 ??怨??뺤긽??? ?щ━, 諛⑹븞I???덈줈 寃⑤깷??"?덉씠???쎌삩??
-?쒕윭?대뒗 吏꾩쭨 湲됯컧??? ??珥?吏?띾릺???대깽?몃씪?? 1.0珥덉쭨由?遺?ㅽ듃
-?덈룄???먯껜媛 ???쒕굹由ъ삤??援ъ“?곸쑝濡?遺議?*?섎떎??履쎌씠 ???뺥솗??
-?ㅻ챸?쇰줈 ?ъ젙由щ맖. (?? 吏곸쟾 ?몄뀡??"諛⑹븞C 誘멸컻??媛????諛⑹븞I留?
-寃⑸━?대룄 臾댄슚?붽? ?ы쁽?섎뒗吏"瑜??뺤씤?덈떎??湲곕줉怨?諛⑺뼢? ?쇱튂 ??
-諛⑹븞C瑜??꾩쟾??鍮쇰룄 諛⑹븞I ?⑤룆?쇰줈??1.0s ?덈룄???먯껜???쒓퀎?대?濡?
-?숈씪?섍쾶 臾댄슚?붾맖.)
-
-**?ㅼ쓬(理쒖슦?? ?꾩쭅 誘몄갑??**:
-1. ??媛?ㅼ쓣 `work/route72/route1.csv` 湲곕컲 ?뺤떇 replay ?ㅽ겕由쏀듃濡?
-   PATCHED(boost 1.0s ?좎? vs ?곗옣?? 鍮꾧탳 ?뺣웾 寃利????대쾲???쒓컙
-   ?쒖빟?쇰줈 raw CSV 吏곸젒 ?議곌퉴吏留??섍퀬 ?ㅽ겕由쏀듃?붾뒗 ?ㅼ쓬 ?④퀎.
-2. **諛⑹븞 ?꾨낫**: (a) boost 吏?띿떆媛꾩쓣 ???쒕굹由ъ삤 ?쒖젙 ?곗옣(??
-   2.5~3.0s, danger override???ъ쟾??臾닿??섍쾶 ?곗꽑), ?먮뒗 (b) boost
-   ?덈룄???뚯쭊 ?꾩뿉??base_a_change_cost媛 利됱떆 ?먯긽蹂듦??섏? ?딅룄濡?
-   a_change_cost ?먯껜??release-rate ?쒗븳(諛⑹븞G 遺?ㅽ듃 醫낅즺瑜?rise-rate
-   limiter泥섎읆 ?꾨쭔?섍쾶) 異붽?, ?먮뒗 (c) ?좎큹??"李곕굹???몄씠利??꾪솕"?
-   "吏꾩쭨 湲됯컧??珥덈컲 ????꾪솕"瑜?媛숈? ??대㉧濡?臾띠? ?딄퀬 ?꾩옄 ?꾩슜
-   硫붿빱?덉쬁 遺꾨━. ?ㅼ쓬 ?몄뀡?먯꽌 ?ъ슜?먯? 諛⑺뼢 ?뺤젙 ?꾩슂.
-3. route2(x7seg) ?먮낯???ъ뾽濡쒕뱶諛쏆븘 71李⑥뿉???멸툒???좎궗 ?щ?(t??378.8)
-   ?먮룄 ?숈씪 ?⑦꽩(遺?ㅽ듃 臾대젰?????ы쁽?섎뒗吏 援먯감寃利??꾩슂 ???대쾲
-   ?몄뀡??route1留??뺣낫??
-4. 72李?WIP.md 湲곗〈 "?ㅼ쓬(?ъ슜???뺤씤 ?湲?" 2/3踰?mp4 ?섎㉧吏 ?대┰
-   留ㅼ묶, 71李??댁썡 ??ぉ)? ?ъ쟾??誘몄갑??
-
-**肄붾뱶 蹂寃??놁쓬(ryu 誘몃?寃? ?ы쁽/?먯씤?ы솗?뺣쭔). `work/route72/route1.csv`
-?좉퇋(?ㅽ겕?섏튂, toolkit 誘명렪????諛⑹븞 ?뺤젙 ?꾧퉴吏 ?좎? ?먯튃 ?숈씪).**
-
-## 72李?怨꾩냽(諛⑹븞 I) ???⑥튂 ?곸슜/push ?꾨즺(`4fa4a44`), ?ㅼ감 寃利??湲?
-
-**諛곌꼍**: ?꾨옒 "72李? ??泥댄겕?ъ씤?멸? 而⑦뀒?대꼫 由ъ뀑?쇰줈 以묐떒????
-?ъ슜?먭? ?묒뾽 以묒씠??`long_mpc.py`(諛⑹븞 I 援ы쁽???대? ?꾨즺???곹깭)瑜?
-???몄뀡???낅줈?쒗빐以섏꽌 洹몃?濡??댁뼱諛쏆븘 留덈Т由?
-
-**援ы쁽/寃利??꾨떖**: ?곸꽭??FINDINGS.md "[PATCH_WRITTEN] 72李?諛⑹븞 I)"
-??ぉ 李멸퀬. ?붿빟: ?덉씠??False->True ?꾪솚 ?ｌ? ?꾨젅?꾩뿉??vRel 遺덉뿰??
-(`RADAR_HANDOFF_VREL_JUMP_THRESH=3.0m/s`)??媛먯??섎㈃ 湲곗〈 諛⑹븞G
-??щ??ㅽ듃瑜??ъ궗?⑺빐 arm ??danger override/proactive floor??臾닿??섍쾶
-??긽 ?곗꽑 ?좎?. `git am` 寃利?base `0c137f2`) + `py_compile` ?듦낵.
-`0001-72-I-vRel-G.patch` `/mnt/user-data/outputs/`???꾨떖 ?꾨즺.
-
-**[媛깆떊] ?곸슜/push ?꾨즺 ?뺤씤** ???ъ슜?먭? `C:\dev\ryu`?먯꽌 `git fetch`+
-`git reset --hard origin/c3-ms-dev` ?숆린????`git am` ?곸슜(diff --stat
-42以?異붽?濡??덉긽怨??쇱튂 ?뺤씤) + `git push origin c3-ms-dev` ?꾨즺
-?뺤씤(`0c137f2..4fa4a44`).
-
-**?ㅼ쓬(理쒖슦??**:
-1. **?ㅼ감 ?쒕씪?대툕 寃利?* ??(a) ?대쾲 ?ы쁽 ?곹솴(鍮꾩쟾 ?숆? 6珥??믩젅?대뜑
-   湲됰씫, route1瑜? ?ы쁽 ??湲됯컧???꾪솕 ?щ?, (b) **?뚭? 寃利??꾩닔** ??
-   danger override(TTC<=2.5s) ?뺤긽 ?숈옉, 吏???녿뒗吏, (c) 諛⑹븞G
-   (鍮꾩쟾?⑤룆 dRel 湲됰씫, 66/67李?? ?댁쨷 ?몃━嫄???遺?묒슜 ?녿뒗吏.
-2. (沅뚯옣, ?꾩쭅 誘몄떎?? route1 ?먮낯 rlog濡?t=690.05 ?쒗?ㅼ뿉 諛⑹븞 I
-   濡쒖쭅??異붽????ъ깮 ?ъ쟾寃利?諛⑹븞C/G ???덈뜕 諛⑹떇) ???대쾲???몄뀡
-   蹂듦뎄瑜??곗꽑??嫄대꼫?, ?ㅼ감 寃利앷낵 蹂묓뻾/?泥?媛??
-3. `RADAR_HANDOFF_VREL_JUMP_THRESH=3.0m/s`???ㅺ퀎 異붿젙移????ㅼ감 諛섏쓳
-   蹂닿퀬 ?쒕떇 ?꾩슂.
-4. 72李???泥댄겕?ъ씤?몄쓽 "?ㅼ쓬(?ъ슜???뺤씤 ?湲?" 2/3踰?mp4 ?섎㉧吏
-   ?대┰ ?뺣? 留ㅼ묶, 71李??댁썡 ??ぉ 諛⑹븞F/H쨌?멸렇7 ?ㅼ떎?덉씠??? ?ъ쟾??
-   誘몄갑????諛⑹븞 I ?ㅼ감寃利앷낵 蹂꾧컻濡??쒖꽌 ?ы솗???꾩슂.
-
-## 72李?(?꾨즺 ???먯씤遺꾩꽍+諛⑹븞I 援ы쁽?쇰줈 ?댁뼱吏? ??湲곕줉 蹂댁〈) ???덉씠???쎌삩 湲됯컧???ㅼ감 ?ы쁽 + ?먯씤 ?뱀젙
-
-**諛곌꼍**: ?ъ슜?먭? ???ㅼ감 濡쒓렇 2媛?route1 x19seg `0000031f--ea5bcc0566`,
-route2 x7seg `00000320--a5b1ce4e42`, ????HEAD `0c137f28b456` 湲곗?) +
-?붾㈃?뱁솕 mp4 3媛??뚯씪紐낆뿉 利앹긽 紐낆떆: "?뺤??욎감_?덉씠?붾씫?⑥떆_湲됯컧_
-?쒖꽌??媛먯냽_肄붾뵫_?꾩슂", "?뺤??욎감_移대찓?쇰씫??遺?쒕읇寃??뺤?",
-"?뺤??욎감_移대찓?쇱씤??)瑜??낅줈?? ?붿껌: ?덉씠???쎌삩 ??湲됯컧?랁븯??寃쎌슦媛
-?덈뒗?? ?꾪뿕???곹솴???꾨땲?쇰㈃ ?쒖꽌??紐⑺몴?띾룄源뚯? 媛먯냽?섎룄濡??섏젙.
-
-**mp4-濡쒓렇 ?쒓컖 留ㅼ묶 諛⑸쾿**: mp4 ?뚯씪紐낆쓽 ??꾩뒪?ы봽???뱁솕 **醫낅즺**
-?쒓컖(?ъ깮?쒓컙 ??궛 ?꾩슂). route ?멸렇癒쇳듃 ?대뜑紐?wall-clock怨?CSV `t`
-而щ읆???ㅽ봽??delta = wall_sec - t, route1?먯꽌 ?곸닔 55663.85濡??뺤씤)??
-援ы빐 mp4 援ш컙??CSV `t` 踰붿쐞濡???궛 ??qcamera ?꾨젅??danger box 嫄곕━/
-媛먯냽?쒖떆 媛??쇰줈 理쒖쥌 援먯감寃利? (?ㅼ쓬 ?몄뀡??媛숈? 諛⑹떇 ?ъ궗??媛????
-delta??route/遺?낅쭏???ㅼ떆 怨꾩궛 ?꾩슂, ?곸닔 ?먯껜瑜??ъ궗?⑺븯硫?????)
-
-**?듭떖 諛쒓껄 (route1 t=683.85~696, "?덉씠?붾씫?⑥떆 湲됯컧" ?대┰怨??쇱튂
-?뺤씤??**:
-1. t=683.85~690.0(6.15珥? 鍮꾩쟾 ?⑤룆 異붿쟻 援ш컙 ??modelProb 理쒕? 0.93,
-   `leadVLead` 12~16m/s濡??덉젙?곸쑝濡?蹂닿퀬(?먯감 17.9m/s? ??李⑥씠 ?놁뼱
-   "?덉쟾"?쇰줈 蹂댁엫). dRel? 83~119m ?ъ씠 ?몄씠利덉꽦 ?붾룞(?몄젒 李⑤줈 ?몃옓
-   ?쇱엯 ?섏떖).
-2. t=690.05 ?덉씠???쎌삩 ?쒓컙 `leadVLead`媛 7.1m/s濡?湲됰씫, `vRel`??
-   -3.6??10.8m/s濡?湲됰? ???ㅼ젣濡쒕뒗 ?뺤껜濡??쒗뻾/?뺤감 以묒씠??吏꾩쭨
-   ?좏뻾李⑥??뚯씠 ???꾨젅?꾩뿉???쒕윭??
-3. ?댄썑 1.5珥?留뚯뿉 aEgo 0??2.1m/s짼(?ъ떎??A_CRUISE_MIN 洹쇱젒)源뚯? 湲됰씫,
-   ?뺤? 吏곸쟾源뚯? 媛뺤젣?? qcamera ?꾨젅??t??96, drel??0m, red danger
-   box)??mp4 ?대┰ 留덉?留??꾨젅??-1.36/-1.64 ?쒖떆)怨??쇱튂 ?뺤씤.
-4. route2 t=1378.8?먮룄 ?숈씪 ?⑦꽩(aEgo drop 2.92, 吏湲덇퉴吏 理쒕?) 1嫄?
-   異붽? ?뺤씤 ???ы쁽???덈뒗 ?⑦꽩?쇰줈 ?먮떒.
-
-**?먯씤 ?뱀젙 (`long_mpc.py`)**:
-- 諛⑹븞G??discontinuity 媛먯?(L861~880)??`not radarstate.leadOne.radar`
-  (鍮꾩쟾 ?⑤룆 援ш컙) ?덉뿉?쒕쭔 ?숈옉?섍퀬, dRel 15m+ 湲됰씫留??몃━嫄고븿.
-  **?덉씠?붽? ?쎌삩?섎뒗 洹??꾨젅??L901 elif) ?먯껜??遺湲?由ъ뀑留??섍퀬
-  discontinuity ?먯젙???꾩삁 ?섏? ?딆쓬** ??"鍮꾩쟾?믩젅?대뜑 ?꾪솚 ?쒖젏??
-  ?띾룄(vRel/vLead) 遺덉뿰??? ?꾩옱 肄붾뱶???ш컖吏?.
-- `LEAD_ACQ_RAMP_TIME=5.0s` ?좎젣媛먯냽 floor??援ъ“?곸쑝濡?臾대젰?붾맖: ??
-  由щ뱶媛 鍮꾩쟾?쇰줈 泥섏쓬 ?≫엺 寃?t??84.05, 5珥??⑦봽 醫낅즺媛 t??89.05 ??
-  **吏꾩쭨 ?꾪뿕???쒕윭??t=690.05蹂대떎 1珥?癒쇱? "?덉쟾 ?먯젙"?쇰줈 諛⑹뼱留됱씠
-  ?由?吏곹썑**???꾪뿕???쒕윭?? 鍮꾩쟾??紐?珥덇컙 ?숆??곸쑝濡??좎??섎뒗
-  耳?댁뒪?먯꽌 援ъ“?곸쑝濡?諛섎났 媛?ν븳 ??대컢 臾몄젣濡??먮떒.
-- `VISION_RADAR_CROSSOVER.md`(8/19~20 濡쒓렇 湲곕컲 ?ъ쟾 議곗궗)?먯꽌 ?덉긽?덈뜕
-  ?꾩긽???ㅼ감 ?ы쁽 ?щ?濡?遊먮룄 ??
-
-**?쒖븞???섏젙 諛⑺뼢(?ъ슜???뺤씤 ?湲? ?꾩쭅 誘몄쟻??**: ?덉씠??False?뭈rue
-?꾪솚 ?꾨젅?꾩뿉???덈줈 ?뺤젙??vRel/vLead媛 吏곸쟾 李멸퀬媛?`_vision_dRel_rate`
-?? ?鍮??쇱젙 ???댁긽 ?섏걶 履쎌쑝濡??硫? 湲곗〈??寃利앸맂
-`_discontinuity_jerk_boost_timer`(諛⑹븞G) 洹몃?濡?arm ??TTC danger
-override(2.5s ?댄븯)??洹몃?濡??좎???吏꾩쭨 ?꾪뿕???곹뼢 ?놁쓬, ?꾨떖
-媛먯냽?됱? 洹몃?濡??먭퀬 ?꾨떖 ?띾룄(???留??꾨쭔?? ?좉퇋 ?곸닔 媛移?
-`RADAR_HANDOFF_VREL_JUMP_THRESH` 異붽? ?쒖븞.
-
-**?ㅼ쓬(?ъ슜???뺤씤 ?湲?**:
-1. ???섏젙 諛⑺뼢?濡??⑥튂 ?묒꽦?대룄 ?좎? ?뺤씤(?꾧퀎媛??ы븿).
-2. mp4 3媛?以?"移대찓?쇰씫??遺?쒕읇寃??뺤?"/"移대찓?쇱씤?? ?대┰? ?꾩쭅
-   媛쒕퀎 留ㅼ묶 ?꾨즺 ??????듭쟻 ?議곕쭔 ?? t=945~972 援ш컙???꾨낫?대굹
-   ?뺥솗???꾨젅???議?誘몄떎?? ???꾩슂???ㅼ쓬 ?④퀎?먯꽌 留덉? ?뺤씤.
-3. 71李??댁썡 ??ぉ(諛⑹븞F/H, ??띻렐??gap ?ㅼ떎?덉씠?? `sim_jerk_boost.py`
-   ?뺤씤)? ?대쾲 ?붿껌 泥섎━ ???쒖꽌 ?ы솗???꾩슂.
-
-**肄붾뱶 蹂寃??놁쓬(遺꾩꽍 + ?먯씤?뱀젙留? ?⑥튂???ъ슜???뺤씤 ??吏꾪뻾 ?덉젙).**
-
-## 71李?(?꾨즺 ??遺꾩꽍/qcamera ?議곕쭔, 肄붾뱶 蹂寃??놁쓬) ??理쒖떊 釉뚮옖移??ㅼ감 濡쒓렇 2嫄??꾩껜 遺꾩꽍, [?좉퇋] ?κ린 鍮꾩쟾 吏꾨룞 ?щ? 諛쒓껄
-
-**諛곌꼍**: HEAD `0c137f28b456`(67李?諛⑹븞G) 湲곗? ?ㅼ감 濡쒓렇 2媛?route1 19?멸렇
-/1140s, route2 7?멸렇/393s) ?낅줈?쒕컺???꾩껜 遺꾩꽍 + qcamera ?議??섑뻾.
-
-**?듭떖 寃곌낵**:
-1. harsh_brake 8媛??낅┰?ш굔 以?6嫄??댁쟾??吏곸젒媛쒖엯(ADAS 臾닿?), 2嫄대쭔
-   cruise ?좎? 以?諛쒖깮(?꾨옒 2/3踰?.
-2. TTC danger override 4嫄?以?3嫄?qcamera濡??뺥깘 ?뺤씤(?뺤?/?쒗뻾
-   ?좏뻾李? 怨≪꽑援ш컙 釉뚮젅?댄겕??耳쒖쭊 李⑤웾), 1嫄댁? ?댁쟾???섎룞?뺤감??
-   臾닿?.
-3. **[?뺤젙, ?ъ슜???뺤씤 ??踰꾧렇 ?꾨떂]** route1 seg4 t=356~368: ?ㅼ젣濡쒕뒗
-   **?먯감 ?고쉶??李⑥꽑蹂寃?+ 蹂寃?李⑤줈 ?쇱옟**(rightBlinker=True媛
-   t=364.0遺???뺤씤, ?ъ슜???ㅻ챸怨??쇱튂). t=356~364??鍮꾩쟾 dRel
-   洹뱀떖 吏꾨룞? ?쇱옟 李⑤줈 ???щ윭 李⑤웾 ?ъ씠瑜??몃옓????꺼?ㅻ땶 寃껋쑝濡?
-   ?ы빐????"discontinuity suppress媛 ?ㅼ젣 ?꾪뿕???ㅻ옒 ?듭젣" 媛??
-   湲곌컖. replay 寃利?遺덊븘??
-4. 怨≪꽑 鍮꾩쟾?몄씠利??듭젣??route1 80.5%/route2 100%濡?湲곗〈 ?⑦꽩怨?
-   ?쇱튂, ???댁긽 ?놁쓬. turn_speed_violation 3嫄댁? ?꾨? ???
-   `src=gas`(?댁쟾??媛쒖엯) 寃쎄퀎?щ?. congestion lurch ?ㅼ틪 0嫄?58李?踰?
-   ?뚭? ?놁쓬).
-
-?곸꽭??FINDINGS.md "71李? ??ぉ 李멸퀬.
-
-**?ㅼ쓬 ?몄뀡 理쒖슦??*:
-1. ~~route1 seg4(t=356~368) ?먮낯 肄붾뱶濡?replay 寃利?~ ??**泥좏쉶**(?ъ슜??
-   ?뺤씤 寃곌낵 踰꾧렇 ?꾨떂, ?고쉶??李⑥꽑蹂寃??곹솴).
-2. 70李⑥뿉???댁썡????ぉ(諛⑹븞F/H 吏꾪뻾 ?щ?, ?멸렇7 ?꾨컲 ???洹쇱젒 gap
-   ?ㅼ떎?덉씠??議곗궗 李⑹닔 ?щ?, `sim_jerk_boost.py` ?ㅻЪ ?뺤씤)??
-   ?ъ쟾???ъ슜??寃곗젙 ?湲?以?
-
-**肄붾뱶 蹂寃??놁쓬(遺꾩꽍/qcamera ?議곕쭔).**
-
-## 70李?(?꾨즺 ??devnotes ?뺤젙留? 肄붾뱶 蹂寃??놁쓬) ??[69李??뺤젙] 諛⑹븞 D~H ?꾩껜 寃쎌쐞 ?뺤젙
-
-**諛곌꼍**: ?ъ슜?먭? 63~67李⑥뿉 嫄몄튇 ?ㅼ젣 ?몄뀡 ??붾줉???쒓났?댁쨾?? 69李④?
-"寃쎌쐞 遺덈챸/?뺤젙 遺덇?"濡??④꺼???遺遺꾨뱾???꾨? ?뺤젙 湲곕줉?쇰줈 ?뺤젙.
-?곸꽭??FINDINGS.md "70李???[69李??뺤젙] ..." ?뱀뀡 李멸퀬. ?붿빟留??④?:
-
-- **諛⑹븞D**: 63李?怨꾩냽3?먯꽌 紐낆떆?곸쑝濡?湲곌컖/?먭린 ?뺤젙(seg14 7???ы듃由ш굅
-  濡?由ъ뀑??臾댁쓽誘명뻽怨? seg14??raw dRel ?먯껜媛 臾쇰━?곸쑝濡?遺덇??ν븳 媛믪쓣
-  蹂댁뿬 ?좏샇 ?먯껜媛 ?섏떖?ㅻ윭?좎쓬).
-- **諛⑹븞E**: 1李?援먯감寃利앹뿉??REJECTED ?먯젙 ?ъ뿀?쇰굹(seg3?먯꽌 frac_rate
-  ?듭젣瑜?由ъ뒪?щ줈 ?ㅽ뙋), ?ъ슜?먭? ???섎룄("?쇱뼱?쒕뒗 李④? ??鍮좊Ⅴ硫?
-  ?덉씠???쎌삩 ?꾩쿂???뺤긽二쇳뻾 ?먰븿")瑜??뺤젙 ?ㅻ챸 ??Claude媛 ?ш??좏빐
-  洹??듭젣媛 ?뺥깘?댁뿀?뚯쓣 ?뺤씤 ??REJECTED 泥좏쉶, 梨꾪깮 ?뺤젙(e6a00ae).
-- **諛⑹븞F/G/H**: 諛⑹븞E ?ㅼ감寃利?cutin ?뺤긽 泥섎━ ?뺤씤) ?꾩쨷, ?ъ슜?먭?
-  蹂꾨룄 ?댁뒋(李⑥꽑蹂寃?以???李⑤줈 ?욎감 ?몄떇 ??吏㏃? 湲됯컧?띿쓽 泥닿컧 ?뱀감媛?
-  瑜??쒓린???덈줈 ?뚯깮???ㅻ젅?? vRel 遺???댁쭊寃뚯씠???덉? ?ㅼ륫?쇰줈
-  湲곌컖, Claude媛 3??F=x_lead 釉붾젋??G=discontinuity 吏곹썑 ??щ퉬??
-  ?쒖떆遺?ㅽ듃/H=vRel ?곗냽媛以묒튂) ?쒖떆, G瑜?"媛??媛蹂띻퀬 由ъ뒪???묒쓬"?쇰줈
-  ?곗꽑 異붿쿇 ??66李??ㅺ퀎?뺤젙/67李?援ы쁽. **F/H??紐낆떆??湲곌컖???꾨땲??
-  ?꾩쭅 誘몄갑???곹깭濡??꾩닚???湲?以?*(69李④? "?붿쟻?놁쓬, ?뺤젙遺덇?"?쇨퀬
-  ?덈뜕 寃껉낵 ?щ━, ?먭린媛 ?꾨땲??"?꾩쭅 ????寃??꾩씠 ?대쾲???뺤젙??.
-- **67李?[?ъ깮??**: 69李?異붿륫??留욎븯????而⑦뀒?대꼫 由ъ뀑?쇰줈 ?⑥튂 ?좎떎,
-  FINDINGS.md??"[66李? 諛⑹븞G 援ы쁽]" 湲곕줉??洹쇨굅濡??ш뎄?? ??洹?洹쇨굅
-  湲곕줉 ?먯껜??吏湲?devnotes???놁뼱(?ъ쑀??異붿젙) 66李??먮낯 ?ㅺ퀎 ?곸꽭??
-  ?ъ쟾??蹂듭썝 ?????곹깭(肄붾뱶 diff+??붾줉 ?ш뎄???섏?源뚯?留?蹂듭썝??.
-
-**[?좉퇋, 誘명빐寃? ?멸렇7 ?꾨컲 "???洹쇱젒 gap ?ㅼ떎?덉씠??**: 諛⑹븞F/G/H
-?ㅺ퀎 ?쇱쓽 以?遺?섏쟻?쇰줈 諛쒓껄??蹂꾧컻 ?⑦꽩(discontinuity? 臾닿?, 5~7m
-洹쇱젒 ???異붿쥌 以?vRel 諛섎났 吏꾨룞?쇰줈 aEgo ?ш컧??. 肄붾뱶???댁쟾 ?④퀎
-(諛쒓껄留??? ??李⑹닔 ?щ? ?ㅼ쓬 ?몄뀡?먯꽌 ?ъ슜???뺤씤 ?꾩슂.
-
-**?ㅼ쓬(?ъ슜??寃곗젙 ?湲?**:
-1. 諛⑹븞F/H瑜??댁뼱??吏꾪뻾?좎?, G留뚯쑝濡?異⑸텇?쒖? ??66~67李??댄썑 ?ㅼ감
-   寃利?寃곌낵???щ젮?덉쓬.
-2. ???洹쇱젒 gap ?ㅼ떎?덉씠???멸렇7 ?꾨컲) 議곗궗 李⑹닔 ?щ?.
-3. `toolkit/sim_jerk_boost.py` ?ㅻЪ 議댁옱 ?뺤씤(69李⑥뿉???댁썡, ?꾩쭅 誘명솗??.
-4. 諛⑹븞E/G 理쒖쥌 acados ?뚯씠?꾨씪???ㅼ감寃利???理쒖떊 HEAD(`0c137f2`) 湲곗?
-   ?낅뜲?댄듃???ㅼ감 濡쒓렇 ?뺣낫 ??吏꾪뻾.
-
-**肄붾뱶 蹂寃??놁쓬(devnotes 湲곕줉 ?뺤젙留?**.
-
-## 69李?(?꾨즺 ??devnotes ??낫?꾨쭔, 肄붾뱶 蹂寃??놁쓬) ??64~67李?devnotes 怨듬갚 梨꾩?
-
-**諛곌꼍**: 68李④? ?④릿 "devnotes 怨듬갚" 理쒖슦??怨쇱젣瑜??대쾲 ?몄뀡?먯꽌
-泥섎━. `ryu` repo `git log`/`git show`濡?`4ea63c3`(諛⑹븞C, 61李? ?댄썑
-而ㅻ컠??吏곸젒 ?議?
-
-**?뺤젙(以묒슂)**: 68李?硫붾え??"64~67李?諛⑹븞 D/E/F/G) 4媛?而ㅻ컠"? 遺?뺥솗
-???ㅼ젣濡쒕뒗 **`e6a00ae`(63李?怨꾩냽10, 諛⑹븞E)? `0c137f28b456`(67李?
-諛⑹븞G, 而ㅻ컠硫붿떆吏??"[?ъ깮??" ?쒓린) ??2媛?而ㅻ컠肉?*. 諛⑹븞D??63李?
-怨꾩냽 FINDINGS ?쒖븞(discontinuity ??`_vision_dRel_rate` 吏곸젒 由ъ뀑)
-洹몃?濡?援ы쁽???붿쟻??git log/肄붾뱶 ?대뵒?먮룄 ?녾퀬, 諛⑹븞F??肄붾뱶 二쇱꽍
-?ы븿 ?꾩쟾???붿쟻 ?놁쓬 ???????ㅼ젣 而ㅻ컠?쇰줈 ?댁뼱吏吏 ?딆? 寃껋쑝濡?
-蹂댁엫(寃쎌쐞 遺덈챸, ?ъ슜???뺤씤 ?꾩슂).
-
-**?묒뾽**: ??而ㅻ컠(`e6a00ae`/`0c137f28b456`)??diff(肄붾뱶 ???곸꽭 ?ㅺ퀎
-二쇱꽍 ?ы븿)瑜?洹몃?濡???텛異쒗빐 FINDINGS.md???좉퇋 ?뱀뀡 2媛쒕줈 湲곕줉
-(諛⑹븞E: leadVLead 李멸퀬 closing rate ?곷?????뱀꽦 ?대옩??/
-諛⑹븞G: discontinuity 吏곹썑 a_change_cost ?쒖떆??遺?ㅽ듃). ????ぉ 紐⑤몢
-PARAMS_REGISTRY.md???대? NEEDS_VALIDATION?쇰줈 湲곕줉???덉뿀??devnotes
-怨듬갚?먮룄 PARAMS_REGISTRY留뚯? 理쒖떊?댁뿀??寃껋쑝濡?蹂댁엫 ??WIP.md/
-FINDINGS.md留?push ?꾨씫?먮뜕 寃껋쑝濡?異붿젙, 62李??뚯? ?좎궗???⑦꽩 ?щ컻).
-
-**?ㅼ쓬(理쒖슦??**:
-1. **諛⑹븞D ?먭린/諛⑹븞E 梨꾪깮 寃쎌쐞, 諛⑹븞F 議댁옱 ?щ?** ??git/肄붾뱶留뚯쑝濡?
-   ?뺤젙 遺덇?, ?ъ슜?먯뿉寃?吏곸젒 ?뺤씤 ?꾩슂.
-2. `toolkit/sim_jerk_boost.py`(諛⑹븞G ?⑹꽦寃利??ㅽ겕由쏀듃濡?肄붾뱶 二쇱꽍??
-   ?멸툒?? ?ㅻЪ 議댁옱 ?щ? ?뺤씤 ???대쾲 ?몄뀡 而⑦뀒?대꼫??誘명솗??
-3. 諛⑹븞E/G ?????ъ쟾???ㅼ감 誘멸?利?NEEDS_VALIDATION) ??68李?遺꾩꽍
-   濡쒓렇??諛⑹븞C源뚯?留?諛섏쁺??援щ툕?쒖튂??뚯씠 ?뺤씤?? 諛⑹븞E/G媛 ?ㅼ젣
-   諛섏쁺???ㅼ감 濡쒓렇??devnotes???꾩쭅 ?섎굹???놁쓬. ?ъ슜?먭?
-   `c3-ms-dev` 理쒖떊 HEAD濡?湲곌린 ?낅뜲?댄듃 ??cutin(r1-3/r1-14瑜?
-   ?ы쁽 濡쒓렇 ?뺣낫 ??寃利?李⑹닔.
-4. 68李??먮옒 ??ぉ(seg7/seg11 遺꾩꽍, 踰꾧렇 ?꾨떂 ?먯젙)? ?대? ?꾨즺 ??
-   ?꾨옒 68李??뱀뀡 洹몃?濡??좏슚, 異붽? 議곗튂 遺덊븘??
-
-**肄붾뱶 蹂寃??놁쓬(devnotes 湲곕줉 蹂댁셿留?**.
-
-## 68李?(?꾨즺 ??遺꾩꽍留? 肄붾뱶 蹂寃??놁쓬) ??"?뺤껜援ш컙 ?욎감異쒕컻?믪젙吏 湲됱젙嫄? ?쒕낫 遺꾩꽍, 踰꾧렇 ?꾨떂 ?먯젙
-
-**諛곌꼍**: ?ъ슜?먭? "?뺤껜援ш컙?먯꽌 ?욎감 異쒕컻 ???곕씪媛???욎감 ?뺤? ??
-?댁감 湲됱젙嫄? 利앹긽 ?쒕낫 (?ㅼ젣 湲곌린??58李④퉴吏留??곸슜??援щ툕?쒖튂?쇨퀬
-紐낆떆) ??route `0000031d--4ddb171bfb`(14?멸렇) ?낅줈?쒕컺??seg7/seg11
-qcamera ?議?遺꾩꽍.
-
-**寃곌낵**: ????踰꾧렇 ?꾨떂.
-- **seg11**: ?뺤껜 ?뺤??믪텧諛쒋넂?욎감 ?ш컧?띯넂?먯감 ?ш컧??-1.03m/s짼 理쒖?,
-  ????놁쓬) 留ㅻ걟???뺤긽 ?щ? ??58李?踰?LOW_SPEED_STRONG_DECEL)??
-  寃⑤깷??"遺뺣걮" ?놁씠 ???숈옉.
-- **seg7**: t=519.82 dRel 48m??8.6m 遺덉뿰??諛쒓껄, 泥섏쓬??61~66李⑤쪟
-  vision ?ㅺ?異??몃옓?꾪솚) ?섏떖?덉쑝??**qcamera ?議?寃곌낵 ?ㅼ젣
-  cut-in(?곗깋 ?몃떒???몄젒李⑤줈?먯꽌 ?먯감 李⑤줈濡??쇱뼱???쇰줈 ?뺤젙**.
-  ?댄썑 aEgo -2.53m/s짼(30km/h) 理쒖??먮룄 qcamera濡?**?쇱뼱??李④?
-  援먯감濡??곸떊?????ㅼ젣 湲됱젣??以묒씠?덉쓬** ?뺤씤 ???뺣떦??諛⑹뼱 諛섏쓳.
-
-**[?좉퇋, 寃쎈?] devnotes 怨듬갚 諛쒓껄**: ryu repo git log??64~67李?諛⑹븞
-D~G) 而ㅻ컠??議댁옱?섎굹 FINDINGS.md/WIP.md??63李?怨꾩냽10(諛⑹븞E)源뚯?留?
-湲곕줉????62李??뚯? ?좎궗??push ?꾨씫 ?⑦꽩 ?щ컻 異붿젙.
-
-**?ㅼ쓬 ?몄뀡 理쒖슦??*:
-1. `git log` 湲곗? 64~67李?諛⑹븞 D/F/G ?? 而ㅻ컠 ?댁슜??FINDINGS.md/
-   WIP.md/PARAMS_REGISTRY.md????낫??湲곕줉.
-2. ?대쾲 seg7瑜?cut-in+?좏뻾李?湲됱젣?? ?먯껜??踰꾧렇媛 ?꾨땲誘濡?異붽?
-   議곗튂 遺덊븘?????? ?ъ슜?먭? ?ㅼ젣 理쒖떊 釉뚮옖移?64~67李??곸슜)?먯꽌??
-   ?숈씪 ?곹솴???ъ쟾??"泥닿컧??湲됲븿"?대씪硫?洹멸굔 蹂꾨룄 ?좉퇋 ?쒕낫濡?
-   ?ъ젒??
-
-?곸꽭??FINDINGS.md "68李? ??ぉ 李멸퀬.
-
-## 63李?怨꾩냽 (泥댄겕?ъ씤?? ??r1-3/r1-14 ?먮낯 rlog ?ъ뾽濡쒕뱶諛쏆븘 ?ㅼ륫 ?ъ깮 寃利??꾨즺, **以묒슂 諛쒓껄: 諛⑹븞C 蹂댄샇 怨듬갚**)
-
-**諛곌꼍**: 63李?泥댄겕?ъ씤??吏곹썑 ?ъ슜?먭? r1-3/r1-14 ?먮낯 rlog(媛숈?
-16?멸렇 濡쒓렇, route `a2141d7786` seg3/seg14)瑜??ъ뾽濡쒕뱶 ???쒕뵒???ㅼ륫
-?ъ깮 寃利?吏꾪뻾.
-
-**?듭떖 諛쒓껄**: `long_mpc.py` ?ㅼ젣 肄붾뱶瑜?洹몃?濡?蹂듭젣??
-`work/route63/replay_drel_discontinuity_real.py`濡?PATCHED/UNPATCHED
-鍮꾧탳 ?ъ깮.
-- **r1-3(seg3)**: discontinuity ?뺤긽 ?몃━嫄?7?꾨젅??, aEgo 理쒖?移?遺洹?
-  frac??PATCHED 0.27~0.36 vs UNPATCHED 0.90~0.98 ??**諛⑹븞C ?④낵 ?뺤씤**
-  (radar媛 ?대? ?쎌삩??援ш컙?대씪 frac_time 媛쒖꽑遺꾩씠 洹몃?濡??쒕윭??.
-- **r1-14(seg14)**: discontinuity ?뺤긽 ?몃━嫄?6?꾨젅???덉쑝?? aEgo
-  理쒖?移?遺洹?frac??PATCHED=UNPATCHED=1.0?쇰줈 **?꾩쟾???숈씪 ??
-  諛⑹븞C媛 ???щ????ъ떎??臾댄슚**. ?먯씤: radar ?쎌삩 ??vision-only
-  吏????援ш컙?대씪 `frac_rate`/`frac_ttc`媛 ?ъ쟾???쒖꽦?몃뜲, ???섏?
-  discontinuity suppression怨?臾닿??섍쾶 `_vision_dRel_rate`瑜?吏곸젒
-  ?쎌쓬 ??諛⑹븞C??`_lead_acq_timer`留?由ъ뀑??肉??ㅼ뿼??`_vision_dRel_
-  rate` ?먯껜??洹몃?濡??ъ꽌, 0.5珥?`VISION_CLOSING_RATE_MIN_TIME`)留?
-  吏?섎㈃ frac_rate媛 ?ㅼ떆 1.0?쇰줈 利됱떆 蹂듦???
-
-**?섎?**: 諛⑹븞C(60李?怨꾩냽 ?좉퇋?깅줉 寃뚯씠???ъ궗????"v_lead 吏곸젒蹂댁젙"
-寃쎈줈留?蹂댄샇?섍퀬 "frac_time/frac_ttc/frac_rate floor" 寃쎈줈(25李?33李???
-?좎큹??蹂댄샇 踰붿쐞 諛뽰씠?덉쓬???ㅼ륫?쇰줈 泥섏쓬 ?쒕윭?? radar ?쎌삩??鍮좊Ⅸ
-耳?댁뒪(r1-3瑜????곗뿰??frac_rate/ttc媛 ?쎌삩 利됱떆 0?쇰줈 由ъ뀑??蹂댄샇
-?④낵媛 ?덉뿀吏留? ?쎌삩????뒗 耳?댁뒪(r1-14瑜???臾대갑鍮?
-
-**?ㅼ쓬(理쒖슦?? 理쒖긽?꾨줈 寃⑹긽)**:
-1. **諛⑹븞 D ?ㅺ퀎 李⑹닔**: discontinuity ?몃━嫄???`_vision_dRel_rate=0.0`
-   + `_vision_dRel_rate_window.clear()`???④퍡 由ъ뀑 ??frac_rate/frac_ttc
-   寃쎈줈源뚯? 蹂댄샇 ?뺤옣. danger override(TTC<=2.5s, vRel 湲곕컲 吏곸젒寃쎈줈)??
-   臾닿??섍쾶 ??긽 ?댁븘?덉쓬???ы솗?명븯硫??ㅺ퀎.
-2. 諛⑹븞 D瑜?`replay_drel_discontinuity_real.py`??異붽???seg3/14 ????
-   frac????븘吏?붿? ?ъ깮寃利?癒쇱?(?⑥튂 ???쒕??덉씠???곗꽑 ?먯튃) ??
-   ?듦낵 ???⑥튂 ?묒꽦.
-3. ?ㅼ감 寃利???r1-3瑜?vs r1-14瑜?radar ?쎌삩 吏???뺣룄)瑜?援щ텇?댁꽌
-   愿李??꾩슂 ????諛쒓껄???ㅼ감?먯꽌???ы쁽?섎뒗吏 ?뺤씤.
-
-**?몄뀡 醫낅즺 ?꾨떂 ??以묐떒吏?????** ?곸꽭??FINDINGS.md "[63李?怨꾩냽,
-以묒슂] 諛⑹븞 C ?ㅼ륫 ?ъ깮 寃利??꾨즺" ??ぉ 李멸퀬.
-
-## 63李?(泥댄겕?ъ씤????諛⑹븞C ?쒕??덉씠???ш?利앸쭔, 肄붾뱶 蹂寃??놁쓬, ?ㅼ감/?먮낯濡쒓렇 寃利??湲?
-
-**諛곌꼍**: 62李⑥쓽 "?ㅼ쓬(理쒖슦??" ??ぉ 以?"理쒓렐 ?⑥튂??釉뚮옖移??쒕??덉씠??
-寃利? ?붿껌 ??而⑦뀒?대꼫 由ъ뀑?쇰줈 ?좎떎??`work/sim_drel_discontinuity.py`
-(諛⑹븞 C 濡쒖쭅 ?⑥쐞 ?⑹꽦寃利?瑜??ъ옉?? ?대쾲???ㅼ젣 `long_mpc.py`
-801~844以?肄붾뱶瑜?洹몃?濡?蹂듭궗???ы쁽?섎뒗 諛⑹떇?쇰줈 媛쒖꽑(?댁쟾???쒖닔?⑥닔
-?ш뎄?꾩씠??肄붾뱶-?쒕??덉씠??drift 由ъ뒪???덉뿀??.
-
-**寃곌낵**: 湲곗〈 4媛??쒕굹由ъ삤 + ?좉퇋 2媛??좉퇋?깅줉 寃뚯씠?몄????댁쨷 ?몃━嫄?
-遺?묒슜 ?뺤씤/danger override ?낅┰???ы솗?? 珥?6媛??꾨? PASS. ?곸꽭??
-FINDINGS.md "[63李? 泥댄겕?ъ씤?? 諛⑹븞 C ?쒕??덉씠???ш?利? ??ぉ 李멸퀬.
-
-**?쒓퀎(蹂?⑥뾾??**: r1-3/r1-14 ?먮낯 rlog媛 ?대쾲 ?몄뀡?먮룄 ?놁뼱, ?ъ쟾??
-"臾몄꽌 湲곕줉 湲곕컲 洹쇱궗 ?쒕??덉씠??留??꾨즺 ???ㅼ젣 濡쒓렇 ?ъ깮 寃利앹? 紐삵븿.
-
-**?ㅼ쓬(理쒖슦??**:
-1. r1-3/r1-14 ?먮낯 rlog(媛?ν븯硫?qcamera ?ы븿) ?ъ뾽濡쒕뱶 ???ㅼ륫 dRel
-   ?쒗?ㅻ줈 諛⑹븞C 濡쒖쭅 吏곸젒 ?ъ깮 寃利?
-2. ?꾧? ?대젮?곕㈃ ?ㅼ감 ?쒕씪?대툕 寃利앹쑝濡?諛붾줈 吏꾪뻾: (a) cutin ?ы쁽 ??
-   湲됯컧???꾪솕 ?щ?, (b)(c)???대쾲 ?몄뀡 濡쒖쭅 寃利앹쑝濡?而ㅻ쾭???뚭?
-   ?꾪뿕 ??쓬 ?뺤씤) ???ㅼ륫 ?뺤씤留??⑥쓬.
-3. `DREL_DISCONTINUITY_DROP_THRESH`/`WINDOW_N` 媛??ㅼ감 諛섏쓳 蹂닿퀬 ?쒕떇
-   ?ъ? ?덉쓬(?ㅺ퀎 異붿젙移?洹몃?濡?.
-
-**?몄뀡 醫낅즺 ?꾨떂 ??以묐떒吏?????**
-
-## 62李?(泥댄겕?ъ씤?????좎떎??61李?諛⑹븞C 湲곕줉 蹂듦뎄, ?⑥튂 ?ш?利??꾨즺, ?ъ슜???곸슜/push ?щ? ?뺤씤 ?湲?
-
-**諛곌꼍**: ???몄뀡 ?쒖옉 ???ъ슜?먭? 濡쒖뺄 `C:\dev\ryu`??
-`long_mpc.py`(諛⑹븞C 肄붾뱶 ?대? 諛섏쁺???곹깭)瑜??낅줈????devnotes瑜?fresh
-clone?대낫??61李?怨꾩냽(諛⑹븞C) ?묒뾽??FINDINGS.md 湲곕줉??origin???놁쓬??
-諛쒓껄(吏곸쟾 ?몄뀡??push ?놁씠 醫낅즺???좎떎?먮뜕 寃껋쑝濡?異붿젙).
-
-**蹂듦뎄 議곗튂**:
-1. ?낅줈?쒕맂 `long_mpc.py`瑜?而⑦뀒?대꼫 `ryu` clone(origin HEAD `d6e334f`)??
-   ??뼱??濡쒖뺄 而ㅻ컠 ?ш뎄????`py_compile` ?듦낵, `git diff --stat`?쇰줈
-   蹂寃쎈텇??43以?異붽?(諛⑹븞C 肄붾뱶 洹몃?濡??꾩쓣 ?뺤씤.
-2. `git format-patch` ??`verify-am-61c` ?꾩떆 釉뚮옖移?base `d6e334f`)?먯꽌
-   `git am` 而⑦뀓?ㅽ듃 ?쇱튂 + `py_compile` ?ы솗???꾨즺.
-3. `0001-61-C-cutin-dRel-suppress.patch`瑜?`/mnt/user-data/outputs/`??
-   ?ъ깮?깊빐 ?꾨떖.
-4. FINDINGS.md??"[?좉퇋 諛쒓껄 + 諛⑹븞 C 援ы쁽 ?꾨즺]" ??ぉ??洹몃?濡?
-   蹂듦뎄쨌?ш린濡?蹂듦뎄 寃쎌쐞 臾멸뎄 異붽?).
-
-**[?닿껐 ?꾨즺]** ?ъ슜?먭? `git fetch origin` + `git log --oneline -5
-origin/c3-ms-dev` + `git log --oneline origin/c3-ms-dev..HEAD`濡?吏곸젒
-?뺤씤 ??origin `c3-ms-dev` HEAD媛 `4ea63c3`(諛⑹븞C 而ㅻ컠)?닿퀬 濡쒖뺄 HEAD?
-?뺥솗???쇱튂, 濡쒖뺄??誘명뫖??而ㅻ컠???놁쓬(`origin/c3-ms-dev..HEAD` 鍮?
-寃곌낵). **?⑥튂 ?곸슜 + push ?꾨즺 ?ы솗?몃맖.** LAST_ANALYZED.md 媛깆떊 ?꾨즺.
-
-**?ㅼ쓬(理쒖슦??**: 61李?怨꾩냽(諛⑹븞C) FINDINGS.md ??ぉ??"?ㅼ쓬(理쒖슦??"
-2~5踰덉쑝濡?吏꾪뻾:
-1. ?ㅼ감 寃利? (a) r1-3/r1-14瑜?cutin ?ы쁽 ??湲됯컧?띿씠 ?ㅼ젣濡??꾪솕?섎뒗吏,
-   (b) **?뚭? 寃利??꾩닔** ??吏꾩쭨 湲됱젒洹??꾨갑 李⑤웾 湲됰툕?덉씠?????먯꽌
-   danger override媛 吏???놁씠 洹몃?濡??묐룞?섎뒗吏, (c) ?좉퇋?깅줉
-   寃뚯씠??60李?怨꾩냽2)? 寃뱀튂??耳?댁뒪?먯꽌 ?댁쨷 ?몃━嫄곕줈 ?명븳 遺?묒슜
-   ?녿뒗吏.
-2. 媛?ν븯硫?r1-3/r1-14 ?먮낯 rlog ?ъ뾽濡쒕뱶諛쏆븘 ?ㅼ륫 dRel ?쒗?ㅻ줈 ?대쾲
-   濡쒖쭅??吏곸젒 ?ъ깮 寃利??꾩옱??臾몄꽌 湲곕줉 湲곕컲 洹쇱궗 ?쒕??덉씠?섎퓧).
-3. `DREL_DISCONTINUITY_DROP_THRESH=15.0m`/`WINDOW_N=5` 媛??먯껜???ㅺ퀎
-   異붿젙移????ㅼ감 諛섏쓳 蹂닿퀬 ?쒕떇 ?꾩슂.
-
-## 61李?怨꾩냽 (泥댄겕?ъ씤?? ???섎㉧吏 13?멸렇 以?11?멸렇 qcamera ?議??꾨즺, ?댁쟾 ?⑥튂源뚯? ?ы븿 寃利??꾨즺)
-
-泥댄겕?ъ씤?? ?댄썑 ?ъ슜?먭? "?대쾲 ?⑥튂肉??꾨땲???댁쟾 ?⑥튂??寃利? ?섎㉧吏
-利앹긽 利앹긽蹂?遺꾩꽍, qcamera ?議??꾩슂" ?붿껌 ??媛숈? 16?멸렇 濡쒓렇(commit
-`d6e334f`, 60李?怨꾩냽8+60李?A/B ?꾨? 諛섏쁺)濡??섎㉧吏 13?멸렇 以?11?멸렇
-(route1 seg1/3/6/9/12/14/15/17/19, route2 seg2/4/6, route2 seg5??
-??꾪뿕 ?앸왂)瑜?利앹긽蹂꾨줈 qcamera ?꾨젅???議??꾨즺. **?꾨? ?뺥깘(?ㅼ젣
-李⑤웾/?뺤껜/?좏샇?湲??뺤씤), ?ㅽ깘 0嫄?** seg9(李⑥꽑蹂寃???blinker 援ш컙
-?대궡 aEgo 0 洹쇱쿂濡?60李?A dPath寃뚯씠?멸? 李⑥꽑蹂寃??ㅽ깘???뺤긽 李⑤떒?⑥쓣
-?ы솗?? route2 seg4(?뺤??욎감 移대찓?쇱씤????58李?/60李쭭媛 寃⑤깷???듭떖
-?쒕굹由ъ삤(?좏샇?湲??뺤??좏뻾李?議곌린?몄떇)媛 ?뺤긽 ?숈옉?⑥쓣 ?뺤씤. ?곸꽭??
-FINDINGS.md 61李?怨꾩냽 ??ぉ 李멸퀬.
-
-**16?멸렇 ?꾩껜 寃곕줎(理쒖쥌)**: 媛쒕퀎 qcamera 寃利?14/16?멸렇 ?꾨즺, ?ㅽ깘
-0嫄? ?좎씪???댁긽?좏샇??seg1(?놁감???덉씠???ㅽ깘, ?ㅻ뒛 ?⑥튂? 臾닿???
-蹂꾨룄 硫붿빱?덉쬁, 泥댄겕?ъ씤???먯꽌 ?대? 洹쒕챸). **?ㅻ뒛 寃利앺븳 2媛??⑥튂
-(60李?怨꾩냽8 ?멸낸寃뚯씠???섏젙 + 60李?A/B tentative?깅줉/dPath寃뚯씠??
-紐⑤몢 ?덉쟾?섍쾶 ?숈옉 以? ?뚭? ?놁쓬.**
-
-**?⑥? ??ぉ**:
-1. route2 seg2 "泥닿컧 湲됯컧 vs 湲곕줉 aEgo ?꾨쭔(-0.65)" 愿대━ ??誘몄꽭 ???
-   ?ㅼ틪 ?꾩슂(58李? 濡ㅻ갚 ???섏삩 媛?ㅺ낵 ?숈씪 異?, ??곗꽑.
-2. seg1 洹쇰낯?먯씤(SCC_FALLBACK_DPATH_GATE vLead<5.0 議곌굔遺 ?ш컖吏?)
-   ?⑥튂 ?ㅺ퀎 ???ъ슜???쇱쓽 ?湲? ?ъ쟾??誘몄갑??
-3. route2 seg5 qcamera 誘몄떎????꾪뿕 ?앸왂) ???꾩슂??異붽?.
-4. turn_speed_violation 3嫄?媛쒕퀎 誘명솗??泥댄겕?ъ씤??遺???댁썡).
-
-**?몄뀡? 怨꾩냽 ?ъ슜?먯???媛쒖꽑諛⑺뼢 ?쇱쓽 ?④퀎.**
-
-## 61李?(吏꾪뻾以? 泥댄겕?ъ씤?? ???ㅻ뒛 ?⑥튂 ?ㅼ감寃利?濡쒓렇 16?멸렇 遺꾩꽍 ?쒖옉)
-
-**諛곌꼍**: 60李?怨꾩냽8(?멸낸寃뚯씠??fix, HEAD `d6e334f`) ?곸슜 ???ъ슜?먭?
-?ㅼ＜??濡쒓렇 2媛?遺?낆꽭??route `a2141d7786` 9?멸렇/`6f02a46c8a` 7?멸렇,
-珥?16媛?event-triggered ?멸렇, 媛??붾㈃?뱁솕 clip ?쒕ぉ=利앹긽?쇰꺼)???낅줈??
-??"?ㅻ뒛 ?⑥튂媛 ???곸슜?먮뒗吏 濡쒓렇+?곸긽 ?議곕텇?? ?댄썑 媛쒖꽑諛⑺뼢 ?쇱쓽" ?붿껌.
-CSV 異붿텧 ?뺤씤 寃곌낵 `commit=d6e334f1ddb5`濡??ㅻ뒛 ?⑥튂媛 ?ㅼ젣 諛섏쁺???곹깭?먯꽌
-湲곕줉?먯쓬 ?뺤씤.
-
-**吏꾪뻾 ?곹솴**: 16?멸렇 媛쒓?(min_aEgo/cruise_ratio) ?꾨즺, ?꾩껜
-harsh_brake(ADAS ?쒖꽦以?0嫄??묒そ route)/turn_speed_violation(1/2嫄? ?ㅼ틪
-?꾨즺. **seg1("?놁감???덉씠???ㅽ깘 湲됯컧_?댄썑 移대찓?쇱씤??) ?곸꽭 遺꾩꽍
-?꾨즺** ??qcamera ?꾨젅???議곌퉴吏 留덉묠, **?ㅻ뒛 ?⑥튂(60李?A/B, VisionTrack
-tentative ?깅줉)? 臾닿???蹂꾨룄 硫붿빱?덉쬁(track_scc/37李?SCC_FALLBACK_
-DPATH_GATE)???ш컖吏?濡?異붿젙**(NEEDS_VALIDATION, ?곸꽭??FINDINGS.md
-61李???ぉ 李멸퀬) ??dPath 寃뚯씠?멸? `track_scc.vLead<5.0`(嫄곗쓽 ?뺤???
-臾쇱껜) 議곌굔?먯꽌留??묐룞?? ?대쾲 ?щ?(vLead??.6m/s)泥섎읆 以묒냽??援ш컙
-?덉씠???⑤컻 ?ㅽ깘? 寃뚯씠??蹂댄샇 諛뽰뿉 ?덉쓣 媛?μ꽦.
-
-**seg3("?놁감??移대찓???ㅽ깘 湲됯컧") 1李?遺꾩꽍**: dRel/vRel/aEgo 沅ㅼ쟻??
-留ㅻ걚?쎄퀬 qcamera濡쒕룄 ?ㅼ젣 ?꾨갑 李⑤웾 ?뺤?/?쒗뻾??蹂댁뿬 "?ㅽ깘???꾨땲??
-吏꾩쭨 ?뺤껜 異붿쥌"?쇰줈 蹂댁씠?? 6?꾨젅???섑뵆留?2~4珥?媛꾧꺽)?대씪 ?뺤젙 紐삵븿
-??**?ㅼ쓬 泥댄겕?ъ씤?몄뿉??t=1503.75~1507 議곕? ?ы솗???꾩슂**.
-
-**[媛깆떊, 泥댄겕?ъ씤??] seg3/4 ?곗냽???뺤씤 ?꾨즺 + 16?멸렇 ?먮룞 ?댁긽?먯? ?꾨즺
-+ 1李?醫낇빀?먮떒 ?꾨즺** ???곸꽭??FINDINGS.md 61李?泥댄겕?ъ씤?? ??ぉ 李멸퀬.
-?듭떖: seg3("?놁감??移대찓???ㅽ깘")? ?ы솗??寃곌낵 seg4? ?곗냽??吏꾩쭨
-?뺤?李⑤웾 異붿쥌 ?대깽?몃줈 ?먮떒(?ㅽ깘 洹쇨굅 紐?李얠쓬, ??곗꽑 ?ш?利??ъ?留?
-?④?). 16?멸렇 ?꾩껜 ?먮룞 ?ㅼ틪?먯꽌 泥댄겕?ъ씤????seg1 1嫄대쭔 ?쒕졆??
-?댁긽 ?좏샇, ?섎㉧吏???뺤긽 ?몄씠利??섏?. **?ㅻ뒛 ?⑥튂(60李?怨꾩냽8)??濡쒓렇??
-?ㅼ젣 諛섏쁺 ?뺤씤, ADAS ?좊컻 harsh_brake 0嫄? 60李?A/B ?듭떖 ?寃??뺤??욎감
-?몄떇)???뺤긽 ?숈옉 ?뺤씤. seg1(?놁감???덉씠???ㅽ깘)留??ㅻ뒛 ?⑥튂 踰붿쐞
-諛뽰쓽 蹂꾨룄 硫붿빱?덉쬁(track_scc SCC_FALLBACK_DPATH_GATE??vLead<5.0 議곌굔遺
-?ш컖吏?)?쇰줈 異붿젙?섎뒗 ?좉퇋 諛쒓껄.**
-
-**?⑥? ??ぉ(?ㅼ쓬 ?몄뀡 ?꾨낫, ??곗꽑 ???대쾲 ?몄뀡 醫낇빀?먮떒? ?꾨즺??**:
-1. turn_speed_violation 3嫄?媛쒕퀎 誘명솗??
-2. seg1 洹쇰낯?먯씤 ?뺤젙??dPath/trackId ?뺤옣 異붿텧 ?ㅽ겕由쏀듃 ?꾩슂 ??
-   SCC_FALLBACK_DPATH_GATE??vLead<5.0 議곌굔 ?꾪솕 ?⑥튂 ?ㅺ퀎 ?쇱쓽.
-3. ?섎㉧吏 13?멸렇(cutin/cutout/李⑥꽑蹂寃??뺤껜?뺤?異쒕컻/?욎감移대찓?쇱씤?쓝6/
-   cutout?꾩??곗텧諛? 媛쒕퀎 qcamera ?뺣?寃利??먮룞?ㅼ틪? ?꾨즺, ?댁긽?놁쓬).
-
-**?대쾲 ?몄뀡? ?ъ슜?먯?????붾줈 媛쒖꽑諛⑺뼢 ?쇱쓽 ?④퀎濡??꾪솚.**
-
-## 60李?怨꾩냽8 (泥댄겕?ъ씤????[URGENT, FIXED] ?멸낸寃뚯씠??踰꾧렇 ?щ컻 ?섏젙/git am寃利??꾨떖 ?꾨즺, ?ъ슜???곸슜 ?湲?
-
-**諛곌꼍**: ?ъ슜?먭? "???⑥튂媛 而룹씤 ?곹솴?먮룄 ?곹뼢??二쇰굹" 吏덈Ц ??而룹씤
-寃쎈줈(`compute_leads()`, ?덉씠??`Track.cut_in_count` 湲곕컲)??`VisionTrack`
-怨?臾닿????곹뼢 ?놁쓬???뺤씤?섎뒗 怨쇱젙?먯꽌, `get_lead()` ?멸낸 ?⑥닔媛
-`lead_msg.prob > .5`瑜?`VisionTrack.update()` ?대?? 蹂꾧컻濡??낅┰
-?ъ껜?ы븯怨??덉뼱 **60李?A(tentative 議곌린?깅줉)媛 ?ㅼ젣 `radarState.leadOne`
-異쒕젰???꾪? 諛섏쁺 ???섍퀬 ?덈뜕 寃껋쓣 諛쒓껄**.
-
-**?숈씪 踰꾧렇 ?щ컻 ?뺤씤**: ?닿굔 58李?踰??꾩냽?섏젙(`1145aea`)???먮옒 怨좎낀??
-踰꾧렇? ?뺥솗??媛숈? ?⑦꽩(`elif ... lead_msg.prob > .5` ?ъ껜?ш?
-tentative ?밴꺽??臾대젰??. 58李?踰??꾩냽?섏젙 ?꾩껜 濡ㅻ갚(`1ac07de`, radard.py
-58李?踰??쒖젏 ?꾩쟾 ?먮났)?쇰줈 ???섏젙??媛숈씠 ?щ씪議뚭퀬, 60李?A媛 tentative
-濡쒖쭅???ш뎄?꾪븯硫??멸낸寃뚯씠???щ컲?곸쓣 鍮좊쑉?몃뜕 寃?-- 利?**?꾩옱
-?ъ슜??湲곌린(`1a44491`)??60李?A+B?덉? ?대? 怨꾩궛? ?댁븘?덉?留??ㅼ젣
-異쒕젰??議곌린?깅줉 ?④낵媛 ?꾪? ?녿뒗 ?곹깭???媛?μ꽦 ?믪쓬.** 60李?怨꾩냽5/6
-?쒕??덉씠??9.2珥??욌떦源 ??? VisionTrack ?대? 濡쒖쭅留??쒖닔?⑥닔 ?ы쁽?대씪
-???멸낸寃뚯씠??踰꾧렇瑜?紐??≪븯??以묒슂 ?쒓퀎濡?湲곕줉).
-
-**議곗튂**: `elif (track is None) and ready and (lead_msg.prob > .5):`瑜?
-`elif (track is None) and ready and self.vision_tracks[index].status:`濡?
-援먯껜(58李?踰??꾩냽?섏젙怨??숈씪 諛⑹떇) -- `status`??媛숈? tick???대?
-update() ?앸궃 理쒖떊 ?곹깭???뺤떇寃쎈줈+tentative 議곌린?깅줉 ?????먯뿰???ы븿.
-
-**寃利?*: `git format-patch` -> `verify-am4` ?꾩떆 釉뚮옖移?base `1a44491`,
-?ъ슜???ㅼ젣 濡쒖뺄 HEAD瑜??대쾲 ?몄뀡?먯꽌 origin fetch濡??뺣낫) `git am`
-而⑦뀓?ㅽ듃 ?쇱튂 + `py_compile` ?듦낵.
-
-**?꾨떖**: `0001-60-8-get_lead-lead_msg.prob-vision_tracks-index-.sta.patch`
-瑜?`/mnt/user-data/outputs/`???앹꽦, `git am` ?덈궡? ?④퍡 ?꾨떖??base
+  식이 j_lead 급증으로 다시 낮은 값(≈20)까지 떨어져(=무감쇠에 가까운
+  민감한 응답으로 복귀) 부스트 이전과 사실상 동일한 저크로 급감속이
+  이어짐.**
+- 부가 확인: 이 route1 seg10 케이스는 방안C(원본 discontinuity,
+  vision-only dRel 원본값 5프레임창 급락)도 락온 이전 구간에서 별도로
+  최소 1회 트리거됨(vision-only 구간 내 5샘플창 최대낙폭 20.25m,
+  `DREL_DISCONTINUITY_DROP_THRESH=15.0` 초과) — 즉 이 케이스는 방안C
+  경로와 방안I 경로 둘 다에서 부스트가 각각 arm되지만, **두 경로 모두
+  같은 `_discontinuity_jerk_boost_timer`/같은 1.0s 윈도우를 공유**하고
+  실제 위험은 그보다 훨씬 길게 지속되므로 결과는 동일(무력화).
+
+**결론(원인 재확정, "방안C와의 상호작용 버그"가 아니라 "부스트 자체의
+설계 전제 불일치"로 재해석)**: 직전 세션 요약에 남은 "방안I 트리거는
+되는데 실제 효과가 무효화"라는 관찰은 이번 재현으로도 동일하게
+확인되나, 원인은 방안C와의 직접적 상호작용(타이머 덮어쓰기 등)이라기
+보다 — **방안G/C가 원래 겨냥한 시나리오(찰나의 vision dRel 노이즈/
+cutin 스냅 → 곧 정상화)와 달리, 방안I이 새로 겨냥한 "레이더 락온이
+드러내는 진짜 급감속"은 수 초 지속되는 이벤트라서, 1.0초짜리 부스트
+윈도우 자체가 이 시나리오엔 구조적으로 부족**하다는 쪽이 더 정확한
+설명으로 재정리됨. (단, 직전 세션이 "방안C 미개입 가정 시 방안I만
+격리해도 무효화가 재현되는지"를 확인했다는 기록과 방향은 일치 —
+방안C를 완전히 빼도 방안I 단독으로도 1.0s 윈도우 자체의 한계이므로
+동일하게 무효화됨.)
+
+**다음(최우선, 아직 미착수)**:
+1. 위 가설을 `work/route72/route1.csv` 기반 정식 replay 스크립트로
+   PATCHED(boost 1.0s 유지 vs 연장안) 비교 정량 검증 — 이번엔 시간
+   제약으로 raw CSV 직접 대조까지만 하고 스크립트화는 다음 단계.
+2. **방안 후보**: (a) boost 지속시간을 이 시나리오 한정 연장(예:
+   2.5~3.0s, danger override는 여전히 무관하게 우선), 또는 (b) boost
+   윈도우 소진 후에도 base_a_change_cost가 즉시 원상복귀하지 않도록
+   a_change_cost 자체에 release-rate 제한(방안G 부스트 종료를 rise-rate
+   limiter처럼 완만하게) 추가, 또는 (c) 애초에 "찰나성 노이즈 완화"와
+   "진짜 급감속 초반 저크 완화"를 같은 타이머로 묶지 않고 후자 전용
+   메커니즘 분리. 다음 세션에서 사용자와 방향 확정 필요.
+3. route2(x7seg) 원본도 재업로드받아 71차에서 언급된 유사 사례(t≈1378.8)
+   에도 동일 패턴(부스트 무력화)이 재현되는지 교차검증 필요 — 이번
+   세션엔 route1만 확보됨.
+4. 72차/WIP.md 기존 "다음(사용자 확인 대기)" 2/3번(mp4 나머지 클립
+   매칭, 71차 이월 항목)은 여전히 미착수.
+
+**코드 변경 없음(ryu 미변경, 재현/원인재확정만). `work/route72/route1.csv`
+신규(스크래치, toolkit 미편입 — 방안 확정 전까지 유지 원칙 동일).**
+
+## 72차 계속(방안 I) — 패치 적용/push 완료(`4fa4a44`), 실차 검증 대기
+
+**배경**: 아래 "72차" 원 체크포인트가 컨테이너 리셋으로 중단됨 —
+사용자가 작업 중이던 `long_mpc.py`(방안 I 구현이 이미 완료된 상태)를
+새 세션에 업로드해줘서 그대로 이어받아 마무리.
+
+**구현/검증/전달**: 상세는 FINDINGS.md "[PATCH_WRITTEN] 72차(방안 I)"
+항목 참고. 요약: 레이더 False->True 전환 엣지 프레임에서 vRel 불연속
+(`RADAR_HANDOFF_VREL_JUMP_THRESH=3.0m/s`)을 감지하면 기존 방안G
+저크부스트를 재사용해 arm — danger override/proactive floor는 무관하게
+항상 우선 유지. `git am` 검증(base `0c137f2`) + `py_compile` 통과.
+`0001-72-I-vRel-G.patch` `/mnt/user-data/outputs/`에 전달 완료.
+
+**[갱신] 적용/push 완료 확인** — 사용자가 `C:\dev\ryu`에서 `git fetch`+
+`git reset --hard origin/c3-ms-dev` 동기화 후 `git am` 적용(diff --stat
+42줄 추가로 예상과 일치 확인) + `git push origin c3-ms-dev` 완료
+확인(`0c137f2..4fa4a44`).
+
+**다음(최우선)**:
+1. **실차 드라이브 검증** — (a) 이번 재현 상황(비전 낙관 6초+→레이더
+   급락, route1류) 재현 시 급감속 완화 여부, (b) **회귀 검증 필수** —
+   danger override(TTC<=2.5s) 정상 동작, 지연 없는지, (c) 방안G
+   (비전단독 dRel 급락, 66/67차)와 이중 트리거 시 부작용 없는지.
+2. (권장, 아직 미실시) route1 원본 rlog로 t=690.05 시퀀스에 방안 I
+   로직을 추가한 재생 사전검증(방안C/G 때 했던 방식) — 이번엔 세션
+   복구를 우선해 건너뜀, 실차 검증과 병행/대체 가능.
+3. `RADAR_HANDOFF_VREL_JUMP_THRESH=3.0m/s`는 설계 추정치 — 실차 반응
+   보고 튜닝 필요.
+4. 72차 원 체크포인트의 "다음(사용자 확인 대기)" 2/3번(mp4 나머지
+   클립 정밀 매칭, 71차 이월 항목 방안F/H·세그7 오실레이션)은 여전히
+   미착수 — 방안 I 실차검증과 별개로 순서 재확인 필요.
+
+## 72차 (완료 — 원인분석+방안I 구현으로 이어짐, 원 기록 보존) — 레이더 락온 급감속 실차 재현 + 원인 특정
+
+**배경**: 사용자가 새 실차 로그 2개(route1 x19seg `0000031f--ea5bcc0566`,
+route2 x7seg `00000320--a5b1ce4e42`, 둘 다 HEAD `0c137f28b456` 기준) +
+화면녹화 mp4 3개(파일명에 증상 명시: "정지앞차_레이더락온시_급감_
+서서히_감속_코딩_필요", "정지앞차_카메라락온_부드럽게_정지",
+"정지앞차_카메라인식")를 업로드. 요청: 레이더 락온 시 급감속하는 경우가
+있는데, 위험한 상황이 아니라면 서서히 목표속도까지 감속하도록 수정.
+
+**mp4-로그 시각 매칭 방법**: mp4 파일명의 타임스탬프는 녹화 **종료**
+시각(재생시간 역산 필요). route 세그먼트 폴더명 wall-clock과 CSV `t`
+컬럼의 오프셋(delta = wall_sec - t, route1에서 상수 55663.85로 확인)을
+구해 mp4 구간을 CSV `t` 범위로 역산 → qcamera 프레임(danger box 거리/
+감속표시 값)으로 최종 교차검증. (다음 세션도 같은 방식 재사용 가능 —
+delta는 route/부팅마다 다시 계산 필요, 상수 자체를 재사용하면 안 됨.)
+
+**핵심 발견 (route1 t=683.85~696, "레이더락온시 급감" 클립과 일치
+확인됨)**:
+1. t=683.85~690.0(6.15초) 비전 단독 추적 구간 — modelProb 최대 0.93,
+   `leadVLead` 12~16m/s로 안정적으로 보고(자차 17.9m/s와 큰 차이 없어
+   "안전"으로 보임). dRel은 83~119m 사이 노이즈성 요동(인접 차로 트랙
+   혼입 의심).
+2. t=690.05 레이더 락온 순간 `leadVLead`가 7.1m/s로 급락, `vRel`이
+   -3.6→-10.8m/s로 급변 — 실제로는 정체로 서행/정차 중이던 진짜
+   선행차였음이 이 프레임에야 드러남.
+3. 이후 1.5초 만에 aEgo 0→-2.1m/s²(사실상 A_CRUISE_MIN 근접)까지 급락,
+   정지 직전까지 강제동. qcamera 프레임(t≈696, drel≈30m, red danger
+   box)이 mp4 클립 마지막 프레임(-1.36/-1.64 표시)과 일치 확인.
+4. route2 t=1378.8에도 동일 패턴(aEgo drop 2.92, 지금까지 최대) 1건
+   추가 확인 — 재현성 있는 패턴으로 판단.
+
+**원인 특정 (`long_mpc.py`)**:
+- 방안G의 discontinuity 감지(L861~880)는 `not radarstate.leadOne.radar`
+  (비전 단독 구간) 안에서만 동작하고, dRel 15m+ 급락만 트리거함.
+  **레이더가 락온되는 그 프레임(L901 elif) 자체는 부기 리셋만 하고
+  discontinuity 판정을 아예 하지 않음** — "비전→레이더 전환 시점의
+  속도(vRel/vLead) 불연속"은 현재 코드의 사각지대.
+- `LEAD_ACQ_RAMP_TIME=5.0s` 선제감속 floor도 구조적으로 무력화됨: 이
+  리드가 비전으로 처음 잡힌 게 t≈684.05, 5초 램프 종료가 t≈689.05 —
+  **진짜 위험이 드러난 t=690.05보다 1초 먼저 "안전 판정"으로 방어막이
+  풀린 직후**에 위험이 드러남. 비전이 몇 초간 낙관적으로 유지되는
+  케이스에서 구조적으로 반복 가능한 타이밍 문제로 판단.
+- `VISION_RADAR_CROSSOVER.md`(8/19~20 로그 기반 사전 조사)에서 예상했던
+  현상의 실차 재현 사례로 봐도 됨.
+
+**제안한 수정 방향(사용자 확인 대기, 아직 미적용)**: 레이더 False→True
+전환 프레임에서 새로 확정된 vRel/vLead가 직전 참고값(`_vision_dRel_rate`
+등) 대비 일정 폭 이상 나쁜 쪽으로 튀면, 기존에 검증된
+`_discontinuity_jerk_boost_timer`(방안G) 그대로 arm — TTC danger
+override(2.5s 이하)는 그대로 유지해 진짜 위험엔 영향 없음, 도달
+감속량은 그대로 두고 도달 속도(저크)만 완만화. 신규 상수 가칭
+`RADAR_HANDOFF_VREL_JUMP_THRESH` 추가 제안.
+
+**다음(사용자 확인 대기)**:
+1. 위 수정 방향대로 패치 작성해도 될지 확인(임계값 포함).
+2. mp4 3개 중 "카메라락온_부드럽게_정지"/"카메라인식" 클립은 아직
+   개별 매칭 완료 안 됨(대략적 대조만 함, t=945~972 구간이 후보이나
+   정확한 프레임 대조 미실시) — 필요시 다음 단계에서 마저 확인.
+3. 71차 이월 항목(방안F/H, 저속근접 gap 오실레이션, `sim_jerk_boost.py`
+   확인)은 이번 요청 처리 후 순서 재확인 필요.
+
+**코드 변경 없음(분석 + 원인특정만, 패치는 사용자 확인 후 진행 예정).**
+
+## 71차 (완료 — 분석/qcamera 대조만, 코드 변경 없음) — 최신 브랜치 실차 로그 2건 전체 분석, [신규] 장기 비전 진동 사례 발견
+
+**배경**: HEAD `0c137f28b456`(67차 방안G) 기준 실차 로그 2개(route1 19세그
+/1140s, route2 7세그/393s) 업로드받아 전체 분석 + qcamera 대조 수행.
+
+**핵심 결과**:
+1. harsh_brake 8개 독립사건 중 6건 운전자 직접개입(ADAS 무관), 2건만
+   cruise 유지 중 발생(아래 2/3번).
+2. TTC danger override 4건 중 3건 qcamera로 정탐 확인(정지/서행
+   선행차, 곡선구간 브레이크등 켜진 차량), 1건은 운전자 수동정차라
+   무관.
+3. **[정정, 사용자 확인 — 버그 아님]** route1 seg4 t=356~368: 실제로는
+   **자차 우회전 차선변경 + 변경 차로 혼잡**(rightBlinker=True가
+   t=364.0부터 확인, 사용자 설명과 일치). t=356~364의 비전 dRel
+   극심 진동은 혼잡 차로 내 여러 차량 사이를 트랙이 옮겨다닌 것으로
+   재해석 — "discontinuity suppress가 실제 위험을 오래 억제" 가설
+   기각. replay 검증 불필요.
+4. 곡선 비전노이즈 억제율 route1 80.5%/route2 100%로 기존 패턴과
+   일치, 새 이상 없음. turn_speed_violation 3건은 전부 저속
+   `src=gas`(운전자 개입) 경계사례. congestion lurch 스캔 0건(58차2번
+   회귀 없음).
+
+상세는 FINDINGS.md "71차" 항목 참고.
+
+**다음 세션 최우선**:
+1. ~~route1 seg4(t=356~368) 원본 코드로 replay 검증~~ → **철회**(사용자
+   확인 결과 버그 아님, 우회전 차선변경 상황).
+2. 70차에서 이월된 항목(방안F/H 진행 여부, 세그7 후반 저속 근접 gap
+   오실레이션 조사 착수 여부, `sim_jerk_boost.py` 실물 확인)이
+   여전히 사용자 결정 대기 중.
+
+**코드 변경 없음(분석/qcamera 대조만).**
+
+## 70차 (완료 — devnotes 정정만, 코드 변경 없음) — [69차 정정] 방안 D~H 전체 경위 확정
+
+**배경**: 사용자가 63~67차에 걸친 실제 세션 대화록을 제공해줘서, 69차가
+"경위 불명/확정 불가"로 남겨뒀던 부분들을 전부 확정 기록으로 정정.
+상세는 FINDINGS.md "70차 — [69차 정정] ..." 섹션 참고. 요약만 남김:
+
+- **방안D**: 63차 계속3에서 명시적으로 기각/폐기 확정(seg14 7회 재트리거
+  로 리셋이 무의미했고, seg14의 raw dRel 자체가 물리적으로 불가능한 값을
+  보여 신호 자체가 의심스러웠음).
+- **방안E**: 1차 교차검증에서 REJECTED 판정 났었으나(seg3에서 frac_rate
+  억제를 리스크로 오판), 사용자가 원 의도("끼어드는 차가 더 빠르면
+  레이더 락온 후처럼 정상주행 원함")를 정정 설명 → Claude가 재검토해
+  그 억제가 정탐이었음을 확인 → REJECTED 철회, 채택 확정(e6a00ae).
+- **방안F/G/H**: 방안E 실차검증(cutin 정상 처리 확인) 도중, 사용자가
+  별도 이슈(차선변경 중 새 차로 앞차 인식 시 짧은 급감속의 체감 승차감)
+  를 제기해 새로 파생된 스레드. vRel 부호 이진게이트 안은 실측으로
+  기각, Claude가 3안(F=x_lead 블렌딩/G=discontinuity 직후 저크비용
+  한시부스트/H=vRel 연속가중치) 제시, G를 "가장 가볍고 리스크 작음"으로
+  우선 추천 → 66차 설계확정/67차 구현. **F/H는 명시적 기각이 아니라
+  아직 미착수 상태로 후순위 대기 중**(69차가 "흔적없음, 확정불가"라고
+  했던 것과 달리, 폐기가 아니라 "아직 안 한 것"임이 이번에 확정됨).
+- **67차 [재생성]**: 69차 추측이 맞았음 — 컨테이너 리셋으로 패치 유실,
+  FINDINGS.md의 "[66차, 방안G 구현]" 기록을 근거로 재구현. 단 그 근거
+  기록 자체도 지금 devnotes엔 없어(재유실 추정) 66차 원본 설계 상세는
+  여전히 복원 안 된 상태(코드 diff+대화록 재구성 수준까지만 복원됨).
+
+**[신규, 미해결] 세그7 후반 "저속 근접 gap 오실레이션"**: 방안F/G/H
+설계 논의 중 부수적으로 발견된 별개 패턴(discontinuity와 무관, 5~7m
+근접 저속 추종 중 vRel 반복 진동으로 aEgo 재감속). 코드화 이전 단계
+(발견만 됨) — 착수 여부 다음 세션에서 사용자 확인 필요.
+
+**다음(사용자 결정 대기)**:
+1. 방안F/H를 이어서 진행할지, G만으로 충분한지 — 66~67차 이후 실차
+   검증 결과에 달려있음.
+2. 저속 근접 gap 오실레이션(세그7 후반) 조사 착수 여부.
+3. `toolkit/sim_jerk_boost.py` 실물 존재 확인(69차에서 이월, 아직 미확인).
+4. 방안E/G 최종 acados 파이프라인 실차검증 — 최신 HEAD(`0c137f2`) 기준
+   업데이트된 실차 로그 확보 시 진행.
+
+**코드 변경 없음(devnotes 기록 정정만)**.
+
+## 69차 (완료 — devnotes 역보완만, 코드 변경 없음) — 64~67차 devnotes 공백 채움
+
+**배경**: 68차가 남긴 "devnotes 공백" 최우선 과제를 이번 세션에서
+처리. `ryu` repo `git log`/`git show`로 `4ea63c3`(방안C, 61차) 이후
+커밋을 직접 대조.
+
+**정정(중요)**: 68차 메모의 "64~67차(방안 D/E/F/G) 4개 커밋"은 부정확
+— 실제로는 **`e6a00ae`(63차 계속10, 방안E)와 `0c137f28b456`(67차,
+방안G, 커밋메시지에 "[재생성]" 표기) 딱 2개 커밋뿐**. 방안D는 63차
+계속 FINDINGS 제안(discontinuity 시 `_vision_dRel_rate` 직접 리셋)
+그대로 구현된 흔적이 git log/코드 어디에도 없고, 방안F는 코드 주석
+포함 완전히 흔적 없음 — 둘 다 실제 커밋으로 이어지지 않은 것으로
+보임(경위 불명, 사용자 확인 필요).
+
+**작업**: 두 커밋(`e6a00ae`/`0c137f28b456`)의 diff(코드 내 상세 설계
+주석 포함)를 그대로 역추출해 FINDINGS.md에 신규 섹션 2개로 기록
+(방안E: leadVLead 참고 closing rate 상대적 타당성 클램프 /
+방안G: discontinuity 직후 a_change_cost 한시적 부스트). 두 항목 모두
+PARAMS_REGISTRY.md엔 이미 NEEDS_VALIDATION으로 기록돼 있었음(devnotes
+공백에도 PARAMS_REGISTRY만은 최신이었던 것으로 보임 — WIP.md/
+FINDINGS.md만 push 누락됐던 것으로 추정, 62차 때와 유사한 패턴 재발).
+
+**다음(최우선)**:
+1. **방안D 폐기/방안E 채택 경위, 방안F 존재 여부** — git/코드만으론
+   확정 불가, 사용자에게 직접 확인 필요.
+2. `toolkit/sim_jerk_boost.py`(방안G 합성검증 스크립트로 코드 주석에
+   언급됨) 실물 존재 여부 확인 — 이번 세션 컨테이너엔 미확인.
+3. 방안E/G 둘 다 여전히 실차 미검증(NEEDS_VALIDATION) — 68차 분석
+   로그도 방안C까지만 반영된 구브랜치였음이 확인돼, 방안E/G가 실제
+   반영된 실차 로그는 devnotes에 아직 하나도 없음. 사용자가
+   `c3-ms-dev` 최신 HEAD로 기기 업데이트 후 cutin(r1-3/r1-14류)
+   재현 로그 확보 시 검증 착수.
+4. 68차 원래 항목(seg7/seg11 분석, 버그 아님 판정)은 이미 완료 —
+   아래 68차 섹션 그대로 유효, 추가 조치 불필요.
+
+**코드 변경 없음(devnotes 기록 보완만)**.
+
+## 68차 (완료 — 분석만, 코드 변경 없음) — "정체구간 앞차출발→정지 급정거" 제보 분석, 버그 아님 판정
+
+**배경**: 사용자가 "정체구간에서 앞차 출발 후 따라가다 앞차 정지 시
+내차 급정거" 증상 제보 (실제 기기는 58차까지만 적용된 구브랜치라고
+명시) → route `0000031d--4ddb171bfb`(14세그) 업로드받아 seg7/seg11
+qcamera 대조 분석.
+
+**결과**: 둘 다 버그 아님.
+- **seg11**: 정체 정지→출발→앞차 재감속→자차 재감속(-1.03m/s² 최저,
+  저크 없음) 매끈한 정상 사례 — 58차2번(LOW_SPEED_STRONG_DECEL)이
+  겨냥한 "붕끗" 없이 잘 동작.
+- **seg7**: t=519.82 dRel 48m→18.6m 불연속 발견, 처음엔 61~66차류
+  vision 오검출(트랙전환) 의심했으나 **qcamera 대조 결과 실제
+  cut-in(흰색 세단이 인접차로에서 자차 차로로 끼어듦)으로 확정**.
+  이후 aEgo -2.53m/s²(30km/h) 최저점도 qcamera로 **끼어든 차가
+  교차로 적신호 앞 실제 급제동 중이었음** 확인 — 정당한 방어 반응.
+
+**[신규, 경미] devnotes 공백 발견**: ryu repo git log상 64~67차(방안
+D~G) 커밋이 존재하나 FINDINGS.md/WIP.md엔 63차 계속10(방안E)까지만
+기록됨 — 62차 때와 유사한 push 누락 패턴 재발 추정.
+
+**다음 세션 최우선**:
+1. `git log` 기준 64~67차(방안 D/F/G 등) 커밋 내용을 FINDINGS.md/
+   WIP.md/PARAMS_REGISTRY.md에 역보완 기록.
+2. 이번 seg7류(cut-in+선행차 급제동) 자체는 버그가 아니므로 추가
+   조치 불필요 — 단, 사용자가 실제 최신 브랜치(64~67차 적용)에서도
+   동일 상황이 여전히 "체감상 급함"이라면 그건 별도 신규 제보로
+   재접수.
+
+상세는 FINDINGS.md "68차" 항목 참고.
+
+## 63차 계속 (체크포인트2 — r1-3/r1-14 원본 rlog 재업로드받아 실측 재생 검증 완료, **중요 발견: 방안C 보호 공백**)
+
+**배경**: 63차 체크포인트 직후 사용자가 r1-3/r1-14 원본 rlog(같은
+16세그 로그, route `a2141d7786` seg3/seg14)를 재업로드 → 드디어 실측
+재생 검증 진행.
+
+**핵심 발견**: `long_mpc.py` 실제 코드를 그대로 복제한
+`work/route63/replay_drel_discontinuity_real.py`로 PATCHED/UNPATCHED
+비교 재생.
+- **r1-3(seg3)**: discontinuity 정상 트리거(7프레임), aEgo 최저치 부근
+  frac이 PATCHED 0.27~0.36 vs UNPATCHED 0.90~0.98 — **방안C 효과 확인**
+  (radar가 이미 락온한 구간이라 frac_time 개선분이 그대로 드러남).
+- **r1-14(seg14)**: discontinuity 정상 트리거(6프레임)했으나, aEgo
+  최저치 부근 frac이 PATCHED=UNPATCHED=1.0으로 **완전히 동일 —
+  방안C가 이 사례엔 사실상 무효**. 원인: radar 락온 전(vision-only
+  지속)인 구간이라 `frac_rate`/`frac_ttc`가 여전히 활성인데, 이 둘은
+  discontinuity suppression과 무관하게 `_vision_dRel_rate`를 직접
+  읽음 — 방안C는 `_lead_acq_timer`만 리셋할 뿐 오염된 `_vision_dRel_
+  rate` 자체는 그대로 둬서, 0.5초(`VISION_CLOSING_RATE_MIN_TIME`)만
+  지나면 frac_rate가 다시 1.0으로 즉시 복귀함.
+
+**의미**: 방안C(60차 계속 신규등록 게이트 재사용)는 "v_lead 직접보정"
+경로만 보호하고 "frac_time/frac_ttc/frac_rate floor" 경로(25차/33차)는
+애초에 보호 범위 밖이었음이 실측으로 처음 드러남. radar 락온이 빠른
+케이스(r1-3류)는 우연히 frac_rate/ttc가 락온 즉시 0으로 리셋돼 보호
+효과가 있었지만, 락온이 늦는 케이스(r1-14류)는 무방비.
+
+**다음(최우선, 최상위로 격상)**:
+1. **방안 D 설계 착수**: discontinuity 트리거 시 `_vision_dRel_rate=0.0`
+   + `_vision_dRel_rate_window.clear()`도 함께 리셋 — frac_rate/frac_ttc
+   경로까지 보호 확장. danger override(TTC<=2.5s, vRel 기반 직접경로)는
+   무관하게 항상 살아있음을 재확인하며 설계.
+2. 방안 D를 `replay_drel_discontinuity_real.py`에 추가해 seg3/14 둘 다
+   frac이 낮아지는지 재생검증 먼저(패치 전 시뮬레이션 우선 원칙) →
+   통과 시 패치 작성.
+3. 실차 검증 시 r1-3류 vs r1-14류(radar 락온 지연 정도)를 구분해서
+   관찰 필요 — 이 발견이 실차에서도 재현되는지 확인.
+
+**세션 종료 아님 — 중단지점 저장.** 상세는 FINDINGS.md "[63차 계속,
+중요] 방안 C 실측 재생 검증 완료" 항목 참고.
+
+## 63차 (체크포인트 — 방안C 시뮬레이션 재검증만, 코드 변경 없음, 실차/원본로그 검증 대기)
+
+**배경**: 62차의 "다음(최우선)" 항목 중 "최근 패치된 브랜치 시뮬레이션
+검증" 요청 → 컨테이너 리셋으로 유실된 `work/sim_drel_discontinuity.py`
+(방안 C 로직 단위 합성검증)를 재작성. 이번엔 실제 `long_mpc.py`
+801~844줄 코드를 그대로 복사해 재현하는 방식으로 개선(이전엔 순수함수
+재구현이라 코드-시뮬레이션 drift 리스크 있었음).
+
+**결과**: 기존 4개 시나리오 + 신규 2개(신규등록 게이트와의 이중 트리거
+부작용 확인/danger override 독립성 재확인) 총 6개 전부 PASS. 상세는
+FINDINGS.md "[63차, 체크포인트] 방안 C 시뮬레이션 재검증" 항목 참고.
+
+**한계(변함없음)**: r1-3/r1-14 원본 rlog가 이번 세션에도 없어, 여전히
+"문서 기록 기반 근사 시뮬레이션"만 완료 — 실제 로그 재생 검증은 못함.
+
+**다음(최우선)**:
+1. r1-3/r1-14 원본 rlog(가능하면 qcamera 포함) 재업로드 → 실측 dRel
+   시퀀스로 방안C 로직 직접 재생 검증.
+2. 위가 어려우면 실차 드라이브 검증으로 바로 진행: (a) cutin 재현 시
+   급감속 완화 여부, (b)(c)는 이번 세션 로직 검증으로 커버됨(회귀
+   위험 낮음 확인) — 실측 확인만 남음.
+3. `DREL_DISCONTINUITY_DROP_THRESH`/`WINDOW_N` 값 실차 반응 보고 튜닝
+   여지 있음(설계 추정치 그대로).
+
+**세션 종료 아님 — 중단지점 저장.**
+
+## 62차 (체크포인트 — 유실된 61차 방안C 기록 복구, 패치 재검증 완료, 사용자 적용/push 여부 확인 대기)
+
+**배경**: 새 세션 시작 시 사용자가 로컬 `C:\dev\ryu`의
+`long_mpc.py`(방안C 코드 이미 반영된 상태)를 업로드 → devnotes를 fresh
+clone해보니 61차 계속(방안C) 작업의 FINDINGS.md 기록이 origin에 없음을
+발견(직전 세션이 push 없이 종료돼 유실됐던 것으로 추정).
+
+**복구 조치**:
+1. 업로드된 `long_mpc.py`를 컨테이너 `ryu` clone(origin HEAD `d6e334f`)에
+   덮어써 로컬 커밋 재구성 → `py_compile` 통과, `git diff --stat`으로
+   변경분이 43줄 추가(방안C 코드 그대로)임을 확인.
+2. `git format-patch` → `verify-am-61c` 임시 브랜치(base `d6e334f`)에서
+   `git am` 컨텍스트 일치 + `py_compile` 재확인 완료.
+3. `0001-61-C-cutin-dRel-suppress.patch`를 `/mnt/user-data/outputs/`에
+   재생성해 전달.
+4. FINDINGS.md의 "[신규 발견 + 방안 C 구현 완료]" 항목을 그대로
+   복구·재기록(복구 경위 문구 추가).
+
+**[해결 완료]** 사용자가 `git fetch origin` + `git log --oneline -5
+origin/c3-ms-dev` + `git log --oneline origin/c3-ms-dev..HEAD`로 직접
+확인 — origin `c3-ms-dev` HEAD가 `4ea63c3`(방안C 커밋)이고 로컬 HEAD와
+정확히 일치, 로컬에 미푸시 커밋도 없음(`origin/c3-ms-dev..HEAD` 빈
+결과). **패치 적용 + push 완료 재확인됨.** LAST_ANALYZED.md 갱신 완료.
+
+**다음(최우선)**: 61차 계속(방안C) FINDINGS.md 항목의 "다음(최우선)"
+2~5번으로 진행:
+1. 실차 검증: (a) r1-3/r1-14류 cutin 재현 시 급감속이 실제로 완화되는지,
+   (b) **회귀 검증 필수** — 진짜 급접근(전방 차량 급브레이크 등)에서
+   danger override가 지연 없이 그대로 작동하는지, (c) 신규등록
+   게이트(60차 계속2)와 겹치는 케이스에서 이중 트리거로 인한 부작용
+   없는지.
+2. 가능하면 r1-3/r1-14 원본 rlog 재업로드받아 실측 dRel 시퀀스로 이번
+   로직을 직접 재생 검증(현재는 문서 기록 기반 근사 시뮬레이션뿐).
+3. `DREL_DISCONTINUITY_DROP_THRESH=15.0m`/`WINDOW_N=5` 값 자체는 설계
+   추정치 — 실차 반응 보고 튜닝 필요.
+
+## 61차 계속 (체크포인트3 — 나머지 13세그 중 11세그 qcamera 대조 완료, 이전 패치까지 포함 검증 완료)
+
+체크포인트2 이후 사용자가 "이번 패치뿐 아니라 이전 패치도 검증, 나머지
+증상 증상별 분석, qcamera 대조 필요" 요청 → 같은 16세그 로그(commit
+`d6e334f`, 60차 계속8+60차 A/B 전부 반영)로 나머지 13세그 중 11세그
+(route1 seg1/3/6/9/12/14/15/17/19, route2 seg2/4/6, route2 seg5는
+저위험 생략)를 증상별로 qcamera 프레임 대조 완료. **전부 정탐(실제
+차량/정체/신호대기 확인), 오탐 0건.** seg9(차선변경)는 blinker 구간
+내내 aEgo 0 근처로 60차 A dPath게이트가 차선변경 오탐을 정상 차단함을
+재확인. route2 seg4(정지앞차 카메라인식)는 58차1/60차A가 겨냥한 핵심
+시나리오(신호대기 정지선행차 조기인식)가 정상 동작함을 확인. 상세는
+FINDINGS.md 61차 계속 항목 참고.
+
+**16세그 전체 결론(최종)**: 개별 qcamera 검증 14/16세그 완료, 오탐
+0건. 유일한 이상신호는 seg1(옆차선 레이더 오탐, 오늘 패치와 무관한
+별도 메커니즘, 체크포인트1에서 이미 규명). **오늘 검증한 2개 패치
+(60차 계속8 외곽게이트 수정 + 60차 A/B tentative등록/dPath게이트)
+모두 안전하게 동작 중, 회귀 없음.**
+
+**남은 항목**:
+1. route2 seg2 "체감 급감 vs 기록 aEgo 완만(-0.65)" 괴리 — 미세 저크
+   스캔 필요(58차3 롤백 때 나온 가설과 동일 축), 저우선.
+2. seg1 근본원인(SCC_FALLBACK_DPATH_GATE vLead<5.0 조건부 사각지대)
+   패치 설계 — 사용자 논의 대기, 여전히 미착수.
+3. route2 seg5 qcamera 미실시(저위험 생략) — 필요시 추가.
+4. turn_speed_violation 3건 개별 미확인(체크포인트1부터 이월).
+
+**세션은 계속 사용자와의 개선방향 논의 단계.**
+
+## 61차 (진행중, 체크포인트1 — 오늘 패치 실차검증 로그 16세그 분석 시작)
+
+**배경**: 60차 계속8(외곽게이트 fix, HEAD `d6e334f`) 적용 후 사용자가
+실주행 로그 2개 부팅세션(route `a2141d7786` 9세그/`6f02a46c8a` 7세그,
+총 16개 event-triggered 세그, 각 화면녹화 clip 제목=증상라벨)을 업로드
+— "오늘 패치가 잘 적용됐는지 로그+영상 대조분석, 이후 개선방향 논의" 요청.
+CSV 추출 확인 결과 `commit=d6e334f1ddb5`로 오늘 패치가 실제 반영된 상태에서
+기록됐음 확인.
+
+**진행 상황**: 16세그 개관(min_aEgo/cruise_ratio) 완료, 전체
+harsh_brake(ADAS 활성중 0건 양쪽 route)/turn_speed_violation(1/2건) 스캔
+완료. **seg1("옆차선 레이더 오탐 급감_이후 카메라인식") 상세 분석
+완료** — qcamera 프레임 대조까지 마침, **오늘 패치(60차 A/B, VisionTrack
+tentative 등록)와 무관한 별도 메커니즘(track_scc/37차 SCC_FALLBACK_
+DPATH_GATE)의 사각지대로 추정**(NEEDS_VALIDATION, 상세는 FINDINGS.md
+61차 항목 참고) — dPath 게이트가 `track_scc.vLead<5.0`(거의 정지한
+물체) 조건에서만 작동해, 이번 사례(vLead≈9.6m/s)처럼 중속도 구간
+레이더 단발 오탐은 게이트 보호 밖에 있을 가능성.
+
+**seg3("옆차선 카메라 오탐 급감") 1차 분석**: dRel/vRel/aEgo 궤적이
+매끄럽고 qcamera로도 실제 전방 차량 정지/서행이 보여 "오탐이 아니라
+진짜 정체 추종"으로 보이나, 6프레임 샘플링(2~4초 간격)이라 확정 못함
+— **다음 체크포인트에서 t=1503.75~1507 조밀 재확인 필요**.
+
+**[갱신, 체크포인트2] seg3/4 연속성 확인 완료 + 16세그 자동 이상탐지 완료
++ 1차 종합판단 완료** — 상세는 FINDINGS.md 61차 체크포인트2 항목 참고.
+핵심: seg3("옆차선 카메라 오탐")은 재확인 결과 seg4와 연속된 진짜
+정지차량 추종 이벤트로 판단(오탐 근거 못 찾음, 저우선 재검증 여지만
+남김). 16세그 전체 자동 스캔에서 체크포인트1의 seg1 1건만 뚜렷한
+이상 신호, 나머지는 정상 노이즈 수준. **오늘 패치(60차 계속8)는 로그에
+실제 반영 확인, ADAS 유발 harsh_brake 0건, 60차 A/B 핵심 타겟(정지앞차
+인식)도 정상 동작 확인. seg1(옆차선 레이더 오탐)만 오늘 패치 범위
+밖의 별도 메커니즘(track_scc SCC_FALLBACK_DPATH_GATE의 vLead<5.0 조건부
+사각지대)으로 추정되는 신규 발견.**
+
+**남은 항목(다음 세션 후보, 저우선 — 이번 세션 종합판단은 완료됨)**:
+1. turn_speed_violation 3건 개별 미확인.
+2. seg1 근본원인 확정용 dPath/trackId 확장 추출 스크립트 필요 →
+   SCC_FALLBACK_DPATH_GATE의 vLead<5.0 조건 완화 패치 설계 논의.
+3. 나머지 13세그(cutin/cutout/차선변경/정체정지출발/앞차카메라인식x6/
+   cutout후지연출발) 개별 qcamera 정밀검증(자동스캔은 완료, 이상없음).
+
+**이번 세션은 사용자와의 대화로 개선방향 논의 단계로 전환.**
+
+## 60차 계속8 (체크포인트 — [URGENT, FIXED] 외곽게이트 버그 재발 수정/git am검증/전달 완료, 사용자 적용 대기)
+
+**배경**: 사용자가 "이 패치가 컷인 상황에도 영향을 주나" 질문 → 컷인
+경로(`compute_leads()`, 레이더 `Track.cut_in_count` 기반)는 `VisionTrack`
+과 무관해 영향 없음을 확인하는 과정에서, `get_lead()` 외곽 함수가
+`lead_msg.prob > .5`를 `VisionTrack.update()` 내부와 별개로 독립
+재체크하고 있어 **60차 A(tentative 조기등록)가 실제 `radarState.leadOne`
+출력엔 전혀 반영 안 되고 있던 것을 발견**.
+
+**동일 버그 재발 확인**: 이건 58차3번 후속수정(`1145aea`)이 원래 고쳤던
+버그와 정확히 같은 패턴(`elif ... lead_msg.prob > .5` 재체크가
+tentative 승격을 무력화). 58차3번+후속수정 전체 롤백(`1ac07de`, radard.py
+58차2번 시점 완전 원복)으로 이 수정도 같이 사라졌고, 60차 A가 tentative
+로직을 재구현하며 외곽게이트 재반영을 빠뜨렸던 것 -- 즉 **현재
+사용자 기기(`1a44491`)의 60차 A+B안은 내부 계산은 살아있지만 실제
+출력엔 조기등록 효과가 전혀 없는 상태였을 가능성 높음.** 60차 계속5/6
+시뮬레이션(9.2초 앞당김 등)은 VisionTrack 내부 로직만 순수함수 재현이라
+이 외곽게이트 버그를 못 잡았음(중요 한계로 기록).
+
+**조치**: `elif (track is None) and ready and (lead_msg.prob > .5):`를
+`elif (track is None) and ready and self.vision_tracks[index].status:`로
+교체(58차3번 후속수정과 동일 방식) -- `status`는 같은 tick에 이미
+update() 끝난 최신 상태라 정식경로+tentative 조기등록 둘 다 자연히 포함.
+
+**검증**: `git format-patch` -> `verify-am4` 임시 브랜치(base `1a44491`,
+사용자 실제 로컬 HEAD를 이번 세션에서 origin fetch로 확보) `git am`
+컨텍스트 일치 + `py_compile` 통과.
+
+**전달**: `0001-60-8-get_lead-lead_msg.prob-vision_tracks-index-.sta.patch`
+를 `/mnt/user-data/outputs/`에 생성, `git am` 안내와 함께 전달함(base
 `1a44491`).
 
-**[媛깆떊] ?곸슜/push ?꾨즺 ?뺤씤** ???ъ슜?먭? `C:\dev\ryu`?먯꽌 `git am` ?곸슜
-(`Applying: 60李?怨꾩냽8: get_lead() ?멸낸寃뚯씠??lead_msg.prob 以묐났泥댄겕 ->
-vision_tracks[index].status濡?援먯껜`) + `git push origin c3-ms-dev` ?꾨즺.
+**[갱신] 적용/push 완료 확인** — 사용자가 `C:\dev\ryu`에서 `git am` 적용
+(`Applying: 60차 계속8: get_lead() 외곽게이트 lead_msg.prob 중복체크 ->
+vision_tracks[index].status로 교체`) + `git push origin c3-ms-dev` 완료.
 origin `c3-ms-dev` HEAD: `1a44491..d6e334f`.
 
-**?ㅼ쓬(理쒖슦??**:
-1. ~~?ъ슜?먭? `C:\dev\ryu`?먯꽌 `git am` ?곸슜 + `git push origin c3-ms-dev`~~ ??**?꾨즺**.
-2. **?ㅼ감 ?쒕씪?대툕 寃利??????섏젙?쇰줈 60李?A(dPath寃뚯씠??+B??prob由ъ뀑
-   ?쒓굅)??泥섏쓬?쇰줈 ?ㅼ젣 ?숈옉**. 60李?怨꾩냽7?먯꽌 ?덈궡?덈뜕 寃利???ぉ
-   洹몃?濡??좏슚(?뺤??욎감/?뺤껜援ш컙 議곌린?몄떇, ?놁감????킅 ?ㅽ깘 ?뚭?,
-   ?곕컻??tentative_cnt ?꾩쟻 ?ш컖吏?).
-   **[60李?怨꾩냽9 異붽?]** ?뺤껜援ш컙?먯꽌 tentative ?깅줉 吏곹썑 58李?
-   ??띻컯?쒓컧?띻쾶?댄듃媛 ?몄씠利덉꽦?쇰줈 湲됲븯寃?????먮굦???덈뒗吏 異붽?
-   愿李?濡쒖쭅?⑥쐞 ?쒕??덉씠?섏쑝濡?議고빀 由ъ뒪??諛쒓껄, FINDINGS.md 60李?
-   怨꾩냽9 ??ぉ 李멸퀬 ??cutin/李⑥꽑蹂寃쎌? ?곹뼢 ?놁쓬 ?뺤씤??.
-3. ?대쾲泥섎읆 "?대? 濡쒖쭅 寃利?PASS"? "?ㅼ젣 異쒕젰 諛섏쁺 ?щ?"媛 遺꾨━????
-   ?덉쓬????踰덉㎏濡??뺤씤??58李?踰? 60李?A ???? -- ?욎쑝濡?tentative/
-   status 愿???좉퇋 濡쒖쭅 異붽? ?? ?멸낸 寃뚯씠?멸? 洹?status瑜??ㅼ젣濡?
-   ?뚮퉬?섎뒗吏 肄붾뱶 由щ뵫?쇰줈 留ㅻ쾲 ?뺤씤?섎뒗 嫄?泥댄겕由ъ뒪?명솕???꾩슂.
+**다음(최우선)**:
+1. ~~사용자가 `C:\dev\ryu`에서 `git am` 적용 + `git push origin c3-ms-dev`~~ → **완료**.
+2. **실차 드라이브 검증 — 이 수정으로 60차 A(dPath게이트)+B안(prob리셋
+   제거)이 처음으로 실제 동작**. 60차 계속7에서 안내했던 검증 항목
+   그대로 유효(정지앞차/정체구간 조기인식, 옆차선/역광 오탐 회귀,
+   산발적 tentative_cnt 누적 사각지대).
+   **[60차 계속9 추가]** 정체구간에서 tentative 등록 직후 58차2
+   저속강한감속게이트가 노이즈성으로 급하게 튀는 느낌이 있는지 추가
+   관찰(로직단위 시뮬레이션으로 조합 리스크 발견, FINDINGS.md 60차
+   계속9 항목 참고 — cutin/차선변경은 영향 없음 확인됨).
+3. 이번처럼 "내부 로직 검증 PASS"와 "실제 출력 반영 여부"가 분리될 수
+   있음이 두 번째로 확인됨(58차3번, 60차 A 둘 다) -- 앞으로 tentative/
+   status 관련 신규 로직 추가 시, 외곽 게이트가 그 status를 실제로
+   소비하는지 코드 리딩으로 매번 확인하는 걸 체크리스트화할 필요.
 
-## 60李?怨꾩냽7 (泥댄겕?ъ씤????B??援ы쁽/`git am` 寃利??꾨떖 ?꾨즺, ?ъ슜???곸슜 ?湲? ??A(tentative) prob ?⑤룆 由ъ뀑 ?쒓굅
+## 60차 계속7 (체크포인트 — B안 구현/`git am` 검증/전달 완료, 사용자 적용 대기) — A(tentative) prob 단독 리셋 제거
 
-**援ы쁽**: `radard.py` `VisionTrack.update()`, 而⑦뀒?대꼫 濡쒖뺄 而ㅻ컠 `82d39dc`
-(base `a75c5cc`, 60李?A ?꾩뿉 ?뱀쓬). `elif self.prob < VISION_TRACK_
-TENTATIVE_PROB_GATE: reset` 遺꾧린 ?쒓굅 -- prob<0.35 ?꾨젅?꾩? ?댁젣 ?꾨Т
-寃껊룄 ???섍퀬(freeze) ?섏뼱媛? tentative_cnt/?대젰? ?좎???梨??ㅼ쓬
-tentative 援ш컙 ?꾨젅?꾩뿉???댁뼱??dRel/dPath jitter ?먯젙. dPath ?덈?媛?
-寃뚯씠??dRel쨌dPath jitter 寃뚯씠??吏꾩쭨 "?ㅻⅨ 臾쇱껜濡??꾪솚" ?좏샇)??洹몃?濡?
+**구현**: `radard.py` `VisionTrack.update()`, 컨테이너 로컬 커밋 `82d39dc`
+(base `a75c5cc`, 60차 A 위에 얹음). `elif self.prob < VISION_TRACK_
+TENTATIVE_PROB_GATE: reset` 분기 제거 -- prob<0.35 프레임은 이제 아무
+것도 안 하고(freeze) 넘어감, tentative_cnt/이력은 유지된 채 다음
+tentative 구간 프레임에서 이어서 dRel/dPath jitter 판정. dPath 절대값
+게이트/dRel·dPath jitter 게이트(진짜 "다른 물체로 전환" 신호)는 그대로.
 
-**寃利?*: `git format-patch` -> `verify-am` ?꾩떆 釉뚮옖移?base `a75c5cc`)?먯꽌
-`git am` 而⑦뀓?ㅽ듃 ?쇱튂 ?뺤씤 + `py_compile` ?듦낵.
+**검증**: `git format-patch` -> `verify-am` 임시 브랜치(base `a75c5cc`)에서
+`git am` 컨텍스트 일치 확인 + `py_compile` 통과.
 
-**?꾨떖**: `0001-60-6-A-tentative-B-prob-0.35-tentative_cnt.patch`瑜?
-`/mnt/user-data/outputs/`???앹꽦, `git am` ?덈궡? ?④퍡 ?꾨떖??base
-`a75c5cc`, 利??ъ슜??濡쒖뺄??60李?A源뚯? ?곸슜???곹깭?ъ빞 ??-- ?대?
-`d7c2b0d..a75c5cc` push ?꾨즺 ?뺤씤???곹깭?대?濡?洹??꾩뿉 諛붾줈 ?곸슜 媛??.
+**전달**: `0001-60-6-A-tentative-B-prob-0.35-tentative_cnt.patch`를
+`/mnt/user-data/outputs/`에 생성, `git am` 안내와 함께 전달함(base
+`a75c5cc`, 즉 사용자 로컬이 60차 A까지 적용된 상태여야 함 -- 이미
+`d7c2b0d..a75c5cc` push 완료 확인된 상태이므로 그 위에 바로 적용 가능).
 
-**?쒕??덉씠??洹쇨굅**: 60李?怨꾩냽5/6 ??ぉ(FINDINGS.md) 李멸퀬 -- ???щ?
-(58李?踰? a3a55cb808--10) ?щ벑濡?吏??8.1珥?>9.2珥??욌떦源, ?놁감??
-?ㅽ깘 李⑤떒 ?뚭? PASS, ?⑤컻 ?몄씠利?1?꾨젅???좊졊媛앹껜) ?ㅽ깘??PASS.
+**시뮬레이션 근거**: 60차 계속5/6 항목(FINDINGS.md) 참고 -- 원 사례
+(58차3번, a3a55cb808--10) 재등록 지연 8.1초->9.2초 앞당김, 옆차선
+오탐 차단 회귀 PASS, 단발 노이즈(1프레임 유령객체) 오탐도 PASS.
 
-**[媛깆떊] push ?꾨즺 ?뺤씤** ??origin `c3-ms-dev` `a75c5cc..1a44491`.
+**[갱신] push 완료 확인** — origin `c3-ms-dev` `a75c5cc..1a44491`.
 
-**?ㅼ쓬(理쒖슦??**:
-1. **?ㅼ감 ?쒕씪?대툕 寃利?* -- (a) ?뺤??욎감/?뺤껜援ш컙 議곌린?몄떇???ㅼ젣濡?
-   ?욌떦寃⑥??붿?, (b) ?놁감????킅 ?곹솴 ?ㅽ깘 ?щ컻 ?щ?(58李?踰?seg2瑜?,
-   (c) **?뚭? 寃利??꾩닔** -- prob ?섑븳 由ъ뀑 ?쒓굅濡?tentative_cnt媛
-   "?ㅻ옒 ?쇱뼱遺숈? 梨? ?⑥븘?덈떎媛 ?곗뿰??dRel/dPath媛 留욎븘?⑥뼱吏??
-   癒?誘몃옒 ?꾨젅?꾩뿉??由ъ뀑 ?놁씠 移댁슫?멸? ?댁뼱吏???대줎???ш컖吏?
-   議댁옱(0.5珥??곗냽???꾨땲??"?곕컻??10?꾨젅?????????덉쓬) -- ?쇰컲
-   二쇳뻾?먯꽌 ?덇린移??딆? 議곌린?깅줉???섏뼱?섎뒗吏 ?뱁엳 二쇱쓽 愿李?
-3. ?듦낵 ??60李?A(?놁감??dPath 寃뚯씠??+B??prob由ъ뀑 ?쒓굅)??理쒖쥌
-   ?뺤젙, ?ㅼ쓬 ?ㅻ젅??58李?踰??ㅼ감寃利????붿뿬 ??ぉ)濡?蹂듦?.
+**다음(최우선)**:
+1. **실차 드라이브 검증** -- (a) 정지앞차/정체구간 조기인식이 실제로
+   앞당겨지는지, (b) 옆차선/역광 상황 오탐 재발 여부(58차3번 seg2류),
+   (c) **회귀 검증 필수** -- prob 하한 리셋 제거로 tentative_cnt가
+   "오래 얼어붙은 채" 남아있다가 우연히 dRel/dPath가 맞아떨어지는
+   먼 미래 프레임에서 리셋 없이 카운트가 이어지는 이론적 사각지대
+   존재(0.5초 연속이 아니라 "산발적 10프레임"이 될 수 있음) -- 일반
+   주행에서 예기치 않은 조기등록이 늘어나는지 특히 주의 관찰.
+3. 통과 시 60차 A(옆차선 dPath 게이트)+B안(prob리셋 제거)이 최종
+   확정, 다음 스레드(58차2번 실차검증 등 잔여 항목)로 복귀.
 
-## 60李?怨꾩냽6 (泥댄겕?ъ씤????諛⑺뼢 寃곗젙 ?꾨즺, 援ы쁽 李⑹닔 吏곸쟾) ??B??prob ?⑤룆 由ъ뀑 ?쒓굅) 梨꾪깮
+## 60차 계속6 (체크포인트 — 방향 결정 완료, 구현 착수 직전) — B안(prob 단독 리셋 제거) 채택
 
-**諛곌꼍**: 60李?怨꾩냽5?먯꽌 諛쒓껄??"60李?A媛 ???щ????④낵 0" 臾몄젣??
-?먯씤??dPath 寃뚯씠?멸? ?꾨땲??`prob<0.35` ?⑤룆 由ъ뀑(?몄씠利덉꽦 prob
-異쒕쟻?꾩뿉??移댁슫?몃? ?듭㎏濡?0?쇰줈 ?좊┝)?꾩쓣 ?뺤씤 ????媛吏 議곗튂?덉쓣
-???щ? + ?놁감???ㅽ깘 ?뚭? + ?⑤컻 ?몄씠利??좊졊媛앹껜) ?ㅽ깘 3媛?湲곗??쇰줈
-鍮꾧탳 ?쒕??덉씠??
+**배경**: 60차 계속5에서 발견한 "60차 A가 원 사례에 효과 0" 문제의
+원인이 dPath 게이트가 아니라 `prob<0.35` 단독 리셋(노이즈성 prob
+출렁임에도 카운트를 통째로 0으로 날림)임을 확인 → 두 가지 조치안을
+원 사례 + 옆차선 오탐 회귀 + 단발 노이즈(유령객체) 오탐 3개 기준으로
+비교 시뮬레이션.
 
-**鍮꾧탳 寃곌낵**:
-- A??dPath in-lane?대㈃ prob/cnt 臾닿? 利됱떆?깅줉): ???щ? 9.66珥?
-  ?욌떦源, ?놁감??李⑤떒 PASS, **?⑤컻 ?몄씠利?1?꾨젅???좊졊媛앹껜) ?ㅽ깘 FAIL**
-  ??58李?踰?濡ㅻ갚 ?ъ쑀(泥닿컧 ?ㅽ깘/flicker)瑜??뺣㈃?쇰줈 ?ㅼ슦??諛⑺뼢?대씪 湲곌컖.
-- **B??prob<0.35 ?⑤룆?쇰줈??由ъ뀑 ???? dRel/dPath jitter쨌dPath ?덈?媛?
-  寃뚯씠?몃쭔 由ъ뀑 ?ъ쑀濡??좎?, CNT_GATE=10 洹몃?濡? 梨꾪깮**: ???щ? 9.20珥?
-  ?욌떦源(8.1珥?吏???ъ떎???댁냼), ?놁감??李⑤떒 PASS, ?⑤컻 ?몄씠利??ㅽ깘??
-  PASS(0.5珥??곗냽 ?붽뎄媛 洹몃?濡??좎??섎?濡?.
+**비교 결과**:
+- A안(dPath in-lane이면 prob/cnt 무관 즉시등록): 원 사례 9.66초
+  앞당김, 옆차선 차단 PASS, **단발 노이즈(1프레임 유령객체) 오탐 FAIL**
+  — 58차3번 롤백 사유(체감 오탐/flicker)를 정면으로 키우는 방향이라 기각.
+- **B안(prob<0.35 단독으로는 리셋 안 함, dRel/dPath jitter·dPath 절대값
+  게이트만 리셋 사유로 유지, CNT_GATE=10 그대로) 채택**: 원 사례 9.20초
+  앞당김(8.1초 지연 사실상 해소), 옆차선 차단 PASS, 단발 노이즈 오탐도
+  PASS(0.5초 연속 요구가 그대로 유지되므로).
 
-**?ъ슜??寃곗젙**: B?덉쑝濡??⑥튂 吏꾪뻾. ?곸꽭 鍮꾧탳 ?섏튂??FINDINGS.md
-"60李?A ... ?④낵 0" ??ぉ ?ㅼ뿉 ?댁뼱??湲곕줉 ?덉젙(援ы쁽 ?꾨즺 ??媛깆떊).
+**사용자 결정**: B안으로 패치 진행. 상세 비교 수치는 FINDINGS.md
+"60차 A ... 효과 0" 항목 뒤에 이어서 기록 예정(구현 완료 후 갱신).
 
-**?ㅼ쓬(?댁뼱??吏꾪뻾)**: `radard.py` `VisionTrack.update()`??
-`elif self.prob < VISION_TRACK_TENTATIVE_PROB_GATE: reset` 遺꾧린瑜?
-?쒓굅/?꾪솕?섎뒗 ?⑥튂 援ы쁽 ??`git am` 寃利???`C:\dev\patch\` ?꾨떖.
+**다음(이어서 진행)**: `radard.py` `VisionTrack.update()`의
+`elif self.prob < VISION_TRACK_TENTATIVE_PROB_GATE: reset` 분기를
+제거/완화하는 패치 구현 → `git am` 검증 → `C:\dev\patch\` 전달.
 
-## 60李?怨꾩냽5 (泥댄겕?ъ씤????肄붾뱶 蹂寃??놁쓬, ?ㅼ륫 ?쒕??덉씠?섎쭔) ??60李?A ???щ? ?ы쁽 寃利? ?④낵 0 ?뺤씤, ?쒕떇 諛⑺뼢 寃곗젙 ?湲?
+## 60차 계속5 (체크포인트 — 코드 변경 없음, 실측 시뮬레이션만) — 60차 A 원 사례 재현 검증: 효과 0 확인, 튜닝 방향 결정 대기
 
-**諛곌꼍**: ?ъ슜?먭? 60李?A(`a75c5cc`)瑜?58李?踰덉쓣 珥됰컻?덈뜕 ???щ?
-(route `a3a55cb808--10`, ?뺤껜援ш컙 ?뺤??욎감 誘몄씤?? t=4301~4312) 濡쒓렇濡?
-吏곸젒 ?쒕??덉씠???붿껌.
+**배경**: 사용자가 60차 A(`a75c5cc`)를 58차3번을 촉발했던 원 사례
+(route `a3a55cb808--10`, 정체구간 정지앞차 미인식, t=4301~4312) 로그로
+직접 시뮬레이션 요청.
 
-**?묒뾽**: `extract_modelv2_leads.py`(?좉퇋, work/ ?ㅽ겕?섏튂)濡?modelV2
-leadsV3[0] ?꾨젅??prob/dRel/dPath, Track.d_path? ?숈씪 ?먮━濡?md.position
-蹂닿컙) 1200??異붿텧 ??`a75c5cc`??`VisionTrack.update()` tentative 遺꾧린瑜?
-?쒖닔?⑥닔濡??ы쁽???ъ깮.
+**작업**: `extract_modelv2_leads.py`(신규, work/ 스크래치)로 modelV2
+leadsV3[0] 프레임(prob/dRel/dPath, Track.d_path와 동일 원리로 md.position
+보간) 1200행 추출 → `a75c5cc`의 `VisionTrack.update()` tentative 분기를
+순수함수로 재현해 재생.
 
-**?듭떖 寃곌낵**: ?????щ??먯꽌 ?⑥튂 ?????щ벑濡??쒓컖 **?꾩쟾 ?숈씪**
-(0珥??욌떦源) ??tentative 寃쎈줈 諛쒕룞 ?먯껜媛 ???? ?먯씤? ?좎떎 9.7珥?
-援ш컙?먯꽌 `tentative_cnt`媛 理쒕? 3源뚯?留??꾨떖(`CNT_GATE=10` ?꾩슂),
-由ъ뀑 3???꾨? `prob<0.35` ?섑븳(dPath 寃뚯씠???꾨떂)濡??명븳 寃???modelV2
-prob媛 ??援ш컙?먯꽌 愿묐쾾?꾪븯寃??쒕쪟??tentative_cnt媛 ?볦씪 ?덇? ?놁쓬.
-?곸꽭??FINDINGS.md "[NEEDS_VALIDATION] 60李?A ... ?④낵 0" ??ぉ 李멸퀬.
+**핵심 결과**: 이 원 사례에서 패치 전/후 재등록 시각 **완전 동일**
+(0초 앞당김) — tentative 경로 발동 자체가 안 됨. 원인은 유실 9.7초
+구간에서 `tentative_cnt`가 최대 3까지만 도달(`CNT_GATE=10` 필요),
+리셋 3회 전부 `prob<0.35` 하한(dPath 게이트 아님)로 인한 것 — modelV2
+prob가 이 구간에서 광범위하게 표류해 tentative_cnt가 쌓일 새가 없음.
+상세는 FINDINGS.md "[NEEDS_VALIDATION] 60차 A ... 효과 0" 항목 참고.
 
-**?⑥쓽**: ?⑹꽦寃利?5嫄?PASS???꾨? ?댁긽???쒕굹由ъ삤?怨? ?먮옒 臾몄젣
-?щ?濡쒕뒗 ?대쾲??泥??ㅼ륫 寃利앹씤??CNT_GATE=10???ъ떎??諛쒕룞 遺덇? ?섏?.
-?놁감???ㅽ깘 李⑤떒(dPath 寃뚯씠?? ?④낵??蹂꾧컻濡??좏슚??媛?μ꽦 ?덉쓬.
+**함의**: 합성검증 5건 PASS는 전부 이상적 시나리오였고, 원래 문제
+사례로는 이번이 첫 실측 검증인데 CNT_GATE=10이 사실상 발동 불가 수준.
+옆차선 오탐 차단(dPath 게이트) 효과는 별개로 유효할 가능성 있음.
 
-**?ㅼ쓬(?ъ슜??寃곗젙 ?湲? 理쒖슦??**:
-1. `CNT_GATE` ?섑뼢(10??~5) ?쒕??덉씠???ш?利?
-2. `prob<0.35` ?섎뱶由ъ뀑??decay 諛⑹떇?쇰줈 蹂寃?寃??
-3. `PROB_GATE` ?섑븳(0.35) ?먯껜 ?섑뼢 寃??媛??怨듦꺽?? ?ㅽ깘 由ъ뒪????
-4. ?먮뒗 ???щ? 媛쒖꽑? 蹂대쪟?섍퀬 ?꾩옱 ?⑥튂(`a75c5cc`) 洹몃?濡??ㅼ감 寃利?
-   吏꾪뻾(?놁감???ㅽ깘 李⑤떒 ?④낵留??뺤씤)
+**다음(사용자 결정 대기, 최우선)**:
+1. `CNT_GATE` 하향(10→3~5) 시뮬레이션 재검증
+2. `prob<0.35` 하드리셋을 decay 방식으로 변경 검토
+3. `PROB_GATE` 하한(0.35) 자체 하향 검토(가장 공격적, 오탐 리스크 큼)
+4. 또는 이 사례 개선은 보류하고 현재 패치(`a75c5cc`) 그대로 실차 검증
+   진행(옆차선 오탐 차단 효과만 확인)
 
-58李?踰?濡ㅻ갚(?ㅼ＜??泥닿컧 ?ㅽ깘) ?꾨?媛 ?덉뼱 1~3踰덉? ?ㅽ깘 由ъ뒪???좎쨷??
-?먮떒 ?꾩슂. **肄붾뱶 蹂寃??놁쓬, ?몄뀡 醫낅즺 ?꾨떂.**
+58차3번 롤백(실주행 체감 오탐) 전례가 있어 1~3번은 오탐 리스크 신중히
+판단 필요. **코드 변경 없음, 세션 종료 아님.**
 
-## 60李?怨꾩냽4 ??A(tentative 議곌린?깅줉) ?ъ꽕怨??⑥튂 ?곸슜/push ?꾨즺 (`a75c5cc`), ?ㅼ감寃利??湲?
+## 60차 계속4 — A(tentative 조기등록) 재설계 패치 적용/push 완료 (`a75c5cc`), 실차검증 대기
 
-**諛곌꼍**: ?뺤??욎감 誘몄씤??臾몄젣(58李?踰?A)瑜??ъ떆?? 58李?踰??꾩냽?섏젙?
-?ㅼ＜??泥닿컧 ?ㅽ깘/遺덊븘?붽컧?띿쑝濡?濡ㅻ갚?먯쑝??FINDINGS.md 李멸퀬), 濡ㅻ갚
-?ъ쑀媛 A(議곌린?깅줉)/B(??뺤떊援ш컙 ?덉쟾痢?蹂댁젙) 以??대뒓 履쎌씤吏 ?뺤젙 紐삵븳
-?곹깭??????대쾲??**B???쒖쇅?섍퀬 A留?* ?ъ떆?? ?먯씤 ?먮퀎?μ쓣 ?꾪빐
-蹂?섎? ?섎굹?⑸쭔 諛붽퓞.
+**배경**: 정지앞차 미인식 문제(58차3번 A)를 재시도. 58차3번+후속수정은
+실주행 체감 오탐/불필요감속으로 롤백됐으나(FINDINGS.md 참고), 롤백
+사유가 A(조기등록)/B(저확신구간 안전측 보정) 중 어느 쪽인지 확정 못한
+상태였음 — 이번엔 **B는 제외하고 A만** 재시도, 원인 판별력을 위해
+변수를 하나씩만 바꿈.
 
-**?ㅺ퀎/援ы쁽** (`radard.py` `VisionTrack`, 而ㅻ컠 `172bb7a`, base `1ac07de`):
-- 湲곗〈 58李?踰?A??dRel jitter(8m) 寃뚯씠?몃쭔?쇰줎 dRel? 鍮꾩듂?섍퀬 dPath留?
-  ?ㅻⅨ ?놁감濡?李⑤웾瑜섎? 紐?嫄몃???媛?μ꽦(58李?踰?seg2 "??킅+?ㅼ감??
-  ?몄젒李⑤웾 ?쇱꽑" ?щ?媛 ???덉젏?댁뿀??寃껋쑝濡?異붿젙) ??dPath 寃뚯씠??2醫?
-  異붽?:
-  1. **?덈?媛?寃뚯씠??*(`VISION_TRACK_TENTATIVE_DPATH_ABS_GATE=1.75m`):
-     `|dPath|`媛 ???댁긽?대㈃(李⑤줈 諛? tentative ?꾨낫 ?먯껜?먯꽌 諛곗젣.
-     jitter 寃뚯씠??媛믪쓽 *蹂??留?媛먯?)? ?щ━, ?놁감濡쒖뿉??**?덉젙?곸쑝濡?
-     ?좎?**?섎뒗 臾쇱껜源뚯? 嫄몃윭?대뒗 寃??듭떖(37李?SCC_FALLBACK_DPATH_GATE
-     =2.0m? ?숈씪 ?먮━).
-  2. **jitter 寃뚯씠??*(`VISION_TRACK_TENTATIVE_DPATH_JITTER=1.5m`):
-     ?꾨젅?꾧컙 dPath 蹂?붾웾 媛먯떆(?ㅻⅨ 臾쇱껜濡??꾪솚 媛먯?), 湲곗〈 dRel
-     jitter(8m)? 蹂묓뻾.
-- `VISION_TRACK_TENTATIVE_MEDIAN_WINDOW=3` ?꾨젅??寃쎈웾 以묒븰媛??꾪꽣瑜?
-  tentative dRel ?먯젙??異붽? ???⑥씪 ?꾨젅???ㅻ깄 ?몄씠利덈줈 jitter 寃뚯씠?멸?
-  遺덊븘?뷀븯寃?由ъ뀑?섎뒗 寃?諛⑹?. ?뺤떇 ?깅줉 ??dRel/vRel 怨꾩궛???곹뼢 ?놁쓬.
+**설계/구현** (`radard.py` `VisionTrack`, 커밋 `172bb7a`, base `1ac07de`):
+- 기존 58차3번 A의 dRel jitter(8m) 게이트만으론 dRel은 비슷하고 dPath만
+  다른 옆차로 차량류를 못 걸렀을 가능성(58차3번 seg2 "역광+다차선
+  인접차량 혼선" 사례가 이 허점이었을 것으로 추정) — dPath 게이트 2종
+  추가:
+  1. **절대값 게이트**(`VISION_TRACK_TENTATIVE_DPATH_ABS_GATE=1.75m`):
+     `|dPath|`가 이 이상이면(차로 밖) tentative 후보 자체에서 배제.
+     jitter 게이트(값의 *변화*만 감지)와 달리, 옆차로에서 **안정적으로
+     유지**되는 물체까지 걸러내는 게 핵심(37차 SCC_FALLBACK_DPATH_GATE
+     =2.0m와 동일 원리).
+  2. **jitter 게이트**(`VISION_TRACK_TENTATIVE_DPATH_JITTER=1.5m`):
+     프레임간 dPath 변화량 감시(다른 물체로 전환 감지), 기존 dRel
+     jitter(8m)와 병행.
+- `VISION_TRACK_TENTATIVE_MEDIAN_WINDOW=3` 프레임 경량 중앙값 필터를
+  tentative dRel 판정에 추가 — 단일 프레임 스냅 노이즈로 jitter 게이트가
+  불필요하게 리셋되는 것 방지. 정식 등록 후 dRel/vRel 계산엔 영향 없음.
 
-**?⑹꽦寃利?* (`devnotes/toolkit/sim_vision_track_a_dpath.py` ?좉퇋,
-5媛??쒕굹由ъ삤 ?꾨? PASS ??`VisionTrack.update()`??tentative 遺꾧린留?
-?쒖닔?⑥닔濡??ы쁽, 湲곗〈 ?몄뀡?ㅺ낵 ?숈씪 諛⑹떇):
-- ?뺤??욎감 議곌린?깅줉 ?좎?(?뚭? ?놁쓬 ?뺤씤, ?꾨젅???먯꽌 ?깅줉)
-- **?놁감??李⑤웾 ?밴꺽 李⑤떒(?듭떖 ?좉퇋)**: dRel? ?뺤??욎감泥섎읆 ?쒖꽌??
-  媛먯냼?섏?留?dPath媛 ?놁감濡??섏?(2.5m)?쇰줈 ?덉젙 ?좎??섎뒗 耳?댁뒪 ??
-  1李??ㅺ퀎(dPath jitter 寃뚯씠?몃쭔)?먯꽑 FAIL(?밴꺽 ?듦낵)?댁뿀?쇰굹, ?덈?媛?
-  寃뚯씠??異붽? ??200?꾨젅?꾧컙 ?깅줉 0?뚮줈 ?뺤떎??李⑤떒 ?뺤씤.
-- dPath ?붾룞(?ㅼ쨷 臾쇱껜 ?쇱꽑) ?ㅼ씤?밴꺽 諛⑹?
-- 以묒븰媛믫븘?곌? ?⑥씪 ?꾨젅???ㅻ깄???≪닔(遺덊븘?뷀븳 由ъ뀑 諛⑹?) ?뺤씤
-- ?prob(0.2, TENTATIVE_PROB_GATE 諛? ?뚭? ?놁쓬
+**합성검증** (`devnotes/toolkit/sim_vision_track_a_dpath.py` 신규,
+5개 시나리오 전부 PASS — `VisionTrack.update()`의 tentative 분기만
+순수함수로 재현, 기존 세션들과 동일 방식):
+- 정지앞차 조기등록 유지(회귀 없음 확인, 프레임9에서 등록)
+- **옆차선 차량 승격 차단(핵심 신규)**: dRel은 정지앞차처럼 서서히
+  감소하지만 dPath가 옆차로 수준(2.5m)으로 안정 유지되는 케이스 —
+  1차 설계(dPath jitter 게이트만)에선 FAIL(승격 통과)이었으나, 절대값
+  게이트 추가 후 200프레임간 등록 0회로 확실히 차단 확인.
+- dPath 요동(다중 물체 혼선) 오인승격 방지
+- 중앙값필터가 단일 프레임 스냅을 흡수(불필요한 리셋 방지) 확인
+- 저prob(0.2, TENTATIVE_PROB_GATE 밑) 회귀 없음
 
-**?꾨떖/?곸슜**: `0002-60-A-tentative-dPath-jitter-dRel-B.patch`瑜?
-?ъ슜???꾩옱 HEAD(`d7c2b0d`, 60李?怨꾩냽3??v_lead ?⑥튂 ?곸슜 ?댄썑) ?꾩뿉??
-`git am` 寃利?+ `py_compile` ?듦낵 ?뺤씤 ???꾨떖. **?ъ슜?먭? `C:\dev\ryu`
-?먯꽌 `git am` ?곸슜 + `git push origin c3-ms-dev` ?꾨즺 ?뺤씤** ??
+**전달/적용**: `0002-60-A-tentative-dPath-jitter-dRel-B.patch`를
+사용자 현재 HEAD(`d7c2b0d`, 60차 계속3의 v_lead 패치 적용 이후) 위에서
+`git am` 검증 + `py_compile` 통과 확인 후 전달. **사용자가 `C:\dev\ryu`
+에서 `git am` 적용 + `git push origin c3-ms-dev` 완료 확인** —
 `d7c2b0d..a75c5cc`.
 
-**?ㅼ쓬(理쒖슦?? ?ㅼ감)**:
-1. ?뺤??욎감 議곌린?몄떇 ?ㅼ젣濡??욌떦寃⑥??붿? (58李?踰???紐⑹쟻 ?ъ꽦 ?щ?)
-2. ?놁감濡???킅 ?곹솴?먯꽌 ?ㅽ깘 ?щ컻 ?щ? (58李?踰?seg2瑜??ы쁽 ????
-   ?대쾲???덈?媛?寃뚯씠?몃줈 李⑤떒?먯뼱???? ?ㅼ감濡??ы솗??
-3. **?뚭? 寃利?*: ?쇰컲 二쇳뻾?먯꽌 ?덇린移??딆? 蹂???녿뒗吏
-4. ?듦낵 ??B(??뺤떊援ш컙 ?덉쟾痢?蹂댁젙) ?щ룄???щ? ?쇱쓽 ???대쾲??A
-   ?⑤룆?쇰줈 ?ㅽ깘 ?놁씠 ?듦낵?섎뒗吏遺???뺤씤 ??寃곗젙
+**다음(최우선, 실차)**:
+1. 정지앞차 조기인식 실제로 앞당겨지는지 (58차3번 원 목적 달성 여부)
+2. 옆차로/역광 상황에서 오탐 재발 여부 (58차3번 seg2류 재현 시 —
+   이번엔 절대값 게이트로 차단됐어야 함, 실차로 재확인)
+3. **회귀 검증**: 일반 주행에서 예기치 않은 변화 없는지
+4. 통과 시 B(저확신구간 안전측 보정) 재도입 여부 논의 — 이번엔 A
+   단독으로 오탐 없이 통과하는지부터 확인 후 결정
 
-## 60李?怨꾩냽3 ???⑥튂 ?곸슜/push ?꾨즺 ?뺤씤 (`d7c2b0d`), cutin(--5) ?좉퇋?깅줉 寃뚯씠??而⑦뀒?대꼫 ?ы쁽 寃利??꾨즺
+## 60차 계속3 — 패치 적용/push 완료 확인 (`d7c2b0d`), cutin(--5) 신규등록 게이트 컨테이너 재현 검증 완료
 
-**?곸슜 ?뺤씤**: ?ъ슜?먭? `C:\dev\ryu`?먯꽌 `git am 0001-60-58-1-v_lead.patch`
-+ `git push origin c3-ms-dev` ?꾨즺. ?먭꺽 `c3-ms-dev` HEAD: `1ac07de..d7c2b0d`.
+**적용 확인**: 사용자가 `C:\dev\ryu`에서 `git am 0001-60-58-1-v_lead.patch`
++ `git push origin c3-ms-dev` 완료. 원격 `c3-ms-dev` HEAD: `1ac07de..d7c2b0d`.
 
-**cutin(--5) 寃뚯씠???쒕??덉씠??寃利?* (而⑦뀒?대꼫?먯꽌 route
-`ee004b2c19--5` ??60李⑥뿉???대? 遺꾩꽍?덈뜕 洹?route ??CSV濡???寃뚯씠??
-濡쒖쭅留??ы쁽, 肄붾뱶 蹂寃??놁쓬):
-- t=408.136: 由щ뱶 ?좉퇋 ?깅줉(prob=0.509 ?깃구??, `_lead_acq_timer`=0 ?쒖옉
-- t=408.136~409.585(??.449s): vision-only(radar=False) 援ш컙 ??60李⑥뿉??
-  ?뺤씤??dRel catch-up(65.7m??4.0m) ?ㅼ뿼 援ш컙怨??뺥솗???쇱튂. ??援ш컙
-  `suppressed=True`(?좉퇋?깅줉 寃뚯씠??1.5s ?대궡)濡?58李? v_lead 吏곸젒蹂댁젙??
-  ?듭젣???뺤씤.
-- t=409.637: ?덉씠???쎌삩(dRel=11.6m), ???쒖젏 acq_timer=1.501s濡??듭젣
-  ?댁젣 ?????쎌삩 ?댄썑??radar=True????蹂댁젙 ?먯껜媛 ?곸슜 ???섎뒗
-  援ш컙?대씪 臾닿?.
-- **寃곕줎**: ?ㅺ퀎 ??異붿젙??`NEW_LEAD_VLEAD_CORRECTION_SUPPRESS_S=1.5s`媛
-  ???ㅼ젣 濡쒓렇??vision-only 吏?띿떆媛?1.449s)怨?嫄곗쓽 ?뺥솗???쇱튂 ??
-  ?좉퇋?깅줉 寃뚯씠?멸? ??cutin ?щ???痍⑥빟援ш컙 ?꾩껜瑜?而ㅻ쾭?⑥쓣 ?뺤씤.
-- 李멸퀬: ??route???ㅼ륫 `aEgo` 理쒖?媛?-2.75m/s짼, t=410.38)??60李???
-  湲곕줉(-2.79)怨?嫄곗쓽 ?쇱튂 ??**??濡쒓렇 ?먯껜???⑥튂 ?곸슜 ???곹깭?먯꽌
-  ?뱁솕??寃?*(臾몄젣 ?ы쁽 濡쒓렇, ?대쾲 ?몄뀡 ?쒕??덉씠?섏? 寃뚯씠??濡쒖쭅留?
-  肄붾뱶 諛뽰뿉???ы쁽 寃利앺븳 寃껋씠吏 ?ㅼ젣 ?⑥튂 ?곸슜 ???ъ＜?됱씠 ?꾨떂)?꾩뿉
-  ?좎쓽. ?ㅼ젣 ?⑥튂 ?곸슜 ??媛먯냽 ?꾪솕 ?щ????ъ쟾???ㅼ감 ?ы쁽 ?꾩슂.
+**cutin(--5) 게이트 시뮬레이션 검증** (컨테이너에서 route
+`ee004b2c19--5` — 60차에서 이미 분석했던 그 route — CSV로 새 게이트
+로직만 재현, 코드 변경 없음):
+- t=408.136: 리드 신규 등록(prob=0.509 턱걸이), `_lead_acq_timer`=0 시작
+- t=408.136~409.585(≈1.449s): vision-only(radar=False) 구간 — 60차에서
+  확인한 dRel catch-up(65.7m→24.0m) 오염 구간과 정확히 일치. 전 구간
+  `suppressed=True`(신규등록 게이트 1.5s 이내)로 58차1 v_lead 직접보정이
+  억제됨 확인.
+- t=409.637: 레이더 락온(dRel=11.6m), 이 시점 acq_timer=1.501s로 억제
+  해제 — 단 락온 이후는 radar=True라 이 보정 자체가 적용 안 되는
+  구간이라 무관.
+- **결론**: 설계 시 추정한 `NEW_LEAD_VLEAD_CORRECTION_SUPPRESS_S=1.5s`가
+  이 실제 로그의 vision-only 지속시간(1.449s)과 거의 정확히 일치 —
+  신규등록 게이트가 이 cutin 사례의 취약구간 전체를 커버함을 확인.
+- 참고: 이 route의 실측 `aEgo` 최저값(-2.75m/s², t=410.38)이 60차 원
+  기록(-2.79)과 거의 일치 — **이 로그 자체는 패치 적용 전 상태에서
+  녹화된 것**(문제 재현 로그, 이번 세션 시뮬레이션은 게이트 로직만
+  코드 밖에서 재현 검증한 것이지 실제 패치 적용 후 재주행이 아님)임에
+  유의. 실제 패치 적용 후 감속 완화 여부는 여전히 실차 재현 필요.
 
-**?ㅼ쓬(理쒖슦?? ?ㅼ감)**:
-1. cutin(--5瑜? ?ㅼ젣 ?ы쁽 ??湲됯컧???꾪솕?섎뒗吏 (?⑥튂 ?곸슜 ???ъ＜??
-2. 李⑥꽑蹂寃?--12瑜? ?ㅼ젣 ?ы쁽 ??湲됯컧???꾪솕?섎뒗吏
-3. **媛??以묒슂 ???뚭? 寃利?*: ?뺤긽 異붿쥌(鍮꾩랬???곹솴, ?좉퇋?깅줉 1.5s+
-   寃쎄낵 & 鍮꾩감?좊?寃??먯꽌 58李? ?먮옒 ?④낵(?먭굅由?諛섏쓳 媛뺥솕)媛 洹몃?濡?
-   ?좎??섎뒗吏, 遺덊븘?뷀븯寃?議곗뿬吏吏 ?딅뒗吏
-4. cutin(--5)/李⑥꽑蹂寃?--17) ?먮낯 濡쒓렇濡??좉퇋?깅줉 寃뚯씠??1.5s)/hold(1.0s)
-   媛??먯껜???ㅼ륫 ?ъ“???ъ? 怨꾩냽 ?뺤씤 (--5???대쾲???ы솗?명뻽?쇰굹 ?ㅻⅨ
-   ?쒕낯???덉쑝硫?異붽? 寃利?
+**다음(최우선, 실차)**:
+1. cutin(--5류) 실제 재현 시 급감속 완화되는지 (패치 적용 후 재주행)
+2. 차선변경(--12류) 실제 재현 시 급감속 완화되는지
+3. **가장 중요 — 회귀 검증**: 정상 추종(비취약 상황, 신규등록 1.5s+
+   경과 & 비차선변경)에서 58차1 원래 효과(원거리 반응 강화)가 그대로
+   유지되는지, 불필요하게 조여지지 않는지
+4. cutin(--5)/차선변경(--17) 원본 로그로 신규등록 게이트(1.5s)/hold(1.0s)
+   값 자체의 실측 재조정 여지 계속 확인 (--5는 이번에 재확인했으나 다른
+   표본도 있으면 추가 검증)
 
-## 60李?怨꾩냽2 ??58李? v_lead 吏곸젒蹂댁젙, ?꾩뿭 ?ㅼ쐞移????"痍⑥빟 ?쒕굹由ъ삤 ?쒖젙 ?좎삁" 諛⑹떇?쇰줈 ?ъ꽕怨꽷룻뙣移??꾨즺 (?ㅼ감寃利??湲?
+## 60차 계속2 — 58차1 v_lead 직접보정, 전역 스위치 대신 "취약 시나리오 한정 유예" 방식으로 재설계·패치 완료 (실차검증 대기)
 
-**諛곌꼍**: ?ъ슜?먭? ?댁쟾 泥댄겕?ъ씤?몄쓽 ?꾩뿭 ?ъ뒪?꾩튂(`VLEAD_DIRECT_
-CORRECTION_ENABLED`) 諛⑹떇??紐낆떆?곸쑝濡?嫄곕? ??"58李?/2???꾨컲?곸쑝濡?
-醫뗭쑝??洹몃?濡??먭퀬, cutin/李⑥꽑蹂寃??곹솴?먯꽌留??⑥튂 ?댁쟾 濡쒖쭅??
-?곸슜?섍쾶" ?붿껌. ?꾩뿭 on/off媛 ?꾨땲??**?쒕굹由ъ삤 ?쒖젙 ?좎삁**濡??ъ꽕怨?
+**배경**: 사용자가 이전 체크포인트의 전역 킬스위치(`VLEAD_DIRECT_
+CORRECTION_ENABLED`) 방식을 명시적으로 거부 — "58차1/2는 전반적으로
+좋으니 그대로 두고, cutin/차선변경 상황에서만 패치 이전 로직이
+적용되게" 요청. 전역 on/off가 아니라 **시나리오 한정 유예**로 재설계.
 
-**?ㅺ퀎**: 58李???`measured_v_lead` 蹂댁젙 肄붾뱶 ?먯껜??洹몃?濡??먭퀬,
-`process_lead()`???섍린??`vision_dRel_rate` ?몄옄瑜??꾨옒 ??議곌굔 以?
-?섎굹?쇰룄 ?대떦?섎㈃ `None`?쇰줈 ?꾨떖(=?⑥튂 ?댁쟾怨??숈씪?섍쾶 `lead.vLead`
-洹몃?濡??ъ슜)?섎룄濡?`vision_rate_for_lead0` 怨꾩궛遺留??섏젙:
-1. **?좉퇋 由щ뱶 ?깅줉 ??`NEW_LEAD_VLEAD_CORRECTION_SUPPRESS_S=1.5s`
-   ?대궡** (`_lead_acq_timer` 湲곗?) ??cutin瑜?--5) catch-up 援ш컙 而ㅻ쾭.
-   60李???遺꾩꽍?먯꽌 ?깅줉~?ㅼ뿼 愿痢?援ш컙??0.45~1.44s??쇰?濡?1.5s硫?
-   異⑸텇????쓬(NEEDS_VALIDATION, ?ㅼ륫 ?ы솗????議곗젙 ?ъ?).
-2. **李⑥꽑蹂寃?議곗옉 以?*(`leftBlinker`/`rightBlinker` 以??섎굹?쇰룄 True)
-   **+ 醫낅즺 ??`LANE_CHANGE_VLEAD_CORRECTION_HOLD_S=1.0s` hold** ??
-   李⑥꽑蹂寃?--17/--12) 耳?댁뒪 而ㅻ쾭. blinker??`longitudinal_planner.py`
-   `update()`?먯꽌 `sm['carState']`濡쒕???戮묒븘 `mpc.update()`???좉퇋
-   ?뚮씪誘명꽣(`lane_change_blinker_active`)濡??꾨떖.
-- ??議곌굔 紐⑤몢 諛??뺤긽 異붿쥌, ?좉퇋?깅줉 1.5s 寃쎄낵+鍮꾩감?좊?寃??먯꽌??
-  58李????⑥튂 ?곸슜 ?뱀떆? 100% ?숈씪?섍쾶 ?묐룞 ??frac_rate floor(26李?
-  ??濡쒖쭅)????蹂寃쎄낵 臾닿??섍쾶 洹몃?濡??좎?.
+**설계**: 58차1의 `measured_v_lead` 보정 코드 자체는 그대로 두고,
+`process_lead()`에 넘기는 `vision_dRel_rate` 인자를 아래 두 조건 중
+하나라도 해당하면 `None`으로 전달(=패치 이전과 동일하게 `lead.vLead`
+그대로 사용)하도록 `vision_rate_for_lead0` 계산부만 수정:
+1. **신규 리드 등록 후 `NEW_LEAD_VLEAD_CORRECTION_SUPPRESS_S=1.5s`
+   이내** (`_lead_acq_timer` 기준) — cutin류(--5) catch-up 구간 커버.
+   60차 원 분석에서 등록~오염 관측 구간이 0.45~1.44s였으므로 1.5s면
+   충분히 덮음(NEEDS_VALIDATION, 실측 재확인 시 조정 여지).
+2. **차선변경 조작 중**(`leftBlinker`/`rightBlinker` 중 하나라도 True)
+   **+ 종료 후 `LANE_CHANGE_VLEAD_CORRECTION_HOLD_S=1.0s` hold** —
+   차선변경(--17/--12) 케이스 커버. blinker는 `longitudinal_planner.py`
+   `update()`에서 `sm['carState']`로부터 뽑아 `mpc.update()`에 신규
+   파라미터(`lane_change_blinker_active`)로 전달.
+- 두 조건 모두 밖(정상 추종, 신규등록 1.5s 경과+비차선변경)에서는
+  58차1이 패치 적용 당시와 100% 동일하게 작동 — frac_rate floor(26차
+  원 로직)도 이 변경과 무관하게 그대로 유지.
 
-**寃利?*: route `ee004b2c19--12`(?대쾲 3踰덉㎏ ?щ?) CSV濡???寃뚯씠??
-濡쒖쭅留?蹂꾨룄 ?ы쁽(work/ ?ㅽ겕?섏튂) ??臾몄젣 援ш컙(t=816.98~817.44) ?꾩껜?먯꽌
-`suppressed=True`(blinker ?쒖꽦)濡??뺤긽 ?듭젣 ?뺤씤. **cutin(--5)/李⑥꽑蹂寃?
-(--17) ???먮낯 濡쒓렇???대쾲 ?몄뀡???놁뼱(怨쇨굅 ?몄뀡 ?곗텧臾? 而⑦뀒?대꼫
-濡쒖뺄 誘몃낫議? ?ш?利?紐삵븿** ???좉퇋?깅줉 寃뚯씠??1.5s)??60李???遺꾩꽍??
-??대컢 湲곕줉?쇰줈 而ㅻ쾭 媛?μ꽦留?異붿젙, ?ㅼ륫 ?ш?利??꾩슂.
+**검증**: route `ee004b2c19--12`(이번 3번째 사례) CSV로 새 게이트
+로직만 별도 재현(work/ 스크래치) — 문제 구간(t=816.98~817.44) 전체에서
+`suppressed=True`(blinker 활성)로 정상 억제 확인. **cutin(--5)/차선변경
+(--17) 두 원본 로그는 이번 세션에 없어(과거 세션 산출물, 컨테이너
+로컬 미보존) 재검증 못함** — 신규등록 게이트(1.5s)는 60차 원 분석의
+타이밍 기록으로 커버 가능성만 추정, 실측 재검증 필요.
 
-**?꾨떖**: `0001-60-58-1-v_lead.patch`(base `1ac07de`) ?앹꽦,
-`git am` 寃利?temp branch) + `py_compile` ?듦낵 ?뺤씤 ???꾨떖.
+**전달**: `0001-60-58-1-v_lead.patch`(base `1ac07de`) 생성,
+`git am` 검증(temp branch) + `py_compile` 통과 확인 후 전달.
 
-**?ㅼ쓬 ?④퀎(理쒖슦??**:
-1. ?ㅼ감 寃利? (a) ?대쾲 --12瑜?李⑥꽑蹂寃??ы쁽 ??湲됯컧???꾪솕?섎뒗吏,
-   (b) cutin(--5)瑜??ы쁽 媛?ν븯硫??좉퇋?깅줉 寃뚯씠?몃룄 ?④퍡 ?뺤씤,
-   (c) **?뚭? 寃利??꾩닔** ???뺤긽 異붿쥌(鍮꾩감?좊?寃? ?좉퇋?깅줉 1.5s+
-   寃쎄낵) ?곹솴?먯꽌 58李? ?먮옒 ?④낵(?먭굅由?諛섏쓳 媛뺥솕)媛 洹몃?濡?
-   ?좎??섎뒗吏.
-2. cutin(--5)/李⑥꽑蹂寃?--17) ?먮낯 濡쒓렇 ?ы솗蹂????대쾲 寃뚯씠??濡쒖쭅?쇰줈
-   ?ъ떆裕щ젅?댁뀡(?좉퇋?깅줉 1.5s 寃뚯씠???ㅼ륫 議곗젙 ?ъ? ?뺤씤).
+**다음 단계(최우선)**:
+1. 실차 검증: (a) 이번 --12류 차선변경 재현 시 급감속 완화되는지,
+   (b) cutin(--5)류 재현 가능하면 신규등록 게이트도 함께 확인,
+   (c) **회귀 검증 필수** — 정상 추종(비차선변경, 신규등록 1.5s+
+   경과) 상황에서 58차1 원래 효과(원거리 반응 강화)가 그대로
+   유지되는지.
+2. cutin(--5)/차선변경(--17) 원본 로그 재확보 시 이번 게이트 로직으로
+   재시뮬레이션(신규등록 1.5s 게이트 실측 조정 여지 확인).
 3. `LANE_CHANGE_VLEAD_CORRECTION_HOLD_S`/`NEW_LEAD_VLEAD_CORRECTION_
-   SUPPRESS_S` 媛??먯껜???ㅺ퀎 異붿젙移????ㅼ감 諛섏쓳 蹂닿퀬 ?쒕떇 ?꾩슂.
+   SUPPRESS_S` 값 자체는 설계 추정치 — 실차 반응 보고 튜닝 필요.
 
-## 60李?怨꾩냽 (泥댄겕?ъ씤????肄붾뱶 蹂寃??놁쓬, 遺꾩꽍留? ??李⑥꽑蹂寃?湲됯컧??3踰덉㎏ ?щ? ?ы쁽, 濡ㅻ갚 ?뚯뒪??諛⑹븞 ?덈궡
+## 60차 계속 (체크포인트 — 코드 변경 없음, 분석만) — 차선변경 급감속 3번째 사례 재현, 롤백 테스트 방안 안내
 
-**諛곌꼍**: 60李?cutin/cutout 湲됯컧??NEEDS_VALIDATION, FINDINGS.md 60李?
-??ぉ)???댁뼱, ?ъ슜?먭? 3踰덉㎏ ?щ?(`?댁감_李⑥꽑蹂寃?zip`, route
-`ee004b2c19--12`, ?먯감 ?곗륫 李⑥꽑蹂寃?以??놁감???앹떆??硫?댁??붾뜲
-湲됯컧??aEgo -1.82m/s짼)瑜??쒕낫. 遺꾩꽍 寃곌낵 60李⑥? ?숈씪??硫붿빱?덉쬁
-(vision-only 援ш컙???ㅼ쨷 ?꾨젅??dRel catch-up??58李?
-`measured_v_lead` 吏곸젒 蹂댁젙???ㅼ뿼 ???쎌삩 ?쒖젏 dRel ?ㅻ깄怨?寃고빀??
-怨쇱엵媛먯냽) 3踰덉㎏ ?낅┰ ?ы쁽 ?뺤씤. ?곸꽭??FINDINGS.md "60李?怨꾩냽" ??ぉ
-李멸퀬. **肄붾뱶 蹂寃??놁쓬.**
+**배경**: 60차(cutin/cutout 급감속 NEEDS_VALIDATION, FINDINGS.md 60차
+항목)에 이어, 사용자가 3번째 사례(`내차_차선변경.zip`, route
+`ee004b2c19--12`, 자차 우측 차선변경 중 옆차선 택시는 멀어지는데
+급감속 aEgo -1.82m/s²)를 제보. 분석 결과 60차와 동일한 메커니즘
+(vision-only 구간의 다중 프레임 dRel catch-up이 58차1
+`measured_v_lead` 직접 보정을 오염 → 락온 시점 dRel 스냅과 결합해
+과잉감속) 3번째 독립 재현 확인. 상세는 FINDINGS.md "60차 계속" 항목
+참고. **코드 변경 없음.**
 
-**?ъ슜???붿껌**: cutin(--5)/李⑥꽑蹂寃?--17/--12) ?곹솴??"?⑥튂 ?댁쟾
-?④퀎"濡??섎룎??58李?(v_lead 吏곸젒蹂댁젙)??吏꾩쭨 ?먯씤?몄? 寃⑸━ ?뚯뒪?명븯??
-諛⑹븞 臾몄쓽 ????붿갹?먯꽌 吏곸젒 ?덈궡(git 釉뚮옖移?遺꾨━濡?58李?留?寃⑸━,
-58李? ???override???좎??섎뒗 ?뚯뒪??釉뚮옖移?諛⑹떇 沅뚭퀬). ?ㅼ젣 釉뚮옖移?
-?앹꽦/?⑥튂 ?묒뾽? ?ъ슜???뺤씤 ???ㅼ쓬 ?④퀎?먯꽌 吏꾪뻾.
+**사용자 요청**: cutin(--5)/차선변경(--17/--12) 상황을 "패치 이전
+단계"로 되돌려 58차1(v_lead 직접보정)이 진짜 원인인지 격리 테스트하는
+방안 문의 — 대화창에서 직접 안내(git 브랜치 분리로 58차1만 격리,
+58차2 저속 override는 유지하는 테스트 브랜치 방식 권고). 실제 브랜치
+생성/패치 작업은 사용자 확인 후 다음 단계에서 진행.
 
-**?ㅼ쓬 ?④퀎**:
-1. ?ъ슜?먭? 寃⑸━ ?뚯뒪??諛⑺뼢(58李?留??섎룎由??꾩떆 釉뚮옖移? ?뺤젙?섎㈃
-   ?⑥튂 ?묒꽦 ??`C:\dev\patch\`???꾨떖.
-2. ?뚯뒪??釉뚮옖移섎줈 ?щ뱶?쇱씠釉? ?숈씪 3媛?route ?곹솴 ?ы쁽 ??媛먯냽 媛뺣룄
-   鍮꾧탳.
-3. 媛쒖꽑 ?뺤씤?섎㈃ ?뺤떇 ?⑥튂 ?ㅺ퀎(FINDINGS.md 60李?怨꾩냽 "?ㅼ쓬 ?④퀎"
-   1/2踰?李멸퀬) 李⑹닔.
+**다음 단계**:
+1. 사용자가 격리 테스트 방향(58차1만 되돌린 임시 브랜치) 확정하면
+   패치 작성 → `C:\dev\patch\`에 전달.
+2. 테스트 브랜치로 재드라이브, 동일 3개 route 상황 재현 시 감속 강도
+   비교.
+3. 개선 확인되면 정식 패치 설계(FINDINGS.md 60차 계속 "다음 단계"
+   1/2번 참고) 착수.
 
-## 59李?(泥댄겕?ъ씤????肄붾뱶 蹂寃??놁쓬, ?ㅺ퀎 ?쇱쓽留? ??移대찓???몄떇??媛쒖꽑 諛⑺뼢 ?쇱쓽
+## 59차 (체크포인트 — 코드 변경 없음, 설계 논의만) — 카메라 인식율 개선 방향 논의
 
-**諛곌꼍**: 58李?踰?A+B) 濡ㅻ갚 ?댄썑 "移대찓???몄떇?⑥쓣 ?믪씠??諛⑸쾿"???ъ슜?먭?
-吏덈Ц ??`radard.py VisionTrack`/`long_mpc.py` vision closing-rate 愿??
-肄붾뱶瑜??ㅼ떆 ?쎄퀬 ?꾩옱 援ъ“(?깅줉: prob>0.5 / ?좊ː?곸듅: cnt>=10 & prob>=0.70
-?꾧퉴吏??modelV2 ?덉륫移섎쭔 ?ъ슜 / MPC ?? ?대옩??以묒븰媛????넻怨?
-closing-rate 寃뚯씠??+ 58李?踰?v_lead 吏곸젒蹂댁젙) ?ㅻ챸 ?꾨즺.
+**배경**: 58차3번(A+B) 롤백 이후 "카메라 인식율을 높이는 방법"을 사용자가
+질문 → `radard.py VisionTrack`/`long_mpc.py` vision closing-rate 관련
+코드를 다시 읽고 현재 구조(등록: prob>0.5 / 신뢰상승: cnt>=10 & prob>=0.70
+전까지는 modelV2 예측치만 사용 / MPC 단: 클램프+중앙값+저역통과
+closing-rate 게이트 + 58차1번 v_lead 직접보정) 설명 완료.
 
-**58李?踰?濡ㅻ갚 援먰썕??諛섏쁺??媛쒖꽑 諛⑺뼢 3媛??쒖븞(肄붾뱶 誘몄갑?? ?ъ슜??
-寃곗젙 ?湲?**:
-1. **?좊ː???꾪솚???대텇踰뺤씠 ?꾨땲???곗냽?곸쑝濡?* ???꾩옱 cnt/prob 寃뚯씠?멸?
-   "紐⑤뜽?덉륫 100% vs ?ㅼ륫釉붾젋?? ?대텇踰?`VISION_TRACK_CNT_GATE`/
-   `VISION_TRACK_PROB_GATE`)?몃뜲, ?닿구 prob ?곸듅??鍮꾨????쒖꽌??
-   ?ㅼ륫 dRel誘몃텇 鍮꾩쨷???섎━???곗냽 媛以묒튂濡??ъ꽕怨?
-2. **dPath(李⑥꽑 ?鍮??꾩튂) 寃뚯씠?몃? VisionTrack ?깅줉/?좊ː?곸듅 議곌굔??
-   ?ы븿** ??37李??놁감??SCC ?대갚 臾몄젣? ?좎궗???먮━濡? dPath媛 湲됰??섎㈃
-   (?ㅻⅨ 臾쇱껜濡??꾪솚 ?섏떖) ?좊ː?곸듅 由ъ뀑. 58李?踰?A?덉씠 seg2?먯꽌
-   "??킅+?몄젒李⑤웾 ?쇱꽑"?쇰줈 ?ㅽ깘???щ?瑜?援ъ“?곸쑝濡?以꾩씠??紐⑹쟻.
-3. **VisionTrack ?먯껜(radard.py)?먮룄 寃쎈웾 ?몄씠利??꾪꽣 異붽?** ???꾩옱
-   ?대옩??以묒븰媛??꾪꽣??long_mpc.py?먮쭔 ?덇퀬 radard.py dRel 誘몃텇??
-   ?놁쓬. ?깅줉 珥덇린(cnt<10)?먮룄 吏㏃? 以묒븰媛??꾪꽣瑜??ｌ뼱 議곌린?깅줉
-   ?ъ떆?????ㅻ깄 ?몄씠利??ㅽ깘 ?듭젣.
+**58차3번 롤백 교훈을 반영한 개선 방향 3개 제안(코드 미착수, 사용자
+결정 대기)**:
+1. **신뢰도 전환을 이분법이 아니라 연속적으로** — 현재 cnt/prob 게이트가
+   "모델예측 100% vs 실측블렌딩" 이분법(`VISION_TRACK_CNT_GATE`/
+   `VISION_TRACK_PROB_GATE`)인데, 이걸 prob 상승에 비례해 서서히
+   실측 dRel미분 비중을 늘리는 연속 가중치로 재설계.
+2. **dPath(차선 대비 위치) 게이트를 VisionTrack 등록/신뢰상승 조건에
+   포함** — 37차 옆차선 SCC 폴백 문제와 유사한 원리로, dPath가 급변하면
+   (다른 물체로 전환 의심) 신뢰상승 리셋. 58차3번 A안이 seg2에서
+   "역광+인접차량 혼선"으로 오탐한 사례를 구조적으로 줄이는 목적.
+3. **VisionTrack 자체(radard.py)에도 경량 노이즈 필터 추가** — 현재
+   클램프+중앙값 필터는 long_mpc.py에만 있고 radard.py dRel 미분엔
+   없음. 등록 초기(cnt<10)에도 짧은 중앙값 필터를 넣어 조기등록
+   재시도 시 스냅 노이즈 오탐 억제.
 
-遺媛濡?"泥닿컧 ?ㅽ깘 vs CSV 湲됯컧??aEgo) 湲곗? ?ㅽ깘"???뺤쓽 李⑥씠(58李?
-WIP???대? 湲곕줉??媛??瑜?醫곹엳湲??꾪빐, ?ㅼ쓬 濡쒓렇 遺꾩꽍 ??誘몄꽭 ??ш퉴吏
-?ㅼ틪 踰붿쐞 ?뺣? ?꾩슂?깅룄 ?ы솗??
+부가로 "체감 오탐 vs CSV 급감속(aEgo) 기준 오탐"의 정의 차이(58차3
+WIP에 이미 기록된 가설)를 좁히기 위해, 다음 로그 분석 시 미세 저크까지
+스캔 범위 확대 필요성도 재확인.
 
-**?ㅼ쓬(?ъ슜??寃곗젙 ?湲? 理쒖슦???꾨낫 2媛?以???)**:
-(a) ??1/2/3踰?以??섎굹瑜??대쾲 ?몄뀡?먯꽌 諛붾줈 ?ㅺ퀎쨌援ы쁽 李⑹닔, ?먮뒗
-(b) 58李?,2踰덈쭔 諛섏쁺???꾩옱 baseline ?ㅼ＜???ы솗??WIP 58李?+?꾩냽?섏젙
-REVERTED ?뱀뀡???대? 湲곕줉???먮옒 ?ㅼ쓬 ?쒖꽌)遺??癒쇱? 吏꾪뻾.
+**다음(사용자 결정 대기, 최우선 후보 2개 중 택1)**:
+(a) 위 1/2/3번 중 하나를 이번 세션에서 바로 설계·구현 착수, 또는
+(b) 58차1,2번만 반영된 현재 baseline 실주행 재확인(WIP 58차3+후속수정
+REVERTED 섹션에 이미 기록된 원래 다음 순서)부터 먼저 진행.
 
-**?몄뀡 醫낅즺 ?꾨떂 ??泥댄겕?ъ씤????λ쭔.**
+**세션 종료 아님 — 체크포인트 저장만.**
 
 
-## 58李?3踰??꾩냽?섏젙 REVERTED (2026-08-24) ???ㅼ＜??泥닿컧 ?ㅽ깘/遺덊븘?붽컧?띿쑝濡?濡ㅻ갚
+## 58차 3번+후속수정 REVERTED (2026-08-24) — 실주행 체감 오탐/불필요감속으로 롤백
 
-?ъ슜???ㅼ＜???쇰뱶諛? "?ㅽ깘??留롪퀬 遺덊븘?뷀븳 媛먯냽??泥닿컧?? ??58李?踰?
-(ff50b03, A 議곌린?깅줉+B ?덉쟾痢?蹂댁젙) + ?멸낸寃뚯씠???꾩냽?섏젙(1145aea)??
-?꾨? ?먮났. `radard.py`媛 58李?踰?`a35a39f`) ?쒖젏怨??꾩쟾???숈씪???곹깭濡?
-蹂듦? ?뺤씤(`git diff a35a39f origin/c3-ms-dev -- radard.py` 寃곌낵 empty).
-push ?꾨즺: `1145aea..1ac07de`.
+사용자 실주행 피드백: "오탐이 많고 불필요한 감속이 체감됨" → 58차3번
+(ff50b03, A 조기등록+B 안전측 보정) + 외곽게이트 후속수정(1145aea)을
+전부 원복. `radard.py`가 58차2번(`a35a39f`) 시점과 완전히 동일한 상태로
+복귀 확인(`git diff a35a39f origin/c3-ms-dev -- radard.py` 결과 empty).
+push 완료: `1145aea..1ac07de`.
 
-**諛붾줈 ???몄뀡???ㅼ감寃利?FINDINGS.md "58李?3踰??꾩냽?섏젙 ?ㅼ감寃利?
-??ぉ)?먯꽌??seg0 ?뺥깘(28珥??뺤??욎감)/?꾩냽?섏젙 ?ㅼ쟾??690 row)瑜??곸긽+
-?섏튂濡??뺤씤?덉뿀?쇰굹, ?ъ슜?먯쓽 ?ㅼ젣 泥닿컧 二쇳뻾媛먯? ?ㅽ깘/遺덊븘?붽컧?띿씠
-留롮븯?ㅻ뒗 ?곷컲???쇰뱶諛?* ??CSV ?뺣웾遺꾩꽍쨌?뱀젙 ?대깽???⑥쐞 qcamera ?議곕줈
-?≫엺 ?쒕낯(3~4媛??대깽?????꾩껜 二쇳뻾 泥닿컧????쒗븯吏 紐삵뻽??媛?μ꽦.
-?ㅼ쓬??A/B ?ш???????愿대━遺??吏싰퀬 媛?寃? (1) 濡쒓렇?????≫엺
-tentative ?깅줉/?댁젣 flicker媛 ?ㅼ젣濡쒕뒗 ?⑥뵮 ??븯?????덉쓬(?곗냽援ш컙
-臾띔린 濡쒖쭅??怨쇱냼吏묎퀎?덉쓣 媛?μ꽦), (2) "?ㅽ깘"???뺤쓽媛 CSV 湲됯컧??
-湲곗?(aEgo)蹂대떎 ?ъ슜??泥닿컧(?딄?/???????誘쇨컧?????덉쓬 ???ㅼ쓬??
-湲됯컧???꾧퀎媛믩낫????? 誘몄꽭??accel jerk(rate of change)源뚯? ?ㅼ틪
-?꾩슂.
+**바로 전 세션의 실차검증(FINDINGS.md "58차 3번+후속수정 실차검증"
+항목)에서는 seg0 정탐(28초 정지앞차)/후속수정 실전파(690 row)를 영상+
+수치로 확인했었으나, 사용자의 실제 체감 주행감은 오탐/불필요감속이
+많았다는 상반된 피드백** — CSV 정량분석·특정 이벤트 단위 qcamera 대조로
+잡힌 표본(3~4개 이벤트)이 전체 주행 체감을 대표하지 못했을 가능성.
+다음에 A/B 재검토 시 이 괴리부터 짚고 갈 것: (1) 로그에 안 잡힌
+tentative 등록/해제 flicker가 실제로는 훨씬 잦았을 수 있음(연속구간
+묶기 로직이 과소집계했을 가능성), (2) "오탐"의 정의가 CSV 급감속
+기준(aEgo)보다 사용자 체감(끊김/저크)에 더 민감할 수 있음 — 다음엔
+급감속 임계값보다 낮은 미세한 accel jerk(rate of change)까지 스캔
+필요.
 
-**?꾩옱 ?곹깭(HEAD `1ac07de`)**: 58李?踰?vision dRel誘몃텇 寃뚯씠?몄셿??
-long_mpc v_lead 蹂댁젙)怨?58李?踰????媛뺥븳媛먯냽 danger override)留??좏슚.
-A/B(tentative 議곌린?깅줉/?덉쟾痢?蹂댁젙)??肄붾뱶踰좎씠?ㅼ뿉???꾩쟾???쒓굅??
+**현재 상태(HEAD `1ac07de`)**: 58차1번(vision dRel미분 게이트완화+
+long_mpc v_lead 보정)과 58차2번(저속+강한감속 danger override)만 유효.
+A/B(tentative 조기등록/안전측 보정)는 코드베이스에서 완전히 제거됨.
 
-**?ㅼ쓬(理쒖슦??**: 58李?,2踰덈쭔 諛섏쁺???꾩옱 ?곹깭濡?癒쇱? 二쇳뻾媛??ы솗????
-臾몄젣?놁쑝硫?洹??곹깭瑜???湲곗???baseline)?쇰줈 ?쇨퀬, A/B???ㅺ퀎 諛⑺뼢遺??
-?ш????ъ꽕怨???tentative ?밴꺽 議곌굔????蹂댁닔?곸쑝濡? CNT_GATE ?곹뼢,
-DREL_JITTER ?섑뼢, ?먮뒗 dPath/李⑥꽑寃利?異붽? ???꾨낫 寃??.
+**다음(최우선)**: 58차1,2번만 반영된 현재 상태로 먼저 주행감 재확인 →
+문제없으면 그 상태를 새 기준선(baseline)으로 삼고, A/B는 설계 방향부터
+재검토(재설계 시 tentative 승격 조건을 더 보수적으로: CNT_GATE 상향,
+DREL_JITTER 하향, 또는 dPath/차선검증 추가 등 후보 검토).
 
-## 58李?3踰??꾩냽?섏젙 ?ㅼ감寃利??꾨즺 (2026-08-24 06:50 濡쒓렇) ??遺遺?VALIDATED
+## 58차 3번+후속수정 실차검증 완료 (2026-08-24 06:50 로그) — 부분 VALIDATED
 
-14?멸렇癒쇳듃 ?ㅼ감濡쒓렇(commit `1145aea`)濡?寃利??꾨즺. qcamera ?議곌퉴吏
-?ы븿. ?곸꽭??FINDINGS.md "58李?3踰??꾩냽?섏젙 ?ㅼ감寃利? ??ぉ 李멸퀬.
+14세그먼트 실차로그(commit `1145aea`)로 검증 완료. qcamera 대조까지
+포함. 상세는 FINDINGS.md "58차 3번+후속수정 실차검증" 항목 참고.
 
-**?듭떖 寃곌낵**:
-- ?멸낸寃뚯씠???꾩냽?섏젙???ㅻ줈洹몄뿉?쒕룄 ?숈옉 ?뺤씤(690 row, 13媛?援ш컙)
-- seg0 28珥??뺤??욎감 ?대깽??= qcamera濡??뺥깘 ?뺤젙 (?? cruise=False??
-  ?쒖뼱 ?곹뼢? ?놁뿀?????몄??⑤쭔 寃利?
-- seg2?먯꽌 A媛 cruise=True 以??좉퇋諛쒕룞???좎씪 ?щ? 諛쒓껄 ??dRel/vRel
-  ?붾룞???ㅽ깘???꾨땲??"??킅+?ㅼ감???몄젒李⑤웾 ?쇱꽑"?꾩쓣 qcamera濡?洹쒕챸
-  (?ㅼ젣 媛먯냽???곹뼢 ?놁뿀?? vturn??吏諛?
-- seg4 ?ㅼ젣 由щ뱶 媛먯냽 ?대깽??= qcamera濡??뺤긽 ?뺤씤, ?댁쟾??釉뚮젅?댄겕??
-  援먯감濡?吏꾩엯 ?뚮Ц?쇰줈 ?먮떒, ?쒖뒪???ㅽ뙣 ?꾨떂
+**핵심 결과**:
+- 외곽게이트 후속수정이 실로그에서도 동작 확인(690 row, 13개 구간)
+- seg0 28초 정지앞차 이벤트 = qcamera로 정탐 확정 (단, cruise=False라
+  제어 영향은 없었음 — 인지단만 검증)
+- seg2에서 A가 cruise=True 중 신규발동한 유일 사례 발견 → dRel/vRel
+  요동이 오탐이 아니라 "역광+다차선 인접차량 혼선"임을 qcamera로 규명
+  (실제 감속엔 영향 없었음, vturn이 지배)
+- seg4 실제 리드 감속 이벤트 = qcamera로 정상 확인, 운전자 브레이크는
+  교차로 진입 때문으로 판단, 시스템 실패 아님
 
-**?ㅼ쓬 理쒖슦??*:
-1. cruise ?좎? 以?A媛 ?ㅼ젣 accel/decel??諛붽씀???щ?瑜????뺣낫 (?쒕낯 1嫄대퓧)
-2. B(?덉쟾痢?蹂댁젙) 諛쒕룞 ?щ? ?꾩쭅 紐?李얠쓬 ??異붽? 濡쒓렇 ?꾩슂
-3. ?ㅼ감???몄젒李⑤웾 ?ㅼ씤 由ъ뒪??seg2?먯꽌 ?뺤씤) ??`track_scc` lane
-   validation 遺??findings? ?듯빀??蹂꾨룄 ?ㅼ틦???ㅺ퀎 寃???꾩슂
+**다음 최우선**:
+1. cruise 유지 중 A가 실제 accel/decel을 바꾸는 사례를 더 확보 (표본 1건뿐)
+2. B(안전측 보정) 발동 사례 아직 못 찾음 — 추가 로그 필요
+3. 다차선 인접차량 오인 리스크(seg2에서 확인) — `track_scc` lane
+   validation 부재 findings와 통합해 별도 스캐너 설계 검토 필요
 
-## 58李?3踰??꾩냽?섏젙 (?꾨즺 ??A 臾대젰??踰꾧렇 ?섏젙 push ?꾨즺, ?ㅼ감 ?ш?利??湲? ???뺤??욎감 誘몄씤??
+## 58차 3번 후속수정 (완료 — A 무력화 버그 수정 push 완료, 실차 재검증 대기) — 정지앞차 미인식
 
-**諛곌꼍**: 58李?踰?A+B) push 吏곹썑, ?ъ슜?먭? "?ㅻ뒛 而ㅻ컠??遺遺꾩씠 湲곌린?먮윭
-???섎뒗吏 寃利앺빐?щ씪"怨??붿껌 ??肄붾뱶 ?ш???吏꾪뻾.
+**배경**: 58차3번(A+B) push 직후, 사용자가 "오늘 커밋한 부분이 기기에러
+안 나는지 검증해달라"고 요청 → 코드 재검토 진행.
 
-**寃利?寃곌낵**:
-1. **?щ옒???꾪뿕 ?놁쓬** ???좉퇋 ?꾨뱶(`tentative_cnt`/`tentative_dRel_last`)??
-   `get_lead()` 諛섑솚 dict(capnp 援ъ“泥대줈 ??낅릺??寃쎈줈)???꾪? ???ㅼ뼱媛?
-   40李?`sccFallback`瑜??щ옒???щ컻 ?꾪뿕 ?놁쓬 ?뺤씤. `py_compile`/`git am`
-   ?ш?利?base `ff50b03`, ?ㅼ젣 ?먭꺽 HEAD) ?듦낵. 0-division ???덉쇅
-   ?좊컻吏?먮룄 媛???덉쓬 ?뺤씤. (紐⑤뱢 ?ㅼ젣 import??而⑦뀒?대꼫??
-   `msgq.ipc_pyx` ?놁뼱 ?꾩쟾???뚯씠?꾨씪??寃利앹? ???섍꼍?먯꽌 遺덇? ??湲곗〈
-   ?몄뀡?ㅺ낵 ?숈씪???쒓퀎.)
-2. **[FIXED, 湲닿툒] A(議곌린?깅줉) 臾대젰??踰꾧렇 諛쒓껄** ??`get_lead()`(783踰덉㎏以?
-   `RadarD.get_lead`, `VisionTrack.update()`瑜?媛먯떥??諛붽묑 ?⑥닔)??
+**검증 결과**:
+1. **크래시 위험 없음** — 신규 필드(`tentative_cnt`/`tentative_dRel_last`)는
+   `get_lead()` 반환 dict(capnp 구조체로 대입되는 경로)에 전혀 안 들어감,
+   40차 `sccFallback`류 크래시 재발 위험 없음 확인. `py_compile`/`git am`
+   재검증(base `ff50b03`, 실제 원격 HEAD) 통과. 0-division 등 예외
+   유발지점도 가드 있음 확인. (모듈 실제 import는 컨테이너에
+   `msgq.ipc_pyx` 없어 완전한 파이프라인 검증은 이 환경에서 불가 — 기존
+   세션들과 동일한 한계.)
+2. **[FIXED, 긴급] A(조기등록) 무력화 버그 발견** — `get_lead()`(783번째줄,
+   `RadarD.get_lead`, `VisionTrack.update()`를 감싸는 바깥 함수)의
    `elif (track is None) and ready and (lead_msg.prob > .5): lead_dict =
-   self.vision_tracks[index].get_lead(md)` ??`lead_msg.prob`瑜?**VisionTrack
-   ?대?? 蹂꾧컻濡??낅┰ ?ъ껜??*?섍퀬 ?덉뿀?? VisionTrack.update() ?덉뿉??A濡?
-   `status`媛 tentative 議곌린?밴꺽?쇰룄, ??諛붽묑 寃뚯씠?멸? ?ъ쟾??prob>0.5留?
-   蹂닿퀬 留됱븘踰꾨젮??**radarState.leadOne??A???④낵媛 ?꾪? 諛섏쁺?????섎뒗
-   ?곹깭**????щ옒?쒕뒗 ?꾨땲怨?A媛 ?좊챸臾댁떎???쇰━踰꾧렇).
+   self.vision_tracks[index].get_lead(md)` 이 `lead_msg.prob`를 **VisionTrack
+   내부와 별개로 독립 재체크**하고 있었음. VisionTrack.update() 안에서 A로
+   `status`가 tentative 조기승격돼도, 이 바깥 게이트가 여전히 prob>0.5만
+   보고 막아버려서 **radarState.leadOne엔 A의 효과가 전혀 반영이 안 되는
+   상태**였음(크래시는 아니고 A가 유명무실한 논리버그).
 
-**議곗튂**: 諛붽묑 寃뚯씠?몃? `lead_msg.prob > .5` 以묐났泥댄겕 ???
-`self.vision_tracks[index].status`(媛숈? tick???대? update() ?앸궃 理쒖떊
-?곹깭, ?뺤떇寃쎈줈+A 議곌린?깅줉 寃쎈줈 ?????먯뿰?ㅻ읇寃??ы븿)濡?援먯껜.
+**조치**: 바깥 게이트를 `lead_msg.prob > .5` 중복체크 대신
+`self.vision_tracks[index].status`(같은 tick에 이미 update() 끝난 최신
+상태, 정식경로+A 조기등록 경로 둘 다 자연스럽게 포함)로 교체.
 
-**寃利?*: `sim_vision_track_ab.py`??`scenario_outer_gate_propagation`
-?좉퇋 異붽?(珥?7嫄?PASS) ??援ш쾶?댄듃濡쒕뒗 A-1怨??숈씪 ?쒕굹由ъ삤(8珥??뺤??욎감
-?ы쁽)?먯꽌 lead_dict媛 ??踰덈룄 ?몄텧 ????None) / ?좉쾶?댄듃濡쒕뒗 ?꾨젅??
-(??.45s)???몄텧 ?뺤씤, A媛 ?ㅼ젣濡?理쒖쥌 異쒕젰源뚯? ?꾪뙆?섎뒗吏源뚯? 寃利?
+**검증**: `sim_vision_track_ab.py`에 `scenario_outer_gate_propagation`
+신규 추가(총 7건 PASS) — 구게이트로는 A-1과 동일 시나리오(8초 정지앞차
+재현)에서 lead_dict가 한 번도 노출 안 됨(None) / 신게이트로는 프레임9
+(≈0.45s)에 노출 확인, A가 실제로 최종 출력까지 전파되는지까지 검증.
 
-**?꾨떖 諛?push ?꾨즺**: `0002-58-3-A-outer-gate-fix.patch`瑜?
-`/mnt/user-data/outputs/`???앹꽦, base `ff50b03`(?먭꺽 HEAD) ?꾩뿉??
-`git am` 寃利?+ `py_compile` ?듦낵 ?뺤씤 ???꾨떖. ?ъ슜?먭? `C:\dev\ryu`?먯꽌
-`git am` ?곸슜 + `git push origin c3-ms-dev` ?꾨즺 ?뺤씤 ??`ff50b03..1145aea`.
-?먭꺽 fetch濡?寃뚯씠?멸? `self.vision_tracks[index].status`濡?諛섏쁺?먯쓬怨?
-`py_compile` ?듦낵瑜??ы솗?명븿.
+**전달 및 push 완료**: `0002-58-3-A-outer-gate-fix.patch`를
+`/mnt/user-data/outputs/`에 생성, base `ff50b03`(원격 HEAD) 위에서
+`git am` 검증 + `py_compile` 통과 확인 후 전달. 사용자가 `C:\dev\ryu`에서
+`git am` 적용 + `git push origin c3-ms-dev` 완료 확인 — `ff50b03..1145aea`.
+원격 fetch로 게이트가 `self.vision_tracks[index].status`로 반영됐음과
+`py_compile` 통과를 재확인함.
 
-**?ㅼ쓬(理쒖슦??**: ?ㅼ감 ?쒕씪?대툕 寃利??????꾩냽?섏젙?쇰줈 A(議곌린?깅줉)媛
-泥섏쓬?쇰줈 ?ㅼ젣 ?숈옉?섍쾶 ?? ?뱁엳:
-1. ?ㅽ깘吏 ?щ? ??蹂듭옟??諛곌꼍(?곕꼸 ?낃뎄/?쒖???洹몃┝?????먯꽌 ?녿뒗
-   由щ뱶瑜?議곌린?깅줉??遺덊븘??媛먯냽?섎뒗吏
-2. ?대쾲 ?щ?瑜??곌만 ?뺤껜 吏꾩엯遺) ?ы쁽 ??寃異쒖씠 ?ㅼ젣濡??욌떦寃⑥??붿?
-3. B 蹂댁젙???뺤긽 ?묎렐 ?곹솴?먯꽌 ?뱀감媛먯쓣 ?댁튂吏 ?딅뒗吏
+**다음(최우선)**: 실차 드라이브 검증 — 이 후속수정으로 A(조기등록)가
+처음으로 실제 동작하게 됨. 특히:
+1. 오탐지 여부 — 복잡한 배경(터널 입구/표지판/그림자 등)에서 없는
+   리드를 조기등록해 불필요 감속하는지
+2. 이번 사례류(산길 정체 진입부) 재현 시 검출이 실제로 앞당겨지는지
+3. B 보정이 정상 접근 상황에서 승차감을 해치지 않는지
 
-## 58李?3踰?(?ㅺ퀎쨌援ы쁽쨌?⑹꽦寃利씲룻뙣移??곸슜/push ?꾨즺, ?ㅼ감寃利??湲? ???뺤??욎감 誘몄씤??怨쇱냼諛섏쓳 (A+B)
+## 58차 3번 (설계·구현·합성검증·패치 적용/push 완료, 실차검증 대기) — 정지앞차 미인식/과소반응 (A+B)
 
-**諛곌꼍**: ?ъ슜?먭? ?곌만 ?뺤껜援ш컙 ?뺤??욎감 誘몄씤?앹쑝濡?釉뚮젅?댄겕 媛쒖엯??
-?ㅼ젣 ?щ?(`?뺤?李⑤웾_誘몄씤??zip`+`260823_161743_clip.mp4`, route
-`a3a55cb808` seg10, t=4301~4312) ?쒕낫. qcamera 10?꾨젅???議곕줈 t=4302遺??
-?대? ?붾㈃??李⑤웾/?뺤껜援곗씠 ?먮졆??蹂댁엫???뺤씤.
+**배경**: 사용자가 산길 정체구간 정지앞차 미인식으로 브레이크 개입한
+실제 사례(`정지차량_미인식.zip`+`260823_161743_clip.mp4`, route
+`a3a55cb808` seg10, t=4301~4312) 제보. qcamera 10프레임 대조로 t=4302부터
+이미 화면에 차량/정체군이 또렷이 보임을 확인.
 
-**?뺤씤???ъ떎**:
-1. t=4301.21~4309.30(8.1珥? `leadStatus=False`?몃뜲??vEgo 28.6->31.4m/s濡?
-   怨꾩냽 媛???쒗빆紐⑺몴 121km/h). ?꾨젅?꾩긽 t=4302遺???꾨갑 李⑤웾 紐낅갚??蹂댁엫.
-2. t=4309.30 理쒖큹 寃異? `dRel=123.7m, leadModelProb=0.53`(0.5 ?깃구??,
-   `radar=False`(鍮꾩쟾?⑤룆).
-3. t=4309.30~4311.80 鍮꾩쟾?⑤룆 援ш컙 vLead 27->14m/s濡??꾨쭔 媛먯냼濡?蹂댁??쇰굹,
-   t=4311.85 ?덉씠???쎌삩 ?쒓컙 14.1->4.88m/s濡??ㅼ젣媛?湲됰씫(鍮꾩쟾 ?숆?異붿젙).
+**확인된 사실**:
+1. t=4301.21~4309.30(8.1초) `leadStatus=False`인데도 vEgo 28.6->31.4m/s로
+   계속 가속(순항목표 121km/h). 프레임상 t=4302부터 전방 차량 명백히 보임.
+2. t=4309.30 최초 검출, `dRel=123.7m, leadModelProb=0.53`(0.5 턱걸이),
+   `radar=False`(비전단독).
+3. t=4309.30~4311.80 비전단독 구간 vLead 27->14m/s로 완만 감소로 보였으나,
+   t=4311.85 레이더 락온 순간 14.1->4.88m/s로 실제값 급락(비전 낙관추정).
 
-**?먯씤 肄붾뱶 ?뱀젙** (`radard.py` `VisionTrack.update()`):
-- (?깅줉) `if self.prob > .5: ... else: self.reset()` ??modelV2 prob??
-  0.5瑜?紐??섏쑝硫??몃옓 ?먯껜媛 ?앹꽦 ?????붾㈃??蹂댁뿬???쒖뒪?쒖뿏 "?놁쓬").
-- (?좊ː) `if self.cnt<CNT_GATE or self.prob<PROB_GATE(0.70): vRel=
-  lead_v_rel_pred`(紐⑤뜽?덉륫 洹몃?濡? ?ㅼ륫 dRel誘몃텇 釉붾젋???꾪? ?놁쓬) ??
-  prob 0.5~0.70 援ш컙? 100% ?쒖닔 紐⑤뜽?덉륫?먮쭔 ?섏〈.
+**원인 코드 특정** (`radard.py` `VisionTrack.update()`):
+- (등록) `if self.prob > .5: ... else: self.reset()` — modelV2 prob이
+  0.5를 못 넘으면 트랙 자체가 생성 안 됨(화면에 보여도 시스템엔 "없음").
+- (신뢰) `if self.cnt<CNT_GATE or self.prob<PROB_GATE(0.70): vRel=
+  lead_v_rel_pred`(모델예측 그대로, 실측 dRel미분 블렌딩 전혀 없음) —
+  prob 0.5~0.70 구간은 100% 순수 모델예측에만 의존.
 
-**?ъ슜??寃곗젙**: A(?깅줉臾명꽦 ?꾪솕)+B(??뺤떊援ш컙 ?덉쟾痢?蹂댁젙) ?숈떆 吏꾪뻾.
+**사용자 결정**: A(등록문턱 완화)+B(저확신구간 안전측 보정) 동시 진행.
 
-**援ы쁽** (`radard.py`, 濡쒖뺄 而ㅻ컠 `ccec041`, base `a35a39f`):
-- ?좉퇋 ?곸닔: `VISION_TRACK_TENTATIVE_PROB_GATE=0.35`/
+**구현** (`radard.py`, 로컬 커밋 `ccec041`, base `a35a39f`):
+- 신규 상수: `VISION_TRACK_TENTATIVE_PROB_GATE=0.35`/
   `VISION_TRACK_TENTATIVE_CNT_GATE=10`(0.5s)/
   `VISION_TRACK_TENTATIVE_DREL_JITTER=8.0`/`VISION_TRACK_SAFETY_MIN_CNT=2`.
-- **A**: prob媛 0.35~0.5 援ш컙?먯꽌 媛숈? ?꾩튂(dRel jitter<=8m)濡?
-  10?꾨젅??0.5s) ?곗냽 ?≫엳硫?`tentative_cnt` ?꾩쟻 -> ?뺤떇臾명꽦(0.5) 紐?
-  ?섏뼱??議곌린 ?깅줉(`register_ok`). dRel ?硫??ㅻⅨ 臾쇱껜 異붿젙) 利됱떆 由ъ뀑.
-- **B**: prob<0.70(紐⑤뜽?덉륫留??곕뒗 援ш컙)?대씪??dRel ?ㅼ륫 ?대젰 2?꾨젅??
-  ?볦씠硫? ?ㅼ륫湲곕컲 vLead媛 紐⑤뜽?덉륫蹂대떎 ???꾪뿕(?묒쓬)???뚮쭔 `min()`
-  ?쇰줈 ?덉쟾痢?蹂댁젙 ??58李?踰?v_lead ?덉쟾?대옩?꾩? ?숈씪 ?먯튃(?꾪솕 諛⑺뼢
-  ?놁쓬, 紐⑤뜽??留욎쓣 ???꾪? 媛쒖엯 ????.
+- **A**: prob가 0.35~0.5 구간에서 같은 위치(dRel jitter<=8m)로
+  10프레임(0.5s) 연속 잡히면 `tentative_cnt` 누적 -> 정식문턱(0.5) 못
+  넘어도 조기 등록(`register_ok`). dRel 튀면(다른 물체 추정) 즉시 리셋.
+- **B**: prob<0.70(모델예측만 쓰는 구간)이라도 dRel 실측 이력 2프레임+
+  쌓이면, 실측기반 vLead가 모델예측보다 더 위험(작음)할 때만 `min()`
+  으로 안전측 보정 — 58차1번 v_lead 안전클램프와 동일 원칙(완화 방향
+  없음, 모델이 맞을 땐 전혀 개입 안 함).
 
-**?⑹꽦寃利?* (`devnotes/toolkit/sim_vision_track_ab.py` ?좉퇋, 6媛?
-?쒕굹由ъ삤 ?꾨? PASS ??VisionTrack.update() ?듭떖遺꾧린 ?쒖닔?⑥닔 ?ы쁽,
-capnp ?섏〈?쇰줈 radard.py 吏곸젒 import 遺덇???湲곗〈 ?몄뀡?ㅺ낵 ?숈씪 諛⑹떇):
-- A-1: prob=0.42 怨좎젙+?덉젙???묎렐 8珥?-> ?꾨젅??(??.45s)??議곌린?깅줉 ?뺤씤.
-- A-2: prob=0.2 怨좎젙(tentative臾명꽦 諛? -> 200?꾨젅?꾧컙 誘몃벑濡??좎?(?뚭? ?놁쓬).
-- A-3: prob=0.42吏留?dRel 留ㅽ봽?덉엫 ?붾룞(?ㅻⅨ 臾쇱껜 ?ㅼ씤 ?ы쁽) -> ?밴꺽 ????
-- B-1: ?대쾲 ?ㅼ궗濡 洹쇱궗 ?섏튂(dRel=123.7m, vEgo=31, 紐⑤뜽 27->14/?ㅼ젣
-  27->4 洹쇱궗) ?ы쁽 -> 紐⑤뜽?덉륫蹂대떎 ??쾶(?덉쟾痢? 蹂댁젙?섎뒗 ?꾨젅???뺤씤.
-- B-2: 紐⑤뜽?덉륫=?ㅼ륫 ?꾩쟾 ?쇱튂(?뺤긽?곹솴) -> 蹂댁젙 媛쒖엯 ?놁쓬(?ㅼ감 0).
-- 怨쟰rob?뚭?: prob=0.85(湲곗〈 ?뺤긽?깅줉 寃쎈줈) -> A/B ????誘멸컻?? 湲곗〈怨?
-  ?숈씪 ?숈옉 ?좎?.
+**합성검증** (`devnotes/toolkit/sim_vision_track_ab.py` 신규, 6개
+시나리오 전부 PASS — VisionTrack.update() 핵심분기 순수함수 재현,
+capnp 의존으로 radard.py 직접 import 불가라 기존 세션들과 동일 방식):
+- A-1: prob=0.42 고정+안정적 접근 8초 -> 프레임9(≈0.45s)에 조기등록 확인.
+- A-2: prob=0.2 고정(tentative문턱 밑) -> 200프레임간 미등록 유지(회귀 없음).
+- A-3: prob=0.42지만 dRel 매프레임 요동(다른 물체 오인 재현) -> 승격 안 됨.
+- B-1: 이번 실사례 근사 수치(dRel=123.7m, vEgo=31, 모델 27->14/실제
+  27->4 근사) 재현 -> 모델예측보다 낮게(안전측) 보정되는 프레임 확인.
+- B-2: 모델예측=실측 완전 일치(정상상황) -> 보정 개입 없음(오차 0).
+- 고prob회귀: prob=0.85(기존 정상등록 경로) -> A/B 둘 다 미개입, 기존과
+  동일 동작 유지.
 
-**?꾨떖**: `0001-58-3-A-tentative-B.patch`瑜?`/mnt/user-data/outputs/`??
-?앹꽦, `git am` verify(base `a35a39f`) + `py_compile` ?듦낵 ?뺤씤 ???꾨떖.
-**?ъ슜?먭? `C:\dev\ryu`?먯꽌 `git am` ?곸슜 + `git push origin c3-ms-dev`
-?꾨즺 ?뺤씤** ??`a35a39f..ff50b03`.
+**전달**: `0001-58-3-A-tentative-B.patch`를 `/mnt/user-data/outputs/`에
+생성, `git am` verify(base `a35a39f`) + `py_compile` 통과 확인 후 전달.
+**사용자가 `C:\dev\ryu`에서 `git am` 적용 + `git push origin c3-ms-dev`
+완료 확인** — `a35a39f..ff50b03`.
 
-**?ㅼ쓬(理쒖슦??**: ?ㅼ감 ?쒕씪?대툕 寃利???(1) ?대쾲 ?щ?瑜??곌만 ?뺤껜 吏꾩엯遺)
-?ы쁽 ??寃異쒖씠 ?ㅼ젣濡??욌떦寃⑥??붿?, (2) A濡??명븳 ?ㅽ깘吏(議댁옱?섏? ?딅뒗
-由щ뱶瑜?議곌린?깅줉??遺덊븘??媛먯냽) 諛쒖깮 ?щ? ???뱁엳 ?쒓컖?곸쑝濡?蹂듭옟??
-諛곌꼍(?곕꼸 ?낃뎄/?쒖???洹몃┝?????먯꽌 ?뚭? ?뺤씤 ?꾩닔, (3) B 蹂댁젙??
-?뺤긽 ?묎렐 ?곹솴?먯꽌 ?뱀감媛먯쓣 ?댁튂吏 ?딅뒗吏(?⑹꽦寃利앹긽 臾닿컙???뺤씤?덉쑝??
-?ㅼ젣 ?몄씠利??뱀꽦? ?ㅻ? ???덉쓬).
+**다음(최우선)**: 실차 드라이브 검증 — (1) 이번 사례류(산길 정체 진입부)
+재현 시 검출이 실제로 앞당겨지는지, (2) A로 인한 오탐지(존재하지 않는
+리드를 조기등록해 불필요 감속) 발생 여부 — 특히 시각적으로 복잡한
+배경(터널 입구/표지판/그림자 등)에서 회귀 확인 필수, (3) B 보정이
+정상 접근 상황에서 승차감을 해치지 않는지(합성검증상 무간섭 확인했으나
+실제 노이즈 특성은 다를 수 있음).
 
 
-## 58李?2踰?怨꾩냽4 (泥댄겕?ъ씤???????媛뺥븳媛먯냽 寃뚯씠???ㅺ퀎쨌援ы쁽쨌?⑹꽦寃利씲룻뙣移??꾨떖 ?꾨즺, ?ㅼ감寃利??湲? ???뺤껜援ш컙 遺뺣걮
+## 58차 2번 계속4 (체크포인트 — 저속+강한감속 게이트 설계·구현·합성검증·패치 전달 완료, 실차검증 대기) — 정체구간 붕끗
 
-**諛곌꼍**: 吏곸쟾 泥댄겕?ъ씤??"58李?2踰?怨꾩냽3", ?꾨옒)?먯꽌 ??媛???뺤껜 以?
-danger override ?ㅻ컻?? 湲곌컖 ?? 議곗튂 ?꾨낫 (a)GATE_NONE ?곹뼢 /
-(b)?욎감 ?ㅼ륫 媛먯냽 ?ш린 湲곕컲 蹂댁“ weight 寃쎈줈 / (c)?뺤껜 ?쒖젙 ?꾨젅?대컢
-?먭린 以??ъ슜?먯? ?쇱쓽??**(b) 梨꾪깮**, ?댁뼱??"??띻뎄媛??뺤껜) ?쒖젙,
-洹???援ш컙???곹뼢 ?놁뼱?????대씪???ъ슜???붽뎄濡?踰붿쐞瑜???醫곹?
-**v_ego 寃뚯씠??<=30km/h) + a_lead 臾명꽦(<=-1.8m/s짼)** 議고빀?쇰줈 ?ㅺ퀎
-?뺤젙 ??援ы쁽 ???⑹꽦寃利????⑥튂 ?꾨떖源뚯? ?꾨즺.
+**배경**: 직전 체크포인트("58차 2번 계속3", 아래)에서 원 가설(정체 중
+danger override 오발동) 기각 후, 조치 후보 (a)GATE_NONE 상향 /
+(b)앞차 실측 감속 크기 기반 보조 weight 경로 / (c)정체 한정 프레이밍
+폐기 중 사용자와 논의해 **(b) 채택**, 이어서 "저속구간(정체) 한정,
+그 외 구간엔 영향 없어야 함"이라는 사용자 요구로 범위를 더 좁혀
+**v_ego 게이트(<=30km/h) + a_lead 문턱(<=-1.8m/s²)** 조합으로 설계
+확정 → 구현 → 합성검증 → 패치 전달까지 완료.
 
-**援ы쁽**: `long_mpc.py`??`LOW_SPEED_STRONG_DECEL_V_EGO_GATE=30/3.6`
-(m/s)/`LOW_SPEED_STRONG_DECEL_A_LEAD_THRESH=-1.8`(m/s짼) ?곸닔 異붽?.
-`process_lead()`??danger override 遺꾧린(`ttc_now <= LEAD_ACQ_TTC_
-DANGER`)??`or low_speed_strong_lead_decel`??異붽?(`v_ego <= 寃뚯씠??
-and a_lead <= 臾명꽦`) ????議곌굔 ?깅┰ ??TTC ?꾩튂쨌rise-rate ?쒗븳怨?
-臾닿??섍쾶 利됱떆 weight=1.0. 寃뚯씠???먯껜媛 v_ego濡??ロ? ?덉뼱 寃뚯씠??諛?
-(怨좎냽/?쇰컲 二쇳뻾)?먯꽌????遺꾧린媛 ?먯쿇?곸쑝濡????대┝ ??patch ?댁쟾怨?
-?숈옉 100% ?숈씪 蹂댁옣.
+**구현**: `long_mpc.py`에 `LOW_SPEED_STRONG_DECEL_V_EGO_GATE=30/3.6`
+(m/s)/`LOW_SPEED_STRONG_DECEL_A_LEAD_THRESH=-1.8`(m/s²) 상수 추가.
+`process_lead()`의 danger override 분기(`ttc_now <= LEAD_ACQ_TTC_
+DANGER`)에 `or low_speed_strong_lead_decel`을 추가(`v_ego <= 게이트
+and a_lead <= 문턱`) — 이 조건 성립 시 TTC 위치·rise-rate 제한과
+무관하게 즉시 weight=1.0. 게이트 자체가 v_ego로 닫혀 있어 게이트 밖
+(고속/일반 주행)에서는 새 분기가 원천적으로 안 열림 → patch 이전과
+동작 100% 동일 보장.
 
-**?⑹꽦寃利?* (`devnotes/toolkit/sim_low_speed_decel.py`, 4媛??쒕굹由ъ삤
-?꾨? PASS, `process_lead()`??weight 怨꾩궛遺留??쒖닔?⑥닔濡??ы쁽??
-濡쒖쭅?⑥쐞 寃利????ㅼ젣 acados MPC 誘멸굅移?:
-- A. 怨좎냽 ?뚭?: v_ego=25m/s 怨좎젙, TTC 6~12s ?⑦봽 援ш컙 ?뺣났 + a_lead
-  媛??꾨쭔 踰덇컝?꾨룄 patch ????weight ?쒗??diff=0.
-- B. ?대깽???ы쁽: ???0??8.8km/h ?ш??? + a_lead=-1.8 吏?? min
-  TTC??.33s(danger 2.5s 誘몃컻?? ?ㅼ륫 4.45s? ?뺥빀)濡?援ъ꽦 ??unpatched??
-  珥덈컲 weight=0(媛먯뇿)?뭨ise-rate(1.0/s) ?쒓퀎??嫄몃젮 紐곗븘??諛섏쁺?섎뒗
-  ?⑦꽩 ?ы쁽, patched????援ш컙 weight=1.0 怨좎젙(媛먯뇿 ?먯껜媛 ?놁뼱吏?
-  danger override 寃쎈줈媛 ?꾨땲????띻쾶?댄듃 寃쎈줈濡??꾨떖 ?뺤씤).
-- C. ?ㅽ깘 諛⑹?: ??띿씠吏留?a_lead=-0.5(threshold 誘몃떖) ??寃뚯씠??誘멸컻諛?
-  patch ????diff=0.
-- D. 寃쎄퀎 ?꾩씠: v_ego媛 寃뚯씠?멸컪???щ윭 踰??섎굹?ㅼ뼱???덉쇅 ?놁씠 ?숈옉,
-  寃뚯씠???대┛ ?꾨젅???꾨? 利됱떆 w=1.0.
+**합성검증** (`devnotes/toolkit/sim_low_speed_decel.py`, 4개 시나리오
+전부 PASS, `process_lead()`의 weight 계산부만 순수함수로 재현한
+로직단위 검증 — 실제 acados MPC 미거침):
+- A. 고속 회귀: v_ego=25m/s 고정, TTC 6~12s 램프 구간 왕복 + a_lead
+  강/완만 번갈아도 patch 전/후 weight 시퀀스 diff=0.
+- B. 이벤트 재현: 저속(0→28.8km/h 재가속) + a_lead=-1.8 지속, min
+  TTC≈3.33s(danger 2.5s 미발동, 실측 4.45s와 정합)로 구성 — unpatched는
+  초반 weight=0(감쇠)→rise-rate(1.0/s) 한계에 걸려 몰아서 반영되는
+  패턴 재현, patched는 전 구간 weight=1.0 고정(감쇠 자체가 없어짐,
+  danger override 경로가 아니라 저속게이트 경로로 도달 확인).
+- C. 오탐 방지: 저속이지만 a_lead=-0.5(threshold 미달) — 게이트 미개방,
+  patch 전/후 diff=0.
+- D. 경계 전이: v_ego가 게이트값을 여러 번 넘나들어도 예외 없이 동작,
+  게이트 열린 프레임 전부 즉시 w=1.0.
 
-**而ㅻ컠/?⑥튂**: `c3-ms-dev` **origin push ?꾨즺** (`e17e078..a35a39f`, 濡쒖뺄
-`git am` ?곸슜 而ㅻ컠 ?댁떆??`a35a39f`濡??ш린濡앸맖 ???댁슜? 而⑦뀒?대꼫 而ㅻ컠
-`6440fe9`? ?숈씪). `git format-patch` ??`verify-am` 釉뚮옖移섏뿉??`git am`+
-`py_compile` ?듦낵 ?뺤씤 ??
+**커밋/패치**: `c3-ms-dev` **origin push 완료** (`e17e078..a35a39f`, 로컬
+`git am` 적용 커밋 해시는 `a35a39f`로 재기록됨 — 내용은 컨테이너 커밋
+`6440fe9`와 동일). `git format-patch` → `verify-am` 브랜치에서 `git am`+
+`py_compile` 통과 확인 →
 `0001-long_mpc-danger-override-58-2.patch` `/mnt/user-data/outputs/`
-?꾨떖 ?꾨즺(`git am` ?덈궡 ?ы븿).
+전달 완료(`git am` 안내 포함).
 
-**?ㅼ쓬(理쒖슦??**: **?ㅼ감 ?쒕씪?대툕 寃利??湲?* ??(1) ?대쾲 遺뺣걮 ?대깽?몄?
-媛숈? ????ш????욎감媛먯냽 ?곹솴?먯꽌 湲됯???>湲됯컧??諛섏쟾???щ씪吏?붿?,
-(2) 怨좎냽/?쇰컲 二쇳뻾?먯꽌 ?뚭?(遺덊븘?뷀븳 媛쒖엯) ?녿뒗吏 ?뺤씤. ?듦낵 ??58李?
-3踰??뺤??욎감 諛섏쓳 媛뺥솕)?쇰줈 吏꾪뻾.
-
-
-## 58李?2踰?怨꾩냽3 (泥댄겕?ъ씤????rlog ?議곕줈 ?대깽???뺣웾 ?뺤씤, **??媛??danger override) 湲곌컖, 諛⑺뼢 ?ш????꾩슂**) ???뺤껜援ш컙 遺뺣걮
-
-?ъ슜?먭? clip1/clip2? 媛숈? 援ш컙 rlog(route `a3a55cb808` seg11/12)瑜?
-?쒓났 ??clip2??湲됯컧???대깽?몃? route time t=4420~4423(seg12)?먯꽌 ?뺥솗??
-?뱀젙. **?듭떖**: min TTC=4.45s濡?danger override(??.5s) 臾명꽦怨?臾닿??⑥쓣
-?뺤씤 ?????ㅺ퀎 媛???뺤껜 以?danger override ?ㅻ컻?? 湲곌컖. ???
-`ttc_accel_weight()`??GATE_NONE(6.0s)~GATE_FULL(12.0s) ?⑦봽 援ш컙?먯꽌
-?욎감媛 ?대? 媛뺥븯寃?媛먯냽 以?aLeadK 洹쇱궗移?-1.5~-2.0m/s짼?, ego 媛??
-以묒씠???쒖젏遺???몃뜲??weight媛 ??븘 媛먯뇿?섎떎媛, TTC媛 6.0s瑜??섎뒗
-?쒓컙 媛먯뇿???덈뜕 aLeadK媛 1珥??대궡濡?紐곕젮 諛섏쁺?섎ŉ 遺뺣걮 諛쒖깮?섎뒗
-?⑦꽩?쇰줈 ?ш뎄?? dRel??17~24m?濡?"?뺤껜援ш컙 吏㏃? dRel" ?꾩젣? ?ㅻ쫫
-??**?뺤껜援ш컙 ?쒖젙???꾨땲?????異붿쥌 ?꾨컲??臾몄젣??媛?μ꽦.** ?곸꽭
-?섏튂/洹쇨굅??FINDINGS.md "58李?2踰?怨꾩냽3" ??ぉ 李멸퀬. 肄붾뱶 蹂寃??놁쓬.
-
-**?ㅼ쓬 理쒖슦???ъ슜??諛⑺뼢 寃곗젙 ?湲? 肄붾뵫 李⑹닔 ??**: FINDINGS.md
-"58李?2踰?怨꾩냽3 ?ㅼ쓬" ??ぉ??議곗튂 ?꾨낫 (a)GATE_NONE ?곹뼢 / (b)?욎감
-?ㅼ륫 媛먯냽 ?ш린 湲곕컲 蹂댁“ weight 寃쎈줈 / (c) ?뺤껜 ?쒖젙 ?꾨젅?대컢 ?먭린
-?щ? ??寃곗젙 ?꾩슂.
+**다음(최우선)**: **실차 드라이브 검증 대기** — (1) 이번 붕끗 이벤트와
+같은 저속 재가속+앞차감속 상황에서 급가속->급감속 반전이 사라지는지,
+(2) 고속/일반 주행에서 회귀(불필요한 개입) 없는지 확인. 통과 시 58차
+3번(정지앞차 반응 강화)으로 진행.
 
 
-## 58李?2踰?怨꾩냽2 (泥댄겕?ъ씤?????붾㈃?뱁솕 ?곸긽 2嫄??쒕낫, ?뺤꽦???쇱튂 ?뺤씤쨌?뺣웾 ?곗씠???붿껌 ?湲? ???뺤껜援ш컙 遺뺣걮
+## 58차 2번 계속3 (체크포인트 — rlog 대조로 이벤트 정량 확인, **원 가설(danger override) 기각, 방향 재검토 필요**) — 정체구간 붕끗
 
-**諛곌꼍**: 吏곸쟾 泥댄겕?ъ씤??"58李?2踰?怨꾩냽", ?꾨옒)?먯꽌 濡쒓렇 2媛쒕줈??"?뺤껜
-以?danger override ?ㅻ컻?? ?⑦꽩???뺤쬆 紐삵빐 ?ъ슜??異붽? ?쒕낫 ?湲?
-?곹깭??? ?ъ슜?먭? ?붾㈃?뱁솕 clip 2媛?`260823_161836_clip.mp4`/
-`260823_161929_clip.mp4`, 媛?~30珥? CarrotWeb ?ㅻ쾭?덉씠 ?ы븿)瑜?"遺뺣걮??
-紐낇솗???곸긽"?쇰줈 ?낅줈????ffmpeg濡??꾨젅??異붿텧(seek 諛⑹떇, 0.2~1珥?
-媛꾧꺽)???붾㈃ ?먮룆?쇰줈 遺꾩꽍.
+사용자가 clip1/clip2와 같은 구간 rlog(route `a3a55cb808` seg11/12)를
+제공 → clip2의 급감속 이벤트를 route time t=4420~4423(seg12)에서 정확히
+특정. **핵심**: min TTC=4.45s로 danger override(≤2.5s) 문턱과 무관함을
+확인 — 원 설계 가설(정체 중 danger override 오발동) 기각. 대신
+`ttc_accel_weight()`의 GATE_NONE(6.0s)~GATE_FULL(12.0s) 램프 구간에서
+앞차가 이미 강하게 감속 중(aLeadK 근사치 -1.5~-2.0m/s²대, ego 가속
+중이던 시점부터)인데도 weight가 낮아 감쇠되다가, TTC가 6.0s를 넘는
+순간 감쇠돼 있던 aLeadK가 1초 이내로 몰려 반영되며 붕끗 발생하는
+패턴으로 재구성. dRel도 17~24m대로 "정체구간 짧은 dRel" 전제와 다름
+— **정체구간 한정이 아니라 저속 추종 전반의 문제일 가능성.** 상세
+수치/근거는 FINDINGS.md "58차 2번 계속3" 항목 참고. 코드 변경 없음.
 
-**clip2(161929) ?곸꽭 ??꾨씪???뺤꽦???먮룆, 珥??⑥쐞???곸긽 ?ъ깮?쒓컖 湲곗?)**:
-- t=0~7s: ?뺤감(?띾룄 0, ?뺤껜 ?湲곗뿴)
-- t=7~23s: ?ъ텧諛?媛?? 0??3km/h. ??援ш컙 ?대궡 由щ뱶諛뺤뒪 dRel(鍮④컙
-  ?レ옄)媛 24m???0m?源뚯? 吏??媛먯냼(?좏뻾李⑥? 怨꾩냽 closing ?좎? ??
-  ?뺤껜 以?吏㏃? dRel ?곹솴怨??쇱튂).
-- **t??3s 遺洹?*: ?붾㈃ ?곷떒 "1.Accel (Y:a_ego, G:a_target, O:a_out)"
-  洹몃옒?꾩뿉?????좎씠 ?④퍡 湲됯꺽???꾨줈 ??덈떎媛 利됱떆 臾대꼫吏??
-  spike-crash ?⑦꽩 ?쒕졆??愿李곕맖(0.2珥?媛꾧꺽 ?꾨젅???ㅼ닔濡??ы솗??.
-- t=23~29s: ?ㅼ젣 ?띾룄媛 33??km/h濡???6珥?留뚯뿉 湲됯컧??吏곸쟾 ?ш???
-  援ш컙怨??鍮꾨릺??湲됯꺽??諛섏쟾).
-
-**clip1(161836)**: ?뺤껜 ?묎렐 以?32??km/h 媛먯냽 援ш컙, 洹몃옒?꾩뿉??spike
-?⑦꽩??蹂댁씠???곸긽 ?쒖옉(t=0) ?댁쟾 ?대깽?몄쓽 ?붿긽??媛?μ꽦???덉뼱
-?낆옄???뺤쬆?쇰줈??蹂대쪟(clip2留뚰겮 紐낇솗????묎?怨꾨뒗 ?꾨떂).
-
-**?먮떒**: ?곸긽?먯꽌 愿李곕맂 "?ъ텧諛?媛??以?dRel 吏??媛먯냼 ??湲됯꺽??
-accel spike-crash ???띾룄 湲됰씫" ?⑦꽩? 58李?2踰??ㅺ퀎 媛???뺤껜 以?
-吏㏃? dRel+吏??closing??danger override(TTC<=2.5s)瑜??ㅻ컻?숈떆耳?
-rise-rate ?쒗븳源뚯? ?고쉶?섍퀬 利됱떆 weight=1.0?쇰줈 ??怨?**?뺤꽦?곸쑝濡?
-?쇱튂**. ?? ?곸긽留뚯쑝濡쒕뒗 (a) ?뺥솗??TTC/aEgo/vRel ?섏튂, (b) danger
-override ?뚮옒洹??ㅼ젣濡?洹?寃쎈줈??붿?, ?꾨땲硫??ㅻⅨ 硫붿빱?덉쬁?몄?)瑜?
-?뺤씤?????놁쓬 ??58李?2踰?怨꾩냽?먯꽌 ?대? 吏?곷맂 ?쒓퀎? ?숈씪.
-
-**?ㅼ쓬(?ъ슜???쒕낫 ?湲? 理쒖슦??**: ????clip怨?媛숈? 二쇳뻾??rlog/
-route(媛?ν븯硫?qcamera ?ы븿, ?쒓컖 16:18~16:19寃? ?ъ뾽濡쒕뱶 ?붿껌 ??
-clip2 t??3s(?ш?????湲됯컧???쒖옉 ?쒖젏) 遺洹쇱쓣 route ?댁뿉???뱀젙??
-TTC/dRel/vRel/aEgo/danger override 諛쒕룞 ?щ?瑜??섏튂濡??議??뺤씤??
-寃? ?뺤쬆?섎㈃ 58李?2踰?援ы쁽(congestion ?곹깭 異붿쟻 + danger override
-closing 議곌굔 異붽?) 李⑹닔. 肄붾뱶 蹂寃??놁쓬(?곸긽 遺꾩꽍留?.
+**다음 최우선(사용자 방향 결정 대기, 코딩 착수 전)**: FINDINGS.md
+"58차 2번 계속3 다음" 항목의 조치 후보 (a)GATE_NONE 상향 / (b)앞차
+실측 감속 크기 기반 보조 weight 경로 / (c) 정체 한정 프레이밍 폐기
+여부 등 결정 필요.
 
 
-## 58李?2踰?怨꾩냽 (泥댄겕?ъ씤?????ㅼ감?뺤씤 濡쒓렇 遺꾩꽍 李⑹닔, 援ы쁽 ???ㅺ퀎 寃利??④퀎) ???뺤껜援ш컙 遺뺣걮
+## 58차 2번 계속2 (체크포인트 — 화면녹화 영상 2건 제보, 정성적 일치 확인·정량 데이터 요청 대기) — 정체구간 붕끗
 
-**諛곌꼍**: 58李?2踰??ㅺ퀎(?꾨옒 ?먮낯 ?뱀뀡)???뺤젙?먯쑝?? ?ъ슜?먭? 援ы쁽
-李⑹닔 ?꾩뿉 "?뺤껜援ш컙_遺뺣겱.zip"(?ㅼ젣 遺뺣걮 諛쒖깮 濡쒓렇, qcamera ?ы븿)??
-?낅줈?????ㅼ젣 濡쒓렇濡??ㅺ퀎 ?꾩젣(吏㏃? dRel + ?꾨쭔??closing ??TTC
-danger override ?ㅻ컻??遺??寃利앺븯湲곕줈 ?? ?ㅼ감?뺤씤(?⑥튂 ?곸슜 ??
-寃利?? ?댄썑濡?誘몃（怨? 吏湲덉? "?⑥튂 ?댁쟾 濡쒓렇濡?洹쇰낯?먯씤 ?먯껜瑜?
-?ㅼ륫 ?뺤씤"?섎뒗 ?④퀎.
+**배경**: 직전 체크포인트("58차 2번 계속", 아래)에서 로그 2개로는 "정체
+중 danger override 오발동" 패턴을 확증 못해 사용자 추가 제보 대기
+상태였음. 사용자가 화면녹화 clip 2개(`260823_161836_clip.mp4`/
+`260823_161929_clip.mp4`, 각 ~30초, CarrotWeb 오버레이 포함)를 "붕끗이
+명확한 영상"으로 업로드 → ffmpeg로 프레임 추출(seek 방식, 0.2~1초
+간격)해 화면 판독으로 분석.
 
-**濡쒓렇**: 2媛?route ?낅줈?? route ID ?ㅻ쫫 ??遺꾨━ 異붿텧.
-- `route_98fe04a961`(3?멸렇 0~2, 181.8s, avg 8.2km/h, cruise_ratio 71.9%)
-- `route_a3a55cb808`(seg11~14 以?**seg14??zstd ?먯긽**(湲곗〈?먮룄 ?뚮젮吏?
-  ?먯긽 ?뚯씪) ??seg11~13留??ъ슜, 179.8s, avg 7.4km/h, cruise_ratio 93.1%)
-- ????CSV 異붿텧 ?꾨즺(`/home/claude/work/congestion/route_*.csv`).
+**clip2(161929) 상세 타임라인(정성적 판독, 초 단위는 영상 재생시각 기준)**:
+- t=0~7s: 정차(속도 0, 정체 대기열)
+- t=7~23s: 재출발 가속, 0→33km/h. 이 구간 내내 리드박스 dRel(빨간
+  숫자)가 24m대→10m대까지 지속 감소(선행차와 계속 closing 유지 —
+  정체 중 짧은 dRel 상황과 일치).
+- **t≈23s 부근**: 화면 상단 "1.Accel (Y:a_ego, G:a_target, O:a_out)"
+  그래프에서 세 선이 함께 급격히 위로 튀었다가 즉시 무너지는
+  spike-crash 패턴 뚜렷이 관찰됨(0.2초 간격 프레임 다수로 재확인).
+- t=23~29s: 실제 속도가 33→7km/h로 약 6초 만에 급감속(직전 재가속
+  구간과 대비되는 급격한 반전).
 
-**1李?寃곌낵 (吏꾪뻾 以? 寃곕줎 ?꾨떂)**:
-1. ?뺤감(v<0.3m/s) 吏꾩엯 諛섎났 ?잛닔: route1 3??route2 7??????route
-   ??"?뺤?-異쒕컻 諛섎났" ?뺤껜 ?⑦꽩 援ъ“?곸쑝濡??뺤씤???ㅺ퀎 ?꾩젣 1 異⑹”).
-2. `ttc_danger_events()`(TTC<=2.5s)濡?danger override 諛쒕룞 ?꾨낫 ?ㅼ틪 ??
-   媛?route 1嫄댁뵫留?寃異?
-   - route1 t=60.40: dRel=6.52m, vRel=-2.79m/s, vEgo?? ??**?? ??援ш컙?
-     brakePressed=True 吏???댁쟾?먭? 釉뚮젅?댄겕 諛잕퀬 ?뺤감 ?좎? 以??대씪
-     cruiseEnabled ?щ? 誘명솗?? ADAS 媛쒖엯 ?щ? 遺덈챸?? aEgo??嫄곗쓽
-     0?쇰줈 "遺뺣걮" 吏뺥썑 ??蹂댁엫 ?????대깽?멸? ?ъ슜?먭? 留먰븳 利앹긽怨?
-     媛숈? 嫄댁? ?섏떖.**
-   - route2 t=4316.31: dRel=11.60m, vRel=-4.70m/s, vEgo=6.46m/s(23km/h) ??
-     vRel??-4.7m/s濡?"?꾨쭔??closing"?대씪 蹂닿린???ㅼ냼 ???ㅺ퀎 臾몄꽌??
-     "?꾨쭔??closing" ?꾩젣????쎄컙 ?닿툔?????덉쓬, qcamera ?뺤씤 ?꾩슂).
-3. ?⑥닚 jerk(|?a_ego/?t|>=1.5) ?ㅼ틪? route1 78嫄?route2 284嫄댁쑝濡?
-   怨쇰떎寃異????遺遺??뺤긽?곸씤 ?뺤?-異쒕컻/異붿쥌 媛媛먯냽(src=vturn ???대씪
-   ?욎뿬 ?덉뼱 "遺뺣걮" ?뱀씠 ?⑦꽩留?紐?嫄몃윭?? **?뺤껜援ш컙 ?쒖젙 + TTC
-   danger override ?곌? ?꾪꽣 ?놁씠???몄씠利?吏諛곗쟻** ??踰붿슜 jerk
-   ?ㅼ틪???꾨땲??58李?2踰??ㅺ퀎 洹몃?濡??뺤껜 ?곹깭 異붿쟻 + danger override
-   ?쒖젏) ?꾩슜 ?ㅼ틦?덇? ?꾩슂?⑥씠 ?ы솗?몃맖.
+**clip1(161836)**: 정체 접근 중 32→0km/h 감속 구간, 그래프에도 spike
+패턴이 보이나 영상 시작(t=0) 이전 이벤트의 잔상일 가능성이 있어
+독자적 확증으로는 보류(clip2만큼 명확한 대응관계는 아님).
 
-**?먮떒(媛깆떊, (a) ?꾨즺)**: `congestion_stop_launch_lurch_scan()` ?좉퇋
-援ы쁽쨌寃利??꾨즺(?⑹꽦 ?쒕굹由ъ삤 3嫄??듦낵, `analysis_helpers.py`/
-README.md/CHANGELOG.md ?숆린??. ?ㅼ젣 ??route???곸슜:
-- ?꾧꺽 湲곗?(window 60s, ?뺤껜?먯젙 ?뺤감 2???댁긽, ?꾨쭔???묎렐
-  |vRel|<3.0m/s): **0嫄?*(route1/route2 ????.
-- ?꾪솕 湲곗?(?뺤감 1?뚮쭔?쇰줈???뺤껜濡??몄젙, window 90s): route1?먯꽌
-  **1嫄?*(t=60.40, ?욎꽌 諛쒓껄??洹??대깽?? ??洹몃윭??**cruiseEnabled=
-  False**(?댁쟾?먭? 釉뚮젅?댄겕 諛잕퀬 ?섎룞 ?뺤감 以? ADAS 醫낅갑???쒖뼱 濡쒖쭅
-  ?먯껜媛 媛쒖엯?섏? ?딅뒗 援ш컙)濡??뺤씤, `post_aEgo_drop`??0.001濡?
-  ?ъ떎??臾대?????**ADAS danger override? 臾닿????대깽?몃줈 ?먯젙**.
-  route2???꾪솕 湲곗??쇰줈??0嫄?
+**판단**: 영상에서 관찰된 "재출발 가속 중 dRel 지속 감소 → 급격한
+accel spike-crash → 속도 급락" 패턴은 58차 2번 설계 가설(정체 중
+짧은 dRel+지속 closing이 danger override(TTC<=2.5s)를 오발동시켜
+rise-rate 제한까지 우회하고 즉시 weight=1.0으로 튐)과 **정성적으로
+일치**. 단, 영상만으로는 (a) 정확한 TTC/aEgo/vRel 수치, (b) danger
+override 플래그(실제로 그 경로였는지, 아니면 다른 메커니즘인지)를
+확인할 수 없음 — 58차 2번 계속에서 이미 지적된 한계와 동일.
 
-**寃곕줎**: ?대쾲???낅줈?쒕맂 ??濡쒓렇(媛?~3遺? ?뺤껜援ш컙)?먯꽌??58李?
-2踰덉씠 寃⑤깷??"?뺤껜 以?danger override ?ㅻ컻?숈쑝濡??명븳 遺뺣걮" ?⑦꽩??
-ADAS 媛쒖엯 ?щ?瑜??뺤쬆?섏? 紐삵븿. qcamera ?議고븷 留뚰븳 紐낇솗???꾨낫媛
-?놁뼱 (b) ?④퀎(?곸긽 ?議???蹂대쪟 ??**?ъ슜?먯뿉寃??곹솴 蹂닿퀬 ???ㅼ쓬
-諛⑺뼢 寃곗젙 ?꾩슂**(?? ?ъ슜?먭? ?ㅼ젣 "遺뺣걮"??泥닿컧???뺥솗???쒓컖/援ш컙
-異붽? ?쒕낫, ?먮뒗 ??湲??ㅻⅨ ?뺤껜援ш컙 濡쒓렇 ?ъ뾽濡쒕뱶, ?먮뒗 ?뚮씪誘명꽣瑜?
-???꾪솕?댁꽌 ?ъ뒪罹? ?먮뒗 danger override ???ㅻⅨ 硫붿빱?덉쬁 ?ш???.
-
-**肄붾뱶 蹂寃?*: `devnotes/toolkit/analysis_helpers.py`(?좉퇋 ?⑥닔)/
-`README.md`/`CHANGELOG.md`留?蹂寃? **ryu 肄붾뱶???ъ쟾??誘몃?寃?*(2踰?
-援ы쁽? ?ㅺ퀎 ?뺤젙 ?곹깭 洹몃?濡? ?대쾲 濡쒓렇濡쒕뒗 李⑹닔 ?먮떒 洹쇨굅 遺議?.
+**다음(사용자 제보 대기, 최우선)**: 이 두 clip과 같은 주행의 rlog/
+route(가능하면 qcamera 포함, 시각 16:18~16:19경) 재업로드 요청 —
+clip2 t≈23s(재가속 후 급감속 시작 시점) 부근을 route 내에서 특정해
+TTC/dRel/vRel/aEgo/danger override 발동 여부를 수치로 대조 확인할
+것. 확증되면 58차 2번 구현(congestion 상태 추적 + danger override
+closing 조건 추가) 착수. 코드 변경 없음(영상 분석만).
 
 
-## 58李?2踰?(?ㅺ퀎 ?뺤젙, 援ы쁽 李⑹닔 ?? ???뺤껜援ш컙 遺뺣걮 ?꾪솕
+## 58차 2번 계속 (체크포인트 — 실차확인 로그 분석 착수, 구현 전 설계 검증 단계) — 정체구간 붕끗
 
-**利앹긽**: ?뺤껜援ш컙?먯꽌 ?욎감 ?뺤?-異쒕컻 諛섎났 ???먯감媛 "遺뺣걮"(湲됯꺽??
-諛섏쓳?덈떎 ??몃떎) ?먮굦. ?ъ슜??吏꾨떒: "?좏뻾李?蹂?붿뿉 誘쇨컧???肄붾뵫
-?곹뼢, ?뺤껜援ш컙 ?쒖젙 蹂꾨룄 濡쒖쭅 ?꾩슂."
+**배경**: 58차 2번 설계(아래 원본 섹션)는 확정됐으나, 사용자가 구현
+착수 전에 "정체구간_붕끽.zip"(실제 붕끗 발생 로그, qcamera 포함)을
+업로드 → 실제 로그로 설계 전제(짧은 dRel + 완만한 closing → TTC
+danger override 오발동)부터 검증하기로 함. 실차확인(패치 적용 후
+검증)은 이후로 미루고, 지금은 "패치 이전 로그로 근본원인 자체를
+실측 확인"하는 단계.
 
-**?먯씤 ?뺤젙**: `LAUNCH_BYPASS_STOP_V_EGO(0.3)/EXIT_V_EGO(5.0)`(45李???
-"?뺤감?믪텧諛? ?⑤컻 ?대깽?몃쭔 ?곹깭濡?愿由?-- ?ъ텧諛?以?v_ego媛 5.0m/s瑜?
-?좉퉸 ?섏쑝硫?利됱떆 38/39李?TTC 湲곕컲 濡쒖쭅(`ttc_accel_weight`)?쇰줈 蹂듦?.
-?뺤껜援ш컙? 援ъ“?곸쑝濡?dRel(李④컙嫄곕━)??吏㏃븘, ?욎감???뺤긽?곸씤 誘몄꽭
-媛먯냽?먮룄 TTC=dRel/closing???쎄쾶 LEAD_ACQ_TTC_DANGER(2.5s) 諛묒쑝濡?
-?⑥뼱吏?-- ??danger override??rise-rate ?쒗븳(39李?源뚯? ?꾨? ?고쉶?섍퀬
-利됱떆 weight=1.0(臾닿컧??濡??? ?뺤껜援ш컙???뺤긽?곸씤 ?뺤?-異쒕컻 ?먮쫫??
-"?ㅼ젣?꾪뿕"?쇰줈 ?ㅽ뙋??諛섏쓳?섎뒗 寃껋씠 遺뺣걮??root cause濡??먮떒.
+**로그**: 2개 route 업로드, route ID 다름 — 분리 추출.
+- `route_98fe04a961`(3세그 0~2, 181.8s, avg 8.2km/h, cruise_ratio 71.9%)
+- `route_a3a55cb808`(seg11~14 중 **seg14는 zstd 손상**(기존에도 알려진
+  손상 파일) — seg11~13만 사용, 179.8s, avg 7.4km/h, cruise_ratio 93.1%)
+- 둘 다 CSV 추출 완료(`/home/claude/work/congestion/route_*.csv`).
 
-**?ㅺ퀎**: "?뺤껜(congestion)" ?곹깭瑜?蹂꾨룄濡?異붿쟻 -- 理쒓렐 ?쒓컙李?
-(CONGESTION_WINDOW_S) ?대궡 ?뺤감(v_ego<STOP_V_EGO 吏꾩엯) ?잛닔媛
-CONGESTION_STOP_COUNT_THRESH ?댁긽?대㈃ congestion_active=True.
-?뺤껜 以묒뿏 danger override 議곌굔??"TTC 吏㏃쓬" ?⑤룆???꾨땲??"?ㅼ젣
-closing ?띾룄???좎쓽誘명븯寃???(CONGESTION_MIN_CLOSING_FOR_DANGER)??
-異붽?濡??붽뎄 -- ?뺤껜 以??뺤긽?곸씤 吏㏃? dRel + ?꾨쭔??closing?쇰줈??
-???댁긽 利됱떆 臾닿컧?좊줈 ?吏 ?딄퀬, 吏꾩쭨 湲됱젒洹?closing ??? ?ъ쟾??
-利됱떆 諛섏쓳. congestion_active???띾룄媛 CONGESTION_EXIT_SPEED ?댁긽??
-CONGESTION_EXIT_SUSTAIN_S ?댁긽 ?좎??섎㈃ ?댁젣(怨좎냽 ?뺤긽二쇳뻾 蹂듦? ?먮떒).
+**1차 결과 (진행 중, 결론 아님)**:
+1. 정차(v<0.3m/s) 진입 반복 횟수: route1 3회/route2 7회 — 두 route
+   다 "정지-출발 반복" 정체 패턴 구조적으로 확인됨(설계 전제 1 충족).
+2. `ttc_danger_events()`(TTC<=2.5s)로 danger override 발동 후보 스캔 —
+   각 route 1건씩만 검출:
+   - route1 t=60.40: dRel=6.52m, vRel=-2.79m/s, vEgo≈0 — **단, 이 구간은
+     brakePressed=True 지속(운전자가 브레이크 밟고 정차 유지 중)이라
+     cruiseEnabled 여부 미확인, ADAS 개입 여부 불명확. aEgo도 거의
+     0으로 "붕끗" 징후 안 보임 — 이 이벤트가 사용자가 말한 증상과
+     같은 건지 의심.**
+   - route2 t=4316.31: dRel=11.60m, vRel=-4.70m/s, vEgo=6.46m/s(23km/h) —
+     vRel이 -4.7m/s로 "완만한 closing"이라 보기엔 다소 큼(설계 문서의
+     "완만한 closing" 전제와는 약간 어긋날 수 있음, qcamera 확인 필요).
+3. 단순 jerk(|Δa_ego/Δt|>=1.5) 스캔은 route1 78건/route2 284건으로
+   과다검출 — 대부분 정상적인 정지-출발/추종 가감속(src=vturn 등)이라
+   섞여 있어 "붕끗" 특이 패턴만 못 걸러냄. **정체구간 한정 + TTC
+   danger override 연관 필터 없이는 노이즈 지배적** → 범용 jerk
+   스캔이 아니라 58차 2번 설계 그대로(정체 상태 추적 + danger override
+   시점) 전용 스캐너가 필요함이 재확인됨.
 
-**?덉쟾 ?ㅺ퀎 ?먯튃(以묒슂)**: ?뺤껜 以묒씠?쇨퀬 諛섏쓳??臾댁“嫄?二쎌씠??寃??꾨땲??
-"TTC ?⑤룆 ?먯젙"?먯꽌 "TTC + closing ?띾룄 ?숈떆 ?먯젙"?쇰줈 湲곗???
-媛뺥솕?섎뒗 寃?-- ?ㅼ젣 湲됱젙吏/cut-in泥섎읆 closing ?띾룄 ?먯껜媛 ???꾪뿕?
-?뺤껜 以묒뿉??洹몃?濡?利됱떆 諛섏쓳.
+**판단(갱신, (a) 완료)**: `congestion_stop_launch_lurch_scan()` 신규
+구현·검증 완료(합성 시나리오 3건 통과, `analysis_helpers.py`/
+README.md/CHANGELOG.md 동기화). 실제 두 route에 적용:
+- 엄격 기준(window 60s, 정체판정 정차 2회 이상, 완만한 접근
+  |vRel|<3.0m/s): **0건**(route1/route2 둘 다).
+- 완화 기준(정차 1회만으로도 정체로 인정, window 90s): route1에서
+  **1건**(t=60.40, 앞서 발견한 그 이벤트) — 그러나 **cruiseEnabled=
+  False**(운전자가 브레이크 밟고 수동 정차 중, ADAS 종방향 제어 로직
+  자체가 개입하지 않는 구간)로 확인, `post_aEgo_drop`도 0.001로
+  사실상 무변화 — **ADAS danger override와 무관한 이벤트로 판정**.
+  route2는 완화 기준으로도 0건.
 
-**?ㅼ쓬(媛숈? ?몄뀡?먯꽌 ?댁뼱??援ы쁽)**: ???ㅺ퀎?濡?long_mpc.py??
-congestion ?곹깭 異붿쟻(deque 湲곕컲 ?뺤감 ?대젰) + danger override 議곌굔
-?섏젙 援ы쁽 ???⑹꽦寃利???patch ?묒꽦 ???ъ슜???꾨떖.
+**결론**: 이번에 업로드된 두 로그(각 ~3분, 정체구간)에서는 58차
+2번이 겨냥한 "정체 중 danger override 오발동으로 인한 붕끗" 패턴의
+ADAS 개입 사례를 확증하지 못함. qcamera 대조할 만한 명확한 후보가
+없어 (b) 단계(영상 대조)는 보류 — **사용자에게 상황 보고 후 다음
+방향 결정 필요**(예: 사용자가 실제 "붕끗"을 체감한 정확한 시각/구간
+추가 제보, 또는 더 긴/다른 정체구간 로그 재업로드, 또는 파라미터를
+더 완화해서 재스캔, 또는 danger override 외 다른 메커니즘 재검토).
 
-
-## 58李?1踰?(?꾨즺 ???⑥튂 ?곸슜/push ?꾨즺, ?ㅼ감 寃利??湲? ??移대찓??媛먯냽 媛뺥솕
-FINDINGS.md/PARAMS_REGISTRY.md/LAST_ANALYZED.md 58李?1踰???ぉ 李멸퀬.
-?붿빟: `radard.py` VisionTrack 寃뚯씠???꾪솕 + `long_mpc.py` v_lead 吏곸젒
-蹂댁젙(?듭떖) 2嫄??⑥튂, ?ъ슜??濡쒖뺄 origin ?숆린??30媛? 而ㅻ컠 ?ㅼ쿂吏?諛쒓껄,
-reset --hard濡??뺣━) 嫄곗퀜 `git am`+push ?꾨즺(`f94a7d2..e17e078`).
-**?ㅼ쓬 硫붿떆吏 理쒖슦??*: ?ㅼ감 寃利??湲?以????ъ슜?먭? 寃利?寃곌낵
-媛?몄삤硫??뺤씤 ??devnotes 媛깆떊, ?듦낵?섎㈃ 58李?2踰??뺤껜援ш컙 遺뺣겱
-?꾪솕)?쇰줈 吏꾪뻾. 58李??꾩껜 ?쒖꽌???꾨옒 "58李? ?뱀뀡(?쒖꽌 ?뺤젙) 李멸퀬.
-
-
-## 58李????ъ슜??吏??肄붾뵫 ?묒뾽 ?쒖꽌 ?뺤젙 (李⑹닔: 1踰덈???
-?ъ슜?먭? 4媛?肄붾뵫 怨쇱젣? ?쒖꽌瑜??뺤젙 吏?쒗븿. **???쒖꽌 洹몃?濡?吏꾪뻾,
-?꾩쓽 ?쒖꽌 蹂寃?湲덉?.**
-
-1. **[李⑹닔 ?덉젙] 移대찓??vision) ?몄떇 媛먯냽???덉씠???鍮??쏀븿 ???덉씠??
-   ?몄떇 ?섏??쇰줈 媛뺥솕.** ?꾩옱 vision-only ?곹솴(?덉씠??誘몃씫???먯꽌??
-   媛먯냽 諛섏쓳???덉씠???쎌삩 ??諛섏쓳 ?섏???留욎떠 媛뺥븯寃? 湲곗〈
-   frac_rate 寃뚯씠??33李? GATE_CAUTION=-2.2/GATE_DANGER=-5.0)/TTC
-   damping(38/39李???愿??濡쒖쭅 ???대쾲 ?붿껌???닿구 ?꾪솕?섎뒗 諛⑺뼢?몄?
-   ?꾨땲硫?蹂꾨룄 寃쎈줈(vision v_lead瑜?MPC????吏곸젒 諛섏쁺?섎뒗 25李?
-   "4踰덉븞"瑜? 異붽??몄???肄붾뱶 由щ뵫 ???ㅺ퀎 ?뺤젙 ?꾩슂.
-2. ?뺤껜援ш컙(?뺤?-異쒕컻-?ъ젙李?諛섎났) ???좏뻾李?蹂?붿뿉 誘쇨컧 諛섏쓳??
-   "遺뺣겱" ?먮굦 ??**?뺤껜援ш컙 ?쒖젙 蹂꾨룄 濡쒖쭅 ?곸슜 寃??** 45李?launch
-   bypass(LAUNCH_BYPASS_STOP_V_EGO/EXIT_V_EGO)/39李?rise-rate? 愿??
-   媛?μ꽦 ???뺤껜援ш컙(諛섎났 ?뺤?-異쒕컻) ?먯젙 諛⑹떇遺???ㅺ퀎 ?꾩슂.
-3. ?뺤??욎감?????諛섏쓳 媛뺥솕 ??2踰??뺤껜援ш컙 遺뺣겱) ?꾪솕? ?곸땐?섏?
-   ?딅뒗 踰붿쐞?먯꽌 ?ㅺ퀎??寃??ъ슜?먭? "誘쇨컧 諛섏쓳 ?꾪솕"? "諛섏쓳 媛뺥솕"瑜?
-   ?숈떆???붿껌 ???뺤껜援ш컙 vs ?뺤??욎감 ?⑥씪 ?대깽?몃? 援щ텇?댁꽌
-   ?묎렐?댁빞 ?? ?쇰룞 二쇱쓽).
-4. 怨≪꽑援ш컙 誘몃━媛먯냽(?ъ쟾媛먯냽) ??50李?model 寃뚯씠???ъ꽕怨?
-   (abs(vturn_speed)<120 ?쒓굅) ?댄썑 誘멸?利??곹깭???"吏곸꽑 援ш컙 ?ㅽ깘
-   ?щ?"? ?④퍡, ?ъ쟾媛먯냽 ?먯껜媛 遺議깊븳吏 ?ы솗????吏꾪뻾.
-
-**?ㅼ쓬 ?몄뀡(?먮뒗 ?ㅼ쓬 硫붿떆吏) 理쒖슦??*: 1踰덈???肄붾뱶 由щ뵫 ???ㅺ퀎 ??
-?⑥튂 ?묒꽦 ???ъ슜???뱀씤 ??`C:\dev\patch\` ?꾨떖.
+**코드 변경**: `devnotes/toolkit/analysis_helpers.py`(신규 함수)/
+`README.md`/`CHANGELOG.md`만 변경. **ryu 코드는 여전히 미변경**(2번
+구현은 설계 확정 상태 그대로, 이번 로그로는 착수 판단 근거 부족).
 
 
-## 57李???56李??ъ뾽濡쒕뱶 dataset "qcamera?곸긽???議곕텇?? ?붿껌 泥섎━, ?媛???킅 ?좉퇋 ?꾨낫 諛쒓껄
-56李⑥? ?숈씪 9媛?route ?ъ뾽濡쒕뱶諛쏆븘(?꾩껜 ?ъ텛異? `a3a55cb808` seg14
-zstd ?먯긽 ?ы솗?????쒖쇅) ????댁긽 ?⑦꽩??|jerk| ?ш린 湲곗? ?곸쐞 6嫄?
-?꾨? qcamera ?꾨젅???議??꾨즺(?곸꽭??FINDINGS.md 57李???ぉ 李멸퀬).
-**?듭떖 寃곌낵**: 1嫄댁? 56李④퉴吏??"?놁감????뺤감??洹쇱젒" 硫붿빱?덉쬁怨?
-?쇱튂 ?ы솗?? **3嫄??꾨? `27b2980cda` route, 18:01~18:21 ?쇰ぐ ?쒓컙?)
-? ?媛??앹뼇 ??킅/紐낆븫 湲됱쟾?섍낵 ?쒓컖?곸쑝濡??쇱튂 ???좉퇋 ?? 硫붿빱?덉쬁
-?꾨낫(NEEDS_VALIDATION, ?쒕낯 3嫄대퓧).** 1嫄댁? ?먯씤 誘몄긽, 1嫄댁? ?ㅼ젣
-媛먯냽????뱁븳 ?뺤긽 ?곹솴?쇰줈 諛곗젣. 肄붾뱶 蹂寃??놁쓬(遺꾩꽍留?.
-**?ㅼ쓬 ?몄뀡(?먮뒗 ?ㅼ쓬 硫붿떆吏) 理쒖슦??*:
-1. 56李?WIP?먯꽌 ?댁썡??"????댁긽 6嫄?肄붾뱶由щ럭"(?놁감??SCC ?대갚
-   dPath 寃뚯씠???붿〈 ?щ?, `radard.py get_lead()`/
-   `Track.get_RadarState()`)???ъ쟾??誘몄갑????怨꾩냽 理쒖슦???좎?.
-2. **[?좉퇋]** ?媛???킅 媛??寃利????ㅻⅨ ?쇱텧/?쇰ぐ ?쒓컙? 濡쒓렇
-   ?뺣낫 ??媛숈? ?⑦꽩(vision ??ш? ?쒖뼇 諛⑹쐞媛?怨좊룄? ?곴??섎뒗吏)
-   ?ы쁽 ?щ? ?뺤씤. ?쒕낯???섎㈃ `curve_lead_dRel_jump_consistency`瑜?
-   ?쇨???泥댄겕???쒖뼇 ??킅 ?꾪꽣??異붽? 寃??
-3. `a3a55cb808` route ???105嫄?56李⑤????湲? ?먯씤 誘멸?利? 怨꾩냽
-   ??곗꽑 ?좎?.
+## 58차 2번 (설계 확정, 구현 착수 전) — 정체구간 붕끗 완화
 
-- ????쒓컖: 2026-08-23 (56李? ?꾨즺 ??肄붾뱶 蹂寃??놁쓬, 遺꾩꽍留? ???
-  ?ㅼ＜??濡쒓렇 9媛?route(15:53~19:00 ??3?쒓컙, 189,336?? 媛?1媛?
-  boot session/10~20?멸렇, `a3a55cb808`??seg14 zstd ?먯긽?쇰줈 seg0~13留?
-  ?ъ슜) ?낅줈?쒕컺??55李⑥? ?숈씪 5媛???ぉ ?щ텇???꾨즺. `stopped_lead_
-  decel_events`/`launch_after_stop_events`??55李?work/ ?ㅽ겕?섏튂媛
-  而⑦뀒?대꼫 由ъ뀑?쇰줈 ?뚯떎??devnotes 湲곕줉 湲곕컲?쇰줈 ??옱??
-  (`work/five_item_scan.py`, toolkit 誘명렪??.
-  **?듭떖 寃곌낵**: 1)?諛섏쓳 ?붿뿬?⑦꽩 ?쒕졆???ы쁽 ?놁쓬(寃쎄퀎?щ? 1嫄대퓧,
-  ??곗꽑 ?좎?). 2)?뺤??욎감 26嫄?以?15嫄??쒖닔ADAS ?대┛, 11嫄댁?
-  ?댁쟾?먭컻???쇳빀(媛쒕퀎寃利??덊븿). 3)?뺤????ъ텧諛?6嫄??꾨?
-  driver_gas_ratio=0.0 留ㅻ걟(45李?launch bypass ?뺤긽). **4)[以묒슂,
-  qcamera ?議??꾨즺]** 55李?理쒖슦?좎씠??route1 seg18 ????댁긽?⑦꽩
-  (leadVRel???몃뜲 ???????4嫄?異붽? ?ы쁽(?쒕낯 2??嫄?. 3嫄?
-  (src=road/section)? `verify_and_extract_frames.py`濡??꾨젅??
-  ?議고븳 寃곌낵 **????쒓컙 ?꾨? ?놁감?좎뿉 ??뺤감??SUV 2/?깊겕濡쒕━ 1)??
-  洹쇱젒 諛李?二쇳뻾 以묒씠?덉쓬???곸긽?쇰줈 ?뺤씤** ??37李?"SCC ?⑥씪??
-  ?쎌삩???놁감??李⑤웾??誘멸?利?梨꾪깮" 臾몄젣? ?숈씪 硫붿빱?덉쬁?쇰줈 異붿젙
-  (37李⑤뒗 湲됯컧???щ?, ?대쾲? 媛??+) 諛⑺뼢 ??щ씪??李⑥씠). ?섎㉧吏
-  1嫄?src=vturn)? ?곸긽 ?뺤씤 寃곌낵 吏꾩쭨 而ㅻ툕 援ш컙(?놁감??李⑤웾 ?놁쓬)
-  ?쇰줈 ?꾩쟾 蹂꾧컻, ?⑦꽩?먯꽌 ?쒖쇅. 5)怨≪꽑
-  ?꾨컲 3嫄??쒕낯 ?곸쓬, ?대쾲 濡쒓렇媛 而ㅻ툕 ?곸? ?쒕궡 ?꾩＜ 異붿젙), curve_exit
-  0嫄?48李?寃곕줎 ?ы솗??. ?덉쟾吏??harsh_brake/ttc_danger) ?꾨? ?대┛.
-  ?곸꽭??FINDINGS.md 56李???ぉ 李멸퀬.
-  **?ㅼ쓬 ?몄뀡(?먮뒗 ?ㅼ쓬 硫붿떆吏) 理쒖슦??*:
-  1. 4踰?????댁긽 6嫄?55李?2嫄?56李?4嫄? **肄붾뱶由щ럭 李⑹닔** ??"37李?
-     ?놁감??SCC ?대갚 臾몄젣媛 37李?怨꾩냽3 dPath 寃뚯씠???⑥튂 ?곸슜 ?꾩뿉??
-     媛??諛⑺뼢?쇰줈 ?붿〈?섎뒗吏" 以묒떖?쇰줈 `radard.py get_lead()`/
-     `Track.get_RadarState()` ?ы솗????FINDINGS.md 56李?"?ㅼ쓬 ?몄뀡
-     理쒖슦?? 1踰?李멸퀬).
-  2. 51/54李?vturn apex lag ?댁뒋???대쾲 濡쒓렇 ?쒕낯???곸뼱 吏꾩쟾 ?놁쓬,
-     怨꾩냽 ?대┛ ?곹깭濡??좎?.
-  3. `a3a55cb808` route ???105嫄??ㅻⅨ route ?鍮??뺣룄?? ?먯씤
-     誘멸?利?????곗꽑, 肄붾뱶由щ럭 ?댄썑 ?뺤씤.
+**증상**: 정체구간에서 앞차 정지-출발 반복 시 자차가 "붕끗"(급격히
+반응했다 풀렸다) 느낌. 사용자 진단: "선행차 변화에 민감대응 코딩
+영향, 정체구간 한정 별도 로직 필요."
+
+**원인 확정**: `LAUNCH_BYPASS_STOP_V_EGO(0.3)/EXIT_V_EGO(5.0)`(45차)는
+"정차→출발" 단발 이벤트만 상태로 관리 -- 재출발 중 v_ego가 5.0m/s를
+잠깐 넘으면 즉시 38/39차 TTC 기반 로직(`ttc_accel_weight`)으로 복귀.
+정체구간은 구조적으로 dRel(차간거리)이 짧아, 앞차의 정상적인 미세
+감속에도 TTC=dRel/closing이 쉽게 LEAD_ACQ_TTC_DANGER(2.5s) 밑으로
+떨어짐 -- 이 danger override는 rise-rate 제한(39차)까지 전부 우회하고
+즉시 weight=1.0(무감쇠)로 튐. 정체구간의 정상적인 정지-출발 흐름을
+"실제위험"으로 오판해 반응하는 것이 붕끗의 root cause로 판단.
+
+**설계**: "정체(congestion)" 상태를 별도로 추적 -- 최근 시간창
+(CONGESTION_WINDOW_S) 이내 정차(v_ego<STOP_V_EGO 진입) 횟수가
+CONGESTION_STOP_COUNT_THRESH 이상이면 congestion_active=True.
+정체 중엔 danger override 조건에 "TTC 짧음" 단독이 아니라 "실제
+closing 속도도 유의미하게 큼"(CONGESTION_MIN_CLOSING_FOR_DANGER)을
+추가로 요구 -- 정체 중 정상적인 짧은 dRel + 완만한 closing으로는
+더 이상 즉시 무감쇠로 튀지 않고, 진짜 급접근(closing 큼)은 여전히
+즉시 반응. congestion_active는 속도가 CONGESTION_EXIT_SPEED 이상을
+CONGESTION_EXIT_SUSTAIN_S 이상 유지하면 해제(고속 정상주행 복귀 판단).
+
+**안전 설계 원칙(중요)**: 정체 중이라고 반응을 무조건 죽이는 게 아니라
+"TTC 단독 판정"에서 "TTC + closing 속도 동시 판정"으로 기준을
+강화하는 것 -- 실제 급정지/cut-in처럼 closing 속도 자체가 큰 위험은
+정체 중에도 그대로 즉시 반응.
+
+**다음(같은 세션에서 이어서 구현)**: 위 설계대로 long_mpc.py에
+congestion 상태 추적(deque 기반 정차 이력) + danger override 조건
+수정 구현 → 합성검증 → patch 작성 → 사용자 전달.
 
 
-- ????쒓컖: 2026-08-23 (55李? 泥댄겕?ъ씤????肄붾뱶 蹂寃??놁쓬, 遺꾩꽍留?
-  ?ъ슜?먭? ?좉퇋 濡쒓렇 3媛?route1=`a6e5df336a` x19seg/route2=`cf48b52c98`
-  x20seg/route3=`7472041957` x3seg, HEAD `f94a7d2` 湲곗?) ?낅줈?쒗빐
-  5媛???ぉ(1.移대찓?쇱씤??媛먯냽/2.?뺤??욎감 媛먯냽/3.?뺤????ъ텧諛?4.?덉씠??
-  ?쎌삩 誘쇨컧諛섏쓳/5.怨≪꽑援ш컙 媛먯냽) ?쒖꽌?濡?遺꾩꽍 ?붿껌 ???꾨? ?꾨즺,
-  ?곸꽭??FINDINGS.md 55李???ぉ 李멸퀬. **route3 seg2??rlog.zst zstd
-  ?꾨젅???먯긽(?뱁솕 以??덈떒 異붿젙)?쇰줈 遺꾩꽍 ?쒖쇅(seg0/1留??ъ슜).**
-  ?붿빟: 1)frac_rate 寃뚯씠???뺤긽 ?숈옉 ?ы솗??52嫄??щ줈?ㅼ삤踰?以??遺遺?
-  ?덉씠???쎌삩 ??媛먯냽 媛쒖떆), ?諛섏쓳 ?붿뿬?⑦꽩 2嫄?41/42李⑤쪟, ??곗꽑).
-  2)?뺤??욎감 異붿쥌 5嫄??꾨? ?대┛. 3)?뺤????ъ텧諛?3嫄??꾨? 留ㅻ걟
-  (45李?launch bypass ?⑥튂 ?뺤긽 ?숈옉?쇰줈 異붿젙). 4)?덉씠?붾씫?????
-  36嫄?以?34嫄댁? leadVRel 蹂?붾줈 ?ㅻ챸 媛?? **?덉쇅 2嫄?route1 seg18,
-  leadVRel???몃뜲 ??+???** ?먯씤 誘몄긽 ???ㅼ쓬 ?몄뀡 肄붾뱶由щ럭 ?곗꽑 ?뺤씤
-  ?꾨낫. 5)turn_speed_violations 23嫄?51/54李?vturn apex lag ?댁뒋??
-  ?곗옣, ?좉퇋 ?꾨떂), curve_exit_no_accel_v4 3嫄?48李?寃곕줎怨??숈씪?섍쾶
-  vCruiseCluster 罹?臾몄젣, 踰꾧렇 ?꾨떂).
-  **?ъ슜?먭? "肄붾뵫寃?좊뒗 遺꾩꽍?????꾨즺???댄썑"?쇨퀬 紐낆떆 ??5媛???ぉ
-  遺꾩꽍? ?대쾲 ?몄뀡?먯꽌 ?꾨즺?먯쑝誘濡? ?ㅼ쓬 硫붿떆吏/?몄뀡?먯꽌 肄붾뱶 由щ럭
-  ?④퀎濡??꾪솚 媛??**
-  **?ㅼ쓬 ?몄뀡(?먮뒗 ?ㅼ쓬 硫붿떆吏) 理쒖슦??*:
-  1. route1 seg18 t=1195.102/1242.70 ????댁긽 2嫄???carrot_serv.py/
-     long_mpc.py 肄붾뱶 由щ뵫?쇰줈 leadVRel 臾닿? ??ъ쓽 ?먯씤(?뚯뒪 ?꾪솚?
-     launch bypass exit? rise-rate 濡쒖쭅?) ?뱀젙.
-  2. 4)?먯꽌 諛쒓껄???諛섏쓳 ?붿뿬?⑦꽩 2嫄?route1 seg2/route2 seg0)??
-     41/42李⑥쿂??qcamera ?꾨젅???議?寃???곗꽑?쒖쐞????쓬).
-  3. route2 harsh_brake 75嫄?cut-in 36嫄??댁쟾?먭컻???щ? 誘멸?利???
-     ?뺤껜援ш컙 異붿젙?대굹 ?뺤젙 ?꾨떂, ?꾩슂 ??媛쒕퀎 ?뺤씤.
-  4. 51/54李?turn_speed_violation(vturn apex lag) ?댁뒋???대쾲 濡쒓렇濡쒕룄
-     ?ы쁽?먯쑝???⑥튂 諛⑺뼢? ?ъ쟾??誘명솗???곹깭(54李?WIP 洹몃?濡??좏슚) ??
-     ?ъ슜?먭? 諛⑺뼢 寃곗젙 ??洹몄そ ?ㅻ젅?쒕줈 蹂듦?.
+## 58차 1번 (완료 — 패치 적용/push 완료, 실차 검증 대기) — 카메라 감속 강화
+FINDINGS.md/PARAMS_REGISTRY.md/LAST_ANALYZED.md 58차 1번 항목 참고.
+요약: `radard.py` VisionTrack 게이트 완화 + `long_mpc.py` v_lead 직접
+보정(핵심) 2건 패치, 사용자 로컬 origin 동기화(30개+ 커밋 뒤처짐 발견,
+reset --hard로 정리) 거쳐 `git am`+push 완료(`f94a7d2..e17e078`).
+**다음 메시지 최우선**: 실차 검증 대기 중 — 사용자가 검증 결과
+가져오면 확인 후 devnotes 갱신, 통과되면 58차 2번(정체구간 붕끽
+완화)으로 진행. 58차 전체 순서는 아래 "58차" 섹션(순서 확정) 참고.
 
 
-- ????쒓컖: 2026-08-23 (54李? 泥댄겕?ъ씤????肄붾뱶 蹂寃??놁쓬(ryu),
-  遺꾩꽍 ?ㅽ겕由쏀듃(work/ ?ㅽ겕?섏튂)留??좉퇋) route4(`d45a15f8fc`) ?ъ뾽濡쒕뱶
-  諛쏆븘 53李?`replay_lookahead_v1.py`??**?ㅼ젣 rlog 泥?寃利??꾨즺**.
-  idx10 媛쒕퀎 ?뺣? ?議?+ 24嫄??꾩껜 ?쇰컲???ㅼ틪(`work/lookahead_
-  generalization_scan.py` ?좉퇋) ?섑뻾. **寃곕줎**: lookahead horizon
-  媛??ii)??吏?섏튇 ?⑥닚?붿????뺤씤 ??raw(?꾪꽣 ?댁쟾) ?좏샇 ?먯껜??
-  ?대깽??洹쇱젒(??珥???源뚯????섍컯 ?놁쓬(?대줎??8.0s horizon蹂대떎 ?⑥뵮
-  ??쾶 媛먯?, ?먭굅由?modelV2 沅ㅼ쟻/怨〓쪧 ?덉륫 ?좊ː??臾몄젣濡?異붿젙) +
-  filtered 理쒖쥌異쒕젰? raw蹂대떎 ?됯퇏 2珥?(18嫄?以?理쒕? 8.6珥? 異붽?濡?
-  ????쾶 諛섏쓳(RC ?쒖젙??0.15s蹂대떎 ?⑥뵮 ???꾩쟻吏????留??꾨젅??
-  媛깆떊?섎뒗 argmin 紐⑺몴瑜?怨꾩냽 ?ㅼ쳯??援ъ“??臾몄젣濡?異붿젙). (a)紐⑤뜽
-  ?먭굅由?媛먯? vs (b)?꾪꽣 ?꾩쟻吏?? ??以?(b)媛 媛쒖엯 ?ъ? ?ш퀬 由ъ뒪??
-  ??? ?꾨낫濡??먮떒?섎굹 **?⑥튂 諛⑺뼢? ?꾩쭅 誘명솗??*. ?곸꽭??FINDINGS.md
-  54李???ぉ 李멸퀬.
-  **[?쒓퀎]** idx10 ?먯껜??threshold 留ㅼ묶 濡쒖쭅 ?댁뒋濡?lag ?먮룞怨꾩궛
-  nan(?섎룞 ?議곕줈??~0.8s ?뺤씤) ???ㅽ겕由쏀듃 ?뺣????꾩슂.
-  **?ㅼ쓬 ?몄뀡 理쒖슦??*:
-  1. **?⑥튂 諛⑺뼢 寃곗젙 ?꾩슂(?ъ슜?먯? ?묒쓽)** ???꾪꽣 吏???꾪솕((b)) 履쎌뿉
-     臾닿쾶, ?섏?留??뺤젙 ?꾨떂. 諛⑺뼢 ?뺥빐吏硫??쒕??덉씠?????⑥튂 ?쒖꽌.
-  2. `lookahead_generalization_scan.py` threshold 留ㅼ묶 ?뺣???idx10
-     nan ?닿껐) ??toolkit ?뺤떇 ?몄엯 寃??
-  3. route2 apex-vs-gap 誘명솗??5嫄?媛쒕퀎 ?ш?利?route2 濡쒓렇 ?ъ뾽濡쒕뱶
-     ?湲? 怨꾩냽 ?댁썡 以?.
+## 58차 — 사용자 지시 코딩 작업 순서 확정 (착수: 1번부터)
+사용자가 4개 코딩 과제와 순서를 확정 지시함. **이 순서 그대로 진행,
+임의 순서 변경 금지.**
+
+1. **[착수 예정] 카메라(vision) 인식 감속이 레이더 대비 약함 — 레이더
+   인식 수준으로 강화.** 현재 vision-only 상황(레이더 미락온)에서의
+   감속 반응을 레이더 락온 시 반응 수준에 맞춰 강하게. 기존
+   frac_rate 게이트(33차, GATE_CAUTION=-2.2/GATE_DANGER=-5.0)/TTC
+   damping(38/39차)이 관련 로직 — 이번 요청이 이걸 완화하는 방향인지
+   아니면 별도 경로(vision v_lead를 MPC에 더 직접 반영하는 25차
+   "4번안"류) 추가인지는 코드 리딩 후 설계 확정 필요.
+2. 정체구간(정지-출발-재정차 반복) 시 선행차 변화에 민감 반응해
+   "붕끽" 느낌 — **정체구간 한정 별도 로직 적용 검토.** 45차 launch
+   bypass(LAUNCH_BYPASS_STOP_V_EGO/EXIT_V_EGO)/39차 rise-rate와 관련
+   가능성 — 정체구간(반복 정지-출발) 판정 방식부터 설계 필요.
+3. 정지앞차에 대한 반응 강화 — 2번(정체구간 붕끽) 완화와 상충하지
+   않는 범위에서 설계할 것(사용자가 "민감 반응 완화"와 "반응 강화"를
+   동시에 요청 — 정체구간 vs 정지앞차 단일 이벤트를 구분해서
+   접근해야 함, 혼동 주의).
+4. 곡선구간 미리감속(사전감속) — 50차 model 게이트 재설계
+   (abs(vturn_speed)<120 제거) 이후 미검증 상태였던 "직선 구간 오탐
+   여부"와 함께, 사전감속 자체가 부족한지 재확인 후 진행.
+
+**다음 세션(또는 다음 메시지) 최우선**: 1번부터 코드 리딩 → 설계 →
+패치 작성 → 사용자 승인 → `C:\dev\patch\` 전달.
 
 
-- ????쒓컖: 2026-08-23 (53李? 泥댄겕?ъ씤????肄붾뱶 蹂寃??놁쓬(ryu),
-  toolkit ?좉퇋 ?ㅽ겕由쏀듃 ?묒꽦+濡쒖쭅 ?⑥쐞 寃利??꾨즺) 52李?理쒖슦??怨쇱젣
-  "lookahead horizon 媛??吏곸젒 寃利앹슜 replay ?ㅽ겕由쏀듃"瑜?
-  `toolkit/replay_lookahead_v1.py`濡??묒꽦 ?꾨즺. `carrot_man.vturn_speed()`
-  (HEAD `f94a7d2`)???꾪꽣 ?곸슜 ??raw) argmin required_speed_kph瑜?
-  modelV2 ?먮낯(orientationRate.z/velocity.x/position.x)?먯꽌 吏곸젒
-  ?ы쁽?섎룄濡?援ы쁽 ??`extract_log.py`??`vTurnSpeed`(?꾪꽣 ??理쒖쥌媛?留?
-  ?쇰줈??"?꾪꽣媛 ??텣 寃?怨?"lookahead_horizon_s(8.0s) ?덉뿉 ?좎큹??
-  湲됱“??吏?먯씠 ??蹂댁???寃???援щ텇 紐??덈뜕 ?쒓퀎瑜??댁냼?섎뒗 寃?紐⑹쟻.
-  **寃利?*: ?⑹꽦 ?쒕굹由ъ삤 2嫄??먭굅由?湲됱빱釉?raw_kph<100 ?뺤씤/?꾩쟾吏곸꽑
-  raw_kph>200 ?뺤씤) + ???넻怨?1?ㅽ뀦 諛⑺뼢??寃利??듦낵, cereal/log.capnp
-  ?꾨뱶 寃쎈줈(orientationRate.z/velocity.x/position.x = XYZTData) 吏곸젒 ?議?
-  ?뺤씤. toolkit/README.md/CHANGELOG.md ?숆린???꾨즺.
-  **?쒓퀎(?ㅼ쓬 ?몄뀡 ?뺤씤 ???좎쓽)**: modelV2 ?대깽??~20Hz)瑜?carrot_man
-  20Hz ??1媛쒕줈 洹쇱궗(?꾩쟾??媛숈? ??대컢 ?꾨떂, 49李⑥? ?숈씪 ?꾩젣).
-  AutoCurveSpeedFactor/Aggressiveness ?ъ슜???ㅼ젣 ?고??꾧컪 誘멸린濡앹씠??
-  肄붾뱶 湲곕낯媛?1.2/1.0)??湲곕낯 ?ъ슜(--factor/--aggr濡?override 媛??.
-  **?ㅼ쓬 ?몄뀡 理쒖슦??蹂寃??놁쓬, ?대쾲 ?몄뀡??洹?泥??④퀎留??꾨즺)**:
-  1. **?ㅼ젣 rlog濡?泥?寃利?* ??route4(d45a15f8fc, idx10 ?ы븿) ?먮뒗 ?숆툒
-     湲됱“??而ㅻ툕 raw route瑜??ъ뾽濡쒕뱶諛쏆븘 `replay_lookahead_v1.py` ?ㅽ뻾 ??
-     raw_kph媛 ?ㅼ젣 ?대깽??紐?珥??꾨?????쾶 ?섏삤湲??쒖옉?섎뒗吏 ?뺤씤.
-     raw_kph媛 ?ㅻ옒?꾨?????븯?붾뜲 filtered留???뿀?ㅻ㈃ -> ?꾪꽣(decel_rc)
-     ?먯씤. raw_kph ?먯껜媛 ?대깽??吏곸쟾源뚯? ?믩떎媛 湲됰씫?덈떎硫?-> 媛??ii)
-     (lookahead_horizon_s 遺議??먮뒗 紐⑤뜽???먭굅由?怨〓쪧 ?덉륫 ?뺥솗??遺議?
-     吏곸젒 ?뺤쬆.
-  2. route2 apex-vs-gap 誘명솗??5嫄?媛쒕퀎 ?ш?利?(52李⑥뿉???댁썡).
+## 57차 — 56차 재업로드 dataset "qcamera영상도 대조분석" 요청 처리, 저각 역광 신규 후보 발견
+56차와 동일 9개 route 재업로드받아(전체 재추출, `a3a55cb808` seg14
+zstd 손상 재확인 후 제외) 저크 이상 패턴을 |jerk| 크기 기준 상위 6건
+전부 qcamera 프레임 대조 완료(상세는 FINDINGS.md 57차 항목 참고).
+**핵심 결과**: 1건은 56차까지의 "옆차선 대형차량 근접" 메커니즘과
+일치 재확인. **3건(전부 `27b2980cda` route, 18:01~18:21 일몰 시간대)
+은 저각 석양 역광/명암 급전환과 시각적으로 일치 — 신규 제3 메커니즘
+후보(NEEDS_VALIDATION, 표본 3건뿐).** 1건은 원인 미상, 1건은 실제
+감속이 타당한 정상 상황으로 배제. 코드 변경 없음(분석만).
+**다음 세션(또는 다음 메시지) 최우선**:
+1. 56차 WIP에서 이월된 "저크 이상 6건 코드리뷰"(옆차선 SCC 폴백
+   dPath 게이트 잔존 여부, `radard.py get_lead()`/
+   `Track.get_RadarState()`)는 여전히 미착수 — 계속 최우선 유지.
+2. **[신규]** 저각 역광 가설 검증 — 다른 일출/일몰 시간대 로그
+   확보 시 같은 패턴(vision 저크가 태양 방위각/고도와 상관되는지)
+   재현 여부 확인. 표본이 늘면 `curve_lead_dRel_jump_consistency`류
+   일관성 체크에 태양 역광 필터도 추가 검토.
+3. `a3a55cb808` route 저크 105건(56차부터 대기) 원인 미검증, 계속
+   저우선 유지.
+
+- 저장 시각: 2026-08-23 (56차, 완료 — 코드 변경 없음, 분석만) 대량
+  실주행 로그 9개 route(15:53~19:00 약 3시간, 189,336행, 각 1개
+  boot session/10~20세그, `a3a55cb808`는 seg14 zstd 손상으로 seg0~13만
+  사용) 업로드받아 55차와 동일 5개 항목 재분석 완료. `stopped_lead_
+  decel_events`/`launch_after_stop_events`는 55차 work/ 스크래치가
+  컨테이너 리셋으로 소실돼 devnotes 기록 기반으로 역재현
+  (`work/five_item_scan.py`, toolkit 미편입).
+  **핵심 결과**: 1)저반응 잔여패턴 뚜렷한 재현 없음(경계사례 1건뿐,
+  저우선 유지). 2)정지앞차 26건 중 15건 순수ADAS 클린, 11건은
+  운전자개입 혼합(개별검증 안함). 3)정지후 재출발 6건 전부
+  driver_gas_ratio=0.0 매끈(45차 launch bypass 정상). **4)[중요,
+  qcamera 대조 완료]** 55차 최우선이던 route1 seg18 저크 이상패턴
+  (leadVRel≈0인데 큰 저크)이 4건 추가 재현(표본 2→6건). 3건
+  (src=road/section)은 `verify_and_extract_frames.py`로 프레임
+  대조한 결과 **저크 순간 전부 옆차선에 대형차량(SUV 2/탱크로리 1)이
+  근접 밀착 주행 중이었음을 영상으로 확인** — 37차 "SCC 단일점
+  락온이 옆차선 차량을 미검증 채택" 문제와 동일 메커니즘으로 추정
+  (37차는 급감속 사례, 이번은 가속(+) 방향 저크라는 차이). 나머지
+  1건(src=vturn)은 영상 확인 결과 진짜 커브 구간(옆차선 차량 없음)
+  으로 완전 별개, 패턴에서 제외. 5)곡선
+  위반 3건(표본 적음, 이번 로그가 커브 적은 시내 위주 추정), curve_exit
+  0건(48차 결론 재확인). 안전지표(harsh_brake/ttc_danger) 전부 클린.
+  상세는 FINDINGS.md 56차 항목 참고.
+  **다음 세션(또는 다음 메시지) 최우선**:
+  1. 4번 저크 이상 6건(55차 2건+56차 4건) **코드리뷰 착수** — "37차
+     옆차선 SCC 폴백 문제가 37차 계속3 dPath 게이트 패치 적용 후에도
+     가속 방향으로 잔존하는지" 중심으로 `radard.py get_lead()`/
+     `Track.get_RadarState()` 재확인(위 FINDINGS.md 56차 "다음 세션
+     최우선" 1번 참고).
+  2. 51/54차 vturn apex lag 이슈는 이번 로그 표본이 적어 진전 없음,
+     계속 열린 상태로 유지.
+  3. `a3a55cb808` route 저크 105건(다른 route 대비 압도적) 원인
+     미검증 — 저우선, 코드리뷰 이후 확인.
 
 
-- ????쒓컖: 2026-08-23 (52李?怨꾩냽2, 泥댄겕?ъ씤?? ??肄붾뱶 蹂寃??놁쓬,
-  遺꾩꽍留? **[?ш퀬] ?ㅻⅨ 怨꾩젙 ?몄뀡??46李??쒖젏 ?ㅻ옒??濡쒖뺄蹂몄쑝濡?
-  FINDINGS.md/WIP.md瑜???뼱?(989以??좎떎) ????而⑦뀒?대꼫??濡쒖뺄 ?뚯씪??
-  cf3e9d4 ?곹깭 洹몃?濡?蹂댁〈???덉뼱 洹몃?濡??촳ush濡??꾩쟾 蹂듦뎄??而ㅻ컠
-  7198e9b). ?댄썑 ?묒뾽 ?ш컻.**
-  route4 idx10(?대??곸쑝濡?媛뺥븳 媛먯냽 ?대깽?? 媛쒕퀎 ?뺤씤 ?꾨즺 ??
-  ?곗씠??湲由ъ튂 ?꾨땲怨?**吏꾩쭨 洹밸떒??湲됱빱釉?desiredCurvature 理쒕?
-  0.052, route1????18諛?**濡??뺤젙. ?쒖뒪?쒖씠 ?ㅺ퀎 媛먯냽瑜?1.2m/s짼)??
-  嫄곗쓽 3諛?-3.45m/s짼)源뚯? 諛잛븘媛硫???묓뻽吏留??ъ쟾??紐⑺몴?띾룄 紐?
-  ?곕씪?≪쓬 ??lookahead horizon 媛??ii)??4媛?route 援먯감寃利앹쑝濡?
-  怨꾩냽 媛뺥솕?섎뒗 以?
-  **?ㅼ쓬 ?몄뀡 理쒖슦??蹂寃??놁쓬)**:
-  1. lookahead horizon 媛??吏곸젒 寃利앹슜 replay ?ㅽ겕由쏀듃 ?묒꽦 ??
-     modelV2 raw required_speed_kph瑜??ㅻ쾭?덊듃 8珥??꾨????ы쁽.
-     ?대쾲 ?몄뀡源뚯? 洹쇨굅 ?꾩쟻?쇰줈 理쒖슦??寃⑹긽.
-  2. route2 apex-vs-gap 誘명솗??5嫄?媛쒕퀎 ?ш?利?
-  3. (?꾨즺) route4 idx10 qcamera ?쒓컖 寃利????곌컙 湲됱빱釉?愿臾???
-     ?ㅼ뼱?) ?곸긽?쇰줈 100% ?뺤쬆, ?곗씠???댁긽 媛?μ꽦 諛곗젣.
-
-- ????쒓컖: 2026-08-23 (52李?怨꾩냽, 泥댄겕?ъ씤?? ??肄붾뱶 蹂寃??놁쓬,
-  遺꾩꽍留? 52李??ㅼ쓬怨쇱젣 3媛?以?(1)(3) ?꾨즺.
-  **(1) route2 apex-vs-gap ?щ텇瑜?*: 留ㅼ묶 ?깃났 11/16嫄댁뿉??理쒕?珥덇낵
-  ?쒖젏??議고뼢媛??뺤젏蹂대떎 0.3~1.75珥?癒쇱? 諛쒖깮(46李?79%/1.26珥?寃곕줎怨?
-  ?쇨?) ??"?뺤젏?먯꽌留?紐??곕씪媛????꾨땲??"吏꾩엯以??대? 踰뚯뼱吏? 履?
-  ?뺤젙?? 5嫄댁? ?몄젒 而ㅻ툕 留ㅼ묶 ?ㅻ쪟濡?誘명솗??
-  **(3) route4(d45a15f8fc)/route9(280302e8ed) ?꾩껜 ?ъ뾽濡쒕뱶遺??ъ뒪罹?*:
-  route4 **24嫄?*(1嫄??댁쟾?먭컻???쒖쇅, 23嫄??쒖닔ADAS, over 2.2~15.1kph)
-  ??**47李?"v3=1嫄? 寃곕줎???⑥쐞踰꾧렇濡??명븳 false negative????뺤젙**.
-  route9??0嫄?湲곗〈 ?대┛ 寃곕줎 ?좎?). route4 23嫄?以?13嫄?57%)??
-  route2(75%)? ?좎궗?섍쾶 vturn_decel_rate(1.2m/s짼) 100%+ 諛섏쓳 以묒뿉??
-  紐??곕씪?〓뒗 ?⑦꽩 ?ы쁽 ??**?⑥씪 route ?곗뿰 ?꾨땲???쇰컲???⑦꽩?쇰줈
-  寃⑹긽**. **[媛쒕퀎?뺤씤 ?꾩슂]** route4 idx10(over=13.3kph, dur=6.6s,
-  aEgo_min=-3.45m/s짼=?ㅺ퀎媛?88%/臾쇰━?대옩??73%) ?대??곸쑝濡?媛뺥븳 媛먯냽,
-  ?ㅻⅨ ?대깽?몄? ?깃꺽 ?ㅻ? 媛?μ꽦 ???ㅼ쓬 ?몄뀡 ?꾨젅???議??곗꽑?쒖쐞.
-  PARAMS_REGISTRY.md??vturn_lookahead_horizon_s ?됱쓣 52李?寃곌낵濡?
-  ?꾨㈃ 媛깆떊??21李?"overspeed 0嫄? 寃곕줎 ?꾩쟾 ?먭린 紐낆떆).
-  **(2, 誘몄갑??**: lookahead horizon 媛??吏곸젒 寃利?raw required_speed
-  ?ы쁽) ??modelV2 raw媛 CSV???놁뼱 蹂꾨룄 replay ?ㅽ겕由쏀듃 ?꾩슂, ?ㅼ쓬
-  ?몄뀡 理쒖슦?좎쑝濡??댁썡.
-  **?ㅼ쓬 ?몄뀡 理쒖슦??*:
-  1. route4 idx10 媛쒕퀎 ?꾨젅??qcamera ?議??대???媛뺥븳 媛먯냽 ?깃꺽 洹쒕챸)
-  2. lookahead horizon 媛??ii) 吏곸젒 寃利앹슜 replay ?ㅽ겕由쏀듃
-     (49李?replay_vturn2.py ?ы솢??寃?? ??modelV2 raw required_speed_kph
-     沅ㅼ쟻???ㅻ쾭?덊듃 ?쒖옉 8珥??꾨????ы쁽??"?대? 湲됱“?꾩쓣 諛섏쁺?섍퀬
-     ?덉뿀?붿?" ?뺤씤
-  3. route2 apex-vs-gap 誘명솗??5嫄?媛쒕퀎 ?ш?利?짹2s 留ㅼ묶 ?뺣????먮뒗
-     ?섎룞 ?議?
+- 저장 시각: 2026-08-23 (55차, 체크포인트 — 코드 변경 없음, 분석만.
+  사용자가 신규 로그 3개(route1=`a6e5df336a` x19seg/route2=`cf48b52c98`
+  x20seg/route3=`7472041957` x3seg, HEAD `f94a7d2` 기준) 업로드해
+  5개 항목(1.카메라인식 감속/2.정지앞차 감속/3.정지후 재출발/4.레이더
+  락온 민감반응/5.곡선구간 감속) 순서대로 분석 요청 → 전부 완료,
+  상세는 FINDINGS.md 55차 항목 참고. **route3 seg2는 rlog.zst zstd
+  프레임 손상(녹화 중 절단 추정)으로 분석 제외(seg0/1만 사용).**
+  요약: 1)frac_rate 게이트 정상 동작 재확인(52건 크로스오버 중 대부분
+  레이더 락온 전 감속 개시), 저반응 잔여패턴 2건(41/42차류, 저우선).
+  2)정지앞차 추종 5건 전부 클린. 3)정지후 재출발 3건 전부 매끈
+  (45차 launch bypass 패치 정상 동작으로 추정). 4)레이더락온 저크
+  36건 중 34건은 leadVRel 변화로 설명 가능, **예외 2건(route1 seg18,
+  leadVRel≈0인데 큰 +저크)** 원인 미상 — 다음 세션 코드리뷰 우선 확인
+  후보. 5)turn_speed_violations 23건(51/54차 vturn apex lag 이슈의
+  연장, 신규 아님), curve_exit_no_accel_v4 3건(48차 결론과 동일하게
+  vCruiseCluster 캡 문제, 버그 아님).
+  **사용자가 "코딩검토는 분석이 다 완료된 이후"라고 명시 — 5개 항목
+  분석은 이번 세션에서 완료됐으므로, 다음 메시지/세션에서 코드 리뷰
+  단계로 전환 가능.**
+  **다음 세션(또는 다음 메시지) 최우선**:
+  1. route1 seg18 t=1195.102/1242.70 저크 이상 2건 — carrot_serv.py/
+     long_mpc.py 코드 리딩으로 leadVRel 무관 저크의 원인(소스 전환?
+     launch bypass exit? rise-rate 로직?) 특정.
+  2. 4)에서 발견된 저반응 잔여패턴 2건(route1 seg2/route2 seg0)도
+     41/42차처럼 qcamera 프레임 대조 검토(우선순위는 낮음).
+  3. route2 harsh_brake 75건/cut-in 36건 운전자개입 여부 미검증 —
+     정체구간 추정이나 확정 아님, 필요 시 개별 확인.
+  4. 51/54차 turn_speed_violation(vturn apex lag) 이슈는 이번 로그로도
+     재현됐으나 패치 방향은 여전히 미확정 상태(54차 WIP 그대로 유효) —
+     사용자가 방향 결정 시 그쪽 스레드로 복귀.
 
 
-- ????쒓컖: 2026-08-23 (50李?怨꾩냽, **push ?꾨즺 ?뺤씤** ???ъ슜?먭?
-  `git am` ?곸슜 + `git push origin c3-ms-dev` ?꾨즺, ?먭꺽 而ㅻ컠
-  `f94a7d2`(濡쒖뺄 `74e8e90`怨??댁슜 ?숈씪, 硫뷀??곗씠?곕쭔 李⑥씠) ?뺤씤.
-  LAST_ANALYZED.md 媛깆떊 ?꾨즺.) ?ъ슜?먭? route1(`203f99d429` seg8) 濡쒓렇瑜?
-  ?ъ뾽濡쒕뱶?섎ŉ "?ъ쟾嫄곕━ 遺議깊빐 蹂댁씤?? ?쒕낫 ??46李?NEEDS_VALIDATION
-  ??ぉ(model 寃뚯씠??`abs(vturn_speed)<120`??vturn ?먭굅由?遺덉븞??
-  援ш컙?먯꽌 model??議곌린?좏샇瑜?李⑤떒) ?ы솗?? ?ъ슜?먭? "?뺤젏?먯꽌 ?ㅼ젣
-  紐⑺몴?띾룄 ?꾨떖?섍쾶 肄붾뵫" ?붿껌???⑥튂 李⑹닔쨌?꾨즺.
-  **蹂寃??댁슜**: (1) `abs(vturn_speed)<120` 寃뚯씠???쒓굅, (2) ?몃젅?쇰쭅
-  ?먯젙??min_recent+recover_margin(3.0km/h) 諛⑹떇?쇰줈 ?ъ꽕怨?carrot_serv.py,
-  濡쒖뺄 而ㅻ컠 `74e8e90`). ?쒕??덉씠??寃利? route1 ?ъ쟾媛먯냽 ?ъ쑀?쒓컙
-  3珥?誘몃쭔??0珥?濡??뺣? ?뺤씤. **[?ㅼ쓬 ?몄뀡 理쒖슦?? 媛숈? 濡쒓렇 ?꾩닔
-  ?ㅼ틪 寃곌낵 model 李몄뿬??98.8% ??吏꾩쭨 吏곸꽑 怨좎냽?꾨줈 濡쒓렇媛 ?놁뼱
-  ?ㅽ깘(遺덊븘??媛먯냽) ?꾪뿕 誘멸?利? ?ъ슜?먭? ???⑥튂 ?곸슜 ???ㅼ감
-  ?쒕씪?대툕?섎㈃, ?뱁엳 ?뺤떎??吏곸꽑 援ш컙?먯꽌 ?띾룄 ?쒖빟??遺?뱁븯寃?
-  嫄몃━?붿?遺???뺤씤??寃?** ?⑥튂??
+- 저장 시각: 2026-08-23 (54차, 체크포인트 — 코드 변경 없음(ryu),
+  분석 스크립트(work/ 스크래치)만 신규) route4(`d45a15f8fc`) 재업로드
+  받아 53차 `replay_lookahead_v1.py`의 **실제 rlog 첫 검증 완료**.
+  idx10 개별 정밀 대조 + 24건 전체 일반화 스캔(`work/lookahead_
+  generalization_scan.py` 신규) 수행. **결론**: lookahead horizon
+  가설(ii)이 지나친 단순화였음 확인 — raw(필터 이전) 신호 자체도
+  이벤트 근접(수 초 전)까지는 하강 없음(이론상 8.0s horizon보다 훨씬
+  늦게 감지, 원거리 modelV2 궤적/곡률 예측 신뢰도 문제로 추정) +
+  filtered 최종출력은 raw보다 평균 2초+(18건 중 최대 8.6초) 추가로
+  더 늦게 반응(RC 시정수 0.15s보다 훨씬 큰 누적지연 — 매 프레임
+  갱신되는 argmin 목표를 계속 뒤쫓는 구조적 문제로 추정). (a)모델
+  원거리 감지 vs (b)필터 누적지연, 둘 중 (b)가 개입 여지 크고 리스크
+  낮은 후보로 판단되나 **패치 방향은 아직 미확정**. 상세는 FINDINGS.md
+  54차 항목 참고.
+  **[한계]** idx10 자체는 threshold 매칭 로직 이슈로 lag 자동계산
+  nan(수동 대조로는 ~0.8s 확인) — 스크립트 정밀화 필요.
+  **다음 세션 최우선**:
+  1. **패치 방향 결정 필요(사용자와 협의)** — 필터 지연 완화((b)) 쪽에
+     무게, 하지만 확정 아님. 방향 정해지면 시뮬레이션 → 패치 순서.
+  2. `lookahead_generalization_scan.py` threshold 매칭 정밀화(idx10
+     nan 해결) 후 toolkit 정식 편입 검토.
+  3. route2 apex-vs-gap 미확정 5건 개별 재검증(route2 로그 재업로드
+     대기, 계속 이월 중).
+
+
+- 저장 시각: 2026-08-23 (53차, 체크포인트 — 코드 변경 없음(ryu),
+  toolkit 신규 스크립트 작성+로직 단위 검증 완료) 52차 최우선 과제
+  "lookahead horizon 가설 직접 검증용 replay 스크립트"를
+  `toolkit/replay_lookahead_v1.py`로 작성 완료. `carrot_man.vturn_speed()`
+  (HEAD `f94a7d2`)의 필터 적용 전(raw) argmin required_speed_kph를
+  modelV2 원본(orientationRate.z/velocity.x/position.x)에서 직접
+  재현하도록 구현 — `extract_log.py`의 `vTurnSpeed`(필터 후 최종값)만
+  으로는 "필터가 늦춘 것"과 "lookahead_horizon_s(8.0s) 안에 애초에
+  급조임 지점이 안 보였던 것"을 구분 못 했던 한계를 해소하는 게 목적.
+  **검증**: 합성 시나리오 2건(원거리 급커브 raw_kph<100 확인/완전직선
+  raw_kph>200 확인) + 저역통과 1스텝 방향성 검증 통과, cereal/log.capnp
+  필드 경로(orientationRate.z/velocity.x/position.x = XYZTData) 직접 대조
+  확인. toolkit/README.md/CHANGELOG.md 동기화 완료.
+  **한계(다음 세션 확인 시 유의)**: modelV2 이벤트(~20Hz)를 carrot_man
+  20Hz 틱 1개로 근사(완전히 같은 타이밍 아님, 49차와 동일 전제).
+  AutoCurveSpeedFactor/Aggressiveness 사용자 실제 런타임값 미기록이라
+  코드 기본값(1.2/1.0)을 기본 사용(--factor/--aggr로 override 가능).
+  **다음 세션 최우선(변경 없음, 이번 세션이 그 첫 단계만 완료)**:
+  1. **실제 rlog로 첫 검증** — route4(d45a15f8fc, idx10 포함) 또는 동급
+     급조임 커브 raw route를 재업로드받아 `replay_lookahead_v1.py` 실행 →
+     raw_kph가 실제 이벤트 몇 초 전부터 낮게 나오기 시작하는지 확인.
+     raw_kph가 오래전부터 낮았는데 filtered만 늦었다면 -> 필터(decel_rc)
+     원인. raw_kph 자체가 이벤트 직전까지 높다가 급락했다면 -> 가설(ii)
+     (lookahead_horizon_s 부족 또는 모델의 원거리 곡률 예측 정확도 부족)
+     직접 확증.
+  2. route2 apex-vs-gap 미확정 5건 개별 재검증 (52차에서 이월).
+
+
+- 저장 시각: 2026-08-23 (52차 계속2, 체크포인트3 — 코드 변경 없음,
+  분석만) **[사고] 다른 계정 세션이 46차 시점 오래된 로컬본으로
+  FINDINGS.md/WIP.md를 덮어씀(989줄 유실) → 이 컨테이너의 로컬 파일이
+  cf3e9d4 상태 그대로 보존돼 있어 그대로 재push로 완전 복구함(커밋
+  7198e9b). 이후 작업 재개.**
+  route4 idx10(이례적으로 강한 감속 이벤트) 개별 확인 완료 —
+  데이터 글리치 아니고 **진짜 극단적 급커브(desiredCurvature 최대
+  0.052, route1의 약 18배)**로 확정. 시스템이 설계 감속률(1.2m/s²)의
+  거의 3배(-3.45m/s²)까지 밟아가며 대응했지만 여전히 목표속도 못
+  따라잡음 — lookahead horizon 가설(ii)이 4개 route 교차검증으로
+  계속 강화되는 중.
+  **다음 세션 최우선(변경 없음)**:
+  1. lookahead horizon 가설 직접 검증용 replay 스크립트 작성 —
+     modelV2 raw required_speed_kph를 오버슈트 8초 전부터 재현.
+     이번 세션까지 근거 누적으로 최우선 격상.
+  2. route2 apex-vs-gap 미확정 5건 개별 재검증.
+  3. (완료) route4 idx10 qcamera 시각 검증 — 산간 급커브(관문 앞
+     헤어핀) 영상으로 100% 확증, 데이터 이상 가능성 배제.
+
+- 저장 시각: 2026-08-23 (52차 계속, 체크포인트2 — 코드 변경 없음,
+  분석만) 52차 다음과제 3개 중 (1)(3) 완료.
+  **(1) route2 apex-vs-gap 재분류**: 매칭 성공 11/16건에서 최대초과
+  시점이 조향각 정점보다 0.3~1.75초 먼저 발생(46차 79%/1.26초 결론과
+  일관) — "정점에서만 못 따라감"이 아니라 "진입중 이미 벌어짐" 쪽
+  확정적. 5건은 인접 커브 매칭 오류로 미확정.
+  **(3) route4(d45a15f8fc)/route9(280302e8ed) 전체 재업로드분 재스캔**:
+  route4 **24건**(1건 운전자개입 제외, 23건 순수ADAS, over 2.2~15.1kph)
+  — **47차 "v3=1건" 결론이 단위버그로 인한 false negative였음 확정**.
+  route9는 0건(기존 클린 결론 유지). route4 23건 중 13건(57%)도
+  route2(75%)와 유사하게 vturn_decel_rate(1.2m/s²) 100%+ 반응 중에도
+  못 따라잡는 패턴 재현 — **단일 route 우연 아니라 일반적 패턴으로
+  격상**. **[개별확인 필요]** route4 idx10(over=13.3kph, dur=6.6s,
+  aEgo_min=-3.45m/s²=설계값288%/물리클램프173%) 이례적으로 강한 감속,
+  다른 이벤트와 성격 다를 가능성 — 다음 세션 프레임 대조 우선순위.
+  PARAMS_REGISTRY.md의 vturn_lookahead_horizon_s 행을 52차 결과로
+  전면 갱신함(21차 "overspeed 0건" 결론 완전 폐기 명시).
+  **(2, 미착수)**: lookahead horizon 가설 직접 검증(raw required_speed
+  재현) — modelV2 raw가 CSV에 없어 별도 replay 스크립트 필요, 다음
+  세션 최우선으로 이월.
+  **다음 세션 최우선**:
+  1. route4 idx10 개별 프레임/qcamera 대조(이례적 강한 감속 성격 규명)
+  2. lookahead horizon 가설(ii) 직접 검증용 replay 스크립트
+     (49차 replay_vturn2.py 재활용 검토) — modelV2 raw required_speed_kph
+     궤적을 오버슈트 시작 8초 전부터 재현해 "이미 급조임을 반영하고
+     있었는지" 확인
+  3. route2 apex-vs-gap 미확정 5건 개별 재검증(±2s 매칭 정밀화 또는
+     수동 대조)
+
+
+- 저장 시각: 2026-08-23 (50차 계속, **push 완료 확인** — 사용자가
+  `git am` 적용 + `git push origin c3-ms-dev` 완료, 원격 커밋
+  `f94a7d2`(로컬 `74e8e90`과 내용 동일, 메타데이터만 차이) 확인.
+  LAST_ANALYZED.md 갱신 완료.) 사용자가 route1(`203f99d429` seg8) 로그를
+  재업로드하며 "사전거리 부족해 보인다" 제보 → 46차 NEEDS_VALIDATION
+  항목(model 게이트 `abs(vturn_speed)<120`이 vturn 원거리 불안정
+  구간에서 model의 조기신호를 차단) 재확인. 사용자가 "정점에서 실제
+  목표속도 도달하게 코딩" 요청해 패치 착수·완료.
+  **변경 내용**: (1) `abs(vturn_speed)<120` 게이트 제거, (2) 트레일링
+  판정을 min_recent+recover_margin(3.0km/h) 방식으로 재설계(carrot_serv.py,
+  로컬 커밋 `74e8e90`). 시뮬레이션 검증: route1 사전감속 여유시간
+  3초 미만→20초+로 확대 확인. **[다음 세션 최우선] 같은 로그 전수
+  스캔 결과 model 참여율 98.8% — 진짜 직선 고속도로 로그가 없어
+  오탐(불필요 감속) 위험 미검증. 사용자가 이 패치 적용 후 실차
+  드라이브하면, 특히 확실한 직선 구간에서 속도 제약이 부당하게
+  걸리는지부터 확인할 것.** 패치는
   `0001-carrot_serv-model-min_recent-margin-abs-vturn_speed-.patch`
-  濡??꾨떖, `C:\dev\patch\`???????`git am` ?덈궡 ?꾨즺. ?곸꽭??
-  FINDINGS.md/PARAMS_REGISTRY.md 50李???ぉ 李멸퀬.
+  로 전달, `C:\dev\patch\`에 저장 후 `git am` 안내 완료. 상세는
+  FINDINGS.md/PARAMS_REGISTRY.md 50차 항목 참고.
 
-- ????쒓컖: 2026-08-23 (50李? 泥댄겕?ъ씤????肄붾뱶 蹂寃??놁쓬, 遺꾩꽍留?
-  "怨≪꽑 ?ъ쟾媛먯냽 援ш컙 遺議? ?좉퇋 媛?ㅼ쓣 route2(f3db6ca89d) 15嫄?
-  ?ㅼ륫?쇰줈 寃利???**媛?쒓굅由?遺議?媛??湲곌컖**(?꾨? ?ъ쑀 ?덉쓬, 理쒕?
-  -107m). `replay_vturn2.py`(work/ scratch)濡?modelV2 raw?먯꽌
-  ?꾪꽣-??required_speed_kph ?ы쁽???좏샇 ?먯껜 吏???놁쓬???뺤씤.
-  遺?섏쟻?쇰줈 CSV `vTurnSpeed`媛 src=model ?꾪솚 ???뚯닔濡?蹂댁씠???꾩긽?
-  **踰꾧렇 ?꾨떂?쇰줈 ?뺤젙**(carrot_man.py `turnSpeed * curv_direction`
-  ??醫??고쉶??諛⑺뼢 遺???몄퐫?? min() ?뱀옄 ?먮떒??臾닿?, 遺꾩꽍 ??
-  `src` 而щ읆 湲곗??쇰줈留??먮떒??寃?. ?곸꽭??FINDINGS.md 50李???ぉ.
-  **?ㅼ쓬(?ъ슜??寃곗젙 ?湲?**: (a) 46李?諛쒓껄 `abs(vturn_speed)<120`
-  model 寃뚯씠??媛???ъ“?? (b) 怨좎냽?꾨줈 ?κ굅由?吏꾩엯 濡쒓렇濡?horizon
-  遺議?媛???ш?利? (c) ?ㅻⅨ ?ㅻ젅???꾪솚.
+- 저장 시각: 2026-08-23 (50차, 체크포인트 — 코드 변경 없음, 분석만)
+  "곡선 사전감속 구간 부족" 신규 가설을 route2(f3db6ca89d) 15건
+  실측으로 검증 → **가시거리 부족 가설 기각**(전부 여유 있음, 최대
+  -107m). `replay_vturn2.py`(work/ scratch)로 modelV2 raw에서
+  필터-전 required_speed_kph 재현해 신호 자체 지연 없음도 확인.
+  부수적으로 CSV `vTurnSpeed`가 src=model 전환 후 음수로 보이는 현상은
+  **버그 아님으로 확정**(carrot_man.py `turnSpeed * curv_direction`
+  — 좌/우회전 방향 부호 인코딩, min() 승자 판단엔 무관, 분석 시
+  `src` 컬럼 기준으로만 판단할 것). 상세는 FINDINGS.md 50차 항목.
+  **다음(사용자 결정 대기)**: (a) 46차 발견 `abs(vturn_speed)<120`
+  model 게이트 가설 재조사, (b) 고속도로 장거리 진입 로그로 horizon
+  부족 가설 재검증, (c) 다른 스레드 전환.
 
-- ????쒓컖: 2026-08-23 (49李? 泥댄겕?ъ씤????肄붾뱶 蹂寃??놁쓬, 愿李곕쭔.
-  48李④? "?덉텧 ??臾닿??? ?ㅻ젅?쒕? 醫낃껐??吏곹썑, ?ъ슜?먭? ?꾨젅?대컢??
-  諛붽씔 ??媛??2媛??쒓린: (A) "?덉텧??媛 ?꾨땲??"?덉텧???뺤젏 吏곹썑,
-  ?꾩쭅 ?꾩쟾 吏곸꽑 ?꾨땶 ?쒖젏)"遺??媛?랁빐???섎뒗 寃??꾨땲?? (B) 怨쇱냽
-  諛⑹??깆쿂??理쒕? 怨〓쪧 吏??apex)??吏?섎뒗 ?쒓컙 ?띾룄 ?쒖빟??利됱떆
-  ?먮났?섎뒗 諛⑹떇????留욎? ?딅깘. `vturn_speed()`(carrot_man.py L953)
-  ?ы솗??寃곌낵 **(A)/(B) ?????대? ?꾩옱 ?ㅺ퀎 ?섎룄 ?먯껜?꾩쓣 ?뺤씤**:
-  - lookahead 援ш컙 ??紐⑤뱺 吏?먯뿉 諛⑹??깃낵 ?숈씪??`v_i^2=v_f^2+2ad`
-    怨듭떇??踰≫꽣???곸슜 ??`argmin`(媛???꾧꺽??吏????理쒖쥌 ?쒖빟?쇰줈
-    ?쇰뒗 援ъ“?? "吏꾩엯/?덉텧 ?대깽??瑜??곕줈 ?먯젙?섏? ?딆쓬(二쇱꽍?먮룄
-    紐낆떆: "而ㅻ툕瑜?鍮좎졇?섏삤??利됱떆 ?쒖빟 ?댁젣").
-  - `lookahead_pos = max(position, 0)`濡?**?먯감 ??二쇳뻾?? 吏?먯?
-    留??꾨젅??諛곗젣**?섎?濡? apex瑜??듦낵?섎뒗 利됱떆 洹?吏???먯껜媛
-    argmin ?꾨낫?먯꽌 ?щ씪吏怨??댄썑??怨〓쪧???꾪솕?섎뒗 ?꾨갑 吏?먮뱾留?
-    ?⑥븘 required_speed媛 ?먯뿰???곸듅 -> **?뺤젏 ?듦낵 利됱떆 ?댁젣
-    ?쒖옉**? ?ㅺ퀎???대? 洹몃젃寃??섏뼱 ?덉쓬(媛??B? ?쇱튂). 媛?띿륫留?
-    蹂꾨룄 ???넻怨?`vturn_accel_rc`)濡??ㅻТ?⑸릺??援ъ“??"?덉텧 ?꾨???
-    ?쒖꽌???由?(媛??A)??臾쇰━?곸쑝濡쒕뒗 ?대? 媛?ν븳 ?뺥깭.
-  - **?ы봽?덉씠諛?*: 洹몃젃?ㅻ㈃ 48李④퉴吏 ?뺤젙 紐삵븳 "泥닿컧??媛??吏???
-    "?꾩삁 ???? 臾몄젣媛 ?꾨땲?? argmin ?꾪솚 ?쒖젏 ?鍮?`vturn_accel_rc`
-    ?ㅻТ?⑹씠 泥닿컧???쇰쭏???먮┛吏(release rate ?먯껜媛 ?덈Т ?꾨쭔?쒖?)
-    履쎌쑝濡?吏덈Ц??諛붾?媛?μ꽦 ?쒓린. ?꾩쭅 肄붾뱶/濡쒓렇濡?寃利?????
-  - **[媛깆떊] `vturn_release_lag_scan()` 援ы쁽 ?꾨즺, toolkit ?몄엯 ?꾨즺**
-    (analysis_helpers.py/README.md/CHANGELOG.md ?숆린??. apex ?댄썑
-    "怨〓쪧 ?꾪솕 ?쒖옉 ?쒓컖"(steeringAngleDeg proxy) vs "vTurnSpeed ?ㅼ젣
-    ?곸듅 ?쒖옉 ?쒓컖" ?ъ씠 吏??lag_s)??痢≪젙. ?⑹꽦 ?쒕굹由ъ삤 2嫄?吏??
-    1.2s ?ы쁽/臾댁????쇰줈 濡쒖쭅 寃利??꾨즺. **?쒓퀎**: modelV2 raw
-    (?꾪꽣-??required_speed_kph)??CSV???놁뼱 steeringAngleDeg 洹쇱궗
-    proxy ?ъ슜 ??argmin ?꾪솚 ?쒓컖 ?먯껜???뺥솗???ы쁽? ?꾨떂.
-  - **[?⑥쓬, 理쒖슦?? ?ㅼ젣 濡쒓렇 寃利?誘몄떎??* ??route7(`c8fef594d3`)/
-    route8(`dda0d533ce`) raw CSV媛 而⑦뀒?대꼫 濡쒖뺄 ?뚯떎濡??놁쓬. **?ㅼ쓬
-    ?몄뀡 ?쒖옉??寃?*: ?ъ슜?먭? route7 ?먮뒗 ?좉퇋 怨좎냽?꾨줈 ?⑥씪而ㅻ툕
-    濡쒓렇 ?ъ뾽濡쒕뱶 ??`extract_log.py`濡?CSV 異붿텧 ??
-    `vturn_release_lag_scan()` ?ㅽ뻾 ??lag_s 遺꾪룷 ?뺤씤. 泥닿컧??留뚰겮
-    (?? 0.5s+) ?щ㈃ `vturn_accel_rc` ?섑뼢 ?쒕떇 寃?? ?묒쑝硫?利됱떆
-    諛섏쓳 援ъ“ ?뺤씤) "泥닿컧 吏??? ?ㅻⅨ ?먯씤(48李⑥쿂??vCruiseCluster
-    罹?????媛?μ꽦 ?ы솗????48李?"踰꾧렇 0嫄? 寃곕줎? ?좏슚, ?닿굔
-    蹂꾨룄 異?release rate ?먯껜???쒕떇 ?ъ?) 吏덈Ц?꾩뿉 ?좎쓽.
+- 저장 시각: 2026-08-23 (49차, 체크포인트 — 코드 변경 없음, 관찰만.
+  48차가 "탈출 후 무가속" 스레드를 종결한 직후, 사용자가 프레이밍을
+  바꾼 새 가설 2개 제기: (A) "탈출후"가 아니라 "탈출전(정점 직후,
+  아직 완전 직선 아닌 시점)"부터 가속해야 하는 것 아니냐, (B) 과속
+  방지턱처럼 최대 곡률 지점(apex)을 지나는 순간 속도 제약을 즉시
+  원복하는 방식이 더 맞지 않냐. `vturn_speed()`(carrot_man.py L953)
+  재확인 결과 **(A)/(B) 둘 다 이미 현재 설계 의도 자체임을 확인**:
+  - lookahead 구간 내 모든 지점에 방지턱과 동일한 `v_i^2=v_f^2+2ad`
+    공식을 벡터화 적용 후 `argmin`(가장 엄격한 지점)을 최종 제약으로
+    삼는 구조라, "진입/탈출 이벤트"를 따로 판정하지 않음(주석에도
+    명시: "커브를 빠져나오는 즉시 제약 해제").
+  - `lookahead_pos = max(position, 0)`로 **자차 뒤(주행한) 지점은
+    매 프레임 배제**되므로, apex를 통과하는 즉시 그 지점 자체가
+    argmin 후보에서 사라지고 이후엔 곡률이 완화되는 전방 지점들만
+    남아 required_speed가 자연히 상승 -> **정점 통과 즉시 해제
+    시작**은 설계상 이미 그렇게 되어 있음(가설 B와 일치). 가속측만
+    별도 저역통과(`vturn_accel_rc`)로 스무딩되는 구조라 "탈출 전부터
+    서서히 풀림"(가설 A)도 물리적으로는 이미 가능한 형태.
+  - **재프레이밍**: 그렇다면 48차까지 확정 못한 "체감상 가속 지연"은
+    "아예 안 함" 문제가 아니라, argmin 전환 시점 대비 `vturn_accel_rc`
+    스무딩이 체감상 얼마나 느린지(release rate 자체가 너무 완만한지)
+    쪽으로 질문이 바뀔 가능성 제기. 아직 코드/로그로 검증 안 함.
+  - **[갱신] `vturn_release_lag_scan()` 구현 완료, toolkit 편입 완료**
+    (analysis_helpers.py/README.md/CHANGELOG.md 동기화). apex 이후
+    "곡률 완화 시작 시각"(steeringAngleDeg proxy) vs "vTurnSpeed 실제
+    상승 시작 시각" 사이 지연(lag_s)을 측정. 합성 시나리오 2건(지연
+    1.2s 재현/무지연)으로 로직 검증 완료. **한계**: modelV2 raw
+    (필터-전 required_speed_kph)는 CSV에 없어 steeringAngleDeg 근사
+    proxy 사용 — argmin 전환 시각 자체의 정확한 재현은 아님.
+  - **[남음, 최우선] 실제 로그 검증 미실시** — route7(`c8fef594d3`)/
+    route8(`dda0d533ce`) raw CSV가 컨테이너 로컬 소실로 없음. **다음
+    세션 시작할 것**: 사용자가 route7 또는 신규 고속도로 단일커브
+    로그 재업로드 → `extract_log.py`로 CSV 추출 →
+    `vturn_release_lag_scan()` 실행 → lag_s 분포 확인. 체감될 만큼
+    (예: 0.5s+) 크면 `vturn_accel_rc` 하향 튜닝 검토, 작으면(즉시
+    반응 구조 확인) "체감 지연"은 다른 원인(48차처럼 vCruiseCluster
+    캡 등)일 가능성 재확인 — 48차 "버그 0건" 결론은 유효, 이건
+    별도 축(release rate 자체의 튜닝 여지) 질문임에 유의.
 
-- ????쒓컖: 2026-08-23 (48李?怨꾩냽, **"?덉텧 ??臾닿??? 議곗궗 ?ㅻ젅??
-  ?ъ떎??醫낃껐**) ??`vturn_speed()`(carrot_man.py) 肄붾뱶 由щ뵫 ?꾨즺 +
-  route7 洹쇱젒 ?꾨낫 2嫄?seg12/seg14)??CSV ?먮낯(`vTurnSpeed`/`src`)?쇰줈
-  吏곸젒 ?議? **??嫄?紐⑤몢 vTurnSpeed媛 ?대? ?꾩쟾???댁젣(200km/h
-  ?덊뙉)???곹깭?怨? ?좎씪???ㅼ쭏 ?쒖빟? vCruiseCluster(?댁쟾???쒗빆?띾룄)
-  罹〓퓧?댁뿀???뺤젙** ??vturn 肄붾뱶???泥섏쓬遺??臾닿?. `curve_exit_no_
-  accel_scan_v4` ?좉퇋 援ы쁽(?뺤감 ?ㅽ깘 諛곗젣 + cap_margin_thresh_kph
-  5.0??.5 ?곹뼢) ??route7/route8 ????0嫄댁쑝濡??섎졃 ?뺤씤.
-  **寃곕줎: route1~8 ?꾩쟻 8媛?route?먯꽌 "?덉텧 ??吏꾩쭨 臾닿??? 踰꾧렇
-  ?뺤젙 ?щ? 0嫄? 洹쇱젒 ?꾨낫?ㅻ룄 vturn怨?臾닿??⑥씠 ?뺤젙?????꾩옱 肄붾뱶??
-  ??踰꾧렇媛 ?덈떎??洹쇨굅 ?놁쓬. ryu 肄붾뱶 蹂寃??놁쓬(toolkit 遺꾩꽍 ?⑥닔留?
-  異붽?).** ?대줎???ш컖吏?(8珥?lookahead ???곗냽 而ㅻ툕 ??argmin??
-  ?ㅼ쓬 而ㅻ툕濡??섏뼱媛??寃쎌슦)???⑥븘?덉쑝???λ룞 ?ㅼ틪 ?곗꽑?쒖쐞??
-  ?섑뼢, 援ъ껜???쒕낫/?곸긽???섏삤硫??ъ“?? ?곸꽭??FINDINGS.md 48李?
-  怨꾩냽 ??ぉ 李멸퀬.
-  **?ㅼ쓬 ?몄뀡 ?쒖옉??寃?*: ???ㅻ젅?쒕뒗 醫낃껐. 46李?WIP???⑥븘?덈뜕
-  ?ㅻⅨ ?대┛ ??ぉ(2踰?cam/road/vCruiseCluster 罹?媛????寃利? 3踰?
-  route3 steer ?붿〈媛?洹쒕챸) 以??섎굹濡??꾪솚?섍굅?? ?ъ슜?먭? ???쒕낫瑜?
-  媛?몄삤硫?洹멸쾬遺??
+- 저장 시각: 2026-08-23 (48차 계속, **"탈출 후 무가속" 조사 스레드
+  사실상 종결**) — `vturn_speed()`(carrot_man.py) 코드 리딩 완료 +
+  route7 근접 후보 2건(seg12/seg14)을 CSV 원본(`vTurnSpeed`/`src`)으로
+  직접 대조. **두 건 모두 vTurnSpeed가 이미 완전히 해제(200km/h
+  안팎)된 상태였고, 유일한 실질 제약은 vCruiseCluster(운전자 순항속도)
+  캡뿐이었음 확정** — vturn 코드와는 처음부터 무관. `curve_exit_no_
+  accel_scan_v4` 신규 구현(정차 오탐 배제 + cap_margin_thresh_kph
+  5.0→6.5 상향) → route7/route8 둘 다 0건으로 수렴 확인.
+  **결론: route1~8 누적 8개 route에서 "탈출 후 진짜 무가속" 버그
+  확정 사례 0건, 근접 후보들도 vturn과 무관함이 확정됨 — 현재 코드에
+  이 버그가 있다는 근거 없음. ryu 코드 변경 없음(toolkit 분석 함수만
+  추가).** 이론적 사각지대(8초 lookahead 내 연속 커브 시 argmin이
+  다음 커브로 넘어가는 경우)는 남아있으나 능동 스캔 우선순위는
+  하향, 구체적 제보/영상이 나오면 재조사. 상세는 FINDINGS.md 48차
+  계속 항목 참고.
+  **다음 세션 시작할 것**: 이 스레드는 종결. 46차 WIP에 남아있던
+  다른 열린 항목(2번 cam/road/vCruiseCluster 캡 가설 원 검증, 3번
+  route3 steer 잔존값 규명) 중 하나로 전환하거나, 사용자가 새 제보를
+  가져오면 그것부터.
 
-- ????쒓컖: 2026-08-23 (48李? 泥댄겕?ъ씤?????ъ슜?먭? ?좉퇋 濡쒓렇 3媛?
+- 저장 시각: 2026-08-23 (48차, 체크포인트 — 사용자가 신규 로그 3개
   (route6=`8417c66e7e` x3seg/route7=`c8fef594d3` x18seg/route8=
-  `dda0d533ce` x20seg) 異붽? ?낅줈?쒗빐 curve_exit_no_accel_scan v3
-  寃利?怨꾩냽 吏꾪뻾) **route6? cruise_enabled_ratio=0.0(ADAS 誘멸?????
-  遺꾩꽍 ?쒖쇅.** route7/route8??v3瑜?`min_straight_hold_s`
-  0.8/1.9/2.5/3.0 4媛?媛믪쑝濡?諛섎났 ?ㅽ뻾 ??**hold媛믪쓣 3諛??댁긽 ?섎젮??
-  ???꾨낫媛 ?꾪? ?섏? ?딆쓬(47李?(a)???먮퀎???놁쓬???ㅼ륫 ?뺤씤)**.
-  route8? ??hold媛?0嫄? route7? 3嫄?hold??.5 湲곗?) 以?1嫄댁?
-  vEgo?? ?뺤감 ?곹깭 ?ㅽ깘?쇰줈 利됱떆 ?쒖쇅, ?⑥? 2嫄?seg12 t=833.54/
-  seg14 t=949.09)? qcamera ?꾨젅???議곌퉴吏 ?꾨즺 ??????
-  cap_margin??臾명꽦(5.0kph) 諛붾줈 ??5.8~6.0kph)??寃쎄퀎 ?щ?濡? 紐⑺몴
-  ?띾룄 ?ъ쑀???먯껜媛 ?묒븘 ?꾨쭔??媛??0.1m/s짼 ?덊뙉)??臾쇰━?곸쑝濡?
-  ??뱁븳 ?뺤긽 ?곹솴??媛源뚯?(踰꾧렇 ?꾨떂 履쎌쑝濡??댁꽍). **8媛?route
-  ?꾩쟻?쇰줈 "吏꾩쭨 ?덉텧 ??臾닿???踰꾧렇" ?뺤젙 ?щ? ?ъ쟾??0嫄?**
-  ?쒖? ?덉쟾吏??harsh_brake/ttc_danger ????route7/8 ????湲곗〈
-  ?꾩쟻 ?⑦꽩怨??숈씪(????뺤감/援먯감濡??곹솴)?대씪 ?좉퇋 ?꾪뿕 ?놁쓬 ?뺤씤.
-  **[?좉퇋, 寃쎈?] v3 ?ш컖吏? 諛쒓껄**: vEgo??(?뺤감) ?곹깭?먯꽌 怨〓쪧
-  ?꾧퀎媛믪쓣 ?곗뿰???섎뒗 耳?댁뒪瑜?諛곗젣?섎뒗 濡쒖쭅???놁쓬 ??v4 ?꾨낫??
-  `vEgo_at_exit` 理쒖냼 ?띾룄 議곌굔 異붽? ?꾩슂.
-  **?ㅼ쓬(?ъ슜??寃곗젙 ?湲?**: (c)??利앹긽 ?ㅼ옱 ?щ? ?먯껜 ?ы룊媛) 履쎌쑝濡?
-  臾닿쾶瑜???만 寃껋쓣 沅뚭퀬 ??8媛?route ?ㅼ틪?먮룄 ?뺤젙 ?щ? 0嫄? 洹쇱젒
-  ?꾨낫???꾨? "?ъ쑀???묒쓬"?쇰줈 ?ㅻ챸 媛?ν븳 寃쎄퀎 ?щ???? (a)?덉?
-  ?대쾲 ?ㅼ륫?쇰줈 ?곗꽑?쒖쐞 ?섑뼢 沅뚭퀬. 怨꾩냽 議곗궗?쒕떎硫?cap_margin_
-  thresh_kph瑜?5.0??.5~7.0濡??댁쭩 ?щ━???쒕??덉씠?섎????⑥튂 ??
-  ?쒕??덉씠???곗꽑 ?먯튃). ?곸꽭??FINDINGS.md 48李???ぉ 李멸퀬. 肄붾뱶
-  蹂寃??놁쓬(遺꾩꽍留?.
+  `dda0d533ce` x20seg) 추가 업로드해 curve_exit_no_accel_scan v3
+  검증 계속 진행) **route6은 cruise_enabled_ratio=0.0(ADAS 미관여)라
+  분석 제외.** route7/route8에 v3를 `min_straight_hold_s`
+  0.8/1.9/2.5/3.0 4개 값으로 반복 실행 — **hold값을 3배 이상 늘려도
+  새 후보가 전혀 늘지 않음(47차 (a)안 판별력 없음을 실측 확인)**.
+  route8은 전 hold값 0건. route7은 3건(hold≥2.5 기준) 중 1건은
+  vEgo≈0 정차 상태 오탐으로 즉시 제외, 남은 2건(seg12 t=833.54/
+  seg14 t=949.09)은 qcamera 프레임 대조까지 완료 — 둘 다
+  cap_margin이 문턱(5.0kph) 바로 위(5.8~6.0kph)인 경계 사례로, 목표
+  속도 여유폭 자체가 작아 완만한 가속(0.1m/s² 안팎)이 물리적으로
+  타당한 정상 상황에 가까움(버그 아님 쪽으로 해석). **8개 route
+  누적으로 "진짜 탈출 후 무가속 버그" 확정 사례 여전히 0건.**
+  표준 안전지표(harsh_brake/ttc_danger 등)도 route7/8 둘 다 기존
+  누적 패턴과 동일(저속 정차/교차로 상황)이라 신규 위험 없음 확인.
+  **[신규, 경미] v3 사각지대 발견**: vEgo≈0(정차) 상태에서 곡률
+  임계값을 우연히 넘는 케이스를 배제하는 로직이 없음 — v4 후보에
+  `vEgo_at_exit` 최소 속도 조건 추가 필요.
+  **다음(사용자 결정 대기)**: (c)안(증상 실재 여부 자체 재평가) 쪽으로
+  무게를 옮길 것을 권고 — 8개 route 스캔에도 확정 사례 0건, 근접
+  후보도 전부 "여유폭 작음"으로 설명 가능한 경계 사례였음. (a)안은
+  이번 실측으로 우선순위 하향 권고. 계속 조사한다면 cap_margin_
+  thresh_kph를 5.0→6.5~7.0로 살짝 올리는 시뮬레이션부터(패치 전
+  시뮬레이션 우선 원칙). 상세는 FINDINGS.md 48차 항목 참고. 코드
+  변경 없음(분석만).
 
-- ????쒓컖: 2026-08-23 (47李?怨꾩냽, 泥댄겕?ъ씤?? ???ъ슜?먭? ??⑸웾 濡쒓렇
-  2媛?route4=`d45a15f8fc` 20?멸렇/route5=`7ffb3e693c` 20?멸렇, 媛?
-  ~24000?? 異붽? ?낅줈?쒗빐 v3 ?꾪꽣 ?ㅼ쟾 寃利?吏꾪뻾) **v3(vCruiseCluster
-  罹??꾪꽣) ?ㅼ젣 ?꾪꽣留??④낵 理쒖큹 ?뺤씤** ??route4?먯꽌 v1=13嫄닳넂v2=5嫄닳넂
-  **v3=1嫄?*?쇰줈 媛먯냼, v2?먯꽌 ?⑥? 5嫄?以?4嫄댁씠 vCruiseCluster 罹?
-  ?ъ쑀??<5kph, 2嫄댁? ?ъ????뚯닔 ??desiredSpeed ?먯껜媛 vEgo蹂대떎 ?대?
-  ??븘 ?ㅼ쓬 而ㅻ툕 ?쒖빟???대? 寃뱀튇 ?곹깭)濡??뺤긽 ?꾪꽣留곷맖???ㅼ쬆(route1/2/3
-  ?뚮뒗 寃利앺븷 ?꾨낫 ?먯껜媛 ?놁뿀??寃껉낵 ?鍮?. route5??v1=11嫄??꾨? ???
-  (3~15km/h, 援먯감濡?異붿젙)+leadStatus洹쇱젒/S?먯옱吏꾩엯?쇰줈 v2 ?④퀎?먯꽌 ?대?
-  嫄몃윭??v3 寃利??꾨낫 ?놁쓬(李멸퀬??.
-  **[?좉퇋 諛쒓껄, 以묒슂] v3???좎씪?섍쾶 ?⑥? route4 seg6 t=10183.18 ?꾨낫??
-  ?ㅼ젣濡쒕뒗 踰꾧렇媛 ?꾨땲??S??而ㅻ툕(?겸넂醫?諛섎?諛⑺뼢 而ㅻ툕 利됱떆 ?ъ쭊??濡?
-  ?뺤씤** ??vTurnSpeed媛 t=10181.98遺??遺???꾪솚(+74??73)?섎ŉ 諛섎?
-  諛⑺뼢 而ㅻ툕 媛먯냽??諛붾줈 ?댁뼱吏? 怨〓쪧 ?덈?媛믪씠 0.002 ?꾨옒濡??대젮媛붾떎媛
-  ?ㅼ떆 ?щ씪媛????**??1.9珥?* 嫄몃졇?붾뜲, v2/v3 怨듯넻 ?꾪꽣
-  `min_straight_hold_s=0.8珥?媛 ??耳?댁뒪???덈Т 吏㏃븘??"吏꾩쭨 ?덉텧"濡?
-  ?ㅽ뙋?? **利?v1?뭭2?뭭3 ?꾨? ?듦낵???꾨낫???ъ쟾???ㅽ깘?댁뿀????吏湲덇퉴吏
-  5媛?route(1~5) ?대뵒?먯꽌??"?덉텧 ??吏꾩쭨 臾닿???踰꾧렇" ?뺤젙 ?щ?瑜?
-  李얠? 紐삵븿.** ?곸꽭??FINDINGS.md 47李?怨꾩냽 ??ぉ 李멸퀬.
-  **?ㅼ쓬(?ъ슜??寃곗젙 ?湲?**: (a) `min_straight_hold_s`瑜?1.9珥??댁긽
-  (?? 2.5~3.0珥??쇰줈 ?섎젮 v4 ?꾨낫 ?ъ꽕怨? (b) ?꾨땲硫??덈???hold
-  ?쒓컙 ???"怨〓쪧??0???ν빐 怨꾩냽 媛먯냼 以묒씤吏(?ъ긽???꾩“ 媛먯?)"
-  諛⑺뼢??泥댄겕濡??꾪꽣 濡쒖쭅 ?먯껜瑜?諛붽씀??諛⑹븞 寃?? (c) 5媛?route
-  ?꾨? 臾댄썑蹂대줈 ?앸궗?쇰?濡?"?덉텧 ??媛?띿??? 利앹긽 ?먯껜媛 ?ㅼ옱?섎뒗吏
-  ?뚯쓽?곸쑝濡??ш??좏븷 ?꾩슂???덉쓬(46李?vturn_speed 肄붾뱶由щ뵫 寃곌낵?
-  ?④퍡 ?ы룊媛 沅뚯옣). 肄붾뱶 蹂寃??놁쓬(愿李?遺꾩꽍留? v3 ?먯껜??47李??꾨컲遺
-  援ы쁽 洹몃?濡??좎?).
+- 저장 시각: 2026-08-23 (47차 계속, 체크포인트2 — 사용자가 대용량 로그
+  2개(route4=`d45a15f8fc` 20세그/route5=`7ffb3e693c` 20세그, 각
+  ~24000행) 추가 업로드해 v3 필터 실전 검증 진행) **v3(vCruiseCluster
+  캡 필터) 실제 필터링 효과 최초 확인** — route4에서 v1=13건→v2=5건→
+  **v3=1건**으로 감소, v2에서 남은 5건 중 4건이 vCruiseCluster 캡
+  여유폭(<5kph, 2건은 심지어 음수 — desiredSpeed 자체가 vEgo보다 이미
+  낮아 다음 커브 제약이 이미 겹친 상태)로 정상 필터링됨을 실증(route1/2/3
+  때는 검증할 후보 자체가 없었던 것과 대비). route5는 v1=11건 전부 저속
+  (3~15km/h, 교차로 추정)+leadStatus근접/S자재진입으로 v2 단계에서 이미
+  걸러져 v3 검증 후보 없음(참고용).
+  **[신규 발견, 중요] v3에 유일하게 남은 route4 seg6 t=10183.18 후보도
+  실제로는 버그가 아니라 S자 커브(우→좌 반대방향 커브 즉시 재진입)로
+  확인** — vTurnSpeed가 t=10181.98부터 부호 전환(+74→-73)되며 반대
+  방향 커브 감속이 바로 이어짐. 곡률 절대값이 0.002 아래로 내려갔다가
+  다시 올라가는 데 **약 1.9초** 걸렸는데, v2/v3 공통 필터
+  `min_straight_hold_s=0.8초`가 이 케이스엔 너무 짧아서 "진짜 탈출"로
+  오판함. **즉 v1→v2→v3 전부 통과한 후보도 여전히 오탐이었음 — 지금까지
+  5개 route(1~5) 어디에서도 "탈출 후 진짜 무가속 버그" 확정 사례를
+  찾지 못함.** 상세는 FINDINGS.md 47차 계속 항목 참고.
+  **다음(사용자 결정 대기)**: (a) `min_straight_hold_s`를 1.9초 이상
+  (예: 2.5~3.0초)으로 늘려 v4 후보 재설계, (b) 아니면 절대적 hold
+  시간 대신 "곡률이 0을 향해 계속 감소 중인지(재상승 전조 감지)"
+  방향성 체크로 필터 로직 자체를 바꾸는 방안 검토, (c) 5개 route
+  전부 무후보로 끝났으므로 "탈출 후 가속지연" 증상 자체가 실재하는지
+  회의적으로 재검토할 필요도 있음(46차 vturn_speed 코드리딩 결과와
+  함께 재평가 권장). 코드 변경 없음(관찰/분석만, v3 자체는 47차 전반부
+  구현 그대로 유지).
 
-- ????쒓컖: 2026-08-23 (47李? 泥댄겕?ъ씤????46李?留덉?留?"2)cam/road/
-  vCruiseCluster 罹?媛?? 李⑹닔. **[以묒슂 諛쒓껄] route3(866476e5c3--18)??
-  "vturn ?댁긽??怨?誘명빐寃?steer ?붿〈媛?誘몄뒪?곕━媛 ?????섎룞 李⑥꽑蹂寃?
-  (rightBlinker)?쇰줈 ?ㅻ챸 媛?ν븿???뺤씤** ???ъ슜?먭? ?ㅼ감 ?붾㈃?뱁솕
-  罹≪쿂(11:31寃?"李⑥꽑??蹂寃쏀빀?덈떎" ?쒖떆, ?곕줈 援쎌? 而ㅻ툕?먯꽌 ?곗륫
-  李⑥꽑蹂寃?瑜??쒕낫?섎ŉ "李⑥꽑蹂寃쎌쑝濡?怨≪꽑???ы빐??vturn????寃??꾨땲??
-  媛???쒓린 ??t=4784~4792 ?꾨젅???⑥쐞 ?ъ텛?곸쑝濡??뺤씤: rightBlinker
-  True(t=4785.03~4788.63) 援ш컙怨?desiredCurvature 湲됰벑(?쇳겕 0.00213)
-  +vTurnSpeed 湲됰씫(129??03)??嫄곗쓽 ?숈떆 諛쒖깮, `laneChangeState`???대궡
-  `off`(?먮룞 李⑥꽑蹂寃??꾨땶 ?섎룞 李⑤줈?대룞?쇰줈 ?먮떒). ?곸꽭??FINDINGS.md
-  "[RESOLVED 媛?μ꽦 ?믪쓬] vturn 湲됯컧/議곌린?댁젣? steer ?붿〈媛? ??ぉ 李멸퀬.
-  **?쒕낯 1嫄?湲곗?, ?뺤젙 ?꾨떂** ???ㅼ쓬 ?몄뀡 ?꾨낫濡?`lane_change_curvature_
-  artifact_scan` 寃利??⑥닔 異붽? ?щ? 寃??FINDINGS.md ?ㅼ쓬 ?④퀎 李멸퀬).
-  **[蹂묓뻾 ?묒뾽] `curve_exit_no_accel_scan_v3` 援ы쁽 ?꾨즺** ??
-  vCruiseCluster 罹??ъ쑀???꾪꽣(<5kph ?쒖쇅) 異붽?, `extract_log.py`?먮룄
-  `vCruiseCluster` 而щ읆 ?좉퇋 異붽?(湲곗〈 `vCruise`? 蹂꾧컻 ?꾨뱶??? 46李?
-  ?댁쟾 CSV?????꾨뱶 ?놁쓬 ?좎쓽). route1/2/3 ?ъ떎?? route1/3? v1遺??
-  0嫄??멸렇 ??而ㅻ툕 誘명깉異? 湲곗〈 ?쒓퀎? ?숈씪), route2??v1=4嫄댁씠 v2
-  ?④퀎?먯꽌 ?꾨? ?꾪꽣留?S???곗냽而ㅻ툕 ?ъ쭊????v3 ?좉퇋 ?꾪꽣源뚯? ?꾨떖??
-  ?꾨낫媛 ?놁뿀????**v3 肄붾뱶 ?먯껜??臾몃쾿/濡쒖쭅 寃利??꾨즺?덉쑝???ㅼ젣濡?
-  萸붽?瑜?嫄몃윭?대뒗吏???대쾲 濡쒓렇濡??뺤씤 紐삵븿.** ?곸꽭??FINDINGS.md 47李?
-  ??ぉ(toolkit/CHANGELOG.md 47李???ぉ???숆린?? 李멸퀬.
-  **?ㅼ쓬(?ъ슜??寃곗젙 ?湲?**: (a) v3 ?꾪꽣瑜??ㅼ젣 寃利앺븷 ???덈뒗 濡쒓렇
-  (怨좎냽?꾨줈 ?⑥씪 而ㅻ툕, ?덉텧 ??vCruiseCluster 罹≪뿉 嫄몃┫ 留뚰븳 ?곹솴) 異붽?
-  ?뺣낫, (b) `lane_change_curvature_artifact_scan` 寃利??⑥닔 李⑹닔 ?щ?,
-  (c) 46李??먮옒 "2)cam/road/vCruiseCluster 罹?媛?? ?먯껜(?덉텧 ??媛??
-  吏?곗씠 vCruiseCluster 罹??뚮Ц?몄?)???꾩쭅 蹂꾨룄 寃利??꾩슂 ???대쾲 47李?
-  諛쒓껄? 洹몄????ㅻⅨ 異?vturn 湲됰????먯씤)?꾩뿉 ?좎쓽, ?쇰룞?섏? 留?寃?
-  肄붾뱶 蹂寃??덉쓬(`extract_log.py`/`analysis_helpers.py`), patch??
-  ryu ?덉감?濡?蹂꾨룄 ?꾨떖 ?덉젙.
+- 저장 시각: 2026-08-23 (47차, 체크포인트 — 46차 마지막 "2)cam/road/
+  vCruiseCluster 캡 가설" 착수. **[중요 발견] route3(866476e5c3--18)의
+  "vturn 이상함"과 미해결 steer 잔존값 미스터리가 둘 다 수동 차선변경
+  (rightBlinker)으로 설명 가능함을 확인** — 사용자가 실차 화면녹화
+  캡처(11:31경 "차선을 변경합니다" 표시, 우로 굽은 커브에서 우측
+  차선변경)를 제보하며 "차선변경으로 곡선이 심해져 vturn이 튄 것 아니냐"
+  가설 제기 → t=4784~4792 프레임 단위 재추적으로 확인: rightBlinker
+  True(t=4785.03~4788.63) 구간과 desiredCurvature 급등(피크 0.00213)
+  +vTurnSpeed 급락(129→103)이 거의 동시 발생, `laneChangeState`는 내내
+  `off`(자동 차선변경 아닌 수동 차로이동으로 판단). 상세는 FINDINGS.md
+  "[RESOLVED 가능성 높음] vturn 급감/조기해제와 steer 잔존값" 항목 참고.
+  **표본 1건 기준, 확정 아님** — 다음 세션 후보로 `lane_change_curvature_
+  artifact_scan` 검증 함수 추가 여부 검토(FINDINGS.md 다음 단계 참고).
+  **[병행 작업] `curve_exit_no_accel_scan_v3` 구현 완료** —
+  vCruiseCluster 캡 여유폭 필터(<5kph 제외) 추가, `extract_log.py`에도
+  `vCruiseCluster` 컬럼 신규 추가(기존 `vCruise`와 별개 필드였음, 46차
+  이전 CSV는 이 필드 없음 유의). route1/2/3 재실행: route1/3은 v1부터
+  0건(세그 내 커브 미탈출, 기존 한계와 동일), route2는 v1=4건이 v2
+  단계에서 전부 필터링(S자 연속커브 재진입)돼 v3 신규 필터까지 도달한
+  후보가 없었음 — **v3 코드 자체는 문법/로직 검증 완료했으나 실제로
+  뭔가를 걸러내는지는 이번 로그로 확인 못함.** 상세는 FINDINGS.md 47차
+  항목(toolkit/CHANGELOG.md 47차 항목도 동기화) 참고.
+  **다음(사용자 결정 대기)**: (a) v3 필터를 실제 검증할 수 있는 로그
+  (고속도로 단일 커브, 탈출 시 vCruiseCluster 캡에 걸릴 만한 상황) 추가
+  확보, (b) `lane_change_curvature_artifact_scan` 검증 함수 착수 여부,
+  (c) 46차 원래 "2)cam/road/vCruiseCluster 캡 가설" 자체(탈출 후 가속
+  지연이 vCruiseCluster 캡 때문인지)는 아직 별도 검증 필요 — 이번 47차
+  발견은 그와는 다른 축(vturn 급변의 원인)임에 유의, 혼동하지 말 것.
+  코드 변경 있음(`extract_log.py`/`analysis_helpers.py`), patch는
+  ryu 절차대로 별도 전달 예정.
 
-- ????쒓컖: 2026-08-22 (46李? 吏꾪뻾以????ъ슜???붿껌?쇰줈 ?멸렇癒쇳듃 1媛?
-  ?꾨즺 ?쒕쭏??泥댄겕?ъ씤?? "怨≪꽑援ш컙 媛媛먯냽 遺議?(吏꾩엯???ъ쟾媛먯냽 遺議?
-  ?뺤젏 媛먯냽 遺議??덉텧??媛?띿???3媛吏 利앹긽) ?쒕낫濡??⑥튂?댁쟾 濡쒓렇 3媛?
-  ?낅줈?쒕컺??遺꾩꽍 ?쒖옉. **route1(`203f99d429` seg8) ?꾨즺** ???ъ쟾媛먯냽
-  遺議?1)/?뺤젏 媛먯냽 遺議?2) ?????곗씠?곕줈 ?뺤씤, ?먯씤 ?꾨낫濡?
-  `carrot_serv.py`??model 寃뚯씠??`abs(vturn_speed)<120`(13李?`119b101`
-  ?꾩엯)??vturn ?먯껜媛 ?먭굅由ъ뿉??遺덉븞?뺥븳 援ш컙?먯꽌 model?????덉젙?곸씤
-  議곌린 ?좏샇瑜?李⑤떒?섎뒗 寃껋쓣 ?좉퇋 諛쒓껄(?쒕낯 1嫄? NEEDS_VALIDATION).
-  ?덉텧??媛?띿???3)? ???멸렇 ?덉뿉???뺤씤 紐삵븿(?멸렇 醫낅즺 ??而ㅻ툕 ??
-  ?앸궓). ?곸꽭??FINDINGS.md/PARAMS_REGISTRY.md 46李???ぉ 李멸퀬.
-  toolkit `extract_log.py`??`modelTurnSpeed` 而щ읆 ?좉퇋 異붽?(?닿쾬 ?놁씠??
-  model ?꾨낫 ?ㅼ젣媛??먯껜瑜?蹂????놁뼱??遺꾩꽍 遺덇??덉쓬).
-  **[媛깆떊] route2(`f3db6ca89d`, 5?멸렇 "怨≪꽑_?щ윭媛?) ?꾨즺** ???곗냽 湲됱빱釉?
-  ?뺣났援?룄??route1怨??깃꺽???щ씪, `work/curve_decel_scan.py`(?좉퇋
-  ?먮룞 ?ㅼ틦?? toolkit 誘명렪???ㅽ겕?섏튂)濡?32媛?而ㅻ툕 ?대깽???쇨큵 遺꾩꽍.
-  **?뺤젏 媛먯냽 遺議?24/32嫄? 75%, ?됯퇏+8.2km/h/理쒕?+18.1km/h)??route1怨?
-  ?⑹퀜 2 route/25嫄댁쑝濡??뺣? ?ы쁽** ????臾몄젣???뱀젙 濡쒓렇???곗뿰???꾨땲??
-  ?쇰컲???⑦꽩??媛?μ꽦 ?믪븘吏? ?ъ쟾媛먯냽/?덉텧媛?띿??곗? ??route媛 ?곗냽
-  而ㅻ툕 ?꾨줈???먮떒 遺?곹빀(N/A ?ㅼ닔, ?꾨줈 ?뱀꽦 ?뚮Ц?댁? 踰꾧렇 ?꾨떂).
-  ?곸꽭??FINDINGS.md 46李?route2 ??ぉ 李멸퀬.
-  **[媛깆떊] route3(`866476e5c3` seg18, "怨≪꽑_vturn_?댁긽??) ?꾨즺** ??
-  ?뚯씪紐낆씠 媛由ы궎??"?댁긽?????뺤껜 ?뱀젙: vturn???뺤젏 ?듦낵 吏곹썑(?꾩쭅
-  怨≪꽑 ???앸궃 ?쒖젏, t=4786.9)遺??1珥?留뚯뿉 103??49km/h濡?議곌린 ?댁젣??
-  ?대쾲??cam(援ш컙?⑥냽) ?꾨낫媛 t=4787.23遺??110km/h濡?8珥?怨좎젙?쒖폒
-  min()?먯꽌 ?곗뿰???닿꺼 ?ㅼ젣濡쒕뒗 臾몄젣媛 ???쒕윭????cam???놁뿀?ㅻ㈃
-  而ㅻ툕 ???앸궃 梨??ш??랁뻽??媛?μ꽦(?쒕낯 1嫄? 議곌굔遺 ?ы쁽).
-  **3踰?利앹긽("?덉텧 ??媛??吏??)怨?諛섎? 諛⑺뼢 ??route2/route3 ?대뵒?쒕룄
-  ?덉텧 吏??利앷굅 ?놁쓬, ?ㅽ엳??vturn 議곌린 ?댁젣 寃쏀뼢.** ?뺤젏 媛먯냽 遺議깆?
-  +9.6km/h濡?3 route ?꾨? ?쇨? ?ы쁽(?쒕낯 ?뺣?). ?곸꽭??FINDINGS.md
-  "route3(866476e5c3 seg18, 怨≪꽑_vturn_?댁긽?? 遺꾩꽍" ??ぉ 李멸퀬.
-  **[?뺤젙, qcamera ?곸긽 援먯감寃利? "vturn 議곌린?댁젣濡?怨≪꽑 ???앸궃 梨?
-  ?ш??? 寃곕줎? 洹쇨굅 ?쏀솕** ???ㅼ젣 ?곸긽 ?뺤씤 寃곌낵 t??787.88(vturn
-  149 ?꾨떖 ?쒖젏) 臾대졄 ?대? ?붾㈃???꾨줈媛 嫄곗쓽 吏곸꽑?댁뿀??steer留?
-  蹂닿퀬 怨≪꽑 吏?띿쑝濡??먮떒??寃?怨쇰??먮떒). t=4791~4795.8? ?꾩쟾 吏곸꽑?몃뜲
-  steer -5~-6.5deg ?붿〈 ???먯씤 遺덈챸(李⑥꽑?좎? 蹂댁젙 異붿젙, ?ㅼ쓬 ?몄뀡
-  洹쒕챸 ?꾩슂). (3) ?덉텧吏??議곌린?댁젣 ?????쒕낯?먯꽌 ?뺤떎??利앷굅 ?놁쓬?쇰줈
-  ?ъ젙?? (2) ?뺤젏 媛먯냽 遺議깆? ?곸긽?쇰줈??怨≪꽑 吏꾪뻾 ?뺤씤??洹몃?濡??좎?.
-  ?곸꽭??FINDINGS.md "[?뺤젙] qcamera ?곸긽 援먯감寃利? ??ぉ 李멸퀬.
-  **?ㅼ쓬: route ?뚯뒪(source) 遺꾩꽍 ?ш컻 ??cam/road/vCruiseCluster 罹≪씠
-  ?덉텧吏??泥닿컧???ㅼ젣 ?먯씤?몄? 媛???뺤씤 ?곗꽑. + steer ?붿〈媛?怨≪꽑
-  臾닿? ?ㅽ봽?? ?뺤껜 洹쒕챸.** 肄붾뱶 蹂寃??놁쓬.
-  **[媛깆떊] route1/route2 seg15??qcamera ?뺣?寃利??꾨즺** ??????
-  ?붾㈃?쇰줈??吏꾩쭨 湲됱빱釉?route1=吏꾩텧?⑦봽+寃쎄퀬?쒖??? route2 seg15=
-  援?룄 ?ㅼ뼱?+援먮웾) ?뺤씤, 湲곗〈 寃곕줎(?ъ쟾媛먯냽/?뺤젏媛먯냽 遺議? 洹몃?濡?
-  ?좎?. route2 seg15??max gap ?쒖젏(9504.03)???ㅼ젣 議고뼢媛??뺤젏
-  (9505.73)蹂대떎 1.7珥??욎꽑 吏꾩엯以묐컲?대씪 "?뺤젏 媛먯냽 遺議????ъ떎
-  (1)?ъ쟾媛먯냽 遺議깃낵 ?곗냽??臾몄젣??媛?μ꽦 ?좉퇋 ?쒓린 ???ㅼ쓬 ?몄뀡?먯꽌
-  32嫄??щ텇瑜?寃?? ?곸꽭??FINDINGS.md "qcamera ?곸긽 援먯감寃利??뺣?"
-  ??ぉ 李멸퀬.
-  **[泥댄겕?ъ씤?? route2 32嫄??щ텇瑜??꾨즺** ??`work/curve_gap_vs_apex_scan.py`
-  ?좉퇋 ?묒꽦, ?ㅼ젣 珥덇낵?щ? 24嫄?以?**19嫄?79%)??max gap??apex蹂대떎
-  ?됯퇏 1.26珥?癒쇱? 李띿쓬** ??"?뺤젏 媛먯냽 遺議????遺遺??ъ쟾媛먯냽 遺議깆쓽
-  ?곗옣?대씪??媛??媛뺥븯寃??룸컺移?24嫄??ы쁽, 46李???吏묎퀎? ?쇱튂).
-  吏꾩쭨 "?뺤젏?먯꽌留? 紐??곕씪媛??щ???3嫄?12%)肉? ?곸꽭??FINDINGS.md
-  "route2 32嫄?而ㅻ툕 ?대깽???щ텇瑜? ??ぉ 李멸퀬.
-  **?ㅼ쓬(吏꾪뻾以? ?댁뼱????寃?**: (a) route1??媛숈? delta 怨꾩궛 ?곸슜,
-  (b) `abs(vturn_speed)<120` 寃뚯씠?멸? 79% ?щ??ㅼ쓽 怨듯넻 ?먯씤?몄? 媛쒕퀎
-  寃利? (c) `curve_gap_vs_apex_scan.py` toolkit ?몄엯 ?щ? ?먮떒.
-  肄붾뱶 蹂寃??놁쓬(?ㅽ겕?섏튂 ?ㅽ겕由쏀듃留??좉퇋).
-  **[泥댄겕?ъ씤??] (a)(b) ?꾨즺** ??route1? ?좏슚 ?대깽??1嫄대퓧?댁?留?
-  delta=-0.95s濡?route2? 諛⑺뼢 ?쇱튂(?쒕낯 遺議? 李멸퀬??. **(b) model
-  寃뚯씠??媛?ㅼ? route2?먯꽌 湲곌컖** ??24嫄??꾨? 吏꾩엯 3珥덉쟾 vTurnSpeed媛
-  ?대? 120 誘몃쭔?대씪 寃뚯씠?멸? ?좎큹??vturn????留됯퀬 ?덉뿀?? route1
-  (?κ굅由?吏곸꽑 ??泥?而ㅻ툕)怨?route2(?곗냽 而ㅻ툕, 吏곸쟾 而ㅻ툕 ?ы뙆濡?vturn
-  ?대? ??쓬)??而ㅻ툕 吏꾩엯 吏곸쟾 vturn 珥덇린?곹깭媛 ?ㅻⅨ ?쒕굹由ъ삤???먯씤??
-  ?ㅻ? 寃껋쑝濡??ы룊媛. ???꾨낫 3媛?vturn_decel_rate 臾쇰━?쒓퀎/
-  vturn_lookahead_horizon_s 援?룄 而ㅻ툕媛꾧꺽 遺?곹빀/desiredCurvature
-  ?쒓컙媛믩쭔 諛섏쁺??議곗엫 ?띾룄 ?꾪뻾) ???ㅼ쓬 ?몄뀡 `vturn_speed()`
-  (carrot_man.py) 肄붾뱶 由щ뵫?쇰줈 醫곹옄 寃? ?곸꽭??FINDINGS.md "(a)(b)
-  ?댁뼱??吏꾪뻾" ??ぉ 李멸퀬.
-  **[泥댄겕?ъ씤??, (c) ?꾨즺] `curve_apex_vs_gap_delta()` toolkit
-  ?몄엯 ?꾨즺** ??`analysis_helpers.py`???뺤떇 ?⑥닔濡?異붽?(?ㅽ겕?섏튂
-  ?ㅽ겕由쏀듃? ?뚭?寃利??쇱튂 ?뺤씤), README.md/CHANGELOG.md ?숆린??
-  **1踰?route2 32嫄??щ텇瑜? ?묒뾽 ?ш린???쇰떒??** ?ㅼ쓬 ?몄뀡 理쒖슦??
-  `vturn_speed()`(carrot_man.py) 肄붾뱶 由щ뵫?쇰줈 (i)vturn_decel_rate
-  臾쇰━?쒓퀎/(ii)vturn_lookahead_horizon_s 遺?곹빀/(iii)desiredCurvature
-  ?쒓컙媛?諛섏쁺 3媛??꾨낫 以?洹쇰낯?먯씤 醫곹엳湲? ?댄썑 ?⑥? 2)cam/road/
-  vCruiseCluster 罹?媛?? 3)route3 steer ?붿〈媛?洹쒕챸 ?쒖꽌濡?吏꾪뻾 ?덉젙.
+- 저장 시각: 2026-08-22 (46차, 진행중 — 사용자 요청으로 세그먼트 1개
+  완료 시마다 체크포인트) "곡선구간 가감속 부족"(진입전 사전감속 부족/
+  정점 감속 부족/탈출후 가속지연 3가지 증상) 제보로 패치이전 로그 3개
+  업로드받아 분석 시작. **route1(`203f99d429` seg8) 완료** — 사전감속
+  부족(1)/정점 감속 부족(2) 둘 다 데이터로 확인, 원인 후보로
+  `carrot_serv.py`의 model 게이트 `abs(vturn_speed)<120`(13차 `119b101`
+  도입)이 vturn 자체가 원거리에서 불안정한 구간에서 model의 더 안정적인
+  조기 신호를 차단하는 것을 신규 발견(표본 1건, NEEDS_VALIDATION).
+  탈출후 가속지연(3)은 이 세그 안에서 확인 못함(세그 종료 전 커브 안
+  끝남). 상세는 FINDINGS.md/PARAMS_REGISTRY.md 46차 항목 참고.
+  toolkit `extract_log.py`에 `modelTurnSpeed` 컬럼 신규 추가(이것 없이는
+  model 후보 실제값 자체를 볼 수 없어서 분석 불가했음).
+  **[갱신] route2(`f3db6ca89d`, 5세그 "곡선_여러개") 완료** — 연속 급커브
+  왕복국도라 route1과 성격이 달라, `work/curve_decel_scan.py`(신규
+  자동 스캐너, toolkit 미편입 스크래치)로 32개 커브 이벤트 일괄 분석.
+  **정점 감속 부족(24/32건, 75%, 평균+8.2km/h/최대+18.1km/h)이 route1과
+  합쳐 2 route/25건으로 확대 재현** — 이 문제는 특정 로그의 우연이 아니라
+  일반적 패턴일 가능성 높아짐. 사전감속/탈출가속지연은 이 route가 연속
+  커브 도로라 판단 부적합(N/A 다수, 도로 특성 때문이지 버그 아님).
+  상세는 FINDINGS.md 46차 route2 항목 참고.
+  **[갱신] route3(`866476e5c3` seg18, "곡선_vturn_이상함") 완료** —
+  파일명이 가리키던 "이상함"의 정체 특정: vturn이 정점 통과 직후(아직
+  곡선 안 끝난 시점, t=4786.9)부터 1초 만에 103→149km/h로 조기 해제됨.
+  이번엔 cam(구간단속) 후보가 t=4787.23부터 110km/h로 8초 고정시켜
+  min()에서 우연히 이겨 실제로는 문제가 안 드러남 — cam이 없었다면
+  커브 안 끝난 채 재가속했을 가능성(표본 1건, 조건부 재현).
+  **3번 증상("탈출 후 가속 지연")과 반대 방향 — route2/route3 어디서도
+  탈출 지연 증거 없음, 오히려 vturn 조기 해제 경향.** 정점 감속 부족은
+  +9.6km/h로 3 route 전부 일관 재현(표본 확대). 상세는 FINDINGS.md
+  "route3(866476e5c3 seg18, 곡선_vturn_이상함) 분석" 항목 참고.
+  **[정정, qcamera 영상 교차검증] "vturn 조기해제로 곡선 안 끝난 채
+  재가속" 결론은 근거 약화** — 실제 영상 확인 결과 t≈4787.88(vturn
+  149 도달 시점) 무렵 이미 화면상 도로가 거의 직선이었음(steer만
+  보고 곡선 지속으로 판단한 게 과대판단). t=4791~4795.8은 완전 직선인데
+  steer -5~-6.5deg 잔존 — 원인 불명(차선유지 보정 추정, 다음 세션
+  규명 필요). (3) 탈출지연/조기해제 둘 다 표본에서 확실한 증거 없음으로
+  재정정. (2) 정점 감속 부족은 영상으로도 곡선 진행 확인돼 그대로 유지.
+  상세는 FINDINGS.md "[정정] qcamera 영상 교차검증" 항목 참고.
+  **다음: route 소스(source) 분석 재개 — cam/road/vCruiseCluster 캡이
+  탈출지연 체감의 실제 원인인지 가설 확인 우선. + steer 잔존값(곡선
+  무관 오프셋) 정체 규명.** 코드 변경 없음.
+  **[갱신] route1/route2 seg15도 qcamera 확대검증 완료** — 둘 다
+  화면으로도 진짜 급커브(route1=진출램프+경고표지판, route2 seg15=
+  국도 헤어핀+교량) 확인, 기존 결론(사전감속/정점감속 부족) 그대로
+  유지. route2 seg15는 max gap 시점(9504.03)이 실제 조향각 정점
+  (9505.73)보다 1.7초 앞선 진입중반이라 "정점 감속 부족"이 사실
+  (1)사전감속 부족과 연속된 문제일 가능성 신규 제기 — 다음 세션에서
+  32건 재분류 검토. 상세는 FINDINGS.md "qcamera 영상 교차검증 확대"
+  항목 참고.
+  **[체크포인트] route2 32건 재분류 완료** — `work/curve_gap_vs_apex_scan.py`
+  신규 작성, 실제 초과사례 24건 중 **19건(79%)이 max gap을 apex보다
+  평균 1.26초 먼저 찍음** — "정점 감속 부족"이 대부분 사전감속 부족의
+  연장이라는 가설 강하게 뒷받침(24건 재현, 46차 원 집계와 일치).
+  진짜 "정점에서만" 못 따라간 사례는 3건(12%)뿐. 상세는 FINDINGS.md
+  "route2 32건 커브 이벤트 재분류" 항목 참고.
+  **다음(진행중, 이어서 할 것)**: (a) route1도 같은 delta 계산 적용,
+  (b) `abs(vturn_speed)<120` 게이트가 79% 사례들의 공통 원인인지 개별
+  검증, (c) `curve_gap_vs_apex_scan.py` toolkit 편입 여부 판단.
+  코드 변경 없음(스크래치 스크립트만 신규).
+  **[체크포인트2] (a)(b) 완료** — route1은 유효 이벤트 1건뿐이지만
+  delta=-0.95s로 route2와 방향 일치(표본 부족, 참고용). **(b) model
+  게이트 가설은 route2에서 기각** — 24건 전부 진입 3초전 vTurnSpeed가
+  이미 120 미만이라 게이트가 애초에 vturn을 안 막고 있었음. route1
+  (장거리 직선 후 첫 커브)과 route2(연속 커브, 직전 커브 여파로 vturn
+  이미 낮음)는 커브 진입 직전 vturn 초기상태가 다른 시나리오라 원인도
+  다를 것으로 재평가. 새 후보 3개(vturn_decel_rate 물리한계/
+  vturn_lookahead_horizon_s 국도 커브간격 부적합/desiredCurvature
+  순간값만 반영해 조임 속도 후행) — 다음 세션 `vturn_speed()`
+  (carrot_man.py) 코드 리딩으로 좁힐 것. 상세는 FINDINGS.md "(a)(b)
+  이어서 진행" 항목 참고.
+  **[체크포인트3, (c) 완료] `curve_apex_vs_gap_delta()` toolkit
+  편입 완료** — `analysis_helpers.py`에 정식 함수로 추가(스크래치
+  스크립트와 회귀검증 일치 확인), README.md/CHANGELOG.md 동기화.
+  **1번(route2 32건 재분류) 작업 여기서 일단락.** 다음 세션 최우선:
+  `vturn_speed()`(carrot_man.py) 코드 리딩으로 (i)vturn_decel_rate
+  물리한계/(ii)vturn_lookahead_horizon_s 부적합/(iii)desiredCurvature
+  순간값 반영 3개 후보 중 근본원인 좁히기. 이후 남은 2)cam/road/
+  vCruiseCluster 캡 가설, 3)route3 steer 잔존값 규명 순서로 진행 예정.
 
 
-- ????쒓컖: 2026-08-22 (45李?怨꾩냽 ??"?뺤? ??異쒕컻 媛???쏀솕" 議곗튂 ?⑥튂
-  ?묒꽦/?꾨떖 ?꾨즺(**?ㅼ감 寃利??湲?*). ?ъ슜?먯? ?쇱쓽 ??"?뺤감?믪텧諛???
-  ?곹깭(state)濡??≪븘 ??援ш컙?먯꽌留?`ttc_accel_weight()`(38李?瑜??꾩쟾
-  ?고쉶?섎뒗 launch bypass 諛⑹떇?쇰줈 ?뺤젙쨌援ы쁽. `LAUNCH_BYPASS_STOP_V_EGO
-  =0.3m/s`(?뺤감 ?먯젙)/`LAUNCH_BYPASS_EXIT_V_EGO=5.0m/s`(異쒕컻?꾨즺 ?먯젙,
-  38/39李?濡쒖쭅 蹂듦?) ?좉퇋 ?곸닔 2媛?異붽?. bypass ?쒖꽦 以묒뿏 39李?
-  rise-rate ?쒗븳???④퍡 ?고쉶. danger override(TTC<=2.5s)??bypass?
-  臾닿??섍쾶 ??긽 理쒖슦???좎?. `work/test_launch_bypass.py` ?⑹꽦 ?쒕굹由ъ삤
-  4醫??뺤감以?異쒕컻/exit ?꾪솚/怨좎냽?≪쓬 ?뚭?/???danger cut-in ?뚭?)
-  濡쒖쭅 ?⑥쐞 寃利??꾨즺 ??**exit ?꾪솚 ?쒓컙 w媛 湲됲븯媛뺥븷 ???덉쓬??諛쒓껄,
-  ?ㅼ감 寃利???泥닿컧 ?뺤씤 ?꾩슂**(?곸꽭??FINDINGS.md 45李?"議곗튂" ??ぉ).
-  `git am` temp branch 寃利?base `c31ddca`) + `py_compile` ?듦낵. patch
-  `0001-long_mpc-launch-bypass-45cha.patch` ?꾨떖??`/mnt/user-data/
-  outputs/`, `git am` ?덈궡 蹂꾨룄 ?꾨떖).
-  **?ㅼ쓬 ?몄뀡 ?쒖옉??寃?*: ?ъ슜?먭? patch ?곸슜+push ?щ? ?뺤씤 ??
-  ?ㅼ감 寃利???FINDINGS.md 45李?"?ㅼ쓬 ?④퀎" 李멸퀬) ???듦낵 ??EXIT_V_EGO
-  媛??ㅼ감 湲곗? ?ъ“??寃??
-  **[媛깆떊] patch ?곸슜/push ?꾨즺 ?뺤씤** ??origin `c3-ms-dev`
-  `c31ddca..651c434` ?뺤씤. **?ㅼ쓬? ?ㅼ감 寃利앸쭔 ?⑥쓬**(?뺤감?믪텧諛?留ㅻ걟??
-  媛??蹂듭썝 ?щ?, exit ?꾪솚 ?쒓컙 ?딄? 泥닿컧 ?щ?, 怨좎냽/????뚭? ?녿뒗吏).
+- 저장 시각: 2026-08-22 (45차 계속 — "정지 후 출발 가속 약화" 조치 패치
+  작성/전달 완료(**실차 검증 대기**). 사용자와 논의 후 "정차→출발"을
+  상태(state)로 잡아 이 구간에서만 `ttc_accel_weight()`(38차)를 완전
+  우회하는 launch bypass 방식으로 확정·구현. `LAUNCH_BYPASS_STOP_V_EGO
+  =0.3m/s`(정차 판정)/`LAUNCH_BYPASS_EXIT_V_EGO=5.0m/s`(출발완료 판정,
+  38/39차 로직 복귀) 신규 상수 2개 추가. bypass 활성 중엔 39차
+  rise-rate 제한도 함께 우회. danger override(TTC<=2.5s)는 bypass와
+  무관하게 항상 최우선 유지. `work/test_launch_bypass.py` 합성 시나리오
+  4종(정차중 출발/exit 전환/고속잡음 회귀/저속 danger cut-in 회귀)
+  로직 단위 검증 완료 — **exit 전환 순간 w가 급하강할 수 있음을 발견,
+  실차 검증 시 체감 확인 필요**(상세는 FINDINGS.md 45차 "조치" 항목).
+  `git am` temp branch 검증(base `c31ddca`) + `py_compile` 통과. patch
+  `0001-long_mpc-launch-bypass-45cha.patch` 전달함(`/mnt/user-data/
+  outputs/`, `git am` 안내 별도 전달).
+  **다음 세션 시작할 것**: 사용자가 patch 적용+push 여부 확인 →
+  실차 검증(위 FINDINGS.md 45차 "다음 단계" 참고) → 통과 시 EXIT_V_EGO
+  값 실차 기준 재조정 검토.
+  **[갱신] patch 적용/push 완료 확인** — origin `c3-ms-dev`
+  `c31ddca..651c434` 확인. **다음은 실차 검증만 남음**(정차→출발 매끈한
+  가속 복원 여부, exit 전환 순간 끊김 체감 여부, 고속/저속 회귀 없는지).
 
-- ????쒓컖: 2026-08-22 (45李????꾨즺, 肄붾뱶 蹂寃??놁쓬(遺꾩꽍留?. "?뺤? ??
-  異쒕컻 媛???쏀솕" ?쒕낫 遺꾩꽍 -> 洹쇰낯?먯씤 ?뱀젙(NEEDS_VALIDATION):
-  `long_mpc.py`??`ttc_accel_weight()`(38李? `c3ea08e`)媛
-  `closing<=0.1`(?욎감媛 ?뺤????먯감蹂대떎 ?대? 鍮좊Ⅸ, 利?異쒕컻 吏곹썑 ?뷀븳
-  ?곹솴)????weight瑜?臾댁“嫄?0?쇰줈 留뚮뱾???욎감???ㅼ륫 媛?띾룄
-  (`aLeadK`)媛 MPC 由щ뱶 ?덉륫?먯꽌 ?듭㎏濡??щ씪吏?-- 洹?寃곌낵 異쒕컻 ??
-  紐⑺몴媛?띾룄媛 ?⑥튂 ?댁쟾蹂대떎 蹂댁닔?곸쑝濡??곗텧?? ?⑥튂?댁쟾 濡쒓렇(HEAD
-  `a4b5550`, ??濡쒖쭅 ?먯껜媛 ?녿뜕 ?쒖젏)? ?⑥튂?댄썑 濡쒓렇 CSV+?붾㈃?뱁솕
-  ?곸긽(?⑥뒪?щ┛ 1.Accel 洹몃옒?? 援먯감寃利앹쑝濡??룸컺移? ?곸꽭??
-  FINDINGS.md 45李???ぉ 李멸퀬. **肄붾뱶 ?섏젙? 誘몄쟻??-- ?쒖븞 3媛吏
-  以?諛⑺뼢 ?ъ슜??寃곗젙 ?湲?**
-  **[以묒슂] ?⑥튂?댄썑 濡쒓렇???ㅽ뻾 而ㅻ컠(`96e789c7`)??origin
-  `c3-ms-dev`???놁쓬** -- ?ъ슜?먭? 濡쒖뺄?먯꽌 留뚮뱺 蹂寃쎌씠 push/湲곕줉 ??
-  ??寃껋쑝濡?異붿젙. ?ㅼ쓬 ?몄뀡 ?쒖옉 ?꾩뿉 ?ъ슜?먯뿉寃???而ㅻ컠??push?덈뒗吏
-  ?뺤씤 ?꾩슂(?? ?대쾲 45李?寃곕줎 ?먯껜???대? origin???덈뒗 肄붾뱶
-  (`c3ea08e`/`52668ec`)留뚯쑝濡??꾩쟾???ㅻ챸?섎?濡????꾨씫怨?臾닿??섍쾶
-  ?좏슚??.
-  **?ㅼ쓬 ?몄뀡 ?쒖옉??寃?*: ??3媛吏 議곗튂??以?諛⑺뼢 寃곗젙 -> ?⑥튂 ?묒꽦
-  (?ъ슜???뱀씤 ?? -> ?ㅼ감 ?ы쁽 ?쒕굹由ъ삤 湲곗? ?뚭?寃利?38李④? 留됱쑝?ㅻ뜕
-  怨좎냽 ?≪쓬??媛媛먯냽 怨쇱엵諛섏쓳???щ컻?섏? ?딅뒗吏 ?꾩닔 ?뺤씤).
+- 저장 시각: 2026-08-22 (45차 — 완료, 코드 변경 없음(분석만). "정지 후
+  출발 가속 약화" 제보 분석 -> 근본원인 특정(NEEDS_VALIDATION):
+  `long_mpc.py`의 `ttc_accel_weight()`(38차, `c3ea08e`)가
+  `closing<=0.1`(앞차가 정지한 자차보다 이미 빠른, 즉 출발 직후 흔한
+  상황)일 때 weight를 무조건 0으로 만들어 앞차의 실측 가속도
+  (`aLeadK`)가 MPC 리드 예측에서 통째로 사라짐 -- 그 결과 출발 시
+  목표가속도가 패치 이전보다 보수적으로 산출됨. 패치이전 로그(HEAD
+  `a4b5550`, 이 로직 자체가 없던 시점)와 패치이후 로그 CSV+화면녹화
+  영상(온스크린 1.Accel 그래프) 교차검증으로 뒷받침. 상세는
+  FINDINGS.md 45차 항목 참고. **코드 수정은 미적용 -- 제안 3가지
+  중 방향 사용자 결정 대기.**
+  **[중요] 패치이후 로그의 실행 커밋(`96e789c7`)이 origin
+  `c3-ms-dev`에 없음** -- 사용자가 로컬에서 만든 변경이 push/기록 안
+  된 것으로 추정. 다음 세션 시작 전에 사용자에게 이 커밋을 push했는지
+  확인 필요(단, 이번 45차 결론 자체는 이미 origin에 있는 코드
+  (`c3ea08e`/`52668ec`)만으로 완전히 설명되므로 이 누락과 무관하게
+  유효함).
+  **다음 세션 시작할 것**: 위 3가지 조치안 중 방향 결정 -> 패치 작성
+  (사용자 승인 후) -> 실차 재현 시나리오 기준 회귀검증(38차가 막으려던
+  고속 잡음성 가감속 과잉반응이 재발하지 않는지 필수 확인).
 
-- ????쒓컖: 2026-08-22 (44李????꾨즺. 42李?"B seg10 vision ?몄씠利?
-  寃곕줎 ?뺤젙???뷀빐, ?щ컻 諛⑹???`analysis_helpers.
-  dRel_jump_ego_maneuver_overlap()`??toolkit???좉퇋 異붽?쨌push??
-  (?욎쑝濡?怨≪꽑 援ш컙 dRel ?먰봽瑜?"vision ?몄씠利?濡??깃툒??寃곕줎?대━湲?
-  ?꾩뿉 ???⑥닔濡?ego blinker/議고뼢諛섏쟾 寃뱀묠遺???먮룞 ?ㅽ겕由щ떇 媛??.
-  ?곸꽭??FINDINGS.md 44李???ぉ + toolkit/CHANGELOG.md 44李???ぉ 李멸퀬.
-  **?ㅼ쓬 ?몄뀡 ?쒖옉??寃??놁쓬** ???대┛ ??ぉ? ??곗꽑 ?꾨낫 3媛쒕퓧
-  (FINDINGS.md 44李?"?ㅼ쓬 ?몄뀡 ?꾨낫" 李멸퀬).
+- 저장 시각: 2026-08-22 (44차 — 완료. 42차 "B seg10 vision 노이즈"
+  결론 정정에 더해, 재발 방지용 `analysis_helpers.
+  dRel_jump_ego_maneuver_overlap()`을 toolkit에 신규 추가·push함
+  (앞으로 곡선 구간 dRel 점프를 "vision 노이즈"로 성급히 결론내리기
+  전에 이 함수로 ego blinker/조향반전 겹침부터 자동 스크리닝 가능).
+  상세는 FINDINGS.md 44차 항목 + toolkit/CHANGELOG.md 44차 항목 참고.
+  **다음 세션 시작할 것 없음** — 열린 항목은 저우선 후보 3개뿐
+  (FINDINGS.md 44차 "다음 세션 후보" 참고).
 
-- ????쒓컖: 2026-08-22 (42李???41李⑥? ?숈씪 濡쒓렇瑜?qcamera ?ы븿??
-  ?ъ뾽濡쒕뱶諛쏆븘 4? ?묎렐 ?대깽???꾨? ?꾨젅???議??꾨즺쨌push?? **?ㅼ쓬
-  ?몄뀡 ?쒖옉??寃??놁쓬** ??route B seg10 嫄댁씠 "vision dRel ?쒓컙
-  ?ㅼ텛??洹??댄썑 吏꾩쭨 ?쒗뻾 ?묎렐" 蹂듯빀 ?⑦꽩?꾩쓣 ?곸긽?쇰줈 ?ㅼ쬆(?곸꽭??
-  FINDINGS.md 42李???ぉ). 肄붾뱶 蹂寃??놁쓬, ?대┛ ??ぉ? ??곗꽑 ?꾨낫
-  3媛쒕퓧(?꾨옒 "42李? ?뱀뀡 李멸퀬). **?ъ슜?먭? "濡쒓렇 ?щ━硫???긽 qcamera
-  ?곸긽怨?媛숈씠 遺꾩꽍"???쒖? ?덉감濡??붿껌?????욎쑝濡?rlog/zip ?낅줈????
-  qcamera媛 ?ы븿???덉쑝硫?湲곕낯?곸쑝濡??꾨젅???議곌퉴吏 ?④퍡 ?섑뻾??
-  寃?**)
+- 저장 시각: 2026-08-22 (42차 — 41차와 동일 로그를 qcamera 포함해
+  재업로드받아 4대 접근 이벤트 전부 프레임 대조 완료·push함. **다음
+  세션 시작할 것 없음** — route B seg10 건이 "vision dRel 순간
+  오추정+그 이후 진짜 서행 접근" 복합 패턴임을 영상으로 실증(상세는
+  FINDINGS.md 42차 항목). 코드 변경 없음, 열린 항목은 저우선 후보
+  3개뿐(아래 "42차" 섹션 참고). **사용자가 "로그 올리면 항상 qcamera
+  영상과 같이 분석"을 표준 절차로 요청함 — 앞으로 rlog/zip 업로드 시
+  qcamera가 포함돼 있으면 기본적으로 프레임 대조까지 함께 수행할
+  것.**)
 
-## 42李?(?꾨즺) ??41李?4? ?대깽??qcamera ?꾨젅???議? B seg10 ?몄씠利?媛???곸긽 ?ㅼ쬆
-- ?곸꽭??FINDINGS.md 42李???ぉ 李멸퀬. ?붿빟: A seg11/A seg19/B seg6
-  3嫄댁? ?곸긽?쇰줈 "吏꾩쭨 ?묎렐" ?뺤쬆. B seg10 1嫄댁? 而ㅻ툕 援ш컙(?뺣났
-  2李⑥꽑 吏諛⑸룄)?먯꽌 vision dRel??0.65珥?留뚯뿉 86.9m??2.5m濡?
-  臾쇰━?곸쑝濡?遺덇??ν븳 ?먰봽瑜?蹂닿퀬?덈뒗?? 媛숈? ?쒓컖 ?꾨젅?꾨뱾??
-  ?議고븯???ㅼ젣濡쒕뒗 洹??뺣룄 ?묎렐???놁뿀?뚯쓣 ?뺤씤(?몄씠利? ????
-  洹??댄썑(t=1897.6) ?꾨젅?꾩뿉??媛숈? 由щ뱶媛 ?ㅼ젣濡??쒕졆??媛源뚯썙??
-  ?덉뼱, "?몄씠利??먰봽 + 洹??댄썑 吏꾩쭨 ?쒗뻾 ?묎렐"???욎씤 ?⑦꽩?쇰줈 洹쒕챸.
-- **肄붾뱶 蹂寃??놁쓬(愿李?遺꾩꽍留?**, patch ?놁쓬.
-- **?ㅼ쓬 ?몄뀡 ?꾨낫 (??곗꽑)**:
-  1. `curve_lead_dRel_jump_consistency`瑜??쇨???泥댄겕瑜?vision-only
-     closing-rate 寃뚯씠???먯껜???곸슜?섎뒗 諛⑹븞 ???대쾲 ?곸긽 ?ㅼ쬆?쇰줈
-     洹쇨굅 寃⑹긽, ???쒕낯 1嫄댁씠???ъ쟾????곗꽑.
-  2. ?뺣났 2李⑥꽑 吏諛⑸룄 而ㅻ툕 ?섑뵆 異붽? ?뺣낫(怨좎냽?꾨줈 而ㅻ툕? ?ㅼ감
-     ?뱀꽦 鍮꾧탳).
-  3. 40李?radard ?щ옒???섏젙 ?꾩쟾 ?뺤씤(?붾㈃ ?ㅻ쾭?덉씠 吏곸젒 ?뺤씤)
-     ?ъ쟾??誘몄떎??
+## 42차 (완료) — 41차 4대 이벤트 qcamera 프레임 대조, B seg10 노이즈 가설 영상 실증
+- 상세는 FINDINGS.md 42차 항목 참고. 요약: A seg11/A seg19/B seg6
+  3건은 영상으로 "진짜 접근" 확증. B seg10 1건은 커브 구간(왕복
+  2차선 지방도)에서 vision dRel이 0.65초 만에 86.9m→42.5m로
+  물리적으로 불가능한 점프를 보고했는데, 같은 시각 프레임들을
+  대조하니 실제로는 그 정도 접근이 없었음을 확인(노이즈) — 단
+  그 이후(t=1897.6) 프레임에선 같은 리드가 실제로 뚜렷이 가까워져
+  있어, "노이즈 점프 + 그 이후 진짜 서행 접근"이 섞인 패턴으로 규명.
+- **코드 변경 없음(관찰/분석만)**, patch 없음.
+- **다음 세션 후보 (저우선)**:
+  1. `curve_lead_dRel_jump_consistency`류 일관성 체크를 vision-only
+     closing-rate 게이트 자체에 적용하는 방안 — 이번 영상 실증으로
+     근거 격상, 단 표본 1건이라 여전히 저우선.
+  2. 왕복 2차선 지방도 커브 샘플 추가 확보(고속도로 커브와 오차
+     특성 비교).
+  3. 40차 radard 크래시 수정 완전 확인(화면 오버레이 직접 확인)
+     여전히 미실시.
 
-## (?댁쟾 泥댄겕?ъ씤?? ?꾨옒遺?곕뒗 41李??먮낯 湲곕줉 ????42李⑤줈 蹂닿컯 ?꾨즺)
-- ????쒓컖: 2026-08-22 (41李???"?욎감_移대찓???몄떇.zip"(2?쇱슦??
-  1079.5s, HEAD `c31ddca`) 遺꾩꽍 ?꾨즺쨌push?? **?ㅼ쓬 ?몄뀡 ?쒖옉??寃?
-  ?놁쓬 ???꾨옒 "41李? ?뱀뀡? ?꾨즺 湲곕줉, ?대┛ ??ぉ? ??곗꽑 ?꾨낫 2媛쒕퓧
-  (?꾨옒 "?ㅼ쓬 ?몄뀡 ?꾨낫" 李멸퀬). 40李?radard ?щ옒????ぉ? ?대쾲 濡쒓렇濡?
-  媛꾩젒 ?뺤씤?먯쑝???붾㈃ ?ㅻ쾭?덉씠 吏곸젒 ?뺤씤? ?ъ쟾??誘몄떎??**)
+## (이전 체크포인트, 아래부터는 41차 원본 기록 — 위 42차로 보강 완료)
+- 저장 시각: 2026-08-22 (41차 — "앞차_카메라_인식.zip"(2라우트,
+  1079.5s, HEAD `c31ddca`) 분석 완료·push함. **다음 세션 시작할 것
+  없음 — 아래 "41차" 섹션은 완료 기록, 열린 항목은 저우선 후보 2개뿐
+  (아래 "다음 세션 후보" 참고). 40차 radard 크래시 항목은 이번 로그로
+  간접 확인됐으나 화면 오버레이 직접 확인은 여전히 미실시.**)
 
-## 41李?(?꾨즺) ??"移대찓???몄떇 ??誘멸컧?? 怨꾩뿴 ?⑥튂 理쒖떊 HEAD ?ш?利?
-- ?곸꽭??FINDINGS.md 41李???ぉ 李멸퀬. ?붿빟: 33/36李?frac_rate 寃뚯씠??+
-  38/39李?TTC damping/rise-rate媛 HEAD `c31ddca`?먯꽌 ?뺤긽 ?숈옉 ?ы솗??
-  (湲됱젒洹?4嫄??꾨? ?덉씠???쎌삩蹂대떎 0.7~4.2珥??댁쟾 寃뚯씠???쒖꽦??.
-  40李?radard ?щ옒???섏젙??濡쒓렇 ?곗씠??臾닿껐?깆쑝濡?媛꾩젒 ?뺤씤(??援ш컙
-  radar/leadStatus ?뺤긽 湲곕줉). ?덉쟾吏??harsh_brake/turn_speed_
-  violation/cut_in/ttc_danger) ?꾨? 0嫄? ?ъ슜??泥닿컧???묓샇.
-  route B seg10?먯꽌 vision vRel-dRel 遺덉씪移??몄씠利덈줈 ?명븳 "寃뚯씠?몃뒗
-  耳쒖죱?붾뜲 諛섏쁺 ?쏀븿?믩씫????紐곕┝" ?붿뿬 ?⑦꽩 1嫄??좉퇋 ?뺤씤(?쒕낯 ?묒쓬,
-  ??곗꽑).
-- **肄붾뱶 蹂寃??놁쓬(愿李?遺꾩꽍留?**, patch ?놁쓬.
-- **?ㅼ쓬 ?몄뀡 ?꾨낫 (湲됲븯吏 ?딆쓬)**:
-  1. route B seg10瑜?vision vRel-dRel 遺덉씪移??⑦꽩 ?ы쁽 濡쒓렇 異붽? ?뺣낫 ??
-     `curve_lead_dRel_jump_consistency`瑜??쇨???泥댄겕瑜?vision-only
-     closing-rate 寃뚯씠?몄뿉???곸슜?섎뒗 諛⑹븞 寃??
-  2. 40李?radard ?щ옒???섏젙???꾩쟾???뺤씤(湲곌린 ?붾㈃ ?먮윭 ?ㅻ쾭?덉씠
-     ?щ씪吏?吏곸젒 ?뺤씤) ???대쾲 濡쒓렇???곗씠??臾닿껐??湲곗? 媛꾩젒 ?뺤씤肉?
+## 41차 (완료) — "카메라 인식 시 미감속" 계열 패치 최신 HEAD 재검증
+- 상세는 FINDINGS.md 41차 항목 참고. 요약: 33/36차 frac_rate 게이트 +
+  38/39차 TTC damping/rise-rate가 HEAD `c31ddca`에서 정상 동작 재확인
+  (급접근 4건 전부 레이더 락온보다 0.7~4.2초 이전 게이트 활성화).
+  40차 radard 크래시 수정도 로그 데이터 무결성으로 간접 확인(전 구간
+  radar/leadStatus 정상 기록). 안전지표(harsh_brake/turn_speed_
+  violation/cut_in/ttc_danger) 전부 0건, 사용자 체감도 양호.
+  route B seg10에서 vision vRel-dRel 불일치 노이즈로 인한 "게이트는
+  켜졌는데 반영 약함→락온 후 몰림" 잔여 패턴 1건 신규 확인(표본 작음,
+  저우선).
+- **코드 변경 없음(관찰/분석만)**, patch 없음.
+- **다음 세션 후보 (급하지 않음)**:
+  1. route B seg10류 vision vRel-dRel 불일치 패턴 재현 로그 추가 확보 시
+     `curve_lead_dRel_jump_consistency`류 일관성 체크를 vision-only
+     closing-rate 게이트에도 적용하는 방안 검토.
+  2. 40차 radard 크래시 수정의 완전한 확인(기기 화면 에러 오버레이
+     사라짐 직접 확인) — 이번 로그는 데이터 무결성 기준 간접 확인뿐.
 
-## (?댁쟾 泥댄겕?ъ씤?? ?꾨옒遺?곕뒗 40李??먮낯 湲곕줉 ????41李⑤줈 ?泥??꾨즺)
-- ????쒓컖: 2026-08-22 (40李???**[URGENT] radard ?щ옒??湲닿툒 ?섏젙,
-  ?⑥튂 ?곸슜/push ?꾨즺.** origin `c3-ms-dev` HEAD `c31ddca`. **?ㅼ감
-  ?ш린????radard ?뺤긽 湲곕룞 ?뺤씤留??⑥쓬** ???꾨옒 "40李? ?뱀뀡 "?ㅼ쓬
-  ?④퀎" 2踰덈????댁뼱媛?)
+## (이전 체크포인트, 아래부터는 40차 원본 기록 — 위 41차로 대체 완료)
+- 저장 시각: 2026-08-22 (40차 — **[URGENT] radard 크래시 긴급 수정,
+  패치 적용/push 완료.** origin `c3-ms-dev` HEAD `c31ddca`. **실차
+  재기동 후 radard 정상 기동 확인만 남음** — 아래 "40차" 섹션 "다음
+  단계" 2번부터 이어감.)
 
-## 40李?(?꾨즺 ???⑥튂 ?곸슜/push ?꾨즺, ?ㅼ감 ?ш린???뺤씤 ?湲? ??radard ?щ옒??"?꾨줈?몄뒪媛 ?ㅽ뻾?섏? ?딆븯?듬땲??) ?먯씤/?섏젙
+## 40차 (완료 — 패치 적용/push 완료, 실차 재기동 확인 대기) — radard 크래시("프로세스가 실행되지 않았습니다") 원인/수정
 
-- **利앹긽**: 38/39李??⑥튂 ?곸슜 ???ㅼ감?먯꽌 radard ?щ옒?? ?붾㈃??鍮④컙
-  ?먮윭("radard ?꾨줈?몄뒪媛 ?ㅽ뻾?섏? ?딆븯?듬땲??) ?쒖떆. ?ъ슜?먭? ?ㅽ겕由곗꺑
-  ?쒕낫(?몃뱶?곗뿉???몄뀡 吏꾪뻾 以?.
-- **?먯씤**: 37李?`21effa1`)媛 `Track.get_RadarState()` 諛섑솚 dict??
-  異붽???`sccFallback` ?ㅺ? capnp `RadarState.LeadData` ?ㅽ궎留덉뿉 ?녿뒗
-  ?꾨뱶???????留??ъ씠??`AttributeError` ?щ옒?? ?곸꽭??FINDINGS.md
-  "[FIXED, URGENT] radard ?щ옒?? ??ぉ 李멸퀬.
-- **諛쒓껄 寃쎌쐞(以묒슂, ?ν썑 李멸퀬)**: ?대쾲 ?몄뀡 而⑦뀒?대꼫瑜??댁뼱蹂대땲 ?대?
-  濡쒖뺄???섏젙 而ㅻ컠(`f67a834`, 而ㅻ컠 硫붿떆吏 "37李??꾩냽")??議댁옱?덉쑝??
-  **origin?먮뒗 誘퇼ush, devnotes?먮룄 誘멸린濡?* ?곹깭?????利??댁쟾 ?몄뀡
-  (?ㅻⅨ 怨꾩젙 ?먮뒗 而⑦뀒?대꼫 ?ъ궗???먯꽌 ?먯씤 ?뚯븙+?섏젙源뚯????덉?留?
-  patch ?꾨떖/devnotes 媛깆떊 ?놁씠 ?딄릿 寃껋쑝濡?異붿젙?? ?대쾲 ?몄뀡?먯꽌
-  patch ?ъ깮??+ devnotes 湲곕줉(FINDINGS/PARAMS_REGISTRY)???꾨즺??
-- **?꾨떖**: `0001-radard-sccFallback-radard-37.patch`瑜?
-  `/mnt/user-data/outputs/`???앹꽦, `git am` ?덈궡? ?④퍡 ?꾨떖??base
-  `52668ec`, 利??꾩옱 `C:\dev\ryu`??`c3-ms-dev` HEAD ?꾩뿉 諛붾줈 ?곸슜
-  媛????origin `c3-ms-dev`???꾩쭅 `f4160a7`??理쒖떊?대?濡??ъ슜??濡쒖뺄??
-  ?대낫??理쒖떊(38/39李?screenrecorder 2嫄??댁뼱????patch??radard.py留?
-  嫄대뱶由щ?濡?異⑸룎 ?놁씠 ?곸슜??寃껋쑝濡??덉긽).
-- **寃쎌쐞(李멸퀬, ?대???SSH ?쒕룄)**: ?명듃遺??녿뒗 ?곹깭?먯꽌 ?곗꽑 ?대???
-  SSH(CarrotWeb ?곕???濡?湲곌린 濡쒖뺄???숈씪 ?섏젙??吏곸젒 ?곸슜?섎뒗 ?ㅽ겕由쏀듃
-  (`toolkit/fix_radard_urgent_40cha.sh`, devnotes??push??curl濡?湲곌린?먯꽌
-  諛쏄쾶 ??瑜??쒕룄 ??濡쒖뺄 而ㅻ컠(`89382ac`)源뚯????깃났?덉쑝??`git push`媛
-  SSH 怨듦컻??誘몃벑濡?`Permission denied (publickey)`)?쇰줈 ?ㅽ뙣. ?댄썑
-  ?ъ슜?먭? ?명듃遺곸쑝濡?蹂듦????꾨옒 patch瑜??뺤긽 `git am` + push ?꾨즺.
-  **湲곌린 濡쒖뺄??`89382ac` 而ㅻ컠? origin?????щ씪媛?梨?湲곌린?먮쭔 ?⑥븘?덉쓬**
-  ???ㅼ쓬 湲곌린 ?묒냽 ??`git fetch && git reset --hard origin/c3-ms-dev`濡?
-  ?뺣━ 沅뚯옣(?좉퇋 push??`c31ddca`? 異⑸룎 諛⑹?, ?꾩쭅 誘몄떎??.
-- **?ㅼ쓬 ?④퀎(理쒖슦??**:
-  1. ~~`git am`?쇰줈 `C:\dev\ryu`(c3-ms-dev)???곸슜 + `git push`~~ ??
-     **?꾨즺**. `f4160a7..c31ddca` push ?뺤씤.
-  2. **[?⑥쓬]** ?ㅼ감 ?ш린????radard媛 ?뺤긽 湲곕룞?섎뒗吏(?먮윭 ?ㅻ쾭?덉씠
-     ?щ씪吏?붿?) ?뺤씤 ???닿쾶 理쒖슦???뺤씤 ?ы빆. ?ш린????湲곌린 濡쒖뺄??
-     ??`89382ac`(誘퇼ush, origin怨?蹂꾧컻 而ㅻ컠)怨??덈줈 pull??`c31ddca`媛
-     媛숈? ?댁슜?대씪 `git pull`???꾨땲??`git fetch && git reset --hard
-     origin/c3-ms-dev`濡?湲곌린 濡쒖뺄??origin怨?留욎텛??嫄?沅뚯옣(湲곌린?먯꽌
-     吏곸젒 pull ?덉젙?대씪硫?.
-  3. radard ?뺤긽???뺤씤 ?? 37李??먮옒 紐⑹쟻(SCC ?⑥씪???대갚 ?ㅽ깘 諛⑹?)??
-     ?ㅼ젣濡??숈옉?섎뒗吏 ?뚭? 寃利???????ぉ? 37李?38李?39李?WIP ?뱀뀡??
-     "?⑥? ??ぉ"怨??듯빀?댁꽌 ?ㅼ쓬 ?ㅼ감 寃利??몄뀡?먯꽌 ?④퍡 ?뺤씤.
+- **증상**: 38/39차 패치 적용 후 실차에서 radard 크래시, 화면에 빨간
+  에러("radard 프로세스가 실행되지 않았습니다") 표시. 사용자가 스크린샷
+  제보(핸드폰에서 세션 진행 중).
+- **원인**: 37차(`21effa1`)가 `Track.get_RadarState()` 반환 dict에
+  추가한 `sccFallback` 키가 capnp `RadarState.LeadData` 스키마에 없는
+  필드라 대입 시 매 사이클 `AttributeError` 크래시. 상세는 FINDINGS.md
+  "[FIXED, URGENT] radard 크래시" 항목 참고.
+- **발견 경위(중요, 향후 참고)**: 이번 세션 컨테이너를 열어보니 이미
+  로컬에 수정 커밋(`f67a834`, 커밋 메시지 "37차 후속")이 존재했으나
+  **origin에는 미push, devnotes에도 미기록** 상태였음 — 즉 이전 세션
+  (다른 계정 또는 컨테이너 재사용)에서 원인 파악+수정까지는 했지만
+  patch 전달/devnotes 갱신 없이 끊긴 것으로 추정됨. 이번 세션에서
+  patch 재생성 + devnotes 기록(FINDINGS/PARAMS_REGISTRY)을 완료함.
+- **전달**: `0001-radard-sccFallback-radard-37.patch`를
+  `/mnt/user-data/outputs/`에 생성, `git am` 안내와 함께 전달함(base
+  `52668ec`, 즉 현재 `C:\dev\ryu`의 `c3-ms-dev` HEAD 위에 바로 적용
+  가능 — origin `c3-ms-dev`도 아직 `f4160a7`이 최신이므로 사용자 로컬이
+  이보다 최신(38/39차+screenrecorder 2건)이어도 이 patch는 radard.py만
+  건드리므로 충돌 없이 적용될 것으로 예상).
+- **경위(참고, 휴대폰 SSH 시도)**: 노트북 없는 상태에서 우선 휴대폰
+  SSH(CarrotWeb 터미널)로 기기 로컬에 동일 수정을 직접 적용하는 스크립트
+  (`toolkit/fix_radard_urgent_40cha.sh`, devnotes에 push해 curl로 기기에서
+  받게 함)를 시도 — 로컬 커밋(`89382ac`)까지는 성공했으나 `git push`가
+  SSH 공개키 미등록(`Permission denied (publickey)`)으로 실패. 이후
+  사용자가 노트북으로 복귀해 아래 patch를 정상 `git am` + push 완료.
+  **기기 로컬의 `89382ac` 커밋은 origin에 안 올라간 채 기기에만 남아있음**
+  — 다음 기기 접속 시 `git fetch && git reset --hard origin/c3-ms-dev`로
+  정리 권장(신규 push된 `c31ddca`와 충돌 방지, 아직 미실시).
+- **다음 단계(최우선)**:
+  1. ~~`git am`으로 `C:\dev\ryu`(c3-ms-dev)에 적용 + `git push`~~ →
+     **완료**. `f4160a7..c31ddca` push 확인.
+  2. **[남음]** 실차 재기동 후 radard가 정상 기동하는지(에러 오버레이
+     사라지는지) 확인 — 이게 최우선 확인 사항. 재기동 시 기기 로컬의
+     위 `89382ac`(미push, origin과 별개 커밋)과 새로 pull될 `c31ddca`가
+     같은 내용이라 `git pull`이 아니라 `git fetch && git reset --hard
+     origin/c3-ms-dev`로 기기 로컬을 origin과 맞추는 걸 권장(기기에서
+     직접 pull 예정이라면).
+  3. radard 정상화 확인 후, 37차 원래 목적(SCC 단일점 폴백 오탐 방지)이
+     실제로 동작하는지 회귀 검증 — 이 항목은 37차/38차/39차 WIP 섹션의
+     "남은 항목"과 통합해서 다음 실차 검증 세션에서 함께 확인.
 
-## 39李?(?꾨즺 ???⑥튂 ?곸슜/push ?꾨즺, ?ㅼ감 寃利??湲? ?????援ш컙 TTC 寃뚯씠??湲됰텞愿대줈 ?명븳 湲됱젙吏 ?먮굦, rise-rate ?⑥튂
-- ?곸꽭 ?먯씤/議곗튂??FINDINGS.md 39李???ぉ 李멸퀬. ?붿빟: 38李?TTC 寃뚯씠?멸?
-  ??띿뿉??dRel???묒븘 ?쒖떇媛꾩뿉 ?대━硫?洹몃룞????먮맂 aLeadK 媛먯냽媛믪씠
-  ?쒓볼踰덉뿉 諛섏쁺?섎뒗 lurch 諛쒓껄 ??weight ?곸듅 諛⑺뼢?먮쭔 rise-rate ?쒗븳
-  (`LEAD_ACCEL_WEIGHT_RISE_RATE=1.0`) 異붽?, ??TTC<=2.5s(?ㅼ젣?꾪뿕)??
-  利됱떆 ?고쉶.
-- ?⑥튂 `0001-long_mpc-TTC-aLead-weight-lurch-rise-rate.patch` (base
-  `c3ea08e`, 38李??⑥튂 ?꾩뿉 ?볦엫) Master媛 `git am` ?곸슜 + `git push` ?꾨즺.
+## 39차 (완료 — 패치 적용/push 완료, 실차 검증 대기) — 저속 구간 TTC 게이트 급붕괴로 인한 급정지 느낌, rise-rate 패치
+- 상세 원인/조치는 FINDINGS.md 39차 항목 참고. 요약: 38차 TTC 게이트가
+  저속에서 dRel이 작아 순식간에 열리며 그동안 은폐된 aLeadK 감속값이
+  한꺼번에 반영되는 lurch 발견 → weight 상승 방향에만 rise-rate 제한
+  (`LEAD_ACCEL_WEIGHT_RISE_RATE=1.0`) 추가, 단 TTC<=2.5s(실제위험)는
+  즉시 우회.
+- 패치 `0001-long_mpc-TTC-aLead-weight-lurch-rise-rate.patch` (base
+  `c3ea08e`, 38차 패치 위에 쌓임) Master가 `git am` 적용 + `git push` 완료.
   origin/c3-ms-dev HEAD: `52668ec` (2026-08-22).
-- **?⑥? ??ぉ(38李⑥? ?④퍡 ?ㅼ감 寃利??덉젙)**:
-  1. ?ㅼ감 寃利? (a) ???異붿쥌 媛먯냽 ??湲됱젙吏 ?먮굦 ?댁냼 泥닿컧, (b) **?뚭?
-     寃利??꾩닔** ??????ㅼ젣 ?꾪뿕 cut-in(TTC<=2.5s)?먯꽌 danger override
-     ?뺤긽 諛쒕룞??諛섏쓳 吏???녿뒗吏, (c) `LEAD_ACCEL_WEIGHT_RISE_RATE=1.0`
-     媛??뱀감媛?湲곗? ?ъ“???щ?.
-  2. 38李?怨좎냽)+39李???? ?⑥튂媛 紐⑤몢 ?곸슜???곹깭???듯빀 ?ㅼ감 寃利???
-     ???곹솴???욎씤 濡쒓렇濡쒕뒗 ?꾩쭅 寃利앺븳 ???놁쓬.
+- **남은 항목(38차와 함께 실차 검증 예정)**:
+  1. 실차 검증: (a) 저속 추종 감속 시 급정지 느낌 해소 체감, (b) **회귀
+     검증 필수** — 저속 실제 위험 cut-in(TTC<=2.5s)에서 danger override
+     정상 발동해 반응 지연 없는지, (c) `LEAD_ACCEL_WEIGHT_RISE_RATE=1.0`
+     값 승차감 기준 재조정 여부.
+  2. 38차(고속)+39차(저속) 패치가 모두 적용된 상태의 통합 실차 검증 —
+     두 상황이 섞인 로그로는 아직 검증한 적 없음.
 
-## 38李?(?꾨즺 ???⑥튂 ?곸슜/push ?꾨즺, ?ㅼ감 寃利??湲? ???욎감 媛?띾룄 誘쇨컧諛섏쓳, TTC 寃뚯씠??
-- ?곸꽭 ?먯씤/議곗튂??FINDINGS.md 38李???ぉ 李멸퀬. ?붿빟: 嫄곕━鍮꾩쑉 湲곕컲
-  `MARGIN_ACCEL_GATE`媛 怨좎냽 援ш컙?먯꽌 ?ъ떎???곸떆 臾닿컧?좎????ш컖吏?瑜?
-  `ttc_accel_weight()` ?좎꽕 + `min()` 寃고빀?쇰줈 蹂댁셿.
-- ?⑥튂 `0001-long_mpc-TTC-aLead-damping.patch` ??**Master媛 `git am` +
-  push ?꾨즺 ?뺤씤** (`c3-ms-dev` `21effa1..c3ea08e`).
-- **?⑥? ??ぉ(39李?rise-rate ?⑥튂? ?④퍡 ?ㅼ감 寃利??덉젙)**:
-  1. ?ㅼ감 寃利? ?대쾲 濡쒓렇 ?ы쁽 ?곹솴(?덉쟾嫄곕━+?꾨쭔??媛媛먯냽)?먯꽌 ?뱀감媛?
-     媛쒖꽑 泥닿컧 + **?뚭? 寃利?*(?ㅼ젣 ?꾪뿕 cut-in/湲됱젒洹???諛섏쓳 吏???녿뒗吏).
-  2. `LEAD_ACCEL_TTC_GATE_FULL=12.0s` 媛??ㅼ감 湲곗? ?ъ“???꾩슂?????덉쓬.
+## 38차 (완료 — 패치 적용/push 완료, 실차 검증 대기) — 앞차 가속도 민감반응, TTC 게이트
+- 상세 원인/조치는 FINDINGS.md 38차 항목 참고. 요약: 거리비율 기반
+  `MARGIN_ACCEL_GATE`가 고속 구간에서 사실상 상시 무감쇠였던 사각지대를
+  `ttc_accel_weight()` 신설 + `min()` 결합으로 보완.
+- 패치 `0001-long_mpc-TTC-aLead-damping.patch` — **Master가 `git am` +
+  push 완료 확인** (`c3-ms-dev` `21effa1..c3ea08e`).
+- **남은 항목(39차 rise-rate 패치와 함께 실차 검증 예정)**:
+  1. 실차 검증: 이번 로그 재현 상황(안전거리+완만한 가감속)에서 승차감
+     개선 체감 + **회귀 검증**(실제 위험 cut-in/급접근 시 반응 지연 없는지).
+  2. `LEAD_ACCEL_TTC_GATE_FULL=12.0s` 값 실차 기준 재조정 필요할 수 있음.
 
-## 37李?怨꾩냽 3 (吏꾪뻾 以? ???⑥튂 ?묒꽦 ?꾨즺, ?ㅼ감 寃利??湲?
+## 37차 계속 3 (진행 중) — 패치 작성 완료, 실차 검증 대기
 
-- ?꾨옒 "37李?(?꾨즺 ??洹쇰낯?먯씤/諛⑺뼢 ?뺤젙)" ?뱀뀡??寃곗젙??諛⑺뼢(1??2??
-  寃고빀)?濡?`C:\dev\ryu` base `4fe22cd`(c3-ms-dev HEAD) ?꾩뿉 ?⑥튂 ?묒꽦:
-  1. `get_lead()`??`SCC_FALLBACK_DPATH_GATE=2.0m` 寃뚯씠??異붽?(dPath
-     湲곗?, yRel ?꾨떂 ??怨〓쪧蹂댁젙 而ㅻ쾭 紐⑹쟻).
-  2. `Track.get_RadarState()`??`sccFallback` ?뚮옒洹? `RadarD.update()`
-     議곌굔??`radar and not sccFallback`?쇰줈 蹂寃쏀빐 track_scc ?대갚留?
-     LeadBlend瑜?怨꾩냽 ??꾨줉 遺꾨━.
-- **濡쒖쭅 ?⑥쐞 ?⑹꽦寃利?work/test_scc_gate.py) 7耳?댁뒪 ?꾨? PASS** ??
-  ?뱁엳 "湲곗〈 track 議댁옱+??뺤떊+?놁감???대갚" 耳?댁뒪?먯꽌 珥덉븞 踰꾧렇(寃뚯씠?멸?
-  track 議댁옱 ?щ????곕씪 ?ㅽ궢?섎뜕 踰꾧렇) 諛쒓껄/?섏젙?? ?? ?대뒗 濡쒖쭅
-  ?⑥쐞 寃利앹씠硫??ㅼ젣 acados/radard ?뚯씠?꾨씪?몄씠???ㅼ감 濡쒓렇 ?ы쁽?
-  ?꾩쭅 誘멸?利?
-- `git am` 寃利?temp branch, base `4fe22cd`) + `ast` 臾몃쾿 ?듦낵.
-- **?꾨떖**: `0001-radard-SCC-dPath-LeadBlend-37.patch`瑜?
-  `/mnt/user-data/outputs/`???앹꽦, `git am` ?덈궡? ?④퍡 ?꾨떖??
-- ?곸꽭??FINDINGS.md/PARAMS_REGISTRY.md 37李???ぉ(媛깆떊?? 李멸퀬.
-- **?ㅼ쓬 ?④퀎(理쒖슦??**:
-  1. ~~?ъ슜?먭? `git am`?쇰줈 `C:\dev\ryu`(c3-ms-dev)???⑥튂 ?곸슜 + push~~ ??
-     **?꾨즺**. `git am`??泥섏쓬??`c3-ms-test`(?뱀떆 泥댄겕?꾩썐??釉뚮옖移???
-     ?곸슜??`b5a1209`) ??`long_mpc.py` 臾닿? 而ㅻ컠?대씪 而⑦뀓?ㅽ듃 異⑸룎
-     ?놁씠 ?곸슜? ?먯쑝?? ?먮옒 紐⑺몴??`c3-ms-dev`媛 ?꾨땲?덉쓬. ?뱀떆??
-     34李?A/B 鍮꾧탳 ?ㅼ뿼 諛⑹?瑜??꾪빐 ?묒そ 釉뚮옖移?紐⑤몢??諛섏쁺(cherry-pick
-     `b5a1209`??21effa1` on `c3-ms-dev`)?덉쑝?? **?댄썑 ?ъ슜?먭?
-     `c3-ms-test` 釉뚮옖移??먯껜媛 遺덊븘?뷀븯?ㅺ퀬 ?먮떒??濡쒖뺄+?먭꺽 ??젣**
+- 아래 "37차 (완료 — 근본원인/방향 확정)" 섹션의 결정된 방향(1안+2안
+  결합)대로 `C:\dev\ryu` base `4fe22cd`(c3-ms-dev HEAD) 위에 패치 작성:
+  1. `get_lead()`에 `SCC_FALLBACK_DPATH_GATE=2.0m` 게이트 추가(dPath
+     기준, yRel 아님 — 곡률보정 커버 목적).
+  2. `Track.get_RadarState()`에 `sccFallback` 플래그, `RadarD.update()`
+     조건을 `radar and not sccFallback`으로 변경해 track_scc 폴백만
+     LeadBlend를 계속 타도록 분리.
+- **로직 단위 합성검증(work/test_scc_gate.py) 7케이스 전부 PASS** —
+  특히 "기존 track 존재+저확신+옆차선 폴백" 케이스에서 초안 버그(게이트가
+  track 존재 여부에 따라 스킵되던 버그) 발견/수정함. 단, 이는 로직
+  단위 검증이며 실제 acados/radard 파이프라인이나 실차 로그 재현은
+  아직 미검증.
+- `git am` 검증(temp branch, base `4fe22cd`) + `ast` 문법 통과.
+- **전달**: `0001-radard-SCC-dPath-LeadBlend-37.patch`를
+  `/mnt/user-data/outputs/`에 생성, `git am` 안내와 함께 전달함.
+- 상세는 FINDINGS.md/PARAMS_REGISTRY.md 37차 항목(갱신됨) 참고.
+- **다음 단계(최우선)**:
+  1. ~~사용자가 `git am`으로 `C:\dev\ryu`(c3-ms-dev)에 패치 적용 + push~~ →
+     **완료**. `git am`이 처음엔 `c3-ms-test`(당시 체크아웃된 브랜치)에
+     적용됨(`b5a1209`) — `long_mpc.py` 무관 커밋이라 컨텍스트 충돌
+     없이 적용은 됐으나, 원래 목표인 `c3-ms-dev`가 아니었음. 당시엔
+     34차 A/B 비교 오염 방지를 위해 양쪽 브랜치 모두에 반영(cherry-pick
+     `b5a1209`→`21effa1` on `c3-ms-dev`)했으나, **이후 사용자가
+     `c3-ms-test` 브랜치 자체가 불필요하다고 판단해 로컬+원격 삭제**
      (`git branch -D c3-ms-test` + `git push origin --delete
-     c3-ms-test` ?뺤씤). 理쒖쥌?곸쑝濡?`c3-ms-dev`(`4fe22cd..21effa1`)
-     ?섎굹?먮쭔 ?⑥쓬.
-  2. **[?⑥쓬]** ?ㅼ감 寃利? ?먮옒 ?놁감??痢〓㈃李⑤웾 ?ㅽ깘 ?ы쁽 ?쒕굹由ъ삤 ?ы쁽 ??
-     `dPath` 寃뚯씠?몄뿉 嫄몃젮 由щ뱶 誘몄콈?앸릺嫄곕굹, 梨꾪깮?섎뜑?쇰룄
-     `sccFallback=True`濡?`LeadBlend`媛 ?묐룞??湲됯컧?띿쑝濡????댁뼱吏?붿?
-     ?뺤씤.
-  3. **[?⑥쓬] ?뚭? 寃利??꾩닔**: `SCC_FALLBACK_DPATH_GATE=2.0m`媛 ?뺤긽?곸씤
-     ?숈씪李⑤줈 SCC ?대갚(?꾩껜 ?몃옓 ?쒓컙 74~82% 李⑥??섎뒗 二?寃쎈줈)??
-     怨쇰룄?섍쾶 嫄곕Ⅴ吏 ?딅뒗吏, 寃뚯씠???꾩엯 ?꾩뿉???됱냼 異붿쥌???숈씪?섍쾶
-     ?좎??섎뒗吏 ?뺤씤.
-  4. **34李?c3-ms-dev vs c3-ms-test A/B ?ㅼ감 鍮꾧탳) 怨쇱젣 ?먯껜媛 痍⑥냼??*
-     ??釉뚮옖移섍? ??젣?먯쑝誘濡??꾨옒 34李??뱀뀡??"?ㅼ쓬 ?몄뀡?먯꽌 ?댁뼱媛?寃?
-     ??ぉ? ???댁긽 ?좏슚?섏? ?딆쓬(痍⑥냼 ?쒖떆, ?꾨옒 34李??뱀뀡 李멸퀬).
+     c3-ms-test` 확인). 최종적으로 `c3-ms-dev`(`4fe22cd..21effa1`)
+     하나에만 남음.
+  2. **[남음]** 실차 검증: 원래 옆차선/측면차량 오탐 재현 시나리오 재현 시
+     `dPath` 게이트에 걸려 리드 미채택되거나, 채택되더라도
+     `sccFallback=True`로 `LeadBlend`가 작동해 급감속으로 안 이어지는지
+     확인.
+  3. **[남음] 회귀 검증 필수**: `SCC_FALLBACK_DPATH_GATE=2.0m`가 정상적인
+     동일차로 SCC 폴백(전체 트랙 시간 74~82% 차지하는 주 경로)을
+     과도하게 거르지 않는지, 게이트 도입 후에도 평소 추종이 동일하게
+     유지되는지 확인.
+  4. **34차(c3-ms-dev vs c3-ms-test A/B 실차 비교) 과제 자체가 취소됨**
+     — 브랜치가 삭제됐으므로 아래 34차 섹션의 "다음 세션에서 이어갈 것"
+     항목은 더 이상 유효하지 않음(취소 표시, 아래 34차 섹션 참고).
 
-## 37李?(?꾨즺 ??洹쇰낯?먯씤/諛⑺뼢 ?뺤젙, ?⑥튂????"37李?怨꾩냽 3"?먯꽌 ?묒꽦) ???놁감??李⑤웾 SCC ?⑥씪???쎌삩 湲됯컧?? 洹쇰낯?먯씤 ?뺤씤
+## 37차 (완료 — 근본원인/방향 확정, 패치는 위 "37차 계속 3"에서 작성) — 옆차선 차량 SCC 단일점 락온 급감속, 근본원인 확인
 
-- ?ъ슜?먭? ?낅줈?쒗븳 "?놁감??李⑤웾_?몄떇_媛먯냽.zip"(6?멸렇: 83e6b133f5--16,
-  866476e5c3--3, 1723e8b850--16/19, 7ffb3e693c--10, 3f3884d185--6)??
-  ?대쾲 ?몄뀡 ?꾩슜 ?ㅽ겕由쏀듃(`work/extract_lead_detail.py` ???쒖?
-  extract_log.py???녿뒗 leadYRel/leadDPath/leadTrackId ?ы븿)濡?異붿텧,
-  4媛??멸렇?먯꽌 湲됯컧???꾨낫 50嫄?以?4嫄??꾨젅???議??꾨즺.
-- **寃곕줎(ROOT_CAUSE_IDENTIFIED)**: `radard.py`??`get_lead()`媛 鍮꾩쟾
-  留ㅼ묶 ?ㅽ뙣/??뺤떊 ??SCC ?⑥씪???대갚(`track_scc`, trackId=0)??
-  **李⑤줈???꾩튂(yRel/dPath) 寃利??놁씠** 洹몃?濡?梨꾪깮 ?????몃옓? ??긽
-  `radar=True`濡?諛섑솚?섍퀬, `RadarD.update()`?먯꽌 `radar=True`硫?
-  `LeadBlend`(cutout/closer_jump/TTC ?ㅻТ??瑜?**?꾨? ?고쉶**?섍퀬 諛붾줈
-  `radarState.leadOne`??諛섏쁺?? ?놁감??李⑤웾??SCC???좎씪 ?源껋쑝濡?
-  ?쒓컙 ?≫엳硫?嫄몃윭???덉쟾?μ튂媛 ?좎큹???섎굹???놁쓬. 4嫄??꾨?
-  `trackId=0, radar=True`濡??숈씪 ???뱁엳 `83e6b133f5--16`(yRel -5.5~-6.0m)
-  怨?`3f3884d185--6`(yRel -10.5~-3.0m)? ?섏튂???놁감濡쒓? 紐낅갚.
-  ?곸꽭??FINDINGS.md/PARAMS_REGISTRY.md 37李???ぉ 李멸퀬.
-- **?곸긽 ?議??꾨즺(qcamera, extract_dashcam_frames.py)**: 4嫄?以?3嫄?
-  (`83e6b133f5--16`/`1723e8b850--19`/`3f3884d185--6`) **?놁감???뺤젙**.
-  `7ffb3e693c--10`? **?щ텇瑜?* ???놁감?좎씠 ?꾨땲??????꾩떖 而ㅻ툕?먯꽌
-  二쇳뻾寃쎈줈 諛??녾만/嫄대Ъ 吏꾩엯濡????뺤감쨌?〓떒 李⑤웾???ㅽ깘??耳?댁뒪.
-  洹쇰낯?먯씤 肄붾뱶???숈씪(`track_scc` 臾닿?利?梨꾪깮)?섏?留?諛쒖깮 ?곹솴??
-  ?ㅻ쫫 ???⑥튂??"?놁감??肉??꾨땲??"二쇳뻾寃쎈줈 ?댄깉 ?뺤?臾쇱껜" ?꾨컲??
-  而ㅻ쾭?댁빞 ?? ?곸꽭??FINDINGS.md 37李???ぉ 李멸퀬.
-- **?⑥튂 諛⑺뼢 寃곗젙(37李? ?대쾲 泥댄겕?ъ씤??**: 二?main) = `track_scc`
-  ?대갚 ?몃옓??蹂꾨룄 ?뚮옒洹몃? ?ъ븘 `LeadBlend`(?뱁엳 `CUTOUT_DPATH_THRESH`)
-  瑜?怨꾩냽 ??꾨줉 遺꾨━. 蹂댁“ = `get_lead()` 吏꾩엯 ?쒖젏??愿???yRel
-  1李??꾪꽣(?? 3.0m ?댁긽?대㈃ ?꾨낫 ?쒖쇅)濡?洹밸떒 耳?댁뒪 議곌린 李⑤떒.
-  洹쇨굅: `dPath`???대? `Track.d_path()`?먯꽌 `md.laneLines` 湲곕컲 李⑥꽑
-  以묒떖 ?鍮??꾩튂濡?怨꾩궛??怨〓쪧/李⑥꽑??蹂댁젙 ?ы븿, ?⑥닚 yRel ?꾨떂) ??
-  `track_scc`??`Track` ?몄뒪?댁뒪????怨꾩궛???숈씪?섍쾶 諛쏆쓬. ?⑥닚 yRel
-  ?꾧퀎媛?1踰덉븞)留뚯쑝濡?`7ffb3e693c--10`(yRel -1.4~-1.5m, 媛??먯껜媛
-  ?묒쓬)??紐?嫄곕Ⅴ吏留?dPath 湲곕컲 ?먯젙? 而ㅻ툕 蹂댁젙源뚯? ?ы븿?섎?濡?
-  ??耳?댁뒪源뚯? 而ㅻ쾭??媛?μ꽦???믪쓬.
-- **cut-in/cut-out ?곹뼢 遺꾩꽍 ?꾨즺(37李?**: 肄붾뱶 ?뺤씤 寃곌낵, **cut-out
-  媛먯????대? ?ㅻ뒛??`track_scc` ?좊옒 由щ뱶???곸슜?섍퀬 ?덉쓬** ??radar媛
-  留??꾨젅??True?묯alse濡?諛붾뚮뒗 ?쒓컙(?몃옓 ?뚯떎 ??raw媛 vision-only濡?
-  fallback?섎ŉ radar=False媛 ?? `else` 遺꾧린濡?鍮좎졇 `lead_blend.update()`
-  媛 ?몄텧?섍퀬, ?대븣 ?곗씠??`self.prev`??track_scc ?꾨젅?꾩뿉?쒕룄 留ㅻ쾲
-  `radar=True` bypass 以묒뿉 怨꾩냽 媛깆떊????line 670 遺洹?
-  `self.lead_blend.prev = dict(lead_one_raw)`). 利??⑥튂??cut-out
-  ?먯젙 ?먯껜瑜??덈줈 異붽??섎뒗 寃??꾨땲?? **?몃옓???댁븘?덈뒗 ?숈븞(status
-  ?좎?)??"湲됱젒洹??몄?" ?먯젙??track_scc源뚯? ?뺤옣**?섎뒗 寃?
-  - ?ㅼ젣 ?꾪뿕??cut-in(鍮좊Ⅴ寃??쇱뼱?ㅻŉ closing/TTC<2.5s)? `_is_dangerous()`
-    ??danger-passthrough 寃쎈줈瑜?洹몃?濡????**?⑥튂 ?꾩뿉??利됱떆 諛섏쁺**
-    (諛섏쓳?띾룄 ????놁쓬).
-  - ?ㅻ쭔 ?꾪뿕?섏? ?딆? ?꾨쭔??cut-in(?쒖꽌???⑸쪟, closing ?꾨떂)?
-    ?꾩옱 radar=True bypass ?뚮뒗 raw 利됱떆 諛섏쁺?댁뿀吏留? ?⑥튂 ?꾩뿏
-    `LEAD_BLEND_SAFE_DIST_TIME`(0.35s)濡??ㅻТ?⑸맖 ??**?꾨쭔??cut-in?먯꽌
-    ??0.35s 吏?곗씠 ?덈줈 ?앷린??寃??좎씪???ㅼ쭏???ъ씠?쒖씠?숉듃**.
-    ?덉쟾?깆뿏 臾몄젣 ?놁쑝???ㅼ감 寃利???"?먮┛ ?쇱뼱?ㅺ린 諛섏쓳???덉쟾蹂대떎
-    遺?쒕윭?뚯죱?붿?" 泥댄겕 ?ъ씤?몃줈 ?쇱쓣 寃?
-  - cut-out 諛섏쓳?띾룄???대? ?ㅻ뒛怨??숈씪(濡쒖쭅 蹂寃??놁쓬), ?뚭? ?꾪뿕
-    ??쓬.
-  1. `get_lead()`??`track_scc` 梨꾪깮 議곌굔??理쒖냼 李⑤줈??寃뚯씠??
-     (?쒖븞: `abs(track_scc.yRel) < 1.75~2.0m`) 異붽? ??鍮꾩쟾 ???由щ뱶媛
-     ?놁쓣 ?뚮쭔 ?곕뒗 ?대갚?대씪 ?덈Т ?꾧꺽?섎㈃ ???? ?쒕떇 ?꾩슂. 4嫄?以?
-     3嫄?-5.5~-6.0/-10.5~-3.0/1.0~2.0m)? ??寃뚯씠?몃줈 嫄몃윭吏吏留?
-     `7ffb3e693c--10`(-1.4~-1.5m)? 媛??먯껜媛 ?묒븘 ?⑥닚 yRel 寃뚯씠?몃쭔
-     ?쇰줎 紐?嫄곕? ???덉쓬 ??dPath/而ㅻ툕 ?꿰럤 蹂댁젙 蹂묓뻾 寃???꾩슂.
-  2. ???蹂묓뻾: `track_scc` ?대갚 ?몃옓? `radar=True`瑜?洹몃?濡??먯?
-     留먭퀬 蹂꾨룄 ?뚮옒洹몃줈 ?쒖떆??`LeadBlend`(?뱁엳 `CUTOUT_DPATH_THRESH`)瑜?
-     怨꾩냽 ??꾨줉 遺꾨━.
-  3. ??1/2 諛⑺뼢 寃곗젙 ???⑥튂 ?묒꽦 ??`git format-patch` ??
-     `C:\dev\patch\` ?꾨떖.
-  4. ?⑥튂 ?곸슜 ???ㅼ감 寃利??ㅼ떆 ?놁감??痢〓㈃李⑤웾 ?ㅽ깘 ?ы쁽 ??
-     `leadTrackId`/`leadYRel`??寃뚯씠?몄뿉 嫄몃젮 臾댁떆?먮뒗吏 ?뺤씤).
+- 사용자가 업로드한 "옆차선_차량_인식_감속.zip"(6세그: 83e6b133f5--16,
+  866476e5c3--3, 1723e8b850--16/19, 7ffb3e693c--10, 3f3884d185--6)을
+  이번 세션 전용 스크립트(`work/extract_lead_detail.py` — 표준
+  extract_log.py엔 없는 leadYRel/leadDPath/leadTrackId 포함)로 추출,
+  4개 세그에서 급감속 후보 50건 중 4건 프레임 대조 완료.
+- **결론(ROOT_CAUSE_IDENTIFIED)**: `radard.py`의 `get_lead()`가 비전
+  매칭 실패/저확신 시 SCC 단일점 폴백(`track_scc`, trackId=0)을
+  **차로내 위치(yRel/dPath) 검증 없이** 그대로 채택 → 이 트랙은 항상
+  `radar=True`로 반환되고, `RadarD.update()`에서 `radar=True`면
+  `LeadBlend`(cutout/closer_jump/TTC 스무딩)를 **전부 우회**하고 바로
+  `radarState.leadOne`에 반영됨. 옆차선 차량이 SCC의 유일 타깃으로
+  순간 잡히면 걸러낼 안전장치가 애초에 하나도 없음. 4건 전부
+  `trackId=0, radar=True`로 동일 — 특히 `83e6b133f5--16`(yRel -5.5~-6.0m)
+  과 `3f3884d185--6`(yRel -10.5~-3.0m)은 수치상 옆차로가 명백.
+  상세는 FINDINGS.md/PARAMS_REGISTRY.md 37차 항목 참고.
+- **영상 대조 완료(qcamera, extract_dashcam_frames.py)**: 4건 중 3건
+  (`83e6b133f5--16`/`1723e8b850--19`/`3f3884d185--6`) **옆차선 확정**.
+  `7ffb3e693c--10`은 **재분류** — 옆차선이 아니라 저속 도심 커브에서
+  주행경로 밖(옆길/건물 진입로)의 정차·횡단 차량을 오탐한 케이스.
+  근본원인 코드는 동일(`track_scc` 무검증 채택)하지만 발생 상황이
+  다름 — 패치는 "옆차선"뿐 아니라 "주행경로 이탈 정지물체" 전반을
+  커버해야 함. 상세는 FINDINGS.md 37차 항목 참고.
+- **패치 방향 결정(37차, 이번 체크포인트)**: 주(main) = `track_scc`
+  폴백 트랙에 별도 플래그를 달아 `LeadBlend`(특히 `CUTOUT_DPATH_THRESH`)
+  를 계속 타도록 분리. 보조 = `get_lead()` 진입 시점에 관대한 yRel
+  1차 필터(예: 3.0m 이상이면 후보 제외)로 극단 케이스 조기 차단.
+  근거: `dPath`는 이미 `Track.d_path()`에서 `md.laneLines` 기반 차선
+  중심 대비 위치로 계산됨(곡률/차선폭 보정 포함, 단순 yRel 아님) —
+  `track_scc`도 `Track` 인스턴스라 이 계산을 동일하게 받음. 단순 yRel
+  임계값(1번안)만으론 `7ffb3e693c--10`(yRel -1.4~-1.5m, 값 자체가
+  작음)을 못 거르지만 dPath 기반 판정은 커브 보정까지 포함하므로
+  이 케이스까지 커버될 가능성이 높음.
+- **cut-in/cut-out 영향 분석 완료(37차)**: 코드 확인 결과, **cut-out
+  감지는 이미 오늘도 `track_scc` 유래 리드에 적용되고 있음** — radar가
+  매 프레임 True→False로 바뀌는 순간(트랙 소실 시 raw가 vision-only로
+  fallback되며 radar=False가 됨) `else` 분기로 빠져 `lead_blend.update()`
+  가 호출되고, 이때 쓰이는 `self.prev`는 track_scc 프레임에서도 매번
+  `radar=True` bypass 중에 계속 갱신돼 옴(line 670 부근
+  `self.lead_blend.prev = dict(lead_one_raw)`). 즉 패치는 cut-out
+  판정 자체를 새로 추가하는 게 아니라, **트랙이 살아있는 동안(status
+  유지)의 "급접근 인지" 판정을 track_scc까지 확장**하는 것.
+  - 실제 위험한 cut-in(빠르게 끼어들며 closing/TTC<2.5s)은 `_is_dangerous()`
+    의 danger-passthrough 경로를 그대로 타서 **패치 후에도 즉시 반영**
+    (반응속도 저하 없음).
+  - 다만 위험하지 않은 완만한 cut-in(서서히 합류, closing 아님)은
+    현재 radar=True bypass 때는 raw 즉시 반영이었지만, 패치 후엔
+    `LEAD_BLEND_SAFE_DIST_TIME`(0.35s)로 스무딩됨 — **완만한 cut-in에서
+    약 0.35s 지연이 새로 생기는 게 유일한 실질적 사이드이펙트**.
+    안전성엔 문제 없으나 실차 검증 시 "느린 끼어들기 반응이 예전보다
+    부드러워졌는지" 체크 포인트로 삼을 것.
+  - cut-out 반응속도는 이미 오늘과 동일(로직 변경 없음), 회귀 위험
+    낮음.
+  1. `get_lead()`의 `track_scc` 채택 조건에 최소 차로내 게이트
+     (제안: `abs(track_scc.yRel) < 1.75~2.0m`) 추가 — 비전 대응 리드가
+     없을 때만 쓰는 폴백이라 너무 엄격하면 안 됨, 튜닝 필요. 4건 중
+     3건(-5.5~-6.0/-10.5~-3.0/1.0~2.0m)은 이 게이트로 걸러지지만
+     `7ffb3e693c--10`(-1.4~-1.5m)은 값 자체가 작아 단순 yRel 게이트만
+     으론 못 거를 수 있음 — dPath/커브 曲率 보정 병행 검토 필요.
+  2. 대안/병행: `track_scc` 폴백 트랙은 `radar=True`를 그대로 두지
+     말고 별도 플래그로 표시해 `LeadBlend`(특히 `CUTOUT_DPATH_THRESH`)를
+     계속 타도록 분리.
+  3. 위 1/2 방향 결정 후 패치 작성 → `git format-patch` →
+     `C:\dev\patch\` 전달.
+  4. 패치 적용 후 실차 검증(다시 옆차선/측면차량 오탐 재현 시
+     `leadTrackId`/`leadYRel`이 게이트에 걸려 무시됐는지 확인).
 
-## 36李?(?꾨즺) ??frac_rate 寃뚯씠???ㅼ감 acados ?뚯씠?꾨씪??泥?寃利??깃났
-- ?곸꽭??FINDINGS.md/LAST_ANALYZED.md/PARAMS_REGISTRY.md 36李?李멸퀬 (WIP
-  以묐났 諛⑹?瑜??꾪빐 ?붿빟留?: 移대찓?쇱씤???뺤튂李⑤웾 濡쒓렇濡?33李?臾명꽦
-  ?ъ꽕怨?-2.2/-5.0)媛 ?ㅼ젣 acados MPC ?뚯씠?꾨씪?몄뿉???뺤긽 ?쒖꽦?붾맖??
-  理쒖큹 ?뺤씤, PARAMS_REGISTRY 4媛??곸닔 VALIDATED ?곹뼢.
-- **?ㅼ쓬 ?몄뀡?먯꽌 ?댁뼱媛?寃?*:
-  1. frac_rate ?쒖꽦??aEgo 諛섏쓳 ?ъ씠 吏??愿李곗긽 ??2珥? ?쒖닔 痢≪젙 ??
-     leadStatus ?딄? ?놁씠 ?덉젙?곸쑝濡??좎??섎뒗 ?먭굅由??묎렐 ?щ?濡?
-     ?ы쁽 ?꾩슂(?꾩옱 濡쒓렇??leadStatus ?ы쉷??吏?곗씠 ?욎뿬 ?덉뼱 ?쒖닔
-     寃뚯씠??吏?곗쑝濡??⑥젙 紐삵븿).
-  2. 34李?c3-ms-dev vs c3-ms-test ?대옩??以묒븰媛??꾪꽣 ?쒓굅 A/B ?ㅼ감
-     鍮꾧탳)濡?蹂듦? ???꾨옒 34李??뱀뀡 李멸퀬, ?꾩쭅 誘몄갑??
+## 36차 (완료) — frac_rate 게이트 실차 acados 파이프라인 첫 검증 성공
+- 상세는 FINDINGS.md/LAST_ANALYZED.md/PARAMS_REGISTRY.md 36차 참고 (WIP
+  중복 방지를 위해 요약만): 카메라인식/정치차량 로그로 33차 문턱
+  재설계(-2.2/-5.0)가 실제 acados MPC 파이프라인에서 정상 활성화됨을
+  최초 확인, PARAMS_REGISTRY 4개 상수 VALIDATED 상향.
+- **다음 세션에서 이어갈 것**:
+  1. frac_rate 활성화~aEgo 반응 사이 지연(관찰상 약 2초) 순수 측정 —
+     leadStatus 끊김 없이 안정적으로 유지되는 원거리 접근 사례로
+     재현 필요(현재 로그는 leadStatus 재획득 지연이 섞여 있어 순수
+     게이트 지연으로 단정 못함).
+  2. 34차(c3-ms-dev vs c3-ms-test 클램프+중앙값 필터 제거 A/B 실차
+     비교)로 복귀 — 아래 34차 섹션 참고, 아직 미착수.
 
-## 35李?怨꾩냽 2 (?꾨즺) ??"Clip ?좏깮" 踰꾪듉 臾대컲???먯씤: 罹먯떆 踰꾩뒪??誘멸갚??
-- **利앹긽**: patch 0003源뚯? ??釉뚮옖移??곸슜쨌push ?꾨즺 ???ъ슜?먭?
-  ?ㅺ린湲곗뿉??"Clip ?좏깮" 踰꾪듉???뚮윭??泥댄겕諛뺤뒪媛 ?좏깮 ????
-  (?ㅽ겕由곗꺑 ?뺤씤).
-- **?먯씤/議곗튂**: `index.html`??`logs.js?v=3` 罹먯떆 踰꾩뒪?곕? ?대쾲
-  ?몄뀡 3媛?patch媛 ?꾨? `logs.js`瑜?諛붽엥?뚯뿉?????щ젮??釉뚮씪?곗?媛
-  援щ쾭??JS瑜?怨꾩냽 罹먯떆 ?ъ슜 以묒씠?덉쓬 ??`?v=4`濡?媛깆떊(而ㅻ컠
-  `baab116`). ?곸꽭??FINDINGS.md 35李?怨꾩냽 2 ??ぉ 李멸퀬.
-- **?꾨떖**: `0004-carrotweb-logsjs-cache-buster-v4.patch`瑜?
-  `/mnt/user-data/outputs/`???앹꽦, `git am` 寃利?temp branch) ?듦낵.
-- ~~?ъ슜?먭? ??釉뚮옖移?紐⑤몢??patch 0004 ?곸슜~~ ??**?꾨즺**.
+## 35차 계속 2 (완료) — "Clip 선택" 버튼 무반응 원인: 캐시 버스터 미갱신
+- **증상**: patch 0003까지 두 브랜치 적용·push 완료 후 사용자가
+  실기기에서 "Clip 선택" 버튼을 눌러도 체크박스가 선택 안 됨
+  (스크린샷 확인).
+- **원인/조치**: `index.html`의 `logs.js?v=3` 캐시 버스터를 이번
+  세션 3개 patch가 전부 `logs.js`를 바꿨음에도 안 올려서 브라우저가
+  구버전 JS를 계속 캐시 사용 중이었음 — `?v=4`로 갱신(커밋
+  `baab116`). 상세는 FINDINGS.md 35차 계속 2 항목 참고.
+- **전달**: `0004-carrotweb-logsjs-cache-buster-v4.patch`를
+  `/mnt/user-data/outputs/`에 생성, `git am` 검증(temp branch) 통과.
+- ~~사용자가 두 브랜치 모두에 patch 0004 적용~~ → **완료**.
   `c3-ms-dev`(`f9241db..4fe22cd`), `c3-ms-test`(`331d49a..4d2f6a5`)
-  ????`git am` 異⑸룎 ?놁씠 ?곸슜 + push ?뺤씤.
-- ~~?ㅺ린湲?媛뺤젣 ?덈줈怨좎묠 ??"Clip ?좏깮" 踰꾪듉??clip ?뚯씪 泥댄겕諛뺤뒪留?
-  ?좏깮/?댁젣 ?좉??섎뒗吏 ?뺤씤~~ ??**?꾨즺(?뺤긽 ?숈옉 ?뺤씤)**.
-- ~~clip ?ㅼ젣 湲몄씠(20珥덈?) ?뺤씤~~ ??**?꾨즺(20珥덈? ?뺤긽 ?뺤씤)**.
-- FINDINGS.md 35李?35李?怨꾩냽 2 ??ぉ???ㅼ감 寃利??꾨즺濡?媛깆떊??
-- **?ν썑 ?먯튃(以묒슂)**: `logs.js`(?먮뒗 踰꾩쟾 荑쇰━ 遺숈? ?ㅻⅨ ?뺤쟻
-  ?먯궛)瑜?嫄대뱶由щ뒗 patch????긽 `index.html`???대떦 `?v=N`??媛숈씠
-  ?щ┫ 寃????딆쑝硫?push/?곸슜? ?깃났?대룄 釉뚮씪?곗? 罹먯떆 ?뚮Ц??
-  ?ㅼ젣濡?諛섏쁺 ???섎뒗 ?ㅽ깘 諛쒖깮.
+  둘 다 `git am` 충돌 없이 적용 + push 확인.
+- ~~실기기 강제 새로고침 후 "Clip 선택" 버튼이 clip 파일 체크박스만
+  선택/해제 토글하는지 확인~~ → **완료(정상 동작 확인)**.
+- ~~clip 실제 길이(20초대) 확인~~ → **완료(20초대 정상 확인)**.
+- FINDINGS.md 35차/35차 계속 2 항목에 실차 검증 완료로 갱신함.
+- **향후 원칙(중요)**: `logs.js`(또는 버전 쿼리 붙은 다른 정적
+  자산)를 건드리는 patch는 항상 `index.html`의 해당 `?v=N`도 같이
+  올릴 것 — 잊으면 push/적용은 성공해도 브라우저 캐시 때문에
+  실제로 반영 안 되는 오탐 발생.
 
-## 35李?怨꾩냽 (?꾨즺, ??"35李?怨꾩냽 2"濡??댁뼱吏? ??carrotweb Clip 踰꾪듉 ?섎룄 ?뺤젙 (?꾪꽣 ?꾨떂, ?좏깮 ?꾩슜)
-- **?뺤젙 諛곌꼍**: 35李?理쒖큹 援ы쁽("Clip留? 踰꾪듉 = 紐⑸줉 ?꾪꽣留? clip ?꾨땶
-  ??ぉ ?④?)???ъ슜?먭? ?ㅼ젣 ?섎룄? ?ㅻⅤ?ㅺ퀬 ?뺤젙 ??"紐⑸줉? ?꾨?
-  ?쒖떆?섍퀬, clip ?뚯씪?ㅼ쓽 泥댄겕諛뺤뒪留??좏깮?섍쾶" ?대떖?쇰뒗 寃껋씠?덉쓬.
-- **議곗튂**: `screenrecordClipOnly` ?꾪꽣 ?곹깭/`getVisibleScreenrecordVideos()`
-  ?쒓굅, `screenrecordSelectClipsOnly()`(clip ?뚯씪 泥댄겕諛뺤뒪留??좉?
-  ?좏깮/?댁젣)濡?援먯껜. 踰꾪듉 ?쇰꺼 "Clip留?->"Clip ?좏깮". ?곸꽭??
-  FINDINGS.md 35李???ぉ(?섏젙???쒖떆) 李멸퀬. 而ㅻ컠 `f6a22b8`(local,
-  base `ec5767f`, 利?理쒖큹 carrotweb 而ㅻ컠 ?꾩뿉 ?뱀? ?명?).
-- **?꾨떖**: `0003-carrotweb-logs-clip-select-not-filter.patch`瑜?
-  `/mnt/user-data/outputs/`???앹꽦, `git am` 寃利?temp branch) +
-  `node --check` ?듦낵.
-- **?ㅼ쓬 ?몄뀡(?먮뒗 ?ㅼ쓬 硫붿떆吏)?먯꽌 ?댁뼱媛?寃???理쒖슦??*:
-  1. ~~?ъ슜?먭? ??釉뚮옖移?紐⑤몢??patch 0003 ?곸슜~~ ??**?꾨즺**.
+## 35차 계속 (완료, 위 "35차 계속 2"로 이어짐) — carrotweb Clip 버튼 의도 정정 (필터 아님, 선택 전용)
+- **정정 배경**: 35차 최초 구현("Clip만" 버튼 = 목록 필터링, clip 아닌
+  항목 숨김)을 사용자가 실제 의도와 다르다고 정정 — "목록은 전부
+  표시하고, clip 파일들의 체크박스만 선택되게" 해달라는 것이었음.
+- **조치**: `screenrecordClipOnly` 필터 상태/`getVisibleScreenrecordVideos()`
+  제거, `screenrecordSelectClipsOnly()`(clip 파일 체크박스만 토글
+  선택/해제)로 교체. 버튼 라벨 "Clip만"->"Clip 선택". 상세는
+  FINDINGS.md 35차 항목(수정됨 표시) 참고. 커밋 `f6a22b8`(local,
+  base `ec5767f`, 즉 최초 carrotweb 커밋 위에 얹은 델타).
+- **전달**: `0003-carrotweb-logs-clip-select-not-filter.patch`를
+  `/mnt/user-data/outputs/`에 생성, `git am` 검증(temp branch) +
+  `node --check` 통과.
+- **다음 세션(또는 다음 메시지)에서 이어갈 것 — 최우선**:
+  1. ~~사용자가 두 브랜치 모두에 patch 0003 적용~~ → **완료**.
      `c3-ms-dev`(`dfa2f4f..f9241db`), `c3-ms-test`(`e9000b3..331d49a`)
-     ????`git am` 異⑸룎 ?놁씠 ?곸슜 + push ?뺤씤.
-  2. **[?⑥쓬]** ?ㅼ감 寃利? `_clip.mp4` ?ㅼ젣 湲몄씠 20珥덈? ?뺤씤, carrotweb
-     "Clip ?좏깮" 踰꾪듉 ?대┃ ??紐⑸줉? 洹몃?濡???蹂댁씠怨?clip ?뚯씪
-     泥댄겕諛뺤뒪留??좏깮?섎뒗吏 ?뺤씤(?ㅼ떆 ?꾨Ⅴ硫??댁젣).
-  3. 寃利??듦낵 ????34李?c3-ms-dev vs c3-ms-test A/B ?ㅼ감 鍮꾧탳) 蹂듦?.
+     둘 다 `git am` 충돌 없이 적용 + push 확인.
+  2. **[남음]** 실차 검증: `_clip.mp4` 실제 길이 20초대 확인, carrotweb
+     "Clip 선택" 버튼 클릭 시 목록은 그대로 다 보이고 clip 파일
+     체크박스만 선택되는지 확인(다시 누르면 해제).
+  3. 검증 통과 후 → 34차(c3-ms-dev vs c3-ms-test A/B 실차 비교) 복귀.
 
-## 35李?(?꾨즺, ??"35李?怨꾩냽"?쇰줈 ?뺤젙?? ??screenrecord clip 20珥?異뺤냼 + carrotweb Clip ?꾪꽣
-- **????쒓컖(?뱀떆)**: 2026-08-22 ??screenrecord clip 60s->20s +
-  carrotweb "Clip留? ?꾪꽣 踰꾪듉, ??釉뚮옖移?c3-ms-dev/c3-ms-test) ?곸슜쨌push
-  ?꾨즺, ?ㅼ감 寃利앸쭔 ?⑥쓬
+## 35차 (완료, 위 "35차 계속"으로 정정됨) — screenrecord clip 20초 축소 + carrotweb Clip 필터
+- **저장 시각(당시)**: 2026-08-22 — screenrecord clip 60s->20s +
+  carrotweb "Clip만" 필터 버튼, 두 브랜치(c3-ms-dev/c3-ms-test) 적용·push
+  완료, 실차 검증만 남음
 
-## 35李?(?⑥튂 ?꾨즺, ?곸슜 ?湲? ??screenrecord clip 20珥?異뺤냼 + carrotweb Clip ?꾪꽣
-- **?붿껌**: (1) ?뺤? clip 湲몄씠 60珥?-> 20珥??⑸웾 ?덇컧), (2) carrotweb
-  濡쒓렇???붾㈃?뱁솕 紐⑸줉?먯꽌 clip ?뚯씪留??꾪꽣留곹븯??踰꾪듉. ??釉뚮옖移?
-  (`c3-ms-dev`, `c3-ms-test`) 紐⑤몢 諛섏쁺 + push源뚯? ?붿껌.
-- **援ы쁽**: 而ㅻ컠 2媛? base `8114a46`(c3-ms-dev HEAD) ??
-  `c1e79ed`(clip 60->20s), `cebfa87`(carrotweb Clip留??꾪꽣 踰꾪듉).
-  ?곸꽭??FINDINGS.md 35李???ぉ 李멸퀬. `git am` 寃利?temp branch) +
-  `node --check` ?듦낵.
-- **?꾨떖**: `0001-screenrecorder-clip-60-20.patch`,
-  `0002-carrotweb-logs-Clip-clip.patch`瑜?`/mnt/user-data/outputs/`??
-  ?앹꽦, `git am` ?덈궡 ?④퍡 ?꾨떖???꾨옒 李멸퀬).
-- **?ㅼ쓬 ?몄뀡(?먮뒗 ?ㅼ쓬 硫붿떆吏)?먯꽌 ?댁뼱媛?寃???理쒖슦??*:
-  1. ~~?ъ슜?먭? `c3-ms-dev` 濡쒖뺄????patch `git am` ?곸슜 + push~~ ??
-     **?꾨즺**. `git am` 而⑦뀓?ㅽ듃 異⑸룎 ?놁씠 洹몃?濡??곸슜, `git push
-     origin c3-ms-dev` ?뺤씤(`8114a46..dfa2f4f`).
-  2. ~~`c3-ms-test`?먮룄 媛숈? ??patch ?곸슜 + push~~ ??**?꾨즺**.
-     ?덉긽?濡?`long_mpc.py` 臾닿??대씪 異⑸룎 ?놁씠 ?곸슜, `git push origin
-     c3-ms-test` ?뺤씤(`725d19f..e9000b3`).
-  3. **[?⑥쓬]** ?ㅼ감 寃利? ?뺤? 踰꾪듉 ?뚮윭 ?앹꽦??`_clip.mp4` ?ㅼ젣 湲몄씠媛
-     20珥덈??몄? ?뺤씤, carrotweb 濡쒓렇???붾㈃?뱁솕 ??뿉??"Clip留?
-     踰꾪듉 ?좉? ??clip ?뚯씪留??⑤뒗吏 ?뺤씤.
-  4. 寃利??듦낵 ????34李?c3-ms-dev vs c3-ms-test vision closing-rate
-     A/B ?ㅼ감 鍮꾧탳, ?꾨옒 34李??뱀뀡) ?먮옒 怨쇱젣濡?蹂듦?.
+## 35차 (패치 완료, 적용 대기) — screenrecord clip 20초 축소 + carrotweb Clip 필터
+- **요청**: (1) 정지 clip 길이 60초 -> 20초(용량 절감), (2) carrotweb
+  로그탭 화면녹화 목록에서 clip 파일만 필터링하는 버튼. 두 브랜치
+  (`c3-ms-dev`, `c3-ms-test`) 모두 반영 + push까지 요청.
+- **구현**: 커밋 2개, base `8114a46`(c3-ms-dev HEAD) —
+  `c1e79ed`(clip 60->20s), `cebfa87`(carrotweb Clip만 필터 버튼).
+  상세는 FINDINGS.md 35차 항목 참고. `git am` 검증(temp branch) +
+  `node --check` 통과.
+- **전달**: `0001-screenrecorder-clip-60-20.patch`,
+  `0002-carrotweb-logs-Clip-clip.patch`를 `/mnt/user-data/outputs/`에
+  생성, `git am` 안내 함께 전달함(아래 참고).
+- **다음 세션(또는 다음 메시지)에서 이어갈 것 — 최우선**:
+  1. ~~사용자가 `c3-ms-dev` 로컬에 두 patch `git am` 적용 + push~~ →
+     **완료**. `git am` 컨텍스트 충돌 없이 그대로 적용, `git push
+     origin c3-ms-dev` 확인(`8114a46..dfa2f4f`).
+  2. ~~`c3-ms-test`에도 같은 두 patch 적용 + push~~ → **완료**.
+     예상대로 `long_mpc.py` 무관이라 충돌 없이 적용, `git push origin
+     c3-ms-test` 확인(`725d19f..e9000b3`).
+  3. **[남음]** 실차 검증: 정지 버튼 눌러 생성된 `_clip.mp4` 실제 길이가
+     20초대인지 확인, carrotweb 로그탭 화면녹화 탭에서 "Clip만"
+     버튼 토글 시 clip 파일만 남는지 확인.
+  4. 검증 통과 후 → 34차(c3-ms-dev vs c3-ms-test vision closing-rate
+     A/B 실차 비교, 아래 34차 섹션) 원래 과제로 복귀.
 
-## 34李?(?꾨즺, **?댄썑 37李?怨꾩냽3?먯꽌 痍⑥냼????c3-ms-test 釉뚮옖移???젣**) ??c3-ms-test 釉뚮옖移? ?대옩??以묒븰媛??꾪꽣 ?쒓굅 A/B ?ㅼ감 鍮꾧탳??
-- **諛곌꼍**: 33李④퉴吏 臾명꽦 ?ъ꽕怨?-2.2/-5.0)???꾨즺쨌push??`c3-ms-dev` HEAD
-  `8114a46`). ?대쾲 34李⑥뿉???ъ슜?먭? "吏?곕룄 臾몄젣????븯???대옩??以묒븰媛?
-  ?꾪꽣 ?먯껜瑜?類 釉뚮옖移섎? 留뚮뱾????釉뚮옖移?c3-ms-dev vs c3-ms-test)瑜?
-  ?ㅼ감濡?鍮꾧탳?대낫??怨??붿껌.
-- **二쇱쓽**: ?닿굔 28李⑥뿉???뺤젙??寃곕줎("?대옩??以묒븰媛믪씠 吏?곗쓣 ?좊컻?댁꽌
-  frac_rate媛 ???곗쭊 寃??꾨땲?? raw ?좏샇 ?먯껜媛 ??臾명꽦 -5.5蹂대떎 ??븯??)
-  怨쇰뒗 蹂꾧컻??吏덈Ц ??臾명꽦 ?ъ꽕怨?-2.2/-5.0) ?댄썑?먮룄 ?대옩??0?꾨젅??+以묒븰媛?
-  (理쒕? 0.1s) ?꾪꽣 ?먯껜???붿뿬 吏?곗씠 諛섏쓳 ?띾룄???곹뼢??二쇰뒗吏???꾩쭅
-  ?ㅼ륫?????놁쓬. ?ъ슜?먮뒗 ???붿뿬 吏???먯껜媛 沅곴툑?댁꽌 A/B ?ㅼ감 鍮꾧탳瑜?
-  ?붿껌??寃껋쑝濡? 28李?寃곕줎???ㅼ쭛??寃??꾨땲??蹂꾨룄 異?吏??vs 臾명꽦)??
-  寃利앹엫???좎쓽.
-- **蹂寃??댁슜**: `long_mpc.py`???대옩??`VISION_CLOSING_RATE_MAX_PLAUSIBLE`
-  =30.0)+3?꾨젅??以묒븰媛?`VISION_CLOSING_RATE_MEDIAN_WINDOW`=3) ?④퀎瑜?
-  嫄대꼫?곌퀬, `raw_rate`瑜?TAU=1.0s ???넻怨??꾪꽣??吏곸젒 ?ъ엯?섎룄濡?蹂寃?
-  ?곸닔/deque ?좎뼵 ?먯껜??diff 理쒖냼???꾪빐 ?④꺼?먭퀬 誘몄궗??泥섎━(二쇱꽍 異붽?).
-  `VISION_CLOSING_RATE_GATE_CAUTION/DANGER`(-2.2/-5.0) 臾명꽦媛믪? 洹몃?濡?
-  ?좎? ???대쾲 ?ㅽ뿕? ?꾪꽣 吏?곕쭔???곹뼢??遺꾨━?댁꽌 蹂닿린 ?꾪븿.
-- **由ъ뒪???ъ슜?먯뿉寃??ъ쟾 怨좎???**: 25李⑥뿉???대옩??以묒븰媛믪쓣 ?꾩엯??
-  ?먮옒 ?댁쑀媛 怨≪꽑 dRel ?ㅻ깄 ?몄씠利?91.7% 諛쒖깮 ?⑦꽩, ?꾪꽣留???
-  -12~-25m/s 愿痢? ?듭젣??????닿구 鍮쇰㈃ TAU=1.0s ???넻怨쇰쭔?쇰줎 ?꾩쟾??
-  紐?嫄몃윭 怨≪꽑 援ш컙?먯꽌 frac_rate媛 ?몄씠利덉꽦?쇰줈 ??DANGER湲??쒓컙 媛쒖엯)
-  媛?μ꽦 ?덉쓬. **c3-ms-test ?ㅼ감 寃利????뱁엳 怨≪꽑 援ш컙 諛섏쓳??二쇱쓽
-  愿李?*?댁빞 ??
-- **踰좎씠??而ㅻ컠**: `c3-ms-dev` HEAD `8114a46` ?꾩뿉 ?⑥씪 而ㅻ컠(而⑦뀒?대꼫
-  濡쒖뺄 `8c6e039`, ?ъ슜??濡쒖뺄 而ㅻ컠 ?댁떆??`git am` ?곸슜 ??蹂꾨룄 ?앹꽦??濡?
-  `c3-ms-test` 釉뚮옖移??앹꽦. patch(`0001-long_mpc-A-B-vision-closing-rate-c3-ms-dev.patch`)
-  ?꾨떖 ???ъ슜?먭? `git am` 而⑦뀓?ㅽ듃 ?쇱튂濡??깃났 ??`git push origin
-  c3-ms-test` ?꾨즺 ?뺤씤(?먭꺽??`c3-ms-test` ?좉퇋 釉뚮옖移?議댁옱).
-- **GH_TOKEN ?ㅼ퐫???뺤씤**: ?꾩옱 ?몄뀡 GH_TOKEN? `ryu-devnotes` 由ы룷
-  1媛?Contents R/W)濡??쒖젙 ??`ryu` 由ы룷???ㅼ퐫??諛뽰씠??Claude媛 吏곸젒
-  push 遺덇?, ??긽 patch + ?ъ슜???섎룞 push ?덉감(湲곗〈 吏移④낵 ?쇱튂, ?덉쇅
-  ?꾨떂).
-- **[痍⑥냼, 37李?怨꾩냽3]** ?ъ슜?먭? `c3-ms-test` 釉뚮옖移섎? 遺덊븘?뷀븯?ㅺ퀬
-  ?먮떒??濡쒖뺄(`git branch -D`) + ?먭꺽(`git push origin --delete
-  c3-ms-test`) ??젣 ?뺤씤. ?꾨옒 "?ㅼ쓬 ?몄뀡?먯꽌 ?댁뼱媛?寃? ??ぉ?
-  ???댁긽 ?좏슚?섏? ?딆쓬 ??A/B ?ㅼ감 鍮꾧탳 ?먯껜瑜??섏? ?딄린濡????먮낯
-  湲곕줉 蹂댁〈, 痍⑥냼 ?ъ쑀???ъ슜???먮떒?쇰줈 ?곸꽭 遺덈챸).
-- **?ㅼ쓬 ?몄뀡?먯꽌 ?댁뼱媛?寃?(理쒖슦??** ??~~?꾨옒??痍⑥냼??34李?怨쇱젣
-  ?먮낯, 李멸퀬?⑹쑝濡쒕쭔 蹂댁〈~~:
-  1. ?ъ슜?먭? `c3-ms-dev`? `c3-ms-test` ??釉뚮옖移섎줈 媛곴컖 ?ㅼ감 二쇳뻾,
-     ?숈씪/?좎궗 援ш컙(媛?ν븯硫?媛숈? ???뺣났 ?? 濡쒓렇 ?뺣낫.
-  2. ??濡쒓렇瑜?`extract_log.py`濡?媛곴컖 CSV 異붿텧 ?? ?먭굅由?dRel 85~120m)
-     ?묎렐 ?곹솴?먯꽌 a_target 媛쒖엯 ?쒖젏 李⑥씠(???쇱컢 諛섏쓳?섎뒗吏) 鍮꾧탳.
-  3. `c3-ms-test`?먯꽌 怨≪꽑 援ш컙 frac_rate ?ㅽ깘(?몄씠利덉꽦 DANGER ?ㅽ뙆?댄겕)
-     諛쒖깮 ?щ? ?뺤씤 ??諛쒖깮 ??34李?"由ъ뒪?? ??ぉ ?뺤젙, ?꾪꽣 ?쒓굅??
-     ?섎룎由ш퀬 ?ㅻⅨ 吏???⑥텞 諛⑹븞(TAU ?⑥텞 ?? 寃?좊줈 ?꾪솚.
-  4. ?ㅽ깘 ?녾퀬 諛섏쓳 ?띾룄 媛쒖꽑 ?뺤씤?섎㈃ `c3-ms-test`瑜?`c3-ms-dev`??
-     諛섏쁺?좎?(?먮뒗 ?꾪꽣 ?먯껜瑜?寃쎈웾?뷀븷吏) ?ъ슜?먯? ?쇱쓽.
+## 34차 (완료, **이후 37차 계속3에서 취소됨 — c3-ms-test 브랜치 삭제**) — c3-ms-test 브랜치: 클램프+중앙값 필터 제거 A/B 실차 비교용
+- **배경**: 33차까지 문턱 재설계(-2.2/-5.0)는 완료·push됨(`c3-ms-dev` HEAD
+  `8114a46`). 이번 34차에서 사용자가 "지연도 문제될 듯하니 클램프+중앙값
+  필터 자체를 뺀 브랜치를 만들어 두 브랜치(c3-ms-dev vs c3-ms-test)를
+  실차로 비교해보자"고 요청.
+- **주의**: 이건 28차에서 확정한 결론("클램프+중앙값이 지연을 유발해서
+  frac_rate가 안 터진 게 아니라, raw 신호 자체가 옛 문턱 -5.5보다 낮았다")
+  과는 별개의 질문 — 문턱 재설계(-2.2/-5.0) 이후에도 클램프(0프레임)+중앙값
+  (최대 0.1s) 필터 자체의 잔여 지연이 반응 속도에 영향을 주는지는 아직
+  실측된 적 없음. 사용자는 이 잔여 지연 자체가 궁금해서 A/B 실차 비교를
+  요청한 것으로, 28차 결론을 뒤집는 게 아니라 별도 축(지연 vs 문턱)의
+  검증임에 유의.
+- **변경 내용**: `long_mpc.py`의 클램프(`VISION_CLOSING_RATE_MAX_PLAUSIBLE`
+  =30.0)+3프레임 중앙값(`VISION_CLOSING_RATE_MEDIAN_WINDOW`=3) 단계를
+  건너뛰고, `raw_rate`를 TAU=1.0s 저역통과 필터에 직접 투입하도록 변경.
+  상수/deque 선언 자체는 diff 최소화 위해 남겨두고 미사용 처리(주석 추가).
+  `VISION_CLOSING_RATE_GATE_CAUTION/DANGER`(-2.2/-5.0) 문턱값은 그대로
+  유지 — 이번 실험은 필터 지연만의 영향을 분리해서 보기 위함.
+- **리스크(사용자에게 사전 고지함)**: 25차에서 클램프+중앙값을 도입한
+  원래 이유가 곡선 dRel 스냅 노이즈(91.7% 발생 패턴, 필터링 후
+  -12~-25m/s 관측) 억제였음 — 이걸 빼면 TAU=1.0s 저역통과만으론 완전히
+  못 걸러 곡선 구간에서 frac_rate가 노이즈성으로 튈(DANGER급 순간 개입)
+  가능성 있음. **c3-ms-test 실차 검증 시 특히 곡선 구간 반응을 주의
+  관찰**해야 함.
+- **베이스/커밋**: `c3-ms-dev` HEAD `8114a46` 위에 단일 커밋(컨테이너
+  로컬 `8c6e039`, 사용자 로컬 커밋 해시는 `git am` 적용 시 별도 생성됨)로
+  `c3-ms-test` 브랜치 생성. patch(`0001-long_mpc-A-B-vision-closing-rate-c3-ms-dev.patch`)
+  전달 → 사용자가 `git am` 컨텍스트 일치로 성공 → `git push origin
+  c3-ms-test` 완료 확인(원격에 `c3-ms-test` 신규 브랜치 존재).
+- **GH_TOKEN 스코프 확인**: 현재 세션 GH_TOKEN은 `ryu-devnotes` 리포
+  1개(Contents R/W)로 한정 — `ryu` 리포는 스코프 밖이라 Claude가 직접
+  push 불가, 항상 patch + 사용자 수동 push 절차(기존 지침과 일치, 예외
+  아님).
+- **[취소, 37차 계속3]** 사용자가 `c3-ms-test` 브랜치를 불필요하다고
+  판단해 로컬(`git branch -D`) + 원격(`git push origin --delete
+  c3-ms-test`) 삭제 확인. 아래 "다음 세션에서 이어갈 것" 항목은
+  더 이상 유효하지 않음 — A/B 실차 비교 자체를 하지 않기로 함(원본
+  기록 보존, 취소 사유는 사용자 판단으로 상세 불명).
+- **다음 세션에서 이어갈 것 (최우선)** — ~~아래는 취소된 34차 과제
+  원본, 참고용으로만 보존~~:
+  1. 사용자가 `c3-ms-dev`와 `c3-ms-test` 두 브랜치로 각각 실차 주행,
+     동일/유사 구간(가능하면 같은 날 왕복 등) 로그 확보.
+  2. 두 로그를 `extract_log.py`로 각각 CSV 추출 후, 원거리(dRel 85~120m)
+     접근 상황에서 a_target 개입 시점 차이(더 일찍 반응하는지) 비교.
+  3. `c3-ms-test`에서 곡선 구간 frac_rate 오탐(노이즈성 DANGER 스파이크)
+     발생 여부 확인 — 발생 시 34차 "리스크" 항목 확정, 필터 제거는
+     되돌리고 다른 지연 단축 방안(TAU 단축 등) 검토로 전환.
+  4. 오탐 없고 반응 속도 개선 확인되면 `c3-ms-test`를 `c3-ms-dev`에
+     반영할지(또는 필터 자체를 경량화할지) 사용자와 논의.
 
 
-- ????쒓컖: 2026-08-21 (33李???32李⑥뿉???ъ슜???뺤씤 ?湲?以묒씠??
-  ??媛덈옒 以?(a) 臾명꽦 ?ъ꽕怨??⑥튂 吏꾪뻾?쇰줈 寃곗젙, ?⑥튂 ?꾩꽦쨌?꾨떖??
-  `git am` 而⑦뀓?ㅽ듃 遺덉씪移섎줈 ?ㅽ뙣??PowerShell ?뺢퇋??移섑솚?쇰줈
-  ?섎룞 諛섏쁺, ?ъ슜??濡쒖뺄(`c:\dev\ryu`, c3-ms-dev)??而ㅻ컠 `8114a46`
-  ?꾨즺 ?뺤씤(`Select-String`?쇰줈 259/260/716/717以?諛섏쁺 ?뺤씤).
-  **?꾩쭅 origin push ?? ?ㅼ감 ?ㅼ륫 寃利???** (b) "吏?띿쟻 怨≪꽑
-  dRel-vRel 遺덉씪移??쒕━?꾪듃" 寃고븿? 32李?沅뚭퀬?濡??대쾲 ?몄뀡??
-  ?ㅻ（吏 ?딄퀬 蹂꾨룄 怨쇱젣濡??좎?.)
+- 저장 시각: 2026-08-21 (33차 — 32차에서 사용자 확인 대기 중이던
+  두 갈래 중 (a) 문턱 재설계 패치 진행으로 결정, 패치 완성·전달함.
+  `git am` 컨텍스트 불일치로 실패해 PowerShell 정규식 치환으로
+  수동 반영, 사용자 로컬(`c:\dev\ryu`, c3-ms-dev)에 커밋 `8114a46`
+  완료 확인(`Select-String`으로 259/260/716/717줄 반영 확인).
+  **아직 origin push 전, 실차 실측 검증 전.** (b) "지속적 곡선
+  dRel-vRel 불일치 드리프트" 결함은 32차 권고대로 이번 세션엔
+  다루지 않고 별도 과제로 유지.)
 
-## 33李?(?꾨즺) ??VISION_CLOSING_RATE_GATE 臾명꽦 ?ъ꽕怨??⑥튂 ?꾩꽦쨌?꾨떖
-- **而⑦뀒?대꼫 ?쒖빟 ?뺤씤**: ?대쾲 ?몄뀡 而⑦뀒?대꼫??origin?먯꽌 ?덈줈
-  clone?덇린 ?뚮Ц??26李?濡쒖뺄 而ㅻ컠(`5cc0900`, ?대옩??以묒븰媛??꾪꽣 +
-  援щЦ??-5.5/-10.0 寃뚯씠???좎꽕)??origin???놁뼱 議댁옱?섏? ?딆쓬 ??
-  origin `long_mpc.py`?먮뒗 ?ъ쟾??TTC ?щ줈?ㅼ껜??`ttc_dRel`)源뚯?留?
-  ?덇퀬 ?대옩??以묒븰媛??덈?媛?寃뚯씠??釉붾줉 ?먯껜媛 ?놁쓬??grep?쇰줈
-  ?ы솗??WIP.md ???몄뀡 湲곕줉怨??쇱튂).
-- **?ш뎄??諛⑸쾿**: origin `a4b5550` ?꾩뿉 (1) 26李?patch瑜?
-  `devnotes/WIP.md`/`sim_frac_rate.py` 湲곕줉 洹몃?濡???꽕怨??ы쁽??
-  而ㅻ컠(濡쒖뺄 `6864abd`, 援щЦ??-5.5/-10.0), (2) 洹??꾩뿉 30/31李?
-  ?뺤젙 臾명꽦(-2.2/-5.0)?쇰줈 諛붽씀???명? 而ㅻ컠(濡쒖뺄 `d4b2fc5`) ?쒖꽌濡?
-  2?④퀎 而ㅻ컠. **?ъ슜?먯뿉寃??꾨떖?섎뒗 patch ?뚯씪? (2)踰??명? 而ㅻ컠
-  ?섎굹留?* ???ъ슜??濡쒖뺄 `C:\dev\ryu`???대? (1)???대떦?섎뒗 吏꾩쭨
-  `5cc0900`??`git am` ?곸슜?섏뼱 ?덈떎???꾩젣(29李??뺤씤) ?대?濡?洹?
-  ?꾩뿉 臾명꽦 蹂寃쎈텇留??뱀쑝硫???
-- **?곸슜 ??二쇱쓽 (而⑦뀓?ㅽ듃 留ㅼ묶 由ъ뒪??**: ?명? patch???대쾲 ?몄뀡??
-  *?ш뎄?깊븳* 26李?而ㅻ컠 ?띿뒪?몃? 湲곗??쇰줈 diff context瑜?留뚮뱺 寃껋씠??
-  ?ъ슜??濡쒖뺄??吏꾩쭨 `5cc0900` 肄붾찘??怨듬갚????湲?먮씪???ㅻⅤ硫?
-  `git am`??而⑦뀓?ㅽ듃 遺덉씪移섎줈 ?ㅽ뙣?????덉쓬. **?⑥튂 ?ㅽ뙣 ?쒖뿏
-  ?꾨옒 ???곸닔 媛믩쭔 吏곸젒 ?섎룞?쇰줈 諛붽씀??寃????덉쟾**:
+## 33차 (완료) — VISION_CLOSING_RATE_GATE 문턱 재설계 패치 완성·전달
+- **컨테이너 제약 확인**: 이번 세션 컨테이너는 origin에서 새로
+  clone했기 때문에 26차 로컬 커밋(`5cc0900`, 클램프+중앙값 필터 +
+  구문턱 -5.5/-10.0 게이트 신설)이 origin에 없어 존재하지 않음 —
+  origin `long_mpc.py`에는 여전히 TTC 크로스체크(`ttc_dRel`)까지만
+  있고 클램프/중앙값/절대값 게이트 블록 자체가 없음을 grep으로
+  재확인(WIP.md 앞 세션 기록과 일치).
+- **재구성 방법**: origin `a4b5550` 위에 (1) 26차 patch를
+  `devnotes/WIP.md`/`sim_frac_rate.py` 기록 그대로 역설계 재현한
+  커밋(로컬 `6864abd`, 구문턱 -5.5/-10.0), (2) 그 위에 30/31차
+  확정 문턱(-2.2/-5.0)으로 바꾸는 델타 커밋(로컬 `d4b2fc5`) 순서로
+  2단계 커밋. **사용자에게 전달하는 patch 파일은 (2)번 델타 커밋
+  하나만** — 사용자 로컬 `C:\dev\ryu`엔 이미 (1)에 해당하는 진짜
+  `5cc0900`이 `git am` 적용되어 있다는 전제(29차 확인) 이므로 그
+  위에 문턱 변경분만 얹으면 됨.
+- **적용 시 주의 (컨텍스트 매칭 리스크)**: 델타 patch는 이번 세션이
+  *재구성한* 26차 커밋 텍스트를 기준으로 diff context를 만든 것이라,
+  사용자 로컬의 진짜 `5cc0900` 코멘트/공백이 한 글자라도 다르면
+  `git am`이 컨텍스트 불일치로 실패할 수 있음. **패치 실패 시엔
+  아래 두 상수 값만 직접 수동으로 바꾸는 게 더 안전**:
   ```python
-  VISION_CLOSING_RATE_GATE_CAUTION = -2.2   # 湲곗〈 -5.5
-  VISION_CLOSING_RATE_GATE_DANGER  = -5.0   # 湲곗〈 -10.0
+  VISION_CLOSING_RATE_GATE_CAUTION = -2.2   # 기존 -5.5
+  VISION_CLOSING_RATE_GATE_DANGER  = -5.0   # 기존 -10.0
   ```
-  (?뚯씪: `selfdrive/controls/lib/longitudinal_mpc_lib/long_mpc.py`,
-  `VISION_CLOSING_RATE_MEDIAN_WINDOW` ?곸닔 ?좎뼵 諛붾줈 ?꾨옒 釉붾줉)
-- **?꾨떖**: `0001-long_mpc-VISION_CLOSING_RATE_GATE-5.5-10.0-2.2-5.0.patch`
-  瑜?`/mnt/user-data/outputs/`???앹꽦, `git am` ?덈궡 + ?섎룞 ???
-  ?④퍡 ?꾨떖?? **?ㅼ젣濡쒕뒗 `git am` 而⑦뀓?ㅽ듃 遺덉씪移섎줈 ?ㅽ뙣**(?덉긽??
-  由ъ뒪?? ??"?곸슜 ??二쇱쓽" 李멸퀬) ??PowerShell ?뺢퇋??移섑솚(`-replace`)
-  ?쇰줈 ???곸닔媛믩쭔 ?덉쟾?섍쾶 蹂寃????ъ슜?먭? `Select-String`?쇰줈
-  259/260以??좎뼵遺) + 716/717以??ъ슜泥? 諛섏쁺 ?뺤씤 ??而ㅻ컠 ?꾨즺
-  (濡쒖뺄 `8114a46`, `c3-ms-dev`). **origin push???꾩쭅 ?ъ슜?먭?
-  ???????ㅼ쓬 硫붿떆吏/?몄뀡?먯꽌 `git push` ?뺤씤 ?꾩슂.**
-- **寃利??곹깭**: `py_compile` ?듦낵. ?ㅼ륫 寃利?30/31/32李??쒕??덉씠??
-  湲곕컲)? ?대? 異⑸텇(FINDINGS.md 31李? ???????⑥튂媛 ?ㅼ젣
-  acados MPC ?뚯씠?꾨씪?몄뿉 ?듯빀???꾩쓽 ?ㅼ감 諛섏쓳(a_target ?꾨줈?뚯씪)
-  寃利앹? ?꾩쭅 誘몄떎?? ?ㅼ쓬 ?몄뀡 理쒖슦??怨쇱젣.
+  (파일: `selfdrive/controls/lib/longitudinal_mpc_lib/long_mpc.py`,
+  `VISION_CLOSING_RATE_MEDIAN_WINDOW` 상수 선언 바로 아래 블록)
+- **전달**: `0001-long_mpc-VISION_CLOSING_RATE_GATE-5.5-10.0-2.2-5.0.patch`
+  를 `/mnt/user-data/outputs/`에 생성, `git am` 안내 + 수동 대안
+  함께 전달함. **실제로는 `git am` 컨텍스트 불일치로 실패**(예상된
+  리스크, 위 "적용 시 주의" 참고) → PowerShell 정규식 치환(`-replace`)
+  으로 두 상수값만 안전하게 변경 → 사용자가 `Select-String`으로
+  259/260줄(선언부) + 716/717줄(사용처) 반영 확인 → 커밋 완료
+  (로컬 `8114a46`, `c3-ms-dev`). **origin push는 아직 사용자가
+  안 함 — 다음 메시지/세션에서 `git push` 확인 필요.**
+- **검증 상태**: `py_compile` 통과. 실측 검증(30/31/32차 시뮬레이션
+  기반)은 이미 충분(FINDINGS.md 31차) — 단 이 패치가 실제
+  acados MPC 파이프라인에 통합된 후의 실차 반응(a_target 프로파일)
+  검증은 아직 미실시, 다음 세션 최우선 과제.
 
-## ?ㅼ쓬 ?몄뀡(?먮뒗 ?ㅼ쓬 硫붿떆吏)?먯꽌 ?댁뼱媛?寃?(33李?湲곗?, 理쒖슦??
-0. ~~origin push ?뺤씤~~ ??**?꾨즺**. `a4b5550..8114a46` push ?뺤씤,
-   fetch濡?diff 理쒖쥌 ?곹깭(GATE_CAUTION=-2.2/DANGER=-5.0) ?ы솗?명븿.
-1. ?ъ슜?먭? ?ㅼ감 ?쒕씪?대툕濡??좉퇋 濡쒓렇 ?뺣낫.
-2. ?좉퇋 濡쒓렇濡?臾명꽦 ?ъ꽕怨?-2.2/-5.0)媛 ?먭굅由?諛섏쓳 吏?곗쓣 ?ㅼ젣
-   MPC 異쒕젰(a_target)?먯꽌 媛쒖꽑?섎뒗吏 ?ㅼ륫 寃利???吏湲덇퉴吏???꾨?
-   `sim_frac_rate.py` ?쒕??덉씠??湲곕컲, ?ㅼ젣 acados ?뚯씠?꾨씪??
-   integration 寃利앹? 泥섏쓬.
-3. 寃利??듦낵 ????32李⑥뿉??誘몃， (b) "吏?띿쟻 怨≪꽑 dRel-vRel 遺덉씪移?
-   ?쒕━?꾪듃"(`203f99d429--8` ?щ?) ?먯씤 遺꾩꽍 李⑹닔: ??쒖틺 ?꾨젅??
-   ?議?seg8 t=6579.9~6582.4) ??consistency-check ?ㅺ퀎(N?꾨젅??
-   dRel 蹂?붾웾 vs vRel ?곷텇媛?鍮꾧탳) ??蹂꾨룄 ?⑥튂.
-4. 洹????湲?以? ?놁감??李⑤웾 ?쎌삩 ?쒓컙 湲됯컧??25李⑤????湲?.
+## 다음 세션(또는 다음 메시지)에서 이어갈 것 (33차 기준, 최우선)
+0. ~~origin push 확인~~ → **완료**. `a4b5550..8114a46` push 확인,
+   fetch로 diff 최종 상태(GATE_CAUTION=-2.2/DANGER=-5.0) 재확인함.
+1. 사용자가 실차 드라이브로 신규 로그 확보.
+2. 신규 로그로 문턱 재설계(-2.2/-5.0)가 원거리 반응 지연을 실제
+   MPC 출력(a_target)에서 개선하는지 실측 검증 — 지금까지는 전부
+   `sim_frac_rate.py` 시뮬레이션 기반, 실제 acados 파이프라인
+   integration 검증은 처음.
+3. 검증 통과 후 → 32차에서 미룬 (b) "지속적 곡선 dRel-vRel 불일치
+   드리프트"(`203f99d429--8` 사례) 원인 분석 착수: 대시캠 프레임
+   대조(seg8 t=6579.9~6582.4) → consistency-check 설계(N프레임
+   dRel 변화량 vs vRel 적분값 비교) → 별도 패치.
+4. 그 외 대기 중: 옆차선 차량 락온 순간 급감속(25차부터 대기).
 
-## 32李?(?꾨즺, ??33李⑤줈 ?댁뼱吏? ??怨≪꽑 ?ㅽ깘 寃利?以?臾명꽦怨?
-臾닿?????寃고븿(吏?띿쟻 dRel-vRel ?쒕━?꾪듃 遺덉씪移? 諛쒓껄
-(李멸퀬???먮낯 CSV 寃쎈줈 ?깆? 而⑦뀒?대꼫 濡쒖뺄?대씪 ?대? ?뚯떎 ???ш?利??꾩슂
-??`怨≪꽑_濡쒓렇.zip`/`移대찓???몄떇_異붽?.zip` ???ъ뾽濡쒕뱶 ?꾩슂, ?곸꽭??
-FINDINGS.md 32李?李멸퀬)
+## 32차 (완료, 위 33차로 이어짐) — 곡선 오탐 검증 중 문턱과
+무관한 새 결함(지속적 dRel-vRel 드리프트 불일치) 발견
+(참고용 원본 CSV 경로 등은 컨테이너 로컬이라 이미 소실 — 재검증 필요
+시 `곡선_로그.zip`/`카메라_인식_추가.zip` 등 재업로드 필요, 상세는
+FINDINGS.md 32차 참고)
 
-## 31李?(?꾨즺) ??6媛??멸렇 異붽? 寃利앹쑝濡?臾명꽦 ?ъ꽕怨?洹쇨굅 ???蹂닿컯
+## 31차 (완료) — 6개 세그 추가 검증으로 문턱 재설계 근거 대폭 보강
 
-## 30李?(?꾨즺) ??28李?min_filt_rate媛 湲由ъ튂??뚯쓣 諛쒓껄, 臾명꽦
-?ъ꽕怨?洹쇨굅 ?뺤젙, 怨≪꽑 ?ㅽ깘 1李?寃利?
+## 30차 (완료) — 28차 min_filt_rate가 글리치였음을 발견, 문턱
+재설계 근거 정정, 곡선 오탐 1차 검증
 
-## 28李?(?꾨즺, ?꾨옒???먮낯 湲곕줉 蹂댁〈) ???멸렇7/?멸렇12 ?ㅼ륫?쇰줈 臾명꽦
-怨쇰낫???뺤젙, ?ъ꽕怨??꾩슂??寃⑹긽
-1. `VISION_CLOSING_RATE_GATE_CAUTION` 臾명꽦 ?ъ꽕怨? ?꾩옱 -5.5m/s??
-   ?ㅼ륫 ???щ? ?쇳겕(-3.196/-3.504m/s)蹂대떎 援ъ“?곸쑝濡??믪븘 ?꾪?
-   諛쒕룞 紐삵븿???뺤젙?? ?⑥닚 -3.5~-4.0 ?섑뼢?쇰줎 ?멸렇7(-3.196)??
-   ?ъ쟾???볦튌 ???덉쓬 ??CAUTION??-2.5~-3.0?濡?????텛嫄곕굹
-   CAUTION~DANGER 援ш컙 ???먯껜瑜?醫곹엳???ъ꽕怨??꾩슂 (FINDINGS.md
-   28李???ぉ 寃곕줎 李멸퀬).
-2. ?ъ꽕怨꾪븳 臾명꽦媛믪쑝濡?`sim_frac_rate.py`瑜??멸렇7/?멸렇12???ъ떎?됲빐
-   ?ㅼ젣濡?frac_rate>0??諛쒕룞?섎뒗吏, 諛쒕룞 ?쒖젏???덉씠???쎌삩蹂대떎
-   異⑸텇???대Ⅸ吏 ?ъ쟾 寃利?(?⑥튂 ?묒꽦 ???쒕??덉씠???④퀎?먯꽌 癒쇱?
-   ?뺤씤 ???ㅼ감 寃利???鍮꾩슜 ?덇컧).
-3. 寃利??듦낵 ??`long_mpc.py`??`VISION_CLOSING_RATE_GATE_CAUTION`
-   ?곸닔留??⑥튂(?ㅻⅨ 濡쒖쭅 蹂寃??놁쓬) ??`git format-patch` ??
-   `C:\dev\patch\` ?꾨떖. ?? 26李?patch(`5cc0900`, ?대옩??以묒븰媛?
-   frac_rate 寃뚯씠???먯껜)媛 ?꾩쭅 `c3-ms-dev`??誘몃컲???곹깭?대?濡?
-   **?대쾲 臾명꽦 ?ъ꽕怨??⑥튂??26李?patch媛 ?대? ?곸슜??濡쒖뺄
-   (`C:\dev\ryu`)???쒖감 ?곸슜?⑥쓣 ?꾩젣**濡??묒꽦??寃?利?26李?patch
-   ?ъ쟾???щ?瑜??ъ슜?먯뿉寃?癒쇱? ?뺤씤 ??26李?patch瑜??대?
-   `git am` ?덈뒗吏 紐⑤쫫).
-4. ?꾨즺 ??26李?WIP ?먮옒 ?ㅼ쓬 怨쇱젣(?꾨옒 26李??뱀뀡 "?ㅼ쓬 ?몄뀡?먯꽌
-   ?댁뼱媛?寃?)濡?蹂듦?.
+## 28차 (완료, 아래는 원본 기록 보존) — 세그7/세그12 실측으로 문턱
+과보수 확정, 재설계 필요성 격상
+1. `VISION_CLOSING_RATE_GATE_CAUTION` 문턱 재설계: 현재 -5.5m/s는
+   실측 두 사례 피크(-3.196/-3.504m/s)보다 구조적으로 높아 전혀
+   발동 못함이 확정됨. 단순 -3.5~-4.0 하향으론 세그7(-3.196)을
+   여전히 놓칠 수 있음 — CAUTION을 -2.5~-3.0대로 더 낮추거나
+   CAUTION~DANGER 구간 폭 자체를 좁히는 재설계 필요 (FINDINGS.md
+   28차 항목 결론 참고).
+2. 재설계한 문턱값으로 `sim_frac_rate.py`를 세그7/세그12에 재실행해
+   실제로 frac_rate>0이 발동하는지, 발동 시점이 레이더 락온보다
+   충분히 이른지 사전 검증 (패치 작성 전 시뮬레이션 단계에서 먼저
+   확인 — 실차 검증 전 비용 절감).
+3. 검증 통과 시 `long_mpc.py`의 `VISION_CLOSING_RATE_GATE_CAUTION`
+   상수만 패치(다른 로직 변경 없음) → `git format-patch` →
+   `C:\dev\patch\` 전달. 단, 26차 patch(`5cc0900`, 클램프+중앙값+
+   frac_rate 게이트 자체)가 아직 `c3-ms-dev`에 미반영 상태이므로,
+   **이번 문턱 재설계 패치는 26차 patch가 이미 적용된 로컬
+   (`C:\dev\ryu`)에 순차 적용됨을 전제**로 작성할 것(즉 26차 patch
+   재전달 여부를 사용자에게 먼저 확인 — 26차 patch를 이미
+   `git am` 했는지 모름).
+4. 완료 후 26차 WIP 원래 다음 과제(아래 26차 섹션 "다음 세션에서
+   이어갈 것")로 복귀.
 
-## 27李?(?꾨즺, ?꾨옒???먮낯 湲곕줉 蹂댁〈) ???멸렇7/?멸렇12 no-decel ?ㅼ륫?쇰줈 frac_rate 臾명꽦(-5.5m/s) ?ш???
+## 27차 (완료, 아래는 원본 기록 보존) — 세그7/세그12 no-decel 실측으로 frac_rate 문턱(-5.5m/s) 재검토
 
-a4b5550 HEAD(26李?patch ?곸슜 ?? ?쒖젏 zip 2媛?
+a4b5550 HEAD(26차 patch 적용 전) 시점 zip 2개
 (`20260821_112042_...--7.zip`/`20260821_112542_...--12.zip`,
-route `866476e5c3`)濡?"移대찓???몄떇?덈뒗??媛먯냽 ???? ?ㅼ궗濡瑜?
-frame ?⑥쐞 ?ы솗?????멸렇7(raw vRel -1.66??5.66, ?쎌삩 吏곸쟾 留됲뙋?먯빞
-CAUTION 洹쇱젒)/?멸렇12(raw vRel 理쒕? -2.82, 臾명꽦 洹쇱쿂??紐?媛? ????
-?뺤씤. ?댁뼱??"?????щ???26李?frac_rate 寃뚯씠?몃? ?곸슜?덉쑝硫?
-媛먯냽???먯쓣源?瑜?寃?좏븳 寃곌낵, **?꾪꽣(?대옩??以묒븰媛?TAU=1.0s
-???넻怨? ?뱀꽦???멸렇7? ?쎌삩 ?쒖젏源뚯? ?꾪꽣 異쒕젰??-5.5瑜?紐?
-?섏뿀??媛?μ꽦???믨퀬 ?멸렇12??raw ?먯껜媛 臾명꽦???쒖갭 紐?誘몄퀜
-寃뚯씠?멸? ?ъ떎??愿??紐??덉쓣 寃?*?쇰줈 異붿젙 ??FINDINGS.md
-`[NEEDS_VALIDATION] frac_rate 寃뚯씠??臾명꽦 怨쇰낫?섏쟻 媛?μ꽦` ??ぉ?쇰줈
-湲곕줉 ?꾨즺. **肄붾뱶 蹂寃??놁쓬(遺꾩꽍/異붾줎留?, ?뺥솗???꾨젅???⑥쐞
-?ш?利앹? 誘몄닔??*(?대쾲 ?몄뀡 而⑦뀒?대꼫??26李?濡쒖뺄 而ㅻ컠 `5cc0900`怨?
-異붿텧 CSV媛 ?⑥븘?덉? ?딆븯????origin?먮룄 誘퇼ush ?곹깭???ы솗蹂?
-遺덇?, zip ?ъ뾽濡쒕뱶 ?먮뒗 ?⑥튂 ?곸슜??`long_mpc.py` ?ы솗蹂??꾩슂).
+route `866476e5c3`)로 "카메라 인식했는데 감속 안 함" 실사례를
+frame 단위 재확인 → 세그7(raw vRel -1.66→-5.66, 락온 직전 막판에야
+CAUTION 근접)/세그12(raw vRel 최대 -2.82, 문턱 근처도 못 감) 둘 다
+확인. 이어서 "이 두 사례에 26차 frac_rate 게이트를 적용했으면
+감속이 됐을까"를 검토한 결과, **필터(클램프+중앙값+TAU=1.0s
+저역통과) 특성상 세그7은 락온 시점까지 필터 출력이 -5.5를 못
+넘었을 가능성이 높고 세그12는 raw 자체가 문턱에 한참 못 미쳐
+게이트가 사실상 관여 못 했을 것**으로 추정 — FINDINGS.md
+`[NEEDS_VALIDATION] frac_rate 게이트 문턱 과보수적 가능성` 항목으로
+기록 완료. **코드 변경 없음(분석/추론만), 정확한 프레임 단위
+재검증은 미수행**(이번 세션 컨테이너에 26차 로컬 커밋 `5cc0900`과
+추출 CSV가 남아있지 않았음 — origin에도 미push 상태라 재확보
+불가, zip 재업로드 또는 패치 적용된 `long_mpc.py` 재확보 필요).
 
-## (27李??뱀떆 ?ㅼ쓬 怨쇱젣 ??28李⑥뿉??紐⑤몢 ?꾨즺, 寃곌낵????28李??뱀뀡 李멸퀬)
-1. ~~zip ?ъ뾽濡쒕뱶 ???꾨젅???⑥쐞 ?ы쁽~~ ???꾨즺(28李? `sim_frac_rate.py`).
-2. ~~-5.5 臾명꽦??-3.5~-4.0?濡??섑뼢 寃??~ ???꾨즺?덉쑝??寃곕줎??
-   媛깆떊?? ?ㅼ륫 ?쇳겕媛 -3.2~-3.5??-3.5~-4.0濡쒕뒗 遺議? ?????
-   -2.5~-3.0? ?먮뒗 援ш컙 ???ъ꽕怨??꾩슂濡?寃곕줎 蹂寃?28李?理쒖슦??
-   怨쇱젣 1踰?李멸퀬).
-3. ??28李?理쒖슦??怨쇱젣濡??댁뼱吏???李멸퀬).
+## (27차 당시 다음 과제 — 28차에서 모두 완료, 결과는 위 28차 섹션 참고)
+1. ~~zip 재업로드 후 프레임 단위 재현~~ → 완료(28차, `sim_frac_rate.py`).
+2. ~~-5.5 문턱을 -3.5~-4.0대로 하향 검토~~ → 완료했으나 결론이
+   갱신됨: 실측 피크가 -3.2~-3.5라 -3.5~-4.0로는 부족, 더 낮은
+   -2.5~-3.0대 또는 구간 폭 재설계 필요로 결론 변경(28차 최우선
+   과제 1번 참고).
+3. → 28차 최우선 과제로 이어짐(위 참고).
 
-## 26李???怨≪꽑 ?몄씠利??꾪꽣(1) ??closing-rate 寃뚯씠??2) ?쒖꽌濡?援ы쁽 ?꾨즺
+## 26차 — 곡선 노이즈 필터(1) → closing-rate 게이트(2) 순서로 구현 완료
 
-25李?醫낅즺 ?쒖젏???ъ슜?먭? 諛⑺뼢??寃곗젙: **怨≪꽑 ?몄씠利??꾪꽣 癒쇱? ??
-2踰?closing-rate 寃뚯씠?? ?쒖꽌濡?吏꾪뻾**. ?댁쟾 ?몄뀡(?ㅻⅨ 怨꾩젙)?먯꽌
-`long_mpc.py`????湲곕뒫???곸닔/?ㅺ퀎 二쇱꽍 釉붾줉留?異붽????곹깭(濡쒖쭅
-誘멸뎄??濡??뚯씪???⑥븘 ?덉뿀怨? ?대쾲 26李⑥뿉???ㅼ젣 援ы쁽???꾨즺:
+25차 종료 시점에 사용자가 방향을 결정: **곡선 노이즈 필터 먼저 →
+2번(closing-rate 게이트) 순서로 진행**. 이전 세션(다른 계정)에서
+`long_mpc.py`에 두 기능의 상수/설계 주석 블록만 추가된 상태(로직
+미구현)로 파일이 남아 있었고, 이번 26차에서 실제 구현을 완료:
 
-**援ы쁽 ?댁슜** (`c3-ms-dev` 濡쒖뺄 而ㅻ컠 `5cc0900`, `a4b5550` ?꾩뿉 ?곸링,
-**?꾩쭅 origin??誘퇼ush** ??ryu????긽 ?섎룞 patch ?덉감):
-1. **怨≪꽑 ?몄씠利??대옩??以묒븰媛??꾪꽣**: `raw_rate`瑜?
-   `VISION_CLOSING_RATE_MAX_PLAUSIBLE=30.0 m/s`濡??대옩???묎렐 諛⑺뼢留? ??
-   `collections.deque(maxlen=VISION_CLOSING_RATE_MEDIAN_WINDOW=3)`??
-   ?꾩쟻, 以묒븰媛믪쓣 湲곗〈 ???넻怨??꾪꽣(TAU=1.0s) ?낅젰?쇰줈 ?ъ슜. ?ㅻ깄-蹂듦?
-   ?⑦꽩? 3?꾨젅???ㅼ닔寃곗뿉 諛??嫄몃윭吏怨?吏???묎렐? 洹몃?濡?諛섏쁺??
-   ?덈룄?곕뒗 湲곗〈 3怨녹쓽 由ъ뀑 吏??radar lock-on 利됱떆, grace 珥덇낵, ramp
-   ?꾩껜 由ъ뀑)?먯꽌 ?숈씪?섍쾶 `.clear()`.
-2. **Vision-only closing-rate ?덈?媛?寃뚯씠??*: `_vision_dRel_rate`(??
-   ?꾪꽣 ?곸슜??媛?瑜?`VISION_CLOSING_RATE_GATE_CAUTION=-5.5m/s` ~
-   `GATE_DANGER=-10.0m/s` 援ш컙?먯꽌 `frac_rate`濡??뺢퇋?? 湲곗〈
-   `frac_time`/`frac_ttc`? `max()`濡?寃고빀(?쒖닔 floor, ?꾪솕 諛⑺뼢 ?놁쓬).
-   ?먭굅由ъ뿉??TTC 臾명꽦??援ъ“?곸쑝濡????섏뼱媛???쒓퀎(22~25李??뺤젙 洹쇰낯?먯씤
-   a)瑜?rate ?먯껜 寃뚯씠?몃줈 蹂댁셿. 寃뚯씠?몃룄 vision-only + `_lead_acq_timer
-   >= VISION_CLOSING_RATE_MIN_TIME` 議곌굔? 湲곗〈 TTC ?щ줈?ㅼ껜?ъ? ?숈씪?섍쾶
-   ?곸슜.
+**구현 내용** (`c3-ms-dev` 로컬 커밋 `5cc0900`, `a4b5550` 위에 적층,
+**아직 origin에 미push** — ryu는 항상 수동 patch 절차):
+1. **곡선 노이즈 클램프+중앙값 필터**: `raw_rate`를
+   `VISION_CLOSING_RATE_MAX_PLAUSIBLE=30.0 m/s`로 클램프(접근 방향만) 후
+   `collections.deque(maxlen=VISION_CLOSING_RATE_MEDIAN_WINDOW=3)`에
+   누적, 중앙값을 기존 저역통과 필터(TAU=1.0s) 입력으로 사용. 스냅-복귀
+   패턴은 3프레임 다수결에 밀려 걸러지고 지속 접근은 그대로 반영됨.
+   윈도우는 기존 3곳의 리셋 지점(radar lock-on 즉시, grace 초과, ramp
+   전체 리셋)에서 동일하게 `.clear()`.
+2. **Vision-only closing-rate 절대값 게이트**: `_vision_dRel_rate`(위
+   필터 적용된 값)를 `VISION_CLOSING_RATE_GATE_CAUTION=-5.5m/s` ~
+   `GATE_DANGER=-10.0m/s` 구간에서 `frac_rate`로 정규화, 기존
+   `frac_time`/`frac_ttc`와 `max()`로 결합(순수 floor, 완화 방향 없음).
+   원거리에서 TTC 문턱이 구조적으로 안 넘어가는 한계(22~25차 확정 근본원인
+   a)를 rate 자체 게이트로 보완. 게이트도 vision-only + `_lead_acq_timer
+   >= VISION_CLOSING_RATE_MIN_TIME` 조건은 기존 TTC 크로스체크와 동일하게
+   적용.
 
-**寃利?*: ?⑹꽦 ?쒕굹由ъ삤(?뺤긽 -5m/s 吏???묎렐 vs 15?꾨젅?꾩㎏ 8m ?⑥씪?꾨젅??
-?ㅻ깄)濡?濡쒖쭅留?蹂꾨룄 ?ㅽ겕由쏀듃 ?ы쁽 ??湲곗〈(誘몄쟻?? 諛⑹떇? ?ㅻ깄 ?꾨젅?꾩뿉??
-?꾪꽣媛믪씠 -10.68m/s濡????덉쐞 DANGER), ?좉퇋(?대옩??以묒븰媛? 諛⑹떇? 媛숈?
-?꾨젅?꾩뿉??-2.68m/s濡?二쇰? 異붿꽭? ?먯뿰?ㅻ읇寃??댁뼱吏??ㅻ깄 ?듭젣 ?뺤씤).
-?? ?대뒗 濡쒖쭅 ?⑥쐞 ?⑹꽦寃利앹씠硫?**?ㅼ젣 acados MPC ?뚯씠?꾨씪???ㅼ감
-濡쒓렇濡쒕뒗 ?꾩쭅 誘멸?利?*.
+**검증**: 합성 시나리오(정상 -5m/s 지속 접근 vs 15프레임째 8m 단일프레임
+스냅)로 로직만 별도 스크립트 재현 — 기존(미적용) 방식은 스냅 프레임에서
+필터값이 -10.68m/s로 튐(허위 DANGER), 신규(클램프+중앙값) 방식은 같은
+프레임에서 -2.68m/s로 주변 추세와 자연스럽게 이어짐(스냅 억제 확인).
+단, 이는 로직 단위 합성검증이며 **실제 acados MPC 파이프라인/실차
+로그로는 아직 미검증**.
 
-**?꾨떖**: `0001-long_mpc-dRel-vision-closing-rate-frac_rate.patch`瑜?
-`/mnt/user-data/outputs/`???앹꽦, `git am` ?덈궡? ?④퍡 ?꾨떖???꾨옒 李멸퀬).
+**전달**: `0001-long_mpc-dRel-vision-closing-rate-frac_rate.patch`를
+`/mnt/user-data/outputs/`에 생성, `git am` 안내와 함께 전달함(아래 참고).
 
-## ?ㅼ쓬 ?몄뀡(?먮뒗 ?ㅼ쓬 硫붿떆吏)?먯꽌 ?댁뼱媛?寃?
-1. ?ъ슜?먭? `git am`?쇰줈 ?⑥튂瑜?濡쒖뺄(`c:\dev\ryu`)???곸슜 ???ㅼ감 ?쒕씪?대툕.
-2. ?좉퇋 濡쒓렇濡?**?먭굅由?諛섏쓳 吏??媛쒖꽑 ?щ?** 寃利?(25李⑥뿉???뺤씤??
-   "臾쇰━?곸쑝濡?TTC 臾명꽦 紐??섏뼱 媛쒖엯 ??쓬" ?⑦꽩???꾪솕?먮뒗吏), 諛?怨≪꽑
-   援ш컙(vturn) 援ш컙?먯꽌 ?몄씠利덉꽦 DANGER ?ㅽ깘???щ씪議뚮뒗吏 ?뺤씤.
-3. "諛섏쓳 媛쒖떆 吏?? ?뺣웾 吏???⑥닔 toolkit??異붽? 寃??(25李⑥뿉???앸퀎??
-   誘명빐寃?gap ??TTC caution 臾명꽦 ?듦낵 ?쒖젏 ?鍮??ㅼ젣 a_target ?섍컯 媛쒖떆
-   ?쒖젏 吏?곗쓣 痢≪젙?섎뒗 ?⑥닔 ?놁쓬).
-4. 寃利??듦낵 ????2踰??놁감??李⑤웾 ?쎌삩 ?쒓컙 湲됯컧?? 25李⑥뿉???湲?以묒씠??
-   ??ぉ) 李⑹닔.
+## 다음 세션(또는 다음 메시지)에서 이어갈 것
+1. 사용자가 `git am`으로 패치를 로컬(`c:\dev\ryu`)에 적용 후 실차 드라이브.
+2. 신규 로그로 **원거리 반응 지연 개선 여부** 검증 (25차에서 확인된
+   "물리적으로 TTC 문턱 못 넘어 개입 늦음" 패턴이 완화됐는지), 및 곡선
+   구간(vturn) 구간에서 노이즈성 DANGER 오탐이 사라졌는지 확인.
+3. "반응 개시 지연" 정량 지표 함수 toolkit에 추가 검토 (25차에서 식별된
+   미해결 gap — TTC caution 문턱 통과 시점 대비 실제 a_target 하강 개시
+   시점 지연을 측정하는 함수 없음).
+4. 검증 통과 후 → 2번(옆차선 차량 락온 순간 급감속, 25차에서 대기 중이던
+   항목) 착수.
 
-## ?댁쟾 (25李? ??李멸퀬?? ??26李⑤줈 諛⑺뼢 寃곗젙 ?꾨즺
+## 이전 (25차) — 참고용, 위 26차로 방향 결정 완료
 
 
-## 25李?怨꾩냽 ???곸긽 8媛?由щ럭 ?꾨즺, ?ㅼ쓬 ?≪뀡 ?ъ슜??寃곗젙 ?湲?
+## 25차 계속 — 영상 8개 리뷰 완료, 다음 액션 사용자 결정 대기
 
-?ъ슜?먭? ?붾㈃?뱁솕 ?곸긽 8媛?`260821_110103`~`260821_115950`, 媛?
-??60珥? ?뚯씪紐??쒓컖? ?곸긽 ?쒖옉 ?쒖젏???쒖떆 ?쒓컖?쇰줈 異붿젙)瑜?
-?낅줈?? ?먮낯 rlog/zip? ?대쾲 ?몄뀡???놁뼱(?댁쟾 ?몄뀡 ?곗텧臾쇱씤
-`evidence/route_summaries_260821/*.json` ?붿빟留?李몄“ 媛??,
-**?곸긽 ?먯껜??CarrotWeb ?ㅻ쾭?덉씠(1.Accel 洹몃옒?? Y=a_ego,
-G=a_target, O=a_out + 由щ뱶諛뺤뒪 dRel/由щ뱶?띾룄 ?쒖떆)瑜?吏곸젒 ?먮룆**??
-遺꾩꽍 吏꾪뻾.
+사용자가 화면녹화 영상 8개(`260821_110103`~`260821_115950`, 각
+약 60초, 파일명 시각은 영상 시작 시점의 표시 시각으로 추정)를
+업로드. 원본 rlog/zip은 이번 세션엔 없어(이전 세션 산출물인
+`evidence/route_summaries_260821/*.json` 요약만 참조 가능),
+**영상 자체의 CarrotWeb 오버레이(1.Accel 그래프: Y=a_ego,
+G=a_target, O=a_out + 리드박스 dRel/리드속도 표시)를 직접 판독**해
+분석 진행.
 
-**?쇱슦??留ㅼ묶** (FINDINGS.md 24李?route5~8 ?쒓컙? 湲곕줉 湲곗?):
-- route5(`83e6b133f5`, 10:53~11:12, 怨좎냽?꾨줈) ??110103/110242/
-  110525/110821 4媛??대┰
-- route6(`866476e5c3`, 11:13~11:32, 怨좎냽?꾨줈) ??112042/112534/
-  112816 3媛??대┰
-- route8(`203f99d429`, 11:53~12:12, 怨좎냽?꾨줈+?쎄컙媛먯냽) ??115950
-  1媛??대┰
-- (route7 11:33~11:52 援ш컙 ?대┰ ?놁쓬)
+**라우트 매칭** (FINDINGS.md 24차 route5~8 시간대 기록 기준):
+- route5(`83e6b133f5`, 10:53~11:12, 고속도로) ← 110103/110242/
+  110525/110821 4개 클립
+- route6(`866476e5c3`, 11:13~11:32, 고속도로) ← 112042/112534/
+  112816 3개 클립
+- route8(`203f99d429`, 11:53~12:12, 고속도로+약간감속) ← 115950
+  1개 클립
+- (route7 11:33~11:52 구간 클립 없음)
 
-**?곸긽 ?먮룆 寃곌낵**: 8媛??대┰ 留덉?留?15~22珥?援ш컙 ?ㅼ닔 ?꾨젅???뺤씤.
-愿李곕맂 ?⑦꽩? ??媛덈옒濡?媛덈┝ ??
-1. ?먭굅由?60~105m) ?좏뻾李??묎렐 ??a_target???쒕룞??0 洹쇱쿂~?꾨쭔??
-   ?뚯닔留??좎??섎떎媛(?? dRel 97m/由щ뱶?띾룄 97km/h, closing
-   ~5m/s, TTC 異붿젙 18s+ 援ш컙?먯꽌 a_target -0.06~-0.18 ?뺣룄) ?댄썑
-   ?쒖꽌????媛먯냽?쇰줈 ?꾪솚 ??**22~24李⑥뿉???대? ?뺤젙??"TTC 罹먯뀡
-   臾명꽦(6.0s)???먭굅由ъ뿉??臾쇰━?곸쑝濡????섏뼱媛?? 援ъ“? ?뺤꽦?곸쑝濡?
-   ?⑹튂**. ?ъ슜?먭? "媛먯냽?????쒕떎"怨??먮겮??吏?먯? ?ㅼ젣濡쒕뒗
-   "臾쇰━?곸쑝濡?TTC媛 ?꾩쭅 罹먯뀡 臾명꽦?????섏뼱 媛쒖엯????쾶 ?쒖옉"?섎뒗
-   ?꾩긽?쇰줈 蹂댁엫(105m/2818李?24李??꾨젅??寃利앷낵 媛숈? 硫붿빱?덉쬁).
-2. 洹쇱젒(30~50m?) ?곹솴?먯꽑 a_target???쒕졆?섍쾶 -1.3~-1.5 湲됱쑝濡?
-   ?뺤떎??諛섏쓳(?? 110242 ?대┰ 留덉?留? SUV 洹쇱젒 ??-1.4? 媛먯냽 ?뺤씤)
-   ??利?"?꾩삁 諛섏쓳 ????? ?꾨땲怨? **諛섏쓳 ?쒖옉 ?쒖젏????떎**??
-   履쎌뿉 ??媛源뚯슫 利앷굅.
+**영상 판독 결과**: 8개 클립 마지막 15~22초 구간 다수 프레임 확인.
+관찰된 패턴은 두 갈래로 갈림 —
+1. 원거리(60~105m) 선행차 접근 시 a_target이 한동안 0 근처~완만한
+   음수만 유지되다가(예: dRel 97m/리드속도 97km/h, closing
+   ~5m/s, TTC 추정 18s+ 구간에서 a_target -0.06~-0.18 정도) 이후
+   서서히 큰 감속으로 전환 — **22~24차에서 이미 확정한 "TTC 캐션
+   문턱(6.0s)이 원거리에서 물리적으로 안 넘어가는" 구조와 정성적으로
+   합치**. 사용자가 "감속을 안 한다"고 느끼는 지점은 실제로는
+   "물리적으로 TTC가 아직 캐션 문턱을 안 넘어 개입이 늦게 시작"하는
+   현상으로 보임(105m/2818차 24차 프레임 검증과 같은 메커니즘).
+2. 근접(30~50m대) 상황에선 a_target이 뚜렷하게 -1.3~-1.5 급으로
+   확실히 반응(예: 110242 클립 마지막, SUV 근접 시 -1.4대 감속 확인)
+   — 즉 "아예 반응 안 함"은 아니고, **반응 시작 시점이 늦다**는
+   쪽에 더 가까운 증거.
 
-**24李?濡쒓렇 ?듦퀎???媛꾧레**: route5/6/8 3媛???harsh_brake/
-turn_speed_violation ??"?댁궛??湲됱젣???꾨컲" 吏?쒕뒗 0嫄??대┛)?쇰줈
-吏묎퀎?먯뿀?????대뒗 **湲됰툕?덉씠?ш? ?놁뿀?ㅻ뒗 寃껊쭔 ?뺤씤??肉? "??
-?쇱컢 媛먯냽?덉뼱???섎뒗????쾶 諛섏쓳?덈떎"???대쾲 泥닿컧 臾몄젣瑜??좎큹??
-?먯??섎룄濡??ㅺ퀎??吏?쒓? ?꾨떂**. 利?湲곗〈 諛곗튂遺꾩꽍 ?꾧뎄媛 ?대쾲
-利앹긽??紐??≪븘??寃??꾨땲???좎큹????利앹긽??吏?쒓? ?놁뿀??寃???
-**?좉퇋 諛쒓껄**: "諛섏쓳 媛쒖떆 吏?????뺣웾?뷀븷 吏???? TTC媛 caution
-臾명꽦???섏? ?쒖젏 ?鍮??ㅼ젣 a_target ?섍컯 媛쒖떆 ?쒖젏??吏??lag)??
-吏곸젒 痢≪젙?섎뒗 ?⑥닔)媛 toolkit???놁쓬. ?ㅼ쓬 ?몄뀡 ?꾨낫濡?異붽?.
+**24차 로그 통계와의 간극**: route5/6/8 3개 다 harsh_brake/
+turn_speed_violation 등 "이산적 급제동/위반" 지표는 0건(클린)으로
+집계됐었음 — 이는 **급브레이크가 없었다는 것만 확인할 뿐, "더
+일찍 감속했어야 하는데 늦게 반응했다"는 이번 체감 문제를 애초에
+탐지하도록 설계된 지표가 아님**. 즉 기존 배치분석 도구가 이번
+증상을 못 잡아낸 게 아니라 애초에 이 증상용 지표가 없었던 것 —
+**신규 발견**: "반응 개시 지연"을 정량화할 지표(예: TTC가 caution
+문턱을 넘은 시점 대비 실제 a_target 하강 개시 시점의 지연(lag)을
+직접 측정하는 함수)가 toolkit에 없음. 다음 세션 후보로 추가.
 
-**寃곕줎 諛??ㅼ쓬 ?≪뀡**: 22~23李⑥뿉 ?대? ?ㅺ퀎?먮뜕 ???3媛?1.TTC
-臾명꽦 ?꾪솕 6.0??0~12s, 2.closing-rate ?덈?媛?寃뚯씠??-5.5~-6.0m/s,
-4.`_vision_dRel_rate`瑜?`v_lead`??吏곸젒 諛섏쁺) 以??대뒓 寃껋쓣 ?곸슜?좎?
-**?ъ슜??寃곗젙 ?꾩슂** ???대쾲 25李??곸긽 利앷굅媛 "?먭굅由?諛섏쓳 吏??
-?⑦꽩???ы솗?명빐以ъ쑝誘濡?李⑹닔 議곌굔? 異⑸텇. ??23李?寃곕줎?濡?怨≪꽑
-?몄씠利?痍⑥빟???뚮Ц??**怨≪꽑 ?몄씠利??꾪꽣留?`curve_lead_dRel_jump_
-consistency`/`curve_noise_summary_refined`, devnotes??援ы쁽?
-?덉쑝??`ryu` 肄붾뱶 誘몃컲?? ?좏뻾 ?щ????④퍡 寃곗젙 ?꾩슂**.
+**결론 및 다음 액션**: 22~23차에 이미 설계됐던 대안 3개(1.TTC
+문턱 완화 6.0→10~12s, 2.closing-rate 절대값 게이트 -5.5~-6.0m/s,
+4.`_vision_dRel_rate`를 `v_lead`에 직접 반영) 중 어느 것을 적용할지
+**사용자 결정 필요** — 이번 25차 영상 증거가 "원거리 반응 지연"
+패턴을 재확인해줬으므로 착수 조건은 충분. 단 23차 결론대로 곡선
+노이즈 취약성 때문에 **곡선 노이즈 필터링(`curve_lead_dRel_jump_
+consistency`/`curve_noise_summary_refined`, devnotes에 구현은
+있으나 `ryu` 코드 미반영) 선행 여부도 함께 결정 필요**.
 
-**?대? ?뚯븙??洹쇰낯?먯씤(22~23李? ?ы솗???꾨즺, 肄붾뱶 誘몃?寃?**:
-a) `LEAD_ACQ_TTC_CAUTION=6.0s` 臾명꽦???먭굅由?dRel??5~120m)?먯꽌
-   臾쇰━?곸쑝濡??꾨떖 遺덇? ??移대찓?쇨? ?묎렐?⑥쓣 ?뺥솗??媛먯??대룄
-   嫄곕━媛 硫硫?TTC=dRel/rate 怨꾩궛媛믪씠 臾명꽦??紐??섏뼱 臾댁떆??
-b) ?덉씠???쎌삩 ?쒓컙 vRel 遺덉뿰???먰봽(?ы쁽 2嫄?紐⑤몢 -8.0~-8.4m/s
-   濡??좎궗媛??먰봽) ???⑥븞 移대찓??源딆씠異붿젙??怨≪꽑/?먭굅由ъ뿉??
-   ?숆??곸쑝濡?蹂닿퀬.
+**이미 파악된 근본원인(22~23차, 재확인 완료, 코드 미변경)**:
+a) `LEAD_ACQ_TTC_CAUTION=6.0s` 문턱이 원거리(dRel≈85~120m)에서
+   물리적으로 도달 불가 — 카메라가 접근율을 정확히 감지해도
+   거리가 멀면 TTC=dRel/rate 계산값이 문턱을 못 넘어 무시됨.
+b) 레이더 락온 순간 vRel 불연속 점프(재현 2건 모두 -8.0~-8.4m/s
+   로 유사값 점프) — 단안 카메라 깊이추정이 곡선/원거리에서
+   낙관적으로 보고.
 
-2. **[?湲?以? ?놁감??李⑤웾 ?쎌삩 ?쒓컙 湲됯컧??* ???꾩쭅 ?곸꽭 ?쇱쓽
-   ?? ?ъ슜?먭? "洹???紐?媛????덉?留?1踰덈????쇨퀬 ?댁꽌 ?쒖꽌??
-   ?湲? 1踰??? 諛⑺뼢 寃곗젙 諛?李⑹닔 ?꾨즺 ??吏꾪뻾 ?덉젙.
+2. **[대기 중] 옆차선 차량 락온 순간 급감속** — 아직 상세 논의
+   전, 사용자가 "그 외 몇 개 더 있지만 1번부터"라고 해서 순서상
+   대기. 1번(위) 방향 결정 및 착수 완료 후 진행 예정.
 
-## ?ㅼ쓬 ?몄뀡(?먮뒗 ?ㅼ쓬 硫붿떆吏)?먯꽌 ?댁뼱媛?寃?
-1. ?ъ슜?먭? 1)TTC 臾명꽦 ?꾪솕 / 2)closing-rate 寃뚯씠??/ 4)vision_
-   dRel_rate 吏곸젒諛섏쁺 / 怨≪꽑?몄씠利덊븘???좏뻾 以?諛⑺뼢???뺥븯硫???
-   ?⑥튂 ?ㅺ퀎 ??援ы쁽 ??`git format-patch` ??`C:\dev\patch\` ?꾨떖 ??
-   `git am` ?덈궡.
-2. "諛섏쓳 媛쒖떆 吏?? ?뺣웾 吏???⑥닔 toolkit??異붽? 寃????李멸퀬).
-3. 諛⑺뼢 寃곗젙/?⑥튂 ?꾨즺 ??2踰??놁감???쎌삩 湲됯컧?? 李⑹닔.
+## 다음 세션(또는 다음 메시지)에서 이어갈 것
+1. 사용자가 1)TTC 문턱 완화 / 2)closing-rate 게이트 / 4)vision_
+   dRel_rate 직접반영 / 곡선노이즈필터 선행 중 방향을 정하면 →
+   패치 설계 → 구현 → `git format-patch` → `C:\dev\patch\` 전달 →
+   `git am` 안내.
+2. "반응 개시 지연" 정량 지표 함수 toolkit에 추가 검토(위 참고).
+3. 방향 결정/패치 완료 후 2번(옆차선 락온 급감속) 착수.
 
-## ?ㅼ쓬 ?몄뀡 ?곗꽑 怨쇱젣 (25李⑥? 蹂꾧컻, 李멸퀬?? ?쒖꽌 諛由?
-1. 怨좎냽?꾨줈 湲됱젒洹?harsh) 耳?댁뒪 ?ㅼ륫 ?쒕낯 ?뺣낫 ??24李④퉴吏 ?뺣낫??
-   b403d52 寃利앹? ?꾨? "?④굔???묎렐" 耳?댁뒪肉? 湲됱젒洹??쒕굹由ъ삤??
-   誘명솗蹂? (?대쾲 25李⑥쓽 ?곸긽 ?쒕낫媛 諛붾줈 ??湲됱젒洹??쒕낯????媛?μ꽦
-   ?믪쓬.)
-2. route3(`dda0d533ce`)??`vision_radar_crossover
-   count_highway_est=0`??route_summary.py 踰꾧렇(route4?먯꽌 諛쒓껄+
-   ?섏젙) ?곹뼢?몄? ?ы솗????? ?곗꽑?쒖쐞).
-3. `source_pair_flicker` 愿??臾몄꽌?먯꽌 寃쎌웳 ?뚯뒪瑜?5醫낆뿉??理쒖냼
-   7醫?+bump/gas)?쇰줈 諛섏쁺 ?꾩슂.
+## 다음 세션 우선 과제 (25차와 별개, 참고용, 순서 밀림)
+1. 고속도로 급접근(harsh) 케이스 실측 표본 확보 — 24차까지 확보된
+   b403d52 검증은 전부 "온건한 접근" 케이스뿐, 급접근 시나리오는
+   미확보. (이번 25차의 영상 제보가 바로 이 급접근 표본이 될 가능성
+   높음.)
+2. route3(`dda0d533ce`)의 `vision_radar_crossover
+   count_highway_est=0`이 route_summary.py 버그(route4에서 발견+
+   수정) 영향인지 재확인(낮은 우선순위).
+3. `source_pair_flicker` 관련 문서에서 경쟁 소스를 5종에서 최소
+   7종(+bump/gas)으로 반영 필요.
 
-## ?ㅼ쓬 ?몄뀡 ?쒖옉 ??
-??WIP.md??"25李?李⑹닔" ?뱀뀡???덉쑝硫?臾댁“嫄?洹?吏???곸긽 ?낅줈??
-?湲?遺???댁뼱媛? ?ъ슜?먭? ?꾩쭅 ?곸긽?????щ졇?ㅻ㈃ ?ㅼ떆 ?붿껌.
+## 다음 세션 시작 시
+이 WIP.md에 "25차 착수" 섹션이 있으면 무조건 그 지점(영상 업로드
+대기)부터 이어감. 사용자가 아직 영상을 안 올렸다면 다시 요청.
 
-## 51李???route 媛먯냽 ?ㅼ륫 李⑹닔 以?turn_speed_violations() ?⑥쐞踰꾧렇 諛쒓껄쨌?섏젙, ?좏겙 ?덉궛?쇰줈 以묎컙 泥댄겕?ъ씤??
+## 51차 — route 감속 실측 착수 중 turn_speed_violations() 단위버그 발견·수정, 토큰 예산으로 중간 체크포인트
 
-**吏꾪뻾 ?곹솴**: vturn apex 議곌린???꾩씠?붿뼱???ъ슜?먭? 蹂대쪟, "route 媛먯냽
-肄붾뵫"?쇰줈 ?꾪솚. route(?대퉬 寃쎈줈) 媛먯냽 ?ㅼ륫 寃利?李⑹닔 ??f3db6ca89d(7?멸렇,
-seg6/7/15~19) 遺꾩꽍 ?꾨즺. ?곸꽭??FINDINGS.md 51李?李멸퀬.
+**진행 상황**: vturn apex 조기화 아이디어는 사용자가 보류, "route 감속
+코딩"으로 전환. route(내비 경로) 감속 실측 검증 착수 → f3db6ca89d(7세그,
+seg6/7/15~19) 분석 완료. 상세는 FINDINGS.md 51차 참고.
 
-**?듭떖 寃곌낵 ?붿빟**:
-1. route overshoot ?꾨컲 0嫄댁씠吏留????쒕낯? route媛 嫄곗쓽 ???뚮┛ 耳?댁뒪
-   (寃곕줎???쏀븿) ??route1(203f99d429 seg8, ?대? ?낅줈?쒕맖, 湲됱“??而ㅻ툕)濡?
-   ?ш?利??꾩슂.
-2. route desiredSpeed 湲됱젏??2嫄?0.1珥???32km/h ?섎씫) ??援ъ“??臾몄젣?몄?
-   ?뺤씤 ?꾩슂.
-3. **[以묒슂] turn_speed_violations()/speed_tracking_error() ?⑥쐞 遺덉씪移?
-   踰꾧렇 諛쒓껄쨌?섏젙** ??vEgo(m/s)瑜?km/h ?꾨뱶? 蹂???놁씠 鍮꾧탳?섎뜕 援ъ“??
-   怨쇨굅 "?꾨컲 0嫄? 寃곕줎?ㅼ씠 ?遺遺?false negative???媛?μ꽦. ?섏젙?먯쑝濡?
-   f3db6ca89d ?ъ뒪罹뷀븯??vturn overshoot 14嫄??좉퇋 諛쒓껄(怨쇨굅?????≫삍??.
+**핵심 결과 요약**:
+1. route overshoot 위반 0건이지만 이 표본은 route가 거의 안 눌린 케이스
+   (결론력 약함) — route1(203f99d429 seg8, 이미 업로드됨, 급조임 커브)로
+   재검증 필요.
+2. route desiredSpeed 급점프 2건(0.1초 내 32km/h 하락) — 구조적 문제인지
+   확인 필요.
+3. **[중요] turn_speed_violations()/speed_tracking_error() 단위 불일치
+   버그 발견·수정** — vEgo(m/s)를 km/h 필드와 변환 없이 비교하던 구조라
+   과거 "위반 0건" 결론들이 대부분 false negative였을 가능성. 수정판으로
+   f3db6ca89d 재스캔하니 vturn overshoot 14건 신규 발견(과거엔 안 잡혔음).
 
-**肄붾뱶 蹂寃?*: `devnotes/toolkit/analysis_helpers.py`留?蹂寃?3媛??⑥닔:
-`turn_speed_violations` ?⑥쐞 ?섏젙, `speed_tracking_error` ?⑥쐞 ?섏젙,
-`source_target_violations`/`route_target_jump_events` ?좉퇋 異붽?).
-`ryu` ?⑥튂 ?놁쓬.
+**코드 변경**: `devnotes/toolkit/analysis_helpers.py`만 변경(3개 함수:
+`turn_speed_violations` 단위 수정, `speed_tracking_error` 단위 수정,
+`source_target_violations`/`route_target_jump_events` 신규 추가).
+`ryu` 패치 없음.
 
-## ?ㅼ쓬 ?몄뀡(?먮뒗 ?ㅼ쓬 硫붿떆吏)?먯꽌 ?댁뼱媛?寃?
-1. **理쒖슦??*: route1(203f99d429 seg8, 怨≪꽑.zip???대? ?덉쓬)?쇰줈 route
-   媛먯냽 ?ш?利???湲됱“??而ㅻ툕?먯꽌 route媛 ?ㅼ젣濡?binding?섎뒗吏, overshoot
-   ?녿뒗吏.
-2. **理쒖슦??*: vturn overshoot 14嫄?踰꾧렇 ?섏젙 ???ы쁽) 媛쒕퀎 議곗궗 ??
-   ?대뒓 吏?? ??紐⑺몴?띾룄瑜?紐??곕씪媛붾뒗吏 ?꾨젅???⑥쐞 ?뺤씤.
-3. turn_speed_violations() 踰꾧렇濡?"0嫄? 寃곕줎 ?щ뜕 怨쇨굅 route??
-   (24李?route4~11, 41李?route1/route2 ?? ?먮낯 濡쒓렇 ?ы솗蹂대릺???濡?
-   ?섏젙???ъ뒪罹????덉쟾 寃곕줎 ?먯껜媛 ?ㅼ쭛?????덈뒗 ?ъ븞?대씪 ?곗꽑?쒖쐞 ?믪쓬.
-4. route desiredSpeed 湲됱젏??2嫄댁씠 ?곗뿰?몄? 援ъ“??臾몄젣?몄? 異붽? ?쒕낯?쇰줈 ?뺤씤.
+## 다음 세션(또는 다음 메시지)에서 이어갈 것
+1. **최우선**: route1(203f99d429 seg8, 곡선.zip에 이미 있음)으로 route
+   감속 재검증 — 급조임 커브에서 route가 실제로 binding하는지, overshoot
+   없는지.
+2. **최우선**: vturn overshoot 14건(버그 수정 후 재현) 개별 조사 —
+   어느 지점, 왜 목표속도를 못 따라갔는지 프레임 단위 확인.
+3. turn_speed_violations() 버그로 "0건" 결론 났던 과거 route들
+   (24차 route4~11, 41차 route1/route2 등) 원본 로그 재확보되는 대로
+   수정판 재스캔 — 안전 결론 자체가 뒤집힐 수 있는 사안이라 우선순위 높음.
+4. route desiredSpeed 급점프 2건이 우연인지 구조적 문제인지 추가 표본으로 확인.
 
-## ?ㅼ쓬 ?몄뀡 ?쒖옉 ??
-??WIP.md??"51李? ?뱀뀡???덉쑝硫?臾댁“嫄???吏?먮????댁뼱媛? ?ъ슜?먭?
-"泥댄겕?ъ씤???쇨퀬留?留먰븯硫????뱀뀡 ?곹깭 洹몃?濡??좎?, 異붽? 吏꾪뻾 ?덉쑝硫?
-???뱀뀡?쇰줈 ?㏓텤??
+## 다음 세션 시작 시
+이 WIP.md에 "51차" 섹션이 있으면 무조건 이 지점부터 이어감. 사용자가
+"체크포인트"라고만 말하면 이 섹션 상태 그대로 유지, 추가 진행 있으면
+새 섹션으로 덧붙임.
 
-## 79李?(?꾨즺 ???먯씤遺꾩꽍+?⑥튂?묒꽦/寃利??꾨즺, ?ㅼ감 ?곸슜/寃利??湲? ???섎룞二쇳뻾 以?泥?+RES ??紐⑺몴?띾룄媛 ?꾩옱?띾룄蹂대떎 ??쾶 ?ㅼ젙?섎뒗 臾몄젣
+## 79차 (완료 — 원인분석+패치작성/검증 완료, 실차 적용/검증 대기) — 수동주행 중 첫 +RES 시 목표속도가 현재속도보다 낮게 설정되는 문제
 
-**利앹긽(?ъ슜???쒕낫)**: ?쒕룞 ???섎룞?쇰줈 60km/h濡?二쇳뻾 以??댁쟾? +RES(accelCruise)
-踰꾪듉??1???꾨Ⅴ硫?紐⑺몴?띾룄媛 33km/h濡??ㅼ젙?섎ŉ 媛먯냽 諛쒖깮 ??理쒖냼 1???꾨? ??
-?꾩옱 ?띾룄蹂대떎???믨쾶 ?ㅼ젙?섍만 ?먰븿.
+**증상(사용자 제보)**: 시동 후 수동으로 60km/h로 주행 중 운전대 +RES(accelCruise)
+버튼을 1회 누르면 목표속도가 33km/h로 설정되며 감속 발생 — 최소 1회 누를 때
+현재 속도보다는 높게 설정되길 원함.
 
-**?먯씤 ?뺤젙** (`selfdrive/car/cruise.py`, `VCruiseCarrot._update_cruise_buttons()`):
-- `update_v_cruise()`?먯꽌 `CS.cruiseState.available`??True?닿퀬 `pcmCruise`+
-  `speed_from_pcm!=1`(Genesis DH ?대떦)?대㈃, 留??꾨젅??
-  `self.v_cruise_kph = np.clip(v_cruise_kph, 30, self._cruise_speed_max)`濡쒕쭔
-  泥섎━??????`v_cruise_kph`??`CC.enabled=False`(?щ（利?誘몄씤寃뚯씠吏, 利??섎룞二쇳뻾
-  以????숈븞 踰꾪듉 濡쒖쭅?먯꽌 ?꾪? 媛깆떊?섏? ?딄퀬(?꾨옒 李멸퀬) 洹몃?濡??뺤껜??梨?
-  30~161 ?ъ씠濡쒕쭔 clip?? **利??섎룞二쇳뻾 以묒뿏 v_cruise_kph媛 ?꾩옱 李⑤웾?띾룄瑜??꾪?
-  異붿쥌?섏? ?딄퀬, ?댁쟾 ?몄뀡?먯꽌 ?⑥? ?붿뿬媛??대쾲 ?щ?: 33)??硫덉떠?덉쓬.**\n- `_update_cruise_buttons()`??accelCruise 泥섎━遺?먯꽌
+**원인 확정** (`selfdrive/car/cruise.py`, `VCruiseCarrot._update_cruise_buttons()`):
+- `update_v_cruise()`에서 `CS.cruiseState.available`이 True이고 `pcmCruise`+
+  `speed_from_pcm!=1`(Genesis DH 해당)이면, 매 프레임
+  `self.v_cruise_kph = np.clip(v_cruise_kph, 30, self._cruise_speed_max)`로만
+  처리됨 — 이 `v_cruise_kph`는 `CC.enabled=False`(크루즈 미인게이지, 즉 수동주행
+  중)인 동안 버튼 로직에서 전혀 갱신되지 않고(아래 참고) 그대로 정체된 채
+  30~161 사이로만 clip됨. **즉 수동주행 중엔 v_cruise_kph가 현재 차량속도를 전혀
+  추종하지 않고, 이전 세션에서 남은 잔여값(이번 사례: 33)에 멈춰있음.**\n- `_update_cruise_buttons()`의 accelCruise 처리부에서
   `elif self._cruise_ready or not CC.enabled or CS.cruiseState.standstill or
-  self.carrot_cruise_active:` 議곌굔??`not CC.enabled`(=?섎룞二쇳뻾 以?泥??멸쾶?댁?)
-  耳?댁뒪源뚯? 臾띠뼱??**?꾨Т 寃껊룄 ?섏? ?딅뒗(no-op, `if False:` 釉붾줉留??덉쓬)**
-  遺꾧린濡?蹂대궡踰꾨┝ ??洹?寃곌낵 泥?+RES瑜??뚮윭???꾩뿉???뺤껜???덈뜕 33??洹몃?濡?
-  ?щ（利?紐⑺몴?띾룄濡?梨꾪깮??
-- **鍮꾧탳**: 諛붾줈 ?꾨옒 decelCruise 泥섎━遺(L523)???대? `elif not CC.enabled:
-  v_cruise_kph = max(self.v_ego_kph_set, self._cruise_speed_min)`濡??꾩옱?띾룄
-  諛섏쁺 濡쒖쭅???덉쓬 ??**accelCruise留???泥섎━媛 鍮좎졇?덈뜕 鍮꾨?移?踰꾧렇**濡??뺤씤.
-  (李멸퀬: `d02bf5f6`(2026-03-23, "fix.. v_cruise init") 而ㅻ컠??`cruiseState.available`
-  ?꾪솚 ?쒖젏(?쒕룞 吏곹썑 1?꾨젅??留?`v_ego_kph_set`?쇰줈 珥덇린?뷀븯?꾨줉 怨좎낀?쇰굹,
-  "二쇳뻾 以?CC 鍮꾪솢???곹깭?먯꽌???뺤껜" 耳?댁뒪???ㅻ（吏 ?딆븘 ?대쾲 踰꾧렇媛 怨꾩냽
-  ?⑥븘?덉뿀??)
+  self.carrot_cruise_active:` 조건이 `not CC.enabled`(=수동주행 중 첫 인게이지)
+  케이스까지 묶어서 **아무 것도 하지 않는(no-op, `if False:` 블록만 있음)**
+  분기로 보내버림 — 그 결과 첫 +RES를 눌러도 위에서 정체돼 있던 33이 그대로
+  크루즈 목표속도로 채택됨.
+- **비교**: 바로 아래 decelCruise 처리부(L523)엔 이미 `elif not CC.enabled:
+  v_cruise_kph = max(self.v_ego_kph_set, self._cruise_speed_min)`로 현재속도
+  반영 로직이 있음 — **accelCruise만 이 처리가 빠져있던 비대칭 버그**로 확인.
+  (참고: `d02bf5f6`(2026-03-23, "fix.. v_cruise init") 커밋이 `cruiseState.available`
+  전환 시점(시동 직후 1프레임)만 `v_ego_kph_set`으로 초기화하도록 고쳤으나,
+  "주행 중 CC 비활성 상태에서의 정체" 케이스는 다루지 않아 이번 버그가 계속
+  남아있었음.)
 
-**議곗튂** (`selfdrive/car/cruise.py`, 濡쒖뺄 而ㅻ컠 `08ef23f`, base `f3773b58`(devnotes
-LAST_ANALYZED ?뺤씤???먭꺽 HEAD)):
-- accelCruise 遺꾧린?먯꽌 `not CC.enabled`瑜?湲곗〈 寃고빀 議곌굔?먯꽌 遺꾨━??蹂꾨룄 `elif`濡?
-  異붽? ??`self._cruise_ready`/`standstill`/`carrot_cruise_active`??湲곗〈 ?숈옉(蹂寃?
-  ?놁쓬) 洹몃?濡??좎?(?곗꽑?쒖쐞??decelCruise? ?숈씪?섍쾶 ????議곌굔??癒쇱? 寃??.
-  `not CC.enabled`??寃쎌슦??`math.ceil((v_ego_kph_set + 0.01) / unit) * unit`濡?
-  ?꾩옱 ?띾룄蹂대떎 **諛섎뱶???믨쾶**(?ㅼ쓬 ?⑥쐞 ?덇툑?쇰줈 ?щ┝) ?ㅼ젙 ??decelCruise媛
-  `max(v_ego_kph_set, min)`(?꾩옱?띾룄? 媛숆굅???믪쓬)??寃껉낵 ?щ━, accelCruise??
-  "+"踰꾪듉 ?섎?瑜??대젮 ?꾩옱?띾룄蹂대떎 ?뺤떎???믨쾶 ?ㅼ젙(?ъ슜???붿껌 臾멸뎄 "?꾩옱蹂대떎??
-  ?믨쾶"??留욎땄).
+**조치** (`selfdrive/car/cruise.py`, 로컬 커밋 `08ef23f`, base `f3773b58`(devnotes
+LAST_ANALYZED 확인용 원격 HEAD)):
+- accelCruise 분기에서 `not CC.enabled`를 기존 결합 조건에서 분리해 별도 `elif`로
+  추가 — `self._cruise_ready`/`standstill`/`carrot_cruise_active`는 기존 동작(변경
+  없음) 그대로 유지(우선순위도 decelCruise와 동일하게 이 세 조건을 먼저 검사).
+  `not CC.enabled`인 경우엔 `math.ceil((v_ego_kph_set + 0.01) / unit) * unit`로
+  현재 속도보다 **반드시 높게**(다음 단위 눈금으로 올림) 설정 — decelCruise가
+  `max(v_ego_kph_set, min)`(현재속도와 같거나 높음)인 것과 달리, accelCruise는
+  "+"버튼 의미를 살려 현재속도보다 확실히 높게 설정(사용자 요청 문구 "현재보다는
+  높게"에 맞춤).
 
-**寃利?* (`work/sim_res_button.py`, 濡쒖쭅 ?⑥쐞 ?쒖닔?⑥닔 ?ы쁽):
-- ?ы쁽 ?쒕굹由ъ삤(?섎룞二쇳뻾 vEgo=60km/h, v_cruise_kph ?뺤껜媛?33, CC.enabled=False):
-  援ъ퐫??33(踰꾧렇 ?ы쁽) ???좎퐫??61(?꾩옱?띾룄+1kph ?덇툑, 媛쒖꽑 ?뺤씤).
-- ?뚭? ?뺤씤: `cruise_ready=True`/`standstill=True` 耳?댁뒪??援ъ퐫???좎퐫??寃곌낵
-  ?숈씪(33, 蹂寃??놁쓬) ??痍⑥냼 吏곹썑 ??湲곗〈 no-op 遺꾧린 ?숈옉 洹몃?濡?蹂댁〈.
-- `git format-patch` ??`verify-am-79` ?꾩떆 釉뚮옖移?base `f3773b58`)?먯꽌 `git am`+
-  `py_compile` ?듦낵 ?뺤씤.
+**검증** (`work/sim_res_button.py`, 로직 단위 순수함수 재현):
+- 재현 시나리오(수동주행 vEgo=60km/h, v_cruise_kph 정체값=33, CC.enabled=False):
+  구코드 33(버그 재현) → 신코드 61(현재속도+1kph 눈금, 개선 확인).
+- 회귀 확인: `cruise_ready=True`/`standstill=True` 케이스는 구코드/신코드 결과
+  동일(33, 변경 없음) — 취소 직후 등 기존 no-op 분기 동작 그대로 보존.
+- `git format-patch` → `verify-am-79` 임시 브랜치(base `f3773b58`)에서 `git am`+
+  `py_compile` 통과 확인.
 
-**?꾨떖**: `0001-79-RES-accelCruise-v_cruise_kph.patch`瑜?`/mnt/user-data/outputs/`??
-?꾨떖(base `f3773b58`, 利??꾩옱 origin `c3-ms-dev` HEAD ?꾩뿉 諛붾줈 `git am` 媛??.
+**전달**: `0001-79-RES-accelCruise-v_cruise_kph.patch`를 `/mnt/user-data/outputs/`에
+전달(base `f3773b58`, 즉 현재 origin `c3-ms-dev` HEAD 위에 바로 `git am` 가능).
 
-**[媛깆떊] ?곸슜 ?꾨즺 ?뺤씤** ???ъ슜?먭? `C:\dev\ryu`瑜?origin?먯꽌 ?덈줈 clone(base
-`f3773b58` ?쇱튂 ?뺤씤) ??`git am` ?곸슜(濡쒖뺄 `2d5174e`, diff --stat +9/-1濡??덉긽怨?
-?쇱튂) + `git push origin c3-ms-dev` ?꾨즺(push 寃곌낵 濡쒓렇 誘명솗?몄씠??`git fetch`+
-`git log origin/c3-ms-dev -1` ?ы솗???붿껌????**push源뚯? ?꾩쟾???뺤씤 ?꾨즺**(`git fetch`+`git log origin/c3-ms-dev -1`
-寃곌낵 `2d5174e` ?쇱튂 ?뺤씤??. **?ㅼ쓬? ?ㅼ감 寃利앸쭔 ?⑥쓬.**
+**[갱신] 적용 완료 확인** — 사용자가 `C:\dev\ryu`를 origin에서 새로 clone(base
+`f3773b58` 일치 확인) 후 `git am` 적용(로컬 `2d5174e`, diff --stat +9/-1로 예상과
+일치) + `git push origin c3-ms-dev` 완료(push 결과 로그 미확인이라 `git fetch`+
+`git log origin/c3-ms-dev -1` 재확인 요청함 — **push까지 완전히 확인 완료**(`git fetch`+`git log origin/c3-ms-dev -1`
+결과 `2d5174e` 일치 확인됨). **다음은 실차 검증만 남음.**
 
-**?ㅼ쓬(理쒖슦??**:
-1. `C:\dev\ryu`?먯꽌 `git am` ?곸슜 + `git push origin c3-ms-dev`.
-2. **?ㅼ감 ?쒕씪?대툕 寃利?*: (a) ?섎룞二쇳뻾 以?泥?+RES ??紐⑺몴?띾룄媛 ?ㅼ젣濡??꾩옱?띾룄
-   蹂대떎 ?믨쾶(?덇툑 ?щ┝) ?ㅼ젙?섎뒗吏, (b) **?뚭? 寃利?* ???щ（利?痍⑥냼 吏곹썑
-   ?ъ씤寃뚯씠吏(`_cruise_ready`/`_v_cruise_kph_at_brake` 寃쎈줈), ?뺤감 ??異쒕컻
-   (`standstill`), carrot 紐낅졊 ?멸쾶?댁?(`carrot_cruise_active`) ??湲곗〈
-   ?멸쾶?댁? 寃쎈줈?ㅼ씠 ?대쾲 蹂寃쎌쑝濡??곹뼢諛쏆? ?딅뒗吏, (c) decelCruise(?믩쾭??濡?
-   泥??멸쾶?댁??섎뒗 寃쎌슦(湲곗〈 濡쒖쭅 洹몃?濡? 蹂寃??놁쓬)????쇨???泥닿컧 ?뺤씤.
-3. `unit`(?덇툑 ?ш린, `_cruise_speed_unit_basic`)???ъ슜???ㅼ젙???곕씪 1蹂대떎
-   ?щ㈃ "?꾩옱?띾룄+?대떦 ?덇툑"源뚯? ?щ씪媛????덉쓬(?? ?덇툑 5硫?60??5) ???ㅼ감
-   諛섏쓳 蹂닿퀬 "紐?km/h ?뺣룄 ?꾨줈 遺숇뒗寃??곷떦?쒖?" ?쒕떇 ?ъ? ?덉쓬(?꾩옱???ㅺ퀎
-   異붿젙移? NEEDS_VALIDATION).
+**다음(최우선)**:
+1. `C:\dev\ryu`에서 `git am` 적용 + `git push origin c3-ms-dev`.
+2. **실차 드라이브 검증**: (a) 수동주행 중 첫 +RES 시 목표속도가 실제로 현재속도
+   보다 높게(눈금 올림) 설정되는지, (b) **회귀 검증** — 크루즈 취소 직후
+   재인게이지(`_cruise_ready`/`_v_cruise_kph_at_brake` 경로), 정차 후 출발
+   (`standstill`), carrot 명령 인게이지(`carrot_cruise_active`) 등 기존
+   인게이지 경로들이 이번 변경으로 영향받지 않는지, (c) decelCruise(−버튼)로
+   첫 인게이지하는 경우(기존 로직 그대로, 변경 없음)와의 일관성 체감 확인.
+3. `unit`(눈금 크기, `_cruise_speed_unit_basic`)이 사용자 설정에 따라 1보다
+   크면 "현재속도+해당 눈금"까지 올라갈 수 있음(예: 눈금 5면 60→65) — 실차
+   반응 보고 "몇 km/h 정도 위로 붙는게 적당한지" 튜닝 여지 있음(현재는 설계
+   추정치, NEEDS_VALIDATION).
 
-## 80李?怨꾩냽 (?꾨즺) ??toolkit 誘명렪??寃利??ㅽ겕由쏀듃 4媛??뚭툒 ?뺤떇 ?몄엯
+## 80차 계속 (완료) — toolkit 미편입 검증 스크립트 4개 소급 정식 편입
 
-**諛곌꼍**: 80李⑥뿉??"?꾧뎄 癒쇱? 李얘린/?덈줈 留뚮뱾硫?諛섎뱶????? ?뺤콉??
-臾몄꽌(`PROJECT_INSTRUCTIONS.md`/`toolkit/README.md`)??媛뺥솕??吏곹썑,
-?ъ슜???붿껌?쇰줈 怨쇨굅 ?몄뀡?먯꽌 `work/`(而⑦뀒?대꼫 ?ㅽ겕?섏튂)?먮쭔 ?묒꽦?섍퀬
-`toolkit/`????λ릺吏 ?딆븘 而⑦뀒?대꼫 由ъ뀑?쇰줈 ?좎떎???ъ궗??媛移??믪?
-寃利??ㅽ겕由쏀듃?ㅼ쓣 ?ㅼ젣濡?李얠븘 ??ν븯???묒뾽 吏꾪뻾. WIP.md/FINDINGS.md
-?꾩껜?먯꽌 "toolkit 誘명렪?? ?멸툒??grep???꾨낫 異붿텧 ???ъ궗??媛移?
-(諛섎났?곸쑝濡??댁썡/?ы솗???꾩슂?덈뜕 寃? 湲곗??쇰줈 4媛??좎젙.
+**배경**: 80차에서 "도구 먼저 찾기/새로 만들면 반드시 저장" 정책을
+문서(`PROJECT_INSTRUCTIONS.md`/`toolkit/README.md`)에 강화한 직후,
+사용자 요청으로 과거 세션에서 `work/`(컨테이너 스크래치)에만 작성되고
+`toolkit/`엔 저장되지 않아 컨테이너 리셋으로 유실된 재사용 가치 높은
+검증 스크립트들을 실제로 찾아 저장하는 작업 진행. WIP.md/FINDINGS.md
+전체에서 "toolkit 미편입" 언급을 grep해 후보 추출 → 재사용 가치
+(반복적으로 이월/재확인 필요했던 것) 기준으로 4개 선정.
 
-**?묒뾽**: ?꾨옒 4媛쒕? ?꾩옱(80李?怨꾩냽 ?쒖젏) 肄붾뱶 湲곗??쇰줈 ?ъ옉???좉퇋
-?묒꽦 ??`toolkit/`???뺤떇 ?몄엯, ?꾨? ?ш?利??듦낵:
-1. `sim_jerk_boost.py` ??66/67李?諛⑹븞G `a_change_cost` boost
-   ('discontinuity' ?뚯뒪 ?꾩슜) ?⑹꽦寃利? **69李⑤????щ윭 ?몄뀡??嫄몄퀜
-   "?ㅻЪ 議댁옱 ?뺤씤 ?꾩슂"濡??댁썡留??섍퀬 ?ㅼ젣濡쒕뒗 ??踰덈룄 ?묒꽦????
-   ?놁뿀?뚯씠 ?대쾲???뺤씤??* ??肄붾뱶 二쇱꽍 ?멸툒肉먯씠?덈뜕 ?곹깭 ?댁냼.
-2. `sim_res_button.py` ??79李?+RES accelCruise 踰꾧렇 ?⑥튂 寃利?79李??몄뀡
-   work/???덈뜕 寃?洹몃?濡??뺤떇 ?몄엯, 濡쒖쭅 蹂寃??놁쓬).
-3. `test_launch_bypass.py` ??45李?launch bypass 濡쒖쭅 寃利?45李??몄뀡
-   work/???덈뜕 寃?洹몃?濡??뺤떇 ?몄엯, 濡쒖쭅 蹂寃??놁쓬).
-4. `test_scc_gate.py` ??37李?SCC ?⑥씪???대갚 dPath 寃뚯씠??寃利?37李?
-   ?뱀떆 ?ㅽ뻾 濡쒓렇???⑥븘?덉? ?딆븘 ?대쾲???꾩옱 `radard.py` 湲곗??쇰줈
-   ?ъ옉??.
+**작업**: 아래 4개를 현재(80차 계속 시점) 코드 기준으로 재작성/신규
+작성 후 `toolkit/`에 정식 편입, 전부 재검증 통과:
+1. `sim_jerk_boost.py` — 66/67차 방안G `a_change_cost` boost
+   ('discontinuity' 소스 전용) 합성검증. **69차부터 여러 세션에 걸쳐
+   "실물 존재 확인 필요"로 이월만 되고 실제로는 한 번도 작성된 적
+   없었음이 이번에 확인됨** — 코드 주석 언급뿐이었던 상태 해소.
+2. `sim_res_button.py` — 79차 +RES accelCruise 버그 패치 검증(79차 세션
+   work/에 있던 것 그대로 정식 편입, 로직 변경 없음).
+3. `test_launch_bypass.py` — 45차 launch bypass 로직 검증(45차 세션
+   work/에 있던 것 그대로 정식 편입, 로직 변경 없음).
+4. `test_scc_gate.py` — 37차 SCC 단일점 폴백 dPath 게이트 검증(37차
+   당시 실행 로그는 남아있지 않아 이번에 현재 `radard.py` 기준으로
+   재작성).
 
-**肄붾뱶 蹂寃?*: ?놁쓬(`ryu` 誘몃?寃?. `toolkit/`???ㅽ겕由쏀듃 4媛??좉퇋 +
-`README.md`/`CHANGELOG.md` 媛깆떊留?
+**코드 변경**: 없음(`ryu` 미변경). `toolkit/`에 스크립트 4개 신규 +
+`README.md`/`CHANGELOG.md` 갱신만.
 
-**?ㅼ쓬**: ?대쾲???몄엯 ?????섎㉧吏 ?꾨낫(`work/five_item_scan.py`,
-`curve_gap_vs_apex_scan.py` ????"?몄엯 ?щ? ?먮떒 蹂대쪟" ?곹깭 洹몃?濡???
-諛⑹븞 ?뺤젙/?ъ궗??媛移섍? ??紐낇솗?댁?硫??ㅼ쓬 ?몄뀡?먯꽌 ?ш???
+**다음**: 이번에 편입 안 한 나머지 후보(`work/five_item_scan.py`,
+`curve_gap_vs_apex_scan.py` 등)는 "편입 여부 판단 보류" 상태 그대로 —
+방안 확정/재사용 가치가 더 명확해지면 다음 세션에서 재검토.
 
-## 81李?怨꾩냽 (泥댄겕?ъ씤????(a)(b) ?곸슜/push ?꾨즺 ?뺤씤, ?ㅼ감 寃利??湲?
+## 81차 계속 (체크포인트 — (a)(b) 적용/push 완료 확인, 실차 검증 대기)
 
-**諛곌꼍**: ?ъ슜?먭? 怨≪꽑_媛쒕뀗??pdf/怨≪꽑_媛媛먯냽_肄붾뵫.txt ?낅줈????vturn/route
-寃고빀 ?ㅺ퀎 諛⑺뼢 ?쒖떆. 肄붾뱶 ?議?寃곌낵 vturn 1/2踰?湲곕낯怨≪꽑/?곗냽怨≪꽑)?
-?대? argmin+forward-only 援ъ“濡?援ы쁽???덉쓬???뺤씤(?ㅺ퀎 ?쇱튂, 肄붾뱶
-蹂寃?遺덊븘??. route 1踰??꾩옱?띾룄 媛먯븞 議곌린媛먯냽)????갑??DP濡??대?
-援ы쁽???뺤씤. **?ㅼ젣 議곗튂媛 ?꾩슂????吏?먮쭔 ?뱀젙**: (a) 怨듯넻?ы빆
-2)/3)(紐⑺몴?띾룄 ?꾨떖 吏??泥닿컧) ??`vturn_safe_time` ?곹뼢, (b) route
-2踰?500m 寃뚯씠???쒓굅) ???꾨옒 "81李? ?먮낯 ?뱀뀡?먯꽌 ?대? ?앸퀎??
-`TurnSpeedControlMode==2`??`-500<xDistToTurn<500` 寃뚯씠??
+**배경**: 사용자가 곡선_개념도.pdf/곡선_가감속_코딩.txt 업로드 — vturn/route
+결합 설계 방향 제시. 코드 대조 결과 vturn 1/2번(기본곡선/연속곡선)은
+이미 argmin+forward-only 구조로 구현돼 있음을 확인(설계 일치, 코드
+변경 불필요). route 1번(현재속도 감안 조기감속)도 역방향 DP로 이미
+구현됨 확인. **실제 조치가 필요한 두 지점만 특정**: (a) 공통사항
+2)/3)(목표속도 도달 지연 체감) → `vturn_safe_time` 상향, (b) route
+2번(500m 게이트 제거) → 아래 "81차" 원본 섹션에서 이미 식별한
+`TurnSpeedControlMode==2`의 `-500<xDistToTurn<500` 게이트.
 
-**?ъ슜??吏??*: 理쒖떊 `c3-ms-dev`(HEAD `2d5174e`, 79李? 踰좎씠?ㅻ줈
-**`c3-ms-curv` ?좉퇋 釉뚮옖移?* ?앹꽦 ??洹??꾩뿉???묒뾽(?ㅼ감 臾몄젣 ??
-c3-ms-dev濡?利됱떆 濡ㅻ갚 媛?ν븯?꾨줉 遺꾨━). (a)??2.0珥덈줈.
+**사용자 지시**: 최신 `c3-ms-dev`(HEAD `2d5174e`, 79차) 베이스로
+**`c3-ms-curv` 신규 브랜치** 생성 후 그 위에서 작업(실차 문제 시
+c3-ms-dev로 즉시 롤백 가능하도록 분리). (a)는 2.0초로.
 
-**援ы쁽** (`c3-ms-curv`, 濡쒖뺄 而ㅻ컠 `6344077`, base `2d5174e`):
-- (a) `carrot_man.py`: `self.vturn_safe_time = 1.0` ??`2.0`.
-- (b) `carrot_serv.py`: `if self.turnSpeedControlMode == 2: if -500<xDistToTurn<500: append(route)` ??
-  `if self.turnSpeedControlMode in [2,3,4]: append(route)`濡??⑥닚????
-  mode 2??mode 3/4泥섎읆 ??긽 route 李멸?. vturn 李멸? 議곌굔(`[1,2]` 遺꾧린)?
-  ?먮?吏 ?딆븘 mode 2?먯꽌 vturn+route ??????긽 寃쎌웳?섎뒗 援ъ“媛 ??mode
-  3/4??湲곗〈?濡?vturn ?먯껜媛 誘몄갭媛 ??vturn+route ?숈떆寃쎌웳? mode
-  2?먯꽌留?諛쒖깮, 蹂寃??놁쓬).
+**구현** (`c3-ms-curv`, 로컬 커밋 `6344077`, base `2d5174e`):
+- (a) `carrot_man.py`: `self.vturn_safe_time = 1.0` → `2.0`.
+- (b) `carrot_serv.py`: `if self.turnSpeedControlMode == 2: if -500<xDistToTurn<500: append(route)` →
+  `if self.turnSpeedControlMode in [2,3,4]: append(route)`로 단순화 —
+  mode 2도 mode 3/4처럼 항상 route 참가. vturn 참가 조건(`[1,2]` 분기)은
+  손대지 않아 mode 2에서 vturn+route 둘 다 항상 경쟁하는 구조가 됨(mode
+  3/4는 기존대로 vturn 자체가 미참가 — vturn+route 동시경쟁은 mode
+  2에서만 발생, 변경 없음).
 
-**寃利?*: `py_compile` ?듦낵. `git format-patch` ??base `2d5174e` ??
-`verify-am-81` ?꾩떆 釉뚮옖移섏뿉??`git am` ?곸슜 ??寃곌낵媛 `c3-ms-curv`?
-**diff 0(?꾩쟾 ?숈씪)** ?뺤씤.
+**검증**: `py_compile` 통과. `git format-patch` → base `2d5174e` 위
+`verify-am-81` 임시 브랜치에서 `git am` 적용 → 결과가 `c3-ms-curv`와
+**diff 0(완전 동일)** 확인.
 
-**?꾨떖**: `0001-81-a-b-vturn_safe_time-1.0s-2.0s-route-500m-TBT-mode.patch`瑜?
-`/mnt/user-data/outputs/`???꾨떖.
+**전달**: `0001-81-a-b-vturn_safe_time-1.0s-2.0s-route-500m-TBT-mode.patch`를
+`/mnt/user-data/outputs/`에 전달.
 
-**[媛깆떊] ?곸슜/push ?꾨즺 ?뺤씤** ???ъ슜?먭? `C:\dev\ryu`?먯꽌
-`git checkout -b c3-ms-curv origin/c3-ms-dev` + `git am` ?곸슜 +
-`git push origin c3-ms-curv` ?꾨즺(?좉퇋 釉뚮옖移?理쒖큹 push, GitHub PR
-留곹겕 ?먮룞 ?덈궡?먯쑝??PR? ?앹꽦 ??????釉뚮옖移섎쭔 ?ъ슜). 而⑦뀒?대꼫?먯꽌
-`git fetch origin c3-ms-curv:refs/remotes/origin/c3-ms-curv` ??濡쒖뺄
-寃利?而ㅻ컠(`6344077`)怨?diff 0(?꾩쟾 ?숈씪) ?ы솗???꾨즺. origin
+**[갱신] 적용/push 완료 확인** — 사용자가 `C:\dev\ryu`에서
+`git checkout -b c3-ms-curv origin/c3-ms-dev` + `git am` 적용 +
+`git push origin c3-ms-curv` 완료(신규 브랜치 최초 push, GitHub PR
+링크 자동 안내됐으나 PR은 생성 안 함 — 브랜치만 사용). 컨테이너에서
+`git fetch origin c3-ms-curv:refs/remotes/origin/c3-ms-curv` 후 로컬
+검증 커밋(`6344077`)과 diff 0(완전 동일) 재확인 완료. origin
 `c3-ms-curv` HEAD: `d7a647f`.
 
-**[媛깆떊] vturn_safe_time ?곹뼢踰붿쐞 吏덉쓽?묐떟**: ?ъ슜?먭? "(a)??2珥덇?
-vturn ?꾩껜 濡쒖쭅(?ъ쟾媛먯냽 ?쒖옉/紐⑺몴?띾룄 ?꾨떖/?먮났)??洹좎씪?섍쾶 ?욌떦湲곕뒗
-寃껋씤吏" 吏덈Ц ??肄붾뱶(`required_speed_mps = sqrt(safe_speed짼 + 2*decel_rate*
-max(pos-safe_dist,0))`) ?뺤씤 寃곌낵 **?ъ쟾媛먯냽 ?쒖옉 吏?먭낵 紐⑺몴?띾룄 ?꾨떖
-?쒖젏留??곹뼢諛쏄퀬(????safe_time留뚰겮 ???쇱컢), ?뺤젏 ?듦낵 ???먮났(?ш???
-??대컢? ?곹뼢 ?놁쓬**???뺤씤???ㅻ챸?? ?먮났 ?띾룄??遺?쒕윭?/??대컢?
-蹂꾨룄 ?곸닔 `vturn_accel_rc`(0.15s ???넻怨? ?대쾲??誘몃?寃?媛 ?대떦 ??
-?대쾲 patch 踰붿쐞 諛? ?ㅼ감 寃利????먮났 履?泥닿컧(?듬떟??湲됲븿)??蹂꾨룄濡?
-?뺤씤 ?꾩슂?섎㈃ `vturn_accel_rc` 議곗젙???꾩냽 ??ぉ?쇰줈 怨좊젮.
+**[갱신] vturn_safe_time 영향범위 질의응답**: 사용자가 "(a)의 2초가
+vturn 전체 로직(사전감속 시작/목표속도 도달/원복)을 균일하게 앞당기는
+것인지" 질문 → 코드(`required_speed_mps = sqrt(safe_speed² + 2*decel_rate*
+max(pos-safe_dist,0))`) 확인 결과 **사전감속 시작 지점과 목표속도 도달
+시점만 영향받고(둘 다 safe_time만큼 더 일찍), 정점 통과 후 원복(재가속)
+타이밍은 영향 없음**을 확인해 설명함. 원복 속도의 부드러움/타이밍은
+별도 상수 `vturn_accel_rc`(0.15s 저역통과, 이번엔 미변경)가 담당 —
+이번 patch 범위 밖. 실차 검증 시 원복 쪽 체감(답답함/급함)도 별도로
+확인 필요하면 `vturn_accel_rc` 조정을 후속 항목으로 고려.
 
-**?ㅼ쓬(理쒖슦??**:
-1. ~~??紐낅졊?쇰줈 `c3-ms-curv` 釉뚮옖移??앹꽦+push~~ ??**?꾨즺**. 湲곌린?먯꽌
-   `c3-ms-curv`濡??꾪솚 ???ㅼ감 ?쒕씪?대툕 寃利앸쭔 ?⑥쓬.
-2. (a) 寃利??ъ씤?? ?뺤젏?먯꽌 ?ㅼ젣 vEgo媛 紐⑺몴?띾룄??????留욎떠
-   ?꾨떖?섎뒗吏(2.0s媛 怨쇳븳吏/遺議깊븳吏 泥닿컧), 諛섎?濡??ъ쟾媛먯냽???덈Т
-   ?쇱컢 ?쒖옉???듬떟???먮굦? ?녿뒗吏.
-3. (b) 寃利??ъ씤?? TBT ?녿뒗 ?쇰컲 援?룄 援쎌씠湲몄뿉??route媛 ?댁젣 ?ㅼ젣濡?
-   媛쒖엯?섎뒗吏, **?뚭? 寃利??꾩닔** ??吏곸꽑/?꾨쭔 援ш컙?먯꽌 GPS ?대━?쇱씤
-   ?몄씠利덈줈 ?명븳 ?ㅽ깘(遺덊븘??媛먯냽) ?녿뒗吏(媛??以묒슂??由ъ뒪??.
-4. 臾몄젣 諛쒖깮 ??CarrotWeb pull UI濡?`c3-ms-dev`(釉뚮옖移?誘몃?寃??먮낯)濡?
-   利됱떆 濡ㅻ갚 媛?????닿쾶 ?대쾲??釉뚮옖移섎? 遺꾨━??紐⑹쟻.
-5. ?듦낵?섎㈃ `c3-ms-curv`瑜?`c3-ms-dev`??merge?좎?, 怨꾩냽 蹂꾨룄 釉뚮옖移섎줈
-   ?좎??좎? ?ъ슜??寃곗젙 ?꾩슂.
+**다음(최우선)**:
+1. ~~위 명령으로 `c3-ms-curv` 브랜치 생성+push~~ → **완료**. 기기에서
+   `c3-ms-curv`로 전환 후 실차 드라이브 검증만 남음.
+2. (a) 검증 포인트: 정점에서 실제 vEgo가 목표속도에 더 잘 맞춰
+   도달하는지(2.0s가 과한지/부족한지 체감), 반대로 사전감속이 너무
+   일찍 시작돼 답답한 느낌은 없는지.
+3. (b) 검증 포인트: TBT 없는 일반 국도 굽이길에서 route가 이제 실제로
+   개입하는지, **회귀 검증 필수** — 직선/완만 구간에서 GPS 폴리라인
+   노이즈로 인한 오탐(불필요 감속) 없는지(가장 중요한 리스크).
+4. 문제 발생 시 CarrotWeb pull UI로 `c3-ms-dev`(브랜치 미변경 원본)로
+   즉시 롤백 가능 — 이게 이번에 브랜치를 분리한 목적.
+5. 통과하면 `c3-ms-curv`를 `c3-ms-dev`에 merge할지, 계속 별도 브랜치로
+   유지할지 사용자 결정 필요.
 
-## 81李?(?꾨즺 ???ㅺ퀎寃???쇱쓽 ?④퀎, ??"81李?怨꾩냽"?먯꽌 援ы쁽?쇰줈 ?댁뼱吏? ??怨≪꽑援ш컙 媛媛먯냽 vturn+route 寃고빀 濡쒖쭅 ?ㅺ퀎 ?ш???李⑹닔 (model ?쒖쇅)
+## 81차 (완료 — 설계검토/논의 단계, 위 "81차 계속"에서 구현으로 이어짐) — 곡선구간 가감속 vturn+route 결합 로직 설계 재검토 착수 (model 제외)
 
-**諛곌꼍**: ?ъ슜?먭? "怨≪꽑援ш컙 媛媛먯냽 ?꾩옱 vturn+route(?ㅻ퉬寃쎈줈)留??곌퀬
-model 媛媛먯냽? ?ъ슜 ?????대씪怨?臾몄젣?쒓린 ??肄붾뱶 ?뺤씤 寃곌낵 `model`
-?꾨낫(`desire_helper._make_model_turn_speed()`, `ModelTurnSpeedFactor`
-湲곕컲) ?먯껜??`carrot_serv.py` min() 寃쎌웳???ъ쟾??肄붾뱶??李멸??섎룄濡?
-?⑥븘?덉쑝??9~50李⑥뿉 嫄몄퀜 vturn?봫odel ?뚮━而????寃뚯씠???ъ꽕怨꾨? 諛섎났?댁삩
-?대젰 ?덉쓬), **?ъ슜?먭? ?ㅼ젙(`ModelTurnSpeedFactor`)?먯꽌 model???대?
-爰쇰몦 ?곹깭**?쇨퀬 ?뺤씤?댁쨲 ???대쾲 ?쇱쓽??model???쒖쇅?섍퀬 vturn(鍮꾩졏)+route
-(?대퉬寃쎈줈) ?섏쓽 寃고빀 濡쒖쭅留??ш??좏븯湲곕줈 踰붿쐞 ?뺤젙.
+**배경**: 사용자가 "곡선구간 가감속 현재 vturn+route(네비경로)만 쓰고
+model 가감속은 사용 안 함"이라고 문제제기 → 코드 확인 결과 `model`
+후보(`desire_helper._make_model_turn_speed()`, `ModelTurnSpeedFactor`
+기반) 자체는 `carrot_serv.py` min() 경쟁에 여전히 코드상 참가하도록
+남아있으나(9~50차에 걸쳐 vturn↔model 플리커 대응/게이팅 재설계를 반복해온
+이력 있음), **사용자가 설정(`ModelTurnSpeedFactor`)에서 model을 이미
+꺼둔 상태**라고 확인해줌 → 이번 논의는 model을 제외하고 vturn(비젼)+route
+(내비경로) 둘의 결합 로직만 재검토하기로 범위 확정.
 
-**?꾩옱 ?꾪궎?띿쿂 ?뺣━** (`carrot_man.py`/`carrot_serv.py` 肄붾뱶 由щ뵫,
-devnotes????遺遺?TurnSpeedControlMode/짹500m 寃뚯씠?? ?먯껜瑜??ㅻ，
-怨쇨굅 ?몄뀡 湲곕줉 ?놁쓬 ???대쾲??泥??뺣━):
+**현재 아키텍처 정리** (`carrot_man.py`/`carrot_serv.py` 코드 리딩,
+devnotes에 이 부분(TurnSpeedControlMode/±500m 게이트) 자체를 다룬
+과거 세션 기록 없음 — 이번이 첫 정리):
 
-1. **vturn** (`carrot_man.py vturn_speed()`): 鍮꾩쟾紐⑤뜽 ?덉륫 沅ㅼ쟻
-   (~10s lookahead)?먯꽌 吏?먮퀎 ?꾩슂?띾룄瑜?**?쒕갑??* 臾쇰━怨듭떇
-   (`v_i짼=v_f짼+2ad`, `TARGET_LAT_A=1.6m/s짼`)?쇰줈 怨꾩궛, 媛???꾧꺽??
-   吏??apex) 梨꾪깮. `TurnSpeedControlMode in [1,2]`硫???긽 ?꾨낫 李멸?.
-   利됱떆 諛섏쓳?섏?留??먭굅由??덉륫 遺덉븞???대젰 ?덉쓬(50李? 遺?멸퉴吏 ?붾룞).
+1. **vturn** (`carrot_man.py vturn_speed()`): 비전모델 예측 궤적
+   (~10s lookahead)에서 지점별 필요속도를 **순방향** 물리공식
+   (`v_i²=v_f²+2ad`, `TARGET_LAT_A=1.6m/s²`)으로 계산, 가장 엄격한
+   지점(apex) 채택. `TurnSpeedControlMode in [1,2]`면 항상 후보 참가.
+   즉시 반응하지만 원거리 예측 불안정 이력 있음(50차, 부호까지 요동).
 
-2. **route** (`carrot_man.py carrot_navi_route()`): ?몃? ?대퉬 ?깆씠
-   蹂대궡??GPS ?대━?쇱씤(`navi_points`)??5m 媛꾧꺽 由ъ깦????3??怨〓쪧
-   (`calculate_curvature`) ??**怨〓쪧?믪냽??猷⑹뾽?뚯씠釉?*(`V_CURVE_LOOKUP_BP/
-   VALS`, 寃쏀뿕???뚯씠釉붿씠吏 臾쇰━怨듭떇 ?꾨떂)濡?吏?먮퀎 ?띾룄 ?곗텧 ??
-   **??갑??DP**濡?`autoNaviSpeedDecelRate` 媛먯냽?쒓퀎 ?곸슜???꾩옱
-   吏???띾룄濡???쟾?? ??긽 ?꾨갑 300m ?꾩껜濡?怨꾩궛??
-   - **李멸? 寃뚯씠??`TurnSpeedControlMode==2`, ?꾩옱 ?ъ슜???ㅼ젙媛?**:
-     `-500 < xDistToTurn < 500`(TBT ?ㅼ쓬 ?뚯쟾吏?먭낵??嫄곕━)???뚮쭔
-     min() ?꾨낫???ｌ쓬. **[?ㅺ퀎???섎Ц?? ?대쾲??泥섏쓬 ?앸퀎]** ??
-     `xDistToTurn`? TBT ?덈궡(援먯감濡?醫??고쉶???? ?대깽?멸퉴吏??嫄곕━?몃뜲,
-     route_speed ?먯껜??洹?吏??洹쇱쿂 怨〓쪧留?怨꾩궛?섎뒗 寃??꾨땲????긽
-     ?꾨갑 300m ?대━?쇱씤 ?꾩껜(?대뼡 怨≪꽑?대뱺)瑜?怨꾩궛?쒕떎. 利?**TBT
-     ?덈궡媛 ?녿뒗 ?쇰컲 ?꾨줈 湲됱빱釉?援먯감濡??뚯쟾???꾨땶 援?룄 援쎌씠湲????먯꽌??
-     route_speed媛 怨꾩궛? ?섍퀬??寃뚯씠?몄뿉 留됲? min() ?꾨낫?먯꽌 ?꾩삁
-     鍮좎?怨? vturn ?⑤룆?쇰줈留????*?섍쾶 ?섎뒗 援ъ“. mode 3/4????
-     寃뚯씠???놁씠 ??긽 route 李멸?.
+2. **route** (`carrot_man.py carrot_navi_route()`): 외부 내비 앱이
+   보내는 GPS 폴리라인(`navi_points`)을 5m 간격 리샘플 → 3점 곡률
+   (`calculate_curvature`) → **곡률→속도 룩업테이블**(`V_CURVE_LOOKUP_BP/
+   VALS`, 경험적 테이블이지 물리공식 아님)로 지점별 속도 산출 →
+   **역방향 DP**로 `autoNaviSpeedDecelRate` 감속한계 적용해 현재
+   지점 속도로 역전파. 항상 전방 300m 전체로 계산됨.
+   - **참가 게이트(`TurnSpeedControlMode==2`, 현재 사용자 설정값)**:
+     `-500 < xDistToTurn < 500`(TBT 다음 회전지점과의 거리)일 때만
+     min() 후보에 넣음. **[설계상 의문점, 이번에 처음 식별]** —
+     `xDistToTurn`은 TBT 안내(교차로 좌/우회전 등) 이벤트까지의 거리인데,
+     route_speed 자체는 그 지점 근처 곡률만 계산하는 게 아니라 항상
+     전방 300m 폴리라인 전체(어떤 곡선이든)를 계산한다. 즉 **TBT
+     안내가 없는 일반 도로 급커브(교차로 회전이 아닌 국도 굽이길 등)에서는
+     route_speed가 계산은 되고도 게이트에 막혀 min() 후보에서 아예
+     빠지고, vturn 단독으로만 대응**하게 되는 구조. mode 3/4는 이
+     게이트 없이 항상 route 참가.
 
-3. **寃고빀**: `desired_speed, source = min(speed_n_sources, ...)` ???⑥닚
-   理쒖냼媛??좏깮. vturn/route ?????꾨낫???덉쑝硫??????(???꾧꺽?? 履쎌씠
-   洹몃?濡?梨꾪깮?섍퀬, ?꾪솚 ??遺?쒕윭??釉붾젋??濡쒖쭅? ?놁쓬(?ㅻⅨ ?뚯뒪媛?
-   ?뚮━而?臾몄젣媛 9~50李⑥뿉 嫄몄퀜 諛섎났 ?ㅻ쨪吏?諛곌꼍怨??숈씪 援ъ“).
+3. **결합**: `desired_speed, source = min(speed_n_sources, ...)` — 단순
+   최소값 선택. vturn/route 둘 다 후보에 있으면 더 낮은(더 엄격한) 쪽이
+   그대로 채택되고, 전환 시 부드러운 블렌딩 로직은 없음(다른 소스간
+   플리커 문제가 9~50차에 걸쳐 반복 다뤄진 배경과 동일 구조).
 
-**?ㅼ쓬(?ㅺ퀎 ?ш???怨꾩냽)**:
-1. `-500<xDistToTurn<500` 寃뚯씠?멸? ?ㅼ젣濡?"TBT ?녿뒗 ?쇰컲 而ㅻ툕?먯꽌
-   route 誘몄갭媛"瑜??좊컻?섎뒗吏 ?ㅼ륫 濡쒓렇濡??뺤씤 ?꾩슂(?꾩옱??肄붾뱶 由щ뵫
-   湲곕컲 異붿젙, NEEDS_VALIDATION).
-2. min() ?⑥닚?좏깮 ????뚯뒪 ?꾪솚 ??釉붾젋???덉뒪?뚮━?쒖뒪媛 ?꾩슂?쒖?
-   (怨쇨굅 vturn?봫odel ?뚮━而?????щ?瑜?vturn?봱oute?먮룄 李멸퀬 ?곸슜?좎?)
-   寃??
-3. mode 2(?꾩옱 ?ㅼ젙)瑜?mode 3(??긽 route 李멸?)?쇰줈 諛붽씀????덉쓽
-   ?λ떒????route媛 ?대Ⅴ寃?媛쒖엯?섎㈃ 醫뗭쓣 ???덉쑝?? ?대퉬 GPS ?대━?쇱씤
-   ?덉쭏/?ㅼ감媛 ??? ?꾨줈?먯꽌 ?ㅽ엳???ㅽ깘 ?좊컻 媛?μ꽦 怨좊젮 ?꾩슂.
+**다음(설계 재검토 계속)**:
+1. `-500<xDistToTurn<500` 게이트가 실제로 "TBT 없는 일반 커브에서
+   route 미참가"를 유발하는지 실측 로그로 확인 필요(현재는 코드 리딩
+   기반 추정, NEEDS_VALIDATION).
+2. min() 단순선택 대신 소스 전환 시 블렌딩/히스테리시스가 필요한지
+   (과거 vturn↔model 플리커 대응 사례를 vturn↔route에도 참고 적용할지)
+   검토.
+3. mode 2(현재 설정)를 mode 3(항상 route 참가)으로 바꾸는 대안의
+   장단점 — route가 이르게 개입하면 좋을 수 있으나, 내비 GPS 폴리라인
+   품질/오차가 낮은 도로에서 오히려 오탐 유발 가능성 고려 필요.
 
-**[媛깆떊] mode 3 ?ㅽ빐 ?뺤젙** ??`TurnSpeedControlMode=3`? "route 500m
-寃뚯씠?몃쭔 ?댁젣 + vturn ?좎?"媛 ?꾨땲??**vturn???꾩쟾???꾧퀬 route
-?⑤룆?쇰줈 ?꾪솚?섎뒗 紐⑤뱶**?꾩쓣 肄붾뱶濡??ы솗??
+**[갱신] mode 3 오해 정정** — `TurnSpeedControlMode=3`은 "route 500m
+게이트만 해제 + vturn 유지"가 아니라 **vturn을 완전히 끄고 route
+단독으로 전환하는 모드**임을 코드로 재확인:
 ```python
 if self.turnSpeedControlMode in [1,2]:
-    speed_n_sources.append(vturn)   # mode 3? [1,2] 諛?-> vturn 誘몄갭媛
+    speed_n_sources.append(vturn)   # mode 3은 [1,2] 밖 -> vturn 미참가
 ...
 elif self.turnSpeedControlMode in [3, 4]:
-    speed_n_sources.append(route)   # 寃뚯씠???놁씠 ??긽 李멸?
+    speed_n_sources.append(route)   # 게이트 없이 항상 참가
 ```
-UI ?ㅻ챸(`"3: route(always)"`) ?먯껜媛 ???섎?. 利?"vturn+route ????
-??긽 李몄쟾"?대씪??紐⑺몴 議고빀? **?꾩옱 UI ?ㅼ젙留뚯쑝濡쒕뒗 遺덇???* ??mode 2??
-`-500<xDistToTurn<500` 寃뚯씠?몃쭔 ?쒓굅?섎뒗 ?⑥튂媛 ?꾩슂??vturn 李멸?
-議곌굔? ?먮?吏 ?딆쓬). ??덉쑝濡?寃뚯씠?몃? "TBT 嫄곕━" ????ㅻⅨ 議곌굔
-(?? route_speed ?먯껜媛 ?좎쓽誘명븯寃???쓣 ?뚮쭔 李멸?)?쇰줈 援먯껜?섎뒗 諛⑺뼢??
-?쇱쓽 以????꾩쭅 ?⑥튂 誘몄옉?? 諛⑺뼢 寃곗젙 ?湲?
+UI 설명(`"3: route(always)"`) 자체가 이 의미. 즉 "vturn+route 둘 다
+항상 참전"이라는 목표 조합은 **현재 UI 설정만으로는 불가능** — mode 2의
+`-500<xDistToTurn<500` 게이트만 제거하는 패치가 필요함(vturn 참가
+조건은 손대지 않음). 대안으로 게이트를 "TBT 거리" 대신 다른 조건
+(예: route_speed 자체가 유의미하게 낮을 때만 참가)으로 교체하는 방향도
+논의 중 — 아직 패치 미작성, 방향 결정 대기.
 
-## 82李?(泥댄겕?ъ씤????援ы쁽+寃利??⑥튂 ?꾨떖 ?꾨즺, `git am`/?ㅼ감 ?곸슜 ?湲? ??vturn/route ?먮났(媛???ш컻)痢??移?safe_time 踰꾪띁, route痢??ш컖??踰꾧렇 諛쒓껄/?섏젙
+## 82차 (체크포인트 — 구현+검증+패치 전달 완료, `git am`/실차 적용 대기) — vturn/route 원복(가속 재개)측 대칭 safe_time 버퍼, route측 심각한 버그 발견/수정
 
-**諛곌꼍**: 81李?怨꾩냽?먯꽌 ?뺤씤??"vturn_safe_time? 吏꾩엯痢??ъ쟾媛먯냽 ?쒖옉/紐⑺몴?띾룄
-?꾨떖)?먮쭔 ?곹뼢, ?뺤젏 ?듦낵 ???먮났(?ш??? ??대컢??臾닿?"?대씪??鍮꾨?移?援ъ“??
-??? ?ъ슜?먭? "媛???묐떟???숈씪?섍쾶 吏?곗씠 ?덉쑝???먮났痢〓룄 ?移??곸슜?댁빞
-?쒕떎"怨?吏????vturn/route ?묒そ???숈씪???ㅺ퀎(吏꾩엯怨?媛숈? `vturn_safe_time`
-踰꾪띁瑜??먮났痢≪뿉???移??곸슜) ?뱀씤 ???숈떆 援ы쁽.
+**배경**: 81차 계속에서 확인한 "vturn_safe_time은 진입측(사전감속 시작/목표속도
+도달)에만 영향, 정점 통과 후 원복(재가속) 타이밍엔 무관"이라는 비대칭 구조에
+대해, 사용자가 "가속 응답도 동일하게 지연이 있으니 원복측도 대칭 적용해야
+한다"고 지적 → vturn/route 양쪽에 동일한 설계(진입과 같은 `vturn_safe_time`
+버퍼를 원복측에도 대칭 적용) 승인 후 동시 구현.
 
-**而⑦뀒?대꼫 ?ъ떆?묒쑝濡??좎떎**: ?댁쟾 ?몄뀡??援ы쁽+?붾쾭源??꾩쨷(?뱁엳 route痢?
-寃利??ㅽ겕由쏀듃媛 怨꾩냽 diff=0??蹂댁뿬 ?먯씤 洹쒕챸 以? 而⑦뀒?대꼫媛 ?ъ떆?묐맖.
-?대쾲 ?몄뀡? ?ъ슜?먭? 濡쒖뺄?먯꽌 ?몄쭛 ?꾨즺??`carrot_man.py`瑜??낅줈?쒗븳 ?곹깭濡?
-?쒖옉 ??`origin/c3-ms-curv`(81李?HEAD `d7a647f`) ?鍮?diff ?뺤씤 寃곌낵 vturn/route
-?묒そ 紐⑤몢 援ы쁽? ?대? 濡쒖뺄??諛섏쁺???덉뿀?쇰굹 **而ㅻ컠/patch??devnotes 湲곕줉?
-?꾪? ?????곹깭**????쒖닔 ?뚯씪 diff濡쒕쭔 議댁옱).
+**컨테이너 재시작으로 유실**: 이전 세션이 구현+디버깅 도중(특히 route측
+검증 스크립트가 계속 diff=0을 보여 원인 규명 중) 컨테이너가 재시작됨.
+이번 세션은 사용자가 로컬에서 편집 완료한 `carrot_man.py`를 업로드한 상태로
+시작 — `origin/c3-ms-curv`(81차 HEAD `d7a647f`) 대비 diff 확인 결과 vturn/route
+양쪽 모두 구현은 이미 로컬에 반영돼 있었으나 **커밋/patch화/devnotes 기록은
+전혀 안 된 상태**였음(순수 파일 diff로만 존재).
 
-**援ы쁽 諛?寃利?*:
+**구현 및 검증**:
 
-1. **`vturn_speed()` ?먮났痢??移?buffer ???뺤긽 ?묐룞 ?뺤씤**:
-   `accel_lead_dist = CS.vEgo * vturn_safe_time`留뚰겮 lookahead position??
-   ?욌떦湲?媛?곸쓽 2李?怨꾩궛(`turnSpeed_recovery`)??留뚮뱾?? ?곸듅異붿꽭
-   (`turnSpeed > vturn_last_speed`)?닿퀬 recovery 媛믪씠 ???믪쓣 ?뚮쭔 梨꾪깮.
-   `work/test_vturn_recovery_v2.py`(20Hz ?꾨젅???쒕??덉씠?? ?곗냽怨〓쪧
-   ?꾨줈?뚯씪 ??怨꾨떒???꾨줈?뚯씪?먯꽌??紐⑤뜽??lookahead 諛곗뿴???뺤젏 ?듦낵 利됱떆
-   遺덉뿰?띿쑝濡?鍮좎????뱀꽦??buffer ?④낵媛 ??蹂댁??쇰굹, ?ㅼ젣 紐⑤뜽泥섎읆
-   ?곗냽?곸쑝濡??꾪솕?섎뒗 怨〓쪧 ?꾨줈?뚯씪?먯꽌?? **100km/h ?뚮났 ?쒖젏??0.7珥?11m
-   ?⑥텞, 怨쇰룄援ш컙 turnSpeed 理쒕? +29km/h ?곗쐞** ?뺤씤 ???ㅺ퀎 ?섎룄?濡??묐룞.
-   ?묎렐(吏꾩엯)痢≪뿏 ?꾪? ?곹뼢 ?놁쓬(濡쒖쭅???꾩쟾??遺꾨━??釉붾줉, ?뚭? ?놁쓬).
+1. **`vturn_speed()` 원복측 대칭 buffer — 정상 작동 확인**:
+   `accel_lead_dist = CS.vEgo * vturn_safe_time`만큼 lookahead position을
+   앞당긴 가상의 2차 계산(`turnSpeed_recovery`)을 만들어, 상승추세
+   (`turnSpeed > vturn_last_speed`)이고 recovery 값이 더 높을 때만 채택.
+   `work/test_vturn_recovery_v2.py`(20Hz 프레임 시뮬레이션, 연속곡률
+   프로파일 — 계단형 프로파일에서는 모델의 lookahead 배열이 정점 통과 즉시
+   불연속으로 빠지는 특성상 buffer 효과가 안 보였으나, 실제 모델처럼
+   연속적으로 완화되는 곡률 프로파일에서는) **100km/h 회복 시점이 0.7초/11m
+   단축, 과도구간 turnSpeed 최대 +29km/h 우위** 확인 — 설계 의도대로 작동.
+   접근(진입)측엔 전혀 영향 없음(로직이 완전히 분리된 블록, 회귀 없음).
 
-2. **`carrot_navi_route()` ?먮났痢??移?buffer ???ш컖??踰꾧렇 諛쒓껄 ???섏젙**:
-   理쒖큹 援ы쁽? 吏꾩엯痢?`time_delay`?먮룄 `+ vturn_safe_time`???숈씪?섍쾶
-   ?뷀뻽?붾뜲, **`work/test_route_recovery2.py`(?꾩떎??嫄곕━ ?ㅼ??? 而ㅻ툕
-   60m + 吏곹썑 吏곸꽑 800m)濡??ы쁽??寃곌낵 patched 異쒕젰??baseline怨?
-   ?뚯닔?먭퉴吏 100% ?숈씪**?⑥쓣 諛쒓껄. ?먯씤 洹쒕챸(`work/` ??debug trace):
-   ??DP???⑥씪 ?ㅼ뭡??`time_wait`(?꾩쟻 ?쒓컙?ъ쑀)濡?媛먯냽/媛?띿쓣 愿由ы븯?붾뜲,
-   吏꾩엯痢≪뿉??異붽???+2.0珥덉쓽 debt媛 **而ㅻ툕 援ш컙(out_speed媛 target??
-   怨좎젙?섏뼱 ?대━?묐릺??援ш컙) ?대궡 洹몃?濡?蹂댁〈**?섎떎媛, ?먮났 ?щ젅??
-   (`+= vturn_safe_time`, ?숈씪 +2.0珥??먯꽌 **?뺥솗???곸뇙**?섏뼱 洹??댄썑
-   ?꾩껜 援ш컙??`time_wait`/`out_speed`媛 ?먮낯怨??꾩쟾???쇱튂?섍쾶 ?섎뒗
-   援ъ“??臾몄젣????대━?묒씠 諛쒖깮?섏? ?딅뒗 ????議곗젙? ?섑븰?곸쑝濡???긽
-   ?뺥솗???곸뇙????而ㅻ툕媛 留ㅼ슦 湲몄뼱??debt媛 而ㅻ툕 ?덉뿉?????뚯쭊?섎뒗
-   洹밸떒??耳?댁뒪媛 ?꾨땶 ???쇰컲?곸씤 而ㅻ툕?먯꽌??100% 臾댄슚??.
-   **?섏젙**: 吏꾩엯痢?`time_delay`) 蹂寃쎌쓣 ?섎룎???쒖닔 臾쇰━ ?꾨떖?쒓컙
-   怨꾩궛?쇰줈 蹂듭썝(湲곗〈 79/81李??숈옉 洹몃?濡?, ?먮났痢??щ젅?㏓쭔 ?좎?.
-   ?먮났 ?먯젙 議곌굔??`route_prev_state=='decel'`(decel ?몃━嫄?吏곹썑 泥?
-   吏?먯뿉 利됱떆 諛쒕룞 ??而ㅻ툕 ?대? ?뺤껜援ш컙?먯꽌??議곌린 諛쒕룞?섎뒗 臾몄젣 ?덉뿀??
-   ?먯꽌 `target_speed > next_out_speed and route_prev_state=='decel'`
-   (?ㅼ젣濡?target??next_out???섏뼱?쒕뒗, 利?而ㅻ툕瑜?臾쇰━?곸쑝濡?鍮좎졇?섍???
-   吏??濡??꾧꺽?? ?섏젙 ???ш?利? baseline ?鍮?**?뚮났援ш컙?먯꽌 理쒕?
-   +6.9km/h ???믪? out_speed**(??鍮좊Ⅸ ?뚮났) ?뺤씤, 而ㅻ툕 援ш컙 ?대??먯꽌??
-   `elif` 議곌굔(immediate vs strict) ?대뒓 履쎌쓣 ?⑤룄 ?ㅼ슫?ㅽ듃由?寃곌낵媛
-   ?숈씪?⑤룄 ?뺤씤(????而ㅻ툕 ?대??먯꽌 60kph瑜??섍린吏 ?딆쓬 ???뚭? ?놁쓬).
+2. **`carrot_navi_route()` 원복측 대칭 buffer — 심각한 버그 발견 후 수정**:
+   최초 구현은 진입측 `time_delay`에도 `+ vturn_safe_time`을 동일하게
+   더했는데, **`work/test_route_recovery2.py`(현실적 거리 스케일: 커브
+   60m + 직후 직선 800m)로 재현한 결과 patched 출력이 baseline과
+   소수점까지 100% 동일**함을 발견. 원인 규명(`work/` 내 debug trace):
+   이 DP는 단일 스칼라 `time_wait`(누적 시간여유)로 감속/가속을 관리하는데,
+   진입측에서 추가한 +2.0초의 debt가 **커브 구간(out_speed가 target에
+   고정되어 클리핑되는 구간) 내내 그대로 보존**되다가, 원복 크레딧
+   (`+= vturn_safe_time`, 동일 +2.0초)에서 **정확히 상쇄**되어 그 이후
+   전체 구간의 `time_wait`/`out_speed`가 원본과 완전히 일치하게 되는
+   구조적 문제였음(클리핑이 발생하지 않는 한 두 조정은 수학적으로 항상
+   정확히 상쇄됨 — 커브가 매우 길어서 debt가 커브 안에서 다 소진되는
+   극단적 케이스가 아닌 한 일반적인 커브에서는 100% 무효화).
+   **수정**: 진입측(`time_delay`) 변경을 되돌려 순수 물리 도달시간
+   계산으로 복원(기존 79/81차 동작 그대로), 원복측 크레딧만 유지.
+   원복 판정 조건도 `route_prev_state=='decel'`(decel 트리거 직후 첫
+   지점에 즉시 발동 — 커브 내부 정체구간에서도 조기 발동하는 문제 있었음)
+   에서 `target_speed > next_out_speed and route_prev_state=='decel'`
+   (실제로 target이 next_out을 넘어서는, 즉 커브를 물리적으로 빠져나가는
+   지점)로 엄격화. 수정 후 재검증: baseline 대비 **회복구간에서 최대
+   +6.9km/h 더 높은 out_speed**(더 빠른 회복) 확인, 커브 구간 내부에서는
+   `elif` 조건(immediate vs strict) 어느 쪽을 써도 다운스트림 결과가
+   동일함도 확인(둘 다 커브 내부에서 60kph를 넘기지 않음 — 회귀 없음).
 
-3. **`py_compile` ?듦낵, `git am` 寃利?*: 濡쒖뺄 而ㅻ컠(`a3f2880`, base
-   `d7a647f`=81李?a/b) ??`git format-patch -1` ??`verify-am-82` ?꾩떆
-   釉뚮옖移?base `d7a647f`)?먯꽌 `git am` ?곸슜 ??diff 0(?꾩쟾 ?숈씪) ?뺤씤.
+3. **`py_compile` 통과, `git am` 검증**: 로컬 커밋(`a3f2880`, base
+   `d7a647f`=81차 a/b) → `git format-patch -1` → `verify-am-82` 임시
+   브랜치(base `d7a647f`)에서 `git am` 적용 → diff 0(완전 동일) 확인.
 
-**?꾨떖**: `0001-82李?vturn-route-?먮났痢??移?쾭??route踰꾧렇?섏젙.patch`瑜?
-`/mnt/user-data/outputs/`???꾨떖(base `d7a647f` = ?꾩옱 origin
-`c3-ms-curv` HEAD ?꾩뿉 諛붾줈 `git am` 媛??.
+**전달**: `0001-82차-vturn-route-원복측-대칭버퍼-route버그수정.patch`를
+`/mnt/user-data/outputs/`에 전달(base `d7a647f` = 현재 origin
+`c3-ms-curv` HEAD 위에 바로 `git am` 가능).
 
-**?좉퇋 ?곸닔 ?놁쓬** ??吏꾩엯痢↔낵 ?숈씪?섍쾶 `vturn_safe_time`(2.0s) ?ъ궗??
+**신규 상수 없음** — 진입측과 동일하게 `vturn_safe_time`(2.0s) 재사용.
 
-**肄붾뱶 蹂寃?*: `carrot_man.py`(ryu, `c3-ms-curv` 釉뚮옖移???? ?⑥튂 ?꾨떖
-?꾨즺)/`toolkit`(devnotes, ?좉퇋 寃利앹뒪?щ┰?몃뒗 ?꾩쭅 `work/`?먮쭔 ?덉쓬 ??
-?뺤떇 ?몄엯 ?щ????ㅼ쓬 ?몄뀡 ?먮떒, ?꾨옒 李멸퀬).
+**코드 변경**: `carrot_man.py`(ryu, `c3-ms-curv` 브랜치 대상, 패치 전달
+완료)/`toolkit`(devnotes, 신규 검증스크립트는 아직 `work/`에만 있음 —
+정식 편입 여부는 다음 세션 판단, 아래 참고).
 
-**[媛깆떊] ?곸슜/push ?꾨즺 ?뺤씤** ???ъ슜?먭? `C:\dev\ryu`(`c3-ms-curv` 釉뚮옖移??먯꽌
-`git am` ?곸슜(濡쒖뺄 diff --stat ?덉긽怨??쇱튂) + `git push origin c3-ms-curv`
-?꾨즺. 而⑦뀒?대꼫?먯꽌 `git fetch origin c3-ms-curv:refs/remotes/origin/c3-ms-curv`
-??濡쒖뺄 寃利?而ㅻ컠怨?diff 0(?꾩쟾 ?숈씪) ?ы솗???꾨즺. origin `c3-ms-curv` HEAD:
-`451a3b9`. **?ㅼ쓬? ?ㅼ감 寃利앸쭔 ?⑥쓬.**
+**[갱신] 적용/push 완료 확인** — 사용자가 `C:\dev\ryu`(`c3-ms-curv` 브랜치)에서
+`git am` 적용(로컬 diff --stat 예상과 일치) + `git push origin c3-ms-curv`
+완료. 컨테이너에서 `git fetch origin c3-ms-curv:refs/remotes/origin/c3-ms-curv`
+후 로컬 검증 커밋과 diff 0(완전 동일) 재확인 완료. origin `c3-ms-curv` HEAD:
+`451a3b9`. **다음은 실차 검증만 남음.**
 
-**?ㅼ쓬(理쒖슦??**:
-1. **?ㅼ감 ?쒕씪?대툕 寃利?* ??(a) vturn: ?뺤젏 ?듦낵 ???ш??띿씠 ???먯뿰?ㅻ읇寃?
-   ?먭뺨吏?붿?(81李⑥뿉??吏?곷맂 "?먮났?????밴꺼吏?? 臾몄젣 ?댁냼 ?щ?),
-   (b) route: 而ㅻ툕 鍮좎졇?섏삩 ???뚮났????鍮⑤씪吏?붿?, (c) **?뚭? 寃利?
-   ?꾩닔** ??吏꾩엯(?ъ쟾媛먯냽)痢?泥닿컧???대쾲 蹂寃쎌쑝濡??꾪? ?щ씪吏吏 ?딆븯?붿?
-   (vturn 吏꾩엯/route 吏꾩엯 濡쒖쭅 紐⑤몢 誘몃?寃쎌씠?댁빞 ?뺤긽), 而ㅻ툕 援ш컙 ?대??먯꽌
-   怨쇱냽(target 珥덇낵) ?녿뒗吏.
-2. 寃利앹슜 ?ㅽ겕由쏀듃 2媛?`work/test_vturn_recovery_v2.py`,
-   `work/test_route_recovery2.py`)???ъ궗??媛移섍? ?믪쓬(?먮났痢?buffer
-   ?뚭? 寃利앹뿉 諛섎났 ?꾩슂) ???꾩쭅 `toolkit/`??誘명렪???곹깭, ?ㅼ쓬 ?몄뀡?먯꽌
-   `toolkit/README.md` ?뺤콉?濡??뺤떇 ?몄엯 ?꾩슂(80李?怨꾩냽?먯꽌 媛뺥솕??
-   ?뺤콉怨??숈씪 ?곸슜 ???.
-3. 臾몄젣 諛쒖깮 ??CarrotWeb pull UI濡?`c3-ms-dev`(釉뚮옖移?誘몃?寃??먮낯)濡?
-   利됱떆 濡ㅻ갚 媛??
+**다음(최우선)**:
+1. **실차 드라이브 검증** — (a) vturn: 정점 통과 후 재가속이 더 자연스럽게
+   느껴지는지(81차에서 지적된 "원복이 안 당겨지는" 문제 해소 여부),
+   (b) route: 커브 빠져나온 후 회복이 더 빨라지는지, (c) **회귀 검증
+   필수** — 진입(사전감속)측 체감이 이번 변경으로 전혀 달라지지 않았는지
+   (vturn 진입/route 진입 로직 모두 미변경이어야 정상), 커브 구간 내부에서
+   과속(target 초과) 없는지.
+2. 검증용 스크립트 2개(`work/test_vturn_recovery_v2.py`,
+   `work/test_route_recovery2.py`)는 재사용 가치가 높음(원복측 buffer
+   회귀 검증에 반복 필요) — 아직 `toolkit/`에 미편입 상태, 다음 세션에서
+   `toolkit/README.md` 정책대로 정식 편입 필요(80차 계속에서 강화한
+   정책과 동일 적용 대상).
+3. 문제 발생 시 CarrotWeb pull UI로 `c3-ms-dev`(브랜치 미변경 원본)로
+   즉시 롤백 가능.
 
-## ?ㅼ쓬 ?몄뀡 ?쒖옉 ??
-??WIP.md??"82李? ?뱀뀡???덉쑝硫???吏?먮????댁뼱媛????뱁엳 (1) `git am`/
-?ㅼ감 寃利?寃곌낵 ?뺤씤, (2) ??寃利??ㅽ겕由쏀듃 2媛?toolkit ?몄엯 ?щ?.
+## 다음 세션 시작 시
+이 WIP.md에 "82차" 섹션이 있으면 이 지점부터 이어감 — 특히 (1) `git am`/
+실차 검증 결과 확인, (2) 위 검증 스크립트 2개 toolkit 편입 여부.
 
-## 83李?(泥댄겕?ъ씤????肄붾뱶 蹂寃??놁쓬, 遺꾩꽍/?ㅻ챸留? ??route 而ㅻ툕 ?ъ쟾媛먯냽 ?뚮씪誘명꽣(`AutoNaviSpeedDecelRate`) ?쒕떇 愿怨??뺣━
+## 83차 (체크포인트 — 코드 변경 없음, 분석/설명만) — route 커브 사전감속 파라미터(`AutoNaviSpeedDecelRate`) 튜닝 관계 정리
 
-**諛곌꼍**: 82李??먮났痢??移?쾭?? ?ㅼ감寃利??湲?以? ?ъ슜?먭? 蹂꾨룄濡?"route
-怨꾩궛 濡쒖쭅?쇰줈 怨≪꽑 吏꾩엯???ъ쟾媛먯냽 ?쒓컙???섎┫ ???녿굹(?띾룄???곕씪 ?쒓컙??
-?섎㈃ 媛먯냽?꾧? ??븘吏??)" 吏덈Ц ??vturn瑜??좉퇋 踰꾪띁 異붽?(3?????ъ슜?먭?
-遺덉콈?? **`AutoNaviSpeedDecelRate` ?뚮씪誘명꽣 議곗젙(2??留?梨꾪깮**???ㅻ챸.
+**배경**: 82차(원복측 대칭버퍼) 실차검증 대기 중, 사용자가 별도로 "route
+계산 로직으로 곡선 진입전 사전감속 시간을 늘릴 수 없나(속도에 따라 시간이
+늘면 감속도가 낮아지나?)" 질문 → vturn류 신규 버퍼 추가(3안)는 사용자가
+불채택, **`AutoNaviSpeedDecelRate` 파라미터 조정(2안)만 채택**해 설명.
 
-**?듭떖 ?뺤씤 ?ы빆**:
-1. `carrot_navi_route()`(`carrot_man.py`)??吏꾩엯痢?媛먯냽 怨꾩궛? ?대?
-   `v_ego_kph`(留??꾨젅???ㅼ륫 ?꾩옱?띾룄) 湲곕컲 臾쇰━怨듭떇
-   (`?꾩슂嫄곕━=(v_ego짼-target짼)/(2횞accel_limit)`, `accel_limit=
-   self.carrot_serv.autoNaviSpeedDecelRate`)?대씪 **?띾룄媛 ?믪쓣?섎줉 ?꾩슂
-   媛먯냽?쒓컙/嫄곕━媛 ?대? ?먮룞?쇰줈 ?섏뼱??* ??蹂꾨룄 肄붾뱶 蹂寃?遺덊븘??
-2. `AutoNaviSpeedDecelRate`(UI: "SpeedCamDecelRatex0.01m/s^2", 踰붿쐞
-   10~200??.10~2.00 m/s짼, 湲곕낯媛?120=1.20)瑜?**??텛硫?* ???대Ⅴ寃뙿룹셿留뚰븯寃?
-   媛먯냽 ?쒖옉(UI ?댄똻 "Lower number, slows down from a greater distance"?
-   ?쇱튂) ??湲곗〈 ?몄텧???ㅼ젙媛믪쑝濡?肄붾뱶 蹂寃??놁씠 諛붾줈 ?쒕떇 媛??
-3. **[以묒슂, ?좉퇋 ?뺤씤] ?ъ슜???ㅼ젣 `params_backup-1.json` 媛?*:
-   `AutoNaviSpeedDecelRate=70`(=0.70 m/s짼, 湲곕낯 120蹂대떎 ?대? ?곷떦????땄),
+**핵심 확인 사항**:
+1. `carrot_navi_route()`(`carrot_man.py`)의 진입측 감속 계산은 이미
+   `v_ego_kph`(매 프레임 실측 현재속도) 기반 물리공식
+   (`필요거리=(v_ego²-target²)/(2×accel_limit)`, `accel_limit=
+   self.carrot_serv.autoNaviSpeedDecelRate`)이라 **속도가 높을수록 필요
+   감속시간/거리가 이미 자동으로 늘어남** — 별도 코드 변경 불필요.
+2. `AutoNaviSpeedDecelRate`(UI: "SpeedCamDecelRatex0.01m/s^2", 범위
+   10~200→0.10~2.00 m/s², 기본값 120=1.20)를 **낮추면** 더 이르게·완만하게
+   감속 시작(UI 툴팁 "Lower number, slows down from a greater distance"와
+   일치) — 기존 노출된 설정값으로 코드 변경 없이 바로 튜닝 가능.
+3. **[중요, 신규 확인] 사용자 실제 `params_backup-1.json` 값**:
+   `AutoNaviSpeedDecelRate=70`(=0.70 m/s², 기본 120보다 이미 상당히 낮춤),
    `AutoNaviSpeedCtrlEnd=9`, `TurnSpeedControlMode=2`,
    `ModelTurnSpeedFactor=20`, `AutoCurveSpeedFactor=90`,
-   `AutoCurveSpeedAggressiveness=100` ??81/82李??묒뾽 ???`TurnSpeedControlMode=2`)怨?
-   ?쇱튂 ?뺤씤.
-4. **[以묒슂, ?좉퇋 諛쒓껄] 300m lookahead ?곹븳(`get_path_after_distance(...,300)`)怨쇱쓽
-   ?곹샇?묒슜**: `accel_limit`????텧?섎줉 ?꾩슂嫄곕━媛 ?섏뼱??300m ?곹븳???쎄쾶
-   珥덇낵?????? 100??0km/h??accel=0.70?먯꽌 ?대? ??03m濡??곹븳 珥덇낵,
-   accel=1.39 m/s짼(UI 140)媛 "120??0km/h瑜??뺥솗??300m??留욎텛?? ?대줎??
-   寃쎄퀎媛??ъ쑀 ?놁쓬, ?ㅼ궗?⑹? 150~160 沅뚯옣). 諛섎?濡?80??0km/h(??媛먯냽????
-   accel=0.70?먯꽌 ??03m(珥덇낵), accel=0.80?먯꽌 ??65m(?ъ쑀 35m, ?곹븳 ?대궡)濡?
-   ??**媛먯냽??씠 ???뚮뒗 ?ㅽ엳??媛믪쓣 ?댁쭩 ?щ젮??300m ?덉뿉??怨꾩궛???⑥쟾??
-   ?앸굹??* 寃쎌슦???덉쓬??援ъ껜???섏튂濡??뺤씤. **?ъ슜?먯쓽 ?꾩옱 ?ㅼ륫媛?0.70)?
-   怨좎냽(100km/h?)+??媛먯냽??而ㅻ툕 議고빀?먯꽌 ?대? 300m 罹≪뿉 嫄몃┫ ???덈뒗
-   寃쎄퀎 洹쇱쿂**?꾩쓣 ?좉퇋 ?뺤씤(NEEDS_VALIDATION, ?ㅼ감 ?ы쁽 ?꾩슂).
-5. **[以묒슂] `AutoNaviSpeedDecelRate`??route 而ㅻ툕 ?꾩슜???꾨땲??
-   怨쇱냽移대찓??媛먯냽(`sdi_speed`, `carrot_serv.py` L983)/TBT ?뚯쟾 媛먯냽
-   (`atc_desired`, L847)/?꾨줈?쒗븳?띾룄 湲곕컲 媛먯냽(L994)源뚯? ?꾨? 怨듭쑀?섎뒗
-   ?⑥씪 ?뚮씪誘명꽣** ????媛믪쓣 議곗젙?섎㈃ 而ㅻ툕 媛먯냽留뚯씠 ?꾨땲???????꾨?
-   ?숈떆???꾨쭔?댁쭚(寃쎄퀬 ?꾩슂, route ?꾩슜?쇰줈 遺꾨━?섎젮硫?蹂꾨룄 肄붾뱶 蹂寃??꾩슂).
+   `AutoCurveSpeedAggressiveness=100` — 81/82차 작업 대상(`TurnSpeedControlMode=2`)과
+   일치 확인.
+4. **[중요, 신규 발견] 300m lookahead 상한(`get_path_after_distance(...,300)`)과의
+   상호작용**: `accel_limit`을 낮출수록 필요거리가 늘어나 300m 상한을 쉽게
+   초과함 — 예) 100→60km/h는 accel=0.70에서 이미 ≈303m로 상한 초과,
+   accel=1.39 m/s²(UI 140)가 "120→60km/h를 정확히 300m에 맞추는" 이론적
+   경계값(여유 없음, 실사용은 150~160 권장). 반대로 80→30km/h(큰 감속폭)는
+   accel=0.70에서 ≈303m(초과), accel=0.80에서 ≈265m(여유 35m, 상한 이내)로
+   — **감속폭이 클 때는 오히려 값을 살짝 올려야 300m 안에서 계산이 온전히
+   끝나는** 경우도 있음을 구체적 수치로 확인. **사용자의 현재 실측값(0.70)은
+   고속(100km/h대)+큰 감속폭 커브 조합에서 이미 300m 캡에 걸릴 수 있는
+   경계 근처**임을 신규 확인(NEEDS_VALIDATION, 실차 재현 필요).
+5. **[중요] `AutoNaviSpeedDecelRate`는 route 커브 전용이 아니라
+   과속카메라 감속(`sdi_speed`, `carrot_serv.py` L983)/TBT 회전 감속
+   (`atc_desired`, L847)/도로제한속도 기반 감속(L994)까지 전부 공유하는
+   단일 파라미터** — 이 값을 조정하면 커브 감속만이 아니라 이 셋 전부
+   동시에 완만해짐(경고 필요, route 전용으로 분리하려면 별도 코드 변경 필요).
 
-**肄붾뱶 蹂寃??놁쓬(?ㅻ챸/怨꾩궛留? patch ?놁쓬).**
+**코드 변경 없음(설명/계산만, patch 없음).**
 
-**?ㅼ쓬(?ъ슜??寃곗젙 ?湲?**:
-1. ??4踰?諛쒓껄(?꾩옱 ?ㅼ젙 0.70??怨좎냽+??媛먯냽??議고빀?먯꽌 300m 罹≪뿉 嫄몃┫
-   媛?μ꽦)???ㅼ젣 怨좎냽?꾨줈 湲됱“??而ㅻ툕 濡쒓렇濡??ы쁽 寃利앺븷吏.
-2. route ?꾩슜?쇰줈 媛먯냽瑜좎쓣 遺꾨━?섍퀬 ?띕떎硫?`accel_limit =
-   self.carrot_serv.autoNaviSpeedDecelRate` 以꾩쓣 ?좉퇋 ?곸닔濡?遺꾨━?섎뒗
-   ?⑥튂 ?ㅺ퀎(?ъ슜?먭? ?꾩쭅 遺덉콈???섏궗 ?쒕챸, ?꾩슂???щ끉??.
-3. 300m lookahead 罹??먯껜瑜??섎━??諛⑺뼢(鍮꾩슜/?뚭? 寃利??꾩슂, ?꾩쭅 ?쇱쓽留?
-   ???곹깭, 肄붾뱶 誘몄갑??.
+**다음(사용자 결정 대기)**:
+1. 위 4번 발견(현재 설정 0.70이 고속+큰 감속폭 조합에서 300m 캡에 걸릴
+   가능성)을 실제 고속도로 급조임 커브 로그로 재현 검증할지.
+2. route 전용으로 감속률을 분리하고 싶다면 `accel_limit =
+   self.carrot_serv.autoNaviSpeedDecelRate` 줄을 신규 상수로 분리하는
+   패치 설계(사용자가 아직 불채택 의사 표명, 필요시 재논의).
+3. 300m lookahead 캡 자체를 늘리는 방향(비용/회귀 검증 필요, 아직 논의만
+   된 상태, 코드 미착수).
 
-## ?ㅼ쓬 ?몄뀡 ?쒖옉 ??
-??WIP.md??"83李? ?뱀뀡???덉쑝硫???吏?먮????댁뼱媛????뱁엳 4踰?300m 罹?
-寃쎄퀎 臾몄젣) ?ㅼ감 ?ы쁽 寃利??щ?.
+## 다음 세션 시작 시
+이 WIP.md에 "83차" 섹션이 있으면 이 지점부터 이어감 — 특히 4번(300m 캡
+경계 문제) 실차 재현 검증 여부.
 
-## 91李?(?꾨즺 ??援ы쁽+寃利??⑥튂 ?꾨떖 ?꾨즺, `git am`/?ㅼ감 ?곸슜 ?湲? ??route ?ъ쟾媛먯냽??vturn蹂대떎 癒쇱? ?쒖옉(ROUTE_ENTRY_MARGIN_KPH)
+## 91차 (완료 — 구현+검증+패치 전달 완료, `git am`/실차 적용 대기) — route 사전감속을 vturn보다 먼저 시작(ROUTE_ENTRY_MARGIN_KPH)
 
-**諛곌꼍**: 90李????, chord 異뺤냼)媛 ?④낵 誘몃?濡?湲곌컖???댄썑, 89李????
-("?鍮꾩슜, 湲됱“??媛먯? ??紐⑺몴?띾룄???덉쟾留덉쭊(margin_kph)??誘몃━ 李④컧?섎뒗
-?대━?ㅽ떛")???대쾲 ?몄뀡?먯꽌 援ы쁽쨌寃利앷퉴吏 ?꾨즺. ?ъ슜???뺤씤: "route??
-紐⑺몴?띾룄媛 vturn怨?鍮꾩듂?쒓굔 醫뗭??뚯떇 ??route媛 ?ъ쟾媛먯냽??vturn蹂대떎 ??
-?쇱컢 ?쒖옉?섍쾶留?留뚮뱾硫?留뚯”".
+**배경**: 90차(대안1, chord 축소)가 효과 미미로 기각된 이후, 89차 대안3
+("저비용, 급조임 감지 시 목표속도에 안전마진(margin_kph)을 미리 차감하는
+휴리스틱")을 이번 세션에서 구현·검증까지 완료. 사용자 확인: "route의
+목표속도가 vturn과 비슷한건 좋은소식 — route가 사전감속을 vturn보다 더
+일찍 시작하게만 만들면 만족".
 
-**?ㅺ퀎**: `carrot_navi_route()`????갑??DP?먯꽌, 媛먯냽 ?꾪솚 ?쒖젏
-(`target_speed < next_out_speed`)??`time_delay`(=?꾩슂 ?뚯슂?쒓컙) 怨꾩궛?먮쭔
-`target_speed - ROUTE_ENTRY_MARGIN_KPH`(留덉쭊 李④컧??媛?瑜??ъ슜 ??**理쒖쥌
-梨꾪깮?섎뒗 target_speed ?먯껜(`min(target_speed, max_allowed_speed)`)???꾪?
-??諛붾? ?ㅼ쭅 "媛먯냽 ?ㅼ?以꾩쓣 ?쇰쭏???쇱컢遺??諛섏쁺?섍린 ?쒖옉?좎?"留??욌떦源.**
-?뺤젏(apex) 紐⑺몴媛믪씠???먮났(82李?痢?濡쒖쭅? ?꾩쟾??臾닿?.
+**설계**: `carrot_navi_route()`의 역방향 DP에서, 감속 전환 시점
+(`target_speed < next_out_speed`)의 `time_delay`(=필요 소요시간) 계산에만
+`target_speed - ROUTE_ENTRY_MARGIN_KPH`(마진 차감한 값)를 사용 — **최종
+채택되는 target_speed 자체(`min(target_speed, max_allowed_speed)`)는 전혀
+안 바뀜, 오직 "감속 스케줄을 얼마나 일찍부터 반영하기 시작할지"만 앞당김.**
+정점(apex) 목표값이나 원복(82차)측 로직은 완전히 무관.
 
-**寃利?* (`toolkit/sim_route_curvature_sample.py` 湲곕컲 DP 濡쒖쭅??margin
-?뚮씪誘명꽣 異붽????ы쁽, `devnotes/data/routes/bc4301a25d` 罹먯떆濡?寃利???
-raw zip ?ъ뾽濡쒕뱶 遺덊븘??:
-- **margin_kph 0/10/20/30 ?ㅼ쐲**(3珥?洹몃━?? ??而ㅻ툕A(89/90李????援ш컙,
-  ?꾨쭔???⑦봽)?먯꽌 margin???댁닔濡?議곌린諛붿씤??紐⑺몴?띾룄<?꾩옱?띾룄濡?
-  ?꾪솚?섎뒗 ?쒖젏) ?쒖젏???욌떦寃⑥쭚 ?뺤씤.
-- **而ㅻ툕B(湲됲븳 ?⑦봽+援먯감濡? 89李⑤???誘멸?利앹쑝濡??⑥븘?덈뜕 援ш컙, t??255~9291)
-  援먯감寃利?*: margin=30源뚯????묎렐 援ш컙(而ㅻ툕 吏꾩엯 ?⑥뵮 ???먯꽌 遺덊븘?뷀븳
-  議곌린 ?몃━嫄??ㅽ깘) ?놁쓬 ?뺤씤 ???뚭? ?덉쟾.
-- **吏곸꽑 154珥?援ш컙(bc4301a25d ??t=8545~8699, steer<2째, 130km/h? ?쒗빆,
-  ??濡쒓렇 ?낅줈???놁씠 媛숈? 罹먯떆 ?쇱슦?몄뿉??諛쒓껄) ?ㅽ깘 寃利?*: margin=0~30
-  ??援ш컙 ?ㅽ깘 0嫄???margin 濡쒖쭅??"媛먯냽 ?꾪솚???ㅼ젣濡??쇱뼱?섎뒗 吏???먮쭔
-  ?곸슜?섎뒗 援ъ“??怨〓쪧 ?먯껜媛 ?녿뒗 ?쒖닔 吏곸꽑?먯꽌??援ъ“?곸쑝濡?媛쒖엯 遺덇??ν븿??
-  ?뺤씤(89李??????"吏곸꽑 援ш컙 GPS ?몄씠利??ㅽ깘" ?곕젮????ㅻⅨ 異? ?대쾲
-  諛⑹떇? 洹?由ъ뒪?ш? ?먯쿇?곸쑝濡???쓬).
-- ?ъ슜?먭? margin_kph=25.0(20/30 ?ъ씠 ?덉땐媛? ?뺤젙 ??0.5珥?洹몃━???뺣?
-  ?ы솗?? **t??217.5遺??議곌린諛붿씤??vturn ?ㅼ젣 ?꾪솚 t=9221.26蹂대떎 3.76珥?
-  癒쇱?), 理쒖쥌 紐⑺몴媛믩룄 vturn ?ㅼ륫移?73~77)??洹쇱젒(78.1~78.2)**.
+**검증** (`toolkit/sim_route_curvature_sample.py` 기반 DP 로직을 margin
+파라미터 추가해 재현, `devnotes/data/routes/bc4301a25d` 캐시로 검증 —
+raw zip 재업로드 불필요):
+- **margin_kph 0/10/20/30 스윕**(3초 그리드) → 커브A(89/90차 대상 구간,
+  완만한 램프)에서 margin이 클수록 조기바인딩(목표속도<현재속도로
+  전환되는 시점) 시점이 앞당겨짐 확인.
+- **커브B(급한 램프+교차로, 89차부터 미검증으로 남아있던 구간, t≈9255~9291)
+  교차검증**: margin=30까지도 접근 구간(커브 진입 훨씬 전)에서 불필요한
+  조기 트리거(오탐) 없음 확인 — 회귀 안전.
+- **직선 154초 구간(bc4301a25d 내 t=8545~8699, steer<2°, 130km/h대 순항,
+  새 로그 업로드 없이 같은 캐시 라우트에서 발견) 오탐 검증**: margin=0~30
+  전 구간 오탐 0건 — margin 로직이 "감속 전환이 실제로 일어나는 지점"에만
+  적용되는 구조라 곡률 자체가 없는 순수 직선에서는 구조적으로 개입 불가능함을
+  확인(89차 대안1의 "직선 구간 GPS 노이즈 오탐" 우려와는 다른 축, 이번
+  방식은 그 리스크가 원천적으로 낮음).
+- 사용자가 margin_kph=25.0(20/30 사이 절충값) 확정 → 0.5초 그리드 정밀
+  재확인: **t≈9217.5부터 조기바인딩(vturn 실제 전환 t=9221.26보다 3.76초
+  먼저), 최종 목표값도 vturn 실측치(73~77)에 근접(78.1~78.2)**.
 
-**援ы쁽** (`c3-ms-curv`, 濡쒖뺄 而ㅻ컠 `2f5c23e`, base `cf32b5d`(87李?HEAD)):
-`carrot_man.py`??`ROUTE_ENTRY_MARGIN_KPH=25.0` ?좉퇋 ?곸닔 異붽?, ??갑??DP
-猷⑦봽??`time_delay` 怨꾩궛遺留??섏젙(1以?濡쒖쭅 蹂寃?+ ?곸닔 1媛?. `py_compile`
-?듦낵, `git format-patch` ??`verify-am-91` ?꾩떆 釉뚮옖移?base `cf32b5d`)?먯꽌
-`git am`+diff 0(?꾩쟾 ?숈씪) ?뺤씤.
+**구현** (`c3-ms-curv`, 로컬 커밋 `2f5c23e`, base `cf32b5d`(87차 HEAD)):
+`carrot_man.py`에 `ROUTE_ENTRY_MARGIN_KPH=25.0` 신규 상수 추가, 역방향 DP
+루프의 `time_delay` 계산부만 수정(1줄 로직 변경 + 상수 1개). `py_compile`
+통과, `git format-patch` → `verify-am-91` 임시 브랜치(base `cf32b5d`)에서
+`git am`+diff 0(완전 동일) 확인.
 
-**?꾨떖**: `0001-91-route-ROUTE_ENTRY_MARGIN_KPH-25.0.patch`瑜?
-`/mnt/user-data/outputs/`???꾨떖(base `cf32b5d`, 利??꾩옱 origin
-`c3-ms-curv` HEAD ?꾩뿉 諛붾줈 `git am` 媛??.
+**전달**: `0001-91-route-ROUTE_ENTRY_MARGIN_KPH-25.0.patch`를
+`/mnt/user-data/outputs/`에 전달(base `cf32b5d`, 즉 현재 origin
+`c3-ms-curv` HEAD 위에 바로 `git am` 가능).
 
-**[媛깆떊] ?곸슜/push ?꾨즺 ?뺤씤** ???ъ슜?먭? `C:\dev\ryu`?먯꽌 `git fetch`+
-`git reset --hard origin/c3-ms-curv`(cf32b5d ?숆린?? ??`git am` ?곸슜
-(而⑦뀓?ㅽ듃 異⑸룎 ?놁씠 諛붾줈 ?깃났) + `git push origin c3-ms-curv` ?꾨즺.
-而⑦뀒?대꼫?먯꽌 `git fetch origin c3-ms-curv:refs/remotes/origin/c3-ms-curv`
-??濡쒖뺄 寃利?而ㅻ컠怨?diff 0(?꾩쟾 ?숈씪) ?ы솗???꾨즺. origin `c3-ms-curv`
-HEAD: `cf32b5d..6d15391`. **?ㅼ쓬? ?ㅼ감 寃利앸쭔 ?⑥쓬.**
+**[갱신] 적용/push 완료 확인** — 사용자가 `C:\dev\ryu`에서 `git fetch`+
+`git reset --hard origin/c3-ms-curv`(cf32b5d 동기화) 후 `git am` 적용
+(컨텍스트 충돌 없이 바로 성공) + `git push origin c3-ms-curv` 완료.
+컨테이너에서 `git fetch origin c3-ms-curv:refs/remotes/origin/c3-ms-curv`
+후 로컬 검증 커밋과 diff 0(완전 동일) 재확인 완료. origin `c3-ms-curv`
+HEAD: `cf32b5d..6d15391`. **다음은 실차 검증만 남음.**
 
-**?ㅼ쓬(理쒖슦??**:
-1. ~~?ъ슜?먭? `C:\dev\ryu`(`c3-ms-curv` 釉뚮옖移??먯꽌 `git am` ?곸슜 +
-   `git push origin c3-ms-curv`~~ ??**?꾨즺**.
-2. **?ㅼ감 ?쒕씪?대툕 寃利?* ??(a) 而ㅻ툕 吏꾩엯 ??route媛 ?ㅼ젣濡?vturn蹂대떎
-   癒쇱? 媛쒖엯?섎뒗 ?먮굦(?ъ쟾媛먯냽?????쇱컢 ?쒖옉)???쒕뒗吏, (b) **?뚭? 寃利?
-   ?꾩닔** ??吏곸꽑/?꾨쭔??援ш컙?먯꽌 遺덊븘?뷀븳 議곌린 媛먯냽(?ㅽ깘) ?녿뒗吏(?쒕??덉씠??
-   ??0嫄댁씠?덉쑝???ㅼ젣 GPS ?몄씠利??뱀꽦? ?ㅻ? ???덉쓬), (c) 而ㅻ툕B瑜?TBT
-   洹쇱젒, ?대? route媛 吏諛곗쟻?대뜕 湲됲븳 而ㅻ툕)?먯꽌??遺?묒슜 ?녿뒗吏.
-3. `ROUTE_ENTRY_MARGIN_KPH=25.0`? ?쒕??덉씠??湲곗? 梨꾪깮媛????ㅼ감 諛섏쓳
-   蹂닿퀬 ?쒕떇 ?ъ? ?덉쓬(NEEDS_VALIDATION).
-4. 81/82/84/85/87李?紐⑤몢 `c3-ms-curv`, ?꾩쭅 ?ㅼ감寃利??湲?以????대쾲
-   ?⑥튂? ?④퍡 媛숈? ?쒕씪?대툕?먯꽌 ?숈떆 ?뺤씤 媛??
+**다음(최우선)**:
+1. ~~사용자가 `C:\dev\ryu`(`c3-ms-curv` 브랜치)에서 `git am` 적용 +
+   `git push origin c3-ms-curv`~~ → **완료**.
+2. **실차 드라이브 검증** — (a) 커브 진입 시 route가 실제로 vturn보다
+   먼저 개입하는 느낌(사전감속이 더 일찍 시작)이 드는지, (b) **회귀 검증
+   필수** — 직선/완만한 구간에서 불필요한 조기 감속(오탐) 없는지(시뮬레이션
+   상 0건이었으나 실제 GPS 노이즈 특성은 다를 수 있음), (c) 커브B류(TBT
+   근접, 이미 route가 지배적이던 급한 커브)에서도 부작용 없는지.
+3. `ROUTE_ENTRY_MARGIN_KPH=25.0`은 시뮬레이션 기준 채택값 — 실차 반응
+   보고 튜닝 여지 있음(NEEDS_VALIDATION).
+4. 81/82/84/85/87차(모두 `c3-ms-curv`, 아직 실차검증 대기 중)도 이번
+   패치와 함께 같은 드라이브에서 동시 확인 가능.
 
-## 92李?(?꾨즺 ???ㅼ감 濡쒓렇 遺꾩꽍, 肄붾뱶 蹂寃??놁쓬, **[?뺤젙] 91李?寃利??꾨떂, ?⑥튂 ?곸슜 ?댁쟾 踰좎씠?ㅻ씪?몄쑝濡??щ텇瑜?*) ??援?룄 ?곗냽怨≪꽑 濡쒓렇, 91李?ROUTE_ENTRY_MARGIN_KPH) ?ㅼ감寃利앹? ?ъ쟾??誘몄셿猷?
+## 92차 (완료 — 실차 로그 분석, 코드 변경 없음, **[정정] 91차 검증 아님, 패치 적용 이전 베이스라인으로 재분류**) — 국도 연속곡선 로그, 91차(ROUTE_ENTRY_MARGIN_KPH) 실차검증은 여전히 미완료
 
-**[以묒슂 ?뺤젙, ?ъ슜???뺤씤]**: ??濡쒓렇??**91李??⑥튂 ?곸슜 ?댁쟾**??湲곕줉??
-(88李⑥? ?숈씪 ?좏삎???ㅽ뙋 ??meta.json commit ?쒓렇媛 而⑦뀒?대꼫???꾩옱
-泥댄겕?꾩썐 ?곹깭瑜?諛섏쁺??肉? 濡쒓렇 湲곕줉 ?뱀떆 ?ㅼ젣 李⑤웾 鍮뚮뱶媛 ?꾨떂??
-媛꾧낵??. ?꾨옒 ?먮옒 遺꾩꽍 ?댁슜??愿痢??먯껜(?섏튂/?대깽?????좏슚?섏?留?
-**"91李⑤줈 ?명븳 ?뚭? ?놁쓬"?대씪??洹??寃곕줎? 洹쇨굅 ?놁쓬 ???먭린**.
-?ㅼ젣濡쒕뒗:
-- seg16(t??0676) "route 6珥?議곌린媛쒖엯" 愿痢≪? 91李?留덉쭊 ?⑥튂媛 ?꾨땲??
-  **82/84/85李??먮났痢??移?쾭???숈쟻 lookahead 罹?源뚯?留?諛섏쁺???곹깭**?먯꽌
-  ?대? ?섑??섎뜕 湲곗〈 ?숈옉. 91李??④낵 利앷굅濡??ъ슜 遺덇?.
-- turn_speed_violation 5嫄?harsh_brake 1嫄댁씠 ?꾨? `src=vturn`?댁뿀?ㅻ뒗
-  愿痢?vturn apex-lag ?댁뒋, route 臾닿?)? 洹??먯껜濡쒕뒗 ?좏슚??愿痢≪씠吏留?
-  **91李??곸슜 ???곹깭??李멸퀬?먮즺(baseline)**濡??щ텇瑜?
-- **91李??ㅼ감寃利???ぉ(a 議곌린媛쒖엯 泥닿컧/b 吏곸꽑 ?ㅽ깘 ?뚭?/c 而ㅻ툕B瑜?遺?묒슜)?
-  ?ъ쟾??誘몄셿猷??곹깭濡??좎?.**
+**[중요 정정, 사용자 확인]**: 이 로그는 **91차 패치 적용 이전**에 기록됨
+(88차와 동일 유형의 오판 — meta.json commit 태그가 컨테이너의 현재
+체크아웃 상태를 반영할 뿐, 로그 기록 당시 실제 차량 빌드가 아님을
+간과함). 아래 원래 분석 내용의 관측 자체(수치/이벤트)는 유효하지만,
+**"91차로 인한 회귀 없음"이라는 귀속 결론은 근거 없음 — 폐기**.
+실제로는:
+- seg16(t≈10676) "route 6초 조기개입" 관측은 91차 마진 패치가 아니라
+  **82/84/85차(원복측 대칭버퍼/동적 lookahead 캡)까지만 반영된 상태**에서
+  이미 나타나던 기존 동작. 91차 효과 증거로 사용 불가.
+- turn_speed_violation 5건/harsh_brake 1건이 전부 `src=vturn`이었다는
+  관측(vturn apex-lag 이슈, route 무관)은 그 자체로는 유효한 관측이지만
+  **91차 적용 전 상태의 참고자료(baseline)**로 재분류.
+- **91차 실차검증 항목(a 조기개입 체감/b 직선 오탐 회귀/c 커브B류 부작용)은
+  여전히 미완료 상태로 유지.**
 
-**?쒖슜 媛移?*: ?대쾲 濡쒓렇???숈씪 援ш컙(`0000032d--c0e3054c4a`)??91李??곸슜
-???ъ뾽濡쒕뱶?섎㈃ `regression_report()`(analysis_helpers.py)濡?吏곸젒
-????鍮꾧탳(harsh_brake??turn_speed_violation??route?봵turn ?뚮━而ㅼ쑉
-delta_pct)媛 媛?ν븳 醫뗭? "before" ?섑뵆. `data/routes/`??罹먯떆 ?깅줉
-怨좊젮 媛???ъ슜??寃곗젙 ?湲? ?꾩쭅 誘몃벑濡?.
+**활용 가치**: 이번 로그는 동일 구간(`0000032d--c0e3054c4a`)을 91차 적용
+후 재업로드하면 `regression_report()`(analysis_helpers.py)로 직접
+전/후 비교(harsh_brake율/turn_speed_violation율/route↔vturn 플리커율
+delta_pct)가 가능한 좋은 "before" 샘플. `data/routes/`에 캐시 등록
+고려 가능(사용자 결정 대기, 아직 미등록).
 
-**援먰썕 媛뺥솕**: 88李??댄썑?먮룄 "meta.json commit = ?ㅼ젣 鍮뚮뱶"濡??ㅽ뙋?섎뒗
-?⑦꽩???щ컻????濡쒓렇 ?대뜑紐낆쓽 ??꾩뒪?ы봽? ?꾨낫 而ㅻ컠?ㅼ쓽 author date瑜?
-**遺꾩꽍 李⑹닔 吏곹썑 怨㏓컮濡?鍮꾧탳**?섎뒗 ?덉감瑜??몄뀡 猷⑦떞??紐낆떆?곸쑝濡?
-異붽????꾩슂(SETUP.md 媛깆떊 寃????? ?꾩쭅 誘몃컲??.
+**교훈 강화**: 88차 이후에도 "meta.json commit = 실제 빌드"로 오판하는
+패턴이 재발함 — 로그 폴더명의 타임스탬프와 후보 커밋들의 author date를
+**분석 착수 직후 곧바로 비교**하는 절차를 세션 루틴에 명시적으로
+추가할 필요(SETUP.md 갱신 검토 대상, 아직 미반영).
 
 ---
 
-**(?꾨옒???뺤젙 ???먮옒 遺꾩꽍 ?댁슜 ??愿痢≪튂 ?먯껜???좏슚, 洹??寃곕줎留??먭린)**
+**(아래는 정정 전 원래 분석 내용 — 관측치 자체는 유효, 귀속 결론만 폐기)**
 
-## 92李??먮낯(洹???ㅻ쪟) ??91李?ROUTE_ENTRY_MARGIN_KPH) 援?룄 ?곗냽怨≪꽑 ?ㅼ감寃利? **臾몄젣 ?놁쓬?쇰줈 ?먯젙**
+## 92차 원본(귀속 오류) — 91차(ROUTE_ENTRY_MARGIN_KPH) 국도 연속곡선 실차검증, **문제 없음으로 판정**
 
-**諛곌꼍**: 91李??⑥튂(`6d15391`) ?ㅼ감 ?곸슜 ???ъ슜?먭? 援?룄 ?곗냽怨≪꽑 援ш컙
-濡쒓렇(`0000032d--c0e3054c4a`, x7seg ?ㅼ닔?? 5.85km/420s, ?됯퇏 50.2km/h)瑜?
-?낅줈????91李?"?ㅼ쓬(理쒖슦?? 2踰? ?ㅼ감寃利?a 議곌린媛쒖엯 泥닿컧/b 吏곸꽑 ?ㅽ깘
-?뚭?/c 而ㅻ툕B瑜?遺?묒슜) ?섑뻾 吏??
+**배경**: 91차 패치(`6d15391`) 실차 적용 후 사용자가 국도 연속곡선 구간
+로그(`0000032d--c0e3054c4a`, x7seg 실수신, 5.85km/420s, 평균 50.2km/h)를
+업로드 → 91차 "다음(최우선) 2번" 실차검증(a 조기개입 체감/b 직선 오탐
+회귀/c 커브B류 부작용) 수행 지시.
 
-**[二쇱쓽, NEEDS_CONFIRMATION]**: `extract_log.py` meta.json?
-`commit_short=6d153913582d`(91李? 而⑦뀒?대꼫 ?꾩옱 泥댄겕?꾩썐 ?곹깭)濡?李랁삍?쇰굹,
-濡쒓렇 湲곕줉 ?쒓컖(2026-08-26 18:05~18:11)??91李?而ㅻ컠 author date
-(2026-08-27T07:16:03+09:00)蹂대떎 ??13?쒓컙 ?욎꽟 ??88李⑥? 媛숈? 醫낅쪟??
-而ㅻ컠?쒓렇-?ㅼ젣鍮뚮뱶 遺덉씪移?媛?μ꽦 ?덉쓬(?⑥젙 遺덇?, ?ъ슜???뺤씤 ?꾩슂).
-遺꾩꽍 ?먯껜??濡쒓렇 ?곗씠???먯껜(raw route/vturn 嫄곕룞)??洹쇨굅??吏꾪뻾,
-?꾨옒 寃곕줎? ?쒓렇 ?좊ː ?щ?? 臾닿??섍쾶 ?좏슚.
+**[주의, NEEDS_CONFIRMATION]**: `extract_log.py` meta.json은
+`commit_short=6d153913582d`(91차, 컨테이너 현재 체크아웃 상태)로 찍혔으나,
+로그 기록 시각(2026-08-26 18:05~18:11)이 91차 커밋 author date
+(2026-08-27T07:16:03+09:00)보다 약 13시간 앞섬 — 88차와 같은 종류의
+커밋태그-실제빌드 불일치 가능성 있음(단정 불가, 사용자 확인 필요).
+분석 자체는 로그 데이터 자체(raw route/vturn 거동)에 근거해 진행,
+아래 결론은 태그 신뢰 여부와 무관하게 유효.
 
-**諛⑸쾿**: `extract_log.py`濡?CSV 異붿텧(8401?? ??`five_item_scan.py` +
+**방법**: `extract_log.py`로 CSV 추출(8401행) → `five_item_scan.py` +
 `turn_speed_violations`/`harsh_brake_events`/`ttc_danger_events`/
-`lead_cut_in_detector`/`source_pair_flicker_stats`(route?봵turn) ?ㅽ뻾,
-turn_speed_violation 5嫄??꾨???????대깽???쒓컖??`src` ?꾨뱶瑜?
-媛쒕퀎 ?議? 湲됱“??而ㅻ툕(seg16, t??0676~10684) 援ш컙 ?꾩껜 row瑜??쒓퀎?대줈
-吏곸젒 寃?? 吏곸꽑 援ш컙(steeringAngleDeg<3째) ?ㅽ깘 ?꾨낫 ?꾩닔 ?ㅼ틪.
+`lead_cut_in_detector`/`source_pair_flicker_stats`(route↔vturn) 실행,
+turn_speed_violation 5건 전부에 대해 이벤트 시각의 `src` 필드를
+개별 대조, 급조임 커브(seg16, t≈10676~10684) 구간 전체 row를 시계열로
+직접 검토, 직선 구간(steeringAngleDeg<3°) 오탐 후보 전수 스캔.
 
-**?듭떖 寃곌낵**:
-- **turn_speed_violation 5嫄??꾨? `src=vturn`** ??route媛 ?대떦?섎뜕
-  援ш컙?먯꽌 諛쒖깮???꾨컲 0嫄? 理쒕?(12.74km/h/3.7s, t??0529)??vturn
-  紐⑺몴?띾룄 ?먯껜??湲됱“??60??9km/h)???먯씤?쇰줈, 湲곗〈 vturn apex-lag
-  ?댁뒋(89/90李??곗옣??? ?숈씪 怨꾩뿴, 91李?route 濡쒖쭅怨?臾닿?.
-- **harsh_brake 1嫄??ъ떎???⑥씪 ?대깽?? t??0570~10572)??`src=vturn`** ??
-  媛먯냼諛섍꼍 而ㅻ툕(議고뼢媛?0째??9째 ?곗냽 利앷?) 以?vturn 紐⑺몴媛 怨꾩냽 議곗뿬吏硫?
-  MPC媛 ?곕씪?〓뒗 ?곹솴. route 媛쒖엯怨?臾닿?, ?뚭? ?꾨떂.
-- **吏곸꽑 ?ㅽ깘(91李??뚭?寃利?b) 0嫄?*: steeringAngleDeg<3째?대㈃??route媛
-  vCruise ?鍮?5km/h ?댁긽 ??? desiredSpeed瑜?vEgo蹂대떎 ??쾶 ?좊룄??
-  ?꾨낫 ?꾩닔 ?ㅼ틪 寃곌낵 0嫄???91李??쒕??덉씠???덉륫(援ъ“?곸쑝濡?吏곸꽑?먯꽌
-  媛쒖엯 遺덇?)怨??ㅼ륫 ?쇱튂.
-- **湲띿젙 ?щ? ?뺤씤(91李??섎룄 a)**: seg16 t??0676.27遺??route媛
-  200km/h ?쒗빆 ?곹깭?먯꽌 desiredSpeed瑜?200??4(6珥?留뚯뿉 ?꾨쭔??濡?誘몃━
-  ??텛湲??쒖옉, 理쒖쥌 而ㅻ툕 ?쒗븳(`bump` src, 76~80km/h)源뚯? vEgo媛 湲됯컧??
-  ?놁씠 ?먯뿰?ㅻ읇寃?洹쇱젒 ??91李④? ?몃┛ "議곌린 媛쒖엯" ?⑦꽩怨??뺥솗???쇱튂?섎뒗
-  ?щ? ?ㅼ륫 ?뺤씤.
-- ?덉쟾吏?? ttc_danger_events 0嫄? cut_in 0嫄? vision?뭨adar crossover
-  1嫄?radar_lockon_jerk 1嫄댁? ?뺤긽踰붿쐞(由щ뱶媛먯? ?쒕툕?쒖뒪?? 91李⑥? 臾닿?).
-- route?봵turn ?뚮━而? 102???꾪솚/7遺?14.57??遺?, dwell 以묒븰媛?0.5s ??
-  ?덈?移?鍮꾧탳???ъ쟾(91李??댁쟾) 踰좎씠?ㅻ씪??濡쒓렇媛 ?놁뼱 ?대쾲 ?⑥튂濡??명븳
-  利앷컧 ?щ????먮떒 遺덇?(NEEDS_VALIDATION, ?ν썑 ?숈씪 援ш컙 A/B ?꾩슂??
-  李멸퀬). ?ㅻ쭔 flicker ?먯껜媛 89/90李??깆뿉???대? ?ㅻ쨪??湲곗〈 ?⑦꽩怨?
-  吏덉쟻?쇰줈 ?ㅻⅤ吏 ?딆쓬(吏㏃? dwell ?ㅼ닔 ??湲곗〈 ?섎뱶?ㅼ쐞移??뱀꽦).
+**핵심 결과**:
+- **turn_speed_violation 5건 전부 `src=vturn`** — route가 담당하던
+  구간에서 발생한 위반 0건. 최대(12.74km/h/3.7s, t≈10529)도 vturn
+  목표속도 자체의 급조임(60→39km/h)이 원인으로, 기존 vturn apex-lag
+  이슈(89/90차 연장선)와 동일 계열, 91차 route 로직과 무관.
+- **harsh_brake 1건(사실상 단일 이벤트, t≈10570~10572)도 `src=vturn`** —
+  감소반경 커브(조향각 0°→29° 연속 증가) 중 vturn 목표가 계속 조여지며
+  MPC가 따라잡는 상황. route 개입과 무관, 회귀 아님.
+- **직선 오탐(91차 회귀검증 b) 0건**: steeringAngleDeg<3°이면서 route가
+  vCruise 대비 5km/h 이상 낮은 desiredSpeed를 vEgo보다 낮게 유도한
+  후보 전수 스캔 결과 0건 — 91차 시뮬레이션 예측(구조적으로 직선에서
+  개입 불가)과 실측 일치.
+- **긍정 사례 확인(91차 의도 a)**: seg16 t≈10676.27부터 route가
+  200km/h 순항 상태에서 desiredSpeed를 200→94(6초 만에 완만히)로 미리
+  낮추기 시작, 최종 커브 제한(`bump` src, 76~80km/h)까지 vEgo가 급감속
+  없이 자연스럽게 근접 — 91차가 노린 "조기 개입" 패턴과 정확히 일치하는
+  사례 실측 확인.
+- 안전지표: ttc_danger_events 0건, cut_in 0건. vision→radar crossover
+  1건/radar_lockon_jerk 1건은 정상범위(리드감지 서브시스템, 91차와 무관).
+- route↔vturn 플리커: 102회 전환/7분(14.57회/분), dwell 중앙값 0.5s —
+  절대치 비교용 사전(91차 이전) 베이스라인 로그가 없어 이번 패치로 인한
+  증감 여부는 판단 불가(NEEDS_VALIDATION, 향후 동일 구간 A/B 필요시
+  참고). 다만 flicker 자체가 89/90차 등에서 이미 다뤄온 기존 패턴과
+  질적으로 다르지 않음(짧은 dwell 다수 — 기존 하드스위치 특성).
 
-**寃곕줎**: ?대쾲 援?룄 ?곗냽怨≪꽑 濡쒓렇?먯꽌 91李??⑥튂濡??명븳 ?덈줈??臾몄젣(?뚭?)??
-諛쒓껄?섏? ?딆쓬. 愿李곕맂 紐⑤뱺 turn_speed_violation/harsh_brake??湲곗〈遺??
-?뚮젮吏?vturn apex-lag ?댁뒋濡?洹?띾릺硫?route 履??먯씤 ?놁쓬. 吏곸꽑 ?ㅽ깘 0嫄댁쑝濡?
-?뚭? ?곕젮 ?댁냼. 議곌린媛쒖엯 ?섎룄 ?숈옉??理쒖냼 1媛?援ъ껜 ?щ?濡??ㅼ륫 ?뺤씤??
-**肄붾뱶 蹂寃??놁쓬(遺꾩꽍留?.**
+**결론**: 이번 국도 연속곡선 로그에서 91차 패치로 인한 새로운 문제(회귀)는
+발견되지 않음. 관찰된 모든 turn_speed_violation/harsh_brake는 기존부터
+알려진 vturn apex-lag 이슈로 귀속되며 route 쪽 원인 없음. 직선 오탐 0건으로
+회귀 우려 해소. 조기개입 의도 동작도 최소 1개 구체 사례로 실측 확인됨.
+**코드 변경 없음(분석만).**
 
-**?ㅼ쓬**:
-1. 濡쒓렇 湲곕줉?쒓컖-而ㅻ컠?쇱떆 遺덉씪移섍굔 ?ъ슜???뺤씤(??NEEDS_CONFIRMATION).
-2. 91李??⑥? ??ぉ c(而ㅻ툕B瑜? TBT 洹쇱젒 湲됱빱釉뚯뿉?쒖쓽 遺?묒슜) ???대쾲
-   濡쒓렇媛 ???援?룄 ?꾩＜??怨좎냽 TBT 洹쇱젒 而ㅻ툕 ?쒕낯???쏀븿, 蹂꾨룄 濡쒓렇
-   ?꾩슂???ш?利?
-3. route?봵turn ?뚮━而??덈? 利앷컧? ?ъ쟾??誘명솗?????꾩슂??91李??곸슜
-   吏곸쟾 ?숈씪援ш컙 濡쒓렇 ?뺣낫?섎㈃ `regression_report()`濡??뺣웾 鍮꾧탳 媛??
-4. 81/82/84/85/87李??ㅼ감寃利앸룄 ?대쾲 濡쒓렇濡??④퍡 愿李?媛??蹂꾨룄 ??ぉ
-   蹂???놁쓬, ?뱀씠?ы빆 ?놁쓬).
+**다음**:
+1. 로그 기록시각-커밋일시 불일치건 사용자 확인(위 NEEDS_CONFIRMATION).
+2. 91차 남은 항목 c(커브B류, TBT 근접 급커브에서의 부작용) — 이번
+   로그가 저속 국도 위주라 고속 TBT 근접 커브 표본이 약함, 별도 로그
+   필요시 재검증.
+3. route↔vturn 플리커 절대 증감은 여전히 미확정 — 필요시 91차 적용
+   직전 동일구간 로그 확보되면 `regression_report()`로 정량 비교 가능.
+4. 81/82/84/85/87차 실차검증도 이번 로그로 함께 관찰 가능(별도 항목
+   변화 없음, 특이사항 없음).
