@@ -1,3 +1,26 @@
+## 129차 (체크포인트 — 원인분석 완료, 구현방향 미결정, 코드 변경 없음) — 교차로 route 사전감속 계단형 고정 원인분석
+
+**요청**: 교차로(좌/우회전) 접근 시 route 사전감속이 너무 일찍 최저속도(30km/h)로
+고정돼 서행이 길다 — 과속카메라처럼 연속감속(70→65→...→30)으로 바꾸고 싶다.
+
+**진행**: route `306de77a28` seg15 실차로그 업로드(rlog+대시캠클립) →
+extract_log.py 추출 → desiredSpeed/src/vTurnSpeed/steeringAngleDeg 20Hz
+시계열 분석 → desiredSpeed 계단형 급락 2건(Δ24~25kph, 0.05초 이내,
+steer 직진 수준일 때 발생) 확인 → carrot_man.py::carrot_navi_route()
+91차 ROUTE_ENTRY_MARGIN_KPH 마진 로직 코드 재검토 → 구조적 원인 가설 수립
+(v_ego_kph를 거리 무관하게 전역 사용 → time_delay 과다산정 → 장거리
+"고정값 정체" 발생). 상세 근거/수치는 FINDINGS.md "129차" 참고.
+
+**상태**: NEEDS_VALIDATION — 가설 수준, 시뮬레이션 재현 미실시. 코드 변경 없음.
+
+**다음**: (1) 사용자에게 대안 A(margin 로직 거리보정)/B(calculate_current_speed
+스타일로 재구현)/C(margin_kph 완화) 중 방향 확인, (2) 실제 device 펌웨어
+커밋 확인(추출 CSV의 commit=b63063a5fe89는 로컬 repo HEAD일 뿐 실측
+아님 — 115차 학습 재적용 필요), (3) 방향 확정 후 sim_route_margin_regression_scan.py
+확장 재검증 → 패치.
+
+---
+
 ## 128차 계속2 (완료 — scons 컴파일 검증 완료) — (a) 클린 컴파일 확인, (b) 실질 검증 불필요함을 확인
 
 **scons 검증 진행** (127차계속과 동일 apt+uv+scons 방식):
