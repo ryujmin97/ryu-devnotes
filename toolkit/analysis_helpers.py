@@ -2189,6 +2189,129 @@ def vturn_release_lag_scan(rows, entry_thresh=5.0, exit_thresh=3.0,
     return results
 
 
+def radar_source_flicker_scan(rows, min_flips=3, window_s=2.0,
+                                blinker_window_s=1.0, jump_thresh_m=8.0,
+                                ttc_danger_thresh=2.5):
+    """
+    107차: 106차(WIP/FINDINGS)가 남긴 "차선변경 중 leadRadar 핸드오프 반복 급감속"의
+    정량화용. 106차는 leadRadarTrackId 컬럼이 없어 화면녹화 육안대조에만 의존했으나,
+    이미 63차 계속3에서 해당 컬럼이 추가돼 있었음이 107차에서 재확인됨 -- 다만 이
+    차량(SCC 단일점 레이더, 코너레이더 없음)에서는 leadRadar=True인 프레임의
+    leadRadarTrackId가 항상 0으로 고정(캐시된 12개 라우트 전수 확인)이라 트랙ID
+    자체는 변별력이 없음. 대신 leadRadar(True/False) 값이 얼마나 자주 뒤집히는지와
+    그게 blinker 활성 구간과 겹치는지를 직접 정량화한다.
+
+    방법:
+    - leadStatus=True로 이어지는 연속 구간(run) 안에서 leadRadar 값이 이전 프레임
+      대비 바뀌는 시점(엣지)을 전부 찾는다.
+    - 각 엣지를 기준으로 앞뒤 window_s초 안에 다른 엣지가 min_flips개 이상 모여
+      있으면 "플리커 클러스터"로 묶는다(같은 클러스터에 속하는 엣지들은 중복
+      집계하지 않고 클러스터 단위로 1건 카운트).
+    - 클러스터별로: 지속시간(첫~마지막 엣지), 엣지 수, blinker_window_s 안에
+      leftBlinker/rightBlinker가 한 번이라도 True였는지, 클러스터 구간 내 최대
+      |dRel jump|(프레임간, jump_thresh_m 이상만) 및 그 순간 would_trigger_ttc_danger
+      (curve_lead_dRel_jump_events와 동일 계산식, 단 src 필터 없음 -- 이 현상은
+      src(vturn 등)와 무관하게 발생하므로 curve_lead_dRel_jump_events를 그대로
+      재사용하지 않고 여기서 독립 계산).
+
+    리턴: {"n_clusters", "n_clusters_with_blinker", "clusters"(상세 리스트),
+           "n_leadRadar_edges_total"}
+    각 cluster dict: {"t_start","t_end","duration_s","n_edges","seg",
+                       "blinker_overlap","max_abs_jump_m","would_trigger_ttc_danger",
+                       "vEgo_at_start"}
+
+    주의: min_flips=3 기본값은 106차 사례3(1.85초/4회+)을 기준으로 잡은 보수적
+    문턱 -- mild 사례(사례1, 2초/3회)는 걸리지만 정상적인 1회성 핸드오프는
+    걸리지 않도록. 필요시 완화(min_flips=2)해서 재실행 권장.
+    """
+    n = len(rows)
+    t = [_f(r, "t") for r in rows]
+    lead = [_b(r, "leadStatus") for r in rows]
+    radar = [_b(r, "leadRadar") for r in rows]
+    dRel = [_f(r, "leadDRel") for r in rows]
+    vEgo = [_f(r, "vEgo") for r in rows]
+    lblk = [_b(r, "leftBlinker") for r in rows]
+    rblk = [_b(r, "rightBlinker") for r in rows]
+    seg = [r.get("seg") for r in rows]
+
+    edges = []
+    for i in range(1, n):
+        if not (lead[i] and lead[i - 1]):
+            continue
+        if t[i] is None or t[i - 1] is None:
+            continue
+        if radar[i] != radar[i - 1]:
+            edges.append(i)
+
+    clusters = []
+    used = [False] * len(edges)
+    for k, i in enumerate(edges):
+        if used[k]:
+            continue
+        et = t[i]
+        group_idx = [k]
+        for k2, i2 in enumerate(edges):
+            if k2 == k or used[k2]:
+                continue
+            if t[i2] is not None and abs(t[i2] - et) <= window_s:
+                group_idx.append(k2)
+        if len(group_idx) < min_flips:
+            continue
+        for k2 in group_idx:
+            used[k2] = True
+
+        group_rows = [edges[k2] for k2 in group_idx]
+        t_start = min(t[i2] for i2 in group_rows)
+        t_end = max(t[i2] for i2 in group_rows)
+
+        blk_idxs = [j for j in range(n)
+                    if t[j] is not None and t_start - blinker_window_s <= t[j] <= t_end + blinker_window_s]
+        blinker_overlap = any((lblk[j] or rblk[j]) for j in blk_idxs)
+
+        max_jump = 0.0
+        would_danger = False
+        span_idxs = [j for j in range(n) if t[j] is not None and t_start - 0.1 <= t[j] <= t_end + 0.1]
+        for j in span_idxs:
+            if j == 0 or not (lead[j] and lead[j - 1]):
+                continue
+            if t[j] is None or t[j - 1] is None or dRel[j] is None or dRel[j - 1] is None:
+                continue
+            dt = t[j] - t[j - 1]
+            if not (0 < dt <= 0.35):
+                continue
+            jump = dRel[j] - dRel[j - 1]
+            if abs(jump) < jump_thresh_m:
+                continue
+            if abs(jump) > max_jump:
+                max_jump = abs(jump)
+            implied_rate = jump / dt
+            if implied_rate < 0 and dRel[j] > 0:
+                ttc = dRel[j] / (-implied_rate)
+                if ttc <= ttc_danger_thresh:
+                    would_danger = True
+
+        i0 = group_rows[0]
+        clusters.append({
+            "t_start": round(t_start, 2),
+            "t_end": round(t_end, 2),
+            "duration_s": round(t_end - t_start, 2),
+            "n_edges": len(group_idx),
+            "seg": seg[i0],
+            "blinker_overlap": blinker_overlap,
+            "max_abs_jump_m": round(max_jump, 2),
+            "would_trigger_ttc_danger": would_danger,
+            "vEgo_at_start": round(vEgo[i0], 2) if vEgo[i0] is not None else None,
+        })
+
+    clusters.sort(key=lambda c: c["t_start"])
+    return {
+        "n_clusters": len(clusters),
+        "n_clusters_with_blinker": sum(1 for c in clusters if c["blinker_overlap"]),
+        "n_leadRadar_edges_total": len(edges),
+        "clusters": clusters,
+    }
+
+
 if __name__ == "__main__":
     import sys
     if len(sys.argv) < 2:

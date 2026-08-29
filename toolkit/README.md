@@ -198,6 +198,21 @@ carryover도 동일하게 적용됨. **이 컬럼들이 없는 과거 CSV(42차 
   의미하지 않음(1차 스크리닝용, 자세한 주의사항은 함수 docstring
   참고).
 
+- `radar_source_flicker_scan(rows, min_flips=3, window_s=2.0, blinker_window_s=1.0, jump_thresh_m=8.0, ttc_danger_thresh=2.5)`
+  (107차 신규): leadRadar(True/False) 값이 짧은 시간 안에 여러 번 뒤집히는
+  "소스 플리커" 클러스터를 찾는다. 106차("차선변경 중 leadRadar 핸드오프
+  반복 급감속") 정량화용으로 추가 — leadRadarTrackId는 이 차량(SCC 단일점
+  레이더, 코너레이더 없음)에서 radar=True일 때 항상 0 고정이라 변별력이
+  없음을 107차에서 확인(트랙ID로 "같은 물체 vs 다른 물체" 구분 불가), 대신
+  leadRadar 엣지 빈도 + blinker 겹침 + dRel 점프 크기로 직접 정량화.
+  **주의**: `would_trigger_ttc_danger`는 `curve_lead_dRel_jump_events`와
+  동일하게 프레임간 순간변화율 기반 근사치(1차 스크리닝용)이며 실제
+  a_change_cost 부스트/danger override 상호작용을 시뮬레이션한 값이
+  아님 — 정밀 검증엔 `sim_jerk_boost.py` 병행 필요. 107차에서 캐시된
+  일반 주행 12개 라우트 전체 스캔 결과 51클러스터 중 blinker 겹침은
+  21건(41%)뿐 — 이 현상이 차선변경에 국한되지 않을 가능성 시사(상세는
+  WIP.md/FINDINGS.md 107차 참고).
+
 **회귀 리포트 사용 예시**:
 ```python
 from analysis_helpers import load_csv, regression_report, regression_report_markdown
@@ -355,16 +370,123 @@ python3 replay_lookahead_v1.py /home/claude/work/route4 \
 
 ## sim_low_speed_decel.py
 **목적**: 58차 2번("정체구간 붕끗") 패치 — `long_mpc.py`의
-`LOW_SPEED_STRONG_DECEL_V_EGO_GATE`(30km/h)/`_A_LEAD_THRESH`(-1.8m/s²)
-게이트(저속+앞차 강한감속 시 danger override와 동일하게 즉시 무감쇠)
-로직 단위 검증. `process_lead()`의 weight 계산부만 순수함수로 재현
-(실제 acados MPC는 안 거침).
+`LOW_SPEED_STRONG_DECEL_V_EGO_GATE`(30km/h)/`_A_LEAD_THRESH`(112차부터
+-2.5m/s², 원래 -1.8) 게이트(저속+앞차 강한감속 시 danger override와
+동일하게 즉시 무감쇠) 로직 단위 검증 + 112차부터
+`discontinuity_jerk_boost` 신규 트리거 소스 `low_speed_strong_decel`
+(a_change_cost 완만화 경로) 검증. `process_lead()`의 weight 계산부만
+순수함수로 재현(실제 acados MPC는 안 거침).
 **의존성**: 없음(표준 라이브러리만).
-**시나리오 4건**: A(고속 회귀, patch 전/후 diff=0)/B(이벤트 재현,
+**시나리오 7건**: A(고속 회귀, patch 전/후 diff=0)/B(이벤트 재현,
 unpatched 감쇠→rise-rate 한계로 몰려서 반영 vs patched 즉시 w=1.0)/
 C(오탐 방지, 저속+완만감속은 게이트 미개방)/D(경계 전이, v_ego가
-게이트값을 여러 번 넘나들어도 예외 없음).
+게이트값을 여러 번 넘나들어도 예외 없음)/**E(112차 신규: 라우트1
+실측 aLeadK=-2.07 재현 — 신threshold -2.5에서 더 이상 저속게이트
+미발동 확인, 오탐 해소)**/**F(112차 신규: 진짜 강한감속 -3.0은
+threshold 강화 후에도 여전히 게이트 발동 — 원래 목적 보존 확인)**/
+**G(112차 신규: jerk_boost 'low_speed_strong_decel' 소스 — danger
+지속 중엔 a_change_cost=base 유지, 해제 직후 boost(500) 전환 후
+hard-hold(4.0s)+release-rate(100/s)로 base까지 완만 감쇠)**.
 **사용**: `python3 sim_low_speed_decel.py`
+
+## sim_gap_open_damping.py (116차 신규, 117차 완만화 버전 추가)
+**목적**: 6님 제보("저속에서 앞차 멀어질 때 너무 급하게 재가속 -> 다시
+붙을 때 급브레이크") 대응 신규 방안 — 저속(<=40km/h)에서 이미
+desired_distance보다 충분히 벌어진 상태(gap_ratio >=
+MARGIN_ACCEL_GATE_FULL=1.5, 기존 dist_w 경계 재사용)에서 앞차가 강하게
+가속 중일 때만 MPC에 넘기는 a_lead에 상한(`LOW_SPEED_GAP_OPEN_ACCEL_CAP`)을
+거는 로직의 단위 검증. `process_lead()`의 관련 분기만 순수함수로 재현.
+**핵심 설계**: 45차("정지 후 출발 가속 약화") 재발을 막기 위해
+(1) `_launch_bypass_active` 구간 명시적 제외, (2) gap_ratio가 낮은
+(desired_distance 이내로 정상 추종 중인) 구간은 게이트 자체가 안 열림 —
+정상 출발이 "너무 천천히" 되는 오탐을 구조적으로 차단.
+**의존성**: 없음(표준 라이브러리만).
+
+**116차 — 하드클램프 버전, 시나리오 A~F(전부 PASS, 참고용으로 보존)**:
+A(고속 회귀 diff=0)/B(launch bypass 중 defense-in-depth 캡 미적용)/
+C(bypass 해제 후 18~40km/h 정상 출발 연장 구간 캡 미적용 — 오탐 방지
+핵심)/D(이벤트 재현, gap_ratio>=1.5+강한가속 지속 시 a_lead가 CAP(0.5)로
+클램프)/E(완만가속 오탐방지, diff=0)/F(gap_ratio 1.5 경계 전이 — 예외
+없이 즉시 토글되나, **캡 진입 순간 a_lead에 최대 1.5 m/s² 단차(하드클램프,
+완만화 없음) 발생 확인**).
+
+**117차 — 완만화(rise-rate 블렌드) 버전 추가, 실제 long_mpc.py 패치와
+동일 로직(`apply_gap_open_cap_smoothed`, `GapOpenCapState`)**: F에서
+발견된 단차를 39차(`LEAD_ACCEL_WEIGHT_RISE_RATE`)와 동일 패턴으로 해소 —
+캡을 직접 하드클램프하지 않고 블렌드 weight(`cap_w`, 0=무캡~1=완전캡)를
+`LOW_SPEED_GAP_OPEN_WEIGHT_RISE_RATE`(1.0/s)로 진입/해제 양방향 모두
+사이클당 변화폭 제한. 신규 시나리오 3건 전부 PASS: **G**(경계전이 재측정
+— 사이클당 최대 변화폭 1.500→0.075 m/s², 95% 감소, 이론값과 일치)/
+**H**(bypass 즉시 우회 — cap_w가 중간값(0.5)으로 램프 진행 중이어도
+bypass 활성 시 같은 프레임에 즉시 cap_w=0.0 강제)/**I**(정상상태 일치 —
+게이트 유지 5s 후 하드클램프 버전과 동일한 최종값(a_lead=0.5, cap_w=1.0)
+도달, 지연만 있을 뿐 결과는 동일).
+**사용**: `python3 sim_gap_open_damping.py` (A~I 9개 시나리오 전부 실행,
+요약 출력)
+
+## replay_low_speed_strong_decel.py
+**목적**: 112차 계속 — 라우트1 실측 CSV로 LOW_SPEED_STRONG_DECEL
+threshold 강화(-1.8→-2.5) + jerk_boost 신규소스 검증. `sim_low_speed_
+decel.py`(합성 시나리오)와 달리 실측 노이즈 데이터를 그대로 사용.
+**핵심 발견(중요, 기존 분석 정정)**: 단일 시점(aLeadK=-2.07)만 봤던
+기존 분석은 불완전 — 실제로는 aLeadK가 계속 악화돼 최대 -2.96까지
+도달하는 **진짜 지속적 앞차 감속 이벤트**였고, 동시에 TTC도 6.85s→
+4.15s로 자연 하강 중이었음(정상 ttc_accel_weight 경로도 결국 같은
+구간에서 자연 수렴). `compare_weight_trajectory()`로 오버라이드
+없는 baseline과 비교한 결과: baseline은 t=1939.873에 자연 수렴(w≥0.99)
+하는데, 구threshold는 이보다 0.900s, 신threshold는 0.700s 앞당겨
+w=1.0을 강제함. 즉 **threshold 강화는 오탐을 "제거"한 게 아니라
+"조기발동 구간을 0.754s→0.410s로 약 46% 단축"한 것** — 원래
+FINDINGS.md 112차의 "오탐 확정" 서술은 이번 실측 replay로 일부
+정정 필요(사용자 확인 대기, 아래 FINDINGS.md 112차 계속2 참고).
+**함수**: `run_threshold_scan()`(threshold별 발동 프레임/에피소드 스캔),
+`run_jerk_boost_flicker_check()`(실측 노이즈 환경 재트리거 이상 점검),
+`compare_weight_trajectory()`(오버라이드 유/무 weighted a_lead 궤적
+비교 — 오버라이드의 실제 한계효용 정량화).
+**의존성**: 없음(표준 라이브러리만).
+**사용**: `python3 replay_low_speed_strong_decel.py <route.csv>`
+
+## replay_margin_accel_weight_full.py (114차, 신규)
+**목적**: 113차가 근사 못 했던 `margin_accel_weight`(dist_w)까지 포함해
+`long_mpc.py`의 lead-accel damping weight(dist_w/ttc_w/rise-rate 클램프/
+LOW_SPEED_STRONG_DECEL 게이트/TTC danger override)를 실측 CSV 위에서
+완전 재현. desired_distance 계산에 필요한 carrot 상태값은
+`selfdrive/carrot/carrot_functions.py`의 **Params 기본값**(TFollowGap2=
+1.20/ComfortBrake=2.4/StopDistanceCarrot=5.5/EnableSpeedTF=0/
+DynamicTFollow=0/MyDrivingMode=Normal)을 대입 — personality=standard
+가정, 사용자가 Params를 커스텀했다면 오차 가능(스크립트 상단 docstring에
+가정/한계 전부 명시).
+**113차 스크립트(`replay_rise_rate_saturation.py`) 관련 중요 공지**:
+그 스크립트는 컨테이너 리셋으로 유실되어 레포에 존재하지 않음(FINDINGS.md
+서술만 남음) — 이 스크립트가 그 대체+확장판. 113차 수치와 직접 재현
+비교는 불가했으나, ROUTE1 결과가 크게 달라진 것으로 보아(0.951s→0.250s)
+113차 스크립트는 LOW_SPEED_STRONG_DECEL/TTC danger override 로직을
+포함하지 않았을 가능성이 높음(114차 FINDINGS.md 참고).
+**주요 함수**:
+- `run_window(rows, t_lo, t_hi)` — 지정 시간범위 프레임별 dist_w/ttc_w/
+  w_target/w_applied/danger_now/gap 리스트 리턴.
+- `longest_saturation_run(frames)` / `total_saturation_time(frames)` —
+  gap>0(클램프가 목표를 못 따라잡는 상태) 연속/총 시간.
+- `scan_route_saturation_episodes(rows, thresholds)` — 라우트 전체를
+  순차 재생(세그 경계 상태 이어받음, leadStatus False 구간에서 rise-rate
+  상태 리셋)해 threshold별 에피소드 개수 카운트(오탐률 스윕용). 리턴:
+  `(threshold별 count/max_duration 딕셔너리, 전체 에피소드 리스트)`.
+- `TFollowState` — decel-hold+boost t_follow를 세그먼트 단위로 순차
+  시뮬레이션하는 상태 클래스(carrot_functions.py
+  `_apply_decel_hold_and_boost_t_follow` 리터럴 이식).
+**114차 핵심 발견**: ROUTE1은 이미 112차 threshold 강화(-1.8→-2.5)
+패치로 danger override가 0.25s만에 발동해 SMOOTH 수준으로 saturation이
+짧아짐(더 이상 harsh 아님). ROUTE2/3는 override 게이트 밖(v_ego>30km/h)
+이라 여전히 0.9~1.0s대 saturation. SMOOTH 라우트 전체 스캔에서 진짜
+위험과 무관한 0.448s 노이즈성 에피소드(track-switch 추정)가 발견돼
+"연속 saturation 시간 단일 지표" 판별법의 한계가 드러남 — 상세는
+FINDINGS.md "114차" 참고.
+**의존성**: 없음(표준 라이브러리만).
+**사용**:
+```bash
+python3 replay_margin_accel_weight_full.py <route.csv> <t_lo> <t_hi>   # 특정 구간
+python3 replay_margin_accel_weight_full.py <route.csv>                 # 전체 스캔+threshold 스윕
+```
 
 ## sim_vision_track_ab.py
 **목적**: 58차 3번("정지앞차 미인식/과소반응", A+B) + 후속수정(외곽
@@ -528,6 +650,70 @@ cost=500(완전부스트) 유지 — 한계 해소 확인. route1/route2 전체
 python3 replay_lane_change_discontinuity_gate.py
 ```
 
+
+## scan_force_revert_episodes.py (108차 신규)
+**목적**: `replay_lane_change_discontinuity_gate.py`의
+`LaneChangeGateReplay(duration_mode='full')`(75-76차, 현재
+`long_mpc.py`의 `discontinuity_lc` 소스와 100% 동일 로직)를 여러
+라우트에 대해 "라우트 전체 한 번에 연속 재생" 방식으로 돌려
+force_revert(boost 타이머가 살아있는데도 danger_active에 밀려
+a_change_cost가 boost 값 밑으로 떨어진 프레임) 에피소드를 자동
+탐지/그룹핑한다. 106차/107차가 수작업/소규모 표본으로 냈던 "차선변경이
+force_revert 필요조건" 결론을 30라우트 규모로 확정하는 데 사용됨
+(108차, FINDINGS.md 참고).
+**중요 — 반드시 이 도구를 쓸 것, 직접 재구현하지 말 것**: 108차에서
+클러스터 구간만 잘라 warm-start로 재생하거나(pad_s에 따라 결과가
+달라지는 아티팩트 발생), 트리거 소스별 hard-hold 시간 차이
+(discontinuity=1.0s vs handoff/discontinuity_lc=4.0s)를 구분 안 하고
+단일 `boost_s`로 재현하면 허위 severe 사례가 다수 발생함을 확인
+(폐기된 `flicker_cluster_boost_replay.py`, 이 실수 기록은 FINDINGS.md
+108차 "2단계" 참고). 이 함정을 피하려면 `LaneChangeGateReplay`를
+그대로 재사용해야 한다.
+**의존성**: `replay_lane_change_discontinuity_gate.py`.
+**주요 함수**: `scan_route(route_id, rows, force_revert_cost_thresh=300.0)`
+— 단일 라우트 스캔, `scan_many_routes(route_rows_map)` — `{route_id:
+rows}` 딕셔너리를 받아 전체 에피소드 리스트를 합쳐 반환.
+**사용**:
+```python
+from scan_force_revert_episodes import scan_many_routes
+eps = scan_many_routes(route_rows_map)  # route_rows_map = {route_id: rows}
+for e in sorted(eps, key=lambda x: x['min_aEgo']):
+    print(e['route_id'], e['trigger_source'], e['blinker_active_at_start'],
+          e['t_start'], e['duration_s'], e['min_aEgo'])
+```
+단독 실행(등록된 라우트 대상): `python3 scan_force_revert_episodes.py
+/home/claude/devnotes <route_id1> <route_id2> ...`
+
+## patched_replay_v109.py (109차 신규)
+**목적**: 옵션1 patch(`long_mpc.py`, `LANE_CHANGE_DISCONTINUITY_
+DANGER_CONFIRM_S`)를 실제 코드 배포 전에 검증하기 위해
+`replay_lane_change_discontinuity_gate.py`의 `LaneChangeGateReplay`
+(76차, full모드)를 상속, `discontinuity_lc` 트리거에 한해 danger_
+active가 CONFIRM_S(0.25s, `long_mpc.py`와 반드시 동일값 유지) 동안
+연속 유지돼야 force_revert를 인정하도록 오버라이드한 PATCHED 버전.
+`scan_force_revert_episodes.py`(108차, UNPATCHED)와 나란히 돌려
+before/after 비교하는 용도.
+**검증 결과(109차)**: 캐시 `a5b1ce4e42`에서 경미한 force_revert(0.15s)
+완전 흡수, 지속 사례(0.55s)는 0.35s로 단축(진짜 위험분은 보존) —
+상세는 FINDINGS.md 109차 참고. **주의**: 108차 가장 심한 사례
+(`947fbb7dc6`)와 `handoff` 사례(`ad830211ff`)는 원본 CSV 소실로 아직
+이 도구로 검증 못함 — 재업로드 후 최우선 재검증 필요.
+**의존성**: `replay_lane_change_discontinuity_gate.py`,
+`replay_boost_duration.py`.
+**주요 함수**: `PatchedLaneChangeGateReplay(lane_change_gate,
+duration_mode='full')` — `step()`이 `force_revert` 키를 추가로 반환,
+`scan_route_patched(route_id, rows)` — `scan_force_revert_episodes.
+scan_route()`와 동일 인터페이스의 PATCHED 버전.
+**사용**:
+```python
+from data_routes import load_route
+from scan_force_revert_episodes import scan_route as scan_unpatched
+from patched_replay_v109 import scan_route_patched
+
+rows, meta = load_route("/home/claude/devnotes", "a5b1ce4e42")
+eps_before = scan_unpatched("a5b1ce4e42", rows)
+eps_after = scan_route_patched("a5b1ce4e42", rows)
+```
 
 ## push_via_api.py
 **목적**: `GH_TOKEN` 환경변수로 GitHub Contents API를 통해
@@ -717,6 +903,83 @@ frac_rate=1.0 유지 vs PATCHED는 즉시 0. 2)정상 완만접근(discontinuity
 
 ---
 
+## match_dashcam_clip_to_route.py (111차 신규)
+**목적**: `_clip.mp4` 대시캠 화면녹화의 파일명 타임스탬프(HHMMSS)만으로는
+route CSV의 정확한 `t` 구간을 특정할 수 없는 문제(HUD 시계가 시:분만
+표시 + screenrecorder.cc 저장시각과 시작시각 어긋남, 111차 실측 최대
+~50초 편차 확인) 해결. blinker 클러스터의 **순서/상대 시간차 + 급감속
+강도**로 클립을 route t에 매칭.
+**핵심 함수**: `find_blinker_clusters(rows)` — route CSV에서 blinker
+활성 클러스터 전부 추출 + 각 구간 min_aEgo/시각. `match_clips(clusters,
+clip_filename_seconds, tolerance_s=10)` — 클립 파일명 시각 리스트와
+후보 클러스터 시간차를 비교해 매칭.
+**검증(111차)**: `947fbb7dc6`의 두 클립(`113702`,`113848`, 파일명
+시간차 106s)을 이 방법으로 매칭 — 후보 클러스터 시간차 108.9s(오차
+2.9s)로 성공 매칭, qcamera 프레임 시각 대조로 재확인. 파일명 매칭
+직접시도(seg0 시작시각 기준 단순 오프셋)는 실제로 53~55초 어긋나
+실패했던 것과 대조.
+**한계**: 클립 2~3개 전용(그 이상은 조합 폭발, 수동 검토 권장). 이
+도구는 "언제" 일어났는지만 특정 — 화면 `a_ego/a_target/a_out` 그래프
+자체를 재현하려면 별도로 `long_mpc.py` MPC 솔버 재실행 필요(미구현).
+
+## replay_lane_departure_gate.py (120차, 신규)
+**목적**: 119차 실제 패치(radard.py get_lead() LANE_DEPARTURE 게이트,
+1.75m/0.5s/vRel>-0.5)가 실차에서 실제로 동작했는지 실측 route CSV로
+검증. `sim_lane_departure_gate.py`(119차, 근사 합성검증)의 실측 replay
+버전 — 119차가 "다음 세션 필요"로 남겨둔 항목.
+**핵심 아이디어**: leadStatus=True 구간에서 |leadDPath|>1.75 &
+leadVRel>-0.5가 0.5s 지속되는 "예측 발동 시각"을 계산 후, 그 직후
+실제 CSV에서 leadStatus가 True->False로 전환되는지 대조(PASS/FAIL/
+AMBIGUOUS 판정).
+**의존성**: 없음(표준 라이브러리만).
+**120차 핵심 발견**: 4개 route(89996행) 스캔 결과 PASS 5/FAIL 3 —
+FAIL 사례는 `LeadBlend.update()`가 게이트의 status=False 리셋을
+자신의 구버전 `_is_cutout()`(2.0m 기준)으로 재판정해 최대
+`LEAD_LOST_GRACE_TIME`(0.6s) 동안 리셋을 무력화하는 구조적 버그(118/
+119차가 원래 잡으려던 "outer 로직 무력화" 버그 클래스 재발). 상세는
+FINDINGS.md "120차" 참고.
+**주의**: dPath는 게이트 발동 "이후" 값이 로그에서 사라지므로(status
+False가 되며 필드가 비게 됨), 발동 이전 상승 구간만으로 예측 —
+정밀한 "게이트가 정말 그 프레임에 개입했는지"는 leadStatus 실제
+전환 타이밍과의 대조로 간접 판단(직접 확정 아님, verdict 필드의
+note에 판단 근거 명시).
+**사용**:
+```bash
+python3 replay_lane_departure_gate.py <route.csv> [<route.csv> ...]
+```
+
+## extract_cutin_lists.py (125차, 신규)
+**목적**: rlog에서 `radarState`의 `leadOne`/`leadsCutIn`/`leadsLeft`/`leadsRight`
+리스트(radard.py `compute_leads()`가 실제로 산출한 최종 결과 그대로)를
+시간별로 추출. `extract_log.py`는 최종 선택된 leadOne만 CSV로 뽑기 때문에,
+"인접 차선 차량이 실제로 언제부터 cutin/left/right 후보로 잡혔는지"를
+보려면 이 스크립트가 필요함. 125차, 컷인_이거는_차선_폭을_넓게(133212)
+정밀분석 계기로 작성 — 게이트/hysteresis 로직을 재구현하지 않고 실제
+publish된 리스트를 그대로 읽으므로 로직 drift 위험이 없음.
+**입력**: route_dir(세그먼트 여러 개) 또는 단일 세그먼트 폴더 둘 다 지원.
+**출력**: `--json` 없으면 지정 시간창(`--t-lo`/`--t-hi`)을 사람이 읽기 좋게
+stdout 출력. `--json <path>`면 라우트 전체를 JSONL로 저장(leadOne dict +
+cutIn/left/right 리스트 전체 보존).
+**125차 핵심 발견**: r354 t≈296~299 컷인 사례를 이 스크립트로 재생한 결과
+`leadsCutIn`/`leadsLeft`/`leadsRight`가 사건 전체 구간에서 단 한 번도
+비지 않았음(n=0 유지) — 옆차의 yRel이 최대 0.83m로, `in_lane_prob`
+계산상 "여전히 내 차로 안"으로 분류되어 애초에 "차로 밖 후보" 게이트가
+개입한 적이 없었음. 즉 `lane_half_width` 관련 임계값을 넓히는 방향의
+수정은 이미 발동한 적 없는 이 게이트를 더 관대하게 만들 뿐이라 이 사례엔
+무력함(FINDINGS.md "125차" 참고). 이 발견은 `decode_rlog.py`의
+`liveTracks`(원시 레이더 포인트, yRel/dRel raw) + `modelV2.leadsV3[0]`
+(비전 단독 후보 x/y)를 병행 조회해서 얻음 — 이 두 신호는 아직 별도
+toolkit 함수로 감싸지 않았으니, 다음에 유사 분석이 필요하면 이
+스크립트의 `process_route()`와 나란히 `decode_rlog.iter_events()`를
+`liveTracks`/`modelV2` 필터로 직접 순회하는 패턴을 참고할 것.
+**사용**:
+```bash
+python3 extract_cutin_lists.py <route_or_seg_dir> --repo /home/claude/ryu \
+    --t-lo 294 --t-hi 300
+python3 extract_cutin_lists.py <route_dir> --repo /home/claude/ryu \
+    --json /home/claude/work/cutin_lists.jsonl
+```
+
 ## 아직 없는 카테고리 (필요해지면 추가)
 - `toolkit/sim/` — 시뮬레이터 스크립트가 `sim_vision_rate.py` 하나를
   넘어 여러 개로 늘어나면 이 시점에 하위 폴더로 분리 검토.
@@ -747,3 +1010,241 @@ python3 sim_route_margin_regression_scan.py <route.csv> \
 `--lookahead`는 84/85차 동적 캡(300~600m) 커버리지의 근사치 — 최소
 40~50초 권장(고속 구간 600m 커버 위해).
 **의존성**: `shapely`, `numpy`. `sim_route_curvature_sample.py` 재사용.
+
+## scan_perf_antipatterns.sh
+**목적**: 실시간 루프 파일(carrot_man.py/carrot_functions.py/
+carrot_serv.py/controlsd.py/radard.py/longitudinal_planner.py/
+long_mpc.py/cruise.py 등)에서 CPU/메모리 관련 정적 안티패턴 후보를
+grep으로 일괄 스캔. "전체코드 CPU/메모리 재점검" 같은 요청에서 매번
+grep 명령을 손으로 다시 짜지 않기 위한 도구(101차 후속 세션에서 사용한
+패턴을 스크립트화).
+**스캔 항목**: `deepcopy`, `Params()` 신규 인스턴스 생성, 미캐싱
+가능성 있는 `.params.get*`, `print(`, 함수 내부 `re.compile`,
+`threading.Thread`/`subprocess.*`, `.append(`(bounded 여부 확인용),
+누적형 dict 캐시(`self.xxx = {}`), 비벡터화 `for ... in range(len(`.
+**사용**:
+```bash
+bash toolkit/scan_perf_antipatterns.sh /home/claude/ryu
+# 파일 목록을 직접 지정하려면:
+bash toolkit/scan_perf_antipatterns.sh /home/claude/ryu selfdrive/carrot/carrot_man.py
+```
+**주의 (중요)**: 이 스크립트는 "의심 위치"만 찾아준다. 매치 하나하나가
+실제 문제인지는 반드시 `sed -n 'N,Mp' <file>`로 컨텍스트(호출 빈도,
+readParams류 캐싱 게이트 안에 있는지, deque(maxlen=..)로 bounded인지,
+이벤트 트리거성인지 vs 매 프레임 실행인지)를 확인해야 한다. 오탐이
+흔하다 — 101차 후속 스캔에서 나온 매치 대부분이 이미 97~100차에서
+캐싱/bounded 처리가 되어 있는 것으로 확인됨(WIP.md/FINDINGS.md
+"101차 후속 CPU/메모리 재점검" 참고).
+
+## sim_lane_departure_gate.py (119차, 신규)
+**목적**: 118차 설계 제안("빨간 박스"/검증된 레이더락 상태에서도 적용되는
+차선이탈 강제해제 게이트, `radard.py`에는 아직 미반영)의 파라미터
+(`LANE_DEPARTURE_DPATH_THRESH`, `LANE_DEPARTURE_CONFIRM_S`) 후보를
+코드 반영 전에 합성 시나리오로 사전 검증. `_is_cutout()`
+(`radard.py` L657~662) 상수(`CUTOUT_DPATH_THRESH=2.0`,
+`CUTOUT_VREL_GATE=-0.5`)를 그대로 가져와 대조 기준으로 사용.
+**의존성**: 없음(표준 라이브러리만, `random`/`math`는 표준).
+**시나리오 4건**: (1) 정상 커브 dPath 노이즈(±0.3~0.9m, 118차 기록
+실측 스윙 범위) 200회 몬테카를로 오탐율, (2) route1
+t=5915.03~5932.53 실측 이벤트 근사 재현(118차 WIP.md 기록 수치 기반
+`frac**1.6` 성장 곡선 근사 — **정밀 replay 아님**, route1.csv가 이
+세션에 없어 실측 프레임 단위 재현은 불가), (3) 단일 프레임 노이즈
+스파이크(confirm_s 디바운스 확인), (4) 강접근 중(vRel<-0.5) dPath
+초과 시 danger override 철학과 충돌하지 않는지.
+**핵심 발견 (119차)**: 실측 이벤트(시나리오2)에서 dPath가 최대
+-1.97~-1.99m까지만 도달하고 2.0m를 한 번도 안 넘음 → **기존
+CUTOUT_DPATH_THRESH=2.0m을 그대로 재사용하면 이 게이트가 이 사례에
+전혀 트리거되지 않음**(118차 "기본안"은 이 특정 이벤트에 무력).
+1.75m/confirm_s=0.5로 좁히면 t=15.25s(원본 기준 t≈5930.28)에 강제
+해제 → 자연해제(17.50s) 대비 **2.25초 단축**. 정상 커브 노이즈
+200회 시행에서 1.75m/2.0m/2.30m 모두 오탐 0건(노이즈 최대치
+0.9~1.05m로 1.75m와 0.85m 이상 여유 있음 — 단, 이 노이즈 모델은
+118차가 기록한 범위를 그대로 쓴 근사치이며 더 급한 커브의 dPath
+거동은 별도 검증 필요, 아래 한계 참고).
+**한계 (명시)**:
+- route1.csv 미보유로 인해 시나리오2는 "선형 아님, 참고용" 근사 —
+  다음 세션에 route1 원본(또는 캐시)이 확보되면
+  `replay_lane_departure_gate.py`류로 정밀 재현 필요.
+- 시나리오1 정상 커브 노이즈 모델은 118차가 육안 프레임 분석에서
+  기록한 스윙 범위(±0.3~0.9m) 하나에만 근거 — 표본이 이벤트 1건뿐이라
+  더 급한 실제 커브(급커브/급차선변경 등)의 정상 dPath 거동은
+  대표하지 못할 수 있음.
+**사용**: `python3 toolkit/sim_lane_departure_gate.py`
+
+## sim_lead_blend_far_jump_gate.py (130차, 신규)
+**목적**: 104차 Finding A(NEEDS_VALIDATION) — 레이더 락온 근접 리드가
+커브 진입 중 락을 잃고 vision-only 저신뢰(prob≈0.24)로 폴백되는 순간
+84~89m 원거리로 오판되는데, 기존 `LeadBlend` BIG_JUMP(>15m 안전방향)
+즉시-스냅 로직이 신뢰도와 무관하게 그대로 반영하던 문제를 재현하고,
+130차에서 반영한 신뢰도 게이트(`radar=True` 또는
+`modelProb>=LEAD_BLEND_BIG_JUMP_PROB_GATE(0.70)`일 때만 즉시 스냅,
+아니면 기존 블렌딩 경로로) 패치를 검증.
+**의존성**: 없음(표준 라이브러리만). `radard.py`를 capnp/cereal 의존성
+때문에 직접 import할 수 없어 `LeadBlend` 로직을 patched/unpatched
+두 버전으로 문자 그대로 복제.
+**시나리오 5건**: (A) 104차 실측 근사 재현 — patched가 즉시 89m로
+스냅하지 않고 시정수(0.35s)로 점진 전환하는지, (B) 고신뢰
+vision(modelProb=0.85) far jump 회귀 없음, (C) 레이더 교차검증
+(radar=True, modelProb 낮아도) far jump 회귀 없음, (D) closer_jump
+(위험방향)는 저신뢰여도 danger-passthrough로 즉시 반영(반응지연
+없음), (E) 정상 추종 중(점프 없음) patched/unpatched 완전 동일.
+**결과**: 5/5 PASS. patched 첫 프레임 dRel 점프 55.4m→8.0m로 감소
+(즉시 원거리 오판 노출 완화, 완전 차단은 아니고 0.35s 시정수로
+점진 반영 — 그 사이 레이더 재획득/vision 신뢰 회복 시 정상값으로
+자연 수렴, 진짜 근접 위험은 기존 danger override가 그대로 처리).
+**한계**: 로직 단위 합성검증만 완료. 실차 acados MPC 파이프라인
+검증(동일 커브+레이더유실 재현 로그) 없음 — 104차가 확보한 원본
+route는 이 세션 컨테이너엔 없어(대용량 정책상 미보관) replay 정밀
+재현은 불가, 다음 세션 재확보 시 진행.
+**사용**: `python3 toolkit/sim_lead_blend_far_jump_gate.py`
+
+## sim_route_step_drop_repro.py (131차, 신규 — NEGATIVE 결과)
+**목적**: 129차(교차로 접근 route 사전감속 "계단형 고정") 실측
+급락(t=2182.70->2182.75, Δ-25kph 단일프레임)을 `sim_route_curvature_
+sample.py`의 `reconstruct_path`(desiredCurvature 시간적분 재구성) +
+`backward_dp_margin`으로 20Hz 슬라이딩 재현 시도.
+**결과(NEGATIVE)**: 최대 프레임간 낙차 1.46~1.84kph에 그침 — 실측
+Δ-25kph를 전혀 재현 못 함. **원인**: `reconstruct_path`가 desiredCurvature
+시간적분 기반이라 매 스냅샷마다 lookahead 구간 전체가 "이미 다 아는"
+상태로 재구성됨(실제 도로가 아니라 모델이 그 이후 실제로 따라간 경로를
+재생하는 것) — 실제 `carrot_navi_route()`가 갖는 "고정거리 윈도우 경계
+밖의 지점은 아예 존재하지 않다가 경계를 넘는 순간 이산적으로 나타난다"는
+메커니즘이 원천적으로 없어 매끄럽게만 나옴. **후속**:
+`sim_route_lookahead_boundary_snap.py`(131차)가 이 메커니즘을 직접
+재현해 실측 규모의 단일프레임 급락을 재현 성공 — 이 스크립트의
+방법론(desiredCurvature 재구성)은 "계단형 급락"류 조사에는 부적합하다는
+것이 확인됨(단, 91차 margin_kph 회귀검증처럼 "스케줄이 조기화되는지"
+확인 목적에는 여전히 유효 — 93차/이 스크립트 둘 다 그 결론은 재확인함).
+**사용**: `python3 sim_route_step_drop_repro.py <route.csv> --t-center
+<급락시각> --window 1.5 --fine-step 0.05`
+**의존성**: `shapely`, `numpy`, `sim_route_curvature_sample.py`,
+`sim_route_margin_regression_scan.py`.
+
+## sim_route_lookahead_boundary_snap.py (131차, 신규 — Hypothesis C 재현 SUCCESS)
+**목적**: 129차 "계단형 급락" 실측의 진짜 원인 가설(Hypothesis C):
+`carrot_navi_route()`가 매 20Hz 사이클마다 `route_lookahead_m`(v_ego/
+accel 기반 동적 300~600m) 거리만큼 **고정 GPS 폴리라인을 매번 새로
+윈도우 절단**하고, 그 윈도우 끝점의 curvature-speed를 역방향 DP
+초기앵커(`out_speeds[-1]`)로 쓴다. curvature는 3점(40m 간격)이라
+윈도우 끝 40m는 애초에 speeds[] 배열에 계산되지 않는다 — 즉 "윈도우
+밖의 급커브"는 그 지점이 윈도우 안으로 들어오는 **단 한 프레임에**
+이산적으로 배열에 나타나고, 역방향 DP가 그 프레임에 전체를 즉시
+재계산해 근접 지점(out_speeds[0], desiredSpeed로 이어짐)까지 낮은 값이
+즉시 전파될 수 있다 — margin_kph 스케줄 조기화(91차/93차 검증대상)와는
+질적으로 다른 "이산적 정보 출현" 불연속.
+**방법**: `carrot_man.py`(커밋 `1cc2bf3`, 130차 이후 HEAD)의 순수함수
+(`haversine`/`closest_point_on_segment`/`get_path_after_distance`/
+`compute_route_lookahead_distance`/`gps_to_relative_xy`/
+`resample_10m_np`/`calculate_curvature`)와 역방향 DP 본문을 그대로
+복제(`carrot_navi_route_core`). 실제 navi 폴리라인은 로그에 없음(131차
+확인, `navRoute` capnp 채널 count=0, `navInstructionCarrot`엔 좌표 없이
+`maneuverDistance`/`speedLimit` 요약만 존재)이므로 **합성 GPS
+폴리라인**(직선 후 원호 커브)을 만들어 등속 접근시키며 20Hz 반복 호출.
+**결과(SUCCESS)**: v_ego=74kph, curve_R=25m, accel=0.70 조건에서
+`route_lookahead≈300m`(윈도우 끝-40m 데드존≈260m 지점)에서 첫 진입 시
+300.0->71.0(Δ-229, 극단값 — 원호 진입점이 커브 시작이라 과장)이,
+곧이어 t=17.00에 59.9->40.1(**Δ-19.8, 단일프레임**)이 관측 — **129차
+실측(Δ-24~-25kph, 단일 20Hz 프레임)과 규모/형태 모두 일치**.
+**[131차 같은 세션 추가] 정밀매칭 완료 — 지도 API 불필요**: 실제
+교차로 좌표/반경은 rlog 자체에서 얻을 수 있었다 — (1) `gpsLocation`
+(1Hz) capnp 채널로 실제 GPS 좌표 직접 추출(navRoute/navInstruction
+Carrot엔 좌표 없지만 이 채널엔 있음), (2) 실제 회전 구간의
+desiredCurvature 최대값(1/curvature=반경, 90차와 동일 논리)으로
+교차로 실제 회전 반경(이 route는 17.3m) 역산. 이 반경을 대입해
+재실행하면 60.8->40.2(Δ-20.65, 단일프레임) — 129차 실측(65->41,
+Δ-24.0)과 거의 동일 규모로 정밀 매칭됨(OSM/Overpass 등 외부 지도
+API는 시도했으나 컨테이너 네트워크 허용목록에 없어 실패했고,
+불필요했음이 판명). **향후 유사 조사 시 이 두 방법(gpsLocation
+좌표 + 실측 desiredCurvature 반경 역산)을 먼저 시도할 것.**
+**패치 방향 후보(미설계)**: 윈도우 경계 근처 curvature 배열에 진입
+시 급격한 앵커 변화를 완충하는 저역통과/램프 리미터를 `out_speeds[-1]`
+초기화 또는 speeds[] 자체에 적용하는 방안 — 실측 반경(17.3m) 기반
+시나리오로 바로 전/후 비교 가능, 다음 세션 착수 필요.
+**사용**: `python3 toolkit/sim_route_lookahead_boundary_snap.py
+--v-ego-kph 74 --curve-radius-m 25 --accel 0.70
+--straight-before-curve-m 700`
+**의존성**: `numpy`만 (shapely 불필요 — carrot_man.py 실제 코드가
+numpy 벡터화 resample 사용).
+
+## sim_route_boundary_ramp_limiter.py (132차, 신규 — 패치 사전검증)
+**목적**: 131차 Hypothesis C(`route_lookahead_m` 윈도우 경계 진입 시
+curvature 배열에 급커브가 이산적으로 출현, 역방향 DP가 그 프레임에
+즉시 전체 재계산 -> `out_speed` 단일 20Hz 프레임 급락)에 대한 패치
+후보(`carrot_navi_route()` 최종 반환값 `out_speed`에 프레임간 램프
+리미터 적용, 상한=`accel_limit_kmh*dt`)를 실제 코드 수정 전에 검증.
+**방법**: `sim_route_lookahead_boundary_snap.py`(131차)의 순수함수
+(`carrot_navi_route_core`)를 import해 그대로 재사용하고, 그 위에
+`RampLimiterState`(patched 로직만) 클래스를 얹어 patched/unpatched를
+같은 20Hz 루프에서 나란히 비교. 리셋 규칙(300 센티널 전환 시 즉시
+통과+리셋 — "제약 해제" 방향은 지연 없이 반영)도 실제 패치와 동일하게
+구현.
+**결과(PASS)**: `curve_R=10~25m`, `v_ego=74~90kph`, `accel=0.70~1.2`
+전 조합에서 정상주행 구간(300 센티널 전환 제외) 최대 프레임간 낙차가
+이론 상한(`accel_limit_kmh*dt`) 이내로 억제됨. 131차 정밀매칭 조건
+(반경17.3m/74kph/0.70)에서 unpatched 20.54kph -> patched 0.13kph.
+**주의(스크립트 설계 교훈)**: 최초 버전은 300<->실제값 전환(시뮬레이션
+하네스 경계 아티팩트, 131차가 이미 "원호 진입점 과장"/"윈도우이 커브를
+완전히 지나며 소멸"로 문서화한 것과 동일 성격)까지 핵심 지표에 섞어
+집계해 FAIL로 오판했음 — 정상주행 구간만 분리 집계하도록 수정 후 정상
+판정. 향후 유사 램프리미터/경계값 검증 스크립트 작성 시 센티널값
+전환 구간을 반드시 핵심 지표에서 분리할 것.
+**사용**: `python3 toolkit/sim_route_boundary_ramp_limiter.py
+--v-ego-kph 74 --curve-radius-m 17.3 --accel 0.70`
+**의존성**: `sim_route_lookahead_boundary_snap.py`(같은 디렉토리, import).
+
+## extract_gps.py (133차, 신규)
+**목적**: `gpsLocation`(1Hz) capnp 채널 추출을 재사용 가능한 스크립트로
+정식화(131차가 인라인으로만 했던 GPS 좌표 추출 -- navRoute/
+navInstructionCarrot엔 좌표가 없지만 차량 자체 GPS는 이 채널에 별도
+기록됨, 131차 확인).
+**출력 CSV 컬럼**: `t, seg, latitude, longitude, altitude, speed,
+bearingDeg, horizontalAccuracy`. `t`는 `extract_log.py`와 동일
+`logMonoTime` 기준이라 route.csv와 join 가능(1Hz vs 20Hz라 가장 가까운
+t로 매칭 또는 선형보간 필요).
+**사용**: `python3 extract_gps.py <route_dir> <out.csv> --repo /home/claude/ryu`
+**의존성**: `decode_rlog.py`.
+
+## replay_route_ramp_limiter_direct.py (133차, 신규 — 132차 패치 실측 재검증 주 도구)
+**목적**: 132차 램프 리미터 패치를 실측 로그로 재검증. 패치는
+`carrot_navi_route()`의 내부 계산 방식과 무관하게 **최종 out_speed
+값에만 사후로 프레임간 상한을 거는 구조**이므로, 로그에 실제 기록된
+`desiredSpeed(src=='route')` 시계열 자체를 raw 시퀀스로 보고
+`RampLimiterState`(sim_route_boundary_ramp_limiter.py, 132차와 동일
+로직)를 그대로 통과시킨다. navi_points 재구성/근사가 전혀 불필요해
+방법론적 불확실성이 가장 적은 검증 방법(133차 결론의 주 근거).
+**핵심 로직**: `src=='route'`인 프레임만 추려 그 부분수열에만 리미터
+적용(다른 소스 프레임 사이에 route가 잠깐 나타났다 사라지는 걸 route
+값으로 착각하지 않도록). route 비활성 후 재진입 시 리미터 상태 리셋
+(prev_out=None) -- 실제 패치와 동일 원칙. dt는 프레임별 실제 시간
+간격을 그대로 사용(고정 0.05s 가정 안 함 -- 실제 로그는 프레임 드랍으로
+dt 0.02~0.08s 폭 존재 확인됨).
+**결과(133차, route 306de77a28 seg15)**: 실측 급락 2건(t=4.25 Δ-25.0,
+t=28.35 Δ-24.0) 모두 patched에서 초당 accel_limit_kmh(2.52kph/s,
+accel=0.70 가정) 상한 이내로 완화 확인. t=43.70 지점은 계산상
+불연속이 아니라 소스전환(gas->route) 표시값 점프임을 재확인(패치
+개입 대상 아님, patched==recorded==30). 판정은 고정 dt 대신 프레임별
+실제 dt 기반 "낙차율(kph/s)"을 accel_limit_kmh와 직접 비교(초기 버전은
+고정 dt=0.05 가정 판정 로직으로 인해 FAIL 오판 후 수정).
+**사용**: `python3 replay_route_ramp_limiter_direct.py <route.csv>
+--accel 0.70`
+**의존성**: `sim_route_boundary_ramp_limiter.py`(RampLimiterState import).
+
+## replay_route_boundary_ramp_limiter.py (133차, 신규 — 보조/참고용)
+**목적**: 실측 GPS 트랙(1Hz, `gpsLocation`)을 navi_points 프록시로 써서
+`carrot_navi_route_core`(131차, sim_route_lookahead_boundary_snap.py)를
+실측 좌표로 재생 -- "왜"(어떤 메커니즘으로) 급락이 발생하는지까지
+재현 시도. `replay_route_ramp_limiter_direct.py`(주 도구)와 달리 raw
+out_speed 자체를 재구성하므로 근사 오차가 있다.
+**결과**: t=28.35 이벤트(131차가 Hypothesis C로 정밀매칭한 그 이벤트)는
+이 재구성에서도 raw 66.6->37.9 단일프레임 스냅으로 독립 재현 --
+Hypothesis C가 실측 GPS 데이터로도 다시 확인됨. t=4.25 이벤트는 재현
+실패(그 시점 route_lookahead(74kph,accel=0.70)=300m 윈도우 안에
+교차로가 아직 안 들어옴 -- 실제 거리 약 500m로 추정, raw가 300 유지).
+**한계**: 실제 navi 폴리라인이 아니라 차량 실주행 궤적 프록시(1Hz,
+성긴 해상도) -- lookahead 윈도우가 짧은 시나리오에서는 재현 실패 가능.
+133차 최종 결론은 이 스크립트가 아니라 `replay_route_ramp_limiter_direct.py`
+(방법론적 불확실성 없음)를 근거로 함.
+**사용**: `python3 replay_route_boundary_ramp_limiter.py <route.csv>
+<gps.csv> --accel 0.70`
+**의존성**: `sim_route_lookahead_boundary_snap.py`,
+`sim_route_boundary_ramp_limiter.py`.

@@ -12,6 +12,8 @@
 | LEAD_ACCEL_TTC_GATE_FULL / NONE | 12.0s / 6.0s | (38차 신규) TTC 기반 aLead damping 게이트, MARGIN_ACCEL_GATE와 min()으로 결합 | NEEDS_VALIDATION (2026-08-22, 38차 신규 도입 — 로직 단위 검증만 완료. **39차: 저속 구간에서 이 게이트 자체는 정상 동작하나, dRel이 작아 TTC가 급격히 붕괴하면서 weight가 순간적으로 튀는 부작용 발견 → LEAD_ACCEL_WEIGHT_RISE_RATE로 보완(아래 항목).** **41차: 신규 실차 로그(HEAD `c31ddca`)에서 안전지표 전부 0건, 사용자 체감 양호 — 회귀 징후 없음. 단 이 게이트가 직접 개입한 프레임을 특정 검증하진 못함.** 실차 acados 파이프라인 상세 승차감 검증은 여전히 미완. FINDINGS.md 38차/39차/41차 참고) |
 | LEAD_ACCEL_WEIGHT_RISE_RATE | 1.0 (1/s) | (39차 신규) 위 TTC/거리 게이트의 결합 weight가 "감쇠 풀리는 방향(상승)"으로 바뀔 때 사이클당 변화폭 제한(0→1 최소 1초). TTC<=LEAD_ACQ_TTC_DANGER(2.5s)인 실제위험 시엔 우회, 즉시 weight=1.0 | NEEDS_VALIDATION (2026-08-22, 39차 신규 도입 — 저속 로그 수치 시뮬레이션(rlog 재파싱 기반)으로 peak |aLead| 완화 확인. **패치 적용/push 완료(origin/c3-ms-dev HEAD `52668ec`)**, acados MPC 파이프라인 재실행/실차 검증은 아직 안 됨. **41차: 신규 로그(HEAD `c31ddca`)에서 저속 급정지 느낌 재발 징후 없음(harsh_brake 0건, 사용자 체감 양호)이나 이 패치가 실제로 개입한 프레임을 직접 특정하진 않음 — 간접 확인 수준.** **45차: bypass 활성 중(아래 LAUNCH_BYPASS_*)엔 이 rise-rate 제한도 함께 우회하도록 변경 — 정차→출발 구간에서만 적용되는 예외라 39차 원 목적(저속 TTC 붕괴형 급정지 방지)엔 영향 없음.** FINDINGS.md 39차/41차/45차 참고) |
 | LAUNCH_BYPASS_STOP_V_EGO / EXIT_V_EGO | 0.3 m/s / 5.0 m/s | (45차 신규) 정차→출발 구간에서 LEAD_ACCEL_TTC_GATE_*(38차)를 완전 우회하고 dist_w(MARGIN_ACCEL_GATE)만으로 aLead damping을 결정. v_ego<STOP에서 정차 판정(bypass arm), v_ego>=EXIT에서 출발 완료 판정(38/39차 로직 복귀) | NEEDS_VALIDATION (2026-08-22, 45차 신규 도입 — "정지 후 출발 가속 약화"(ttc_accel_weight의 closing<=0.1→weight=0 분기가 launch 구간의 v_ego<=v_lead와 겹쳐 aLeadK를 통째로 지우는 부작용) 근본원인 대응. `work/test_launch_bypass.py` 합성 시나리오 4종(정차중 출발/bypass 중 exit 전환/고속 잡음 회귀/저속 danger cut-in 회귀)으로 로직 단위 검증 완료 — exit 순간 w가 즉시 하강할 수 있음(rise-rate 미적용, 기존 "감쇠 방향은 즉시 반영" 컨벤션과 일치, 의도된 동작)을 확인. 실차 acados 파이프라인/실주행 재현 검증은 아직 없음. `git am` temp branch 검증(base `c31ddca`) + py_compile 통과. FINDINGS.md 45차 참고) |
+| LOW_SPEED_GAP_OPEN_V_EGO_GATE / A_LEAD_THRESH / ACCEL_CAP / MARGIN_RATIO | 40/3.6 m/s(~40km/h) / 1.0 m/s² / 0.5 m/s² / 1.5(=MARGIN_ACCEL_GATE_FULL 재사용) | (117차 신규, 6님 제보 대응) 저속+이미 desired_distance보다 충분히 벌어진(gap_ratio) 상태에서 앞차가 강하게 멀어질 때만 a_lead에 상한을 건다. margin_accel_weight()/ttc_accel_weight()는 둘 다 위험(closing) 방향 감쇠만 있고 멀어지는 방향엔 damping이 없어 a_lead가 그대로 MPC에 반영되던 것이 원인. launch bypass 중엔 게이트 자체가 닫힘(45차 재발 방지) | NEEDS_VALIDATION (2026-08-29, 116차 설계+합성검증(A~E) 전부 PASS, 117차 patch 적용/push 완료(commit 예정, 아래 WEIGHT_RISE_RATE 항목 참고). 실측 로그(lowspeed_a/b/c 등) replay 검증 아직 없음. FINDINGS.md 116/117차 참고) |
+| LOW_SPEED_GAP_OPEN_WEIGHT_RISE_RATE | 1.0 (1/s) | (117차 신규) 위 캡을 하드클램프 대신 블렌드 weight(0=무캡~1=완전캡)로 적용하고, 그 weight의 사이클당 변화폭을 제한(0<->1 최소 1초, 진입/해제 양방향 모두). 39차(LEAD_ACCEL_WEIGHT_RISE_RATE)와 동일 패턴이나 그쪽은 rising(위험해지는) 방향만 제한한 반면 이쪽은 "위험 신호"가 아니라 "가속 상한"이라 켜질 때/꺼질 때 둘 다 완만화가 필요해 양방향 제한. launch bypass 중엔 이 rise-rate 제한도 즉시 우회(cap_w=0 강제, 45차와 동일 defense-in-depth 원칙) | NEEDS_VALIDATION (2026-08-29, 117차 신규 도입 — 116차 F에서 발견된 하드클램프 단차(최대 1.5 m/s²)가 `toolkit/sim_gap_open_damping.py` 시나리오 G에서 0.075 m/s²/cycle로 감소함을 확인(95% 감소, 이론상 RISE_RATE×dt×discontinuity와 일치). 시나리오 H(bypass 중 완만화 즉시 우회)/I(정착 후 하드클램프와 동일 정상상태 도달) 포함 신규 9개 시나리오 전부 PASS. `git am` temp branch 검증(base `8a7baa0`) diff 0 + py_compile 통과. 실측 로그 replay/실차 검증은 아직 없음. FINDINGS.md 117차 참고) |
 | LEAD_ACQ_RAMP_TIME | 5.0s | 리드 인식 후 선제감속 하한선 도달 시간 | NEEDS_VALIDATION (2026-08-18 x12seg 로그에서 첫 적합 사례 확보, seg10 t=657.39 — 매끈한 감속으로 긍정적. 표본 1건, 추가 검증 필요) |
 | LEAD_ACQ_MIN_V_EGO | 3.0 m/s | 이 속도 미만 미적용 | - |
 | LEAD_ACQ_CONFIRM_TIME | 0.2s | 블립 무시, 램프 시작 조건 | - |
@@ -45,7 +47,8 @@
 | LEAD_BLEND_DANGER_HOLD | 0.3s | 위험 판정 후 스무딩 우회 유지 시간 | - |
 | LEAD_BLEND_SAFE_DIST_TIME | 0.35s | 안전방향 블렌딩 시정수 | - |
 | LEAD_BLEND_CLOSER_JUMP_DIST | 8.0m | 이 이상 급접근 점프 시 즉시 반영 | 검증됨 (route1 seg13 t=794s, 표본 1건) |
-| LEAD_BLEND_BIG_JUMP_DIST | 15.0m | 이 이상 안전방향 점프는 즉시 스냅 | 검증됨 (route1 t=1388~1390s / route2 t=825~827s, 표본 1건씩) |
+| LEAD_BLEND_BIG_JUMP_DIST | 15.0m | 이 이상 안전방향 점프는 즉시 스냅(단, 130차부터 신뢰도 게이트 통과시에만) | 검증됨 (route1 t=1388~1390s / route2 t=825~827s, 표본 1건씩) |
+| LEAD_BLEND_BIG_JUMP_PROB_GATE | 0.70 (130차 신규, VISION_TRACK_PROB_GATE와 동일값 재사용) | BIG_JUMP 즉시-스냅을 `radar=True` 또는 `modelProb>=`이 값일 때만 허용 — 저신뢰 vision-only far jump는 블렌딩(0.35s 시정수) 경로로 완화. 104차 Finding A(커브 중 레이더 유실 → vision 저신뢰 원거리 오판, 84~89m로 근접 실물체를 원거리 오판) 대응 | NEEDS_VALIDATION (2026-08-29, 130차 신규 도입. `sim_lead_blend_far_jump_gate.py` 합성검증 5건 PASS — 104차 재현(첫프레임 점프 55.4m→8.0m 감소)/고신뢰vision 회귀없음/레이더교차검증 회귀없음/closer_jump 반응지연없음/정상추종 완전동일 전부 확인. `git am` verify-am 브랜치 검증(base `b63063a`) + py_compile 통과, 패치 전달 완료. **실차 acados MPC 파이프라인 검증은 아직 없음**(동일 커브+레이더유실 재현 로그 미확보). FINDINGS.md 130차 참고) |
 | LEAD_LOST_GRACE_TIME | 0.6s | 리드 순간유실 홀드 시간 | - |
 | CUTOUT_DPATH_THRESH | 2.0m | 컷아웃 판정 dPath 임계값 | NEEDS_VALIDATION |
 | CUTOUT_VREL_GATE | -0.5 m/s | 컷아웃 판정 vRel 게이트 | NEEDS_VALIDATION |
@@ -230,3 +233,16 @@
   전환보다 3.76초 먼저 개입, 직선 154초/커브B 오탐 0건. 20/30 사이 사용자
   확정값.
 - 실차 검증: 미실시(NEEDS_VALIDATION).
+
+## ROUTE_SPEED_LOOP_DT (132차, NEEDS_VALIDATION)
+- 위치: `selfdrive/carrot/carrot_man.py`, `carrot_navi_route()`
+- 값: 0.05 (초, 20Hz) — `broadcast_version_info()`의 `Ratekeeper(20)`과
+  일치시킨 값. 별도 튜닝 대상 아님(루프 주기 그 자체).
+- 목적: 131차 Hypothesis C(route_lookahead 윈도우 경계 진입 시 curvature
+  이산적 출현 -> out_speed 단일프레임 급락) 완화용 프레임간 램프 리미터의
+  주기값. 상한 계산식: `accel_limit_kmh(=AutoNaviSpeedDecelRate*3.6) * ROUTE_SPEED_LOOP_DT`.
+  새 튜닝 상수 없이 기존 `AutoNaviSpeedDecelRate`를 재사용.
+- 근거: `toolkit/sim_route_boundary_ramp_limiter.py`(132차) 사전검증 —
+  curve_R 10~25m/accel 0.70~1.2 전 조합 PASS.
+- 실차 검증: 미실시(NEEDS_VALIDATION) — 129차와 동일/유사 교차로 재주행
+  필요.

@@ -3,6 +3,97 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+- 2026-08-29 (131차): `sim_route_step_drop_repro.py` 신규(NEGATIVE) —
+  129차 계단형 급락(Δ-25kph 단일프레임)을 desiredCurvature 재구성
+  기반으로 재현 시도했으나 최대 1.84kph만 나와 재현 실패, 방법론
+  한계 확인. `sim_route_lookahead_boundary_snap.py` 신규(SUCCESS) —
+  `carrot_navi_route()` 실제 순수함수를 그대로 복제해 합성 GPS
+  폴리라인으로 검증, "route_lookahead 윈도우 경계 진입 시 speeds[]에
+  급커브가 이산적으로 출현" 가설(Hypothesis C)이 실측과 동일 규모
+  (Δ-19.8kph 단일프레임)로 재현됨. 상세는 FINDINGS.md "131차" 참고.
+
+- 2026-08-29 (125차): `extract_cutin_lists.py` 신규 — rlog에서
+  `radarState.leadOne`/`leadsCutIn`/`leadsLeft`/`leadsRight`를 시간별로
+  원본 그대로 추출(게이트 재구현 없음). r354 t≈296~299 컷인 재분석에서
+  cutIn/left/right가 사건 내내 전부 비어있었음(옆차 yRel 최대 0.83m로
+  `in_lane_prob` 계산상 "차로 안" 판정 유지) 확인 — "차선 폭 넓히기"
+  제안이 이 사례엔 무력함을 입증. 124차의 TTC 계산(7초+)이 실제 위험
+  구간(t=297.0 이후, dRel 5.3→1.8m, yRel 0→0.8m 급변, TTC 3.1초)을
+  놓쳤던 것도 이번에 정정됨(상세는 FINDINGS.md "125차" 참고).
+
+- 2026-08-29 (120차): `replay_lane_departure_gate.py` 신규 — 119차
+  실제 패치(radard.py LANE_DEPARTURE 게이트)를 실차 route CSV
+  4개(89996행)로 검증. PASS 5/FAIL 3 — `LeadBlend.update()`가 게이트의
+  status=False 리셋을 자신의 구버전 `_is_cutout()`(2.0m 기준)으로
+  재판정해 최대 0.6s(LEAD_LOST_GRACE_TIME) 무력화하는 구조적 버그
+  발견(상세는 FINDINGS.md/WIP.md "120차" 참고, NEEDS_FIX).
+
+- 2026-08-29 (119차): `sim_lane_departure_gate.py` 신규 — 118차
+  제안 차선이탈 강제해제 게이트(THRESH/CONFIRM_S) 파라미터 후보
+  합성 검증. 핵심 발견: 기존 2.0m 재사용 시 실측 이벤트(route1
+  t=5915~5932) 최대 dPath가 -1.99m라 아예 트리거 안 됨, 1.75m로
+  좁히면 자연해제 대비 2.25s 단축(근사치, route1.csv 미보유로 정밀
+  replay 아님).
+
+## 2026-08-29 (114차 — replay_margin_accel_weight_full.py 신규,
+113차 유실분 대체+확장, ROUTE1 재평가)
+- `replay_margin_accel_weight_full.py` 신규: margin_accel_weight(dist_w)
+  까지 포함한 완전 재현(carrot_functions.py Params 기본값 대입) +
+  LOW_SPEED_STRONG_DECEL/TTC danger override 포함. **113차가 만들었다는
+  `replay_rise_rate_saturation.py`는 컨테이너 리셋으로 유실되어 레포에
+  없었음 확인, 이 스크립트가 대체.** 핵심 발견: ROUTE1은 112차 threshold
+  패치로 이미 saturation 0.951s→0.250s(danger override 조기발동)로
+  해소, ROUTE2/3만 여전히 0.9~1.0s대 harsh. SMOOTH 라우트 전체 스캔에서
+  진짜 위험과 무관한 0.448s 에피소드(track-switch 추정) 발견 — 단순
+  threshold 판별지표의 한계 노출. 상세는 FINDINGS.md 114차 참고.
+
+## 2026-08-29 (112차 계속2 — replay_low_speed_strong_decel.py 신규,
+threshold 강화 효과 재정량화)
+- `replay_low_speed_strong_decel.py` 신규: 라우트1 실측 CSV 기반
+  threshold 발동 스캔 + jerk_boost 플리커링 점검 + weighted a_lead
+  궤적 비교(오버라이드 유/무). **핵심 발견**: 라우트1 이벤트는 단일
+  오탐 스파이크가 아니라 aLeadK가 최대 -2.96까지 악화되는 진짜 지속적
+  감속이었고, TTC도 같은 구간에서 자연 하강(정상경로도 결국 수렴).
+  threshold 강화(-1.8→-2.5)는 오탐을 "제거"가 아니라 "조기발동 구간을
+  0.754s→0.410s(약 46%)로 단축"하는 효과였음 — 사용자 재확인 필요.
+
+
+- `long_mpc.py`: `LOW_SPEED_STRONG_DECEL_A_LEAD_THRESH` -1.8 -> -2.5
+  (라우트1 실측 aLeadK=-2.07 오탐 해소, 3라우트 근거). `discontinuity_
+  jerk_boost`에 신규 트리거 소스 `low_speed_strong_decel` 추가 —
+  handoff/discontinuity_lc와 동일한 hold(4.0s)+release-rate(100/s)
+  경로 재사용, danger 지속 중엔 a_change_cost=base 유지(즉시반응 방해
+  없음)하고 해제 직후부터만 도달과정을 완만화.
+- `sim_low_speed_decel.py`: 시나리오 E(라우트1 threshold 회귀 재현,
+  신threshold 미발동 확인)/F(진짜 강한감속 -3.0 여전히 발동 확인)/
+  G(jerk_boost 신규 소스 arm/hold/release 검증) 3건 추가, 기존 B는
+  threshold 상수와 동기화하도록 하드코딩값 제거. 전체 7건 PASS.
+
+## 2026-08-28 (111차, match_dashcam_clip_to_route.py 신규)
+`_clip.mp4` 파일명 타임스탬프만으로 route CSV t구간 특정이 안 되는
+문제(HUD 시:분만 표시, 저장시각≠시작시각, 최대 ~50초 편차 실측)
+해결용. blinker 클러스터의 상대 시간차+급감속 강도로 매칭.
+947fbb7dc6 클립 2건(113702/113848) 성공 매칭 검증 — README 참고.
+
+## 2026-08-28 (109차, patched_replay_v109.py 신규)
+옵션1 patch(`long_mpc.py`, `discontinuity_lc` 전용 danger confirm-hold
+0.25s, 커밋 `b84eeb8`) 사전검증용 PATCHED replay 작성.
+`LaneChangeGateReplay` 상속, `scan_force_revert_episodes.py`와 나란히
+before/after 비교. 캐시 `a5b1ce4e42`에서 검증 완료(경미 사례 흡수,
+지속 사례 축소+진짜위험 보존), 108차 severe 사례(947fbb7dc6)/handoff
+사례(ad830211ff)는 원본 소실로 미검증 — FINDINGS.md 109차 참고.
+
+## 2026-08-28 (108차, scan_force_revert_episodes.py 신규)
+`replay_lane_change_discontinuity_gate.py`의 `LaneChangeGateReplay`
+(duration_mode='full')로 여러 라우트를 라우트-전체-연속-재생 방식
+일괄 스캔해 force_revert 에피소드를 뽑는 도구 신규 작성. 30라우트
+실주행 확대검증(신규 18개+기존 캐시 12개)에 사용, 106차/107차의
+"차선변경이 force_revert 필요조건" 결론 재확정(force_revert 5건 —
+discontinuity_lc 3건 전부 blinker=True, handoff 2건 정상범위, 순수
+discontinuity 0건). 개발 중 트리거 소스별 boost_s 미구분 버그가 있던
+초안(`flicker_cluster_boost_replay.py`)은 허위 severe 사례를 냈던 것
+확인 후 폐기 — 상세는 FINDINGS.md 108차 참고.
+
 ## 2026-08-28 (100차) — `verify_resample_np.py` 신규
 - 99차가 찾은 carrot_man.py `LineString.interpolate()` 반복호출 →
   numpy 벡터화(`resample_10m_np`) 대체 패치 전, 원본과의 수치 동일성
@@ -421,3 +512,72 @@
   frac_rate=1.0 유지 vs PATCHED는 트리거 프레임에서 즉시 0으로 리셋,
   정상 완만접근/r1-3류(radar 즉시 락온) 회귀 없음 확인. 상세는 WIP.md/
   FINDINGS.md 94차 참고.
+
+## 2026-08-28 (101차 후속 — CPU/메모리 전체 재점검)
+- 신규: `toolkit/scan_perf_antipatterns.sh` — 실시간 루프 파일들에서
+  deepcopy/미캐싱 Params.get/print/re.compile/threading/subprocess/
+  unbounded append/dict 누적/비벡터화 for-loop 등 CPU·메모리 안티패턴
+  후보를 grep으로 일괄 스캔. 매치는 컨텍스트 확인 필수(오탐 흔함).
+
+## 2026-08-28 (107차, radar_source_flicker_scan 신규)
+- `analysis_helpers.radar_source_flicker_scan()` 신규: 106차 "차선변경 중
+  leadRadar 핸드오프 반복 급감속" 정량화용. leadRadar(True/False) 엣지가
+  짧은 시간(window_s) 안에 min_flips회 이상 몰리면 클러스터로 묶고,
+  blinker 겹침 여부/최대 dRel 점프/would_trigger_ttc_danger를 함께 계산.
+  **107차에서 leadRadarTrackId(63차 계속3에 이미 존재, 106차가 "없음"으로
+  오판했던 컬럼)를 확인해보니 이 차량(SCC 단일점, 코너레이더 없음)에서는
+  radar=True 프레임의 값이 항상 0으로 고정 — 트랙ID 자체는 변별력 없음
+  확인(캐시 라우트 3건 전수). 캐시된 12개 라우트 전체 스캔 결과 51클러스터
+  중 21건(41%)만 blinker 겹침, 59%는 블링커 무관 — 106차의 "차선변경
+  특유의 버그"라는 결론이 표본(3건)에 국한된 것이었을 가능성 제기됨.
+  상세는 WIP.md/FINDINGS.md 107차 참고.
+
+## 2026-08-29 (116차, sim_gap_open_damping.py 신규)
+- 신규: `toolkit/sim_gap_open_damping.py` — 저속(<=40km/h)+gap_ratio>=1.5
+  (기존 MARGIN_ACCEL_GATE_FULL 재사용)+앞차 강한가속 조건에서만 a_lead에
+  상한(0.5 m/s^2)을 거는 신규 방안(LOW_SPEED_GAP_OPEN_*) 단위 검증.
+  launch bypass 및 정상 출발 연장 구간 오탐 방지(45차 재발 방지) 포함
+  6개 시나리오 전부 PASS. **경계 전이 시 a_lead 최대 1.5 m/s^2 단차
+  발견 -- 완만화 필요 여부 NEEDS_VALIDATION.**
+- 2026-08-29 (117차): sim_gap_open_damping.py에 완만화(rise-rate 블렌드)
+  버전(`apply_gap_open_cap_smoothed`) 추가 -- 116차 F에서 발견된 하드클램프
+  단차(1.5 m/s^2)를 39차와 동일 패턴(블렌드 weight 사이클당 변화폭 제한,
+  양방향)으로 해소. 신규 시나리오 G(단차 0.075로 감소)/H(bypass 즉시
+  우회)/I(정상상태 일치) 전부 PASS. long_mpc.py 실제 패치 적용 완료
+  (LOW_SPEED_GAP_OPEN_*, LOW_SPEED_GAP_OPEN_WEIGHT_RISE_RATE 신규,
+  patch 0001-117-gap-opening-a_lead-116-rise-rate.patch), git am 검증 통과.
+
+## 2026-08-29 (130차, sim_lead_blend_far_jump_gate.py 신규 + radard.py 패치)
+- 신규: `toolkit/sim_lead_blend_far_jump_gate.py` — 104차 Finding A
+  (커브+레이더유실 시 vision-only 저신뢰 원거리 오판) 재현 및
+  `LeadBlend` BIG_JUMP 신뢰도 게이트 패치 검증. 5개 시나리오 전부 PASS.
+- 패치: `radard.py` `LeadBlend.update()` BIG_JUMP(>15m 안전방향)
+  즉시-스냅 조건에 `LEAD_BLEND_BIG_JUMP_PROB_GATE(0.70)` 신뢰도 게이트
+  추가 — radar=True 또는 고신뢰 vision(modelProb>=0.70)만 즉시 스냅,
+  저신뢰 vision-only far jump는 기존 블렌딩(0.35s 시정수) 경로로.
+  git am verify-am 브랜치 검증(base `b63063a`) + py_compile 통과,
+  패치 `0001-130-LeadBlend-BIG_JUMP-104-Finding-A.patch` 전달.
+  실차 검증 대기(FINDINGS.md 130차 참고).
+
+## 132차
+- `sim_route_boundary_ramp_limiter.py`(신규) — 131차 Hypothesis C 패치
+  후보(carrot_navi_route() out_speed 프레임간 램프 리미터, 상한
+  accel_limit_kmh*dt) 사전검증. curve_R 10~25m/accel 0.70~1.2 전
+  조합 PASS(정상주행 구간 최대낙차가 이론 상한 이내로 억제).
+  실제 패치 `0001-132-route_lookahead-Hypothesis-C-131-out_speed.patch`
+  작성 -> verify-am(base 1cc2bf3) git am 성공 + py_compile 통과 + diff-0.
+  실차 검증 대기(FINDINGS.md 132차 참고).
+
+## 133차
+- `extract_gps.py`(신규) — gpsLocation(1Hz) capnp 채널 추출을 재사용
+  가능한 스크립트로 정식화(131차 인라인 작업 대체).
+- `replay_route_ramp_limiter_direct.py`(신규, 주 검증도구) — 132차
+  램프 리미터를 실측 desiredSpeed(route) 원본 시계열에 직접 사후적용.
+  129차/131차 원본 route(306de77a28 seg15) 재업로드로 검증 -- 실측
+  급락 2건(t=4.25 Δ-25, t=28.35 Δ-24) 모두 patched에서 초당
+  accel_limit_kmh 상한 이내로 완화됨을 확인, PASS.
+- `replay_route_boundary_ramp_limiter.py`(신규, 보조) — 실측 GPS
+  트랙(1Hz)을 navi_points 프록시로 carrot_navi_route_core(131차) 재생.
+  t=28.35 이벤트를 raw 66.6->37.9 단일프레임 스냅으로 독립 재현(Hypothesis
+  C 실측 재확인), t=4.25는 lookahead 윈도우 한계로 재현 실패(방법론
+  한계, 주 검증도구 결론에는 영향 없음).
