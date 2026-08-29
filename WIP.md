@@ -1,3 +1,33 @@
+## 135차 (체크포인트 — 분석만 완료, 패치 미적용/사용자 결정 대기) — c3-ms-dev 전체 죽은코드/불필요코드/CPU-메모리 재점검
+
+**배경**: 사용자 요청으로 최신 HEAD(`976fefd`, 134차 반영본) 전체에서
+죽은코드/불필요한 코드/CPU·메모리 불필요 점유 여부를 면밀히 재점검.
+97/99/100/102차 이후 첫 전면 재점검(기준 커밋 `bc1bcb0`, 101차).
+
+**진행**: (1) 기존 `toolkit/scan_perf_antipatterns.sh` 재실행,
+(2) `bc1bcb0..HEAD` diff(실제로 바뀐 3개 파일: `carrot_man.py`/
+`radard.py`/`long_mpc.py`만) 정밀 검토, (3) `pip install pyflakes`로
+미사용 import/변수 정적분석 3가지 병행 — 새 스크립트 작성 없이 기존
+도구 재사용 원칙 준수.
+
+**결과 요약** (상세는 FINDINGS.md "135차" 참고):
+- 101차 이후 신규 로직(94~134차 증분)은 CPU/메모리 문제 없음 확인
+  (신규 상태값 전부 스칼라 O(1), 히스토리 버퍼 전부 `deque(maxlen=)`
+  bounded).
+- **신규 발견**: `cruise.py`에 99/100차가 놓친 `if False:` 죽은 분기
+  2건(line 500, 562 — 후자는 `# 수정필요...` 주석 있어 사용자 확인
+  필요), `print("lfaButton")` 디버그 잔재 1건.
+- `pyflakes` 스캔: 미사용 import 다수(`carrot_man.py`/`carrot_serv.py`/
+  `controlsd.py`/`radard.py`/`longitudinal_planner.py`/`long_mpc.py`),
+  미사용 지역변수 4건(그 중 `longitudinal_planner.py`
+  `steer_angle_without_offset`만 20Hz 핫루프에서 매 프레임 실행되는
+  무의미한 연산 — 비용은 극히 미미).
+- 실제 comma 기기 CPU/메모리 실측(`top`)은 이번에도 미실시.
+
+**다음 단계 (사용자 결정 대기)**: cruise.py 죽은 분기 2건 + 미사용
+import/변수 일괄 정리를 패치할지 여부 확인 필요. 승인 시 다음 세션에서
+구현.
+
 ## 134차 (완료 — 정적 리뷰 + 발견사항 패치 적용 + 로직단위 시뮬레이션 검증 완료, 실차검증 대기) — 최근 패치 상호영향 검토, 112차 부스트 arm 가드 비대칭 수정
 
 **배경**: 사용자 요청으로 origin/c3-ms-dev(HEAD `f24cbf8`, 132차) 전체를 정적

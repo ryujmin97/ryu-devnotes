@@ -1,3 +1,96 @@
+## 135차 — [RISK_IDENTIFIED, NEEDS_USER_DECISION] c3-ms-dev 전체 죽은코드/불필요코드/CPU-메모리 정적 재점검 (로그분석 아님, 패치 미적용)
+
+**배경**: 사용자 요청 — 최신 HEAD(`976fefd`, 134차 반영본) 전체에서 죽은코드,
+불필요한 코드, CPU/메모리를 불필요하게 점유하는 코드가 있는지 면밀히 재점검.
+97/99/100/102차가 마지막 전면 재점검이었고(기준 커밋 `bc1bcb0`, 101차),
+그 이후 실시간 루프 대상 파일 중 실제로 바뀐 건 3개뿐(`carrot_man.py`
+132차, `radard.py` 118/119/104/130차, `long_mpc.py` 109/112/116/117/134차)
+— 이번 세션은 (a) 기존 `toolkit/scan_perf_antipatterns.sh` 재실행 전체
+재스캔 + (b) `bc1bcb0..HEAD` diff 정밀 검토 + (c) `pyflakes` 정적분석
+(미사용 import/변수) 3가지를 병행.
+
+**핵심 결과 1 — 101차 이후 신규 코드(94~134차 증분)는 CPU/메모리 관점에서
+전부 클린**: `carrot_man.py`의 `_route_speed_prev`, `radard.py`의
+`_lane_departure_cnt`(2-key 고정 dict), `long_mpc.py`의
+`_gap_open_cap_weight_prev`/`_prev_low_speed_strong_lead_decel`/
+`_lc_danger_confirm_timer` 전부 스칼라 상태값 1개씩(dict/list 누적 아님,
+매 프레임 O(1) 연산). 새 히스토리 버퍼(`_dRel_raw_history`,
+`_vision_dRel_rate_window`, `v_ego_hist`) 전부 `deque(maxlen=...)`로
+bounded 확인(무한 성장 없음). `Params()` 신규 인스턴스/미캐싱 `.get*`
+호출도 diff 범위 내 신규 추가 없음. **신규 CPU/메모리 이슈 없음.**
+
+**핵심 발견 2 — `cruise.py`에 99/100차 정리 때 놓친 죽은코드 2건
+(신규는 아니고 기존에 있었으나 이번에 처음 확인)**:
+- line 500: `if False: #self._cruise_button_mode in [2, 3]:` —
+  `accelCruise` 버튼 처리 중 항상 거짓이라 `road_limit_kph` 반영 블록
+  전체가 실행 불가능한 죽은 분기. 99/100차가 `carrot_man.py`/
+  `controlsd.py`의 동일 패턴(`if False`) 2건은 이미 제거했으나, 같은
+  패턴이 `cruise.py`에도 있었던 것을 이번에 처음 확인(97~102차 검토
+  범위가 `carrot_man.py`/`controlsd.py`/`radard.py`/
+  `longitudinal_planner.py`였고 `cruise.py`는 포함되지 않았던 것으로
+  추정).
+- line 562: `if False: #CC.enabled and self._paddle_decel_active:  #
+  수정필요...` — `lfaButton` 처리 중 마찬가지로 항상 거짓인 분기.
+  `# 수정필요...` 주석으로 보아 원작자가 의도적으로 미완성 상태로
+  비활성화해둔 것으로 추정 — **단순 삭제보다는 사용자 확인 필요**
+  (의도된 임시 비활성화일 수 있음).
+- 둘 다 런타임 CPU 비용은 0(분기 진입 자체가 안 됨) — 순수 가독성/유지보수
+  목적의 정리 대상.
+- 부수 발견(저빈도, 버튼 이벤트성): `cruise.py` line 561
+  `print("lfaButton")` — 디버그 print 잔재, `lfaButton` 누를 때만
+  실행되므로 20Hz 핫루프 무관, 영향 미미.
+
+**핵심 발견 3 — `pyflakes` 정적분석: 미사용 import/지역변수 다수
+(런타임 CPU 영향은 무시 가능 수준 — 모듈 최초 import 시 1회성 비용,
+매 프레임 재실행 아님. 순수 코드 정리/가독성 목적)**:
+- 미사용 import: `carrot_man.py`(`typing.Dict/List/Optional`,
+  `urllib.error`, `ssl`, `TICI`, `Conversions as CV`),
+  `carrot_serv.py`(`fcntl`, `json`, `socket`, `struct`,
+  `datetime.datetime`, `ftplib.FTP`, `cereal.log`, `Ratekeeper`,
+  `MyMovingAverage`, `TICI`, `Coordinate`, `get_gps_location_service` —
+  이 중 `datetime`/`json`은 각각 line 1234/1272에서 지역
+  변수명으로 재정의(redefinition)돼 있어 모듈 레벨 import 자체가
+  더 무의미), `controlsd.py`(`time`, `collections.deque`, `DT_MDL`,
+  `ModelConstants`, `CONTROL_N`, `LAT_SMOOTH_SECONDS`),
+  `radard.py`(`heapq`, `KF1D`), `longitudinal_planner.py`
+  (`get_speed_error`), `long_mpc.py`(`carrot_functions.XState`).
+- 미사용 지역변수(경미, 일부는 20Hz 핫루프 내부):
+  - `longitudinal_planner.py` line 184: `steer_angle_without_offset =
+    sm['carState'].steeringAngleDeg - sm['liveParameters'].angleOffsetDeg`
+    계산 후 바로 아래(line 185)에서 이 변수를 쓰는 코드가 주석처리돼
+    있어 실제로는 미사용 — **20Hz `mode=='acc'` 경로마다 dict lookup
+    2회 + 뺄셈 1회가 무의미하게 반복 실행**(연산 자체는 극히 경미하나
+    유일하게 "매 프레임 실행되는" 낭비 사례).
+  - `carrot_serv.py` `_update_gps()` line 707-708: `CS =
+    sm['carState']`, `CC = sm['carControl']` 대입 후 함수 내에서
+    미사용(과거 리팩터 잔재로 추정).
+  - `carrot_functions.py` `update_data()` line 702: `my_accel =
+    carstate.aEgo` 대입 후 미사용.
+  - `carrot_man.py` line 1420: `peer` 대입 후 미사용(UDP 스레드 내,
+    이벤트성).
+
+**"불필요한 코드"(로직 자체가 안 쓰이는 죽은 코드) 그 외 추가 발견 없음**:
+97/99차가 이미 확인한 `carrot_man.py` line 486 부근 `haversine_cache`
+등 주석처리된 미완성 캐싱 시도 코드는 재확인 결과 동일 상태로 유지 중
+(변경 없음, 이번 세션 범위 밖).
+
+**종합 판단**: 101차 이후 신규 로직(94~134차)은 CPU/메모리 관점에서
+문제 없음 — 이번 재점검의 실질적 신규 발견은 **(1) cruise.py 죽은 분기
+2건, (2) 미사용 import/변수 다수(전부 코드 정리 목적, 런타임 영향
+무시 가능)**로 요약됨. `steer_angle_without_offset` 1건만 "매 프레임
+실행되는 낭비"에 해당하나 그 비용 자체가 극히 미미해 우선순위 낮음.
+
+**미검증/사용자 결정 대기 (패치 아직 미적용)**:
+- `cruise.py` line 500 죽은 분기: 삭제해도 안전(항상 거짓이라 삭제해도
+  동작 100% 동일) — 사용자 승인 시 다음 세션에서 제거.
+- `cruise.py` line 562 죽은 분기: `# 수정필요...` 주석 때문에 의도적
+  임시비활성화일 가능성 있어 **삭제 여부 사용자 확인 필요**(그냥
+  삭제할지, 원래 의도된 로직을 살릴지 논의 필요).
+- 미사용 import/변수 일괄 정리는 기계적 작업이라 리스크 낮음 — 사용자가
+  원하면 다음 세션에서 일괄 patch로 처리 가능.
+- 실제 comma 기기 `top`/`htop` CPU·메모리 실측은 이번에도 미실시
+  ([NEEDS_VALIDATION] 97~102차와 동일 유지).
+
 ## 134차 — [PATCH_WRITTEN, SIM_VALIDATED, 실차재생 미실시] c3-ms-dev 전체 코드 상호영향 검토 — 112차(low_speed_strong_decel) 부스트 arm 가드 비대칭 발견 + 패치 적용
 
 **배경**: 사용자 요청 — origin/c3-ms-dev 브랜치 전체 코드를 분석해 최근 여러
