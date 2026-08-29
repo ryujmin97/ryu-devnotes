@@ -1,3 +1,92 @@
+## 131차 — [원인가설 SUCCESS 재현, 코드 미수정, NEEDS_VALIDATION] 129차 교차로 접근 route "계단형 급락" 진짜 원인: `route_lookahead` 윈도우 경계 진입 시 curvature 이산적 출현(Hypothesis C)
+
+**배경**: 129차가 실측한 route `306de77a28` seg15의 계단형 급락
+(t=2182.70->2182.75 desiredSpeed 86->61, Δ-25kph **단일 20Hz
+프레임**; t=2206.81->2206.85 Δ-24kph)에 대해, 129차는 91차
+`ROUTE_ENTRY_MARGIN_KPH`의 `time_delay` 계산 방식(margin_kph 차감)을
+원인으로 가설했음(NEEDS_VALIDATION). 이번 세션은 그 가설을 합성검증
+하려 했으나 검증 과정에서 **가설 자체가 급락의 "단일프레임 계단"
+형태를 설명 못 함**을 발견, 코드 재정독으로 진짜 메커니즘(Hypothesis
+C)을 찾아 별도 합성 시뮬레이션으로 확인함.
+
+**1단계: 로그에 실제 navi 폴리라인이 없음을 확인**. `rlog.zst`를
+capnp 이벤트 레벨로 전수조사 — `navRoute` 채널 count=0, `navInstruction`
+60건/`navInstructionCarrot` 1200건(20Hz) 존재하나 후자는 좌표 없이
+`maneuverPrimaryText`/`maneuverDistance`/`distanceRemaining`/
+`speedLimit`/`allManeuvers`(다음 회전까지 거리) 등 턴바이턴 요약
+정보만 담음. **`carrot_navi_route()`가 실제로 사용하는 raw 폴리라인
+좌표(`self.navi_points`)는 어떤 로그 채널로도 기록되지 않음** — 90차가
+이미 지적했던 한계("raw navi_points가 로그에 없어 직접검증 불가")가
+131차에서도 재확인됨. 향후 이 데이터가 꼭 필요하면 (a) 사용자가 해당
+구간 실제 도로 좌표를 별도 제공하거나 (b) device에 임시 로깅 패치를
+넣어 재수집해야 함.
+
+**2단계: `sim_route_step_drop_repro.py`(신규, NEGATIVE)** —
+`sim_route_curvature_sample.reconstruct_path`(desiredCurvature 시간
+적분 재구성, 90차가 이미 "GPS 폴리라인 자체는 아님"이라 명시한 근사)로
+급락 시각 주변을 20Hz 슬라이딩 재구성. 결과: 최대 프레임간 낙차
+1.46~1.84kph — 실측 Δ-25kph의 **1/15 규모에도 못 미침**, 완전 재현
+실패. **원인 규명**: `reconstruct_path`는 desiredCurvature(모델이
+그 시점 이후 실제로 따라간 경로의 곡률)를 적분하므로, 매 스냅샷마다
+lookahead 구간 전체가 이미 다 알려진 상태로 매끄럽게 재구성된다 —
+반면 실제 `carrot_navi_route()`는 "현재 위치 기준 고정거리 윈도우
+바깥의 지점은 계산 자체가 안 되다가, 윈도우 안으로 들어오는 순간에만
+등장"하는 구조라 원천적으로 다른 신호. 즉 93차/이 스크립트는
+"margin_kph가 스케줄을 조기화하는가"엔 유효한 도구지만, "계단형
+불연속의 존재/크기"를 검증하는 데는 방법론적으로 부적합함이 확인됨.
+
+**3단계: `sim_route_lookahead_boundary_snap.py`(신규, SUCCESS)** —
+`carrot_man.py`(커밋 `1cc2bf3`, 130차 이후 HEAD)의 실제 순수함수
+(`haversine`/`closest_point_on_segment`/`get_path_after_distance`/
+`compute_route_lookahead_distance`/`gps_to_relative_xy`/
+`resample_10m_np`/`calculate_curvature`)와 역방향 DP 본문을 그대로
+복제, 실제 navi 폴리라인이 없으므로 합성 GPS 폴리라인(직선→원호
+커브)을 만들어 등속 접근 시뮬레이션. **핵심 메커니즘**:
+`route_lookahead_m`(v_ego/accel 기반 동적 300~600m)로 현재 위치부터
+고정거리만큼 폴리라인을 매 20Hz 사이클 새로 잘라내고, curvature는
+3점(40m 간격)이라 윈도우 끝 40m는 애초에 `speeds[]`에 계산되지
+않는다(`range(len(resampled_points) - sample*2)`). 따라서 윈도우
+밖에 있던 급커브는 그 지점이 윈도우 안으로 들어오는 **단 한 프레임에
+이산적으로 배열에 나타나고**, 역방향 DP가 그 프레임에서 전체를
+즉시 재계산해 근접 지점(`out_speeds[0]`, desiredSpeed로 직결)까지
+낮은 값이 즉시 전파될 수 있음 — 91차 margin_kph(스케줄 조기화, 조기
+개입 자체는 연속적 가정하에 유효)와는 **질적으로 다른, "정보의
+이산적 출현"에 의한 불연속**.
+
+**검증 결과**: v_ego=74kph, curve_R=25m, accel=0.70(83차 실측
+`AutoNaviSpeedDecelRate` 기본값) 조건에서 route_lookahead≈300m
+지점(윈도우 끝-40m 데드존≈260m)에서 첫 진입 시 300.0->71.0(Δ-229,
+합성 원호가 급격히 시작돼 과장된 값)이, 곧이어 dist_to_curve=200.6m
+에서 **59.9->40.1(Δ-19.8, 단일 20Hz 프레임)**이 관측됨 — **129차
+실측(Δ-24~-25kph, 단일 20Hz 프레임)과 규모/형태(연속감속이 아닌
+계단)가 정성적으로 일치**. 129차가 보고한 "회전 종료 즉시 60까지
+순간 복귀"(원복측 계단)도 같은 세션 로그(t=27.25, dist=-10.1m)에서
+300.0->300.0으로의 유사 경계효과(윈도우가 커브를 완전히 지나며 커브
+구간이 배열에서 사라짐)로 구조적으로 설명 가능함을 확인(정밀 매칭은
+미실시).
+
+**한계 (NEEDS_VALIDATION으로 유지하는 이유)**: (1) 합성 원호(반경
+25m, 90도)는 실제 교차로 도로 형상과 다름 — 실측 낙폭(-25.0kph)에
+정확히 맞춘 geometry 튜닝은 하지 않았고 정성적(규모/형태) 일치만
+확인. (2) 위 1단계 확인대로 실제 navi 폴리라인을 로그에서 얻을
+수 없어 306de77a28 seg15 route로 1:1 재현(동일 좌표로 정확히 같은
+낙폭 재현)은 불가능. (3) `ROUTE_ENTRY_MARGIN_KPH`(91차) 자체가 이
+불연속에 얼마나 기여/완화하는지(margin이 있어서 그나마 완충되는
+편인지, 아니면 무관한지)는 이번 시뮬레이션에서 margin=25 고정으로만
+돌려 margin=0과의 대조 없음 — 다음 세션 확인 필요.
+
+**다음 세션 우선순위**: (1) 사용자가 실제 교차로 도로 좌표(Google
+Maps 등)를 제공하면 합성 폴리라인을 실제 형상으로 교체해 낙폭
+정밀매칭 재시도. (2) 패치 방향 후보 설계 착수 — 윈도우 경계 근처에서
+`out_speeds[-1]` 초기 anchor 또는 `speeds[]` 배열 자체에 저역통과/
+프레임간 램프 리미터를 적용해 "새로 나타난 지점"의 영향이 여러
+프레임에 걸쳐 서서히 반영되도록 완충하는 안(116차 저속 gap-open
+damping 패치와 유사한 "구조적 안전장치 재사용" 철학 적용 검토).
+(3) margin_kph=0/25 대조 실행해 91차 패치가 이 불연속을 악화/완화
+어느 쪽인지 확인.
+
+---
+
 ## 130차 — [구현+합성검증+패치전달 완료, 실차검증 대기] 104차 Finding A(커브+레이더유실 시 vision 원거리 오판) 원인 확정 및 `LeadBlend` BIG_JUMP 신뢰도 게이트 패치
 
 **배경**: 사용자 지시("이어서 계속, A로 진행하자")로 104차 Finding A

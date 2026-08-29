@@ -3,6 +3,15 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+- 2026-08-29 (131차): `sim_route_step_drop_repro.py` 신규(NEGATIVE) —
+  129차 계단형 급락(Δ-25kph 단일프레임)을 desiredCurvature 재구성
+  기반으로 재현 시도했으나 최대 1.84kph만 나와 재현 실패, 방법론
+  한계 확인. `sim_route_lookahead_boundary_snap.py` 신규(SUCCESS) —
+  `carrot_navi_route()` 실제 순수함수를 그대로 복제해 합성 GPS
+  폴리라인으로 검증, "route_lookahead 윈도우 경계 진입 시 speeds[]에
+  급커브가 이산적으로 출현" 가설(Hypothesis C)이 실측과 동일 규모
+  (Δ-19.8kph 단일프레임)로 재현됨. 상세는 FINDINGS.md "131차" 참고.
+
 - 2026-08-29 (125차): `extract_cutin_lists.py` 신규 — rlog에서
   `radarState.leadOne`/`leadsCutIn`/`leadsLeft`/`leadsRight`를 시간별로
   원본 그대로 추출(게이트 재구현 없음). r354 t≈296~299 컷인 재분석에서

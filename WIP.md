@@ -1,3 +1,30 @@
+## 131차 (체크포인트 — 원인가설 SUCCESS 재현, 코드 미수정, 실차검증 필요) — 129차 route "계단형 급락" 진짜 원인: route_lookahead 윈도우 경계 진입 이산적 불연속(Hypothesis C)
+
+사용자가 route `306de77a28` seg15 재업로드("패치 적용전에 시뮬레이션
+하자")로 129차 후속 진행. 상세는 FINDINGS.md "131차" 항목 참고.
+
+**핵심 결과 요약**:
+1. rlog 전수조사로 실제 navi 폴리라인이 어떤 로그 채널에도 없음을
+   확인(navRoute count=0, navInstructionCarrot은 좌표 없음).
+2. `sim_route_step_drop_repro.py`(신규, NEGATIVE): desiredCurvature
+   재구성 방식으로는 실측 Δ-25kph 단일프레임 급락을 재현 못 함
+   (최대 1.84kph) — 129차의 margin_kph 가설이 계단형 자체의 원인은
+   아님을 시사, 방법론 한계도 확인.
+3. `sim_route_lookahead_boundary_snap.py`(신규, **SUCCESS**):
+   `carrot_man.py`(1cc2bf3) 실제 순수함수를 그대로 복제, 합성 GPS
+   폴리라인(직선+원호)으로 검증 — "route_lookahead 윈도우 경계를
+   넘어 급커브가 curvature 배열에 이산적으로 출현, 역방향DP가 그
+   프레임에 즉시 전체 재계산"하는 메커니즘이 실측과 동일 규모/형태
+   (Δ-19.8kph, 단일 20Hz 프레임)로 재현됨.
+4. `ryu` 코드는 미수정 — devnotes(FINDINGS/WIP/toolkit README+
+   CHANGELOG)만 갱신, 신규 스크립트 2개 toolkit에 저장.
+
+**다음 세션**: (1) 실제 교차로 좌표로 합성 폴리라인 정밀화, (2)
+윈도우 경계 완충(저역통과/램프 리미터) 패치 방향 설계, (3)
+margin_kph=0/25 대조로 91차 패치의 기여도 확인 후 패치 설계 착수.
+
+---
+
 ## 130차 (완료 — 원인확정+구현+합성검증+패치전달 완료, 실차검증 대기) — 104차 Finding A(커브+레이더유실 vision 원거리 오판) `LeadBlend` BIG_JUMP 신뢰도 게이트 패치
 
 **요청**: "이어서 계속, A로 진행하자" — 104차 Finding A(오탐, 25회차간

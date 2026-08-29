@@ -1035,3 +1035,15 @@ harsh_brake 1건 전부 src=vturn(apex-lag 이슈, route 무관)이라는 관측
 부작용)은 여전히 미완료** — 다음 세션 우선순위. 동일 구간을 91차 적용
 후 재업로드하면 `regression_report()`로 전/후 정량비교 가능. 상세는
 WIP.md 92차 항목 참고.
+
+2026-08-29 (131차, c3-ms-dev): 신규 커밋 없음(분석만, 로컬 repo HEAD
+`1cc2bf3`=130차) — 사용자 재업로드 route `306de77a28` seg15로 129차
+"계단형 급락" 후속. 실제 navi 폴리라인이 어떤 로그 채널에도 없음을
+확인(navRoute count=0). `sim_route_step_drop_repro.py`(신규)로 129차
+margin_kph 가설 재현 시도 NEGATIVE(최대 1.84kph, 실측 Δ-25kph 못 미침).
+`sim_route_lookahead_boundary_snap.py`(신규)로 실제 코드 순수함수 복제
++ 합성 GPS 폴리라인 검증 결과 새 가설(Hypothesis C: route_lookahead
+윈도우 경계 진입 시 curvature 이산적 출현) SUCCESS — 실측과 동일 규모
+(Δ-19.8kph 단일프레임) 재현. 코드 미수정, NEEDS_VALIDATION. 상세는
+WIP.md/FINDINGS.md 131차 항목 참고. **다음은 실제 도로좌표 확보 후
+정밀매칭 + 패치 방향 설계.**

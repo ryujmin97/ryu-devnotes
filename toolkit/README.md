@@ -1097,3 +1097,66 @@ vision(modelProb=0.85) far jump 회귀 없음, (C) 레이더 교차검증
 route는 이 세션 컨테이너엔 없어(대용량 정책상 미보관) replay 정밀
 재현은 불가, 다음 세션 재확보 시 진행.
 **사용**: `python3 toolkit/sim_lead_blend_far_jump_gate.py`
+
+## sim_route_step_drop_repro.py (131차, 신규 — NEGATIVE 결과)
+**목적**: 129차(교차로 접근 route 사전감속 "계단형 고정") 실측
+급락(t=2182.70->2182.75, Δ-25kph 단일프레임)을 `sim_route_curvature_
+sample.py`의 `reconstruct_path`(desiredCurvature 시간적분 재구성) +
+`backward_dp_margin`으로 20Hz 슬라이딩 재현 시도.
+**결과(NEGATIVE)**: 최대 프레임간 낙차 1.46~1.84kph에 그침 — 실측
+Δ-25kph를 전혀 재현 못 함. **원인**: `reconstruct_path`가 desiredCurvature
+시간적분 기반이라 매 스냅샷마다 lookahead 구간 전체가 "이미 다 아는"
+상태로 재구성됨(실제 도로가 아니라 모델이 그 이후 실제로 따라간 경로를
+재생하는 것) — 실제 `carrot_navi_route()`가 갖는 "고정거리 윈도우 경계
+밖의 지점은 아예 존재하지 않다가 경계를 넘는 순간 이산적으로 나타난다"는
+메커니즘이 원천적으로 없어 매끄럽게만 나옴. **후속**:
+`sim_route_lookahead_boundary_snap.py`(131차)가 이 메커니즘을 직접
+재현해 실측 규모의 단일프레임 급락을 재현 성공 — 이 스크립트의
+방법론(desiredCurvature 재구성)은 "계단형 급락"류 조사에는 부적합하다는
+것이 확인됨(단, 91차 margin_kph 회귀검증처럼 "스케줄이 조기화되는지"
+확인 목적에는 여전히 유효 — 93차/이 스크립트 둘 다 그 결론은 재확인함).
+**사용**: `python3 sim_route_step_drop_repro.py <route.csv> --t-center
+<급락시각> --window 1.5 --fine-step 0.05`
+**의존성**: `shapely`, `numpy`, `sim_route_curvature_sample.py`,
+`sim_route_margin_regression_scan.py`.
+
+## sim_route_lookahead_boundary_snap.py (131차, 신규 — Hypothesis C 재현 SUCCESS)
+**목적**: 129차 "계단형 급락" 실측의 진짜 원인 가설(Hypothesis C):
+`carrot_navi_route()`가 매 20Hz 사이클마다 `route_lookahead_m`(v_ego/
+accel 기반 동적 300~600m) 거리만큼 **고정 GPS 폴리라인을 매번 새로
+윈도우 절단**하고, 그 윈도우 끝점의 curvature-speed를 역방향 DP
+초기앵커(`out_speeds[-1]`)로 쓴다. curvature는 3점(40m 간격)이라
+윈도우 끝 40m는 애초에 speeds[] 배열에 계산되지 않는다 — 즉 "윈도우
+밖의 급커브"는 그 지점이 윈도우 안으로 들어오는 **단 한 프레임에**
+이산적으로 배열에 나타나고, 역방향 DP가 그 프레임에 전체를 즉시
+재계산해 근접 지점(out_speeds[0], desiredSpeed로 이어짐)까지 낮은 값이
+즉시 전파될 수 있다 — margin_kph 스케줄 조기화(91차/93차 검증대상)와는
+질적으로 다른 "이산적 정보 출현" 불연속.
+**방법**: `carrot_man.py`(커밋 `1cc2bf3`, 130차 이후 HEAD)의 순수함수
+(`haversine`/`closest_point_on_segment`/`get_path_after_distance`/
+`compute_route_lookahead_distance`/`gps_to_relative_xy`/
+`resample_10m_np`/`calculate_curvature`)와 역방향 DP 본문을 그대로
+복제(`carrot_navi_route_core`). 실제 navi 폴리라인은 로그에 없음(131차
+확인, `navRoute` capnp 채널 count=0, `navInstructionCarrot`엔 좌표 없이
+`maneuverDistance`/`speedLimit` 요약만 존재)이므로 **합성 GPS
+폴리라인**(직선 후 원호 커브)을 만들어 등속 접근시키며 20Hz 반복 호출.
+**결과(SUCCESS)**: v_ego=74kph, curve_R=25m, accel=0.70 조건에서
+`route_lookahead≈300m`(윈도우 끝-40m 데드존≈260m 지점)에서 첫 진입 시
+300.0->71.0(Δ-229, 극단값 — 원호 진입점이 커브 시작이라 과장)이,
+곧이어 t=17.00에 59.9->40.1(**Δ-19.8, 단일프레임**)이 관측 — **129차
+실측(Δ-24~-25kph, 단일 20Hz 프레임)과 규모/형태 모두 일치**.
+**한계/미검증**: (1) 합성 원호는 실제 도로 곡률 프로파일과 다름 —
+실측 낙폭(-25.0)과 정확히 일치하는 curve_radius/geometry 튜닝은
+안 함(정성적 일치만 확인). (2) 실제 navi 폴리라인을 로그에서 얻을
+방법이 없어(위 확인) 306de77a28 seg15 route로 1:1 재현은 불가 —
+다음 세션 옵션: (a) 사용자가 해당 교차로의 실제 도로 형상을
+Google Maps 등에서 좌표로 제공하면 그걸로 합성 폴리라인 대체,
+(b) device에서 `navi_points` 변수를 임시 로깅하도록 패치 후 재수집.
+**패치 방향 후보(미설계)**: 윈도우 경계 근처 curvature 배열에 진입
+시 급격한 앵커 변화를 완충하는 저역통과/램프 리미터를 `out_speeds[-1]`
+초기화 또는 speeds[] 자체에 적용하는 방안 — 다음 세션 착수 필요.
+**사용**: `python3 toolkit/sim_route_lookahead_boundary_snap.py
+--v-ego-kph 74 --curve-radius-m 25 --accel 0.70
+--straight-before-curve-m 700`
+**의존성**: `numpy`만 (shapely 불필요 — carrot_man.py 실제 코드가
+numpy 벡터화 resample 사용).
