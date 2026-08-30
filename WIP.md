@@ -27,6 +27,32 @@ toolkit/README.md·FINDINGS.md 153차 참고).
 경로이므로 그 패치 재사용 금지 — toolkit/README.md에 명시).
 패치 완성 후 4단계(실차 로그로 최종 확인)는 그 다음.
 
+**[153차 계속] 패치 작성 완료(같은 세션 내 이어서 진행)**: `carrot_man.py`
+`carrot_navi_route()`의 역방향 DP 루프 직후에 근정지급 후처리 블록 삽입
+(신규 상수 `ROUTE_NEAR_STOP_TARGET_KPH=15.0`, 클램프는 기존
+`self.vturn_decel_rate`(1.2 m/s^2) 재사용 — 별도 상수 안 만듦). 로직은
+toolkit의 `carrot_navi_route_dp_forced_decel()`을 1:1 이식(재귀 완전
+우회, min_idx까지 등가속도 물리곡선으로 out_speeds 덮어쓰기, 132차
+램프리미터용 accel_limit_kmh도 동반 상향). 커밋
+`3ab60b2`(c3-ms-dev, `b15c50f`+1), `git format-patch`로
+`0001-carrot-near-stop-forced-decel.patch` 생성. **로컬 커밋만 존재,
+origin push는 사용자 로컬에서 git am 적용 후 진행 예정.**
+
+**아직 안 된 것(다음 세션 최우선으로 격상)**: **scons 빌드 검증 미실시**
+(python 파일 문법은 py_compile 통과했으나, 이 프로젝트 관례상 C++ 변경만
+scons로 검증해왔고 이번은 순수 python이라 별도 빌드 불필요할 수 있음 —
+但 실제 openpilot 프로세스에서 import 되는 다른 모듈과의 상호작용은
+미확인). **실차 로그 검증 전혀 안 됨** — 152차 합의 4단계(실차 로그로
+최종 확인)가 이제 최우선 남은 단계. 근정지급 코너(예: 898edd0f96
+seg16/17류 우회전, 또는 신규 로그) 재현 로그가 다음 세션에 업로드되면
+patched 코드로 `extract_log.py --with-navi-paths` 재추출 후
+`liveRouteSpeed`(149차 계측)로 실제 route src 선택 여부/초과속도 직접
+대조 필요.
+
+**전달(이번 메시지)**: 위 devnotes 파일 전부 + ryu 패치 파일
+`0001-carrot-near-stop-forced-decel.patch`(`git am` 적용용). ryu
+로컬 커밋 `3ab60b2` — **origin push는 사용자 로컬 git am 이후 필요**.
+
 **미검증(다음 세션 여지)**: `_run_on_csv()` 경로(실측 CSV 그대로
 넣어 검증)는 아직 옵션1 버전으로 안 돌려봄 — route1617.csv 등으로
 재검증 권장. 클램프 발동 시 더 짧은 거리(20~30m)에서도 일관되게
