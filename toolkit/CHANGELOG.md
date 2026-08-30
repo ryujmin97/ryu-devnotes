@@ -3,6 +3,18 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+- 2026-08-30 (153차) `sim_route_near_stop_accel_boost.py`:
+  `carrot_navi_route_dp_forced_decel()` 신규(152차 옵션1) — 151차가
+  NEGATIVE 판정한 "accel_limit을 부스트해 같은 역방향 DP 재귀에 넣는"
+  방식 대신, base DP를 그대로 돌린 뒤 근정지급 구간(min_idx까지)만 별도로
+  "지금부터 등가속도로 감속하면 정확히 target 도달"하는 물리 공식(재귀/
+  time_wait 완전 배제)으로 직접 덮어쓰는 방식. `simulate_approach()`에
+  `apply_forced_decel` 파라미터 추가, 유닛테스트 시나리오 E~H 추가.
+  **결과 POSITIVE**: 149차 근사조건(초과분 base 4.4kph→옵션1 0.0kph,
+  151차 boost는 8.8kph로 악화), 149차 실측조건(5.3→0.0, boost 10.1),
+  극단적 늦은 감지(50m, 클램프 1.2 m/s^2 적용, 1.3→0.0, boost 4.9) 3개
+  조건 전부 개선 확인, 일반 커브 회귀 없음(diff=0) 확인. FINDINGS.md
+  152차 계속2 참고. **ryu 패치는 아직 미작성(다음 단계).**
 - 2026-08-30 (152차) `analysis_helpers.py::required_decel_gap_scan()`:
   `turn_confirm_deg`/`turn_confirm_window_s` 게이트 추가 — blinker onset이
   무관한 차선변경일 때 근정지급 커브 감지와 잘못 페어링되던 오탐 버그

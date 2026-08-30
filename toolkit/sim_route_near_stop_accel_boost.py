@@ -100,9 +100,82 @@ def carrot_navi_route_dp(speeds, distances, v_ego_kph, accel_limit_mss,
     return out_speeds, accel_limit_kmh
 
 
+def carrot_navi_route_dp_forced_decel(speeds, distances, v_ego_kph, accel_limit_mss,
+                                       route_entry_margin_kph=ROUTE_ENTRY_MARGIN_KPH,
+                                       vturn_safe_time=VTURN_SAFE_TIME,
+                                       apply_forced_decel=False,
+                                       near_stop_target_kph=ROUTE_NEAR_STOP_TARGET_KPH,
+                                       max_forced_accel_mss=ROUTE_ACCEL_LIMIT_BOOST_MAX_MSS):
+    """152차 옵션1 -- 151차(accel_limit을 부스트해 같은 역방향 DP 재귀에 넣는 방식)의
+    실패 원인은 그 재귀의 time_wait/margin 메커니즘이 "accel_limit이 크면 나중에
+    더 세게 감속 가능"이라 판단해 현재 시점 감속 권고를 오히려 늦추는 것이었다
+    (FINDINGS.md 151차). 이 함수는 그 재귀 자체를 우회한다:
+
+    1. 먼저 기존 DP(`carrot_navi_route_dp`, apply_near_stop_boost=False, 즉 base
+       accel_limit)를 그대로 돌려 out_speeds/accel_limit_kmh를 얻는다 -- "감속
+       시작 시점" 판단 로직은 전혀 건드리지 않음(151차가 확인한 부작용의 근원을
+       원천 차단).
+    2. 근정지급 target(<=near_stop_target_kph) 지점(min_idx)을 찾아 "지금 이
+       순간부터 등가속도로 감속하면 코너에서 정확히 target에 도달"하는 필요
+       감속률(required_accel_mss, 149차/151차와 동일 공식)을 계산한다.
+    3. 이 required_accel_mss가 base accel_limit_mss보다 큰(=현재 설정으로는
+       물리적으로 못 따라가는) 경우에만, min_idx까지의 각 지점 i에 대해
+       "target에서 required_accel_mss로 역산한 등가속도 감속 곡선"을 직접
+       계산(sqrt(v^2) 공식, 재귀/time_wait 전혀 개입 안 함)해 out_speeds[i]를
+       그 값과 min()으로 덮어쓴다. 이러면 감속 스케줄이 재귀의 "지연 후 급감속"
+       왜곡 없이 처음부터 물리적으로 필요한 만큼만 매끄럽게 하강한다.
+    4. 132차 프레임간 램프리미터가 이 새 스케줄을 따라잡을 수 있도록,
+       accel_limit_kmh도 required_accel_mss 기준으로 상향해 반환한다.
+
+    required_accel_mss가 이미 base accel_limit_mss 이하면(=일반 커브, 굳이
+    부스트가 필요 없는 경우) 아무 것도 덮어쓰지 않고 base 결과를 그대로
+    반환한다(151차 시나리오 A/B와 동일한 회귀 없음 보장).
+    """
+    out_speeds, accel_limit_kmh = carrot_navi_route_dp(
+        speeds, distances, v_ego_kph, accel_limit_mss,
+        route_entry_margin_kph=route_entry_margin_kph,
+        vturn_safe_time=vturn_safe_time,
+        apply_near_stop_boost=False)
+
+    if not apply_forced_decel or not speeds:
+        return out_speeds, accel_limit_kmh
+
+    min_idx = min(range(len(speeds)), key=lambda k: speeds[k])
+    if speeds[min_idx] > near_stop_target_kph or distances[min_idx] <= 0:
+        return out_speeds, accel_limit_kmh
+
+    v_ego_ms = v_ego_kph / 3.6
+    target_ms = speeds[min_idx] / 3.6
+    required_accel_mss = max(0.0, (v_ego_ms ** 2 - target_ms ** 2) / (2.0 * distances[min_idx]))
+
+    if required_accel_mss <= accel_limit_mss:
+        # 기존 accel_limit으로 이미 물리적으로 충분 -- 덮어쓸 필요 없음(회귀 방지)
+        return out_speeds, accel_limit_kmh
+
+    # [152차 옵션1] 감지가 너무 늦어(거리 부족) required_accel_mss가 비현실적으로
+    # 커질 수 있음(급브레이크 급의 편의/안전 문제) -- max_forced_accel_mss로 상한
+    # 클램프(기본값은 151차와 동일하게 vturn_decel_rate 재사용 1.2 m/s^2). 클램프된
+    # 경우 물리적으로 target까지 완전히 못 따라갈 수 있으나(잔여 overshoot),
+    # 151차 boost처럼 "감속 시작 자체를 늦추는" 역효과는 구조적으로 없음 --
+    # 이 함수는 항상 지금 이 순간부터 즉시 감속 곡선을 강제하기 때문.
+    applied_accel_mss = required_accel_mss
+    if max_forced_accel_mss is not None:
+        applied_accel_mss = min(required_accel_mss, max_forced_accel_mss)
+
+    for i in range(min_idx + 1):
+        dist_to_corner = max(0.0, distances[min_idx] - distances[i])
+        forced_ms_sq = target_ms ** 2 + 2.0 * applied_accel_mss * dist_to_corner
+        forced_kph = (forced_ms_sq ** 0.5) * 3.6 if forced_ms_sq > 0 else speeds[min_idx]
+        out_speeds[i] = min(out_speeds[i], forced_kph)
+
+    accel_limit_kmh_forced = max(accel_limit_kmh, applied_accel_mss * 3.6)
+    return out_speeds, accel_limit_kmh_forced
+
+
 def simulate_approach(target_speed_kph, corner_dist_m, v_ego_kph_start, accel_limit_mss,
                        apply_near_stop_boost, dt=0.05, near_stop_target_kph=ROUTE_NEAR_STOP_TARGET_KPH,
-                       boost_max_mss=ROUTE_ACCEL_LIMIT_BOOST_MAX_MSS, max_steps=20000):
+                       boost_max_mss=ROUTE_ACCEL_LIMIT_BOOST_MAX_MSS, max_steps=20000,
+                       apply_forced_decel=False):
     """단일 정지선/코너(target_speed_kph, 최초 corner_dist_m 지점)에 접근하는
     상황을 20Hz(dt)로 다중 프레임 시뮬레이션한다.
 
@@ -157,11 +230,18 @@ def simulate_approach(target_speed_kph, corner_dist_m, v_ego_kph_start, accel_li
         # 마지막 포인트만 실제 남은 거리(dist)로 스냅 -- 격자 반올림 오차 방지
         distances[-1] = dist
         speeds = [200.0] * (n_points - 1) + [target_speed_kph]
-        out_speeds, accel_limit_kmh = carrot_navi_route_dp(
-            speeds, distances, v_ego_kph, accel_limit_mss,
-            apply_near_stop_boost=apply_near_stop_boost,
-            near_stop_target_kph=near_stop_target_kph,
-            boost_max_mss=boost_max_mss)
+        if apply_forced_decel:
+            out_speeds, accel_limit_kmh = carrot_navi_route_dp_forced_decel(
+                speeds, distances, v_ego_kph, accel_limit_mss,
+                apply_forced_decel=True,
+                near_stop_target_kph=near_stop_target_kph,
+                max_forced_accel_mss=boost_max_mss)
+        else:
+            out_speeds, accel_limit_kmh = carrot_navi_route_dp(
+                speeds, distances, v_ego_kph, accel_limit_mss,
+                apply_near_stop_boost=apply_near_stop_boost,
+                near_stop_target_kph=near_stop_target_kph,
+                boost_max_mss=boost_max_mss)
         raw_out_speed = out_speeds[0]
         # production과 동일하게 이번 사이클의 accel_limit_kmh(부스트 반영값)로
         # 램프리미터 프레임당 상한을 적용
@@ -238,6 +318,63 @@ def _run_unit_tests():
     print(f"    패치 전: 도달 시 속도={final_before2:.1f}kph (초과분={final_before2-10.7:.1f}kph)")
     print(f"    패치 후: 도달 시 속도={final_after2:.1f}kph (초과분={final_after2-10.7:.1f}kph)")
     check("실측 근사 조건에서도 패치 후 개선", final_after2 < final_before2 - 5.0)
+
+    print("=== 시나리오 E(152차 옵션1): 일반 커브 회귀 없음 (forced_decel on, 필요감속률<=base라 미발동) ===")
+    speeds_e = [40.0] * 20 + [200.0] * 10
+    distances_e = [DISTANCE_INTERVAL * (i + 2) for i in range(len(speeds_e))]
+    out_base_e, _ = carrot_navi_route_dp(speeds_e, distances_e, v_ego_kph=90.0, accel_limit_mss=0.70,
+                                          apply_near_stop_boost=False)
+    out_forced_e, _ = carrot_navi_route_dp_forced_decel(speeds_e, distances_e, v_ego_kph=90.0,
+                                                          accel_limit_mss=0.70, apply_forced_decel=True)
+    diff_e = max(abs(a - b) for a, b in zip(out_base_e, out_forced_e))
+    check(f"target=40kph(near_stop_target_kph=15 미만 아님)는 옵션1도 미발동, diff=0 (실제 diff={diff_e:.6f})",
+          diff_e < 1e-9)
+
+    print("=== 시나리오 F(152차 옵션1): 149차 근사조건(v_ego=90kph, target=10.7kph, 280m) 다중프레임, "
+          "151차 boost와 비교 ===")
+    final_boost, t_boost, _ = simulate_approach(
+        target_speed_kph=10.7, corner_dist_m=280.0, v_ego_kph_start=90.0,
+        accel_limit_mss=0.70, apply_near_stop_boost=True)
+    final_forced, t_forced, trace_forced = simulate_approach(
+        target_speed_kph=10.7, corner_dist_m=280.0, v_ego_kph_start=90.0,
+        accel_limit_mss=0.70, apply_near_stop_boost=False, apply_forced_decel=True)
+    print(f"    패치 전(base)      : 도달 시 속도={final_before:.1f}kph (초과분={final_before-10.7:.1f}kph, {t_before:.1f}s)")
+    print(f"    151차 boost(NEGATIVE): 도달 시 속도={final_boost:.1f}kph (초과분={final_boost-10.7:.1f}kph, {t_boost:.1f}s)")
+    print(f"    152차 옵션1(forced) : 도달 시 속도={final_forced:.1f}kph (초과분={final_forced-10.7:.1f}kph, {t_forced:.1f}s)")
+    check("옵션1이 151차 boost보다 나음(초과분 더 작음)", final_forced < final_boost)
+    check("옵션1이 base(패치 전)보다 나쁘지 않음(초과분이 base 이하)", final_forced <= final_before + 0.5)
+
+    print("=== 시나리오 G(152차 옵션1): 149차 실측값 그대로(v_ego=109.6kph, ~585m), 151차 boost와 비교 ===")
+    final_boost2, t_boost2, _ = simulate_approach(
+        target_speed_kph=10.7, corner_dist_m=approx_dist, v_ego_kph_start=109.6,
+        accel_limit_mss=0.70, apply_near_stop_boost=True)
+    final_forced2, t_forced2, _ = simulate_approach(
+        target_speed_kph=10.7, corner_dist_m=approx_dist, v_ego_kph_start=109.6,
+        accel_limit_mss=0.70, apply_near_stop_boost=False, apply_forced_decel=True)
+    print(f"    패치 전(base)        : 초과분={final_before2-10.7:.1f}kph")
+    print(f"    151차 boost(NEGATIVE): 초과분={final_boost2-10.7:.1f}kph")
+    print(f"    152차 옵션1(forced) : 초과분={final_forced2-10.7:.1f}kph")
+    check("옵션1이 151차 boost보다 나음(실측 근사조건)", final_forced2 < final_boost2)
+    check("옵션1이 base보다 나쁘지 않음(실측 근사조건)", final_forced2 <= final_before2 + 0.5)
+
+    print("=== 시나리오 H(152차 옵션1): 극단적 늦은 감지(50m, required_accel>클램프 상한) -- "
+          "클램프 적용 시 잔여 overshoot는 남지만 역효과(151차 boost처럼 악화)는 없어야 함 ===")
+    final_before_h, _, _ = simulate_approach(
+        target_speed_kph=10.7, corner_dist_m=50.0, v_ego_kph_start=90.0,
+        accel_limit_mss=0.70, apply_near_stop_boost=False)
+    final_boost_h, _, _ = simulate_approach(
+        target_speed_kph=10.7, corner_dist_m=50.0, v_ego_kph_start=90.0,
+        accel_limit_mss=0.70, apply_near_stop_boost=True)
+    final_forced_h, _, _ = simulate_approach(
+        target_speed_kph=10.7, corner_dist_m=50.0, v_ego_kph_start=90.0,
+        accel_limit_mss=0.70, apply_near_stop_boost=False, apply_forced_decel=True)
+    print(f"    패치 전(base)        : 초과분={final_before_h-10.7:.1f}kph")
+    print(f"    151차 boost(NEGATIVE): 초과분={final_boost_h-10.7:.1f}kph")
+    print(f"    152차 옵션1(forced, 클램프 1.2 m/s^2 적용) : 초과분={final_forced_h-10.7:.1f}kph")
+    check("극단적 늦은 감지에서도 옵션1이 base보다 나쁘지 않음(역효과 없음)",
+          final_forced_h <= final_before_h + 0.5)
+    check("극단적 늦은 감지에서도 옵션1이 151차 boost보다 나쁘지 않음",
+          final_forced_h <= final_boost_h + 0.5)
 
     print(f"\n합계: {passed} PASS / {failed} FAIL")
     return failed == 0

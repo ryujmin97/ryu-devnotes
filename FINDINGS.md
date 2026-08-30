@@ -1,3 +1,75 @@
+## 153차 — [시뮬레이션 검증 결과 POSITIVE] 152차 옵션1(근정지급 구간 DP 재귀 우회, 물리 공식 직접 덮어쓰기) 시뮬레이션 검증 — 151차 boost의 "감속 시작 지연" 부작용 없이 초과분 개선 확인, ryu 패치는 다음 단계
+
+**배경**: 151차가 확인한 문제(accel_limit 부스트를 같은 역방향 DP 재귀에
+넣으면 재귀의 time_wait 메커니즘이 오히려 현재 시점 감속 시작을 늦춤 —
+NEGATIVE, 배포 보류)에 대해, 152차 계속(WIP.md)에서 사용자와 합의한
+대안(옵션1): "accel_limit을 올려서 같은 재귀에 맡기는" 대신 "감지
+시점에 필요감속률을 계산해 근정지급 구간에서 DP의 낙관적 역산
+스케줄링을 우회하고 그 감속을 즉시 시작하도록 강제"하는 설계로
+`sim_route_near_stop_accel_boost.py`를 확장, 시뮬레이션 선검증.
+
+**설계(`carrot_navi_route_dp_forced_decel()`, toolkit README에 상세)**:
+1. base accel_limit로 기존 DP(`carrot_navi_route_dp`, apply_near_stop_boost=False)를
+   그대로 실행 — "언제 감속을 시작할지" 판단 로직(time_wait/margin) 자체는
+   전혀 건드리지 않음. 151차 부작용의 근원이 바로 이 재귀에 부스트된
+   accel_limit을 입력으로 주는 것이었으므로, 재귀 자체를 우회하는 것이
+   핵심 차이.
+2. 근정지급 target 지점(min_idx, speeds[min_idx]<=near_stop_target_kph)의
+   필요감속률을 149차/151차와 동일한 등가속도 역산 공식
+   (`required_accel_mss = (v_ego_ms^2-target_ms^2)/(2*dist)`)으로 계산.
+3. `required_accel_mss > base accel_limit_mss`일 때만(=현재 설정으로
+   물리적으로 못 따라가는 경우만), min_idx까지의 각 지점을 "target에서
+   그 감속률로 역산한 등가속도 곡선"으로 직접 덮어씀 — 재귀/time_wait가
+   전혀 개입하지 않는 닫힌 형식(closed-form) 계산이라 "지연 후 급감속"
+   왜곡이 구조적으로 발생할 수 없음. 상한 `max_forced_accel_mss`(기본
+   1.2 m/s^2, 151차와 동일하게 vturn_decel_rate 재사용)로 클램프해
+   비현실적으로 큰 감속 요구(예: 매우 늦은 감지)를 방지.
+4. 132차 프레임간 램프리미터가 이 새 곡선을 따라잡도록 accel_limit_kmh도
+   같은 값 기준으로 상향해 반환.
+
+**시뮬레이션 결과(전부 POSITIVE, 151차와 동일하게 132차 램프리미터 포함
+다중프레임 `simulate_approach()` 사용)**:
+| 조건 | base(패치 전) | 151차 boost(NEGATIVE) | 152차 옵션1 |
+|---|---|---|---|
+| 149차 근사(v_ego=90kph, target=10.7kph, 280m) | 초과 4.4kph | 초과 8.8kph(악화) | **초과 0.0kph** |
+| 149차 실측 근사(v_ego=109.6kph, ~585m) | 초과 5.3kph | 초과 10.1kph(악화) | **초과 0.0kph** |
+| 극단적 늦은 감지(50m, 클램프 발동) | 초과 1.3kph | 초과 4.9kph(악화) | **초과 0.0kph** |
+| 일반 커브(target=40kph, 근정지급 아님) | - | diff=0(회귀없음) | diff=0(회귀없음) |
+
+151차 boost는 세 조건 전부에서 base보다 악화됐던 반면, 옵션1은 세
+조건 전부에서 base보다 개선(모두 초과분 0.0kph 도달)했고, 근정지급이
+아닌 일반 커브에서는 옵션1도 전혀 발동하지 않아(diff=0) 회귀가 없음을
+확인함. 151차가 지적한 근본 메커니즘(accel_limit을 재귀에 주입하면
+재귀가 자체적으로 감속 시작을 늦춘다)을 옵션1이 재귀 자체를 우회함으로써
+구조적으로 회피했다는 가설이 시뮬레이션으로 뒷받침됨.
+
+**toolkit 변경**: `sim_route_near_stop_accel_boost.py`에
+`carrot_navi_route_dp_forced_decel()` 신규, `simulate_approach()`에
+`apply_forced_decel`/`max_forced_accel_mss` 파라미터 추가, 유닛테스트
+시나리오 E~H 추가(README/CHANGELOG 갱신 완료). `--unit-tests` 결과
+"10 PASS / 2 FAIL"이 정상(FAIL 2건은 151차 boost 자체를 검증하던 레거시
+체크로, NEGATIVE 결론을 그대로 반영해 의도적으로 FAIL 유지 — 재작성
+금지).
+
+**한계/다음 단계**:
+- 이번 회차는 **시뮬레이션 전용 재구현**만 검증됨. `carrot_man.py`
+  실제 패치는 아직 작성 안 함(152차 합의 순서: 시뮬레이션 POSITIVE
+  확인 후 실제 패치 → 이제 이 조건 충족, 다음 단계로 진행 가능).
+- 시뮬레이션은 단일 코너 접근(합성 시나리오)만 검증했고, `_run_on_csv()`
+  경로(실측 CSV의 naviPaths 그대로 넣어 검증)는 아직 옵션1 버전으로
+  안 돌려봄 — 실제 route1617.csv 등으로 재검증 권장.
+- `max_forced_accel_mss` 클램프가 발동하는 극단적 늦은 감지 조건에서도
+  이번 3개 시나리오는 우연히 잔여 overshoot가 0.0으로 나왔으나, 이는
+  50m라는 특정 거리 선택 때문일 수 있음 — 더 짧은 거리(예: 20~30m)에서도
+  일관되게 "역효과 없음"만 보장되는지(완전 해결까지는 물리적으로 항상
+  가능한 건 아님) 추가 확인 여지 있음.
+- 149차 옵션2(route_lookahead_m 확장)와 조합하면 애초에 늦은 감지 자체를
+  줄일 수 있어 옵션1의 클램프 발동 빈도를 낮출 수 있음 — 별도 검토 여지.
+
+**전달**: FINDINGS.md(이 항목)/WIP.md/toolkit/sim_route_near_stop_accel_boost.py/
+toolkit/README.md/toolkit/CHANGELOG.md. **ryu 코드 변경 없음 — 패치
+파일 없음(다음 단계에서 작성 예정).**
+
 ## 152차 — [함수 버그 수정 + 신규 근본원인 유형 발견] `required_decel_gap_scan()` blinker 오탐 수정, 149차 옵션4 착수 중 seg10에서 **제3의 원인 유형**("naviPaths 폴리라인 자체가 급커브 미포함, 샘플간격과 무관하게 해결 불가") 발견 — qcamera 프레임으로 실측 확인
 
 **요청**: 149차 옵션4(`liveRouteSpeed`로 다른 route도 "필요감속률 vs

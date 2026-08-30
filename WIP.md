@@ -1,3 +1,43 @@
+## 153차 (체크포인트 — 시뮬레이션 선검증 완료, POSITIVE, ryu 패치는 미작성) — 152차 옵션1(DP 낙관적 스케줄링 우회, 근정지급 구간 물리 공식 직접 덮어쓰기) `sim_route_near_stop_accel_boost.py` 확장 검증 결과 POSITIVE, 다음 세션은 실제 `carrot_man.py` 패치 단계
+
+**요청**: "152차 작업(옵션1 재설계 + 시뮬레이션 선검증)" — 152차 계속이
+합의한 순서(옵션1 재설계 → 시뮬레이션 선검증 → 패치 → 실차확인)의 1~2
+단계.
+
+**작업**: `sim_route_near_stop_accel_boost.py`에
+`carrot_navi_route_dp_forced_decel()` 신규 함수 작성 — 151차 boost(같은
+역방향 DP 재귀에 accel_limit 부스트를 주입, NEGATIVE)와 달리 base DP를
+그대로 실행해 감속 시작 시점 판단 로직은 안 건드리고, 근정지급 구간만
+필요감속률 기반 등가속도 곡선(재귀/time_wait 미개입 closed-form)으로
+직접 덮어쓰는 방식. `simulate_approach()`에 `apply_forced_decel`
+파라미터 추가, 유닛테스트 시나리오 E~H 신규(일반 커브 회귀 없음 +
+149차 근사/실측 조건 + 극단적 늦은 감지 조건에서 151차 boost와 비교).
+
+**결과(POSITIVE)**: 149차 근사조건 초과분 base 4.4kph→옵션1 **0.0kph**
+(boost는 8.8로 악화), 149차 실측조건 5.3→**0.0**(boost 10.1), 극단적
+늦은 감지(50m) 1.3→**0.0**(boost 4.9) — 3개 조건 전부 base/boost 대비
+개선, 일반 커브는 diff=0으로 회귀 없음. `--unit-tests` "10 PASS / 2
+FAIL"(FAIL 2건은 151차 boost 검증용 레거시 체크, 의도적 유지 — 상세는
+toolkit/README.md·FINDINGS.md 153차 참고).
+
+**다음 세션 최우선**: 시뮬레이션 POSITIVE 확인됐으므로 152차 합의
+순서(3단계)대로 **`carrot_man.py` 실제 패치 작성** 진행. 패치는
+"base DP 실행 → 근정지급 구간만 후처리로 물리곡선 덮어쓰기" 구조로
+삽입(149차/150차가 로컬에만 남긴 미배포 boost 패치와는 다른 코드
+경로이므로 그 패치 재사용 금지 — toolkit/README.md에 명시).
+패치 완성 후 4단계(실차 로그로 최종 확인)는 그 다음.
+
+**미검증(다음 세션 여지)**: `_run_on_csv()` 경로(실측 CSV 그대로
+넣어 검증)는 아직 옵션1 버전으로 안 돌려봄 — route1617.csv 등으로
+재검증 권장. 클램프 발동 시 더 짧은 거리(20~30m)에서도 일관되게
+"역효과 없음"만 보장되는지 추가 확인 여지.
+
+**전달**: FINDINGS.md/WIP.md/toolkit/sim_route_near_stop_accel_boost.py/
+toolkit/README.md/toolkit/CHANGELOG.md. **ryu 코드 변경 없음 — 패치
+파일 없음(다음 단계에서 작성 예정).**
+
+---
+
 ## 152차 계속 (체크포인트 — 결정사항 기록, 코드 작업 없음) — 다음 세션 진행 방향 확정: DP 낙관적 스케줄링 우회 재설계(옵션1) → 시뮬레이션 선검증 → 패치 → 실차 확인 순서로 합의
 
 **배경**: 152차가 발견한 3가지 원인 유형 중 어느 것부터 코딩할지

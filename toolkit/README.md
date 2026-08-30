@@ -393,6 +393,46 @@ python3 sim_route_near_stop_accel_boost.py <route.csv> --with-navi-paths로 뽑�
 **의존성**: `analysis_helpers.py`(`parse_navi_paths`/`recompute_route_curvature_speed`),
 `sim_route_boundary_ramp_limiter.py`(`RampLimiterState`).
 
+**2026-08-30 확장(153차, 152차 옵션1) — `carrot_navi_route_dp_forced_decel()`,
+결과 POSITIVE**: 151차 boost(위 결론)는 accel_limit을 올려서 **같은
+역방향 DP 재귀**(`carrot_navi_route_dp`)에 넣었는데, 그 재귀의
+time_wait/margin 메커니즘이 "accel_limit이 크면 나중에 더 세게 감속
+가능"이라 판단해 오히려 현재 시점 감속 권고를 늦추는 부작용이 있었음
+(NEGATIVE). 이번 함수는 그 재귀 자체를 우회한다:
+1. base accel_limit로 기존 DP를 그대로 실행(감속 시작 시점 판단 로직
+   불변, 151차 부작용의 근원 원천 차단).
+2. 근정지급 target 지점(min_idx)의 필요감속률(required_accel_mss,
+   149차/151차와 동일 등가속도 역산 공식)을 계산.
+3. `required_accel_mss > base accel_limit_mss`인 경우에만, min_idx까지의
+   각 지점을 "target에서 required_accel_mss(상한 `max_forced_accel_mss`,
+   기본 1.2 m/s^2=vturn_decel_rate 클램프)로 역산한 등가속도 곡선"으로
+   직접 덮어씀(재귀/time_wait 미개입 — 즉시 감속 곡선 강제).
+4. accel_limit_kmh도 같은 값 기준으로 상향 반환해 132차 램프리미터가
+   이 곡선을 따라잡을 수 있게 함.
+
+**시뮬레이션 결과(유닛테스트 시나리오 E~H, 전부 PASS)**: 149차 근사조건
+(v_ego=90kph, target=10.7kph, 280m)에서 코너 도달 초과분이 base
+4.4kph → 옵션1 **0.0kph**(151차 boost는 8.8kph로 오히려 악화). 149차
+실측조건(v_ego=109.6kph, ~585m)도 5.3→**0.0**(boost 10.1). 클램프가
+실제로 발동하는 극단적 늦은 감지(50m) 조건에서도 1.3→**0.0**(boost
+4.9)으로 역효과 없이 개선. 일반 커브(근정지급 아닌 target)는 옵션1도
+diff=0으로 회귀 없음 확인(시나리오 A/B/E).
+
+**주의**: 시나리오 C/D(151차 boost 자체를 검증하던 레거시 체크, target
+"패치 후 개선"을 boost 기준으로 검증)는 151차 NEGATIVE 결론을 그대로
+반영해 의도적으로 FAIL 상태 유지 중(README/CHANGELOG 반복 언급 —
+재작성하지 말 것, boost 방식이 실제로 나쁘다는 증거로 보존).
+`--unit-tests` 총합 "10 PASS / 2 FAIL"이 정상 상태.
+
+**아직 안 한 것(다음 세션)**: 이 함수는 시뮬레이션 전용 재구현 —
+`carrot_man.py` 실제 패치는 아직 작성 안 함. 152차 합의(WIP.md) 순서상
+이 POSITIVE 결과 확인 후 실제 패치 단계로 진행 예정. 패치 시 production
+`carrot_navi_route()`도 동일하게 "base DP 실행 → 근정지급 구간만
+후처리로 물리곡선 덮어쓰기" 구조로 삽입해야 하며, 기존 149차/150차가
+로컬에만 남겨둔 미배포 boost 패치(`ROUTE_NEAR_STOP_TARGET_KPH`/
+`ROUTE_ACCEL_LIMIT_BOOST_MAX_MSS`, accel_limit을 DP 입력 자체에 주입하는
+방식)와는 다른 코드 경로이므로 그 로컬 패치를 재사용하지 말 것.
+
 ## extract_dashcam_frames.py
 **목적**: `qcamera.ts` 프레임을 rlog의 `qRoadEncodeIdx` 이벤트와
 동기화해 특정 시각(t)의 실제 화면을 이미지로 추출. 가설을 영상
