@@ -1276,6 +1276,70 @@ python3 replay_route_apex_vs_baseline.py <route.csv> --accel 0.70
 python3 replay_route_apex_vs_baseline.py <route.csv> --accel 0.70 --json out.json
 ```
 
+## sim_route_apex_hysteresis.py (158차계속/159차, 신규 — 대안 설계 검증, NEGATIVE)
+**목적**: 157차 `carrot_navi_route_apex`(매 프레임 무상태 전역탐색)에
+대해 "apex마다 명시적 리셋을 넣으면 연속 굽이길에서 톱니 진동이 생기지
+않는가"라는 우려를 검증하기 위해 설계한 3상태(reset/engaged/disengaged)
+히스테리시스 대안. `ApexHysteresisState`(mode, target_curv)를 프레임 간
+유지하며: ENGAGED는 `target_curv` 이상 곡률만 후보(더 급하면 승격),
+후보가 사라지면 DISENGAGED(제약 없음 반환, target_curv는 보존, 완만한
+커브는 계속 무시), DISENGAGED에서 target_curv보다 급한 커브가 나타나면
+즉시 재개입, 윈도우 전체가 negligible이면 RESET(target_curv 삭제).
+**의존성**: `sim_route_apex_redesign.curve_speed`(곡률->속도 변환 재사용).
+**주요 함수**:
+- `carrot_navi_route_apex_hysteresis(state, merged, v_ego_kph,
+  accel_limit_mss, max_accel_mss, negligible_curv)` — `merged`는
+  `analysis_helpers.recompute_route_curvature_speed()`와 동일 포맷
+  `[(distance, curvature, speed), ...]`. `state`를 in-place 갱신.
+- `make_frame(dist_curv_pairs, ...)` — 단위테스트용 합성 프레임 생성.
+**단위테스트(4/4 PASS)**: 고립곡선 통과 후 해제, 완만한 후속곡선 무시,
+더 급한 곡선 재개입, 접근 중 target_curv 승격 — 4가지 시나리오 모두
+설계 의도대로 순수함수 레벨에서는 정상 동작.
+**158차계속/159차 실측 A/B 결과(NEGATIVE, 채택 보류)**: 단위테스트는
+전부 통과했지만 실제 route156 로그(연속 굽이길)에 132차 램프리미터까지
+포함해 재생하면(`replay_route_apex_hysteresis_ab.py`) 157차 대비 명백히
+악화됨 — 상세는 그 스크립트 항목 및 FINDINGS.md 159차 참고. **결론: 이
+스크립트는 채택하지 않음, 157차 무상태 설계를 그대로 유지.** 코드는
+"명시적 리셋이 왜 안 통하는지"를 보여주는 반례로 devnotes에 보존.
+**사용**:
+```bash
+python3 sim_route_apex_hysteresis.py --unit-tests
+```
+
+## replay_route_apex_hysteresis_ab.py (158차계속/159차, 신규 — A/B 비교, 157차 우위 확정)
+**목적**: 157차 무상태(A) vs `sim_route_apex_hysteresis`(B)를 같은
+실측 CSV(158차와 동일 route156 로그, naviPaths 필요)로 나란히 재생 —
+각각 독립된 `RampLimiterState` 인스턴스를 통과시켜 최종 out_speed를
+비교. `replay_route_apex_vs_baseline.find_stuck_segments()` 재사용.
+**주요 함수**:
+- `replay_ab(rows, accel_limit_mss)` — 프레임별 `{a_out, b_out, b_mode}`
+  리스트 반환.
+- `frame_delta_stats(result, key)` — 프레임간 절대낙차 max/mean.
+- `summarize_segment(...)` — stuck 구간별 A/B 대조 텍스트.
+**158차계속/159차 실측 결과(route_aeeed9e4a5, 2400 rows)**: `liveRouteSpeed`
+104.0km/h 9.9~12.3초 고정 구간 3곳 중 **A는 3/3 정상 반응(56.3~76.7
+km/h)한 반면 B는 1/3만 반응(그마저 min=78.2)하고 나머지 2곳은 구간
+내내 mode=disengaged로 고착돼 완전 무반응(300 그대로)**. 원인:
+연속 굽이길은 인접 커브들의 곡률 크기가 서로 비슷해서, B가 한 번
+`target_curv`를 국소최댓값으로 승격한 뒤 그 지점을 지나면 다음 커브가
+그보다 "같거나 살짝 완만"한 경우가 많아 재개입 조건(`front_max_curv >
+target_curv`)을 충족 못 하고 DISENGAGED에 갇힘. 게다가 B가
+DISENGAGED<->ENGAGED를 오갈 때마다 132차 램프리미터의 "제약 해제는
+안전한 방향이므로 즉시 통과, 상태 리셋" 규칙이 반복적으로 발동돼
+**프레임간 최대낙차 244.11km/h**(A는 0.26km/h, 이론상한 0.13km/h와
+거의 일치)까지 튀는 것을 확인 — 사용자가 애초에 우려했던 "명시적 리셋의
+톱니 진동"이 A(무상태)가 아니라 오히려 **B(히스테리시스)에서 실제로,
+훨씬 심하게** 발생함을 실측으로 확인. 오탐(과잉감속) 스캔은 A/B 둘 다
+0건으로 동일(구간 밖에서는 문제 없음). mode 전이 11건/2400프레임.
+**결론**: 157차 코드트레이스(윈도우 전진만으로 자연 해제가 이미
+성립)가 실측으로도 재확인됐고, 오히려 명시적 상태를 추가하는 쪽이 램프
+리미터와 상호작용해 회귀를 유발함 — **히스테리시스 방향 폐기, 157차
+그대로 유지가 최종 결론.**
+**사용**:
+```bash
+python3 replay_route_apex_hysteresis_ab.py <route.csv> --accel 0.70
+```
+
 ## 아직 없는 카테고리 (필요해지면 추가)
 - `toolkit/sim/` — 시뮬레이터 스크립트가 `sim_vision_rate.py` 하나를
   넘어 여러 개로 늘어나면 이 시점에 하위 폴더로 분리 검토.

@@ -3,6 +3,14 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+- 2026-08-30 (158차계속/159차) `sim_route_apex_hysteresis.py` 신규:
+  157차 무상태 apex 알고리즘에 대한 3상태(reset/engaged/disengaged)
+  히스테리시스 대안, 단위테스트 4/4 PASS. `replay_route_apex_hysteresis_ab.py`
+  신규: 같은 route156 실측 CSV로 157차(A) vs 히스테리시스(B) A/B 비교 —
+  **결과 NEGATIVE**: B는 stuck 구간 3곳 중 2곳에서 무반응(disengaged
+  고착), 프레임간 최대낙차 244.11km/h(A는 0.26km/h) — 램프리미터
+  "제약해제 즉시통과" 규칙과 상호작용해 오히려 톱니 진동 유발. 히스테리시스
+  방향 폐기, 157차 그대로 유지 결론. FINDINGS.md 159차 참고.
 - 2026-08-30 (153차) `sim_route_near_stop_accel_boost.py`:
   `carrot_navi_route_dp_forced_decel()` 신규(152차 옵션1) — 151차가
   NEGATIVE 판정한 "accel_limit을 부스트해 같은 역방향 DP 재귀에 넣는"
