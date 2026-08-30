@@ -1,3 +1,21 @@
+## c3-ms-dev (149차, liveRouteSpeed 신규계측 + "route 미작동" 근본원인 확정 — ROOT_CAUSE_CONFIRMED, ryu 코드 변경 없음, toolkit push 대기)
+- last_analyzed_commit: `46f0aed4f239` (147/148차 패치 포함 HEAD, ryu 코드
+  변경 없음 — 이번 회차는 devnotes/toolkit(extract_log.py)만 변경)
+- date: 2026-08-30 (149차)
+- 분석 대상: `898edd0f96` seg16+seg17(신규 업로드분, route1617.csv,
+  `--with-navi-paths` 2399행), 우회전 구간 t=2371.49~2392.54
+- note: 147/148차 패치(fine chord 조기감지) 자체는 정상 동작(280m/19초
+  전 5.0kph로 정확 포착) 재확인. 그런데도 이 구간에서 src가 한 번도
+  "route"가 안 된 이유를 규명하기 위해 `carrotMan.szPosRoadName`(기존
+  발행 중이었으나 미추출)을 파싱해 `liveRouteSpeed`(실측 post-DP
+  route_speed) 신규 컬럼 추가 → 실측 결과 route_speed는 계속 감속 중
+  이었으나(선형 기울기 약 -1.0kph/s) turn 도달 시점에도 61.4kph로
+  target(5kph)에 크게 못 미쳐 근본원인은 **감속률(accel_limit) 부족**
+  임을 확정(패치 결함 아님). 148차가 `replay_route_full_pipeline.py`로
+  시도했다 `nRoadLimitSpeed` 미기록으로 포기한 전체파이프라인 재현
+  문제를 실측 직접추출로 근본 우회 — 향후 이 필드로 재현 시뮬레이션
+  불필요. 상세는 FINDINGS.md/WIP.md "149차" 참고.
+
 ## c3-ms-dev (148차, ROUTE_CURVATURE_FINE_SAMPLE 패치 실차 재검증 — VALIDATED, push 대기)
 - last_analyzed_commit: `46f0aed4f239` (147차 패치 포함 HEAD, 변경 없음
   — 이번 회차는 검증만 수행, ryu 코드 추가 변경 없음)

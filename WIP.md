@@ -1,3 +1,53 @@
+## 149차 (완료 — toolkit 신규기능(liveRouteSpeed) 추가 + 근본원인 확정, ryu 코드 변경 없음, push 대기) — "우회전인데 route 미작동"(898edd0f96 seg16/17) 원인: 147/148차 패치 문제 아님, 감속률(accel_limit) 부족이 근본원인
+
+**요청**: "이 로그도 우회전인데 route 미작동. 이번패치 적용시 검증"
+(업로드: `20260830_073134_0000035b--898edd0f96--16.zip`,
+`20260830_073234_0000035b--898edd0f96--17.zip`).
+
+**작업**: `extract_log.py --with-navi-paths`로 route1617.csv(2399행)
+신규 추출(commit `46f0aed`=147/148차 패치 포함 HEAD) → rightBlinker
+구간(t=2371.49~2392.54, steeringAngleDeg 최대 -157.8°=거의 정지급
+급코너)을 `recompute_route_curvature_speed()`(macro/fine 비교)로
+1차 확인 → fine이 t=2352.25(약 280m/19초 전)부터 5.0kph로 정확히
+조기감지함을 확인했으나, 실제 desiredSpeed의 src는 이 구간 전체에서
+"route"가 단 한 번도 선택되지 않음(cam→vturn만 반복) → 원인 특정을
+위해 `carrot_serv.py` L1100의 `route={route_speed:.1f}` 디버그
+문자열이 `carrotMan.szPosRoadName`에 이미 발행 중임을 코드 확인 →
+`extract_log.py`에 정규식 파싱으로 `liveRouteSpeed`(실측 post-DP
+route_speed) 컬럼 신규 추가 → 재추출 후 직접 대조.
+
+**핵심 결과**: `liveRouteSpeed`가 t=2320(121.8kph)~t=2371.49(우회전
+진입, 61.4kph)까지 선형회귀 기울기 약 -1.0kph/s로 단조감소 중이었음
+확인(132차 램프리미터 정상 작동) — 하지만 turn 도달 시점에도 여전히
+61.4kph로 실제 필요 target(5kph)에 크게 못 미침. fine이 처음
+감지한 시점(280m/19초 전)부터 target(5kph)까지 도달하려면 평균
+감속률 약 4.5kph/s 필요 — 실측 감속률의 2.5~4.5배. **147/148차
+패치는 정상 동작(조기감지 성공) — 근본원인은 감속률(accel_limit)이
+이 정도로 급한(거의 정지급) 코너를 커버하기엔 부족한 것.** src가
+route로 안 넘어간 이유는 계산 자체가 안 되거나 오작동해서가 아니라,
+route_speed가 항상 cam/vturn보다 높은 값을 유지하다 min() 경쟁에서
+계속 밀렸기 때문(arbitration 자체는 정상 로직).
+
+**신규 계측 도구(핵심 성과, 향후 세션 재사용 가치 높음)**:
+`extract_log.py`에 `liveRouteSpeed` 컬럼 추가 — 148차가
+`replay_route_full_pipeline.py`(역방향DP+램프리미터 전체 재현
+시도)에서 `nRoadLimitSpeed` 미기록으로 재현오차 98.7kph(신뢰불가)
+판정했던 문제를 **재현이 아닌 실측값 직접 확보**로 근본 해결.
+naviPaths(147차)와 같은 유형 — "cereal엔 이미 발행 중인데
+extract_log.py가 안 뽑고 있던" 필드였음. 기본 추출에 항상 포함(텍스트
+길이 부담 거의 없어 naviPaths처럼 플래그로 안 감쌈).
+
+**다음 세션 우선순위(4가지 옵션, 미결정 — 사용자 확인 필요)**:
+1. 근정지급 코너 한정 accel_limit 별도 강화 로직
+2. route_lookahead_m min_m(300m 고정) 확장 검토
+3. 코드 변경 없이 "vturn이 최종 방어선" 설계로 인정하고 종결
+4. `liveRouteSpeed` 신규 컬럼으로 다른 route도 "필요감속률 vs 실제감속률" 갭 전수 스캔(신규 analysis_helpers 함수 필요, 미작성)
+
+**전달**: devnotes 변경 파일(FINDINGS.md/WIP.md/LAST_ANALYZED.md/
+toolkit/README.md/toolkit/CHANGELOG.md/toolkit/extract_log.py) 이번
+응답에서 전달. route1617.csv는 대용량 정책상 미보관(재분석 필요시
+재업로드 요청). **ryu 코드 변경 없음 — 패치 파일 없음.**
+
 ## 148차 (완료 — 147차 패치 실차로그 검증 완료, push 대기) — ROUTE_CURVATURE_FINE_SAMPLE 패치 신규 로그 검증: 정상동작 확인 + 근접 잔여곡률 오탐 후보 발견(무해)
 
 **요청**: "이번 패치가 위 로그상황에서 어떻게 작동되는지 검증"

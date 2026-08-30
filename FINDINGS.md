@@ -1,3 +1,31 @@
+## 149차 — [신규 계측 도구 + 근본원인 확정] `carrotMan.szPosRoadName`에서 실측 route_speed(post-DP) 직접 추출(`liveRouteSpeed`) — "우회전인데 route 미작동"(898edd0f96 seg16/17)의 실제 원인은 147/148차 패치의 곡률감지 실패가 아니라 **감속예산(accel_limit) 부족**임을 확정
+
+**배경**: 사용자 업로드(`898edd0f96` seg16/seg17, 우회전 상황 — "이 로그도 우회전인데 route 미작동. 이번패치(147/148차 ROUTE_CURVATURE_FINE_SAMPLE) 적용시 검증" 요청).
+
+**1단계 — 곡률감지 자체는 정상(147/148차 패치 재확인)**: `extract_log.py --with-navi-paths`로 재추출(2399행, commit `46f0aed`=147차 패치 포함 HEAD) 후 `recompute_route_curvature_speed()`로 macro(40m,패치전)/fine(10m,패치) 비교. 실제 우회전(t=2371.49~2392.54 rightBlinker, steeringAngleDeg 최대 -157.8°=거의 정지에 가까운 급코너, vEgo 13.9→0)에 대해:
+- macro 단독: curvature 오탐(200/36~37kph를 오락가락, 간헐적으로만 감지)
+- fine(패치): t=2352.25(약 280m/약19초 전, vEgo~14m/s 기준)부터 turn 도달까지 **일관되게 speed_cap=5.0kph로 정확 포착** — 147/148차가 확립한 패턴대로 조기감지 자체는 정상 동작.
+
+**2단계 — 그런데도 실제 주행에선 src가 한 번도 "route"가 안 됨**: 접근구간(t=2340~2392) 전체에서 desiredSpeed의 src는 cam→vturn→cam→vturn만 반복, "route"는 이 우회전 구간에서 단 한 번도 선택되지 않음(같은 트립의 다른 구간에선 route가 348/2399행 정상 선택됨 — TurnSpeedControlMode 자체는 route 참가 가능한 설정(2/3/4 중 하나)로 추정됨, 문제는 이 특정 코너에 한함).
+
+**3단계 — 원인 특정을 위한 신규 계측(핵심 성과)**: 기존 `recompute_route_curvature_speed()`는 README에 명시된 대로 **역방향 가속도제한 DP(entry margin/time_delay 스케줄링, `carrot_man.py` `carrot_navi_route()` 후반부) 이전의 순수 곡률값만 재현** — 실제 `speed_n_sources`에 들어가는 최종 route_speed(post-DP)는 재현 불가능했음(148차가 `replay_route_full_pipeline.py`로 전체 파이프라인 재현을 시도했으나 `nRoadLimitSpeed` 미기록으로 오차 98.7kph, 신뢰불가 판정한 바로 그 문제).
+이번 회차에 **`carrot_serv.py` L1100 `self.debugText += f"route={route_speed:.1f}"`가 `msg.carrotMan.szPosRoadName`에 실려 이미 20Hz로 발행되고 있다는 것을 확인** — 147차가 영상 오버레이를 ffmpeg+육안으로 초 단위로만 읽어야 했던 바로 그 값이 cereal에 원래부터 있었음(naviPaths와 같은 유형의 "발행은 되는데 extract_log.py가 안 뽑던" 케이스). `extract_log.py`에 정규식 파싱(`route=(-?\d+(?:\.\d+)?)`)으로 `liveRouteSpeed` 컬럼을 신규 추가(commit 예정, py_compile 통과) — **재현 시뮬레이션이 아니라 실측값 직접 확보**로 148차의 미해결 블로커를 근본적으로 우회.
+
+**4단계 — 실측 결과, 근본원인 확정**: `liveRouteSpeed`(post-DP 최종값)는 t=2320(121.8kph)부터 t=2371.49(61.4kph, 우회전 진입 시점)까지 **선형회귀 기울기 약 -1.0kph/s로 단조 감소**(132차 프레임간 램프리미터가 정상적으로 최대 감속률로 계속 작동 중임을 확인) — 하지만 turn 도달 시점에도 여전히 61.4kph로, 실제 필요 target(fine 곡률 기준 5kph)에 턱없이 못 미침. 반면 fine이 처음 5.0kph를 감지한 t=2352.25(약 280m 전)부터 turn까지 남은 19초 안에 90→5kph를 도달하려면 평균 감속률 약 4.5kph/s가 필요 — 실측된 ~1.0~1.9kph/s(구간별 상이)의 **약 2.5~4.5배**에 달함. 즉:
+- **147/148차 패치(fine chord 감지)는 제 역할을 하고 있음 — 곡률 자체는 최대한 조기에(약 280m/19초 전) 정확히 잡아냄.**
+- **하지만 이 코너는 "거의 정지"급 target(≤5~10kph)을 요구하는 극단적으로 급한 코너라, 현재 설정된 감속률(accel_limit, 132차 램프리미터가 강제하는 프레임당 상한)로는 감지 시점부터 코너까지 남은 거리/시간 안에 도저히 그 target까지 도달할 수 없음** — 이것이 route src가 이 코너에서 한 번도 선택되지 못한 진짜 이유(계산 자체는 되지만 cam/vturn보다 항상 높은 값을 유지하다가 arbitration `min()`에서 계속 짐).
+- 결과적으로 vturn(비전 반응형)이 코너 진입 시점(t=2371.94)에야 41→18kph로 뒤늦게 급감속을 떠맡음 — 사용자가 "route 미작동"으로 체감하는 현상과 정확히 일치.
+
+**결론**: 이번 로그는 147/148차 패치의 회귀나 결함이 아니라, **애초에 사전 감속만으로는 물리적으로 커버 불가능한 영역(근정지급 코너 + 현재 감속률 설정)**을 드러낸 사례. 90/91차가 다뤘던 "route가 vturn보다 사전감속을 더 일찍 시작"(ROUTE_ENTRY_MARGIN_KPH) 메커니즘도 이미 반영되어 있지만, margin 자체가 아니라 **감속률(accel_limit)의 절대적 크기**가 병목.
+
+**다음 세션 옵션(미결정, 사용자 확인 필요)**:
+1. 근정지급 코너(예: target_speed < 어떤 임계값)에 한해 accel_limit을 별도로 더 크게(공격적으로) 적용하는 조건부 로직 추가 검토
+2. route_lookahead_m의 min_m(현재 300m 고정)을 근정지급 코너 감지 시 확장하는 방안 검토(단, naviPaths 자체가 그만큼 먼 지점까지 유효한 형상으로 담겨있는지 별도 확인 필요)
+3. 이 정도로 급한 코너는 vturn(비전 반응)이 최종 방어선 역할을 하는 것을 설계상 허용 범위로 보고 코드 변경 없이 종결
+4. 다른 route/코너에서도 "fine 감지 거리 대비 필요 감속률 vs 실제 감속률" 갭이 비슷하게 재현되는지 `liveRouteSpeed` 신규 컬럼으로 전수 스캔(신규 `analysis_helpers` 함수 작성 필요 — 아직 미작성)
+
+**toolkit 변경(ryu 코드 변경 없음, 이번 회차)**: `extract_log.py`에 `liveRouteSpeed` 컬럼 추가(기본 포함, 플래그 불필요 — `route=`부터 시작하는 텍스트라 컬럼 크기 부담 거의 없음). `naviPaths`처럼 향후 세션에서 재사용 가능. CSV는 대용량 정책상 devnotes에 미보관.
+
 ## 148차 — [실차검증 완료] 147차 패치(ROUTE_CURVATURE_FINE_SAMPLE=1) 신규 실측 로그(898edd0f96 seg10 재업로드분)로 검증 — 패치 정상동작 확인 + 근접(10~30m) 보조 오탐 후보 신규 발견(무해 판정)
 
 **배경**: 147차 계속이 "이번 컨테이너 세션은 원본 zip이 재업로드되지

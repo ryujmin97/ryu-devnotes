@@ -3,6 +3,12 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+- 2026-08-30 (149차) `extract_log.py`: `liveRouteSpeed` 컬럼 추가 —
+  `carrotMan.szPosRoadName`의 "route=XX.X" 디버그 텍스트를 정규식으로
+  파싱해 post-DP 최종 route_speed 실측값을 직접 추출(재현 시뮬레이션
+  불필요). "우회전인데 route 미작동"(898edd0f96 seg16/17) 근본원인을
+  이 필드로 확정(감속률 부족, 패치 결함 아님). 기본 추출에 항상 포함.
+
 - 2026-08-30 (148차): `replay_route_full_pipeline.py` 신규(NEEDS_VALIDATION,
   절대수치 신뢰불가 — nRoadLimitSpeed 미기록으로 published 대비 평균오차
   98.7kph) — 147차 패치 실차 재검증(898edd0f96 seg10 재업로드분) 과정에서

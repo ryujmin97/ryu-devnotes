@@ -39,6 +39,7 @@ import argparse
 import csv
 import json
 import os
+import re
 import subprocess
 import sys
 from datetime import datetime, timezone
@@ -60,7 +61,24 @@ FIELDNAMES = [
     "lllProb", "rllProb", "lllStd", "rllStd",
     "activeCarrot", "xTurnInfo", "xDistToTurn", "xSpdType", "xSpdDist",
     "atcType", "leftSec", "xSpdCountDown", "xTurnCountDown",
+    "liveRouteSpeed",
 ]
+# 2026-08-30 추가(149차): carrotMan.szPosRoadName -- carrot_serv.py
+# L1100 `self.debugText += f"route={route_speed:.1f}"`가 이 필드에
+# 그대로 실려 20Hz로 이미 발행되고 있었음(147차가 영상 오버레이를
+# ffmpeg+육안 OCR로 초 단위로만 읽어야 했던 바로 그 값). route_speed는
+# calculate_curvature()+V_CURVE_LOOKUP 순수 곡률값이 아니라 역방향
+# 가속도제한 DP(entry margin/time_delay 스케줄링, carrot_man.py
+# carrot_navi_route() 후반부)까지 통과한 **최종 값**이라, 148차까지
+# recompute_route_curvature_speed()로는 재현이 원천적으로 불가능했던
+# 부분(그 함수는 DP 이전 순수 곡률 재현만 함, README 명시)과 149차가
+# `replay_route_full_pipeline.py`(148차, nRoadLimitSpeed 미기록으로
+# 재현오차 98.7kph/신뢰불가 판정)로 시도했던 전체 파이프라인 수치
+# 재현을 대체한다 -- 재현할 필요 없이 실측값을 직접 뽑으면 됨.
+# "route=" 뒤 숫자만 정규식으로 파싱해 liveRouteSpeed 컬럼에 채운다.
+# 파싱 실패(szPosRoadName에 "route="가 없는 프레임, 예: 132차 조건상
+# 아예 계산 자체가 스킵된 경우)면 빈 문자열.
+_ROUTE_SPEED_RE = re.compile(r"route=(-?\d+(?:\.\d+)?)")
 # 2026-08-30 추가(147차): carrotMan.naviPaths -- carrot_navi_route()가
 # 곡률 계산에 실제로 쓰는 로컬(x,y) 리샘플 폴리라인+거리를
 # "x1,y1,d1;x2,y2,d2;..." 텍스트로 이미 20Hz 발행 중이었음(carrot_serv.py
@@ -273,6 +291,8 @@ def process_segment(rlog_path, seg_name, repo_dir, max_mb, commit_short="",
                              "leadDPath": "", "leadYRel": "", "leadALeadK": "", "leadRadarTrackId": ""}
         elif w == "carrotMan":
             cm = evt.carrotMan
+            m = _ROUTE_SPEED_RE.search(str(cm.szPosRoadName))
+            live_route_speed = m.group(1) if m else ""
             rows.append({
                 "t": t, "seg": seg_name, "commit": commit_short,
                 **last_cs, **last_ctrl, **last_lead, **last_lat, **last_model,
@@ -283,6 +303,7 @@ def process_segment(rlog_path, seg_name, repo_dir, max_mb, commit_short="",
                 "leftSec": cm.leftSec,
                 "xSpdCountDown": cm.xSpdCountDown, "xTurnCountDown": cm.xTurnCountDown,
                 "naviPaths": str(cm.naviPaths) if with_navi_paths else "",
+                "liveRouteSpeed": live_route_speed,
             })
     return rows, last_cs, last_ctrl, last_lead, last_lat, last_model
 

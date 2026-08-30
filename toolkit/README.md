@@ -92,6 +92,28 @@ model_v2 직접출력, 140차 패치 후 PathOffset!=0이면 MPC curvature로
 전환). **이 필드가 없는 과거 CSV로는 오프셋이 실제로 반영된 프레임인지
 구분 불가능** — 오프셋 관련 재분석 시 반드시 재추출 필요. PathOffset
 원시값(Params, cereal 미기록)은 여전히 CSV로 못 뽑음.
+**2026-08-30 추가(149차)**: `liveRouteSpeed` 컬럼(기본 항상 포함, 플래그
+불필요) — `carrotMan.szPosRoadName`에 `carrot_serv.py` L1100
+`self.debugText += f"route={{route_speed:.1f}}"`로 이미 20Hz 발행
+중이던 텍스트를 정규식(`route=(-?\d+(?:\.\d+)?)`)으로 파싱한 값.
+이 값은 `calculate_curvature()`+`V_CURVE_LOOKUP`의 순수 곡률값이 아니라
+**역방향 가속도제한 DP(entry margin/time_delay 스케줄링, `carrot_man.py`
+`carrot_navi_route()` 후반부, 132차 램프리미터 포함)까지 통과한 최종
+route_speed**다 — `recompute_route_curvature_speed()`(147차, DP 이전
+순수 곡률만 재현)로는 원천적으로 재현 불가능했던 부분이자, 148차
+`replay_route_full_pipeline.py`가 `nRoadLimitSpeed` 미기록으로 재현
+포기(오차 98.7kph)했던 문제를 **재현이 아니라 실측 직접추출**로
+해결한다. `desiredSpeed`/`src`(carrotMan.desiredSpeed/desiredSource,
+이미 추출 중)와 나란히 놓고 보면 "route가 왜 arbitration에서 안
+뽑혔는지"(값 자체가 안 낮아졌는지 vs 낮아졌는데 다른 소스가 더
+낮았는지)를 직접 구분 가능(149차 실사용례: 전자로 확정 — FINDINGS.md
+149차 참고). 파싱 실패(szPosRoadName에 "route="가 없는 프레임,
+예: 132차 조건상 계산 자체가 스킵된 경우 등)면 빈 문자열.
+**주의**: naviPaths와 마찬가지로 route src 관련 조사에서만 의미 있는
+값 — TurnSpeedControlMode가 route를 애초에 후보에서 배제하는 설정
+(1)이면 route_speed 자체는 계속 계산·발행되지만 항상 무시된다(코드
+로직상 speed_n_sources 참가 여부와 route_speed 계산 자체는 무관).
+
 **2026-08-30 추가(147차)**: `--with-navi-paths` 플래그(기본 off) —
 켜면 `naviPaths` 컬럼(carrotMan.naviPaths, `carrot_navi_route()`가
 곡률 계산에 실제로 쓰는 로컬(x,y) 리샘플 폴리라인+거리를
