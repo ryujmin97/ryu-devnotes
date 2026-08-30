@@ -1,3 +1,39 @@
+## 152차 (체크포인트 — 함수버그 수정 완료, 신규 원인유형 발견, ryu 코드 변경 없음) — `required_decel_gap_scan()` blinker 오탐 수정 + naviPaths 폴리라인 해상도 문제(제3의 근본원인 유형) qcamera로 실측 확인
+
+**요약**: 149차 옵션4(전수 스캔) 착수 중 `required_decel_gap_scan()`의
+blinker onset 오탐 버그를 발견·수정(`turn_confirm_deg`/`turn_confirm_window_s`
+게이트 추가). 이 과정에서 사용자 지적으로 seg10(898edd0f96--10) 재조사 →
+서로 다른 두 커브 이벤트(A: 우회전 신규, B: 좌회전, 148차와 동일) 발견.
+이벤트 B는 148차 Finding A와 완전 일치(정상 재확인). 이벤트 A는
+naviPaths 원본 폴리라인 자체가 급커브 좌표를 담고 있지 않은 **제3의
+근본원인 유형**(147차의 40m→10m fine 샘플링으로도 해결 불가, 곡률
+계산 로직이 아니라 입력 데이터 해상도 문제)으로 확정. 사용자 제공
+qcamera HUD 스냅샷(desiredSpeed=58/vturn=41/route=71.2)으로
+t=1963.29와 정확히 일치 확인, 실제 우회전 교차로 상황 시각적으로도
+검증됨.
+
+**원인 유형 정리(3가지, 서로 무관 — 혼동 주의)**:
+1. 149차/151차: 감지는 됐으나 accel_limit(감속예산) 부족
+2. 147/148차(해결됨): 폴리라인엔 급커브 있으나 40m 매크로가 평활화 → 10m fine으로 해결
+3. **152차 신규(미해결)**: 폴리라인 원본 좌표 자체에 급커브 정보 없음 → 샘플간격 무관, 해결 불가. 현재 vturn이 유일한 방어선.
+
+**전수 스캔(옵션4) 결과**: n=2(route1617/seg10), 유형1 이벤트 1건
+확인(route1617). blinker 기반 스캔은 유형3(이벤트 A처럼 blinker 없는
+회전)을 원천적으로 놓친다는 것도 확인 — 전수 스캔 결과 해석 시 이
+한계 감안 필요.
+
+**FINDINGS.md 152차에 상세 기록**(qcamera 대조, naviPaths 원본 좌표
+출력 등 전체 근거 포함).
+
+**다음 세션 최우선**: 유형3 전용 탐지 도구(steeringAngleDeg 급변 +
+동시간 fine 미탐지 조합, blinker 비의존) 신규 작성 필요.
+
+**전달**: FINDINGS.md/WIP.md/toolkit/analysis_helpers.py/
+toolkit/README.md/toolkit/CHANGELOG.md. **ryu 코드 변경 없음 — 패치
+파일 없음.**
+
+---
+
 ## 151차 (체크포인트 — 시뮬레이션 검증 완료, ryu 패치는 배포 보류) — 근정지급 코너 accel_limit 부스트(149차/150차 설계) 다중프레임+132차 램프리미터 포함 재검증 결과 NEGATIVE
 
 **요약**: 149차가 확정한 문제("근정지급 코너에서 route가 필요 감속률을 못 따라가 arbitration에서 밀림")에 대해 사용자 제안(곡률 기반 필요감속률 동적 부스트)으로 `carrot_man.py`에 `ROUTE_NEAR_STOP_TARGET_KPH`/`ROUTE_ACCEL_LIMIT_BOOST_MAX_MSS` 패치를 국소 적용, 신규 시뮬레이션 도구(`toolkit/sim_route_near_stop_accel_boost.py`)로 검증.

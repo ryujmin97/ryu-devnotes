@@ -2474,7 +2474,8 @@ def route_curvature_underestimate_scan(rows, min_gap_kph=15.0):
 
 
 def required_decel_gap_scan(rows, near_stop_target_kph=15.0, detection_search_s=40.0,
-                             min_regression_points=5):
+                             min_regression_points=5, turn_confirm_deg=15.0,
+                             turn_confirm_window_s=8.0):
     """(2026-08-30, 150차 신규) 149차가 898edd0f96 seg16/17 rightBlinker
     이벤트 1건에서 수작업으로 계산했던 "fine 곡률 최초 감지 시점부터
     실제 회전 진입까지, liveRouteSpeed 실측 감속률이 필요감속률 대비
@@ -2542,6 +2543,20 @@ def required_decel_gap_scan(rows, near_stop_target_kph=15.0, detection_search_s=
     - 같은 t_arrive 부근에 같은 방향 blinker가 짧게 여러 번 켜졌다
       꺼지는 경우(차선변경 취소 후 재점등 등) 이벤트가 중복 카운트될
       수 있음 -- 중복 제거 로직 없음.
+
+    turn_confirm_deg/turn_confirm_window_s (2026-08-30, 152차 신규,
+    버그수정): 초기 버전은 t_detect에서 감지한 "먼 곳의 근정지급 커브"와
+    t_arrive의 blinker onset이 같은 물리적 지점이라고 무조건 가정했으나,
+    898edd0f96 seg10 실측 검증에서 blinker가 4초 만에 꺼지고 steer가
+    0deg 근처에 머문 채 liveRouteSpeed가 계속 상승하는 "무관한 차선변경
+    blinker"가 근정지급 커브 감지와 우연히 시간상 이어져 허위 이벤트로
+    잡히는 사례 발견(gap_ratio=14.35로 진짜 이벤트보다도 커서 그대로
+    뒀으면 최우선순위로 오판될 뻔함). t_arrive 이후 turn_confirm_window_s
+    (기본 8초) 이내에 steeringAngleDeg 절대값이 turn_confirm_deg(기본
+    15도) 이상인 프레임이 한 번이라도 있어야 "실제 회전이 뒤따랐다"고
+    보고 이벤트를 채택한다. 이 조건이 없으면 이벤트는 조용히 스킵됨
+    (반환값에 제외 사유는 남지 않음 -- 필요시 디버깅용 별도 로깅 추가
+    가능).
     """
     events = []
     prev_left = prev_right = False
@@ -2591,6 +2606,30 @@ def required_decel_gap_scan(rows, near_stop_target_kph=15.0, detection_search_s=
         t_detect = float(rows[detect_idx].get("t"))
         detect_lead_time_s = t_arrive - t_detect
         if detect_lead_time_s <= 0:
+            continue
+
+        # 152차 신규: t_arrive 이후 실제 회전이 뒤따르는지 확인 (차선변경 등
+        # 무관한 blinker와 근정지급 커브 감지가 우연히 시간상 인접해 오탐되는
+        # 것 방지 -- seg10 실측 사례 참고)
+        turn_confirmed = False
+        k = idx
+        while k < len(rows):
+            try:
+                tk = float(rows[k].get("t"))
+            except (TypeError, ValueError):
+                k += 1
+                continue
+            if tk - t_arrive > turn_confirm_window_s:
+                break
+            try:
+                steer_abs = abs(float(rows[k].get("steeringAngleDeg", 0) or 0))
+            except (TypeError, ValueError):
+                steer_abs = 0.0
+            if steer_abs >= turn_confirm_deg:
+                turn_confirmed = True
+                break
+            k += 1
+        if not turn_confirmed:
             continue
 
         # detect_idx 시점의 liveRouteSpeed(=route 자신의 스케줄 값, vEgo 아님) --

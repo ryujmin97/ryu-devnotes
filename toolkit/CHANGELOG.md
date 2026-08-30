@@ -3,6 +3,10 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+- 2026-08-30 (152차) `analysis_helpers.py::required_decel_gap_scan()`:
+  `turn_confirm_deg`/`turn_confirm_window_s` 게이트 추가 — blinker onset이
+  무관한 차선변경일 때 근정지급 커브 감지와 잘못 페어링되던 오탐 버그
+  수정(seg10 실측에서 발견, gap_ratio=14.35 허위 이벤트 제거 확인).
 - 2026-08-30 (149차) `extract_log.py`: `liveRouteSpeed` 컬럼 추가 —
   `carrotMan.szPosRoadName`의 "route=XX.X" 디버그 텍스트를 정규식으로
   파싱해 post-DP 최종 route_speed 실측값을 직접 추출(재현 시뮬레이션

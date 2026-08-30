@@ -334,6 +334,16 @@ FINDINGS.md "147차 계속" 참고.
   최초 감지 시점을 근사하는 것이 아니라 liveRouteSpeed 자체의 하강
   추세 시작점을 찾는 방식(구현 단순화) — naviPaths 정밀 재계산과
   결합한 버전은 아직 없음.
+  **2026-08-30 수정(152차, 버그)**: 초기 버전은 blinker onset을
+  무조건 "감지된 근정지급 커브의 도착"으로 간주해, 관계없는 차선변경
+  blinker와 우연히 시간상 인접한 커브 감지를 잘못 페어링하는 오탐이
+  있었음(898edd0f96 seg10 실측에서 발견 — gap_ratio=14.35로 진짜
+  이벤트(2.04)보다 커서 최우선순위로 오판될 뻔함). `turn_confirm_deg=
+  15.0`/`turn_confirm_window_s=8.0` 파라미터 추가 — t_arrive 이후 이
+  시간 내 steeringAngleDeg가 threshold를 넘는 프레임이 있어야 이벤트
+  채택. FINDINGS.md 152차 참고. **한계(미검증)**: 이 게이트가 반대로
+  실제 회전이지만 steer 변화가 작은 케이스(완만한 근정지급 정지 등)를
+  false negative로 누락시킬 가능성은 아직 확인 안 됨.
 
 ## sim_route_near_stop_accel_boost.py (151차 신규)
 **목적**: `carrot_navi_route()`의 "역방향 accel-limited DP"(target_speed
