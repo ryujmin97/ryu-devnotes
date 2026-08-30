@@ -3,6 +3,13 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+- 2026-08-30 (148차): `replay_route_full_pipeline.py` 신규(NEEDS_VALIDATION,
+  절대수치 신뢰불가 — nRoadLimitSpeed 미기록으로 published 대비 평균오차
+  98.7kph) — 147차 패치 실차 재검증(898edd0f96 seg10 재업로드분) 과정에서
+  전체 파이프라인(역방향DP+램프리미터) 수치 재현 시도, 실패했으나 toolkit
+  방침에 따라 보존. 실제 검증 결론은 기존 `recompute_route_curvature_speed`
+  + 실측 직접대조로 도출(FINDINGS.md "148차" 참고).
+
 - 2026-08-30 (147차 계속): `analysis_helpers.py::recompute_route_curvature_speed()`에
   `sample_fine` 파라미터 추가(carrot_man.py `ROUTE_CURVATURE_FINE_SAMPLE`
   패치와 동일 로직, 매크로/미세 샘플 중 더 급한 쪽 채택) — 검증도구를

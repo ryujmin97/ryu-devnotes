@@ -1,3 +1,71 @@
+## 148차 — [실차검증 완료] 147차 패치(ROUTE_CURVATURE_FINE_SAMPLE=1) 신규 실측 로그(898edd0f96 seg10 재업로드분)로 검증 — 패치 정상동작 확인 + 근접(10~30m) 보조 오탐 후보 신규 발견(무해 판정)
+
+**배경**: 147차 계속이 "이번 컨테이너 세션은 원본 zip이 재업로드되지
+않아 patched 코드로 실측 CSV를 처음부터 다시 뽑아 재검증하지 못했음"
+으로 다음 회차 최우선 과제로 남긴 항목. 이번 세션에 동일 route
+(`898edd0f96` seg10)가 재업로드되어 `extract_log.py --with-navi-paths`로
+처음부터 새로 추출(1200행, commit `46f0aed`=147차 패치 포함 HEAD 확인)
++ 검증 완료.
+
+**Finding A (긍정 — 패치 설계 의도대로 동작 확인)**: t=1980.09 시점
+naviPaths(290m 폴리라인, 30점)에서 실제 교차로 커브 위치(distance
+170~220m 지점, 좌표 스무스하게 연속 커브 형태로 확인 — GPS 노이즈성
+지그재그 아님)를 두 방식으로 비교:
+- macro(40m chord, 패치 전 단독): curvature 0.0069~0.0091(피크)로
+  0.02 임계값 근처에도 못 미쳐 **speed_cap=200.0(사실상 무제한)로
+  완전히 놓침**(전체 40~250m 구간 전부 200 유지, 이 커브를 어디서도
+  감지 못함).
+- fine(10m chord, 147차 패치): 같은 위치에서 curvature=0.0366(R≈27m)
+  까지 정확 포착, speed_cap=10.6km/h — 147차가 확립한 패턴과 정확히
+  일치(별도 시점 재확인이지만 같은 route/seg이므로 사실상 같은
+  교차로로 추정).
+- 전체 route(696개 route-src 행) 스캔 결과, fine 최소speed<20kph
+  발생 지점의 거리 분포는 뚜렷한 이중 클러스터: (1) 140~210m(58건,
+  진짜 이 교차로) — 차량이 아직 도달 전인 lookahead 사전감지, (2)
+  10~30m(13건, 아래 Finding B).
+
+**Finding B (신규 발견, NEEDS_VALIDATION이나 이번 로그에선 무해 확인)**:
+fine sample이 근접거리(10~30m)에서도 낮은 speed_cap(10.4~19.6kph,
+t=1991.79~1993.49 구간 13건)을 산출하는 근접 클러스터 발견. 실측
+대조 결과:
+- 그 시점 실제 steeringAngleDeg는 -3.5°~-11.7°(완만) — 실제 R≈27m급
+  급커브를 타는 중이 아님.
+- vTurnSpeed(비전 기반)는 82~91km/h로 비전도 위험 없음 판정.
+- 같은 로그 시계열을 보면 t=1988~1990 구간에서 실제로 steeringAngleDeg가
+  최대 -52°까지 도달하는 진짜 커브를 이미 통과했고, t=1991.79~1993.49는
+  그 직후 조향각이 receding(-52→-12°)하는 exit 구간과 시간적으로
+  일치 — **"미래의 위험한 커브"가 아니라 방금 빠져나온 커브의 잔여
+  곡률이 근접 lookahead 폴리라인에 residual로 남아 fine chord가
+  포착한 것으로 추정**(heading/좌표계 정렬 지연 가능성, 정확한 원인은
+  미확정).
+- 실제 발행 desiredSpeed는 이 구간 내내 68~71kph로 안정 유지(오히려
+  소폭 상승) — **패치로 인한 팬텀 감속/급제동은 이번 로그에서 관측되지
+  않음.**
+
+**시도했으나 폐기 — 전체 파이프라인(역방향DP+132차 램프리미터) 수치
+재현**: `toolkit/replay_route_full_pipeline.py`(148차 신규) 작성해
+carrot_navi_route()의 out_speed 전체 계산을 naviPaths로 프레임 단위
+재현 시도했으나, 실제 프로덕션이 쓰는 `nRoadLimitSpeed`(도로제한속도,
+로그 미기록) 값을 알 수 없어 재현 오차가 매우 큼(patched_sim vs
+published 평균오차 98.7kph) — **신뢰 불가, 절대수치 검증용으로 쓰지
+말 것**. Finding A/B는 이 스크립트가 아니라 이미 147차에 검증된
+`recompute_route_curvature_speed`(파라미터 불확실성 없음, naviPaths
+곡률 자체만 계산)와 실측 steeringAngleDeg/vEgo/vTurnSpeed 직접 대조로
+얻은 것 — 방법론적으로 더 견고함. `replay_route_full_pipeline.py`는
+추후 nRoadLimitSpeed를 확보하거나(예: carrot_serv 관련 필드 신규
+계측) 다른 방법으로 캘리브레이션하면 재활용 가능해 toolkit에 보존.
+
+**결론**: 147차 패치는 **의도한 대로 실제 교차로 커브를 정상 포착**
+하며, 이번 로그에서 **패치로 인한 새로운 부작용(팬텀 감속)은 확인되지
+않음**. 다만 Finding B(근접 잔여곡률 오탐 후보)는 표본 1개 route/1개
+구간뿐이라 **다른 route(특히 급커브 직후 재가속 구간)에서도 재현되는지
+추가 확인 필요** — 다음 세션 우선순위로 이월.
+
+**사용 데이터**: `898edd0f96` seg10(이번 세션 재업로드, route898.csv,
+1200행, `naviPaths` 전행 존재). 대용량 CSV라 devnotes에는 커밋하지
+않음(프로젝트 방침) — 컨테이너 리셋 시 소실, 재분석 필요하면 재업로드
+요청.
+
 ## 147차 계속 — [실측검증 완료 + 패치 적용] route 곡률 chord 축소 미세샘플 보정 — 89/90차 "chord 효과 미미" 결론은 desiredCurvature 순환논리 오류였음을 실측 naviPaths로 반박
 
 **배경**: `carrotMan.naviPaths`(carrot_serv.py의 `coords_str`, 곡률계산에

@@ -1,3 +1,17 @@
+## c3-ms-dev (148차, ROUTE_CURVATURE_FINE_SAMPLE 패치 실차 재검증 — VALIDATED, push 대기)
+- last_analyzed_commit: `46f0aed4f239` (147차 패치 포함 HEAD, 변경 없음
+  — 이번 회차는 검증만 수행, ryu 코드 추가 변경 없음)
+- date: 2026-08-30 (148차)
+- 분석 대상: `898edd0f96` seg10(재업로드분, route898.csv,
+  `--with-navi-paths` 1200행)
+- note: 147차가 "실차검증 대기"로 남긴 항목을 신규 업로드 로그로 완료.
+  패치가 실제 교차로 커브(lookahead 170~220m, macro는 curvature
+  0.0069~0.0091로 미검출, fine은 0.0366=R≈27m 정확 포착)를 의도대로
+  잡아냄을 재확인. 근접(10~30m) 잔여곡률 오탐 후보 신규 발견했으나
+  이번 로그에선 실제 desiredSpeed 저하 없이 무해 확인(NEEDS_VALIDATION,
+  다른 route 재현 여부 다음 세션 확인 필요). 상세는 FINDINGS.md/WIP.md
+  "148차" 참고.
+
 ## c3-ms-dev (147차 계속, route 곡률 chord 미세샘플 보정 패치 적용 — PATCH_APPLIED, 실차검증 대기)
 - last_analyzed_commit: `3ec4e5c63f28`(patch base) → 패치 적용 후
   `ffad14e`(로컬 커밋, push는 사용자 로컬에서 진행 예정)

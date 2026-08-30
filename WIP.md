@@ -1,3 +1,45 @@
+## 148차 (완료 — 147차 패치 실차로그 검증 완료, push 대기) — ROUTE_CURVATURE_FINE_SAMPLE 패치 신규 로그 검증: 정상동작 확인 + 근접 잔여곡률 오탐 후보 발견(무해)
+
+**요청**: "이번 패치가 위 로그상황에서 어떻게 작동되는지 검증"
+(업로드: `20260830_072534_0000035b--898edd0f96--10.zip`, 147차가 다음
+회차 최우선과제로 남긴 "실차 재검증"에 정확히 해당하는 route 재업로드).
+
+**작업**: `extract_log.py --with-navi-paths`로 route898.csv(1200행)
+새로 추출(commit `46f0aed`=147차 패치 포함 HEAD) →
+`recompute_route_curvature_speed`(147차, 이미 검증된 도구)로 macro
+(40m chord, 패치전)/fine(10m chord, 147차 패치) 비교 + 실측
+steeringAngleDeg/vEgo/vTurnSpeed 대조.
+
+**핵심 결과**:
+1. **패치 정상동작 확인(Finding A)**: 실제 교차로 커브(t=1980.09
+   시점 기준 lookahead 170~220m 지점, 좌표 스무스한 연속커브로 GPS
+   노이즈 아님 확인)에서 macro 단독은 curvature 0.0069~0.0091로
+   0.02 임계값 미달 → 완전 미검출(200kph 무제한). fine은 같은 위치
+   curvature=0.0366(R≈27m) 정확 포착, speed_cap=10.6kph. 147차가
+   확립한 패턴이 신규 실측 로그로도 그대로 재현됨.
+2. **신규 발견(Finding B, NEEDS_VALIDATION)**: 근접(10~30m) 거리에서도
+   fine sample이 낮은 speed_cap(10.4~19.6kph)을 산출하는 별도
+   클러스터(13/696건, t=1991.79~1993.49) 발견. 대조 결과 실제
+   steeringAngleDeg -3.5~-11.7°(완만)/vTurnSpeed 82~91(비전도 무위험)
+   — 진짜 급커브 아님. 시간상 직전(t=1988~1990) 진짜 커브(steer
+   최대 -52°) 통과 직후 exit 구간과 일치 — "방금 지나온 커브의 잔여
+   곡률이 근접 lookahead에 residual로 남은 것"으로 추정(원인 미확정).
+   **실제 발행 desiredSpeed는 이 구간 내내 68~71kph로 안정 —
+   팬텀감속 미관측, 이번 로그에선 무해.**
+3. **폐기**: 전체 파이프라인(역방향DP+132차 램프리미터) 수치 재현
+   시도(`replay_route_full_pipeline.py`, 신규 작성) — `nRoadLimitSpeed`
+   미기록으로 재현오차 98.7kph(신뢰불가). toolkit엔 보존하되
+   NEEDS_VALIDATION 명시. Finding A/B는 이 스크립트가 아니라 검증된
+   `recompute_route_curvature_speed` + 실측 직접대조로 도출(더 견고함).
+
+**다음 세션 우선순위**: Finding B(근접 잔여곡률 오탐)가 다른
+route(특히 급커브 직후 재가속 구간)에서도 재현되는지 추가 확인.
+
+**전달**: devnotes 변경 파일(FINDINGS.md/WIP.md/toolkit/README.md/
+toolkit/CHANGELOG.md/toolkit/replay_route_full_pipeline.py) 이번
+응답에서 전달. route898.csv는 대용량 정책상 미보관(재분석 필요시
+재업로드 요청).
+
 ## 147차 계속 (완료 — carrot_man.py 패치 적용+검증 완료, push 대기) — route 곡률 미세샘플 보정 패치
 
 **배경**: 147차/147차 계속에서 실측 naviPaths로 89/90차의 "chord 축소

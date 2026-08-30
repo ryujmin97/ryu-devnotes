@@ -1078,6 +1078,28 @@ python3 extract_cutin_lists.py <route_dir> --repo /home/claude/ryu \
     --json /home/claude/work/cutin_lists.jsonl
 ```
 
+## replay_route_full_pipeline.py (148차, 신규 — NEEDS_VALIDATION)
+**목적**: `carrot_navi_route()`의 out_speed 전체 계산(매크로 sample=4
+곡률 → 147차 sample_fine=1 병합 → 91차 margin_kph 역방향DP → 132차
+프레임간 램프리미터)을 `extract_log.py --with-navi-paths`의
+`naviPaths`(carrot_navi_route()가 실제 쓰는 리샘플 폴리라인 그 자체)로
+프레임 단위 재현 시도.
+**주의(중요) — 신뢰 불가**: 실제 프로덕션이 쓰는 `nRoadLimitSpeed`
+(도로제한속도, Params/navi service 값, CSV에 미기록)를 알 수 없어
+`road_limit_speed=200.0` 가정으로 대체 — 실측 route898.csv 검증 결과
+patched_sim vs 실제 published desiredSpeed 평균오차 98.7kph(신뢰불가
+수준). **절대수치(out_speed 값 자체) 검증에는 쓰지 말 것.** 148차의
+실제 결론(Finding A/B)은 이 스크립트가 아니라 이미 검증된
+`recompute_route_curvature_speed`(파라미터 불확실성 없음, 곡률만
+계산)와 실측 steeringAngleDeg/vEgo/vTurnSpeed 직접대조로 얻음.
+**향후 재사용**: nRoadLimitSpeed를 확보(예: carrot_serv 관련 필드
+신규 계측 후 재추출)하거나 다른 방법으로 캘리브레이션하면 재현
+정확도를 재검증해 볼 수 있음 — 프레임간 낙차(오탐 시 급브레이크 여부)
+같은 상대적/구조적 지표는 절대오차와 무관하게 유효할 가능성 있음
+(148차에서 미검증).
+**의존성**: numpy.
+**사용**: `python3 replay_route_full_pipeline.py <route.csv> [--accel 0.70]`
+
 ## 아직 없는 카테고리 (필요해지면 추가)
 - `toolkit/sim/` — 시뮬레이터 스크립트가 `sim_vision_rate.py` 하나를
   넘어 여러 개로 늘어나면 이 시점에 하위 폴더로 분리 검토.
