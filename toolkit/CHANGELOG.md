@@ -644,3 +644,22 @@ discontinuity 0건). 개발 중 트리거 소스별 boost_s 미구분 버그가 
   정상 감속)/직선 회귀없음/147차류 단일커브(0.02 미만이면 baseline도
   플로어 버그로 무반응함을 재확인, apex는 정상)/152·153차 근정지
   재현(apex가 153차 forced-decel과 동등 성능) 4개 시나리오 7/7 PASS.
+
+## 2026-08-30 (158차, 신규)
+- `analysis_helpers.recompute_route_curvature_speed()`/
+  `_route_curvature_single_pass()`에 `floor_threshold` 파라미터 추가
+  (기본 0.02=하위호환, 157차 패치 재현 시 0.001 전달). 기존 호출부
+  전부 영향 없음(스모크 테스트 확인).
+- `replay_route_apex_vs_baseline.py` 신규 -- naviPaths 포함 "패치 적용
+  이전" 실측 로그를 프레임 단위로 재생, 157차 apex 알고리즘 오프라인
+  재현값을 실측 liveRouteSpeed(패치전 production, ground truth)와 비교.
+  148차 replay_route_full_pipeline.py(신뢰불가, nRoadLimitSpeed 가정치
+  필요)와 달리 절대오차 문제 없음. 156차가 준 실제 route 로그(2세그먼트,
+  "route 작동안함 104에서 멈춤")로 검증: liveRouteSpeed가 104.0km/h로
+  9.9~12.3초씩 3회 고정되는 실측 버그 구간에서, apex 오프라인 재계산은
+  56.3~76.7km/h로 정상 반응(157차 패치가 실제 이 로그에서 문제를
+  해결했을 것임을 실측 데이터로 확인). stuck 구간과 20초 이상 떨어진
+  나머지 구간에서는 오탐(과잉감속) 0건. 프레임간 최대낙차 0.26km/h로
+  132차 램프리미터도 정상 작동 확인(단, naviPaths 부족으로 윈도우가
+  리셋되는 프레임에서는 production과 동일하게 램프 예외 발생 -- 버그
+  아님).

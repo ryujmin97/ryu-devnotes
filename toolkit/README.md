@@ -1233,6 +1233,49 @@ patched_sim vs 실제 published desiredSpeed 평균오차 98.7kph(신뢰불가
 **의존성**: numpy.
 **사용**: `python3 replay_route_full_pipeline.py <route.csv> [--accel 0.70]`
 
+## replay_route_apex_vs_baseline.py (158차, 신규 -- 실측 패치 검증, POSITIVE)
+**목적**: `extract_log.py --with-navi-paths`로 뽑은 "패치 적용 이전"
+실측 로그를 20Hz 프레임 단위로 재생해, 157차 apex 알고리즘
+(`sim_route_apex_redesign.carrot_navi_route_apex`)이 그 실제 상황에서
+어떻게 반응했을지 오프라인으로 계산하고, CSV에 이미 기록된
+`liveRouteSpeed`(149차, 패치 적용 전 실제 production이 낸 값 --
+역방향DP+132차 램프까지 통과한 실측 ground truth)와 비교한다.
+148차 `replay_route_full_pipeline.py`(신뢰불가, 미기록 `nRoadLimitSpeed`
+가정치 필요, 평균오차 98.7kph)와 달리 "패치 전 실제로 어떻게 나왔는지"는
+재현이 아니라 실측값 그대로 쓰므로 절대오차 문제가 없다 -- apex
+알고리즘의 floor 분기(곡률이 거의 0인 프레임)에만 `road_limit_speed`
+가정치(기본 200.0)가 남아있는데, 그 경우엔 애초에 apex 자체가
+무의미(직선)하므로 판정("반응함 vs 무반응", "오탐 유무")에 영향이
+제한적.
+**의존성**: `analysis_helpers.py`(`load_csv`/`parse_navi_paths`/
+`recompute_route_curvature_speed`(`floor_threshold` 인자, 158차 신규 --
+기본 0.02=패치 전, 0.001=157차 재현)), `sim_route_apex_redesign.
+carrot_navi_route_apex`, `sim_route_boundary_ramp_limiter.
+RampLimiterState`(132차 램프 재사용).
+**주요 함수**:
+- `find_stuck_segments(rows, field, min_len_s, tol)` -- 지정 필드가
+  `min_len_s`초 이상 거의 고정(`tol`)되는 구간 자동 탐지 (156차/158차
+  "route= N초+ 고정" 패턴).
+- `replay(rows, accel_limit_mss)` -- 프레임별 apex 오프라인 계산 +
+  132차 램프 적용, dt는 실제 로그 프레임 간격 사용(고정 0.05s 아님).
+- `summarize_stuck_segment(...)` -- 실측 고정값 vs apex 재계산값 대조
+  요약 텍스트 생성.
+**158차 실측 검증 결과**: 156차가 준 실제 route 로그(2세그먼트, "route
+작동안함 104에서 멈춤")로 실행 -- `liveRouteSpeed`가 104.0km/h로
+9.9~12.3초씩 3회 고정되는 실측 버그 구간 전부에서, apex 오프라인
+재계산은 56.3~76.7km/h로 정상 반응(157차 패치가 이 실제 로그의 버그를
+해결했을 것을 실측 데이터로 확인, `NEEDS_VALIDATION` -> 오프라인
+검증완료로 격상). stuck 구간과 20초 이상 떨어진 구간에서는 오탐(과잉
+감속) 0건. 프레임간 최대낙차 0.26km/h로 132차 램프리미터도 정상 작동
+(naviPaths 부족 프레임에서 램프가 리셋되는 것은 production과 동일한
+정상 동작, 버그 아님). 상세는 FINDINGS.md 158차 참고.
+**사용**:
+```bash
+python3 replay_route_apex_vs_baseline.py <route.csv> --accel 0.70
+# 프레임별 전체 결과 덤프:
+python3 replay_route_apex_vs_baseline.py <route.csv> --accel 0.70 --json out.json
+```
+
 ## 아직 없는 카테고리 (필요해지면 추가)
 - `toolkit/sim/` — 시뮬레이터 스크립트가 `sim_vision_rate.py` 하나를
   넘어 여러 개로 늘어나면 이 시점에 하위 폴더로 분리 검토.

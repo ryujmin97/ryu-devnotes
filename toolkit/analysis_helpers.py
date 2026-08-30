@@ -2367,8 +2367,12 @@ def _route_calculate_curvature(p1, p2, p3):
     return cross_product / (len_v1 * len_v2 * len_v1)
 
 
-def _route_curvature_single_pass(points, distances, sample, road_limit_speed):
-    """sample 간격(=sample*10m chord) 3점 곡률 1회 계산. 내부 헬퍼."""
+def _route_curvature_single_pass(points, distances, sample, road_limit_speed, floor_threshold=0.02):
+    """sample 간격(=sample*10m chord) 3점 곡률 1회 계산. 내부 헬퍼.
+    floor_threshold(158차 추가): curvature < floor_threshold일 때
+    speed를 road_limit_speed로 되돌리는 플로어 임계값. 기본 0.02는
+    157차 이전 프로덕션(버그 포함) 동작과 동일 -- 157차 패치 재현 시
+    ROUTE_CURVE_NEGLIGIBLE_THRESHOLD=0.001을 넘겨서 호출할 것."""
     import numpy as np
     out = []
     if len(points) < sample * 2 + 1:
@@ -2377,7 +2381,7 @@ def _route_curvature_single_pass(points, distances, sample, road_limit_speed):
         p1, p2, p3 = points[i], points[i + sample], points[i + sample * 2]
         curvature = _route_calculate_curvature(p1, p2, p3)
         speed = float(np.interp(abs(curvature), _ROUTE_V_CURVE_LOOKUP_BP, _ROUTE_V_CRUVE_LOOKUP_VALS))
-        if abs(curvature) < 0.02:
+        if abs(curvature) < floor_threshold:
             speed = max(speed, road_limit_speed)
         dist = distances[i + sample] if i + sample < len(distances) else distances[-1]
         out.append((dist, curvature, speed))
@@ -2385,7 +2389,7 @@ def _route_curvature_single_pass(points, distances, sample, road_limit_speed):
 
 
 def recompute_route_curvature_speed(points, distances, sample=4, sample_fine=None,
-                                     road_limit_speed=200.0):
+                                     road_limit_speed=200.0, floor_threshold=0.02):
     """parse_navi_paths()로 얻은 실측 폴리라인에 carrot_navi_route()와
     동일한 3점 곡률(샘플 간격 = sample*10m) + V_CURVE_LOOKUP을 적용해
     지점별 (distance, curvature, speed_cap) 리스트를 반환한다.
@@ -2402,11 +2406,15 @@ def recompute_route_curvature_speed(points, distances, sample=4, sample_fine=Non
     반경 27m급 급커브를 반경 110m급으로 평활화해 0.02 임계값 아래로
     숨기는 것을 실측 naviPaths로 확인(FINDINGS.md 147차 참고).
     sample_fine=None(기본)이면 기존과 동일하게 매크로 단독 결과만 반환.
+
+    floor_threshold (158차 추가): macro/fine 양쪽 계산에 동일하게 적용.
+    기본 0.02 = 157차 패치 이전(버그) 재현, 0.001 =
+    ROUTE_CURVE_NEGLIGIBLE_THRESHOLD(157차 패치) 재현.
     """
-    macro = _route_curvature_single_pass(points, distances, sample, road_limit_speed)
+    macro = _route_curvature_single_pass(points, distances, sample, road_limit_speed, floor_threshold)
     if not sample_fine:
         return macro
-    fine = _route_curvature_single_pass(points, distances, sample_fine, road_limit_speed)
+    fine = _route_curvature_single_pass(points, distances, sample_fine, road_limit_speed, floor_threshold)
     if not fine:
         return macro
     if not macro:
