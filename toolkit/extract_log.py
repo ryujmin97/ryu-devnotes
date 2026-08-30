@@ -304,6 +304,15 @@ def main():
         print(f"repo commit: {git_info['commit_short']} ({git_info['branch']}) "
               f"dirty={git_info['dirty']}")
 
+    # 147차 버그 수정: process_segment()가 만드는 row dict는 플래그와
+    # 무관하게 항상 "naviPaths" 키를 갖는다(플래그 off일 땐 값만 빈
+    # 문자열). 이 키가 FIELDNAMES에 없으면 DictWriter(extrasaction 기본
+    # "raise")가 플래그 사용 여부와 상관없이 "dict contains fields not
+    # in fieldnames" ValueError로 항상 크래시한다 -- 그래서 조건부가
+    # 아니라 항상 FIELDNAMES에 포함시켜야 한다(컬럼 자체는 항상 존재,
+    # 값만 플래그에 따라 빈 문자열 or 실제 폴리라인).
+    fieldnames = FIELDNAMES + [NAVI_PATHS_FIELD]
+
     seg_dirs = sorted(
         d for d in os.listdir(args.route_dir)
         if os.path.isdir(os.path.join(args.route_dir, d))
@@ -327,7 +336,7 @@ def main():
         print(f"done {seg}: {len(rows)} rows ({len(all_rows)} total)")
 
     with open(args.out_csv, "w", newline="") as f:
-        w = csv.DictWriter(f, fieldnames=FIELDNAMES, restval="")
+        w = csv.DictWriter(f, fieldnames=fieldnames, restval="")
         w.writeheader()
         w.writerows(all_rows)
     print(f"Wrote {len(all_rows)} rows to {args.out_csv}")

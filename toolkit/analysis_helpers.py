@@ -2367,14 +2367,8 @@ def _route_calculate_curvature(p1, p2, p3):
     return cross_product / (len_v1 * len_v2 * len_v1)
 
 
-def recompute_route_curvature_speed(points, distances, sample=4, road_limit_speed=200.0):
-    """parse_navi_paths()로 얻은 실측 폴리라인에 carrot_navi_route()와
-    동일한 3점 곡률(샘플 간격 = sample*10m) + V_CURVE_LOOKUP을 적용해
-    지점별 (distance, curvature, speed_cap) 리스트를 반환한다.
-    (역방향 DP/시간지연 스무딩은 별도 -- 이 함수는 "곡률이 실제로 이
-    지점에서 얼마나 급하게 잡혔는지"만 순수 재현. 89차/90차가 의심한
-    "route가 이 지점의 곡률 자체를 과소평가했는가"를 직접 확인하는 용도.)
-    """
+def _route_curvature_single_pass(points, distances, sample, road_limit_speed):
+    """sample 간격(=sample*10m chord) 3점 곡률 1회 계산. 내부 헬퍼."""
     import numpy as np
     out = []
     if len(points) < sample * 2 + 1:
@@ -2388,6 +2382,51 @@ def recompute_route_curvature_speed(points, distances, sample=4, road_limit_spee
         dist = distances[i + sample] if i + sample < len(distances) else distances[-1]
         out.append((dist, curvature, speed))
     return out
+
+
+def recompute_route_curvature_speed(points, distances, sample=4, sample_fine=None,
+                                     road_limit_speed=200.0):
+    """parse_navi_paths()로 얻은 실측 폴리라인에 carrot_navi_route()와
+    동일한 3점 곡률(샘플 간격 = sample*10m) + V_CURVE_LOOKUP을 적용해
+    지점별 (distance, curvature, speed_cap) 리스트를 반환한다.
+    (역방향 DP/시간지연 스무딩은 별도 -- 이 함수는 "곡률이 실제로 이
+    지점에서 얼마나 급하게 잡혔는지"만 순수 재현. 89차/90차가 의심한
+    "route가 이 지점의 곡률 자체를 과소평가했는가"를 직접 확인하는 용도.)
+
+    sample_fine (147차 신규): 지정하면 매크로 sample(기본 4, 40m chord)은
+    그대로 유지한 채, 같은 폴리라인에 sample_fine(예: 1 = 10m chord)로
+    한 번 더 3점 곡률을 계산해 같은 위치(거리)에서 더 급한(=speed_cap이
+    더 낮은) 쪽을 채택한 리스트를 반환한다(merge). carrot_man.py의
+    ROUTE_CURVATURE_FINE_SAMPLE 패치와 동일 로직 -- 검증 도구가 실제
+    프로덕션 패치와 항상 일치하도록 함. 147차 실측: 40m chord 단독으로는
+    반경 27m급 급커브를 반경 110m급으로 평활화해 0.02 임계값 아래로
+    숨기는 것을 실측 naviPaths로 확인(FINDINGS.md 147차 참고).
+    sample_fine=None(기본)이면 기존과 동일하게 매크로 단독 결과만 반환.
+    """
+    macro = _route_curvature_single_pass(points, distances, sample, road_limit_speed)
+    if not sample_fine:
+        return macro
+    fine = _route_curvature_single_pass(points, distances, sample_fine, road_limit_speed)
+    if not fine:
+        return macro
+    if not macro:
+        return fine
+
+    macro_dists = [m[0] for m in macro]
+
+    def _nearest_macro(dist):
+        # 이진탐색 없이 선형 탐색해도 충분히 짧은 리스트(row당 최대 수십개)
+        best = min(macro, key=lambda m: abs(m[0] - dist))
+        return best
+
+    merged = []
+    for dist, curv_fine, speed_fine in fine:
+        m_dist, curv_macro, speed_macro = _nearest_macro(dist)
+        if speed_fine <= speed_macro:
+            merged.append((dist, curv_fine, speed_fine))
+        else:
+            merged.append((dist, curv_macro, speed_macro))
+    return merged
 
 
 def route_curvature_underestimate_scan(rows, min_gap_kph=15.0):

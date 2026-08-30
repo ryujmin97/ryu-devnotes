@@ -1,3 +1,19 @@
+## c3-ms-dev (147차 계속, route 곡률 chord 미세샘플 보정 패치 적용 — PATCH_APPLIED, 실차검증 대기)
+- last_analyzed_commit: `3ec4e5c63f28`(patch base) → 패치 적용 후
+  `ffad14e`(로컬 커밋, push는 사용자 로컬에서 진행 예정)
+- date: 2026-08-30 (147차 계속)
+- 분석 대상: `898edd0f96` seg10(route147.csv, `--with-navi-paths`
+  1200행) — 89/90차가 raw navi_points 부재로 직접검증 못했던
+  "route 곡률계산 chord(40m) 축소 효과"를 carrotMan.naviPaths 필드로
+  실측 재검증
+- note: chord=40m 단독은 실제 R≈27m 커브를 R≈110m로 평활화해
+  0.02 임계값 아래로 숨김(90차 "2.5km/h 개선뿐" 결론은 desiredCurvature
+  순환논리 오류였음, FINDINGS.md 147차 계속 참고). `ROUTE_CURVATURE_FINE_SAMPLE=1`
+  (10m chord) 보조 샘플을 추가해 같은 위치에서 더 급한 쪽을 채택하는
+  패치(`carrot_man.py` commit `ffad14e`) 적용·컴파일·git am 재적용
+  검증 완료. **실차 검증(다른 route 오탐률 포함) 아직 미실시 — 다음
+  세션 우선순위.** 상세는 FINDINGS.md/WIP.md "147차 계속" 참고.
+
 ## c3-ms-dev (144차, route 적용검증 + PathOffset 직진/커브 실차 1차분석 — NEEDS_VALIDATION, 진행중)
 - last_analyzed_commit: `3ec4e5c63f28`(origin HEAD, 141차 반영) — 코드
   변경은 extract_log.py(devnotes 툴킷, activeLaneLine 필드 추가)뿐, ryu

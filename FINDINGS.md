@@ -1,3 +1,58 @@
+## 147차 계속 — [실측검증 완료 + 패치 적용] route 곡률 chord 축소 미세샘플 보정 — 89/90차 "chord 효과 미미" 결론은 desiredCurvature 순환논리 오류였음을 실측 naviPaths로 반박
+
+**배경**: `carrotMan.naviPaths`(carrot_serv.py의 `coords_str`, 곡률계산에
+실제 쓰이는 로컬(x,y) 리샘플 폴리라인+거리)가 이미 20Hz로 발행 중인데
+`extract_log.py`가 이 필드를 뽑지 않고 있었음(89/90차는 이 필드
+존재를 몰라 "raw navi_points가 로그에 없어 직접검증 불가"라 판단,
+대신 `desiredCurvature`(모델 자신의 이미 평활화된 출력)를 시간적분해
+경로를 역재구성하는 방식으로 우회 검증 → 순환논리).
+
+**실측 검증** (업로드된 원본 route `898edd0f96` seg10,
+`extract_log.py --with-navi-paths`로 재추출 → route147.csv, 1200행):
+- 실제 교차로 우회전 구간(steeringAngleDeg 최대 -49.9°, 실측
+  `desiredCurvature` 최대 0.0165 = R≈61m)에서, 기존 chord=40m
+  (`sample=4`) 단독으로 naviPaths 폴리라인을 재계산하면
+  curvature=0.0091(R≈110m)까지 평활화됨 — `V_CURVE_LOOKUP`의
+  0.02 임계값(`abs(curvature)<0.02`이면 `nRoadLimitSpeed`로 클램프,
+  사실상 무제한) 아래로 완전히 숨어버려 커브를 전혀 감지하지 못함.
+- 같은 지점을 chord=10m(`sample=1`, 리샘플 네이티브 해상도)로
+  재계산하면 curvature=0.0366(R≈27m)까지 정확히 포착, speed_cap이
+  10.1km/h까지 정상적으로 떨어짐.
+- chord별 민감도 스캔(sample=4/3/2/1): 40m→0.0091, 30m→0.0122,
+  20m→0.0183, 10m→0.0366 — chord를 줄일수록 단조 증가, 90차가 측정한
+  "2.5km/h 개선"은 순환논리(자기 출력을 적분해 재구성한 경로에 같은
+  로직을 다시 적용)로 인한 과소평가였음이 확인됨.
+- 직선 구간(같은 로그, t=1948~1955, steer≈0, 122개 route행) 오탐
+  검사: sample=1로 재계산해도 max|curvature|=0.0146으로 0.02 임계값
+  미도달 — 이 구간에서는 chord 축소로 인한 오탐 없음.
+- 전체 세그먼트(직선+커브2개, 약 500m) sample=1 전수 스캔: curvature
+  >=0.02 플래그 176개 지점, 전부 실제 물리적 커브 구간(실측 절대거리
+  기준 매핑 확인, 직선 구간 오검출 0건)과 일치.
+
+**결론**: 89/90차가 의심한 "지도 데이터 코너 형상 자체가 뭉툭함"
+가설은 기각. 원인은 순전히 chord=40m 단독 샘플링의 평활화였음.
+
+**패치**: `carrot_man.py::carrot_navi_route()`에
+`ROUTE_CURVATURE_FINE_SAMPLE=1`(10m chord) 보조 샘플 추가 — 기존
+sample=4(40m, 장거리 lookahead 매크로 형상/직선 오탐방지용)는 그대로
+두고, 같은 위치에서 fine sample로 한 번 더 계산해 더 급한(speed_cap이
+더 낮은) 쪽만 채택(merge, 대체 아님). commit `ffad14e`. 상세는
+WIP.md 147차 계속 참고. `analysis_helpers.py::recompute_route_curvature_speed()`
+에도 `sample_fine` 파라미터로 동일 로직 반영해 검증도구=실제 패치
+일치시킴.
+
+**toolkit 버그 수정**: `extract_log.py` — row dict가
+`--with-navi-paths` 플래그와 무관하게 항상 `naviPaths` 키를 갖는데
+(플래그 off 시엔 빈 문자열), FIELDNAMES엔 이 키가 없어 `DictWriter`
+(extrasaction 기본 "raise")가 플래그 사용 여부 상관없이 크래시하던
+버그. FIELDNAMES에 `naviPaths`를 항상 포함하도록 수정.
+
+**미검증**: 다른 route(특히 고속도로/GPS 노이즈가 큰 구간)에서
+sample=1 fine 샘플의 오탐률은 아직 확인 안 됨 — NEEDS_VALIDATION.
+이번 세션은 원본 zip 재업로드가 없어 patched 코드로 CSV를 처음부터
+재추출해 재검증하지는 못했고, 위 실측 수치는 직전(컨테이너 리셋으로
+끊긴) 세션에서 이미 확보된 것을 그대로 인용.
+
 ## 147차 — [정성추정, 영상판독 기반 + toolkit 실측검증도구 완성] route 우회전 사전감속 무력화: 132차 정상동작 확인 + 89/90차 곡률과소평가 실측검증 도구(naviPaths) 신규
 
 **대상**: `route_작동안됨_진입속도가_너무빨라_위험한_상황_260830_072521`

@@ -257,11 +257,18 @@ print(regression_report_markdown(report, "패치전(commit abc123)", "패치후(
 `extract_log.py --with-navi-paths`로 뽑은 CSV 전용 신규 함수 3종.
 - `parse_navi_paths(navi_paths_str)` — `"x1,y1,d1;x2,y2,d2;..."` 텍스트를
   `([(x,y),...], [d,...])`로 파싱.
-- `recompute_route_curvature_speed(points, distances, sample=4)` —
+- `recompute_route_curvature_speed(points, distances, sample=4, sample_fine=None)` —
   `carrot_man.py::carrot_navi_route()`의 3점 곡률(40m 간격)+
   `V_CURVE_LOOKUP` 계산을 실측 폴리라인에 그대로 재현해
   `(distance, curvature, speed_cap)` 리스트 반환. 역방향DP/시간지연
   스무딩은 미포함(순수 "이 지점 곡률이 실제로 얼마나 급한가"만 확인).
+  **2026-08-30 추가(147차 계속)**: `sample_fine` 파라미터 — 지정하면
+  매크로 `sample`(기본 4)은 그대로 두고 같은 폴리라인에 `sample_fine`
+  간격(예: 1=10m chord)으로 한 번 더 계산해 같은 위치에서 speed_cap이
+  더 낮은(더 급한) 쪽을 채택(merge)한 리스트를 반환. `carrot_man.py`의
+  `ROUTE_CURVATURE_FINE_SAMPLE` 패치(147차 계속)와 완전히 동일 로직 —
+  검증도구가 실제 프로덕션 패치와 항상 일치하도록 반영됨. 내부적으로
+  단일 계산은 `_route_curvature_single_pass()` 헬퍼로 분리.
 - `route_curvature_underestimate_scan(rows, min_gap_kph=15.0)` —
   `src=="route"`인 각 행에서 실제 발행된 `desiredSpeed`와
   `recompute_route_curvature_speed()`의 그 시점 최소값을 비교, 갭이
@@ -274,6 +281,24 @@ curvature=0.03/speed_cap=20.5kph 정확 포착 확인(PASS) — 실측 raw
 navi_points가 있으면 sample 자체는 문제 없이 작동함을 재확인, 89차/90차가
 남겨둔 "chord 길이 문제 vs 지도 데이터 형상 문제" 질문은 이제 실제
 교차로 로그로 직접 답할 수 있음.
+
+**2026-08-30 결론(147차 계속)**: `898edd0f96` seg10 실측으로 위 질문에
+직접 답함 — **chord 길이 문제가 맞았음**. sample=4(40m) 단독은 실제
+R≈27m 커브를 R≈110m로 평활화해 0.02 임계값 아래로 숨김(90차의
+"chord 축소 효과 2.5km/h뿐" 결론은 `desiredCurvature`를 적분
+재구성한 경로에 같은 로직을 다시 돌리는 순환논리 오류였음). sample=1
+(10m)로는 R≈27m/10.1km/h까지 정확 포착, 같은 로그 직선구간에서는
+오탐 없음(max curvature 0.0146 < 0.02 임계값). `ROUTE_CURVATURE_FINE_SAMPLE=1`
+패치로 `carrot_man.py`에 반영 완료(commit `ffad14e`). 상세는
+FINDINGS.md "147차 계속" 참고.
+
+**버그 수정(147차 계속)**: `extract_log.py` — `process_segment()`가
+만드는 row dict는 `--with-navi-paths` 플래그와 무관하게 항상
+`naviPaths` 키를 갖는데(플래그 off 시엔 값만 빈 문자열), FIELDNAMES엔
+이 컬럼이 없어 `csv.DictWriter`(extrasaction 기본 "raise")가 플래그
+사용 여부와 상관없이 "dict contains fields not in fieldnames"로 항상
+크래시하던 버그. FIELDNAMES에 `naviPaths`를 항상 포함하도록 수정 —
+플래그 off일 땐 컬럼은 존재하되 값이 항상 빈 문자열.
 
 ## extract_dashcam_frames.py
 **목적**: `qcamera.ts` 프레임을 rlog의 `qRoadEncodeIdx` 이벤트와

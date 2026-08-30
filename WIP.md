@@ -1,3 +1,51 @@
+## 147차 계속 (완료 — carrot_man.py 패치 적용+검증 완료, push 대기) — route 곡률 미세샘플 보정 패치
+
+**배경**: 147차/147차 계속에서 실측 naviPaths로 89/90차의 "chord 축소
+효과 미미(2.5km/h)" 결론이 desiredCurvature 순환논리 오류였음을
+확인(FINDINGS.md 147차 계속 참고). 이번 회차에서 실제 패치를 구현하고
+검증까지 완료.
+
+**패치 내용** (`selfdrive/carrot/carrot_man.py`, commit `ffad14e`):
+- 신규 상수 `ROUTE_CURVATURE_FINE_SAMPLE = 1` (10m chord)
+- `carrot_navi_route()` 곡률계산 루프: 기존 `sample=4`(40m chord)
+  매크로 계산은 그대로 유지, 같은 리샘플 폴리라인에 `sample_fine=1`로
+  한 번 더 3점 곡률 계산 후 같은 거리 위치에서 speed가 더 낮은(더
+  급한) 쪽만 채택(merge). 매크로 결과 자체를 대체하지 않으므로
+  장거리 lookahead의 직선구간 오탐 방지 특성은 유지됨.
+- `devnotes/toolkit/analysis_helpers.py::recompute_route_curvature_speed()`
+  에 `sample_fine` 파라미터로 동일 로직 반영 — 검증도구가 실제 패치와
+  항상 일치하도록 함(내부적으로 `_route_curvature_single_pass()`
+  헬퍼로 분리 후 병합).
+- `devnotes/toolkit/extract_log.py` 버그 수정: `--with-navi-paths`
+  플래그 유무와 무관하게 row dict가 항상 `naviPaths` 키를 갖는데
+  FIELDNAMES엔 조건부로만 넣었던 실수를 발견 → 항상 FIELDNAMES에
+  포함하도록 수정(플래그 off 시엔 값만 빈 문자열, 컬럼은 항상 존재).
+
+**검증**: `py_compile` 통과(carrot_man.py, analysis_helpers.py,
+extract_log.py) + `git format-patch` → 별도 clone에 `git am` 재적용
+성공 + 재적용 후 diff-0(완전 동일) 확인. 실측 route147 데이터
+(`898edd0f96` seg10, --with-navi-paths 재추출)에 패치 로직 적용
+시뮬레이션한 결과(147차 세션에서 수행): 기존 sample=4 단독은
+max|curvature|=0.0091(R≈110m)로 평활화되어 0.02 임계값 미도달 →
+`nRoadLimitSpeed`(사실상 무제한) 클램프. 패치(sample_fine=1) 적용 시
+max|curvature|=0.0366(R≈27m), min_speed_cap=10.1km/h까지 정상 포착.
+같은 로그 직선구간(t=1948~1955, steer≈0)에서는 패치 후에도
+max|curvature|=0.0146로 임계값(0.02) 미도달 — 오탐 없음 확인.
+
+**주의**: 이번 컨테이너 세션은 원본 route147 zip이 재업로드되지 않아
+patched 코드로 실측 CSV를 처음부터 다시 뽑아 재검증하지는 못했음 —
+위 검증 수치는 직전(끊긴) 세션에서 patched 로직 시뮬레이션으로 얻은
+것이며, 이번 세션은 그 패치 코드 자체를 컨테이너 리셋으로 유실된 뒤
+동일하게 재구현 + py_compile/git am 재검증만 새로 수행함. 실주행
+재현(다른 route, 특히 고속/GPS노이즈 구간 오탐률)은 **아직 미실시 —
+다음 회차 우선순위**.
+
+**전달**: 패치 파일
+`/mnt/user-data/outputs/0001-147-carrot_navi_route-10m-chord-naviPaths-40m-chord.patch`,
+devnotes 변경 파일(WIP.md/FINDINGS.md/LAST_ANALYZED.md/PARAMS_REGISTRY.md/
+toolkit/README.md/toolkit/CHANGELOG.md/toolkit/extract_log.py/
+toolkit/analysis_helpers.py) 이번 응답에서 전달.
+
 ## 147차 (완료 — 영상만으로 분석 + toolkit 신규기능 추가, ryu 코드 변경 없음) — route 우회전 사전감속 무력화 원인: 132차(불연속버그) 정상동작 확인 + 89/90차(곡률 과소평가) 실측검증 도구 완성
 
 **요청**: 클립 `route_작동안됨_진입속도가_너무빨라_위험한_상황_260830_072521`

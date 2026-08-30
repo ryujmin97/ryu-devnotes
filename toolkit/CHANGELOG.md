@@ -3,6 +3,14 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+- 2026-08-30 (147차 계속): `analysis_helpers.py::recompute_route_curvature_speed()`에
+  `sample_fine` 파라미터 추가(carrot_man.py `ROUTE_CURVATURE_FINE_SAMPLE`
+  패치와 동일 로직, 매크로/미세 샘플 중 더 급한 쪽 채택) — 검증도구를
+  실제 패치와 일치시킴. `extract_log.py` 버그 수정: `--with-navi-paths`
+  플래그와 무관하게 row dict가 항상 갖는 `naviPaths` 키가 FIELDNAMES에
+  누락되어 DictWriter가 항상 크래시하던 문제, FIELDNAMES에 항상 포함
+  하도록 수정. 상세는 README.md/FINDINGS.md "147차 계속" 참고.
+
 - 2026-08-30 (145차): `extract_log.py` FIELDNAMES에 `lllProb`/`rllProb`/
   `lllStd`/`rllStd` 추가(modelV2.laneLineProbs[1]/[2],
   laneLineStds[1]/[2]) — AdjustLaneOffset 커브내측 자동보정의 게이트값

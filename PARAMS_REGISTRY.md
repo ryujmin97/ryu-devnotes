@@ -246,3 +246,23 @@
   curve_R 10~25m/accel 0.70~1.2 전 조합 PASS.
 - 실차 검증: 미실시(NEEDS_VALIDATION) — 129차와 동일/유사 교차로 재주행
   필요.
+
+## ROUTE_CURVATURE_FINE_SAMPLE (147차 계속, NEEDS_VALIDATION)
+- 위치: `selfdrive/carrot/carrot_man.py`, `carrot_navi_route()`
+- 값: 1 (=10m chord, 리샘플 네이티브 해상도). 기존 매크로 `sample=4`
+  (40m chord)는 상수화하지 않고 그대로 리터럴 유지 — 이 값만 신규.
+- 목적: 89/90차가 의심했던 "route 곡률 chord=40m 단독 샘플링이 좁은
+  코너를 평활화해 놓친다"는 가설을 실측 naviPaths(147차)로 확정.
+  기존 sample=4 매크로 계산은 그대로 두고, 같은 위치에서 이 값(fine
+  sample)으로 한 번 더 3점 곡률을 계산해 더 급한(speed_cap이 더 낮은)
+  쪽만 채택(merge, 대체 아님) — 매크로의 직선구간 오탐방지 특성은
+  유지.
+- 근거: `898edd0f96` seg10 실측(--with-navi-paths) — 40m chord 단독:
+  실제 R≈27m(steer -49.9°) 커브를 R≈110m로 평활화, 0.02 임계값 미도달
+  → nRoadLimitSpeed(무제한) 클램프. 10m chord(=1): 같은 지점
+  R≈27m/speed_cap 10.1km/h로 정상 포착. 같은 로그 직선구간(122포인트,
+  steer≈0)에서 fine sample 적용해도 max|curvature|=0.0146으로 임계값
+  미도달 — 오탐 없음. FINDINGS.md 147차 계속 참고.
+- 실차 검증: 미실시(NEEDS_VALIDATION) — 이번 패치가 적용된 코드로
+  실주행 재현 및, 특히 다른 route(고속도로/GPS노이즈 큰 구간)에서
+  fine sample의 오탐률 확인이 다음 세션 우선순위.
