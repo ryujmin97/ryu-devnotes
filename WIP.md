@@ -1,3 +1,71 @@
+## 157차 (완료 — 원인규명+재설계+시뮬검증+실제 ryu 패치 작성 완료, 실차검증 대기) — carrot_navi_route() 전면 재설계: 단일 apex 거리기반 감속으로 156차 근본원인(0.02 플로어 임계값 과다범위) 제거
+
+**요청 배경**: 156차 체크포인트(옵션 A/B/C 제시) 보고 후 사용자가 즉시
+"완전 심각한 문제"로 판단, 재설계 방향을 직접 제시: "route의 역할은
+사전에 GPS로 다음 최대곡률(apex)까지의 거리만 보고 미리 감속, 정점
+이후는 vturn(비전)에 넘기고 통과 즉시 다음 apex를 다시 찾는" 단순
+구조여야 한다 — "패치 작업 하자"로 명시적 승인.
+
+**핵심 발견(진짜 근본원인, 156차 당시엔 미확인)**: `carrot_man.py`
+`carrot_navi_route()`의 `if abs(curvature) < 0.02: speed = max(speed,
+nRoadLimitSpeed)` 플로어가 147차가 고친 "coarse chord가 급커브 1개를
+평활화"와는 별개로, V_CURVE_LOOKUP 테이블 자체 계산상 curvature
+0.009~0.018 구간(R 55~110m급)이 이미 45~56km/h로 나오는데도 그 값을
+통째로 버리고 도로제한속도(104~118 관측)로 되돌리고 있었음 — 156차의
+연속 굽이길(curvature 0.002~0.013)이 정확히 이 범위. 계산으로 확인:
+0.02 바로 아래(0.0199)면 도로제한속도로 플로어, 0.02를 넘으면 순간
+~37km/h로 급락하는 불연속 구조.
+
+**재설계**: 기존 91차 backward accel-limited DP(ROUTE_ENTRY_MARGIN_KPH/
+time_wait 스케줄링, 포인트별 전체 배열 처리, ~60줄) + 153차 근정지
+후처리(~15줄)를 "apex(lookahead 내 최소속도 지점)까지의 거리 하나로
+결정하는 물리공식"(~15줄)으로 전면 대체. 153차 로직이 이 설계의
+특수사례로 자연 흡수됨. 매 20Hz 무상태 재계산 구조이므로 "apex 통과 후
+리셋"과 "vturn에 넘김"은 기존 구조(윈도우 전진 재계산 + min()
+arbitration)로 이미 자동 성립 — 별도 코드 불필요.
+`ROUTE_CURVE_NEGLIGIBLE_THRESHOLD=0.001`(기존 0.02 대체, "진짜 직선
+노이즈"만 걸러냄)도 함께 도입.
+
+**시뮬레이션 사전검증(toolkit/sim_route_apex_redesign.py, 신규)**:
+156차 재현 굽이길(baseline 무반응 vs apex 정상감속)/직선(둘 다 회귀
+없음)/147차류 단일커브(baseline도 0.02 미만이면 동일 버그 재확인, apex는
+정상)/152·153차 근정지(apex가 153차와 동등 성능) 4개 시나리오 7/7 PASS.
+
+**ryu 패치 작성 완료**: `carrot_man.py` 1개 파일, 63줄 추가/111줄 삭제
+(순감소, "간단하게" 요구 그대로 반영). 커밋 `24622a6`(c3-ms-dev,
+`c3e20a4`+1). `git format-patch`로
+`0001-157-carrot_navi_route-route-apex.patch` 생성. **로컬 커밋만 존재,
+origin push는 사용자 로컬 git am 이후 진행 예정.**
+
+**알려진 단순화(v1, 실측 후 재평가 여지)**:
+- 91차 ROUTE_ENTRY_MARGIN_KPH(route가 vturn보다 먼저 개입하도록 당기는
+  25km/h 마진)를 이번 재설계에는 포함하지 않음. 새 물리공식은 이미
+  "지금부터 accel_limit로 감속하면 apex에서 정확히 도달"하는 이론적
+  최소 개입 시점을 계산하므로 추가 마진 없이도 어느 정도 조기개입
+  효과는 있으나, 91차가 실측 튜닝으로 확정한 "vturn보다 명확히 먼저
+  이기는" 정도까지는 검증 안 됨 — 실차 로그로 route vs vturn arbitration
+  승률 확인 후 필요 시 마진 재도입 검토.
+- 실측 naviPaths CSV(156차 로그)는 컨테이너 리셋으로 소실 — 이번
+  시뮬레이션은 합성 도로 형상만 검증. 같은 로그(또는 신규 굽이길 로그)
+  재업로드 시 `--with-navi-paths` 재추출로 patched 코드 기준
+  `recompute_route_curvature_speed`(ROUTE_CURVE_NEGLIGIBLE_THRESHOLD
+  반영) 실측 재검증 권장.
+
+**다음 세션 최우선**: **실차 로그 검증 전혀 안 됨**. 사용자가 실차에
+`git am`으로 패치 적용 후 (1) 156차와 유사한 연속 굽이길 재주행 로그로
+route= HUD/실제 감속 정상화 확인, (2) 급커브/근정지 코너에서 회귀 없는지
+확인, (3) 직선 구간 오탐(불필요 감속) 없는지 확인 — 최소 이 3가지
+케이스 로그 확보 후 다음 세션에서 `extract_log.py --with-navi-paths`로
+정량 대조.
+
+**전달(이번 메시지)**: WIP.md/FINDINGS.md/toolkit/
+sim_route_apex_redesign.py/toolkit/README.md/toolkit/CHANGELOG.md +
+ryu 패치 파일 `0001-157-carrot_navi_route-route-apex.patch`(`git am`
+적용용). ryu 로컬 커밋 `24622a6` — **origin push는 사용자 로컬 git am
+이후 필요**.
+
+---
+
 ## 156차 (체크포인트 — 원인분석 완료, 코드 미수정, 사용자 확인 대기) — route= HUD 16초+ 고정값 실측 확인 (연속 굽이길 곡률 threshold 미도달)
 
 사용자 실차 로그(aeeed9e4a5, 세그먼트2, 20260830 175844/175944) +

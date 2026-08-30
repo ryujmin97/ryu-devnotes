@@ -1520,3 +1520,67 @@ curvatures 있음+valid=False → 폴백, 기존엔 못 걸렀던 케이스) 포
 분기 구조가 바뀌면(예: `use_mpc_curvature` 계산식, valid 체크 조건 변경)
 이 스크립트의 `select_new_desired_curvature()`도 함께 갱신해야 함 —
 리터럴 이식이라 자동 동기화 안 됨.
+
+## sim_route_apex_redesign.py (157차, 신규 — 재설계 검증, POSITIVE)
+
+**배경**: 156차가 실측으로 확인한 "route= HUD 16초+ 고정"(연속 완만한
+굽이길, curvature 0.002~0.013)을 재조사 -- 근본 원인이 147차가 고친
+coarse chord 문제가 아니라 `carrot_navi_route()`의
+`if abs(curvature) < 0.02: speed = max(speed, nRoadLimitSpeed)` 플로어
+로직 자체가 R 50m~800m급 커브 전체를 무력화하는 것으로 확인(사용자
+지적, "완전히 심각한 문제"). V_CURVE_LOOKUP 테이블상 curvature
+0.009~0.018 구간은 이미 45~56km/h급 커브 값을 내는데, 0.02 미만이라는
+이유만으로 그 값이 버려지고 도로제한속도로 되돌려짐.
+
+**사용자 제안 재설계**: "route의 역할은 사전에 GPS 경로로 다음
+최대곡률(apex) 지점까지의 거리만 보고 미리 감속하는 것 -- 정점 이후는
+vturn(비전)에 맡기고, 통과 즉시 다음 apex를 다시 찾는다"로 단순화.
+기존 91차 backward DP(ROUTE_ENTRY_MARGIN_KPH/time_wait 스케줄링, 포인트별
+전체 배열 처리) + 153차 근정지 후처리를 "apex(lookahead 내 최소속도
+지점)까지의 거리 하나로 결정하는 물리공식" 5~10줄로 전면 대체.
+
+**주요 함수**:
+- `curve_speed(curvature, road_limit_speed, floor_threshold)` — 곡률->속도
+  변환 공통 헬퍼. `floor_threshold=0.02`면 기존(버그 포함) 동작과 100%
+  동일, 낮추면(예: 0.001) 그 버그 범위를 줄인 재설계 동작.
+- `carrot_navi_route_baseline(speeds, distances, v_ego_kph, accel_limit_mss,
+  vturn_decel_rate=1.2)` — 기존 프로덕션(backward DP + 153차 근정지
+  후처리)을 그대로 재현. floor_threshold=0.02 고정 입력을 받는 `speeds`
+  기준.
+- `carrot_navi_route_apex(speeds, distances, v_ego_kph, accel_limit_mss,
+  max_accel_mss=1.2)` — 재설계 핵심. apex_idx(최소속도 지점) 탐색 ->
+  거리기반 필요감속률 계산 -> accel_limit(여유 시) 또는
+  max_accel_mss(감지가 늦은 경우, 153차 클램프 로직의 일반화) ->
+  out_speed 단일값 반환. 상태 없음(무상태), 배열 전체 재귀 없음.
+- `winding_road_curvature_fn/straight_road_curvature_fn/
+  single_sharp_curve_curvature_fn(...)` — 절대좌표 기준 곡률함수 생성기.
+  `sample_curvature_road(curvature_fn, pos, road_len_m, road_limit_speed,
+  floor_threshold)`가 차량 현재 위치(pos)부터 도로 끝까지 10m 간격으로
+  샘플링해 매 프레임 (speeds, distances) 생성(production의 "현재
+  위치부터 lookahead까지" 구조와 동일하게, 도로 패턴이 차량 이동에 따라
+  실제로 진행되도록 절대좌표 기반으로 설계 -- 최초 버전은 상대좌표만
+  써서 차량이 물리적으로 전진해도 커브 패턴이 고정된 채 재생되는 버그가
+  있었음, 디버깅 후 수정).
+- `simulate_road(sampler, road_len_m, v_ego_kph_start, accel_limit_mss,
+  algo, ...)` — 132차 램프리미터(`sim_route_boundary_ramp_limiter.
+  RampLimiterState` 재사용) 포함 다중프레임(20Hz) 완벽추종 시뮬레이션.
+  `sim_route_near_stop_accel_boost.py::simulate_approach`와 동일 방법론을
+  "단일 목표점"에서 "전체 도로 곡률함수"로 일반화.
+
+**검증 결과(7/7 PASS)**:
+| 시나리오 | baseline(기존, 플로어 0.02) | apex 재설계(플로어 0.001) |
+|---|---|---|
+| 156차 재현 굽이길(curv 0.002~0.013, v_ego=68kph 시작) | 무반응(최소속도=출발속도 그대로, 플로어 버그 재현) | 실제 커브속도까지 정상 감속(<65kph) |
+| 직선(노이즈 0.0003) | raw out_speed>150(제약 없음, 회귀 없음) | 동일(오탐 없음) |
+| 147차류 단일커브(curv=0.0165, fine-sample 미적용 축소재현) | 무반응(0.02 미만이라 baseline도 플로어 버그, 참고용) | 정상 감속(<60kph) — 임계값 자체를 우회하므로 chord 문제에 안 걸림 |
+| 152/153차 근정지(target=10.7kph, corner=280m, v_ego=90kph) | (150/151/153차 기존 검증 결과 참고) | 153차 forced-decel과 동등하게 target 근접 도달 |
+
+**한계/다음 단계**: 이번 시뮬레이션은 합성 도로 형상만 검증(156차 실제
+naviPaths CSV는 대용량 정책상 미커밋 -> 컨테이너 리셋으로 소실, 재검증
+필요 시 사용자가 동일 로그 재업로드 필요). 91차 ROUTE_ENTRY_MARGIN_KPH
+(route가 vturn보다 먼저 개입하도록 당기는 마진)는 이번 재설계 v1에
+포함하지 않음 -- 실차 검증 후 필요성 재평가 예정(FINDINGS.md 157차
+참고).
+
+**사용**: `python3 sim_route_apex_redesign.py --unit-tests`
+**의존성**: `sim_route_boundary_ramp_limiter.py`(RampLimiterState 재사용).

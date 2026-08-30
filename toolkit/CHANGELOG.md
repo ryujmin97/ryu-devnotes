@@ -633,3 +633,14 @@ discontinuity 0건). 개발 중 트리거 소스별 boost_s 미구분 버그가 
 - 147차: extract_log.py에 `--with-navi-paths` 플래그 신규(기본 off, row당 최대 ~1200자라 기본 추출엔 미포함) — carrotMan.naviPaths(carrot_navi_route()가 곡률 계산에 실제 쓰는 로컬(x,y) 리샘플 폴리라인+거리, 이미 20Hz 발행 중이었음/ryu 코드 변경 없음) 컬럼 추출 지원. analysis_helpers.py에 `parse_navi_paths()`/`recompute_route_curvature_speed()`/`route_curvature_underestimate_scan()` 신규 — 89차/90차가 "raw navi_points 로그 부재로 직접검증 불가"라 미뤄뒀던 "route 곡률 과소평가가 chord 길이 문제인지 실제 지도 폴리라인 형상 문제인지"를 이제 실측 데이터로 직접 검증 가능. 합성 90도 코너로 단위테스트 PASS(코너 정점에서 curvature=0.03/speed_cap=20.5kph 정확히 포착 확인)
 - 151차: analysis_helpers.py에 `required_decel_gap_scan()` 신규 — liveRouteSpeed(149차) 기반, 근정지급 코너(fine 곡률 첫 감지 시점~진입 시점) 구간의 필요감속률 vs 실측감속률 갭 스캔. route1617.csv 1건 검출(gap≈2.6kph/s).
 - 151차: sim_route_near_stop_accel_boost.py 신규 — carrot_navi_route()의 역방향 accel-limited DP(`carrot_navi_route_dp()`) 독립 재현 + 149차/150차 설계 근정지급 부스트(`ROUTE_NEAR_STOP_TARGET_KPH`/`ROUTE_ACCEL_LIMIT_BOOST_MAX_MSS`) on/off 비교. `simulate_approach()`로 단일 코너 접근을 132차 램프리미터(`sim_route_boundary_ramp_limiter.RampLimiterState` 재사용) 포함 다중프레임(20Hz) 시뮬레이션 — **결과 NEGATIVE(부스트가 오히려 초과분 악화), 배포 보류 권고**. 상세는 FINDINGS.md 151차 참고.
+
+## 157차
+- `sim_route_apex_redesign.py`(신규) — 사용자 제안 재설계("route는 다음
+  apex(최대곡률)까지의 거리 하나로 사전감속을 결정, 통과 후 vturn에
+  넘기고 다음 apex를 다시 찾는다") 시뮬레이션 검증. baseline(기존
+  backward DP + 153차 근정지 후처리, curvature<0.02 플로어 포함
+  재현) vs apex 재설계(단일 apex 거리기반 물리공식, 플로어 임계값
+  0.001) 비교. 156차 재현 연속 굽이길(baseline 무반응 확인 vs apex
+  정상 감속)/직선 회귀없음/147차류 단일커브(0.02 미만이면 baseline도
+  플로어 버그로 무반응함을 재확인, apex는 정상)/152·153차 근정지
+  재현(apex가 153차 forced-decel과 동등 성능) 4개 시나리오 7/7 PASS.
