@@ -1,3 +1,33 @@
+## 155차 (완료) — 날짜 미표시 원인 확정(파라미터), route= 숫자 우측 정렬
+
+**배경**: 154차 패치 실차 테스트 스크린샷 확인 결과 route 2줄 분리/강조는 정상 동작(초록 `route=390.0`). 다만 좌상단 날짜가 여전히 안 나옴 → 사용자 요청으로 코드에서 `ShowDateTime` 파라미터 값과 무관하게 날짜+시간을 항상 같이 그리도록 임시 패치(`drawDateTime()`)를 만들었으나, 커밋 전에 사용자가 "설정에서 날짜 나오게 했음"이라고 확인 → 원인이 코드가 아니라 기기의 `ShowDateTime` 파라미터가 2(시간만)로 저장돼 있던 것이었음이 최종 확정됨.
+
+**조치**: 강제표시 우회 코드는 되돌리고(0/1/2/3 파라미터 값을 그대로 존중하는 원래 로직 복원), 주석에만 원인 규명 결과를 남김. 즉 `drawDateTime()` 함수 로직 자체는 순수하게 원복(동작 변화 없음).
+
+**추가 요청 처리**: 같은 스크린샷에서 route= 숫자("route=390.0")가 prefix 바로 뒤에 붙어 나오는 상태 → "오른쪽 끝에 맞춤"으로 변경 요청. `selfdrive/ui/carrot.cc`의 TBT 하단 2줄 블록에서 숫자 부분만 `NVG_ALIGN_RIGHT`로 그려서 박스 우측 끝(`tbt_x + TBT_BOX_W - 20`)에 정렬. "route=" prefix는 기존처럼 좌측 고정.
+
+**패치 파일**: `0002-route-right-align-and-revert-datetime.patch` (154차 패치 위에 이어서 적용, `selfdrive/ui/carrot.cc` 1개 파일만 변경)
+
+**검증 상태**: 컴파일 환경 없어 로직 리뷰만 완료. 실차 검증 대기.
+
+## 154차 (완료 — HUD 텍스트 패치 작성, 실차 검증 대기) — TBT 하단 도로명/route= 텍스트 2줄 분리 + route 숫자 강조
+
+**요청 배경**: 사용자가 실주행 스크린샷 2장 첨부. 화면 우측하단 TBT 경로안내창 맨아래에 "대구부산 고속도로route=145.1"이 붙어서 한 줄로 나옴(가독성 나쁨) → 두 줄로 분리하고, route= 뒤 숫자(145.1)만 초록색+2배 크기로 강조 요청.
+
+**원인 파악**: `selfdrive/carrot/carrot_serv.py:1152`에서 `msg.carrotMan.szPosRoadName = self.szPosRoadName + self.debugText`로 도로명 문자열과 디버그 문자열(`route={:.1f}`, line 1100)을 구분자 없이 그냥 이어붙여서 capnp로 보냄. UI(`selfdrive/ui/carrot.cc`)는 이 필드를 그냥 한 줄로 그림(기존 1233~1236행, `else if (szPosRoadName.length() > 0)` 블록).
+
+**패치 내용 (2개 파일)**:
+1. `selfdrive/carrot/carrot_serv.py` line 1152: 이어붙이던 걸 `'\n'` 구분자로 join (`self.debugText`가 있을 때만 줄바꿈 추가)
+2. `selfdrive/ui/carrot.cc`:
+   - `TBT_BOX_H` 300 → 340 (2줄 텍스트 수용 위해 세로 여백 +40)
+   - 도로명/route 렌더링 블록을 `'\n'` 기준 split: 1줄=도로명(기존처럼 폭 초과시 폰트 자동축소), 2줄="route="는 26pt 흰색, "=" 뒤 숫자만 52pt(26의 2배) 초록색(`COLOR_GREEN`)으로 별도 렌더링. prefix 폭을 `nvgTextBounds`로 측정해서 숫자 시작 x좌표를 정확히 이어붙임.
+
+**검증 상태**: 코드 리뷰/논리 검증만 완료(컨테이너에 nanovg/Qt 빌드 환경 없어 실제 컴파일 불가 — 기존 관행). 실차 검증 대기.
+
+**패치 파일**: `0001-tbt-route-text-2line-highlight.patch` (C:\dev\patch\)
+
+**부가 확인사항 (코드 변경 없음)**: 사용자가 함께 언급한 "우측상단 시간표시에 날짜가 안 나옴" 건은 코드 버그가 아니라 `ShowDateTime` 파라미터(설정 > Time Info, 기본값 1=날짜+시간)가 현재 기기에서 2(시간만)로 설정되어 있어서로 추정됨 (`selfdrive/ui/carrot.cc` `drawDateTime()`, `selfdrive/ui/qt/onroad/onroad_home.cc:227` 화면 탭으로 0→1→2 순환). 설정 화면 또는 CarrotWeb에서 값을 1로 바꾸면 날짜(연-월-일(요일))가 시간 위에 같이 나옴. 사용자가 "코드로 항상 강제 표시"를 원하면 다음 세션에서 별도 패치 가능.
+
 ## 153차 (체크포인트 — 시뮬레이션 선검증 완료, POSITIVE, ryu 패치는 미작성) — 152차 옵션1(DP 낙관적 스케줄링 우회, 근정지급 구간 물리 공식 직접 덮어쓰기) `sim_route_near_stop_accel_boost.py` 확장 검증 결과 POSITIVE, 다음 세션은 실제 `carrot_man.py` 패치 단계
 
 **요청**: "152차 작업(옵션1 재설계 + 시뮬레이션 선검증)" — 152차 계속이
