@@ -1,3 +1,84 @@
+## 145차 — [가설확정(코드분석), 실차 재검증 필요] PathOffset 커브구간 좌측차선 침범 — 화면녹화 대조 + 원인 코드분석
+
+**대상**: 144차에서 예고된 화면녹화 영상 4개(오프셋 -10/-5×2/0, 각 30초
+클립, 파일명에 07:xx:xx 실시각 포함) 도착 → `144cha-combined` route와
+시각 대조 분석.
+
+**시각 매핑 검증**: route 첫 행(t=568.784)을 07:02:34(WIP 144차 기록)로
+앵커해 각 영상의 파일명 시각을 t로 역산 → 영상 온스크린 HUD 시계
+표시(예: "07:19")와 정확히 일치 확인. 매핑 신뢰 가능.
+
+**Finding A (핵심, 시각적으로 확인됨)**: PathOffset=-5, **좌회전 커브**
+클립(071922, "좌측차선을밟음")에서 커브 정점 부근 프레임들
+(frames/d125d5/f_03~05)에서 그린 경로(d_path)가 좌측 가드레일쪽
+백색차선에 거의 닿거나 살짝 넘어감 — 우측 여유공간은 크게 남음(중앙
+유지 실패, 좌측 편중). 동일 세션 PathOffset=0, **우회전 커브** 클립
+(072049, "중앙잘잡음")에서는 좌우 여유 고르게 유지(정상). PathOffset
+-5/-10의 **직진구간** 클립 2개(071330, 071626)는 모두 편중 없음(넓은
+직선도로, 문제 없음) — "직진에서는 무해, 곡선에서만 유독 심함"이라는
+사용자 관찰과 일치.
+
+**주의(교란변수)**: -5(문제) 클립은 좌회전, 0(정상) 클립은 우회전으로
+**커브 방향이 다름** — offset 크기만의 순수 비교는 아님(방향까지 같은
+대조쌍은 이번 4개 영상에 없음). 아래 Finding B가 방향 문제를 설명하는
+유력 후보.
+
+**Finding B (코드분석, 원인 후보 — 실차 미검증)**: PathOffset 경로 외에
+**커브 진입 시 자동으로 적용되는 별도 offset 메커니즘**이 이미 존재함.
+`selfdrive/controls/lib/lane_planner_2.py`:
+- Line 162: `self.adjustCurveOffset = self.adjustLaneOffset` (`AdjustCurveOffset`는
+  현재 `AdjustLaneOffset` 파라미터를 그대로 재사용 — 별도 파라미터
+  아님)
+- Line 166: `offset_curve = np.interp(abs(curve_speed), [50,200],
+  [adjustCurveOffset, 0.0]) * np.sign(curve_speed)` — 커브가 급할수록
+  (vTurnSpeed 작을수록) 최대 `AdjustLaneOffset`값까지, 직선일수록 0으로
+  수렴. `carrot_settings.json`상 `AdjustLaneOffset` 설명: **"도로경계쪽/
+  커브안쪽으로 보정합니다"** — 즉 설계 의도 자체가 "커브 안쪽으로
+  자동 보정"(방향은 `np.sign(curve_speed)`로 커브방향에 연동되는 것으로
+  보임, `carrot_serv.py`의 vTurnSpeed 부호 처리는 이번 세션에서 상세
+  추적 안 함).
+- Line 249: `path_xyz[:, 1] += (CAMERA_OFFSET + self.lane_offset_filtered.x)`
+  — 이 보정은 **레인풀모드(lanefull_mode) 여부와 무관하게** 항상
+  실행됨. 게이트는 `self.d_prob`(차선 인식 확률)뿐 — d_prob>0이면
+  레인리스 주행 중에도(레인풀 모드 미진입 상태라도) 이 커브-내측
+  보정이 부분 반영될 수 있음.
+- 이후 `lateral_planner.py` line 163에서 **별개로** 테스트 대상인
+  `self.pathOffset`(PathOffset 파라미터)이 **추가로 더해짐**. 즉 두
+  offset이 **순서대로 누적** — (1) lane_planner_2의 커브-내측 자동보정
+  + (2) PathOffset 수동값.
+
+**가설**: 이번 테스트 차량의 `AdjustLaneOffset`값이 0이 아니고, 좌회전
+구간에서 차선 인식확률(d_prob)이 어느 정도 있었다면(빗길이지만 백색
+차선 페인트 육안 식별 가능한 영상), 좌회전 커브에서는 (1)의 자동
+내측보정이 **좌측방향**으로 이미 얼마간 걸려 있었고, 여기에 (2)
+PathOffset=-5(좌측)가 **같은 방향으로 누적**되어 육안상 5cm 파라미터
+값보다 훨씬 커 보이는 좌측 편중이 나타났을 가능성. 우회전 클립(offset=0)
+은 (2)가 0이고 (1)의 방향도 반대(우측)라 문제가 드러나지 않았을 수
+있음 — Finding A의 교란변수를 자연스럽게 설명.
+
+**미확정 사항(사용자 확인 필요)**:
+1. 테스트 당시 device의 `AdjustLaneOffset` 실제 설정값 (0이면 이 가설
+   기각, 순수 PathOffset 문제로 재검토 필요)
+2. `carrot_serv.py`에서 vTurnSpeed 부호가 실제로 커브 방향(좌/우)을
+   인코딩하는지 코드 추적(이번 세션 범위 밖, 다음 세션 후보)
+3. CSV에 `lll_prob`/`rll_prob`/차선폭 필드가 없어 d_prob>0 여부를
+   로그만으로 검증 불가 — 확인하려면 `extract_log.py` FIELDNAMES에
+   추가 후 재추출 필요
+
+**다음 단계 제안**: (a) `AdjustLaneOffset` 값 확인, (b) 가능하면
+`AdjustLaneOffset=0` 상태로 PathOffset만 단독으로 좌/우 커브 각각에서
+재검증하는 대조실험, (c) 반대로 PathOffset=0 고정한 채 AdjustLaneOffset
+단독 커브 거동 확인 — 두 메커니즘을 분리해야 "이 로직은 별도로 해야할
+듯"이라는 사용자 직관이 정확히 어느 메커니즘을 가리키는지 확정 가능.
+
+**상태**: 코드 변경 없음(관찰/코드대조 리뷰만). 4개 route 데이터
+(`ba5f3d3273`/`898edd0f96`/`e996400f6e`/`144cha-combined`)는 144차와
+동일하게 미승인 상태로 유지(삭제 안 함). 업로드 영상 4개는 devnotes에
+커밋하지 않고 `/home/claude/work`에서만 스크래치로 다룸(세션 종료 시
+소실 — 재사용 필요하면 재업로드).
+
+---
+
 ## 144차 — [NEEDS_VALIDATION, 진행중] route 적용검증 + PathOffset 직진/커브 실차 1차분석
 
 **대상**: 사용자 업로드 연속주행 3개 route(37seg, 07:02~07:37, 20.6km,
