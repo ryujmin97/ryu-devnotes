@@ -52,7 +52,9 @@ hash/branch/커밋 날짜·메시지/dirty 여부/추출 시각/row 수 —"이 
 cruiseEnabled, vCruise, steeringAngleDeg, desiredCurvature, leadStatus,
 leadDRel, leadVRel, leadVLead, src, desiredSpeed, vTurnSpeed,
 leadRadar, leadModelProb, leftBlinker, rightBlinker, laneChangeState,
-laneChangeDirection`
+laneChangeDirection, activeLaneLine(144차), lllProb/rllProb/lllStd/
+rllStd(145차 — modelV2.laneLineProbs[1]/[2], laneLineStds[1]/[2],
+AdjustLaneOffset 게이트값 d_prob 재현용)`
 **사용**:
 ```bash
 python3 extract_log.py /home/claude/work/route /home/claude/work/route.csv \

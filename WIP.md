@@ -46,6 +46,49 @@
 
 ---
 
+## 145차 계속 (체크포인트 — 원본로그 재업로드로 d_prob 실측, 가설 확정도 기각도 안 됨, 통제실험 필요) — AdjustLaneOffset 실측 검증 + extract_log.py 필드 확장
+
+**요청**: 145차 미확정 사항 해소용으로 원본 zip 3개(37seg) +
+`params_backup-4.json` 재업로드 → "설정값과 로그 재업로드".
+
+**진행**:
+1. params_backup 확인 → **`AdjustLaneOffset: 10`(0 아님) 확인** —
+   145차 가설 전제 충족. `UseLaneLineSpeed: 0`도 확인(144차 레인리스
+   100% 원인 확정 — 속도무관, 설정 자체가 레인풀 원천차단).
+2. `extract_log.py`에 `lllProb`/`rllProb`/`lllStd`/`rllStd` 필드 추가
+   (toolkit README/CHANGELOG 갱신 완료, 커밋됨).
+3. 원본 zip 3개(37seg) 재추출 → 병합 → 기존 `144cha-combined`와 완전
+   동일(43289행, gap 0) 재확인.
+4. `get_d_path()` 로직 기반 d_prob 근사 계산 → 좌커브(문제)구간
+   평균 0.28(frac>0.3=30%), 우커브(정상)구간 평균 0.98 — **오히려
+   문제구간이 평균 d_prob 더 낮음**(단, 순간피크 0.985 존재 + 필터
+   관성 고려하면 완전배제 불가). **가설 기각도 확정도 아님.**
+5. **신규 의문(Finding E)**: vTurnSpeed 부호가 좌/우 커브 모두 음수
+   위주로 나타나 "방향 인코딩"이라는 가정 자체가 흔들림 —
+   `offset_curve`가 실제로 커브방향을 구분하는지 재확인 필요
+   (`carrot_serv.py` caller 추적, 미완료).
+6. **미해결(Finding F)**: 이론상 최대 누적치(10+5=15cm)가 영상에서
+   체감되는 편중폭보다 작아 보임 — magnitude 불일치, 이번 세션
+   결론 불가.
+
+**상태**: 코드 변경 있음(`extract_log.py` 필드 추가, non-breaking,
+push 완료 대상). 재추출 CSV(`route_a/b/c.csv`, `combined_145.csv`)는
+**devnotes 미커밋**(대용량 산출물 레포 미커밋 정책, Drive 미연결) —
+`/home/claude/work`에만 존재, 이번 컨테이너 종료 시 소실. **다음
+세션에서 lllProb 기반 추가분석 필요시 원본 zip 3개 재업로드
+필요**(스크립트는 이미 반영돼 재작성 불필요).
+
+**다음 단계(최우선순 갱신)**:
+1. **`AdjustLaneOffset=0`으로 낮춘 통제실험**(동일 좌커브 재주행,
+   PathOffset만 단독 검증) — 가장 확실한 다음 단계
+2. `carrot_serv.py` vturn_speed 부호 발생지점(caller) 추적 —
+   `offset_curve`의 방향연동 여부 확정
+3. 여력되면 `lane_lines[1].y`/`[2].y` 원본배열까지 추출해 d_prob
+   완전재현(현재는 근사 상한치)
+4. (낮은 우선순위) 영상-로그 픽셀 매핑으로 실측 변위(cm) 산출
+
+---
+
 ## 144차 (체크포인트 — 로그 추출+1차 분석 완료, 오프셋값 확인 등 다음 단계는 사용자 확인 대기) — route 적용검증 + PathOffset 직진/커브 실차분석 착수
 
 **요청**: 사용자가 실차 로그 3개(연속주행) 업로드. (1) route(GPS 폴리라인

@@ -79,6 +79,91 @@ PathOffset=-5(좌측)가 **같은 방향으로 누적**되어 육안상 5cm 파�
 
 ---
 
+## 145차 계속 — params_backup 확인 + lllProb/rllProb 재추출로 d_prob 실측 검증
+
+**요청**: 145차 미확정 사항 해소를 위해 사용자가 원본 zip 3개(37seg
+전체) + `params_backup-4.json` 재업로드.
+
+**Finding C (미확정①③ 해소)**: params_backup 확인 결과
+**`AdjustLaneOffset: 10`**(0이 아님, 0.10m) — 145차 가설의 전제(자동
+커브내측보정이 실제로 걸려있었는지) 확인됨. `PathOffset: 0`은 이
+백업 시점 스냅샷일 뿐 각 클립 당시 실시간 조작값과는 무관(참고용).
+`UseLaneLineSpeed: 0` 확인 — `lateral_planner.py`의
+`useLaneLineSpeedApply==0 → useLaneLineMode 항상 False` 분기와 일치,
+144차 Finding C(레인리스 100%)의 근본 원인이 속도 임계값이 아니라
+**이 설정 자체가 레인풀 모드를 원천 차단**하고 있었음을 코드로 확정.
+
+**extract_log.py 확장 후 재추출**: `lllProb`/`rllProb`/`lllStd`/`rllStd`
+필드 추가(toolkit CHANGELOG 참고) → route a/b/c 전체 37seg 재추출 →
+병합 결과 기존 `144cha-combined`(43289행, t동일범위)와 완전히 일치
+확인(연속성 재검증 통과, gap 0건).
+
+**Finding D (d_prob 근사 실측 — 부분 확인, magnitude는 불일치)**:
+`get_d_path()`의 `l_prob*l_std_mod`/`r_prob*r_std_mod` 중 max값으로
+d_prob 근사 계산(width_pts 기반 추가감쇠 항은 원본 lane_lines y배열이
+CSV에 없어 근사에서 제외 — 즉 아래 값은 실제 d_prob의 **상한**):
+
+| 구간 | d_prob_approx 평균 | frac>0.3 |
+|---|---|---|
+| offset=-5 직진(071626) | 0.51 | 61% |
+| offset=-10 직진(071330) | 0.63 | 83% |
+| **offset=-5 좌커브 침범(071922)** | **0.28** | **30%** |
+| offset=0 우커브 정상(072049) | 0.98 | 100% |
+
+문제가 된 좌커브 구간은 오히려 평균 d_prob이 가장 **낮았음**(간헐적).
+그러나 0은 아니며 최대 0.985까지 튀는 구간이 존재 + `lane_offset_filtered`가
+필터링(관성) 객체라 순간적 d_prob 상승만으로도 잔여효과가 남을 수
+있음 — "완전히 무관하다"고 단정할 근거도 아님. **어느 쪽으로도
+확정적이지 않음**, 145차 가설은 기각도 확정도 안 된 상태.
+
+**Finding E (신규 의문점 — vTurnSpeed 부호가 커브방향 인코딩이
+아닐 가능성)**: 좌커브(071922)/우커브(072049) 두 구간 모두 vTurnSpeed
+실측값이 **압도적으로 음수**(-20~-26대, -84~-87대 등)로 나타남 —
+방향(좌/우)에 따라 부호가 갈릴 것이라는 145차의 가정과 배치.
+`carrot_serv.py` line 1033 `max(abs(vturn_speed), ...)`도 즉시 abs()
+처리 — 부호가 실사용 크기와 무관한 별도 의미(방향 플래그 등 추정,
+미확정)일 가능성. 만약 부호가 방향을 인코딩하지 않는다면,
+`lane_planner_2.py`의 `offset_curve = ... * np.sign(curve_speed)`는
+**커브 방향과 무관하게 항상 같은 방향으로 보정**하게 되어 145차
+가설의 "좌커브라서 우연히 같은 방향" 설명 대신 "이 보정은 애초에
+방향비의존적이라 좌/우 어느 커브든 매번 같은 쪽으로 쏠릴 수 있다"는
+더 근본적인 이슈로 재해석될 수 있음. vturn_speed가 실제로 어디서
+부호를 부여받는지(caller 추적)는 이번 세션 범위 밖.
+
+**Finding F (미해소 — magnitude 불일치)**: AdjustLaneOffset(0.10m) +
+PathOffset(0.05m) 이론상 최대 누적치는 0.15m(15cm)인데, 영상에서
+육안으로 관측된 좌측편중은 체감상 그보다 훨씬 커 보임(차로 우측
+여유공간이 절반 가까이 남는 정도). 원근효과(커브 정점 부근 소실점
+근처라 실제 변위가 시각적으로 과장돼 보임 가능) 또는 아직 못 찾은
+추가 요인(조향 제어 지연/오버슈트 등) 가능성 — **미해결**, 픽셀
+기반 실측이나 추가 통제실험 없이는 이번 세션에서 결론 불가.
+
+**데이터**: 재추출한 `route_a.csv`/`route_b.csv`/`route_c.csv`/
+`combined_145.csv`는 **devnotes에 커밋하지 않음**(대용량 산출물 —
+사용자 정책상 레포 미커밋, Drive 미연결로 이번엔 저장 생략) —
+`/home/claude/work`에만 존재, 컨테이너 리셋 시 소실. 다음 세션에서
+lllProb 기반 재분석이 필요하면 **원본 zip 3개 재업로드 필요**(추출
+스크립트는 devnotes에 반영 완료라 재작성은 불필요).
+
+**결론(잠정)**: 145차 가설(AdjustLaneOffset×PathOffset 좌측누적)은
+**기각되지 않았으나 완전히 확정되지도 않음**. 로그 분석만으로는
+한계 — **AdjustLaneOffset=0으로 낮춘 통제실험**이 가장 확실한 다음
+단계라는 145차의 원래 결론은 유효하며 오히려 더 필요해짐. 추가로
+`carrot_serv.py`의 vturn_speed 부호 발생지점 추적(Finding E)도 우선
+과제로 승격.
+
+**다음 단계(갱신)**:
+1. **최우선**: `AdjustLaneOffset=0` 고정 후 동일 좌커브에서 PathOffset
+   단독 재검증 주행
+2. vturn_speed에 부호를 부여하는 caller 코드 추적(Finding E) —
+   `offset_curve`의 방향성이 실제로 커브방향과 연동되는지 확정
+3. 여력 있으면 `lane_lines[1].y`/`lane_lines[2].y`(원본 배열)까지
+   추출해 width_pts 기반 완전한 d_prob 재현(현재는 근사 상한치)
+4. 영상-로그 픽셀 단위 매핑으로 실측 변위(cm) 산출 시도(Finding F
+   magnitude 불일치 해소용) — 우선순위는 낮음
+
+---
+
 ## 144차 — [NEEDS_VALIDATION, 진행중] route 적용검증 + PathOffset 직진/커브 실차 1차분석
 
 **대상**: 사용자 업로드 연속주행 3개 route(37seg, 07:02~07:37, 20.6km,

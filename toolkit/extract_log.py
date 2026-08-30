@@ -57,7 +57,17 @@ FIELDNAMES = [
     "leftBlinker", "rightBlinker",
     "laneChangeState", "laneChangeDirection",
     "activeLaneLine",
+    "lllProb", "rllProb", "lllStd", "rllStd",
 ]
+# 2026-08-30 추가(145차): modelV2.laneLineProbs[1]/[2] (left/right lane
+# line 확신도, lane_planner_2.py parse_model()의 self.lll_prob/rll_prob과
+# 동일 인덱스) + laneLineStds[1]/[2]. 145차에서 "AdjustLaneOffset(커브
+# 안쪽 자동보정) 메커니즘이 d_prob>0일 때만 부분 반영된다"는 코드분석
+# 가설을 실측 검증하려면 활성라인여부(activeLaneLine, 144차 추가)만으론
+# 부족 -- lanefull_mode 진입 여부와 무관하게 always-on인 이 게이트값
+# 자체가 CSV에 없어 d_prob=max(l_prob,r_prob)*std_mod 근사 계산이
+# 불가능했음. get_d_path()의 l_std_mod/r_std_mod까지 정확히 재현하려면
+# lllStd/rllStd도 필요해 함께 추가.
 # 2026-08-30 추가(144차): controlsState.activeLaneLine
 # (controlsd.py line360, `cs.activeLaneLine = self.lanefull_mode_enabled`) --
 # 140차 PathOffset 레인리스 반영 패치의 실차검증에 필수. 이 필드 없이는
@@ -173,6 +183,7 @@ def process_segment(rlog_path, seg_name, repo_dir, max_mb, commit_short="",
     }
     last_model = dict(carry_model) if carry_model is not None else {
         "modelTurnSpeed": "",
+        "lllProb": "", "rllProb": "", "lllStd": "", "rllStd": "",
     }
     rows = []
     for evt in iter_events(rlog_path, repo_dir=repo_dir, max_output_mb=max_mb):
@@ -202,7 +213,16 @@ def process_segment(rlog_path, seg_name, repo_dir, max_mb, commit_short="",
                 "laneChangeDirection": str(lp.laneChangeDirection),
             }
         elif w == "modelV2":
-            last_model = {"modelTurnSpeed": evt.modelV2.meta.modelTurnSpeed}
+            mv2 = evt.modelV2
+            llp = mv2.laneLineProbs
+            lls = mv2.laneLineStds
+            last_model = {
+                "modelTurnSpeed": mv2.meta.modelTurnSpeed,
+                "lllProb": llp[1] if len(llp) > 2 else "",
+                "rllProb": llp[2] if len(llp) > 2 else "",
+                "lllStd": lls[1] if len(lls) > 2 else "",
+                "rllStd": lls[2] if len(lls) > 2 else "",
+            }
         elif w == "radarState":
             lo = evt.radarState.leadOne
             if lo.status:

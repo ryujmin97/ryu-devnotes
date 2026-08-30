@@ -3,6 +3,12 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+- 2026-08-30 (145차): `extract_log.py` FIELDNAMES에 `lllProb`/`rllProb`/
+  `lllStd`/`rllStd` 추가(modelV2.laneLineProbs[1]/[2],
+  laneLineStds[1]/[2]) — AdjustLaneOffset 커브내측 자동보정의 게이트값
+  `d_prob`을 CSV만으로 근사 재현하기 위함. 기존 컬럼/세그먼트 캐리오버
+  로직 변경 없음(순수 추가, non-breaking).
+
 - 2026-08-29 (131차): `sim_route_step_drop_repro.py` 신규(NEGATIVE) —
   129차 계단형 급락(Δ-25kph 단일프레임)을 desiredCurvature 재구성
   기반으로 재현 시도했으나 최대 1.84kph만 나와 재현 실패, 방법론
