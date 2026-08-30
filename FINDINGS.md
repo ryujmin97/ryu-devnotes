@@ -74,6 +74,37 @@ route= HUD/실제 감속 정상화, (2) 급커브/근정지 코너 회귀 없음
 직선 구간 오탐 없음 — 이 3가지를 확인하는 로그 확보 후
 `extract_log.py --with-navi-paths`로 정량 대조 필요.
 
+**후속 확인(같은 회차, 패치 리뷰 질문에 대한 코드 트레이스 답변)**:
+"apex 통과 직후 route target이 실제로 자연 해제되는가"에 대해
+`carrot_man.py`를 라인 단위로 재확인:
+- `apex_idx = min(range(len(speeds)), key=lambda k: speeds[k])`는 매
+  호출마다 `distances`/`speeds` 배열 전체(이번 프레임의 lookahead
+  윈도우)에서 새로 탐색됨 — 이전 프레임의 apex 인덱스를 들고 있지
+  않음(무상태).
+- 이 배열은 `get_path_after_distance(self.navi_points_start_index, ...,
+  current_position, route_lookahead_m)`로 매 프레임 **현재 차량 위치
+  기준**으로 다시 잘라낸 경로에서 만들어짐. 차량이 어떤 apex 지점을
+  실제로 통과하면, 다음 프레임의 `current_position`이 그 지점을 이미
+  지나쳤으므로 `path`(및 그로부터 만든 `resampled_points`/`distances`)에
+  더 이상 그 지점이 포함되지 않음.
+- 따라서 통과한 apex는 다음 프레임에서 탐색 대상 자체에서 빠지고,
+  `apex_idx`는 자동으로 그 다음 최소속도 지점을 가리키게 됨 — 별도의
+  "리셋" 로직 없이 윈도우 전진만으로 결론이 성립함을 코드 레벨에서
+  확인(**결론: 리뷰에서 제기된 의문 해소, 설계 의도대로 동작**).
+- 다만 이것과는 별개로 **132차 ramp limiter**(`_route_speed_prev` 기반
+  `max_step_kmh = accel_limit_kmh * ROUTE_SPEED_LOOP_DT` 대칭 클램프)가
+  apex 계산 **이후**에 여전히 적용됨: apex를 지나 `out_speed`가
+  이론적으로 도로제한속도로 즉시 뛰어야 할 때도, 이 리미터가 상승
+  방향도 동일 램프로 묶어 프레임당 상승폭을 제한함. 이는 129차/131차가
+  의도적으로 설계한 대칭 완화(급커브 진입뿐 아니라 탈출도 부드럽게)이지
+  이번 157차가 새로 만든 문제는 아니나, 실차검증 시 "apex 통과 후에도
+  route= 표시가 몇 초간 서서히만 올라간다"는 현상이 관찰되면 이 램프
+  때문이지 apex 로직 결함이 아님을 구분할 것.
+- `vturn_decel_rate`(1.2 m/s^2, `self.vturn_decel_rate`)는 153차부터
+  써온 것과 동일한 단일 상수를 그대로 재사용(1230/1249줄의 vturn 자체
+  계산과 공유) — 157차가 별도로 부스트값을 새로 도입하거나 충돌시키는
+  부분 없음 확인.
+
 **전달**: WIP.md(이 항목 요약)/FINDINGS.md(이 항목)/toolkit/
 sim_route_apex_redesign.py/toolkit/README.md/toolkit/CHANGELOG.md +
 ryu 패치 `0001-157-carrot_navi_route-route-apex.patch`.
