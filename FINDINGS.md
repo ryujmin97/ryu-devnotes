@@ -1,3 +1,100 @@
+## 147차 — [정성추정, 영상판독 기반 + toolkit 실측검증도구 완성] route 우회전 사전감속 무력화: 132차 정상동작 확인 + 89/90차 곡률과소평가 실측검증 도구(naviPaths) 신규
+
+**대상**: `route_작동안됨_진입속도가_너무빨라_위험한_상황_260830_072521`
+클립(=146차 체크포인트 E번 클립과 동일 타임스탬프). ATC(AutoTurnControl)는
+사용자가 의도적으로 꺼둔 상태 확정 전제 하에 route 자체 로직만 조사
+지시받음.
+
+**방법(원본 로그 없음, 영상 판독)**: ffmpeg 1fps 프레임 추출 →
+화면 우하단 `route=XX.X` 오버레이(`carrot_serv.py` L1100)를 프레임별
+직접 판독. 동시에 좌하단 `vturn`/큰 속도계 숫자도 함께 판독해 교차비교.
+
+**관측값** (t=초, 우회전까지 거리, vEgo, vturn, route=):
+| t | 거리 | vEgo | vturn | route= |
+|---|---|---|---|---|
+| 1 | 84m | - | - | 85.4 |
+| 2 | 75m | - | - | 85.0 |
+| 3 | 64m | - | - | 83.9 |
+| 4 | 54m | - | - | 82.6 |
+| 6 | 28m | 49 | (미개입) | 79.2 |
+| 7 | 16m | - | - | 78.2 |
+| 8 | 3m | 51 | 61 | 76.8 |
+| 9~11 | 진입중 | - | - | 74.9→74.1→72.4 |
+| 12 | 커브중 | 57 | 39 | 70.3 |
+| 14 | 통과 | 49 | 54(회복) | 70.0 |
+
+**핵심 발견 1 — "계단식 완만한 하강"은 132차 패치의 정상 동작, 새 문제
+아님**: 관측된 하강률(초당 약 1~1.5km/h)은 132차(`f24cbf8`, `carrot_man.py`
+L629-634 `ROUTE_SPEED_LOOP_DT=0.05s` 기준 프레임간 램프, 상한
+`accel_limit_kmh*0.05s` ≈ `accel=0.70`일 때 초당 2.52km/h) 이내로
+완전히 설명됨. `git log --oneline`으로 132차 커밋이 현재 `c3-ms-dev`
+HEAD(`3ec4e5c`, 141차)에 이미 포함돼 있음을 재확인 — 131차가 잡아낸
+"route_lookahead 윈도우 경계 진입 시 curvature가 단일 20Hz 프레임에
+이산적으로 배열에 나타나 desiredSpeed가 20~25km/h씩 계단으로 뚝
+떨어지는" Hypothesis C 불연속은 이 클립에서 나타나지 않았음(정상
+완화 확인).
+
+**핵심 발견 2 — 진짜 문제: route 최종 목표값(70.0)이 실제 필요치
+(vturn 최저 39)보다 30km/h 높음**: 이건 89차/90차가 다른 커브(고속도로
+램프, `bc4301a25d` seg12)에서 이미 확인한 것과 동일 유형 —
+- 89차 실측: route 최종값 121 vs vturn 실측 73~77 (48km/h 갭)
+- 90차 검증: 곡률 계산 chord(현재 `sample=4`→40m 간격)를 2/3로 줄여도
+  개선폭 2.5km/h뿐 → "chord 길이가 아니라 실제 GPS 폴리라인 자체의
+  형상 정밀도(지도 데이터가 이 코너를 얼마나 뭉툭하게 표현하는지)"가
+  더 유력한 원인이라는 결론(NEEDS_VALIDATION, raw navi_points 로그
+  부재로 직접검증 불가 상태였음).
+이번 147차 클립(70 vs 39, 30km/h 갭)도 같은 패턴 — ATC가 꺼진 상태라
+route 곡률감속이 유일한 사전대응 수단인데 이게 무력화되어, vturn(비전
+기반, 반응 늦음)에만 전적으로 의존 → "코앞까지 안 줄다가 커브 안에서야
+급락"하는 이번 증상으로 귀결. **단, 이번 세션은 원본 로그가 없어 영상
+오버레이 판독에 의한 정성적 추정 — 정량 확정 아님.**
+
+**[신규 발견] 89차/90차가 "raw navi_points 로그 부재로 직접검증 불가"라
+남겨뒀던 전제 자체가 틀렸음이 드러남**: `carrot_serv.py` 재확인 결과
+`carrotMan.naviPaths`(custom.capnp L27, `Text` 필드)에 `carrot_navi_route()`
+가 곡률 계산에 실제로 쓰는 로컬(x,y) 리샘플 폴리라인+거리
+(`coords_str = ";".join(f"{x:.2f},{y:.2f},{d:.2f}" for (x,y),d in zip(coords,distances))`,
+L1170-1172)가 **이미 20Hz로 발행되고 있었음**(`pm.send('carrotMan', msg)`,
+`update_navi()` 호출부는 `frame%20` 게이트 없이 매 루프 실행 확인).
+`ryu` 코드는 원래부터 이 데이터를 만들고 있었고, `extract_log.py`가
+단지 이 필드를 CSV로 안 뽑고 있었을 뿐 — **89/90차가 제안했던 신규
+계측 패치는 필요 없었음**.
+
+**toolkit 신규 (147차, ryu 코드 변경 없음)**:
+- `extract_log.py --with-navi-paths` 플래그(기본 off — row당 최대
+  ~1200자로 CSV가 크게 불어나 route 커브 조사 시에만 사용 권장) —
+  `naviPaths` 컬럼 추출.
+- `analysis_helpers.py` 신규 3종:
+  - `parse_navi_paths(navi_paths_str)` — 텍스트 파싱.
+  - `recompute_route_curvature_speed(points, distances, sample=4)` —
+    `carrot_man.py`의 `calculate_curvature()`+`V_CURVE_LOOKUP_BP/VALS`를
+    100% 동일 이식(90차 `sim_route_curvature_sample.py` 상수 재사용)해
+    실측 폴리라인에서 지점별 곡률/speed_cap 재계산(역방향DP는 미포함,
+    "이 지점 곡률 자체가 실제로 얼마나 급한가"만 순수 확인).
+  - `route_curvature_underestimate_scan(rows, min_gap_kph=15.0)` —
+    `src=="route"` 구간의 실제 발행 desiredSpeed와 재계산 최소값을
+    비교, 갭이 크면 리포트. 갭이 크면 "폴리라인은 이미 충분히
+    급한데 다른 로직(역방향DP 스케줄링)이 못 살렸다"는 뜻, 갭이
+    작으면 "폴리라인 형상 자체가 이미 뭉툭하다"(89/90차 지도데이터
+    정밀도 가설)는 뜻으로 해석 가능.
+- 합성 90도 코너(직진80m→급코너→직진80m, 10m 간격) 단위테스트 PASS —
+  코너 정점(dist=90m)에서 curvature=0.0300/speed_cap=20.5kph 정확
+  포착 확인. 즉 **폴리라인 자체가 실제로 날카로운 단일 정점으로
+  존재한다면 sample=4(40m 간격)로도 문제없이 잡아낸다**는 것을
+  재확인 — 90차 결론(chord 길이 자체는 범인이 아닐 가능성)과 정합.
+
+**한계/다음 세션**: 이번 결론(70 vs 39 갭 = 89/90차와 동일 유형 곡률
+과소평가)은 어디까지나 영상 오버레이 판독 기반 정성적 추정. 이 교차로
+원본 route(zip) 재업로드 → `extract_log.py --with-navi-paths` 재추출 →
+`route_curvature_underestimate_scan()` 실행하면, 89차/90차부터 미뤄져
+온 "chord 길이 문제 vs 실제 지도 폴리라인 형상 문제" 질문을 최초로
+실측 데이터로 직접 확정할 수 있음.
+
+**상태**: [정성추정, TOOLKIT_READY] — 코드(ryu) 변경 없음, toolkit만
+갱신. 정량 확정은 이 교차로 원본 로그 재업로드 대기.
+
+---
+
 ## 146차 계속 — [원인확정(정량검증 완료), 설정확인 필요] route 카운트다운/ATC 미작동 = AutoTurnControl/AutoNaviCountDownMode 둘 다 0(off) 확정, xTurnInfo 이중소스 가설은 기각
 
 **대상**: 146차(영상판독+정적분석) 후속. 07:02~07:37 원본 route 3건

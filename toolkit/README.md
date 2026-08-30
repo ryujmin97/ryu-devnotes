@@ -92,6 +92,19 @@ model_v2 직접출력, 140차 패치 후 PathOffset!=0이면 MPC curvature로
 전환). **이 필드가 없는 과거 CSV로는 오프셋이 실제로 반영된 프레임인지
 구분 불가능** — 오프셋 관련 재분석 시 반드시 재추출 필요. PathOffset
 원시값(Params, cereal 미기록)은 여전히 CSV로 못 뽑음.
+**2026-08-30 추가(147차)**: `--with-navi-paths` 플래그(기본 off) —
+켜면 `naviPaths` 컬럼(carrotMan.naviPaths, `carrot_navi_route()`가
+곡률 계산에 실제로 쓰는 로컬(x,y) 리샘플 폴리라인+거리를
+`"x1,y1,d1;x2,y2,d2;..."` 텍스트로 20Hz 발행 중이던 필드 — **ryu 코드는
+원래부터 이 데이터를 발행하고 있었고, extract_log.py가 안 뽑고 있었을
+뿐**, 89차/90차가 제안했던 신규 계측 패치는 불필요했음)을 채운다.
+row당 최대 ~1200자로 다른 컬럼 대비 훨씬 커서 기본 추출엔 포함 안 함 —
+route 커브/교차로 사전감속 관련 조사에서만 켤 것. 파싱/재계산은
+`analysis_helpers.parse_navi_paths()` / `recompute_route_curvature_speed()` 참고.
+```bash
+python3 extract_log.py /home/claude/work/route /home/claude/work/route.csv \
+    --repo /home/claude/ryu --with-navi-paths
+```
 
 ## analysis_helpers.py
 **목적**: `extract_log.py`로 뽑은 CSV를 후처리하는 함수 모음. 대부분의
@@ -239,6 +252,28 @@ after = load_csv("/home/claude/work/route_after.csv")
 report = regression_report(before, after, before_label="패치전(commit abc123)", after_label="패치후(commit def456)")
 print(regression_report_markdown(report, "패치전(commit abc123)", "패치후(commit def456)"))
 ```
+
+**2026-08-30 추가(147차) — naviPaths 기반 route 곡률 과소평가 직접검증**:
+`extract_log.py --with-navi-paths`로 뽑은 CSV 전용 신규 함수 3종.
+- `parse_navi_paths(navi_paths_str)` — `"x1,y1,d1;x2,y2,d2;..."` 텍스트를
+  `([(x,y),...], [d,...])`로 파싱.
+- `recompute_route_curvature_speed(points, distances, sample=4)` —
+  `carrot_man.py::carrot_navi_route()`의 3점 곡률(40m 간격)+
+  `V_CURVE_LOOKUP` 계산을 실측 폴리라인에 그대로 재현해
+  `(distance, curvature, speed_cap)` 리스트 반환. 역방향DP/시간지연
+  스무딩은 미포함(순수 "이 지점 곡률이 실제로 얼마나 급한가"만 확인).
+- `route_curvature_underestimate_scan(rows, min_gap_kph=15.0)` —
+  `src=="route"`인 각 행에서 실제 발행된 `desiredSpeed`와
+  `recompute_route_curvature_speed()`의 그 시점 최소값을 비교, 갭이
+  `min_gap_kph` 이상이면 리포트. 갭이 크면 "폴리라인 자체는 이미
+  충분히 급한데 다른 로직(역방향DP 스케줄링)이 못 살렸다"는 뜻, 갭이
+  작으면 "폴리라인 형상 자체가 이미 뭉툭하다"(89차/90차가 의심했던
+  지도 데이터 정밀도 가설)는 뜻으로 해석.
+합성 90도 코너(직진80m-급코너-직진80m) 단위테스트로 정점에서
+curvature=0.03/speed_cap=20.5kph 정확 포착 확인(PASS) — 실측 raw
+navi_points가 있으면 sample 자체는 문제 없이 작동함을 재확인, 89차/90차가
+남겨둔 "chord 길이 문제 vs 지도 데이터 형상 문제" 질문은 이제 실제
+교차로 로그로 직접 답할 수 있음.
 
 ## extract_dashcam_frames.py
 **목적**: `qcamera.ts` 프레임을 rlog의 `qRoadEncodeIdx` 이벤트와

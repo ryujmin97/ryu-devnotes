@@ -2312,6 +2312,128 @@ def radar_source_flicker_scan(rows, min_flips=3, window_s=2.0,
     }
 
 
+# ===========================================================================
+# 147차: carrotMan.naviPaths(carrot_navi_route()가 곡률 계산에 실제로 쓰는
+# 로컬(x,y) 리샘플 폴리라인+거리) 파싱 및 route 곡률/목표속도 재계산.
+#
+# 배경: 89차/90차가 "route가 특정 커브의 실제 조임 정도를 과소평가하는
+# 이유가 chord 길이(sample=4, 40m 간격)인지 실제 GPS 폴리라인 형상
+# 자체인지 확인하려면 raw navi_points를 로그에 계측해야 한다"고 제안했으나
+# (raw navi_points가 로그에 없어 직접검증 불가로 NEEDS_VALIDATION 유지),
+# 147차에서 코드 재확인 결과 **이미 carrot_serv.py가 이 데이터를
+# `naviPaths` 필드로 20Hz 발행 중**이었음이 드러남(ryu 코드 변경 불필요,
+# extract_log.py --with-navi-paths 로 추출만 하면 됨).
+# calculate_curvature()/V_CURVE_LOOKUP_BP/VALS는 90차 sim_route_curvature_sample.py
+# 이식본과 100% 동일(carrot_man.py 원본 상수 그대로).
+# ===========================================================================
+
+_ROUTE_V_CURVE_LOOKUP_BP = [0., 1./800., 1./670., 1./560., 1./440., 1./360., 1./265.,
+                            1./190., 1./135., 1./85., 1./55., 1./30., 1./25.]
+_ROUTE_V_CRUVE_LOOKUP_VALS = [300, 150, 120, 110, 100, 90, 80, 70, 60, 50, 40, 15, 5]
+
+
+def parse_navi_paths(navi_paths_str):
+    """carrotMan.naviPaths 텍스트("x1,y1,d1;x2,y2,d2;...")를
+    [(x, y), ...], [d1, d2, ...] 튜플로 파싱. 빈 문자열/파싱 실패 시 ([], [])."""
+    if not navi_paths_str:
+        return [], []
+    points, distances = [], []
+    for chunk in navi_paths_str.split(";"):
+        chunk = chunk.strip()
+        if not chunk:
+            continue
+        parts = chunk.split(",")
+        if len(parts) != 3:
+            continue
+        try:
+            x, y, d = float(parts[0]), float(parts[1]), float(parts[2])
+        except ValueError:
+            continue
+        points.append((x, y))
+        distances.append(d)
+    return points, distances
+
+
+def _route_calculate_curvature(p1, p2, p3):
+    """carrot_man.py calculate_curvature()와 100% 동일(회전/이동 불변)."""
+    import math
+    v1 = (p2[0] - p1[0], p2[1] - p1[1])
+    v2 = (p3[0] - p2[0], p3[1] - p2[1])
+    cross_product = v1[0] * v2[1] - v1[1] * v2[0]
+    len_v1 = math.sqrt(v1[0] ** 2 + v1[1] ** 2)
+    len_v2 = math.sqrt(v2[0] ** 2 + v2[1] ** 2)
+    if len_v1 * len_v2 == 0:
+        return 0.0
+    return cross_product / (len_v1 * len_v2 * len_v1)
+
+
+def recompute_route_curvature_speed(points, distances, sample=4, road_limit_speed=200.0):
+    """parse_navi_paths()로 얻은 실측 폴리라인에 carrot_navi_route()와
+    동일한 3점 곡률(샘플 간격 = sample*10m) + V_CURVE_LOOKUP을 적용해
+    지점별 (distance, curvature, speed_cap) 리스트를 반환한다.
+    (역방향 DP/시간지연 스무딩은 별도 -- 이 함수는 "곡률이 실제로 이
+    지점에서 얼마나 급하게 잡혔는지"만 순수 재현. 89차/90차가 의심한
+    "route가 이 지점의 곡률 자체를 과소평가했는가"를 직접 확인하는 용도.)
+    """
+    import numpy as np
+    out = []
+    if len(points) < sample * 2 + 1:
+        return out
+    for i in range(len(points) - sample * 2):
+        p1, p2, p3 = points[i], points[i + sample], points[i + sample * 2]
+        curvature = _route_calculate_curvature(p1, p2, p3)
+        speed = float(np.interp(abs(curvature), _ROUTE_V_CURVE_LOOKUP_BP, _ROUTE_V_CRUVE_LOOKUP_VALS))
+        if abs(curvature) < 0.02:
+            speed = max(speed, road_limit_speed)
+        dist = distances[i + sample] if i + sample < len(distances) else distances[-1]
+        out.append((dist, curvature, speed))
+    return out
+
+
+def route_curvature_underestimate_scan(rows, min_gap_kph=15.0):
+    """naviPaths 컬럼이 있는 CSV(extract_log.py --with-navi-paths)에서,
+    실제 발행된 route desiredSpeed(src=="route" 구간)와
+    recompute_route_curvature_speed()로 그 시점 실측 폴리라인에서 직접
+    재계산한 최소 speed_cap을 비교. 재계산 최소값이 발행값보다
+    min_gap_kph 이상 낮다면 -- 즉 "실제 폴리라인 형상만으로도 이미
+    이만큼 낮췄어야 했는데 실제로는 그러지 않았다"는 뜻이면, chord
+    길이(sample) 문제가 아니라 다른 로직(역방향DP의 time_delay/margin
+    스케줄링, 또는 폴리라인 자체가 애초에 완만하게 들어옴)이 원인임을
+    시사. 반대로 재계산 최소값도 발행값과 비슷하게 높다면(=폴리라인
+    자체가 이미 완만함), 89/90차가 의심한 "지도 데이터의 코너 형상
+    자체가 뭉툭함" 가설을 직접 뒷받침.
+    행마다 naviPaths가 채워져 있어야 하므로 --with-navi-paths로 뽑은
+    CSV에서만 유의미한 결과가 나온다(빈 값 행은 건너뜀).
+    """
+    results = []
+    for r in rows:
+        naq = r.get("naviPaths", "")
+        if not naq:
+            continue
+        if r.get("src", "") != "route":
+            continue
+        try:
+            published = float(r.get("desiredSpeed", ""))
+        except (TypeError, ValueError):
+            continue
+        points, distances = parse_navi_paths(naq)
+        recomputed = recompute_route_curvature_speed(points, distances)
+        if not recomputed:
+            continue
+        min_dist, min_curv, min_speed = min(recomputed, key=lambda x: x[2])
+        gap = published - min_speed
+        if gap >= min_gap_kph:
+            results.append({
+                "t": r.get("t"),
+                "published_desiredSpeed": round(published, 1),
+                "recomputed_min_speed": round(min_speed, 1),
+                "recomputed_min_speed_dist_m": round(min_dist, 1),
+                "recomputed_min_curvature": round(min_curv, 5),
+                "gap_kph": round(gap, 1),
+            })
+    return results
+
+
 if __name__ == "__main__":
     import sys
     if len(sys.argv) < 2:

@@ -61,6 +61,21 @@ FIELDNAMES = [
     "activeCarrot", "xTurnInfo", "xDistToTurn", "xSpdType", "xSpdDist",
     "atcType", "leftSec", "xSpdCountDown", "xTurnCountDown",
 ]
+# 2026-08-30 추가(147차): carrotMan.naviPaths -- carrot_navi_route()가
+# 곡률 계산에 실제로 쓰는 로컬(x,y) 리샘플 폴리라인+거리를
+# "x1,y1,d1;x2,y2,d2;..." 텍스트로 이미 20Hz 발행 중이었음(carrot_serv.py
+# L1170-1172, coords_str). 89차/90차가 "raw navi_points가 로그에 없어
+# 직접검증 불가"라며 신규 계측 패치를 제안했었는데, 사실은 새 패치 없이
+# 이 필드만 뽑으면 됨 -- ryu 코드는 변경 없음, extract_log.py 쪽 누락이었음.
+# 이 필드는 row당 최대 ~600m/10m=60개 점 * 약 15~20자 = 최대 ~1200자로
+# 다른 컬럼들보다 훨씬 커서, 기본 추출에는 포함하지 않고
+# --with-navi-paths 플래그를 줬을 때만 컬럼에 채워 넣는다(그 외엔 항상
+# 빈 문자열) -- 일반 추출 CSV가 불필요하게 커지는 것을 방지.
+# analysis_helpers.parse_navi_paths()/recompute_route_curvature_speed()로
+# 파싱 및 carrot_man.py와 동일한 곡률/역방향DP 재계산 가능
+# (calculate_curvature/V_CURVE_LOOKUP_BP/VALS는 90차 sim_route_curvature_sample.py
+# 이식본을 그대로 재사용).
+NAVI_PATHS_FIELD = "naviPaths"
 # 2026-08-30 추가(146차, 정량검증 후 계속): carrotMan.activeCarrot/
 # xTurnInfo/xDistToTurn/xSpdType/xSpdDist/atcType/leftSec/
 # xSpdCountDown/xTurnCountDown -- "route 카운트다운/회전(ATC) 사전감속
@@ -171,7 +186,7 @@ def get_repo_git_info(repo_dir):
 
 def process_segment(rlog_path, seg_name, repo_dir, max_mb, commit_short="",
                      carry_cs=None, carry_ctrl=None, carry_lead=None, carry_lat=None,
-                     carry_model=None):
+                     carry_model=None, with_navi_paths=False):
     """
     carry_cs/carry_ctrl/carry_lead: 이전 세그먼트에서 넘어온 마지막 상태.
     None이면 이 세그먼트가 라우트의 첫 세그먼트라는 뜻으로 기본값 사용.
@@ -267,6 +282,7 @@ def process_segment(rlog_path, seg_name, repo_dir, max_mb, commit_short="",
                 "xSpdDist": cm.xSpdDist, "atcType": str(cm.atcType),
                 "leftSec": cm.leftSec,
                 "xSpdCountDown": cm.xSpdCountDown, "xTurnCountDown": cm.xTurnCountDown,
+                "naviPaths": str(cm.naviPaths) if with_navi_paths else "",
             })
     return rows, last_cs, last_ctrl, last_lead, last_lat, last_model
 
@@ -277,6 +293,10 @@ def main():
     ap.add_argument("out_csv")
     ap.add_argument("--repo", default="/home/claude/ryu")
     ap.add_argument("--max-mb", type=int, default=400)
+    ap.add_argument("--with-navi-paths", action="store_true",
+                     help="147차: carrotMan.naviPaths(로컬 리샘플 폴리라인+거리 텍스트, "
+                          "route 곡률 검증용) 컬럼을 채운다. row당 최대 ~1200자로 "
+                          "CSV가 크게 불어나므로 기본은 off -- route 커브 구간 조사 시에만 사용.")
     args = ap.parse_args()
 
     git_info = get_repo_git_info(args.repo)
@@ -301,7 +321,7 @@ def main():
             rlog_path, seg, args.repo, args.max_mb,
             commit_short=git_info["commit_short"] or "",
             carry_cs=carry_cs, carry_ctrl=carry_ctrl, carry_lead=carry_lead, carry_lat=carry_lat,
-            carry_model=carry_model,
+            carry_model=carry_model, with_navi_paths=args.with_navi_paths,
         )
         all_rows.extend(rows)
         print(f"done {seg}: {len(rows)} rows ({len(all_rows)} total)")
