@@ -2473,6 +2473,195 @@ def route_curvature_underestimate_scan(rows, min_gap_kph=15.0):
     return results
 
 
+def required_decel_gap_scan(rows, near_stop_target_kph=15.0, detection_search_s=40.0,
+                             min_regression_points=5):
+    """(2026-08-30, 150차 신규) 149차가 898edd0f96 seg16/17 rightBlinker
+    이벤트 1건에서 수작업으로 계산했던 "fine 곡률 최초 감지 시점부터
+    실제 회전 진입까지, liveRouteSpeed 실측 감속률이 필요감속률 대비
+    얼마나 부족한가"를 여러 이벤트에 자동 적용하는 전수 스캐너.
+    --with-navi-paths로 뽑은 CSV(naviPaths/liveRouteSpeed 컬럼 필수) 전용.
+
+    **이벤트 식별**: leftBlinker/rightBlinker가 False->True로 바뀌는
+    시점(t_arrive)을 "실제 회전 진입(교차로 도달)" 시점의 근사 프록시로
+    삼는다(149차 사례와 동일 패턴). steeringAngleDeg 단독 기반(비교차로
+    급커브) 탐지는 미지원 -- 아래 한계 참고.
+
+    각 이벤트에서:
+    1. t_arrive에서 과거 방향으로 최대 detection_search_s초까지 프레임을
+       하나씩 훑으며(naviPaths가 있는 프레임마다
+       recompute_route_curvature_speed(sample=4, sample_fine=1) 재계산)
+       fine 최소 speed_cap이 **처음으로** near_stop_target_kph 이하로
+       내려가는 가장 이른(=t_arrive에서 가장 먼) 프레임을 "최초 감지
+       시점"(t_detect)으로 채택 -- 149차의 수작업 절차(fine이 처음
+       target을 잡아낸 시점)를 그대로 자동화. detection_search_s 안에
+       그런 프레임이 전혀 없으면(=애초에 조기감지가 안 됐거나 코너가
+       근정지급이 아님) 이벤트 skip.
+    2. t_detect ~ t_arrive 구간에서 liveRouteSpeed가 숫자로 파싱되는
+       (=carrotMan.szPosRoadName에 "route=" 텍스트가 실제로 발행된)
+       행만 모아 (t, liveRouteSpeed) 최소자승 선형회귀 기울기를
+       actual_decel_kphps(감속=양수 부호로 반전)로 채택. 표본이
+       min_regression_points 미만이면 이벤트 skip(회귀 신뢰불가).
+    3. required_decel_kphps = (routeSpeed_detect_kph - target_speed_kph) /
+       (t_arrive - t_detect) -- 149차와 동일하게 "감지 시점부터 실제
+       회전 진입까지 걸린 실측 경과시간"을 그대로 분모로 쓴다(거리/속도
+       근사가 아니라 실제 타임스탬프 차이라 물리적으로 더 정확함).
+       **주의(중요)**: 시작 속도로 vEgo가 아니라 감지 시점의
+       liveRouteSpeed(=route 자신의 내부 스케줄 값)를 쓴다 -- vEgo는
+       이미 cam/vturn 등 다른 소스에 의해 낮게 눌려있는 경우가 많아(이
+       route/vturn 예시에서도 t_detect 시점 vEgo=52kph인데
+       liveRouteSpeed=109kph로 거의 2배 차이), vEgo를 쓰면 "route
+       자신이 그 시점부터 target까지 실제로 얼마나 감속해야 했는가"를
+       과소평가하게 된다(150차 최초 구현 시 vEgo를 썼다가 이 괴리로
+       required<actual이라는 149차와 모순된 결과가 나와 수정됨).
+       liveRouteSpeed가 t_detect 시점에 숫자로 파싱 안 되면(빈 문자열)
+       그 프레임 기준 가장 가까운 유효 liveRouteSpeed 값으로 대체하고,
+       그마저 없으면 이벤트 skip.
+    4. gap_kphps = required_decel_kphps - actual_decel_kphps,
+       gap_ratio = required_decel_kphps / actual_decel_kphps
+       (actual_decel_kphps <= 0.05 kph/s면 division 방지를 위해
+       gap_ratio=None 처리, gap_kphps는 계산).
+
+    반환: 이벤트 dict list, gap_ratio 내림차순(비교 불가 항목은 뒤로) 정렬.
+    각 dict: t_arrive, t_detect, blinker_side, route_speed_detect_kph
+    (=t_detect 시점 liveRouteSpeed, vEgo 아님), target_speed_kph,
+    detect_lead_time_s(=t_arrive-t_detect), required_decel_kphps,
+    actual_decel_kphps, gap_kphps, gap_ratio, n_regression_points.
+
+    **한계**:
+    - blinker 미점등 회전(비교차로 급커브, 로터리 등)은 탐지 못함 --
+      steeringAngleDeg 기반 확장은 미작성(다음 세션 과제).
+    - t_arrive(blinker onset)는 "실제 회전 진입"의 근사 프록시일 뿐 --
+      운전자/내비 안내가 blinker를 교차로 도달 몇 초 전에 켜는지는
+      상황마다 다르므로, 특히 blinker가 아주 늦게(교차로 코앞에서)
+      켜지는 경우 required_decel_kphps가 과대평가될 수 있음.
+    - naviPaths가 매 프레임 존재하지 않으면(예: route 비활성 구간) 그
+      구간은 감지 시도 자체가 스킵됨 -- t_detect가 실제보다 늦게(더
+      가까운 시점으로) 채택될 수 있음.
+    - 결과값은 1차 스크리닝용 -- accel_limit 튜닝처럼 안전에 직결되는
+      결정 전엔 149차처럼 개별 이벤트를 수작업으로도 재검증할 것.
+    - 같은 t_arrive 부근에 같은 방향 blinker가 짧게 여러 번 켜졌다
+      꺼지는 경우(차선변경 취소 후 재점등 등) 이벤트가 중복 카운트될
+      수 있음 -- 중복 제거 로직 없음.
+    """
+    events = []
+    prev_left = prev_right = False
+    for i, r in enumerate(rows):
+        left = _b(r, "leftBlinker")
+        right = _b(r, "rightBlinker")
+        if left and not prev_left:
+            events.append((i, "left"))
+        if right and not prev_right:
+            events.append((i, "right"))
+        prev_left, prev_right = left, right
+
+    results = []
+    for idx, side in events:
+        try:
+            t_arrive = float(rows[idx].get("t"))
+        except (TypeError, ValueError):
+            continue
+
+        # 1) t_arrive에서 과거로 훑으며 fine target이 처음(=가장 이른 시점) 근정지급으로
+        #    내려가는 프레임을 찾는다. "가장 이른" 프레임을 얻기 위해 조건을 만족하는
+        #    동안 계속 갱신하며 더 먼 과거로 이동한다.
+        detect_idx = None
+        target_speed_kph = None
+        j = idx
+        while j >= 0:
+            try:
+                tj = float(rows[j].get("t"))
+            except (TypeError, ValueError):
+                j -= 1
+                continue
+            if t_arrive - tj > detection_search_s:
+                break
+            naq = rows[j].get("naviPaths", "")
+            if naq:
+                points, distances = parse_navi_paths(naq)
+                recomputed = recompute_route_curvature_speed(points, distances, sample=4, sample_fine=1)
+                if recomputed:
+                    _, _, min_speed = min(recomputed, key=lambda x: x[2])
+                    if min_speed <= near_stop_target_kph:
+                        detect_idx = j
+                        target_speed_kph = min_speed
+            j -= 1
+        if detect_idx is None:
+            continue  # 이 이벤트는 근정지급 조기감지 자체가 없었음 -- 스캔 대상 아님
+
+        t_detect = float(rows[detect_idx].get("t"))
+        detect_lead_time_s = t_arrive - t_detect
+        if detect_lead_time_s <= 0:
+            continue
+
+        # detect_idx 시점의 liveRouteSpeed(=route 자신의 스케줄 값, vEgo 아님) --
+        # 빈 문자열이면 가까운 유효값으로 폴백(전후 탐색, 최대 detection_search_s 범위 내)
+        def _nearest_live_route_speed(center_idx):
+            lrs = rows[center_idx].get("liveRouteSpeed", "")
+            if lrs:
+                try:
+                    return float(lrs)
+                except ValueError:
+                    pass
+            for delta in range(1, 40):
+                for cand in (center_idx - delta, center_idx + delta):
+                    if 0 <= cand < len(rows):
+                        v = rows[cand].get("liveRouteSpeed", "")
+                        if v:
+                            try:
+                                return float(v)
+                            except ValueError:
+                                continue
+            return None
+
+        v_detect_kph = _nearest_live_route_speed(detect_idx)
+        if v_detect_kph is None:
+            continue
+
+        # 2) t_detect~t_arrive 구간 liveRouteSpeed 선형회귀
+        reg_pts = []
+        for k in range(detect_idx, idx + 1):
+            lrs = rows[k].get("liveRouteSpeed", "")
+            if lrs:
+                try:
+                    tk = float(rows[k].get("t"))
+                    reg_pts.append((tk, float(lrs)))
+                except ValueError:
+                    pass
+        if len(reg_pts) < min_regression_points:
+            continue
+
+        ts = [p[0] for p in reg_pts]
+        vs = [p[1] for p in reg_pts]
+        n = len(ts)
+        t_mean = sum(ts) / n
+        v_mean = sum(vs) / n
+        num = sum((t - t_mean) * (v - v_mean) for t, v in zip(ts, vs))
+        den = sum((t - t_mean) ** 2 for t in ts)
+        slope_kphps = (num / den) if den else 0.0
+        actual_decel_kphps = -slope_kphps  # 감속(속도 감소)=양수로 부호 반전
+
+        required_decel_kphps = (v_detect_kph - target_speed_kph) / detect_lead_time_s
+        gap_kphps = required_decel_kphps - actual_decel_kphps
+        gap_ratio = (required_decel_kphps / actual_decel_kphps) if actual_decel_kphps > 0.05 else None
+
+        results.append({
+            "t_arrive": round(t_arrive, 2),
+            "t_detect": round(t_detect, 2),
+            "blinker_side": side,
+            "route_speed_detect_kph": round(v_detect_kph, 1),
+            "target_speed_kph": round(target_speed_kph, 1),
+            "detect_lead_time_s": round(detect_lead_time_s, 2),
+            "required_decel_kphps": round(required_decel_kphps, 2),
+            "actual_decel_kphps": round(actual_decel_kphps, 2),
+            "gap_kphps": round(gap_kphps, 2),
+            "gap_ratio": round(gap_ratio, 2) if gap_ratio is not None else None,
+            "n_regression_points": n,
+        })
+
+    results.sort(key=lambda x: (x["gap_ratio"] is None, -(x["gap_ratio"] or 0)))
+    return results
+
+
 if __name__ == "__main__":
     import sys
     if len(sys.argv) < 2:

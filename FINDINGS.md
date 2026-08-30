@@ -1,3 +1,31 @@
+## 151차 — [시뮬레이션 검증 결과 NEGATIVE] 149차가 설계한 근정지급 코너 accel_limit 부스트(`ROUTE_NEAR_STOP_TARGET_KPH`/`ROUTE_ACCEL_LIMIT_BOOST_MAX_MSS`) — 132차 램프리미터 포함 다중프레임 시뮬레이션 결과 **오히려 초과분이 악화됨을 확인, 배포 보류 권고**
+
+**주의(회차번호)**: WIP.md 최상단이 이미 다른 주제(시계 표시 형식 변경)로 "150차"를 선점한 상태로 push되어 있어, 149차 계측에 이어 진행된 이번 작업(근정지급 부스트 설계+검증)은 151차로 기록한다.
+
+**배경**: 149차가 확정한 문제(898edd0f96 seg16/17, 근정지급 우회전 코너에서 route가 필요 감속률(≈1.43 m/s²)을 AutoNaviSpeedDecelRate(0.70 m/s²)로는 물리적으로 못 따라가 arbitration에서 계속 밀림)에 대해, 사용자가 "300m 감지한 곡률에 따라 필요감속율을 변화" 제안 → `carrot_navi_route()`의 근정지급 target(≤15kph) 구간 한정으로 accel_limit을 필요치만큼(상한 1.2 m/s²=vturn_decel_rate 재사용) 부스트하는 패치를 `carrot_man.py`에 국소 적용(diff 최소, 전역 영향 없음 확인 — 시나리오 A/B 단위테스트 PASS).
+
+**검증 도구 신규 작성**: `toolkit/sim_route_near_stop_accel_boost.py` — `carrot_navi_route()`의 역방향 accel-limited DP를 독립 재현(`carrot_navi_route_dp()`)하고, 단일 코너 접근 상황을 20Hz 다중프레임으로 시뮬레이션(`simulate_approach()`).
+
+**1차 시도(단일 프레임 비교) — 방법론 결함으로 폐기**: 최초엔 매 프레임 `out_speeds[0]`(즉시 권장값)만 patched/unpatched로 비교했으나, "지금 당장 감속할 필요 없으면 안 함"이라는 스케줄러의 정상 설계와 충돌해 오판(거리가 충분하면 둘 다 동일값) — 다중프레임 누적 시뮬레이션으로 전환.
+
+**2차 시도(다중프레임, 132차 램프리미터 누락) — 여전히 방법론 결함**: 매 프레임 전체 배열을 재구성해 넘겼으나, production은 이 DP의 raw 출력을 그대로 차량 속도로 쓰지 않고 **132차 프레임간 램프리미터**(`carrot_man.py` L723, `max_step_kmh = accel_limit_kmh * ROUTE_SPEED_LOOP_DT`)를 한 번 더 거친다는 것을 놓쳐, "매 순간 순간이동으로 정확히 target 도달"이라는 비현실적 결과(patched/unpatched 둘 다 overshoot=0)가 나옴 — `toolkit/sim_route_boundary_ramp_limiter.py`의 `RampLimiterState`를 재사용(README "먼저 찾는다" 원칙)해 통합.
+
+**3차(최종) — 132차 램프리미터 포함 정확 재현, NEGATIVE 결과 확정**: 149차 실측 근사 조건(v_ego=90kph, target=10.7kph, corner_dist=280m, accel=0.70)으로 재검증:
+- **패치 전(unpatched)**: 코너 도달 시 15.1kph (초과분 4.4kph, 경과 23.0s)
+- **패치 후(patched, 부스트 적용)**: 코너 도달 시 19.5kph (**초과분 8.8kph, 오히려 악화**, 경과 17.6s — 더 빨리 도달했다는 것 자체가 감속을 충분히 못 했다는 뜻)
+149차 실측값 그대로(v_ego=109.6kph, 585m 근사)도 동일 경향(패치 전 초과 5.3kph → 패치 후 10.1kph).
+
+**근본 원인(DP 역추적으로 확인)**: `carrot_navi_route_dp()`의 역방향 재귀는 `accel_limit_kmh`가 클수록 "나중에 더 세게 감속할 수 있다"고 판단해 **현재 시점(코너에서 먼 지점)의 권장 감속을 오히려 늦춘다** — 동일 조건(t=0, v_ego=90kph, corner 280m)에서 unpatched는 이미 72.2kph로 즉시 감속 권고, patched(accel_limit 0.70→1.10 m/s² 부스트)는 90.5kph(사실상 감속 없음)를 권고함을 직접 확인. 이 "지연 후 급브레이크" 전략은 수학적으로는 raw 스케줄 상 코너에서 정확히 target에 도달하도록 설계돼 있지만(`out_speeds[-1]=target` 강제), **132차 램프리미터가 실시간(dt=0.05s) 기준으로만 그 부스트된 accel_limit을 적용**하기 때문에, "지연 후 급브레이크"가 요구하는 실제 감속 실행을 제때 따라잡지 못하고 코너에 도달 — 결과적으로 accel_limit을 낮게 유지해 **일찍부터 완만하게** 감속을 시작하는 unpatched 쪽이 오히려 더 낫다.
+
+**의의**: 이것은 91차(ROUTE_ENTRY_MARGIN_KPH, route가 vturn보다 일찍 감속 시작하도록 유도)/129차/131차/132차(램프리미터)가 막으려 했던 바로 그 "지연된 급감속" 병리 패턴을, 149차/150차가 설계한 accel_limit 부스트가 **다른 경로(부스트로 인한 자기 지연 유발)로 재도입**한 사례. 149차의 진단(감속률 절대량 부족)은 여전히 유효하지만, "필요시에만 accel_limit을 그때그때 올린다"는 150차의 해법 자체가 이 DP 구조(단일 스칼라 accel_limit이 전체 backward 재귀에 균일 적용되어 "언제 감속을 시작할지"까지 함께 결정)와 상충함.
+
+**권고(배포 보류, ryu 코드 push 안 함)**: 149차/150차 설계의 `carrot_man.py` 패치(`ROUTE_NEAR_STOP_TARGET_KPH`/`ROUTE_ACCEL_LIMIT_BOOST_MAX_MSS`, 로컬에만 존재, origin에 미반영)는 **현재 형태로는 배포하지 않을 것을 권고**. 대안은 다음 세션에서 결정 필요:
+1. accel_limit을 부스트하되 "감속 시작 시점 결정" 로직(`time_delay`/`margin_target_speed` 계산)에는 **부스트 전(base) accel_limit만 쓰고**, 후반 실제 감속 구간 스텝 계산에만 부스트값을 적용 — 재귀 구조상 분리가 간단하지 않아 설계 재검토 필요.
+2. accel_limit을 올리는 대신, 근정지급 target 검출 시 `route_lookahead_m`(84/85차 동적 캡)의 상한 자체를 확장해 감속 가용 거리를 늘리는 방안(149차가 이미 제시했던 옵션 2) — 이번 시뮬레이션 도구로 재검증 가능.
+3. 149차 옵션 3(설계상 허용 범위로 보고 코드 변경 없이 종결) 재고.
+
+**toolkit 변경(이번 회차)**: `sim_route_near_stop_accel_boost.py` 신규(합성 유닛테스트 4건: 시나리오 A/B PASS(회귀 없음 확인), 시나리오 C/D는 위 NEGATIVE 결과를 그대로 담아 의도적으로 FAIL 상태로 남김 — "패치가 개선"이라는 잘못된 기대를 검증하는 테스트이므로, 결론이 뒤집힌 지금은 check 조건 자체를 다음 세션에서 재작성 필요). `analysis_helpers.py`에 `required_decel_gap_scan()` 신규 추가(liveRouteSpeed 기반, 근정지급 코너의 필요감속률 vs 실측감속률 갭 스캔 — route1617.csv에서 1건 검출, gap≈2.6kph/s).
+
 ## 149차 — [신규 계측 도구 + 근본원인 확정] `carrotMan.szPosRoadName`에서 실측 route_speed(post-DP) 직접 추출(`liveRouteSpeed`) — "우회전인데 route 미작동"(898edd0f96 seg16/17)의 실제 원인은 147/148차 패치의 곡률감지 실패가 아니라 **감속예산(accel_limit) 부족**임을 확정
 
 **배경**: 사용자 업로드(`898edd0f96` seg16/seg17, 우회전 상황 — "이 로그도 우회전인데 route 미작동. 이번패치(147/148차 ROUTE_CURVATURE_FINE_SAMPLE) 적용시 검증" 요청).

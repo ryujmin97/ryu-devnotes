@@ -322,6 +322,67 @@ FINDINGS.md "147차 계속" 참고.
 크래시하던 버그. FIELDNAMES에 `naviPaths`를 항상 포함하도록 수정 —
 플래그 off일 땐 컬럼은 존재하되 값이 항상 빈 문자열.
 
+- `required_decel_gap_scan(rows, near_stop_target_kph=15.0)` — (2026-08-30,
+  151차 신규) `liveRouteSpeed`(149차) 컬럼을 이용해, 근정지급 target(기본
+  ≤15kph) 코너에 대해 "fine 곡률 첫 감지 시점(t_detect)~코너 진입
+  시점(blinker on, t_arrive)" 구간의 실측 감속률(`actual_decel_kphps`,
+  liveRouteSpeed 선형회귀 기울기)과 물리적으로 필요한 감속률
+  (`required_decel_kphps`, 등가속도 공식 역산)을 비교해 갭을 리포트.
+  149차가 898edd0f96 seg16/17 단일 사례를 수작업으로 계산했던 것을
+  일반화한 함수 — route1617.csv 재실행 결과 149차 수치와 근사 일치
+  확인(gap≈2.6kph/s). **주의**: t_detect는 naviPaths 기반 fine 재계산
+  최초 감지 시점을 근사하는 것이 아니라 liveRouteSpeed 자체의 하강
+  추세 시작점을 찾는 방식(구현 단순화) — naviPaths 정밀 재계산과
+  결합한 버전은 아직 없음.
+
+## sim_route_near_stop_accel_boost.py (151차 신규)
+**목적**: `carrot_navi_route()`의 "역방향 accel-limited DP"(target_speed
+배열 -> out_speed 스케줄) 핵심 로직(`carrot_navi_route_dp()`)을 독립
+재현하고, 149차/150차가 설계한 근정지급 코너 한정 accel_limit 부스트
+(`ROUTE_NEAR_STOP_TARGET_KPH`/`ROUTE_ACCEL_LIMIT_BOOST_MAX_MSS`)를 켰을
+때/껐을 때(=패치 후/전)를 비교한다. 기존 `replay_route_ramp_limiter_direct.py`
+/ `sim_route_boundary_ramp_limiter.py`는 132차 프레임간 스무딩(out_speed
+사후 클램프)만 재현하고 이 배열->스케줄 변환 DP 자체는 재현하지 않아
+신규 작성함.
+
+**핵심 함수**:
+- `carrot_navi_route_dp(speeds, distances, v_ego_kph, accel_limit_mss, apply_near_stop_boost, ...)`
+  — production 로직 1:1 이식. `(out_speeds, accel_limit_kmh)` 튜플 반환
+  — `accel_limit_kmh`는 이번 사이클 실제 사용값(부스트 반영)이라 호출부가
+  132차 램프리미터를 정확히 재현하려면 이 값을 그대로 재사용해야 함
+  (production `carrot_man.py` L723이 동일 지역변수를 재사용하는 것과 동일).
+- `simulate_approach(target_speed_kph, corner_dist_m, v_ego_kph_start, accel_limit_mss, apply_near_stop_boost, dt=0.05, ...)`
+  — 단일 코너 접근을 20Hz 다중프레임으로 시뮬레이션. 매 프레임 10m 간격
+  전체 배열(가까운 순=index 0, 마지막만 target, 나머지는 200kph 무제한)을
+  재구성해 DP 호출 후, **`sim_route_boundary_ramp_limiter.RampLimiterState`
+  를 그대로 재사용**해 132차 프레임간 램프리미터까지 적용한 뒤 그 결과를
+  다음 프레임의 v_ego로 채택. `(final_speed_kph, elapsed_s, trace)` 반환.
+  **설계 시행착오 기록(중요, 재작성 방지용)**: 1차 시도(단일프레임 out_speeds[0]
+  직접비교)와 2차 시도(다중프레임이지만 램프리미터 누락)는 둘 다 방법론
+  결함으로 폐기됨(FINDINGS.md 151차 상세). 신규 시나리오 추가 시 반드시
+  램프리미터 포함 다중프레임 방식을 따를 것 — 단일프레임/램프리미터 없는
+  버전으로 되돌아가면 이미 확인된 오판을 반복하게 됨.
+- `_run_on_csv(csv_path, accel)` — `--with-navi-paths`로 뽑은 실측 CSV에
+  기록된 naviPaths+vEgo로 실제 프레임에서 패치 적용 시 route가
+  arbitration에서 선택됐을 가능성이 있는 프레임을 스캔(근사, 다른
+  소스의 2차 효과는 미반영).
+
+**결론(151차, 2026-08-30)**: 149차 근사조건(v_ego=90kph, target=10.7kph,
+280m)으로 유닛테스트 실행 결과 **부스트 적용 시 코너 도달 초과속도가
+오히려 악화**(4.4kph→8.8kph) — accel_limit을 올리면 DP가 "나중에 더
+세게 감속 가능"이라 판단해 현재 시점 감속 시작을 늦추는데, 132차
+램프리미터는 실시간 기준으로만 그 부스트를 적용해 실제로는 따라잡지
+못함. **149차/150차 설계의 `carrot_man.py` 부스트 패치는 배포 보류
+권고**(로컬에만 존재, origin 미반영). 상세는 FINDINGS.md 151차 참고.
+
+**사용**:
+```bash
+python3 sim_route_near_stop_accel_boost.py --unit-tests
+python3 sim_route_near_stop_accel_boost.py <route.csv> --with-navi-paths로 뽑은 것 --accel 0.70
+```
+**의존성**: `analysis_helpers.py`(`parse_navi_paths`/`recompute_route_curvature_speed`),
+`sim_route_boundary_ramp_limiter.py`(`RampLimiterState`).
+
 ## extract_dashcam_frames.py
 **목적**: `qcamera.ts` 프레임을 rlog의 `qRoadEncodeIdx` 이벤트와
 동기화해 특정 시각(t)의 실제 화면을 이미지로 추출. 가설을 영상
