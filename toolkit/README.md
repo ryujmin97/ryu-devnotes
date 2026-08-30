@@ -55,10 +55,13 @@ leadRadar, leadModelProb, leftBlinker, rightBlinker, laneChangeState,
 laneChangeDirection, activeLaneLine(144차), lllProb/rllProb/lllStd/
 rllStd(145차 — modelV2.laneLineProbs[1]/[2], laneLineStds[1]/[2],
 AdjustLaneOffset 게이트값 d_prob 재현용), activeCarrot/xTurnInfo/
-xDistToTurn/xSpdType/xSpdDist/atcType/leftSec(146차 — carrotMan의
-route/TBT/ATC 회전제어·카운트다운 관련 필드, "회전 사전감속 미작동/
-카운트다운 이상" 가설 정량검증용. 주의: carrot_serv.py 내부 변수
-`active_kisa_count`는 cereal에 미발행이라 이 CSV로는 뽑을 수 없음)`
+xDistToTurn/xSpdType/xSpdDist/atcType/leftSec/xSpdCountDown/
+xTurnCountDown(146차 — carrotMan의 route/TBT/ATC 회전제어·카운트다운
+관련 필드. 146차 정량검증으로 "AutoTurnControl"/"AutoNaviCountDownMode"
+설정값이 0(off)인지 판별하는 용도로 실사용 확인됨 — atcType이 항상
+"none"이고 xSpdCountDown/xTurnCountDown이 항상 100이면 두 설정 모두
+꺼져있다는 뜻. 주의: carrot_serv.py 내부 변수 `active_kisa_count`는
+cereal에 미발행이라 이 CSV로는 뽑을 수 없음)`
 **사용**:
 ```bash
 python3 extract_log.py /home/claude/work/route /home/claude/work/route.csv \

@@ -1,3 +1,86 @@
+## 146차 계속 (완료 — 원본 route 재업로드로 정량검증 완료, 가설 A 기각/가설 B 정성지지, 코드변경 없음·설정확인 필요) — route 카운트다운/ATC 미작동 근본원인 확정
+
+**요청**: 146차에서 예고한 07:02~07:37 원본 route 3건(ba5f3d3273 x13/
+898edd0f96 x20/e996400f6e x4) 재업로드 → 146차에 추가한 신규 필드
+(activeCarrot/xTurnInfo/xDistToTurn/xSpdType/xSpdDist/atcType/leftSec)
+로 재추출 후 가설 A/B 정량검증.
+
+**추출**: `extract_log.py`(146차 갱신본, commit `3ec4e5c` 기준) →
+43289행(144cha-combined와 완전 동일 total row 수 — 동일 route 재확인).
+검증 도중 `xSpdCountDown`/`xTurnCountDown`(카운트다운 원시 계산값) 필드
+추가 필요성이 드러나 재갱신 후 재추출(같은 43289행).
+
+**가설 A 기각 — 실제 원인은 "AutoTurnControl=0"(더 단순함)**:
+xTurnInfo 값 자체는 정상 분포(4=21700행/2=7922/−1=7114/1=6253/8=300)로
+1(좌회전)/2(우회전)/4(fork right)/8(arrive) 등 유효값이 다수 채워지고
+있어 146차의 "navd가 xTurnInfo를 -1로 계속 덮어쓴다"는 가설은 반박됨.
+그러나 **`atcType`은 xTurnInfo가 1/2/3/4/5/6(유효 회전 매핑값)인
+35875개 행 전부에서 예외 없이 "none"** — `turn_info_mapping.get()`이
+정상 매핑됐다면 "turn left"/"turn right"/"fork right" 등이 나와야
+하는데 전혀 등장하지 않음. `src`(desiredSource) 분포에도 "atc"가
+0건(cam 19018/route 12982/vturn 9538/road 1733/bump 18) — `atc_desired`가
+항상 250(무제한)이었다는 뜻. `carrot_serv.py` 코드의
+`if self.autoTurnControl not in [2, 3]: atc_desired = atc_desired_next
+= 250` / `if self.autoTurnControl not in [1,2]: self.atcType = "none"`
+두 조건을 모두 만족(교집합 {0,3}∩{0,1}={0})하는 유일한 값은
+**`AutoTurnControl = 0`**("None", UI 기본값) — 즉 **ATC(회전
+사전감속) 기능 자체가 이 세션 내내 스위치가 꺼져 있었음**이 정량적으로
+100% 확정됨. xTurnInfo/xDistToTurn 파이프라인 자체는 정상 동작 중이었고,
+코드 버그가 아니라 **설정값 문제**.
+
+**카운트다운(음성) 미작동도 동일 성격 — `AutoNaviCountDownMode=0` 확정**:
+`xSpdCountDown`/`xTurnCountDown`(left_spd_sec/left_tbt_sec 원시값)이
+43289행 **전부**에서 단 한 번도 100 미만으로 내려간 적이 없음
+(`unique()`가 [100] 하나뿐). 코드상 `if self.autoNaviCountDownMode > 0:`
+게이트 진입 실패 시에만 이렇게 항상 100(초기값) 유지가 가능 — 기본값은
+2(tbt+camera+bump)인데 이 세션에서는 **`AutoNaviCountDownMode = 0`**
+(완전 off)이었던 것으로 확정. TBT 거리박스(화면 UI)는 별도 경로(navd
+직접 표시)라 정상 카운트되고 있었던 것과 대비됨 — "화면 거리는 카운트
+되는데 음성 카운트다운/ATC 감속은 전혀 없다"는 사용자 체감과 완벽히
+정합.
+
+**가설 B(정차 중 route= 지속 하락) — 정성적으로 강하게 지지**:
+B클립(071828) 추정 시각대(wall-to-t 근사매핑, t≈1522) 부근에서 실제
+정차 이벤트 재현: t=1560(64.3kph)→t=1578(0kph) 감속정차, desiredSpeed
+(src=route)는 t=1560 82→t=1578 36→t=1583 30(`AutoCurveSpeedLowerLimit`
+바닥, 129차 확인 사용자설정값)에서 정확히 멈춤 — **완전정차(t=1571~
+1583, 12초) 동안에도 desiredSpeed가 계속 하락하다 30 플로어에 도달**.
+`extract_gps.py`로 이 구간 GPS 확인: **bearingDeg가 정차 시작 직후부터
+23.771334도로 완전히 고정(freeze, 마지막 유효값 유지)된 반면
+latitude/longitude는 미세하게 계속 이동**(longitude 129.107833→
+129.107790, 약 4m 상당 드리프트, 12초에 걸쳐)함을 확인. 이 저수준 GPS
+드리프트가 `carrot_navi_route()`의 `current_position` 재계산에
+유입되어 폴리라인 진행위치를 미세하게 전진시키고, 그 결과 낮은
+curvature 지점이 조금씩 당겨져 desiredSpeed가 정차 중에도 계속
+하락한다는 가설과 시점·방향·정지 후 도달값 모두 정합. **다만 무한정
+하락하는 게 아니라 `AutoCurveSpeedLowerLimit`(30) 바닥에 막혀 있어
+실제 안전 리스크는 최초 우려보다 낮음** — 정지 후 재출발 시에도 route
+값이 30에서 정상적으로 다시 상승함을 확인(t=1595~ 재상승 관찰).
+
+**사용자 확인 필요(다음 단계, 코드 변경 전 필수)**:
+1. 실차(device)에서 `AutoTurnControl`/`AutoNaviCountDownMode` 파라미터
+   실제값 확인 — 사용자가 의도적으로 꺼둔 것인지, 앱 설정에서 켰다고
+   생각했는데 실제로는 반영이 안 된 상태(파라미터 저장/로딩 버그
+   가능성)인지 구분 필요. `ssh comma@172.30.1.68` 후
+   `cat /data/params/d/AutoTurnControl`, `cat
+   /data/params/d/AutoNaviCountDownMode` 로 즉시 확인 가능.
+2. (1)에서 "켰다고 생각했는데 0으로 나온다"가 확인되면 → UI 저장
+   경로(`selfdrive/ui/qt/offroad/settings.cc` CValueControl) 또는
+   부팅 시 파라미터 로딩 경로의 별도 버그 조사로 전환 필요.
+3. (1)에서 "실제로 꺼둔 게 맞다"로 확인되면 → 이번 사용자 보고 증상은
+   **설정 변경만으로 해결**되며 코드 패치 자체가 불필요.
+4. 가설 B(GPS 드리프트→route 하락)는 정성적 지지 단계 — 실제
+   `carrot_navi_route()`를 이 구간 GPS 좌표로 재생(replay)하는
+   합성검증까지는 아직 미착수. 사용자가 원하면 다음 세션에서 진행.
+
+**상태**: **가설 A 기각·근본원인 재확정(설정값), 가설 B 정성지지
+(정량 replay는 미착수). `ryu` 코드 변경 없음** — 패치 필요 여부는
+1~3번 사용자 확인 결과에 달림. 대용량 CSV(`route146.csv`,
+`route146_gps.csv`, `work/`에만 존재)는 레포에 커밋하지 않음(정책) —
+Drive 커넥터 미연결 상태라 컨테이너 리셋 시 소실, 재사용 필요시
+재추출 필요.
+
+---
 ## 146차 (체크포인트 — route 카운트다운/회전감속 미작동 영상 7건 대조 + 이중소스 충돌 가설 확정, 실차 재검증 대기) — route 로직(TBT/ATC 회전제어) 미작동 분석
 
 **요청**: 145차(오프셋) 검토는 보류. 화면녹화 클립 7개(파일명이 증상,

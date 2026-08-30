@@ -592,3 +592,4 @@ discontinuity 0건). 개발 중 트리거 소스별 boost_s 미구분 버그가 
 - 141차: sim_path_offset_laneless_curvature_source.py 갱신(mpc_solution_valid 파라미터 추가) — mpcSolutionValid 체크(140차 리뷰 지적사항 보완) 8/8 PASS
 - 144차: extract_log.py에 activeLaneLine 컬럼 추가(controlsState) — 140/141차 PathOffset 레인리스 패치 실차검증에 필요. data/routes/ba5f3d3273,898edd0f96,e996400f6e,144cha-combined 신규(사용자 실주행 로그 3개 x37seg, 연속주행 07:02~07:37 20.6km, 20260830 업로드, NEEDS_VALIDATION — 승인 후 삭제 예정)
 - 146차: extract_log.py FIELDNAMES에 activeCarrot/xTurnInfo/xDistToTurn/xSpdType/xSpdDist/atcType/leftSec 추가 — route 카운트다운/회전(ATC) 사전감속 미작동 가설(xTurnInfo 이중소스 충돌) 정량검증용. active_kisa_count는 cereal 미발행이라 CSV 추출 불가함을 주석으로 명시
+- 146차 계속: extract_log.py에 xSpdCountDown/xTurnCountDown 추가 후 원본 route(ba5f3d3273/898edd0f96/e996400f6e) 재추출로 정량검증 — xTurnInfo 이중소스 가설은 기각, 실제 원인은 AutoTurnControl=0/AutoNaviCountDownMode=0(둘 다 off) 확정. extract_gps.py로 정차구간 GPS 드리프트 확인해 가설 B(정차 중 route= 하락)도 정성지지

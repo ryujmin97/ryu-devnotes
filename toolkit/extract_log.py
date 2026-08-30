@@ -59,11 +59,17 @@ FIELDNAMES = [
     "activeLaneLine",
     "lllProb", "rllProb", "lllStd", "rllStd",
     "activeCarrot", "xTurnInfo", "xDistToTurn", "xSpdType", "xSpdDist",
-    "atcType", "leftSec",
+    "atcType", "leftSec", "xSpdCountDown", "xTurnCountDown",
 ]
-# 2026-08-30 추가(146차): carrotMan.activeCarrot/xTurnInfo/xDistToTurn/
-# xSpdType/xSpdDist/atcType/leftSec -- "route 카운트다운/회전(ATC)
-# 사전감속 미작동" 가설(146차, xTurnInfo 이중소스 충돌) 정량검증용.
+# 2026-08-30 추가(146차, 정량검증 후 계속): carrotMan.activeCarrot/
+# xTurnInfo/xDistToTurn/xSpdType/xSpdDist/atcType/leftSec/
+# xSpdCountDown/xTurnCountDown -- "route 카운트다운/회전(ATC) 사전감속
+# 미작동" 조사용. **정량검증 결과 원인은 "xTurnInfo 이중소스 충돌"이
+# 아니라 AutoTurnControl=0(off, 기본값)/AutoNaviCountDownMode=0(off)
+# 설정값 자체였음이 확정됨** — 최초 가설(코드분석만으로 세움)은 기각,
+# FINDINGS.md 146차 계속 항목 참고. xSpdCountDown/xTurnCountDown은
+# left_spd_sec/left_tbt_sec 원시 계산값(음성 카운트다운 게이트) 직접
+# 확인용으로 재검증 과정에서 추가.
 # 주의: carrot_serv.py 내부 변수 self.active_kisa_count(Waze 데이터
 # 최근 수신 여부 판정에 쓰임)는 cereal(custom.capnp CarrotMan)에
 # 발행되지 않아 CSV로 뽑을 수 없음 -- 이 변수가 필요하면 carrot_serv.py
@@ -260,6 +266,7 @@ def process_segment(rlog_path, seg_name, repo_dir, max_mb, commit_short="",
                 "xDistToTurn": cm.xDistToTurn, "xSpdType": cm.xSpdType,
                 "xSpdDist": cm.xSpdDist, "atcType": str(cm.atcType),
                 "leftSec": cm.leftSec,
+                "xSpdCountDown": cm.xSpdCountDown, "xTurnCountDown": cm.xTurnCountDown,
             })
     return rows, last_cs, last_ctrl, last_lead, last_lat, last_model
 
