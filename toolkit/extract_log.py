@@ -58,7 +58,18 @@ FIELDNAMES = [
     "laneChangeState", "laneChangeDirection",
     "activeLaneLine",
     "lllProb", "rllProb", "lllStd", "rllStd",
+    "activeCarrot", "xTurnInfo", "xDistToTurn", "xSpdType", "xSpdDist",
+    "atcType", "leftSec",
 ]
+# 2026-08-30 추가(146차): carrotMan.activeCarrot/xTurnInfo/xDistToTurn/
+# xSpdType/xSpdDist/atcType/leftSec -- "route 카운트다운/회전(ATC)
+# 사전감속 미작동" 가설(146차, xTurnInfo 이중소스 충돌) 정량검증용.
+# 주의: carrot_serv.py 내부 변수 self.active_kisa_count(Waze 데이터
+# 최근 수신 여부 판정에 쓰임)는 cereal(custom.capnp CarrotMan)에
+# 발행되지 않아 CSV로 뽑을 수 없음 -- 이 변수가 필요하면 carrot_serv.py
+# 자체에 임시 디버그 필드를 추가하거나 로그의 다른 프록시(atcType에
+# " canceled"가 안 붙고 xTurnInfo가 반복적으로 -1로 튀는 패턴 등)로
+# 간접 추정해야 함.
 # 2026-08-30 추가(145차): modelV2.laneLineProbs[1]/[2] (left/right lane
 # line 확신도, lane_planner_2.py parse_model()의 self.lll_prob/rll_prob과
 # 동일 인덱스) + laneLineStds[1]/[2]. 145차에서 "AdjustLaneOffset(커브
@@ -245,6 +256,10 @@ def process_segment(rlog_path, seg_name, repo_dir, max_mb, commit_short="",
                 "t": t, "seg": seg_name, "commit": commit_short,
                 **last_cs, **last_ctrl, **last_lead, **last_lat, **last_model,
                 "src": str(cm.desiredSource), "desiredSpeed": cm.desiredSpeed, "vTurnSpeed": cm.vTurnSpeed,
+                "activeCarrot": cm.activeCarrot, "xTurnInfo": cm.xTurnInfo,
+                "xDistToTurn": cm.xDistToTurn, "xSpdType": cm.xSpdType,
+                "xSpdDist": cm.xSpdDist, "atcType": str(cm.atcType),
+                "leftSec": cm.leftSec,
             })
     return rows, last_cs, last_ctrl, last_lead, last_lat, last_model
 

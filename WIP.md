@@ -1,3 +1,78 @@
+## 146차 (체크포인트 — route 카운트다운/회전감속 미작동 영상 7건 대조 + 이중소스 충돌 가설 확정, 실차 재검증 대기) — route 로직(TBT/ATC 회전제어) 미작동 분석
+
+**요청**: 145차(오프셋) 검토는 보류. 화면녹화 클립 7개(파일명이 증상,
+`route_카운트다운이_안됨`/`route_카운트다운_정지해있는데도_계속_낮아짐`/
+`route_카운트다운_되는_상황`/`route_카운트다운_분석`/
+`route_작동안됨_진입속도가_너무빨라_위험한_상황`/
+`route_우회전_상황에서_작동_안됨`/`route_좌회전_상황_작동_안됨`,
+260830 07:17:36~07:36:11, 각 18~30초) 업로드 → "해당 시간대 로그(레포
+저장분)와 대조 분석".
+
+**중요 사전 확인 — 로그 필드 갭**: 시각대(07:02~07:37)가 `144cha-combined`
+route와 정확히 일치하나, 당시 커밋된 CSV(`extract_log.py` FIELDNAMES)엔
+`xTurnInfo`/`xDistToTurn`/`xSpdDist`/`xSpdType`/`xSpdCountDown`/
+`xTurnCountDown`/`atcType`/`activeCarrot` 등 "카운트다운·회전제어"
+핵심 필드가 전혀 없었음(carrotMan에서 `src`/`desiredSpeed`/`vTurnSpeed`만
+추출됨) — 원본 rlog도 컨테이너에 없어 CSV 정량 대조 불가. **이번 회차는
+전부 영상 프레임 직접 대조 + 코드 정적분석으로 진행**(ffmpeg 콘택트시트
+6분할 × 7클립).
+
+**영상 관찰 요약** (상세는 FINDINGS.md "146차" 참고):
+- B(정지 케이스, 071828): 선행차 정체로 v 66→51→32→6→0→0 감속/정지
+  중 `route=`(디버그 텍스트, route 기반 목표속도) 값이 99.4→87.6→
+  74.9→62.4→**50.0→37.4**로 **정차 후(v=0)에도 계속 하락** — 파일명
+  증상과 정확히 일치.
+- C(정상 케이스, 072132)/D(072318): route= 값이 매끄럽게 등락(부산
+  방향 정상 커브 대응) — 대조군으로 정상.
+- E(072521)/F(073145)/G(073611): 우/좌회전 접근 중 v가 55~78 유지된
+  채(=route/ATC 감속 미개입) 교차로 코앞(22m/3m/3m)까지 버티다가
+  **마지막 1프레임 구간에서 급락**(50→14, 55→14, 35→13) — "사전 감속"
+  자체가 실질적으로 발동하지 않고 최후순간 급제동/수동개입성 패턴.
+
+**원인 가설(코드분석, 미검증)**: `carrot_serv.py`에 `self.xTurnInfo`/
+`self.xDistToTurn`을 쓰는 소스가 2개 공존— (1) 외부 내비 앱 브릿지
+`_update_tbt()`(로컬 `turn_type_mapping`, 정수 키), (2) navd 자체
+`update_nav_instruction()`(모듈 전역 `nav_type_mapping`을 **문자열
+매칭**으로 재사용, `maneuverType`/`maneuverModifier` 불일치 시
+`self.xTurnInfo`를 **먼저 -1로 리셋 후** 매칭 실패하면 그대로 방치).
+`update_navi()`의 `if self.active_carrot <= 1 or self.active_kisa_count
+> 0: self.update_nav_instruction(sm)` 조건 때문에, **Waze 카메라 경보
+(`update_kisa()`, `active_kisa_count=100`→매 프레임 -1, 즉 최근 5초
+이내 patch 수신 시 항상 True) 가 활성인 동안은 매 프레임 이 경로가
+실행**되어, TBT 앱이 이미 정확히 넣어둔 `xTurnInfo`(1=좌회전/2=우회전)
+를 **navd 매칭 실패 시 계속 -1로 덮어씀** — F/G 영상에서 "CAM" 적색
+표시(카메라 경보 활성 상태)가 계속 떠 있던 것과 시점상 부합. `xTurnInfo
+<0`이면 `update_auto_turn()`의 `atc_speed`가 0으로 떨어져
+`atc_desired`(회전 감속 목표속도) 계산 자체가 건너뛰어짐 → 회전 코앞까지
+무제한 속도 유지 → 마지막 순간 급감속. **세 증상(카운트다운 안됨/우회전
+작동 안됨/좌회전 작동 안됨/진입속도 위험)이 전부 이 하나의 메커니즘으로
+수렴 가능**한 통합가설.
+
+**B(정차 중 route= 하락) 별도 가설**: `carrot_man.py::carrot_navi_route()`가
+매 호출 `current_position`/`heading_deg`(정차 중 GPS course는 노이즈에
+취약)로 route 폴리라인 진행위치를 재계산 → 정차 중 GPS/bearing 지터가
+누적 전진으로 오인되며 낮은 curvature 지점이 계속 새로 노출될 가능성.
+`_route_speed_prev` 램프리미터(132차)는 변화율만 제한할 뿐 이 누적 편향
+자체는 못 막음. 미검증.
+
+**다음 단계(사용자 결정 필요)**:
+1. `extract_log.py`에 `xTurnInfo`/`xDistToTurn`/`xSpdDist`/`xSpdType`/
+   `atcType`/`activeCarrot`/`leftSec` 필드 추가 완료(146차, 이번 체크포인트
+   포함) — 이번 07:02~07:37 원본 route(zip, ba5f3d3273/898edd0f96/
+   e996400f6e)를 재업로드받아 재추출 → 위 가설 정량 검증 필요.
+   (`active_kisa_count`는 cereal에 미발행 상태라 CSV로는 여전히 직접
+   확인 불가 — extract_log.py 주석 참고, 필요시 carrot_serv.py 자체
+   디버그 필드 추가 검토)
+2. 검증 전이라도 코드 구조상 "두 소스가 같은 상태변수를 무조건부
+   덮어쓰는" 설계는 그 자체로 취약 — 우선순위/신선도 중재 로직 추가를
+   패치로 진행할지 여부는 **사용자 승인 후** 착수(이번 회차 코드 변경
+   없음, 패치 없음).
+
+**상태**: `ryu` 코드 변경 없음(분석 전용, 패치 미착수). `extract_log.py`만
+non-breaking 필드 추가. WIP.md/FINDINGS.md 갱신, 145차(PathOffset)
+이어가기는 보류 상태 유지.
+
+---
 ## 145차 (체크포인트 — 화면녹화 4개 영상×로그 대조 완료, 원인가설 코드분석으로 확정, 실차 재검증 대기) — PathOffset 커브구간 좌측차선 침범 분석
 
 **요청**: 144차에서 예고된 화면녹화 영상 4개 업로드(오프셋 -10/-5(정상)/

@@ -1,3 +1,113 @@
+## 146차 — [가설확정(코드분석+영상대조), 실차정량검증 필요] route 카운트다운/회전(ATC) 사전감속 미작동 — xTurnInfo 이중소스 충돌 가설
+
+**대상**: 사용자 업로드 화면녹화 7클립(260830, 07:17:36~07:36:11 범위,
+18~30초). 파일명 = 증상 태그. `144cha-combined` route(07:02~07:37)와
+시간대는 일치하나 **당시 CSV에 xTurnInfo/xDistToTurn/xSpdDist/xSpdType/
+atcType/activeCarrot 필드가 없어(`extract_log.py` FIELDNAMES 미포함)
+정량 대조 불가** — 전량 영상 프레임 직접 판독(ffmpeg 6분할 콘택트시트)
+으로 분석. (146차 체크포인트에서 해당 필드들을 extract_log.py에 추가
+완료 — 다음 세션 원본 route 재업로드 시 정량검증 가능.)
+
+### 클립별 관찰
+- **`카운트다운이_안됨`(071736)**: TBT 거리박스 102m→12m(첫 좌회전)
+  정상 카운트, 이후 새 구간(영천로) 890m→646m로 갱신 — 거리박스 자체는
+  끊김없이 동작. (오디오 카운트다운은 영상에 음성트랙 없어 검증 불가 —
+  `soundd.py`의 `leftSec`(11~1 음성) 로직은 화면 요소가 아님을 확인.)
+- **`카운트다운_정지해있는데도_계속_낮아짐`(071828)**: 선행차 정체로
+  감속정차(v 66→51→32→6→0→0). TBT박스 거리는 175m→105m→51m→31m→
+  29m→30m(정차 후 거의 불변, 정상). 그러나 디버그텍스트 `route=`
+  값(carrot_serv.py L1092, route 기반 목표속도)은 **99.4→87.6→74.9→
+  62.4→50.0→37.4로 정차(v=0) 이후에도 계속 하락** — 파일명 증상과 정확히
+  일치하는 이상행동.
+- **`카운트다운_되는_상황`(072132)**: 부산 방향 정상주행, TBT거리
+  286→192→114→50→2m로 매끄럽게 카운트, route= 값도 75.4→39.1 방향으로
+  합리적으로 등락 — 정상 대조군.
+- **`카운트다운_분석`(072318)**: v 71~78 정속 주행, TBT거리(km단위)
+  2.0→1.6km 순감소, route= 92.9→70.0(중간)→74.6(약간 반등) — 실제
+  커브 형상 대응으로 보이는 정상 패턴. 이상 없음(비교 참고용으로 추정).
+- **`작동안됨_진입속도가_너무빨라_위험한_상황`(072521)**: 우회전 접근 중
+  v가 **34→42→50으로 오히려 가속**, TBT거리 84m→59m→22m로 좁혀지는데
+  route= 값은 85.9→82.7→**79.1**(22m/50kph=약 1.6초 거리인데도 감속
+  목표 미형성) — 회전 직전 새 구간 전환 후 vTurnSpeed가 58→41→69로
+  요동(144차 Finding B "route↔vturn 플리커"와 동일 패턴). 이 구간에서
+  회전 전용 감속(ATC)이 아예 관여하지 않은 것으로 보임.
+- **`우회전_상황에서_작동_안됨`(073145)**: v 56→56→55→55→55→**14**.
+  근접 표지판(카메라 55 제한, "CAM" 적색 활성 — 별도 정상기능) 거리
+  74m→7m 구간에서도 v 불변(카메라 자체는 회전과 무관), TBT박스(다음
+  목적지 "산성터널")는 1.8km→1.5km로 정상 카운트. 정작 **실제 우회전
+  지점(마지막 프레임, 우회전 화살표 UI 등장)에서만 55→14로 급락** —
+  사전 감속 구간이 사실상 없이 코앞에서 급제동.
+- **`좌회전_상황_작동_안됨`(073611)**: v 38→33→34→35→31→**13**. TBT거리
+  107m→63m→23m→0m로 매끄럽게 카운트되는 동안 v는 31~38 유지, route=도
+  136.3→75.0으로 하락은 하나 실제 좌회전 코너링에 필요한 저속(15~20
+  대)까지는 못 미친 채 마지막 프레임에서 v=13으로 급락. F와 동일 패턴.
+
+### 원인 가설 A (핵심, 미검증) — xTurnInfo 이중 기록소스 충돌
+`carrot_serv.py`에서 `self.xTurnInfo`/`self.xDistToTurn`을 쓰는 경로가
+2개 존재:
+1. `_update_tbt()`(L392~) — 외부 내비게이션 앱(웹소켓 JSON, `nTBTTurnType`)
+   기반, 로컬 `turn_type_mapping`(정수 키, 정확한 라벨: uturn/arrive=7,
+   notification=0).
+2. `update_nav_instruction()`(L854~) — navd 자체 `sm['navInstruction']`
+   기반, **모듈 전역 `nav_type_mapping`을 문자열(maneuverType/
+   maneuverModifier) 매칭으로 재사용**(원래 정수 키 조회용으로 만들어진
+   동일 dict를 이중 목적으로 재사용). `self.xTurnInfo = -1`을 **먼저
+   설정한 뒤** 매칭을 시도하므로, navd의 `maneuverType`/`maneuverModifier`
+   문자열이 테이블(turn/off ramp/fork/rotary/arrive/notification만
+   커버, roundabout·on ramp·generic continue 등 미포함)과 정확히
+   일치하지 않으면 **그 프레임에 xTurnInfo가 무조건 -1로 리셋**됨.
+
+`update_navi()`의 호출 조건: `if self.active_carrot <= 1 or
+self.active_kisa_count > 0: self.update_nav_instruction(sm)`.
+`active_kisa_count`는 `update_kisa()`(Waze 카메라/경보 데이터 수신,
+`kisawaze*` 키)가 호출될 때마다 100으로 리셋되고 매 프레임 -1씩 감소 —
+즉 **최근 5초 이내 Waze 패킷 수신 이력이 있으면 항상 True**. F/G
+영상에서 "CAM"(카메라 경보) 적색 표시가 근접 구간 내내 켜져 있던 것으로
+보아 이 구간 동안 Waze 데이터가 지속 활성 상태였을 가능성이 높고, 그
+경우 매 프레임 `update_nav_instruction()`이 실행되어 **외부 앱이 이미
+정확히 세팅한 xTurnInfo(1/2)를 navd 매칭실패시 계속 -1로 덮어썼을
+가능성**이 있음.
+
+`xTurnInfo < 0`이면 `update_auto_turn()`의 `turn_info_mapping.get(
+x_turn_info, default_mapping)`이 `default_mapping`(`speed:0`)으로
+빠져, `atc_desired`(회전 사전감속 목표속도) 계산의 게이트 조건
+(`if atc_speed > 0 and x_dist_to_turn > 0`)이 항상 거짓이 되어 **회전
+전용 감속이 전혀 발동하지 않음** — 코앞까지 등속 유지 후 급감속하는
+E/F/G 관찰과 정합.
+
+이 하나의 메커니즘(xTurnInfo 유실)이 "카운트다운(회전판정) 안됨" /
+"우회전 작동 안됨" / "좌회전 작동 안됨" / "진입속도 너무 빨라 위험" 4개
+증상 태그를 모두 설명 가능한 통합가설.
+
+### 원인 가설 B (미검증) — 정차 중 route= 지속 하락
+`carrot_man.py::carrot_navi_route()`가 매 호출 `current_position`
+(GPS lat/lon)/`heading_deg`(GPS bearing)로 route 폴리라인 상 현재
+위치를 재계산함. 정차 중에는 GPS course(진행방향)가 물리적으로
+정의되지 않아 노이즈에 취약 — 이 지터가 매 프레임 폴리라인 진행을
+근소하게 "전진"시키는 것으로 오인되면, `route_lookahead_m` 윈도우가
+조금씩 앞으로 밀리며 원래 더 뒤에 있던 낮은 curvature 지점이 조금씩
+당겨져 노출 → out_speed(=route=)가 실제 정지 상태와 무관하게 계속
+하락. 132차 램프리미터(`_route_speed_prev` 기반)는 프레임당 변화율만
+제한할 뿐 이 누적 편향 자체는 막지 못함. B 클립 관찰과 정합하나 GPS
+좌표 시계열 확인 전까지는 가설 단계.
+
+### 검증 갭 → 146차 체크포인트에서 일부 해소
+`toolkit/extract_log.py` FIELDNAMES에 `activeCarrot`, `xTurnInfo`,
+`xDistToTurn`, `xSpdType`, `xSpdDist`, `atcType`, `leftSec` 추가
+완료(146차). `active_kisa_count`는 cereal(custom.capnp CarrotMan)에
+미발행이라 여전히 CSV로 직접 확인 불가(코드 내 주석으로 명시). 현재
+`144cha-combined`는 원본 rlog가 컨테이너에 없어(대용량 정책상 미보관)
+재추출 불가 — **07:02~07:37 원본 route 3건(ba5f3d3273/898edd0f96/
+e996400f6e) 재업로드 시** 재추출 후 위 두 가설 정량 검증 가능.
+
+### 상태
+**코드 변경 없음(정적분석+영상판독 전용, 패치 미착수)**. 패치는 사용자
+승인 후 진행(프로젝트 규칙 "패치는 나한테 물어보고"). 145차(PathOffset
+커브 좌측차선 침범, 실차 재검증 대기)는 이번 회차와 무관하게 별도
+보류 유지.
+
+---
+
 ## 145차 — [가설확정(코드분석), 실차 재검증 필요] PathOffset 커브구간 좌측차선 침범 — 화면녹화 대조 + 원인 코드분석
 
 **대상**: 144차에서 예고된 화면녹화 영상 4개(오프셋 -10/-5×2/0, 각 30초
