@@ -1,3 +1,39 @@
+## 176차 (체크포인트 — 원인B 재현검증 SUCCESS, 패치 설계는 다음)
+
+**배경**: 175차가 확립한 acados 실솔버 빌드(`build_acados_long_mpc.sh`) 재실행 후,
+174차 원인B 가설(A_CHANGE_COST=200이 리드없는 cruise 모드에서 가속->감속 부호전환을
+구조적으로 지연시킴)을 폐루프 시뮬레이션(`sim_acados_causeB_signflip.py`, 신규
+toolkit 편입)으로 재현검증.
+
+**제약**: route `00000372--6310bba9b8--5,6` raw zip이 devnotes 캐시에 없어(172/174차
+모두 재업로드, 176차엔 미제공) 실측 프레임별 값 대신 FINDINGS.md 174차 요약 특성
+기반 통제된 합성 시나리오 사용(leadStatus=False 4초 전구간 고정 -- 실측은 t=830.55에
+리드 재획득되므로 이번 결과는 "리드 도움 없는 상한(worst-case)" 재현).
+
+**완료한 것**:
+- `FakeCarrot`/`FakeLead`/`FakeRadarState` mock으로 `LongitudinalMpc.update()` 폐루프
+  시뮬레이션 작성 (Params 의존 없음, T_FOLLOW는 가설과 무관해 표준 근사 고정값 1.2s로 단순화)
+- baseline(A_CHANGE_COST=200) vs 완화(20, 리드있음 최소완화값) 비교 실행:
+  부호전환 시각 1.5s vs 1.0s(0.5s 차이), t=3.0s gap 9.19 vs 7.41kph -- **가설 재현
+  SUCCESS**
+- FINDINGS.md 176차 항목 기록, toolkit README/CHANGELOG 갱신
+
+**다음 세션 시작 시 반드시**:
+1. 원인B 패치 설계 시작 -- 리드없는 cruise 모드(`mode='acc'`, `leadStatus=False`)에서
+   가속->감속 부호전환 구간에 한정해 `a_change_cost`를 한시적으로 완화하는 게이트
+   설계(66/67/73/76차 discontinuity 부스트 패턴과 유사 구조, 방향은 반대 -- "완화")
+2. 글로벌 kill-switch 금지 원칙 준수 -- 부호전환 검출 + leadStatus=False 조건에만
+   한정 적용
+3. 완화값 크기(20? 별도 튜닝?) 및 완화 지속시간(hold/release rate) 결정 필요 --
+   기존 `RADAR_HANDOFF_JERK_BOOST_RELEASE_RATE` 등 기존 release-rate 상수 재사용
+   가능성 검토
+4. 패치 작성 후 `sim_acados_causeB_signflip.py`에 패치 반영 버전 추가해 개선 정도
+   재확인 -- 실차 검증 전 사전 검증 단계로 활용
+5. route raw zip 재업로드 시(사용자가 필요 판단 시): `extract_log.py`로 재추출 후
+   `data/routes/`에 캐싱하고 실측 프레임 기반 정밀 재현으로 업그레이드 고려
+
+---
+
 ## 175차 (체크포인트 — acados 실솔버 빌드 절차 확립+toolkit 편입 완료, 재현시뮬레이션은 다음)
 
 **배경**: 174차에서 정적분석으로 확인한 원인B(A_CHANGE_COST=200이 리드없는 cruise

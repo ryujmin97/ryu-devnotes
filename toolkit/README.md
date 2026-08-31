@@ -1920,3 +1920,43 @@ mpc = LongitudinalMpc(mode='acc')
 Params에서 값을 읽는 분기는 전부 기본값으로 흐름. 재현 시뮬레이션 작성 시
 A_CHANGE_COST 등 비교하려는 상수는 `long_mpc.py` 소스를 직접 patch하거나 인스턴스
 속성을 덮어써서 주입해야 함(다음 세션에서 재현 스크립트 작성 시 이 패턴 사용 예정).
+
+## sim_acados_causeB_signflip.py (176차, 신규 — 원인B 재현검증 SUCCESS)
+`build_acados_long_mpc.sh`로 빌드한 실솔버 위에서 174차 원인B 가설("A_CHANGE_COST=200이
+리드없는 cruise 모드에서 가속->감속 부호전환을 구조적으로 지연시킨다")을 폐루프
+시뮬레이션으로 검증. `LongitudinalMpc.update()`가 요구하는 `carrot`/`radarstate` 객체를
+Params 의존 없는 최소 mock(`FakeCarrot`/`FakeLead`/`FakeRadarState`)으로 직접 구현 --
+`T_FOLLOW`는 이 가설과 무관하므로 표준(personality) 근사 고정값(1.2s)으로 단순화.
+
+**제약(중요)**: route `00000372--6310bba9b8--5,6` raw zip이 devnotes 캐시에 없어(172/174차
+모두 재업로드였고 176차 세션엔 미제공) 실측 프레임별 값을 그대로 주입하지 못함 -- 대신
+FINDINGS.md 174차 요약 특성(vEgo/liveRouteSpeed가 ~57~58kph에서 교차, 이후 목표
+57.9->48.1kph 3초 램프, leadStatus=False)을 재현한 **통제된 합성 시나리오**. leadStatus=False를
+전 구간(3초) 고정했는데 실측은 t=830.55(구간 시작 후 약 1초)에 리드가 재획득됐으므로, 이
+스크립트의 결과는 "리드 재획득 도움 없이 얼마나 느린가"의 **상한(worst-case) 재현** --
+실측 gap(4.35kph)보다 시뮬레이션 gap이 더 크게 나오는 것은 정상(리드 재획득으로 인한
+추가 제동 보조를 반영하지 않았기 때문).
+
+폐루프 방식: 매 사이클 `a_solution[1]`을 다음 스텝 명령가속도로 삼아 ego 상태(v_ego/a_ego)를
+직접 적분 전진 -- 실차의 롱컨트롤 추종 지연을 이상화(무지연)했으므로 실측보다 관대한(더
+빠르게 반응하는) 조건. 그럼에도 baseline vs 완화 조건 간 차이가 나타나면 가설이 강하게
+뒷받침됨.
+
+**결과(SUCCESS, 가설 재현 확인)**:
+| 조건 | A_CHANGE_COST | 가속->감속 부호전환 시각 | t=3.0s gap |
+|---|---|---|---|
+| baseline(현재 코드) | 200 | 1.5s | +9.19kph |
+| 완화(리드있음 최소값) | 20 | 1.0s | +7.41kph |
+
+baseline이 완화 조건보다 부호전환이 **0.5초 더 느리고**, 3초 시점 gap도 더 큼 --
+174차 정적분석 가설(리드없는 cruise 모드에서 A_CHANGE_COST=200이 구조적으로 반응을
+지연시킨다)이 acados 실솔버 거동으로도 재현 확인됨. 다음 단계(패치 설계)로 넘어갈 근거 확보.
+
+**사용**:
+```
+bash devnotes/toolkit/build_acados_long_mpc.sh
+export LD_LIBRARY_PATH=/home/claude/ryu/third_party/acados/x86_64/lib
+export PYTHONPATH=/home/claude/ryu
+python3 devnotes/toolkit/sim_acados_causeB_signflip.py
+```
+**의존성**: `build_acados_long_mpc.sh` + `acados_stub_prelude.py`(위 항목) 선행 필요.

@@ -1,3 +1,46 @@
+## 176차 — [원인B 재현검증 SUCCESS] acados 실솔버 폐루프 시뮬레이션으로 174차 원인B(A_CHANGE_COST=200이 리드없는 cruise 모드에서 가속->감속 부호전환을 구조적으로 지연시킨다) 가설 확인 -- baseline(200) 부호전환 1.5s vs 완화값(20) 1.0s, 0.5초 차이 재현
+
+**배경**: 175차가 확립한 acados 실솔버 빌드 절차(`build_acados_long_mpc.sh`) 위에서
+174차 정적분석 가설을 실제 solver 출력으로 검증. route `00000372--6310bba9b8--5,6`
+raw zip이 devnotes 캐시에 없어(172/174차 모두 재업로드였고 176차 세션엔 미제공)
+실측 프레임별 값을 직접 주입하지 못하고, FINDINGS.md 174차 요약 특성(vEgo/
+liveRouteSpeed가 ~57~58kph에서 교차, 이후 목표 57.9->48.1kph 3초 램프,
+leadStatus=False)을 재현한 통제된 합성 시나리오로 진행(`sim_acados_causeB_signflip.py`,
+toolkit 편입 완료).
+
+**방법**: `LongitudinalMpc.update()`가 요구하는 `carrot`/`radarstate` 인터페이스를
+Params 의존 없는 최소 mock(`FakeCarrot`/`FakeLead`/`FakeRadarState`)으로 구현.
+T_FOLLOW는 이 가설과 무관하므로 표준 personality 근사 고정값(1.2s)으로 단순화.
+매 사이클 `a_solution[1]`을 다음 스텝 명령가속도로 삼아 ego 상태를 직접 적분
+전진하는 폐루프(무지연 이상화, 실측보다 관대한 조건)로 4초간 시뮬레이션.
+
+**결과(SUCCESS)**:
+| 조건 | A_CHANGE_COST | 가속->감속 부호전환 시각 | t=3.0s gap |
+|---|---|---|---|
+| baseline(현재 코드) | 200 | 1.5s | +9.19kph |
+| 완화(리드있음 최소값) | 20 | 1.0s | +7.41kph |
+
+baseline이 완화 조건보다 부호전환이 0.5초 더 느리고 3초 시점 gap도 더 큼 --
+174차 가설(리드없는 cruise 모드에서 A_CHANGE_COST=200이 목표속도 하강 추종을
+구조적으로 지연시킨다)이 acados 실솔버 거동으로도 재현 확인됨.
+
+**해석 시 주의**: leadStatus=False를 4초 전 구간 고정했으나 실측(174차)은
+t=830.55(구간 시작 약 1초 후)에 리드가 재획득됨 -- 이번 시뮬레이션은 "리드
+재획득 도움 없이 얼마나 느린가"의 상한(worst-case) 재현. 실측 gap(4.35kph)보다
+시뮬레이션 gap(9.19kph)이 더 크게 나온 것은 이 때문(정상, 오차 아님). 정량적
+절대값 일치가 목적이 아니라 "A_CHANGE_COST 크기가 부호전환 속도에 구조적
+영향을 준다"는 정성적 인과관계 확인이 목적이며, 그 목적은 달성됨.
+
+**다음 단계**: 원인B 패치 설계로 진행 가능 -- 리드없는 cruise 모드(mode='acc',
+leadStatus=False)에서 가속->감속 부호전환 구간에 한정해 a_change_cost를
+한시적으로 완화하는 방안(66/67/73/76차의 discontinuity 부스트 패턴과 유사하되
+반대 방향 -- "완화" 게이트). 글로벌 kill-switch가 아니라 특정 시나리오(부호전환
+검출 + leadStatus=False) 한정 게이트로 설계할 것(프로젝트 원칙).
+
+**toolkit 변경**: `sim_acados_causeB_signflip.py` 신규 편입(README/CHANGELOG 갱신 완료).
+
+---
+
 ## 174차 — [원인B 정적분석 완료] `longitudinal_planner.py`/`long_mpc.py` MPC 비용함수 구조 확인 — "route가 감속 스케줄대로 정상 하강해도 실제 aEgo가 못 따라가는" 원인은 accel_limit이 아니라 `A_CHANGE_COST=200`(가속도 변화율 억제 비용)이 `X_EGO_OBSTACLE_COST=5`/`V_EGO_COST=0`/`A_EGO_COST=0` 대비 압도적으로 커서, 리드가 없을 때(`mode='acc'`, cruise_obstacle) 목표속도 수렴이 구조적으로 느리기 때문 — 특히 가속→감속 부호전환 구간에서 지연이 집중됨
 
 **배경**: 173차(원인A 패치)까지 완료 후, 172차가 NEEDS_INVESTIGATION으로

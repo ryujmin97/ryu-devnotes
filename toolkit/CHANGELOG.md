@@ -728,3 +728,7 @@ discontinuity 0건). 개발 중 트리거 소스별 boost_s 미구분 버그가 
   이 컨테이너에서 코드젠+컴파일해 살아있는 LongitudinalMpc로 인스턴스화하는 절차 신규
   작성 (스크립트 단독 재실행으로 재현성 검증 완료). 174차 원인B(A_CHANGE_COST=200
   구조적 지연) acados 실솔버 재현검증의 선행 작업.
+- 176차: `sim_acados_causeB_signflip.py` 신규 -- acados 실솔버 폐루프 시뮬레이션으로 174차
+  원인B(A_CHANGE_COST=200 부호전환 지연) 가설 재현검증 SUCCESS (baseline 부호전환 1.5s vs
+  완화값(20) 1.0s, 0.5s 차이). route raw zip 미보유로 실측 프레임 대신 FINDINGS.md 174차
+  요약 특성 기반 통제된 합성 시나리오 사용(제약사항 README에 명시).
