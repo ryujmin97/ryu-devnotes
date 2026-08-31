@@ -717,3 +717,9 @@ discontinuity 0건). 개발 중 트리거 소스별 boost_s 미구분 버그가 
   구분하기 위함. ryu 본체 패치(0001-add-navi-gps-telemetry-instrumentation)로
   cereal(custom.capnp)/carrot_serv.py에 4개 필드 신규 발행 필요 — 패치
   미적용 로그는 전부 0.0으로 찍힘(주의 필요, 크래시 아님).
+
+## 173차
+- `sim_route_boundary_ramp_limiter.py`: `RampLimiterState`에 `asymmetric_up`
+  옵션(기본 False, 하위호환 유지) 추가 — 172차 원인A(132차 대칭 램프가
+  160차 apex 재설계 "즉시 원복" 의도를 무력화) 패치 후보 사전검증.
+  `run()`에 `--road-limit-speed-kph` 옵션도 추가.

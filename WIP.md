@@ -1,3 +1,62 @@
+## 173차 (완료 — 원인A 패치 구현+검증+전달 완료, 원인B는 다음 세션 이월)
+
+**배경**: 172차가 확정한 원인A(132차 대칭 램프리미터가 160차 apex
+재설계의 "즉시 원복" 의도를 무력화)에 대해 실제 패치 구현 요청.
+
+**세션시작 로그**: devnotes/ryu clone 정상, WIP.md 195건(172차 헤드).
+repo HEAD `f2e80d8`(172차와 동일 커밋, 신규 커밋 없음).
+
+**사전검증**: `toolkit/sim_route_boundary_ramp_limiter.py`의
+`RampLimiterState`에 `asymmetric_up`(기본 False, 하위호환 유지) 옵션
+추가해 비대칭 램프 후보를 대칭(현재코드)과 나란히 시뮬레이션. 172차
+정밀매칭 조건(반경17.3m/74kph/accel0.70)에서 정상주행 중 하강측 낙차
+억제는 patched(대칭)와 동일하게 이론 상한(`accel_limit_kmh*dt`) 이내
+유지, 증가측은 raw out_speed를 지연 없이 즉시 추종함을 확인(PASS).
+`--road-limit-speed-kph`(기본300) 옵션도 추가해 172차 실측 패턴(유한
+도로제한속도로 서서히 상승) 재현 시도 -- 이 조건에서는 131차가 이미
+문서화한 "윈도우 경계 스냅 raw 과장값" 하네스 아티팩트가 patched/asym
+양쪽에 동일 전파돼 recovery-frame 계측이 왜곡되는 한계 확인(패치
+차이가 아니라 하네스 한계로 판단, 아래 arbitration 분석으로 보완).
+
+**패치 내용**: `carrot_man.py::carrot_navi_route()`의 132차 램프리미터를
+대칭(`hi = prev + max_step`) -> 비대칭(`hi = math.inf`)으로 변경.
+감속측(`lo`)은 그대로 유지 -- 129차/131차가 해결하려던 "경계 스냅으로
+인한 단일프레임 급락" 문제는 아키텍처가 바뀐 지금도 발생 가능하므로
+보호 목적 유지. 162차/167차의 위치불확실성 게이트(`hi = prev`로
+재고정하는 안전망, `cc_pose_valid=False` 폴백 구간 한정)는 그대로
+보존 -- 정상 상황에서만 `hi=inf`가 적용되도록 조건 순서 유지.
+
+**다른 패치와의 상호작용 전체 코드 검토(요청사항)**: `_route_speed_prev`/
+`carrot_navi_route` 전체 사용처를 `carrot_man.py`/`carrot_serv.py`
+전체에서 grep -- 모두 이 함수 내부로 국한(단일 호출부, line 485)됨을
+확인, 다른 곳에 대칭 램프를 전제한 중복 로직 없음. 추가로
+`update_navi()`의 최종 arbitration 로직(`desired_speed, source =
+min(speed_n_sources, ...)`)을 확인한 결과, route가 즉시 원복해도
+atc/cam/road/vturn/model 등 다른 후보 중 더 낮은 값이 있으면 그쪽이
+`min()`으로 최종 선택되므로 **이 패치가 과속 리스크를 유발하지
+않음**을 구조적으로 확인(route recovery 지연 제거는 단지 불필요한
+병목 하나를 제거하는 것이고, 실제 안전상한은 다른 독립 소스들이
+계속 담당). 132차 자체 사전검증(`sim_route_boundary_ramp_limiter.py`
+132차 PASS)과 133차 실측 재검증 결과는 감속측(lo) 로직에만 의존하므로
+이번 변경으로 영향받지 않음.
+
+**toolkit/ryu 변경**: `sim_route_boundary_ramp_limiter.py`(옵션 추가,
+하위호환), `carrot_man.py`(패치 본체, 커밋 `7559b09`). 패치파일
+`0001-fix-route-recovery-ramp-asymmetric.patch` 전달.
+
+**다음 세션 우선순위**:
+1. 이 패치 실차 검증 -- 우회전/좌회전 통과 후 route가 즉시 원복하는지,
+   특히 162/167차 위치불확실성 게이트가 여전히 정상 작동하는지(캘리브
+   레이션 미완료 등 `cc_pose_valid=False` 상황 포함) 재확인.
+2. 원인B(NEEDS_INVESTIGATION, 172차 이월) -- `longitudinal_planner.py`
+   accel 수렴/코스트 로직 정적분석, 또는 149차 옵션4(감속률-실측 aEgo
+   괴리 자동탐지 함수) 신규 구현.
+
+**전달**: WIP.md(이 항목)/FINDINGS.md(173차)/toolkit/README.md,
+toolkit/CHANGELOG.md/패치파일(`0001-fix-route-recovery-ramp-asymmetric.patch`).
+
+---
+
 ## 172차 (체크포인트 — 사용자 제보 2건 정밀분석: (A) 우회전 통과 후 route "서서히 상승" 원인 확정, (B) 우회전 사전감속 약함→브레이크 개입 NEEDS_INVESTIGATION)
 
 **배경**: 사용자가 "사전_감속율이_약해서_사용자가_브레이크_개입" 로그

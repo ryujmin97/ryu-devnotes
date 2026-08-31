@@ -43,8 +43,14 @@ from sim_route_lookahead_boundary_snap import (
 
 
 class RampLimiterState:
-    def __init__(self):
+    # [173차] asymmetric_up 파라미터 추가 -- 기본값 False로 기존
+    # 132차/133차 대칭 동작을 완전히 보존(replay_route_ramp_limiter_direct.py
+    # 등 기존 스크립트가 인자 없이 그대로 호출하므로 하위호환 필수).
+    # asymmetric_up=True일 때만 172차 원인A 패치 후보(증가/원복측 무제한)를
+    # 시뮬레이션한다.
+    def __init__(self, asymmetric_up=False):
         self.prev_out = None
+        self.asymmetric_up = asymmetric_up
 
     def apply(self, raw_out_speed, accel_limit_kmh, dt):
         if raw_out_speed >= 299.999:
@@ -56,7 +62,11 @@ class RampLimiterState:
         else:
             max_step = accel_limit_kmh * dt
             lo = self.prev_out - max_step
-            hi = self.prev_out + max_step
+            # [173차] 증가(원복) 방향 -- 160차 apex 재설계가 "apex 통과 즉시
+            # 원복"을 의도했으므로, asymmetric_up 모드에서는 hi를 사실상
+            # 무제한으로 둔다(하강측 lo는 그대로 유지 -- 감속 스케줄 보호는
+            # 계속 필요).
+            hi = float('inf') if self.asymmetric_up else self.prev_out + max_step
             out = min(max(raw_out_speed, lo), hi)
         self.prev_out = out
         return out
@@ -73,6 +83,8 @@ def run(args):
 
     navi_points_start_index = 0
     limiter = RampLimiterState()
+    # [173차] 172차 원인A 패치 후보(증가측 무제한) 나란히 비교
+    limiter_asym = RampLimiterState(asymmetric_up=True)
     accel_limit_kmh = args.accel * 3.6
 
     prev_unpatched = None
@@ -80,6 +92,12 @@ def run(args):
     max_drop_patched = 0.0
     max_drop_t_unpatched = None
     max_drop_t_patched = None
+    max_rise_asym = 0.0
+    max_rise_t_asym = None
+    recovery_frames_patched = None
+    recovery_frames_asym = None
+    apex_passed_frame = None
+    frame_idx = 0
     # [132차 사전검증] 300(제약없음 센티널) <-> 실제값 전환은 시뮬레이션
     # 하네스 자체의 경계 아티팩트(131차가 이미 "극단값 -- 원호 진입점이
     # 커브 시작이라 과장"/"윈도우가 커브를 완전히 지나며 사라짐"으로 문서화한
@@ -92,7 +110,8 @@ def run(args):
 
     print(f"=== 램프 리미터 패치 사전검증 (v_ego={args.v_ego_kph}kph, "
           f"curve_R={args.curve_radius_m}m, accel={args.accel}, dt={args.dt}s) ===")
-    print(f"{'t':>7} {'dist_to_curve':>14} {'unpatched':>10} {'d(unp)':>8} {'patched':>9} {'d(pat)':>8}")
+    print(f"{'t':>7} {'dist_to_curve':>14} {'unpatched':>10} {'d(unp)':>8} {'patched':>9} {'d(pat)':>8} "
+          f"{'asym(A)':>9} {'d(asym)':>8}")
 
     while ego_y < args.straight_before_curve_m + 50:
         lon = lon0
@@ -100,19 +119,36 @@ def run(args):
         current_position = (lon, lat)
         out_speed_raw, navi_points_start_index, n_speeds, far_dist = carrot_navi_route_core(
             coords, navi_points_start_index, current_position, heading_deg=0.0,
-            v_ego_kph=args.v_ego_kph, accel_limit=args.accel)
+            v_ego_kph=args.v_ego_kph, accel_limit=args.accel,
+            road_limit_speed_kph=args.road_limit_speed_kph)
         out_speed_patched = limiter.apply(out_speed_raw, accel_limit_kmh, args.dt)
+        out_speed_asym = limiter_asym.apply(out_speed_raw, accel_limit_kmh, args.dt)
 
         dist_to_curve = args.straight_before_curve_m - ego_y
-        d_unp_str = d_pat_str = ""
+
+        # [173차] apex(커브 정점, dist_to_curve<=0으로 최초 전환되는 프레임)
+        # 통과 후 "원복 완료까지 걸리는 프레임 수" 계측 -- 원인A가 실제로
+        # 개선되는지(즉시 원복 vs 서서히 상승)를 시간 단위로 정량화.
+        if apex_passed_frame is None and dist_to_curve <= 0:
+            apex_passed_frame = frame_idx
+        if apex_passed_frame is not None:
+            if recovery_frames_patched is None and out_speed_patched >= out_speed_raw - 0.05:
+                recovery_frames_patched = frame_idx - apex_passed_frame
+            if recovery_frames_asym is None and out_speed_asym >= out_speed_raw - 0.05:
+                recovery_frames_asym = frame_idx - apex_passed_frame
+
+        d_unp_str = d_pat_str = d_asym_str = ""
         if prev_unpatched is not None:
             d_unp = out_speed_raw - prev_unpatched[0]
             d_pat = out_speed_patched - prev_unpatched[1]
-            d_unp_str, d_pat_str = f"{d_unp:+.2f}", f"{d_pat:+.2f}"
+            d_asym = out_speed_asym - prev_unpatched[2]
+            d_unp_str, d_pat_str, d_asym_str = f"{d_unp:+.2f}", f"{d_pat:+.2f}", f"{d_asym:+.2f}"
             if -d_unp > max_drop_unpatched:
                 max_drop_unpatched, max_drop_t_unpatched = -d_unp, t
             if -d_pat > max_drop_patched:
                 max_drop_patched, max_drop_t_patched = -d_pat, t
+            if d_asym > max_rise_asym:
+                max_rise_asym, max_rise_t_asym = d_asym, t
             is_sentinel_transition = (out_speed_raw >= 299.999) or (prev_unpatched[0] >= 299.999)
             if not is_sentinel_transition:
                 if -d_unp > max_drop_unpatched_steady:
@@ -122,9 +158,10 @@ def run(args):
 
         if abs(dist_to_curve) < 400 or (prev_unpatched is not None and abs(out_speed_raw - prev_unpatched[0]) > 3.0):
             print(f"{t:7.2f} {dist_to_curve:14.1f} {out_speed_raw:10.1f} {d_unp_str:>8} "
-                  f"{out_speed_patched:9.1f} {d_pat_str:>8}")
+                  f"{out_speed_patched:9.1f} {d_pat_str:>8} {out_speed_asym:9.1f} {d_asym_str:>8}")
 
-        prev_unpatched = (out_speed_raw, out_speed_patched)
+        prev_unpatched = (out_speed_raw, out_speed_patched, out_speed_asym)
+        frame_idx += 1
         ego_y += v_ego_ms * args.dt
         t += args.dt
 
@@ -141,6 +178,23 @@ def run(args):
     ok = max_drop_patched_steady <= theoretical_max_step + 1e-6
     print("=> PASS: 정상주행 구간에서 patched 낙차가 이론 상한 이내로 억제됨(Hypothesis C 완화 확인)"
           if ok else "=> FAIL: 이론 상한 초과 -- 로직 재검토 필요")
+
+    # [173차, 172차 원인A 후보 검증] 증가측(asym) 최대 상승폭 -- 사실상
+    # 무제한이므로 raw_out_speed의 순간 상승폭과 거의 같아야 정상(=원복이
+    # 램프에 더 이상 묶이지 않음을 의미).
+    print(f"\n[172차 원인A 후보] asym 모드 최대 프레임당 상승폭: {max_rise_asym:.2f}kph @ t={max_rise_t_asym} "
+          f"(참고: patched 상한 = {theoretical_max_step:.2f}kph -- 이보다 크면 램프 해제 확인됨)")
+    print(f"[172차 원인A 후보] apex 통과 후 원복 완료(raw 근접)까지 걸린 프레임 수: "
+          f"patched(대칭, 현재코드)={recovery_frames_patched}프레임({(recovery_frames_patched or 0) * args.dt:.2f}s), "
+          f"asym(후보A)={recovery_frames_asym}프레임({(recovery_frames_asym or 0) * args.dt:.2f}s)")
+    asym_ok = (recovery_frames_asym is not None and recovery_frames_patched is not None
+               and recovery_frames_asym <= recovery_frames_patched)
+    print("=> PASS: asym 모드가 patched(대칭) 대비 원복을 지연시키지 않음(오히려 즉시/더 빠름)"
+          if asym_ok else "=> FAIL: asym 모드가 오히려 원복을 지연 -- 로직 재검토 필요")
+    # 감속측(lo)은 두 모드 동일해야 함(하강 상한은 손대지 않았으므로) --
+    # steady 낙차 지표가 patched와 asym 사이에서 같은지는 위 max_drop_patched_steady
+    # 계산에 asym이 포함돼 있지 않으므로, 필요시 별도 실행으로 대조 가능
+    # (이번 검증 목적상 핵심은 상승측 완화이므로 별도 계측은 생략).
     return max_drop_unpatched_steady, max_drop_patched_steady, theoretical_max_step
 
 
@@ -153,6 +207,13 @@ def main():
     ap.add_argument('--accel', type=float, default=0.70)
     ap.add_argument('--straight-before-curve-m', type=float, default=700.0)
     ap.add_argument('--dt', type=float, default=0.05)
+    # [173차] 172차 실측(우회전 통과 후 30->48kph, 즉 300 무제약 센티널이
+    # 아니라 "커브 이후 유한한 도로제한속도"로 수렴하는 실제 패턴) 재현용.
+    # 기본값 300(기존 스크립트 동작 그대로 보존)이면 커브 직후 바로 무제약
+    # 센티널로 튀어 132차 램프 자체가 즉시 리셋되므로, 원인A가 실측과 같은
+    # "서서히 상승" 형태로 나타나지 않는다 -- 재현하려면 유한값 지정 필요.
+    ap.add_argument('--road-limit-speed-kph', type=float, default=300.0,
+                     help='커브 이후 직선 구간의 유효 목표속도(기본 300=무제약, 172차 재현엔 예: 48)')
     args = ap.parse_args()
     run(args)
 

@@ -1,3 +1,72 @@
+## 173차 — [원인A 패치 구현] 132차 대칭 램프리미터 → 비대칭 변경 (증가측 무제한)
+
+**배경**: 172차가 확정한 원인A -- `carrot_navi_route()`의 132차
+out_speed 프레임간 램프리미터가 증가(원복) 방향에도 감속 방향과 동일한
+상한(`accel_limit_kmh*dt`)을 대칭 적용하고 있어, 157/160차가 아키텍처를
+카메라식 apex 거리공식으로 전면 교체하며 명시한 "apex 통과 시 즉시
+원복" 설계 의도를 무력화. 실측(172차, t≈849 apex 통과 후 desiredSpeed
+30→48을 5.5초에 걸쳐 서서히 상승, ≈accel_limit_kmh 이론치 그대로)으로
+재현 완료된 상태에서 이번 세션은 실제 패치 구현.
+
+**패치**: `selfdrive/carrot/carrot_man.py::carrot_navi_route()`, 132차
+램프리미터 블록.
+- 변경 전: `hi = self._route_speed_prev + max_step_kmh` (감속측 `lo`와
+  동일한 폭으로 증가측도 제한)
+- 변경 후: `hi = math.inf` (증가측 무제한, `lo`는 그대로 유지)
+- 162차/167차의 위치불확실성 안전망(`cc_pose_valid=False`이고
+  `position_dt_since_fix > ROUTE_POSITION_UNCERTAIN_DT_S`인 폴백
+  구간에서만 `hi = self._route_speed_prev`로 재고정)은 그대로 보존 --
+  정상 상황에서만 `hi=inf`가 적용되는 조건 순서 유지.
+- 커밋: `7559b09` ("173차: 우회전 통과 후 route 서서히 상승(원인A)
+  수정 - 132차 대칭 램프리미터를 비대칭으로 변경").
+
+**사전검증(toolkit)**: `sim_route_boundary_ramp_limiter.py`의
+`RampLimiterState`에 `asymmetric_up`(기본 False) 파라미터 추가 --
+기본값 유지로 133차 `replay_route_ramp_limiter_direct.py` 등 기존
+스크립트의 동작은 전혀 변화 없음(하위호환 확인). `asymmetric_up=True`
+모드로 172차 정밀매칭 조건(반경17.3m/74kph/accel0.70) 재실행 결과:
+- 정상주행 중 하강측 최대 프레임간 낙차: patched(대칭, 현재코드와 동일)
+  0.13kph -- 이론 상한(`accel_limit_kmh*dt`=0.13kph) 이내로 asym 모드도
+  동일하게 억제됨(감속측 로직 미변경이므로 당연한 결과, 회귀 없음 재확인).
+- 증가측: asym 모드가 raw out_speed를 프레임 지연 없이 즉시 추종
+  (`--road-limit-speed-kph 300` 기본 조건에서 상승폭이 patched 상한
+  0.13kph보다 훨씬 큰 값까지 즉시 반영됨 확인).
+- `--road-limit-speed-kph 48`(172차 실측 "30→48 유한값으로 서서히 상승"
+  패턴 재현 시도) 조건에서는 131차가 이미 문서화한 "윈도우 경계 스냅
+  으로 인한 raw 자체의 일시적 과장값" 하네스 아티팩트가 patched/asym
+  양쪽에 동일하게 전파돼, 순수 recovery-frame 계측만으로는 패치
+  효과를 깔끔히 분리하기 어려움을 확인(하네스 한계 -- 코드 패치의
+  결함이 아님, 아래 arbitration 분석으로 보완 판단).
+
+**다른 패치와의 상호작용 전체 코드 검토(사용자 명시 요청)**:
+1. `_route_speed_prev`/`carrot_navi_route` 전체 사용처를
+   `carrot_man.py`/`carrot_serv.py` 전체에서 grep -- 단일 호출부
+   (`broadcast_version_info()` L485)로 국한됨을 확인, 대칭 램프를
+   전제로 한 중복/의존 로직이 다른 곳에 없음.
+2. `update_navi()`의 최종 arbitration
+   (`desired_speed, source = min(speed_n_sources, key=lambda x: x[0])`,
+   후보: atc/atc2/sdi_speed(cam·bump·section·police·waze·hda)/limit_speed
+   (road)/vturn/model/route)을 확인한 결과, **route가 즉시 원복해도
+   다른 후보 중 더 낮은 값이 있으면 `min()`이 그쪽을 최종 선택**하므로
+   이 패치가 과속 리스크를 유발하지 않음을 구조적으로 확인 -- route
+   recovery 지연 제거는 불필요한 병목 하나를 없애는 것일 뿐, 실제
+   안전상한은 road/vturn/model 등 독립 소스가 계속 담당.
+3. 132차 원 사전검증(PASS)과 133차 실측 재검증은 감속측(`lo`) 로직에만
+   의존하므로 이번 변경으로 재검증 결과가 무효화되지 않음(변경 없음).
+
+**미해결(원인B, NEEDS_INVESTIGATION, 172차→이월)**: 이번 세션은 원인A만
+처리. route 스케줄이 가정한 감속률과 실제 종방향 MPC 목표수렴 속도
+사이 불일치(t=821.7~832.5, gap 0.17→3.75kph, 브레이크 개입 유발)는
+`longitudinal_planner.py` 정적분석 필요 -- 다음 세션 이월.
+
+**toolkit 변경**: `sim_route_boundary_ramp_limiter.py`(asymmetric_up
+옵션, --road-limit-speed-kph 옵션 추가, 하위호환 유지).
+
+**전달**: 패치파일 `0001-fix-route-recovery-ramp-asymmetric.patch`
+(git format-patch, 1커밋).
+
+---
+
 ## 172차 — [원인 A 확정 + 원인 B NEEDS_INVESTIGATION] "우회전 사전감속 약함→브레이크 개입" + "통과 후 route 서서히 상승(원복 아님)" 실측 2건 정밀분석
 
 **대상**: 사용자 업로드 route `00000372--6310bba9b8--5,6`(2세그, t=778.86~

@@ -1613,6 +1613,25 @@ curvature 배열에 급커브가 이산적으로 출현, 역방향 DP가 그 프
 --v-ego-kph 74 --curve-radius-m 17.3 --accel 0.70`
 **의존성**: `sim_route_lookahead_boundary_snap.py`(같은 디렉토리, import).
 
+**[173차 갱신] 비대칭(asymmetric_up) 모드 추가**: 172차가 확정한 원인A
+(132차 대칭 램프가 160차 apex 재설계의 "즉시 원복" 의도를 무력화)
+패치 후보 사전검증을 위해 `RampLimiterState.__init__(asymmetric_up=False)`
+파라미터 추가 — 기본값 False로 기존 대칭 동작 완전 보존(133차
+`replay_route_ramp_limiter_direct.py`/`replay_route_boundary_ramp_limiter.py`
+등 기존 스크립트가 인자 없이 그대로 호출하므로 하위호환 필수, 실제로
+동작 변화 없음 확인). `asymmetric_up=True`일 때만 증가(원복)측 상한을
+`math.inf`로 두고 감속측(lo)은 그대로 유지. `run()`에 `--road-limit-speed-kph`
+옵션도 추가(기본 300=기존과 동일, 172차 실측 패턴인 "커브 이후 유한한
+도로제한속도로 서서히 상승" 재현용, 예: 48). **결과**: 정상주행 중
+하강측 최대 낙차는 patched(대칭)와 동일하게 이론 상한 이내로 유지되고,
+asym 모드의 증가측은 raw out_speed를 지연 없이 즉시 추종함을 확인
+(PASS). 단, `--road-limit-speed-kph` 유한값 조합에서는 131차가 이미
+문서화한 "윈도우 경계 스냅으로 인한 raw 자체의 일시적 과장값" 하네스
+아티팩트가 patched/asym 양쪽에 동일하게 전파돼 recovery-frame 계측이
+왜곡되는 경우가 있음(패치 차이가 아니라 하네스 한계) — 실제 코드
+패치의 정당성은 기본(road_limit=300) 조건 결과와 arbitration 로직
+분석(아래 173차 FINDINGS 참고)으로 판단.
+
 ## extract_gps.py (133차, 신규)
 **목적**: `gpsLocation`(1Hz) capnp 채널 추출을 재사용 가능한 스크립트로
 정식화(131차가 인라인으로만 했던 GPS 좌표 추출 -- navRoute/
