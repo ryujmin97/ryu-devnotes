@@ -1,3 +1,57 @@
+## 170차 (체크포인트 — 169차 "다음 세션" 2번 항목: 패킷단절 vs 내용정지 구분용 cereal 계측 구현+검증 완료, 사용자 push+실차 적용 대기)
+
+**배경**: 169차가 남긴 "다음 세션 재개 시" 판단 목록의 2번 항목
+(`vpPosPointLatNavi`/`last_update_gps_time_navi`/`last_calculate_gps_time`을
+cereal에 발행하도록 계측 추가) 진행 확정, 그대로 구현.
+
+**패치 내용 (`ryu`, base `d1ace31`=167차 계속2 기준, 신규 커밋
+`490ae73`)**:
+- `cereal/custom.capnp::CarrotMan`에 필드 5개 신규 추가(`@29`~`@33`):
+  `vpPosPointLatNavi`/`vpPosPointLonNavi`(Float32, navi 원본 좌표,
+  폴백 전 값), `dtNaviPacketAge`(Float32, `now - last_update_gps_time_navi`
+  — 이 값이 3.0 초과면 "패킷단절"), `positionDtSinceFix`(Float32,
+  162/163/167차 게이트가 실제로 읽는 값), `ccPoseValid`(Bool, 166/167차
+  방향1 유효 여부, 참고용 중복 발행).
+- `carrot_serv.py`: `_update_gps()`에서 `gps_updated_navi` 계산과
+  동시에 `self.dt_navi_packet_age`를 인스턴스 변수로 보관(기존
+  `gps_updated_navi = (now - last_update_gps_time_navi) < 3` 판정과
+  동일 값 재사용, 로직 변경 없음 — 계측 전용). `update_navi()`의
+  기존 `msg.carrotMan.leftSec = ...` 다음 줄에 신규 5개 필드 발행 추가.
+
+**검증**: `py_compile` PASS. `capnp` CLI 바이너리는 이 샌드박스에
+없어(네트워크 제한) 대신 `pycapnp`로 스키마 로드 + `Event.carrotMan`
+경유 신규 필드 직렬화/역직렬화 왕복(round-trip) 확인. `cereal.messaging`
+자체는 컴파일된 `msgq` 바이너리가 없어 이 컨테이너에서 임포트 불가
+(전체 openpilot 빌드 필요 — 기존에도 있던 환경 한계, 새로운 문제
+아님). `git format-patch` → 별도 throwaway clone에 `git am` 재적용 →
+diff-0 확인(커밋 해시만 다르고 파일 내용 완전 일치) 완료, throwaway
+정리 완료.
+
+**toolkit 갱신(같이 전달)**: `extract_log.py`에 신규 4컬럼
+(`vpPosPointLatNavi`/`LonNavi`/`dtNaviPacketAge`/`positionDtSinceFix`)
+추가 — 다음 실차 로그부터 CSV만으로 "패킷단절 vs 내용정지" 직접
+판별 가능해짐. **패치 적용 전(과거) route CSV는 이 4컬럼이 전부 0.0로
+찍힘**(capnp 기본값, 크래시 아님 — README에 명시). `carrotMan.ccPoseValid`
+신규 필드는 기존 CSV `ccPoseValid`(carControl 경유, 동일 원본)와
+중복이라 CSV엔 추가 안 함.
+
+**다음 세션 재개 시**:
+1. (필수, 순서 중요) 이 계측 패치를 실차에 먼저 적용 → 실주행 후
+   route 재업로드 → `dtNaviPacketAge`/`vpPosPointLatNavi`/`LonNavi`
+   시계열로 162차 이벤트류 상황이 "패킷단절"인지 "내용정지"인지 1차
+   실측. 근본 해법(폴백 판정을 "패킷 도착"→"내용 변화" 기준으로
+   재설계, 169차 미해결1) 착수는 이 관측 이후로 순서 변경(계측 없이
+   재설계하면 효과를 검증할 방법이 없음).
+2. 기존 이월 항목(166차/167차 실차검증)은 이 계측 패치와 무관하게
+   그대로 유효, 변경 없음(같이 적용해도 서로 간섭 없음 — 별개 필드).
+3. 169차 미해결1(폴백 판정 방식 재설계 자체)은 위 1번 실측 이후로
+   보류.
+
+**전달**: `WIP.md`(이 항목)/`FINDINGS.md`(170차)/`toolkit/extract_log.py`
+(수정)/`toolkit/README.md`(수정)/`toolkit/CHANGELOG.md`(수정) +
+`ryu` 패치 `0001-add-navi-gps-telemetry-instrumentation.patch`
+(base `d1ace31`).
+
 ## 169차 (체크포인트 — 코드리뷰+로그전수조사 완료, 기존 "내부GPS 폴백" 로직 재발견 및 그 실효성에 대한 NEEDS_INVESTIGATION 제기. 사용자 판단 대기)
 
 **배경**: 사용자가 "코드 전반 검토 + 업로드 로그 전수조사"(누락된 위치확인

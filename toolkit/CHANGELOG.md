@@ -710,3 +710,10 @@ discontinuity 0건). 개발 중 트리거 소스별 boost_s 미구분 버그가 
   검증. carrot_man.py/carrot_serv.py 패치(0001-route-position-uncertainty-gate)로
   이어짐. 3/3 PASS(회귀없음/재현/하강허용), 157차 apex 재설계 기존 회귀
   테스트 7/7 재확인.
+- (2026-08-31, 169차 계측) extract_log.py 컬럼 추가 — carrotMan.vpPosPointLatNavi/
+  LonNavi, dtNaviPacketAge, positionDtSinceFix. 169차 코드리뷰에서 재발견한
+  기존 "내부GPS 폴백" 타임아웃 판정(패킷 도착 기준)이 "내용정지" 실패모드를
+  못 잡는 문제(NEEDS_INVESTIGATION)를 다음 실차 로그에서 CSV만으로 직접
+  구분하기 위함. ryu 본체 패치(0001-add-navi-gps-telemetry-instrumentation)로
+  cereal(custom.capnp)/carrot_serv.py에 4개 필드 신규 발행 필요 — 패치
+  미적용 로그는 전부 0.0으로 찍힘(주의 필요, 크래시 아님).

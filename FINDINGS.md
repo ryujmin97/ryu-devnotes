@@ -1,3 +1,45 @@
+## 170차 — [계측 패치, 구현+diff-0검증 완료] carrotMan cereal에 navi GPS 원본/타이밍 필드 5개 신규 발행 — 169차 "패킷단절 vs 내용정지" 미구분 문제, 다음 실차 로그부터 직접 판별 가능
+
+**배경**: 169차 NEEDS_INVESTIGATION(기존 내부GPS 폴백 타임아웃 판정이
+"패킷 도착" 기준이라 "내용정지" 실패모드를 못 잡을 가능성)의 "다음
+세션" 목록 2번 항목 진행 확정. 근본 해법 재설계 전에, 애초에 실차에서
+어느 실패모드였는지부터 관측 가능하게 만드는 게 순서상 맞다고 판단.
+
+**변경 내용**: `cereal/custom.capnp::CarrotMan`에 `vpPosPointLatNavi`/
+`vpPosPointLonNavi`(navi 원본 좌표)/`dtNaviPacketAge`(navi 패킷 마지막
+도착 후 경과시간 — 3.0 초과=패킷단절)/`positionDtSinceFix`(162/163/
+167차 게이트가 실제로 읽는 값)/`ccPoseValid`(참고용) 5개 필드 추가.
+`carrot_serv.py`는 로직 변경 없이(`gps_updated_navi` 판정식 자체는
+그대로) 동일 계산값을 인스턴스 변수(`self.dt_navi_packet_age`)로
+보관해 발행만 추가 — **동작 변경 없는 순수 관측 계측**.
+
+**검증**: `py_compile` PASS. `capnp` CLI 미탑재 환경이라 `pycapnp`로
+스키마 로드 + `log.Event.carrotMan` 경유 신규 필드 직렬화/역직렬화
+왕복 확인(정상). `cereal.messaging`은 `msgq` 네이티브 확장 미탑재라
+런타임 임포트 자체가 불가(기존부터 있던 샌드박스 한계, 이번 계측과
+무관). throwaway clone에 `git format-patch`→`git am` 재적용 후
+diff-0 확인(커밋 해시 제외 파일 내용 완전 일치).
+
+**toolkit 동반 갱신**: `extract_log.py`가 위 4개 필드(ccPoseValid
+제외 — 기존 `carControl` 경유 `ccPoseValid`와 원본 동일이라 중복
+방지)를 CSV 컬럼으로 뽑도록 수정. **주의**: 이 패치를 실차에 적용한
+이후 뽑힌 로그부터만 값이 채워짐 — 과거(패치 전) route CSV는 4컬럼
+모두 0.0(capnp 필드 기본값, 크래시 아님).
+
+**미해결(다음 세션 이월)**:
+1. 이 패치를 실차에 적용 → 실주행 → route 재업로드 → 신규 컬럼으로
+   162차류 이벤트가 "패킷단절"이었는지 "내용정지"였는지 1차 실측 —
+   169차 NEEDS_INVESTIGATION의 실제 해소는 이 관측 이후.
+2. 169차 미해결1(폴백 판정 방식을 "패킷 도착"→"내용 변화" 기준으로
+   재설계)은 위 1번 실측으로 실패모드가 확인된 뒤 착수(계측 없이
+   재설계하면 효과 검증 불가).
+3. 기존 이월 항목(166차/167차 실차검증)은 이 계측과 완전히 별개
+   필드라 서로 영향 없음, 변경 없음.
+
+**전달**: FINDINGS.md(이 항목)/WIP.md(170차)/toolkit/extract_log.py,
+README.md, CHANGELOG.md(수정) + ryu 패치
+`0001-add-navi-gps-telemetry-instrumentation.patch`(base `d1ace31`).
+
 ## 168차 계속 — [실측 로그검증] 167차 계속2 좁힘 패치, 실제 pre-patch route(aeeed9e4a5 seg0/seg3)로 재확인 — 이 route로는 좁히기 효과 관측 불가함을 실측으로 확정
 
 **배경**: 168차(synthetic만)에 이어 사용자가 실제 route zip

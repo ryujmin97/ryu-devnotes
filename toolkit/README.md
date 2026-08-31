@@ -67,6 +67,20 @@ cereal에 미발행이라 이 CSV로는 뽑을 수 없음)`
 python3 extract_log.py /home/claude/work/route /home/claude/work/route.csv \
     --repo /home/claude/ryu [--max-mb 400]
 ```
+**2026-08-31 추가(169차 계측)**: `vpPosPointLatNavi`/`vpPosPointLonNavi`/
+`dtNaviPacketAge`/`positionDtSinceFix` 컬럼 추가 -- carrot_serv.py
+`_update_gps()`에 있던 "내부GPS 폴백" 타임아웃 판정이 "패킷 도착" 기준
+이라 "패킷은 오지만 내용 정지"인 실패모드를 못 잡는 문제(FINDINGS.md
+169차 NEEDS_INVESTIGATION)를 다음 실차 로그에서 CSV만으로 직접
+구분하기 위한 계측. `dtNaviPacketAge > 3.0`이면 "패킷단절",
+`dtNaviPacketAge < 3.0`인데 `vpPosPointLatNavi/LonNavi`가 여러 프레임
+그대로면 "내용정지". `positionDtSinceFix`는 162/163/167차 게이트가
+실제로 읽는 값(`carrot_serv.position_dt_since_fix`) 원본. 이 계측은
+`0001-add-navi-gps-telemetry-instrumentation.patch`(169차)로 `ryu`
+본체(`cereal/custom.capnp`, `carrot_serv.py`)에 실제로 적용해야만
+새 rlog에 찍힘 -- **패치 적용 전 로그(과거 route)에는 이 4컬럼이
+전부 0.0으로 나옴(capnp 기본값, 크래시 아님)에 주의**.
+
 **2026-08-21 수정**: 세그먼트 경계에서 carState/controlsState/leadStatus
 상태를 다음 세그먼트로 이어받는다. 이전 버전은 세그먼트마다
 leadStatus를 강제로 False 리셋해, 실제로는 리드가 유지되고 있었는데도

@@ -64,7 +64,18 @@ FIELDNAMES = [
     "atcType", "leftSec", "xSpdCountDown", "xTurnCountDown",
     "liveRouteSpeed",
     "ccYawDeg", "ccYawRateZ", "ccPoseValid",
+    "vpPosPointLatNavi", "vpPosPointLonNavi", "dtNaviPacketAge", "positionDtSinceFix",
 ]
+# 2026-08-31 추가(169차 계측): carrotMan.vpPosPointLatNavi/LonNavi,
+# dtNaviPacketAge, positionDtSinceFix -- "패킷단절 vs 내용정지" 구분용
+# (FINDINGS.md 169차 NEEDS_INVESTIGATION). dtNaviPacketAge가 3.0을 넘으면
+# "패킷단절"(navi 앱 신호 자체가 끊김), 3.0 미만인데 vpPosPointLatNavi/
+# LonNavi가 여러 프레임 동안 값이 안 바뀌면 "내용정지"(패킷은 오지만
+# 좌표가 그대로) -- 다음 실차 로그부터 이 둘을 CSV만으로 직접 구분
+# 가능해짐. carrotMan.ccPoseValid(신규 cereal 필드)는 위 "carControl"
+# 이벤트에서 이미 뽑는 ccPoseValid와 동일한 원본(len(orientationNED)>2)이라
+# 중복 방지를 위해 CSV엔 추가하지 않음 -- 교차검증하려면 rlog에서 두
+# 값이 항상 같은지 별도 확인할 것.
 # 2026-08-31 추가(165차): carControl.orientationNED[2](라디안, calibrated
 # NED 요/헤딩)를 나침반 표기(0~360도)로 변환한 ccYawDeg + carControl.
 # angularVelocity[2](calibrated 요레이트, rad/s) 원시값 ccYawRateZ + 두 리스트가
@@ -337,6 +348,10 @@ def process_segment(rlog_path, seg_name, repo_dir, max_mb, commit_short="",
                 "xSpdCountDown": cm.xSpdCountDown, "xTurnCountDown": cm.xTurnCountDown,
                 "naviPaths": str(cm.naviPaths) if with_navi_paths else "",
                 "liveRouteSpeed": live_route_speed,
+                "vpPosPointLatNavi": cm.vpPosPointLatNavi,
+                "vpPosPointLonNavi": cm.vpPosPointLonNavi,
+                "dtNaviPacketAge": cm.dtNaviPacketAge,
+                "positionDtSinceFix": cm.positionDtSinceFix,
             })
     return rows, last_cs, last_ctrl, last_lead, last_lat, last_model, last_pose
 
