@@ -1,3 +1,5 @@
+## 160차 (완료 — 설계+시뮬레이션 검증+패치전달 완료) — route 감속을 과속카메라 감속(calculate_current_speed)과 완전히 동일한 물리공식으로 전면 교체(사용자 설계, 곡선_가감속_코딩.txt+곡선_개념도.pdf 첨부 기반) — 157차의 accel_limit 동적 부스트 분기 폐기, apex 선택은 157차와 동일(가장 급한 지점) 유지, safe_time 버퍼(91차에 미뤄뒀던 부분) 신규 적용. toolkit/sim_route_camera_style_decel.py(신규) 7/7 PASS(연속S자커브 apex 전환 케이스 포함, 톱니 진동 없음 확인), git am 클린클론 검증 완료, 패치 전달.
+
 ## 159차(158차 계속) (완료 — 대안 설계 A/B 검증, NEGATIVE, 결론 확정) — apex 히스테리시스(명시적 3상태 리셋, target_curv 기억) 설계를 재구현+실측 A/B — 157차 무상태 설계 대비 stuck구간 3곳 중 2곳 무반응(disengaged 고착), 프레임간 최대낙차 244km/h(A는 0.26km/h) 확인, 히스테리시스 방향 폐기·157차 유지로 종결. ryu 코드 변경 없음(toolkit만).
 
 **요약**: 158차가 route156(연속 굽이길) 실측으로 "157차 apex는 apex

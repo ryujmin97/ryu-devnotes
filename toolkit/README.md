@@ -1691,3 +1691,39 @@ naviPaths CSV는 대용량 정책상 미커밋 -> 컨테이너 리셋으로 소�
 
 **사용**: `python3 sim_route_apex_redesign.py --unit-tests`
 **의존성**: `sim_route_boundary_ramp_limiter.py`(RampLimiterState 재사용).
+
+## sim_route_camera_style_decel.py (160차 신규 — route 감속을 과속카메라 감속과 동일 공식으로)
+**목적**: 사용자 설계("route 감속을 과속카메라 감속(calculate_current_speed)
+로직과 완전히 동일하게, apex까지 남은 거리를 카메라의 xSpdDist 자리에 대입")를
+`carrot_man.py`에 패치하기 전 검증. `carrot_serv.py::calculate_current_speed()`를
+동일 시그니처로 복제한 `camera_calculate_current_speed()`와, 그 함수에 157차와
+동일한 apex 선택("가장 급한 지점")을 결합한 `carrot_navi_route_camera_style()`을
+구현. 도로 샘플러/다중프레임 접근 시뮬레이터/`RampLimiterState`(132차)는
+`sim_route_apex_redesign.py`를 그대로 import해서 재사용(새로 안 만듦).
+**157차와의 차이**: (1) safe_time 여유거리 buffer 신규 적용(91차에 미뤄뒀던
+부분), (2) 필요감속률이 accel_limit을 넘으면 vturn_decel_rate까지 동적으로
+부스트하던 157차 분기를 폐기(고정 decel_rate만 사용, 카메라와 동일). apex
+선택 기준(목표속도 최저점)과 무상태(stateless) 구조는 157차와 동일 유지.
+**주요 함수**:
+- `camera_calculate_current_speed(left_dist, safe_speed_kph, safe_time, safe_decel_rate)`
+  — `carrot_serv.calculate_current_speed()` 그대로 복제.
+- `carrot_navi_route_camera_style(speeds, distances, safe_time, decel_rate_mss)`
+  — apex 선택 + 카메라 공식 적용, `(out_speed, accel_limit_kmh)` 반환.
+- `simulate_road_camera(sampler, road_len_m, v_ego_kph_start, safe_time, decel_rate_mss, dt=0.05, max_steps=6000)`
+  — 132차 램프리미터 포함 다중프레임 접근 시뮬레이션.
+- `double_curve_curvature_fn(apex1_m, apex2_m, curv1, curv2, width_m)` — 연속
+  S자커브(곡선_개념도.pdf ② 케이스) 합성 도로 생성기, 신규.
+**검증 결과(7/7 PASS)**: 156차류 굽이길/직선회귀없음/147차류 단일커브/152·153차
+근정지 4개는 157차와 동일하게 정상 반응. 신규 2개(연속 S자커브 — 2차가 더 급한
+경우/1차가 더 급해 apex가 전환되는 경우) 모두 PASS, 특히 **1차가 더 급한 경우
+apex가 1차->2차로 자연 전환되는 구간의 프레임간 최대낙차가 132차 램프리미터
+이론상한(accel_limit_kmh*dt)과 정확히 일치 — 톱니 진동 없음 확인**. 2차가 더
+급한 경우는 apex가 시종일관 2차로 고정되어 1차가 사실상 무시되는데, 이는
+157차부터 이어진 "가장 급한 지점" 선택 기준의 기존 특성이며 이번 설계로
+새로 생긴 문제 아님(FINDINGS.md 160차 참고).
+**주의(버그 수정 이력)**: 최초 작성 시 `simulate_road_camera`가 프레임간
+낙차를 반올림된 trace 값끼리 비교해 가짜 위반이 나왔던 적이 있음 — 반올림
+전 원본 값(`prev_unrounded`)으로 비교하도록 수정됨. 이 패턴을 다른 시뮬레이션
+스크립트에서도 반올림 표시용 trace와 검증용 원본값을 반드시 분리할 것.
+**사용**: `python3 sim_route_camera_style_decel.py --unit-tests`
+**의존성**: `sim_route_apex_redesign.py`(샘플러/apex157차 함수), `sim_route_boundary_ramp_limiter.py`(RampLimiterState).

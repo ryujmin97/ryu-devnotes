@@ -1,3 +1,66 @@
+## 160차 — [설계 전면 교체, POSITIVE] route 감속을 과속카메라 감속(calculate_current_speed) 물리공식으로 그대로 재사용 — 157차 accel_limit 동적 부스트 폐기, 시뮬레이션 7/7 PASS, 패치 전달
+
+**배경**: 사용자가 첨부(곡선_가감속_코딩.txt, 곡선_개념도.pdf)로 "지금까지의
+route 관련 검토 내용은 전부 무시하고" 새 방향을 제안: route 감속의 목적은
+"Vturn(비전) 감속만으로는 부족한 사전감속"이며, apex(최대곡률지점) 목표속도를
+과속카메라의 제한속도처럼 취급해 과속카메라 감속 로직(`carrot_serv.py::
+calculate_current_speed(left_dist, safe_speed_kph, safe_time, safe_decel_rate)`,
+`v_i^2=v_f^2+2ad` 공식 + safe_time 여유거리 buffer)을 그대로 재사용하자는 것.
+기본곡선은 apex 목표속도에 카메라처럼 반응, 연속곡선(PDF ②)은 1차 apex 도달 시
+원복 후 2차 apex를 재계산해 같은 로직 재적용.
+
+**기존 설계(157~159차)와의 차이 확인**: 157차도 물리공식(`v_i^2=v_f^2+2ad`)을
+쓰지만 (1) safe_time 여유거리 buffer가 없음(91차 마진을 "이번엔 제외, 실측 후
+재평가"로 명시적으로 미뤄뒀던 부분), (2) 필요감속률이 accel_limit을 넘으면
+vturn_decel_rate까지 동적으로 부스트하는 분기가 있음(카메라 로직엔 이런 부스트
+없음). apex 선택 기준(lookahead 내 목표속도가 가장 낮은 지점 = "가장 급한
+지점")은 157차와 동일하게 유지하기로 확정(사용자 확인) — "1차→2차 순차 처리"를
+위한 별도 상태(state)는 도입하지 않음.
+
+**사전 지적 사항(패치 전 사용자에게 보고, 설계 확정에 반영됨)**:
+1. 상태 도입 리스크 — 158~159차에 다른 종류의 명시적 상태(히스테리시스)가
+   실측에서 악화된 전례가 있어 경계 필요했으나, 이번 설계는 "가장 급한 지점"
+   선택을 유지하기로 해 결국 상태 불필요(무상태 유지) → 리스크 해소.
+2. "apex 도달=원복" 판정 흔들림 우려 → calculate_current_speed 자체가
+   decel_dist<=0이면 자동으로 safe_speed_kph 반환하므로 별도 판정 로직 불필요,
+   기존 apex_dist>0/else 수동 분기 자체가 통째로 사라짐.
+3. 연속곡선 톱니 진동 우려 → 시뮬레이션으로 실제 검증(아래).
+4. calculate_current_speed 하한 특성(목표속도 근접 시 그 값 고정) → 카메라와
+   동일 동작이므로 route에도 동일하게 적용되는 것을 확인하고 채택.
+5. Type 3(폴리라인 자체 곡률 부족)는 이 설계로도 미해결 — 그대로 별도 과제로 남음.
+
+**시뮬레이션 검증(신규 `toolkit/sim_route_camera_style_decel.py`)**:
+`carrot_serv.calculate_current_speed()`를 동일 시그니처로 복제한
+`camera_calculate_current_speed()` + apex 선택(157차와 동일)을 결합한
+`carrot_navi_route_camera_style()`을 구현, `sim_route_apex_redesign.py`의
+도로 샘플러/`simulate_road`류/`RampLimiterState`(132차)를 그대로 재사용해
+7개 시나리오 실행:
+- 156차류 연속 굽이길: 157차 대비 최소속도 ±15kph 이내로 정상 감속 (PASS)
+- 직선도로: 회귀 없음 (PASS)
+- 147차류 단일 급커브: 정상 감속 (PASS)
+- 152/153차 근정지 코너: safe_time 버퍼 추가에도 목표속도 근접 도달(초과 없음) (PASS)
+- 연속 S자커브(2차가 더 급한 경우): 2차까지 정상 감속, 이 경우 apex가 처음부터
+  끝까지 2차로 고정되어 전환 자체가 발생하지 않음을 확인(1차는 사실상
+  무시됨 — 157차부터 이어진 기존 특성이며 이번 설계로 새로 생긴 문제 아님)
+- 연속 S자커브(1차가 더 급한 경우, apex 전환 발생): 1차 통과로 apex가 사라지며
+  다음 프레임에 2차로 자연 전환, 프레임간 최대낙차 0.126km/h로 132차 램프리미터
+  이론상한과 정확히 일치(톱니 진동 없음) — **PDF 개념도 ②(연속곡선) 케이스가
+  실제로 안전하게 동작함을 확인한 핵심 시나리오**
+- (버그 수정 메모) 최초 작성 시 `simulate_road_camera`의 프레임간 낙차 계산이
+  반올림된 trace 값끼리 비교해 가짜 위반(0.176 > 0.126)이 나왔던 것을 발견 —
+  반올림 전 원본 값으로 비교하도록 수정 후 7/7 PASS로 정정. (실제 코드 문제
+  아니라 시뮬레이션 스크립트 자체의 버그였음, 기록 남김)
+
+**패치**: `carrot_man.py::carrot_navi_route()`의 157차 커스텀 공식 블록을
+`self.carrot_serv.calculate_current_speed(apex_dist, apex_speed,
+autoNaviSpeedCtrlEnd, autoNaviSpeedDecelRate)` 직접 호출로 교체, 동적 accel
+부스트 분기 삭제, 132차 램프리미터는 유지(accel_limit_kmh만 고정값으로 단순화).
+`py_compile` 통과 + 클린 클론에서 `git am` 성공 확인.
+`0001-route-decel-reuse-camera-calculate_current_speed-for.patch` 전달.
+
+**남은 일**: 실차 로그로 사후 검증(연속곡선 구간 위주), Type 3(폴리라인 곡률
+해상도) 조사는 별도로 계속.
+
 ## 159차(158차 계속) — [대안 설계 A/B 검증, NEGATIVE] apex 히스테리시스(명시적 리셋 상태머신) 설계는 단위테스트 통과에도 실측 재생에서 157차 무상태 설계보다 명백히 악화 — 히스테리시스 방향 폐기, 157차 유지 확정
 
 **배경**: 158차에서 "157차 apex 알고리즘이 apex 통과 후 실제로 자연

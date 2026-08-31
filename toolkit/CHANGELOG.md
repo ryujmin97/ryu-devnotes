@@ -671,3 +671,7 @@ discontinuity 0건). 개발 중 트리거 소스별 boost_s 미구분 버그가 
   132차 램프리미터도 정상 작동 확인(단, naviPaths 부족으로 윈도우가
   리셋되는 프레임에서는 production과 동일하게 램프 예외 발생 -- 버그
   아님).
+- (2026-08-31, 160차 신규) sim_route_camera_style_decel.py 추가 — route 감속을
+  과속카메라 calculate_current_speed()와 동일 공식으로 재구현(157차 accel_limit
+  동적 부스트 폐기, safe_time 버퍼 신규), 연속 S자커브 apex 전환 시나리오 포함
+  7/7 PASS. carrot_man.py 패치(0001-route-decel-reuse-camera-...)로 이어짐.
