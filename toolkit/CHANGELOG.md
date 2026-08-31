@@ -732,3 +732,8 @@ discontinuity 0건). 개발 중 트리거 소스별 boost_s 미구분 버그가 
   원인B(A_CHANGE_COST=200 부호전환 지연) 가설 재현검증 SUCCESS (baseline 부호전환 1.5s vs
   완화값(20) 1.0s, 0.5s 차이). route raw zip 미보유로 실측 프레임 대신 FINDINGS.md 174차
   요약 특성 기반 통제된 합성 시나리오 사용(제약사항 README에 명시).
+- 176차 계속: `sim_acados_causeB_real_replay.py` 신규 -- 사용자가 재업로드한 route
+  `6310bba9b8` raw zip을 실측 프레임 단위로 acados 실솔버에 주입해 원인B 가설 재검증.
+  closedloop 모드에서 baseline(200) vs 완화(20) 부호전환 0.45s 차이로 가설 방향 재확인.
+  단, 시뮬레이션 절대 감속량이 실측보다 약함(원인 미해결, README에 명시) + t=832.51
+  이후 실측은 운전자 수동제동 혼입 구간이라 비교 무효(t<832.51로 한정 필요).

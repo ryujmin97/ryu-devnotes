@@ -34,6 +34,41 @@ toolkit 편입)으로 재현검증.
 
 ---
 
+## 176차 계속 (체크포인트 — 실측 프레임 재검증 완료, 절대치 괴리는 다음 세션 조사 필요)
+
+**배경**: 176차 1차(합성 시나리오) 직후 사용자가 route `00000372--6310bba9b8--5,6`
+raw zip 재업로드 -- `extract_log.py --with-navi-paths`로 재추출(2401행, commit
+`4a15da4`=173차, 174차와 동일 코드 상태) 후 `sim_acados_causeB_real_replay.py`
+신규 작성해 실측 프레임 단위로 원인B 가설 재검증.
+
+**완료한 것**:
+- openloop(매 프레임 실측 리셋)/closedloop(실측 초기상태+실측target 궤적,
+  ego는 solver 자신 출력으로 적분) 두 모드 구현
+- closedloop 결과: baseline(200) 부호전환 t=830.95 vs 완화(20) t=830.50
+  (0.45s 차이) -- 176차 1차 합성 시나리오(0.5s 차이)와 방향/크기 일치,
+  **가설 재확인**
+- `v_cruise` 컬럼(`liveRouteSpeed` vs `desiredSpeed`) 둘 다 시도, 결과 거의
+  동일 -- target 컬럼 선택 문제 아님 확인
+- **미해결 발견**: baseline(200)조차 시뮬레이션 절대 감속량이 실측보다
+  훨씬 약함(원인 후보: FakeCarrot의 comfort_brake/personality/T_FOLLOW
+  고정 근사값이 실제 Params 기반 값과 다를 가능성) -- FINDINGS.md에 명시
+- **결정적 확인**: t=832.51(brakePressed=True)부터 실측 aEgo는 운전자
+  수동제동 혼입이라 MPC 단독 출력과 비교 무효 -- 향후 이 route 비교는
+  t<832.51로 한정
+- CSV는 세션 정책(레포 커밋 금지, Drive 미연결)에 따라 `data/routes/`에
+  캐싱하지 않고 work/에만 둠(컨테이너 리셋 시 소실)
+
+**다음 세션 시작 시 반드시**:
+1. 절대 감속량 괴리 원인 조사 -- FakeCarrot 고정값 대신 실제
+   CarrotPlanner 관련 값 반영 시도, 또는 이 조사를 후순위로 미루고
+2. 원인B 패치 설계로 바로 진행 가능(가설 자체는 두 독립 방법으로 충분히
+   검증됨) -- 리드없는 cruise 모드(`mode='acc'`, `leadStatus=False`)에서
+   가속->감속 부호전환 구간 한정 a_change_cost 완화 게이트 설계
+3. 이 route로 추가 정밀 분석 필요 시 zip 재업로드 필요(캐싱 안 됨)
+4. 글로벌 kill-switch 금지 원칙 준수
+
+---
+
 ## 175차 (체크포인트 — acados 실솔버 빌드 절차 확립+toolkit 편입 완료, 재현시뮬레이션은 다음)
 
 **배경**: 174차에서 정적분석으로 확인한 원인B(A_CHANGE_COST=200이 리드없는 cruise

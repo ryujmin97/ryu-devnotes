@@ -1960,3 +1960,61 @@ export PYTHONPATH=/home/claude/ryu
 python3 devnotes/toolkit/sim_acados_causeB_signflip.py
 ```
 **의존성**: `build_acados_long_mpc.sh` + `acados_stub_prelude.py`(위 항목) 선행 필요.
+
+## sim_acados_causeB_real_replay.py (176차 계속, 신규 — 실측 프레임 재검증)
+`sim_acados_causeB_signflip.py`(합성 시나리오)의 후속. 사용자가 174/172차와
+동일 route(`00000372--6310bba9b8--5,6`) raw zip을 재업로드해 `extract_log.py
+--with-navi-paths`로 재추출(2401행, commit `4a15da4`=173차, 174차와 동일 코드
+상태)한 CSV를 실측 프레임 단위로 그대로 acados 실솔버에 주입해 원인B 가설을
+재검증한다.
+
+**두 모드**:
+- `openloop`(기본 아님, `--mode openloop`): 매 프레임 `mpc.set_cur_state()`로
+  실측 vEgo/aEgo로 강제 리셋 후 1스텝만 `update()` -- 1프레임짜리 국소 반응만
+  보므로 "누적 지연" 효과가 지워짐. baseline 1프레임 예측 오차는 작음(평균
+  +0.09 m/s², RMSE 0.19 -- 실차가 쓰는 MPC이므로 당연한 정합성 확인). baseline
+  vs 완화(20) 간 예측 차이도 평균 0.047 m/s²로 작게 나옴 -- 이 모드만으론
+  가설 검증에 불충분.
+- `closedloop`(기본): t=829.0 실측 초기상태에서 출발, 이후 ego 상태는 solver
+  자신의 `a_solution[1]`로 적분 전진(실측 dt 사용), target(`liveRouteSpeed`
+  또는 `desiredSpeed`, `--v-cruise-col`)과 leadOne 트랙은 실측 시퀀스를
+  exogenous input으로 그대로 사용.
+
+**결과(가설 재확인)**: closedloop에서 baseline(200) 부호전환 t=830.95 vs
+완화(20) t=830.50 -- **0.45초 차이**, `sim_acados_causeB_signflip.py`(합성,
+0.5초 차이)와 방향/크기 일치. `v_cruise` 컬럼을 `liveRouteSpeed`/`desiredSpeed`
+어느 쪽으로 써도 결과 거의 동일(target 컬럼 선택 문제 아님).
+
+**[미해결] 절대 감속량 괴리**: baseline(200)조차 시뮬레이션 감속량이 실측보다
+훨씬 약함(예: t=831.80 실측 aEgo=-0.775 vs 시뮬 baseline aEgo=-0.214). 후보
+원인: `FakeCarrot`의 `comfort_brake=2.5`/`personality=standard`/
+`T_FOLLOW=1.2` 고정 근사값이 실제 그 시점 Params 기반 값과 다를 가능성.
+A_CHANGE_COST 자체의 영향(위 비교)과는 별개 축의 문제 -- 다음 세션 조사 필요.
+
+**[결정적] t=832.51 이후 비교 무효**: `brakePressed`가 정확히
+t=832.509110에 `True`로 전환(직후 `cruiseEnabled=False`) -- 이 시점부터
+실측 aEgo(-1.5~-2.9)는 운전자 수동 브레이크 페달 입력이 섞인 값이라 MPC
+단독 출력과 비교 자체가 무효. 이 route로 향후 비교 시 반드시 t<832.51로
+한정할 것.
+
+**`src` 컬럼 확인**: 전 구간 `route`로 고정 -- vision-only phantom-lead
+의심 트랙(radar=False, vRel≈-7~-8m/s, dRel 74~100m 노이즈성, modelProb
+0.15~0.7 낮고 불안정)이 존재했으나 바인딩 제약은 아니었음(cruise/route가
+계속 지배). `leadJLead`/`aLeadTau`는 `extract_log.py` 미추출 컬럼이라
+jLead=0.0으로 근사(영향 제한적으로 판단).
+
+**CSV 보관 안 함**: 세션 정책(레포에 대용량 CSV 커밋 금지, Drive 커넥터
+미연결)에 따라 `data/routes/`에 캐싱하지 않음 -- 이 route로 추가 분석
+필요 시 zip 재업로드 필요.
+
+**사용**:
+```
+bash devnotes/toolkit/build_acados_long_mpc.sh
+export LD_LIBRARY_PATH=/home/claude/ryu/third_party/acados/x86_64/lib
+export PYTHONPATH=/home/claude/ryu
+python3 devnotes/toolkit/sim_acados_causeB_real_replay.py <csv_path> \
+    [--t-start 829.0] [--t-end 832.6] [--mode both|openloop|closedloop] \
+    [--v-cruise-col liveRouteSpeed|desiredSpeed]
+```
+**의존성**: `build_acados_long_mpc.sh` + `acados_stub_prelude.py` 선행 필요.
+CSV는 `extract_log.py --with-navi-paths`로 재추출 필요(캐시 없음).

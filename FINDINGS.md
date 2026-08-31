@@ -41,6 +41,70 @@ leadStatus=False)에서 가속->감속 부호전환 구간에 한정해 a_change
 
 ---
 
+## 176차 계속 — [원인B 실측 프레임 재검증, 방향 재확인 BUT 절대치 괴리 미해결] route `00000372--6310bba9b8--5,6` raw zip 재업로드 후 실측 프레임 단위 정밀 재현 -- closedloop 모드에서 baseline(A_CHANGE_COST=200) vs 완화(20) 부호전환 0.45s 차이로 가설 방향 재확인. 단, 시뮬레이션 절대 감속량이 실측보다 훨씬 약함(원인 미해결) + t=832.51(brakePressed=True) 이후 실측은 운전자 수동제동 혼입 구간이라 MPC 단독 출력과 비교 자체가 무효
+
+**배경**: 176차 1차(합성 시나리오, `sim_acados_causeB_signflip.py`)가 가설을
+정성적으로 재현한 직후, 사용자가 174/172차와 동일 route(`00000372--6310bba9b8--5,6`)
+raw zip을 재업로드 -- `extract_log.py --with-navi-paths`로 재추출(2401행,
+commit `4a15da4`=173차, 174차와 동일 코드 상태) 후 실측 프레임을 그대로 solver에
+주입하는 `sim_acados_causeB_real_replay.py` 신규 작성.
+
+**오픈루프(매 프레임 실측으로 리셋) 결과**: baseline의 1프레임 예측 오차는 작음
+(평균 +0.09 m/s², RMSE 0.19 -- 실제 시스템도 이 MPC를 쓰고 있으므로 당연한
+정합성 확인). 그러나 매 프레임 실측 상태로 강제 리셋하는 방식이라 "누적 지연"
+효과 자체가 지워짐 -- baseline vs 완화(20) 간 예측 차이가 평균 0.047 m/s²로
+작게 나타나 가설 검증엔 이 모드만으로 불충분.
+
+**폐루프(t=829.0 실측 초기상태에서 출발, 이후 ego 상태는 solver 자신의 출력으로
+적분 전진, target/lead는 실측 시퀀스를 exogenous input으로 사용) 결과**:
+- baseline(200) 부호전환: t=830.95
+- 완화(20) 부호전환: t=830.50
+- **0.45초 차이 -- 176차 1차 합성 시나리오(0.5초 차이)와 방향/크기 모두 일치,
+  가설이 실측 target 궤적 기준으로도 재확인됨**
+- `v_cruise` 입력을 `liveRouteSpeed`/`desiredSpeed` 둘 중 어느 컬럼으로 써도
+  결과 거의 동일(0.45s 차이 유지) -- target 컬럼 선택의 영향 아님을 확인.
+
+**[중요, 미해결] 절대 감속량 괴리**: 폐루프 baseline(200)조차 시뮬레이션
+감속량이 실측보다 훨씬 약함 -- 예: t=831.80 실측 aEgo=-0.775 vs 시뮬 baseline
+aEgo=-0.214(완화 조건도 -0.356으로 여전히 실측에 못 미침). 후보 원인(다음
+세션 조사 필요): `FakeCarrot`이 `comfort_brake=2.5`/`personality=standard`/
+`T_FOLLOW=1.2` 등을 고정 근사값으로 쓰는데, 실제 그 시점 Params 기반 실값
+(jerk_factor, dynamicTFollow, 실제 accel_limits_turns 등)이 더 공격적이었을
+가능성. A_CHANGE_COST 자체의 영향(위 폐루프 비교)과는 별개 축의 괴리.
+
+**[결정적] t=832.51 이후 실측 비교 무효**: `brakePressed`가 정확히 t=832.509110에
+`True`로 전환(직후 `cruiseEnabled=False`) -- 이 시점부터 실측 aEgo(-1.5~-2.9)는
+**운전자 수동 브레이크 페달 입력이 섞인 값**이라 ACC/MPC 단독 출력과 비교
+자체가 성립하지 않음. 이전 세션(172/174차)이 "t=832.51 브레이크 개입"을
+결과로만 서술한 것은 맞으나, 그 이후 감속 수치를 MPC 문제의 증거로 쓰면 안 됨
+-- 앞으로 이 route 분석 시 비교는 반드시 t<832.51로 한정할 것.
+
+**`src` 컬럼 확인**: 전 구간(t=829.0~832.6) `route`로 고정 -- vision-only
+phantom-lead 의심 트랙(radar=False, vRel≈-7~-8m/s로 부자연스럽게 큼, dRel
+74~100m 노이즈성 오르내림, modelProb 0.15~0.7 낮고 불안정)이 존재했으나
+바인딩 제약이 아니었음(cruise/route가 계속 지배). leadJLead/aLeadTau가
+extract_log.py 미추출 컬럼이라 0.0으로 근사한 것의 영향은 제한적이라고 판단.
+
+**toolkit 변경**: `sim_acados_causeB_real_replay.py` 신규 편입(README/CHANGELOG
+갱신 완료, openloop/closedloop 두 모드 + `--v-cruise-col` 옵션).
+
+**CSV 보관 안 함**: 세션 정책(레포에 대용량 CSV 커밋 금지, Drive 커넥터 미연결)에
+따라 `data/routes/`에 캐싱하지 않고 `work/`(컨테이너 리셋 시 소실)에만 둠 --
+다음 세션에서 이 route로 추가 분석 필요 시 zip 재업로드 필요.
+
+**다음 세션 우선순위**:
+1. 절대 감속량 괴리 원인 조사 -- `FakeCarrot` 고정 근사값(comfort_brake/
+   personality/T_FOLLOW) 대신 실제 CarrotPlanner 인스턴스를 최소 의존성으로
+   생성해 대조(가능하면), 또는 실측 route의 실제 Params 덤프가 있다면 그 값
+   사용
+2. 원인B 패치 설계는 이제 진행 가능(가설 자체는 두 독립 방법으로 충분히
+   검증됨) -- 리드없는 cruise 모드 + 부호전환 구간 한정 a_change_cost 완화
+   게이트. 절대치 괴리 조사와 병행하거나 후순위로 미뤄도 무방(패치 설계
+   자체는 방향성 확인만으로 충분).
+3. 글로벌 kill-switch 금지 원칙 준수.
+
+---
+
 ## 174차 — [원인B 정적분석 완료] `longitudinal_planner.py`/`long_mpc.py` MPC 비용함수 구조 확인 — "route가 감속 스케줄대로 정상 하강해도 실제 aEgo가 못 따라가는" 원인은 accel_limit이 아니라 `A_CHANGE_COST=200`(가속도 변화율 억제 비용)이 `X_EGO_OBSTACLE_COST=5`/`V_EGO_COST=0`/`A_EGO_COST=0` 대비 압도적으로 커서, 리드가 없을 때(`mode='acc'`, cruise_obstacle) 목표속도 수렴이 구조적으로 느리기 때문 — 특히 가속→감속 부호전환 구간에서 지연이 집중됨
 
 **배경**: 173차(원인A 패치)까지 완료 후, 172차가 NEEDS_INVESTIGATION으로
