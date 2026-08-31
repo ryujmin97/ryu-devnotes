@@ -1190,3 +1190,24 @@ cruiseEnabled False)까지 gap이 계속 벌어짐. A_CRUISE_MIN=-2.0m/s²라
 설계+시뮬검증, (B) longitudinal_planner.py 종방향 추종 지연 정적분석
 또는 신규 analysis_helpers 스캔 함수(aEgo vs 가정 accel_limit 괴리
 구간 자동탐지, 149차 옵션4와 동일 방향) 착수.**
+
+2026-08-31 (173차, c3-ms-dev): 원인A 패치 구현. `carrot_man.py::
+carrot_navi_route()` 132차 램프리미터를 비대칭화(증가측 `hi=math.inf`,
+감속측 `lo` 유지). 커밋 `7559b09`(로컬), repo HEAD `f2e80d8`→`7559b09`.
+사전검증 PASS(`sim_route_boundary_ramp_limiter.py`에 `asymmetric_up`
+옵션 추가), arbitration 분석으로 과속 리스크 없음 구조적 확인. 패치파일
+`0001-fix-route-recovery-ramp-asymmetric.patch` 전달. **다음은 (1) 이
+패치 실차검증, (2) 원인B(`longitudinal_planner.py` accel 수렴/코스트
+정적분석 또는 149차 옵션4 신규구현).**
+
+2026-08-31 (174차, c3-ms-dev): 신규 커밋 없음(정적분석, repo HEAD
+`4a15da4`=173차와 동일, 사용자 로컬에서 `7559b09` 적용+push 완료 후
+컨테이너가 새로 fetch한 상태로 추정). 원인B 정적분석 완료 -- 사용자
+재업로드 route `00000372--6310bba9b8--5,6`(2401행, t=778.86~898.85)
+재추출로 172차 서술 정밀화(진짜 문제 구간은 t≈829.5~832.5, 3초로
+좁혀짐) + `long_mpc.py` 비용함수 분석으로 근본원인 확정: `A_CHANGE_COST
+=200`이 `X_EGO_OBSTACLE_COST=5`/`V_EGO_COST=0` 대비 압도적으로 커서
+리드없는 cruise 모드에서 가속→감속 전환이 구조적으로 느림. 코드 변경
+없음(재현검증 전 정적분석만). 상세는 WIP.md/FINDINGS.md 174차 참고.
+**다음은 acados 재현 시뮬레이션 신규 작성 → 패치 방향 3가지 후보
+중 결정.**
