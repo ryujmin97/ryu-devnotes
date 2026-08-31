@@ -1,0 +1,15 @@
+{
+  "commit": "712d76babc087b2ec737f13c2ec62ab90f95af1d",
+  "commit_short": "712d76babc08",
+  "branch": "c3-ms-dev",
+  "commit_date": "2026-08-30T20:07:32+09:00",
+  "commit_subject": "157차: carrot_navi_route() route 재설계 - 단일 apex 거리기반 감속",
+  "dirty": false,
+  "repo_dir": "/home/claude/ryu",
+  "route_dir": "/home/claude/work/route_full",
+  "out_csv": "/home/claude/work/route_full.csv",
+  "n_segments": 2,
+  "n_rows": 2400,
+  "extracted_at": "2026-08-31T02:17:29.467979+00:00",
+  "segment_state_carryover_fix": true
+}

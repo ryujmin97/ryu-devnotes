@@ -44,6 +44,8 @@ data/routes/<route_id>/
 | `e996400f6e` | 144차 route3 (x4seg, 마지막 세그 짧음) | 4 | 3688 | `3ec4e5c63f28` (141차) | gps.csv.gz 포함(128행). 연속주행 3/3구간(07:35:34~07:37:39) |
 | `144cha-combined` | 144차 통합(위 3개 병합) | - | 43289 | `3ec4e5c63f28` (141차) | 위 3개 route가 t(logMonoTime) 기준 끊김없이 이어지는 단일 연속주행(07:02~07:37, 20.6km)임을 확인 후 병합. `route.csv.gz`+`gps.csv.gz`(2023행). **목적**: route(GPS기반 커브감속) 적용검증 + PathOffset(140/141차) 레인리스 조향 반영 실차검증. **NEEDS_VALIDATION — 분석 진행 중, 사용자 승인 후 4개 항목(ba5f3d3273/898edd0f96/e996400f6e/144cha-combined) 전부 레포에서 삭제 예정**. extract_log.py에 `activeLaneLine` 필드 신규 추가(144차) 반영된 CSV. |
 
+| `aeeed9e4a5` | 161/162차 route (x2seg, seg0+seg3) | 2 (seg0 t≈6166~6226, seg3 t≈6346~6406, 사이 구간 미포함) | 2400 | `712d76babc08` (157차) | gps.csv.gz 포함(120행, 1Hz). seg3에 162차 근본원인 사례(t=6389~6393 실제 급우회전 steer 최대 -121.9°, naviPaths/TBT 완전 미인식) 포함 — `compare_navpos_vs_gps.py`로 carrotMan 추정위치(20Hz) vs 실측GPS(1Hz) 비교 시 t=6383~6396 구간 dist_m min=0.7/max=28.1/mean=12.3(n=260) 재현 확인. |
+
 ## 불러오기
 
 `toolkit/data_routes.py`의 `load_route(devnotes_dir, route_id)` 사용.
