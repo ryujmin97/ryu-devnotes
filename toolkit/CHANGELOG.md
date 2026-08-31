@@ -737,3 +737,9 @@ discontinuity 0건). 개발 중 트리거 소스별 boost_s 미구분 버그가 
   closedloop 모드에서 baseline(200) vs 완화(20) 부호전환 0.45s 차이로 가설 방향 재확인.
   단, 시뮬레이션 절대 감속량이 실측보다 약함(원인 미해결, README에 명시) + t=832.51
   이후 실측은 운전자 수동제동 혼입 구간이라 비교 무효(t<832.51로 한정 필요).
+- 177차: 원인B 패치 설계+구현 -- long_mpc.py에 리드없는 cruise 모드 route 감속률
+  기반 a_change_cost 완화 게이트 신규(CRUISE_DECEL_RATE_RELAX_LOW/HIGH,
+  CRUISE_DECEL_RELAX_A_CHANGE_COST, self.route_decel_rate EMA). `sim_causeB_patch_validate.py`
+  신규 -- 패치 ON/OFF 비교, 부호전환 1.5s->1.25s(0.25s 단축), t=3.0s gap 9.19->7.99kph.
+  HIGH 임계값 1.0->0.85 재조정(EMA 평활화로 정상상태 ~0.906 도달, 최초 설정으론 완전완화 미달성).
+  PARAMS_REGISTRY.md 신규 등록(NEEDS_VALIDATION). git am 검증/실차 검증 아직.

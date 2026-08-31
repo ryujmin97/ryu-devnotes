@@ -1,3 +1,40 @@
+## 177차 (체크포인트 — 원인B 패치 구현+합성검증 완료, 실측/실차/git am 검증은 다음)
+
+**배경**: 176차(합성+실측 폐루프)가 원인B 가설을 두 독립 방법으로 확인 완료.
+"원인B 패치 설계로 바로 진행" 지시에 따라 실제 패치 구현.
+
+**구현 내용**(`long_mpc.py`):
+- 신규 상태 `self.route_decel_rate`(v_cruise 하강률 EMA, j_lead와 동일한
+  0.1/0.9 저역통과) + `self._v_cruise_prev`
+- 신규 상수 `CRUISE_DECEL_RATE_RELAX_LOW`(0.3)/`_HIGH`(0.85 m/s²)/
+  `CRUISE_DECEL_RELAX_A_CHANGE_COST`(20.0)
+- `self.source=='cruise'`(리드없음+route/cruise 지배적)일 때만
+  `base_a_change_cost`를 route_decel_rate 기준 200→20 선형완화 (리드 케이스
+  j_lead interp와 동일 패턴)
+- PARAMS_REGISTRY.md 신규 등록(NEEDS_VALIDATION)
+
+**검증**(`sim_causeB_patch_validate.py` 신규):
+- production 호출 순서(set_weights()->update()) 재현 필요성을 검증 중
+  발견(1차 시도에서 빠뜨려 ON/OFF 결과 동일하게 나오는 버그 겪음, 수정함)
+- 결과: 부호전환 1.5s(OFF)→1.25s(ON), t=3.0s gap 9.19→7.99kph(13%개선)
+- HIGH=1.0 최초 설계 시 EMA 평활화로 정상상태 ~0.906에 그쳐 완전완화
+  미달성(개선폭 0.2s) 발견 → 0.85로 재조정, 0.25s로 소폭 개선
+- 176차 실측이 보여준 이론적 상한(0.45~0.5s)에는 못 미침 -- EMA 평활화
+  자체가 스냅백 방지용 의도된 지연이라 구조적 트레이드오프(버그 아님)
+
+**다음 세션 시작 시 반드시**:
+1. 실측 프레임(route `6310bba9b8`) 재검증 -- `sim_acados_causeB_real_replay.py`
+   (176차 계속)의 closedloop 프레임워크 재사용, zip 재업로드 필요(캐싱 안 됨)
+2. EMA 계수 추가 튜닝 여부 결정(현재 0.1/0.9는 j_lead 재사용값, route
+   전용으로 더 빠르게 할지 vs 현재 개선폭으로 실차 먼저 확인할지)
+3. `git am` verify-am 브랜치 검증 + py_compile
+4. 실차 검증 전에는 파라미터 확정 아님 -- PARAMS_REGISTRY.md NEEDS_VALIDATION
+   유지
+5. 글로벌 kill-switch 금지 원칙 준수(검증 스크립트의 monkeypatch는
+   프로덕션 코드와 무관, toolkit README에 명시함)
+
+---
+
 ## 176차 (체크포인트 — 원인B 재현검증 SUCCESS, 패치 설계는 다음)
 
 **배경**: 175차가 확립한 acados 실솔버 빌드(`build_acados_long_mpc.sh`) 재실행 후,

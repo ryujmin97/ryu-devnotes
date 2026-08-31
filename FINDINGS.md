@@ -1,3 +1,68 @@
+## 177차 — [원인B 패치 설계+구현 완료, 합성검증 PASS(방향 확인) — 실측/실차 검증 대기] long_mpc.py에 리드없는 cruise 모드 route 감속률 기반 a_change_cost 완화 게이트 신규 구현 -- 합성 시나리오(174차 요약 특성) 기준 부호전환 1.5s->1.25s(0.25s 단축), t=3.0s gap 9.19->7.99kph(13% 개선). 176차 실측이 보여준 이론적 상한(0.45~0.5s)에는 못 미침(EMA 평활화 트레이드오프, 상세 아래) -- 실측/실차 검증 전까지 파라미터 확정 아님
+
+**배경**: 176차(1차 합성+계속 실측 폐루프) 두 독립 방법이 모두 원인B 가설을
+재확인 -- "리드없는 cruise 모드에서 A_CHANGE_COST=200 고정이 가속->감속
+부호전환을 구조적으로 지연시킨다". 사용자가 "원인B 패치 설계로 바로 진행"
+지시 -- 177차에서 실제 패치 구현.
+
+**패치 구조**(long_mpc.py): 리드 케이스가 이미 쓰는
+`np.interp(abs(j_lead), [0.3, 2.0], [A_CHANGE_COST, 20])` 패턴을 route
+아날로그로 확장. 신규 상태 `self.route_decel_rate`(v_cruise 하강률, j_lead와
+동일한 EMA 0.1/0.9 저역통과)를 매 acc-모드 사이클 계산하고, `self.source==
+'cruise'`(리드/정지선이 아니라 순수 route/cruise 타겟이 지배적일 때만)일 때
+`base_a_change_cost = np.interp(route_decel_rate, [CRUISE_DECEL_RATE_RELAX_LOW,
+CRUISE_DECEL_RATE_RELAX_HIGH], [A_CHANGE_COST, CRUISE_DECEL_RELAX_A_CHANGE_COST])`
+로 완화. lead0/lead1/e2e가 지배적이면 기존 그대로. 상수는
+PARAMS_REGISTRY.md에 신규 등록(NEEDS_VALIDATION).
+
+**검증 스크립트**: `sim_causeB_patch_validate.py` 신규 -- `mpc.a_change_cost`
+외부 override 대신(패치가 update() 내부에서 자체 계산하므로 override는
+즉시 덮어써짐), 비교군("패치 OFF")은 모듈 상수를 실행 중 monkeypatch해
+완화가 절대 발동하지 않게 만듦(프로덕션 코드 자체엔 이런 토글 없음, 글로벌
+kill-switch 금지 원칙 준수). 또한 production 실제 호출 순서
+(`longitudinal_planner.py` set_weights()->update())를 그대로 재현 -- 1차
+검증 시 이 순서를 빠뜨려 ON/OFF 결과가 완전히 동일하게 나오는 버그를 겪고
+수정한 이력 있음(a_change_cost는 계산된 다음 사이클의 set_weights()에서만
+solver에 실제 반영되는 1사이클 지연 구조, 기존 리드 기반 로직과 동일 설계).
+
+**결과**: 합성 시나리오(174차 요약 특성, `sim_acados_causeB_signflip.py`와
+동일 조건 재사용) 기준:
+- 부호전환: 1.5s(패치 OFF) → 1.25s(패치 ON) -- **0.25s 단축**
+- t=3.0s gap: 9.19kph → 7.99kph -- **약 13% 개선**
+
+**[중요] HIGH 임계값 1차 시행착오**: 최초 설계는 `CRUISE_DECEL_RATE_RELAX_HIGH=1.0`
+(176차 실측 정상상태 평균 ~0.9보다 살짝 위로 잡음). 그런데 EMA(0.1/0.9)로
+평활화된 `route_decel_rate`가 이 시나리오에서 정상상태 ~0.906까지만 도달하고
+1.0에 못 미쳐 완전완화(20)에 도달하지 못함(최소 a_change_cost=44.2에 그침) --
+개선폭이 부호전환 0.2s로 미미했음. `HIGH=0.85`로 하향해 재검증하니 0.25s로
+소폭 개선. **176차가 보여준 baseline(200) vs A_CHANGE_COST=20 상수 고정 간
+차이(0.45~0.5s)에는 여전히 못 미침** -- 상수 고정 시나리오는 t=0부터 즉시
+20으로 시작하지만, 이 패치는 EMA로 완만하게 relax 값에 접근하므로(노이즈성
+route 흔들림에 즉각 반응해 스냅백을 유발하지 않기 위한 의도된 설계) 구조적으로
+상수 고정보다 반응이 늦음 -- 안전측 설계의 자연스러운 트레이드오프이지 버그
+아님.
+
+**다음 세션 조사 후보**(우선순위 미정, 결정 대기):
+1. EMA 계수를 route 전용으로 더 빠르게 조정(현재 j_lead와 동일한 0.1/0.9
+   재사용 -- 예: 0.2/0.8 등으로 반응성 높이되 오탐/스냅백 위험 재확인 필요)
+2. route_decel_rate 대신/병행 다른 신호(예: v_gap=v_ego-v_cruise) 결합 검토
+3. 현재 0.25s 개선폭을 우선 실차에서 확인 후 추가 튜닝 여부 결정(과최적화
+   방지 관점에서 합리적일 수 있음)
+
+**미검증(다음 단계)**:
+- 실측 프레임(route `6310bba9b8`) 재검증 -- `sim_acados_causeB_real_replay.py`
+  (176차 계속)의 closedloop 프레임워크를 재사용해 이 패치를 실측 target
+  궤적 기준으로 재확인 필요. zip 재업로드 필요(캐싱 안 됨, 176차 계속과 동일
+  정책).
+- `git am` 검증(verify-am 브랜치) 아직 안 함.
+- 실차 acados MPC 파이프라인 검증 없음.
+- 패치 전달(format-patch) 아직 안 함 -- 이번 세션 결과물로 다음 단계 진행 예정.
+
+**관련**: FINDINGS.md 174차(정적분석)/176차/176차 계속(가설 검증),
+PARAMS_REGISTRY.md CRUISE_DECEL_RATE_RELAX_* 항목.
+
+---
+
 ## 176차 — [원인B 재현검증 SUCCESS] acados 실솔버 폐루프 시뮬레이션으로 174차 원인B(A_CHANGE_COST=200이 리드없는 cruise 모드에서 가속->감속 부호전환을 구조적으로 지연시킨다) 가설 확인 -- baseline(200) 부호전환 1.5s vs 완화값(20) 1.0s, 0.5초 차이 재현
 
 **배경**: 175차가 확립한 acados 실솔버 빌드 절차(`build_acados_long_mpc.sh`) 위에서

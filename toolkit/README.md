@@ -2018,3 +2018,48 @@ python3 devnotes/toolkit/sim_acados_causeB_real_replay.py <csv_path> \
 ```
 **의존성**: `build_acados_long_mpc.sh` + `acados_stub_prelude.py` 선행 필요.
 CSV는 `extract_log.py --with-navi-paths`로 재추출 필요(캐시 없음).
+
+## sim_causeB_patch_validate.py (177차, 신규 — 원인B 패치 검증)
+176차가 검증한 원인B 가설(리드없는 cruise 모드에서 A_CHANGE_COST=200 고정이
+route 감속 추종을 구조적으로 지연시킨다)에 대한 실제 패치(long_mpc.py 내
+`route_decel_rate` 기반 a_change_cost 완화 게이트)를 검증한다.
+
+**패치 구조**: `self.source=='cruise'`(리드/정지선이 아니라 순수 route/cruise
+타겟이 지배)일 때만, route 목표속도(v_cruise) 하강률을 EMA(j_lead와 동일한
+0.1/0.9 저역통과)로 추적해 `CRUISE_DECEL_RATE_RELAX_LOW`(0.3 m/s²)~`_HIGH`
+(0.85 m/s²) 구간에서 `base_a_change_cost`를 200→20(`CRUISE_DECEL_RELAX_A_CHANGE_COST`)
+까지 선형 완화. 리드 케이스의 기존 `np.interp(abs(j_lead), [0.3, 2.0], [200, 20])`
+와 동일 패턴을 route 아날로그로 구현(PARAMS_REGISTRY.md 참고).
+
+**검증 방식**: `mpc.a_change_cost`를 외부에서 강제 override하지 않는다(패치가
+이미 update() 내부에서 매 사이클 자체 계산하므로 override는 즉시 덮어써져
+무의미). 대신 "패치 OFF" 비교군은 모듈 상수 `CRUISE_DECEL_RATE_RELAX_LOW/HIGH`를
+실행 중 비현실적으로 큰 값으로 monkeypatch(route_decel_rate가 항상 LOW 미만이
+되어 완화가 절대 발동하지 않음 = 기존 200 고정과 동일) -- 프로덕션 코드에는
+이런 토글을 두지 않는다(글로벌 kill-switch 금지 원칙, monkeypatch는 이
+스크립트 안에서만 유효). 실제 production 순서(`longitudinal_planner.py` 220행
+`set_weights()` -> 225행 `update()`)와 동일하게 매 사이클 `set_weights()`를
+먼저 호출 -- 이걸 빠뜨리면 a_change_cost가 solver 비용행렬에 반영되지 않아
+ON/OFF 결과가 동일하게 나오는 버그가 있었음(1차 검증 시 실제로 겪음, 기록).
+
+**결과**: `sim_acados_causeB_signflip.py`(176차 1차)와 동일 합성 시나리오(174차
+요약 특성) 기준 -- 부호전환 1.5s(OFF) → 1.25s(ON), t=3.0s gap 9.19→7.99kph
+(약 13% 개선). **HIGH=1.0으로 최초 설계했으나 EMA(0.1/0.9) 평활화된
+route_decel_rate 정상상태가 ~0.906까지만 도달해 완전완화(20)에 못 미침(개선폭
+0.2s에 그침) → 0.85로 재조정, 0.25s로 소폭 상승.** 176차가 보여준 baseline vs
+A_CHANGE_COST=20 상수 고정 간 차이(0.45~0.5s)에는 여전히 못 미침 -- EMA
+평활화 자체가 노이즈성 route 흔들림에 즉각 반응하지 않기 위한 의도된 지연이라
+구조적 트레이드오프. 다음 튜닝 후보: EMA 계수를 route 전용으로 더 빠르게(예:
+0.2/0.8), 또는 route 하강률 대신 다른 신호(예: v_gap) 병용.
+
+**미검증**: 실측 프레임(route `6310bba9b8`) 재검증 -- zip 재업로드 필요(캐싱
+안 됨). `git am` 검증/실차 검증 모두 아직.
+
+**사용**:
+```
+bash devnotes/toolkit/build_acados_long_mpc.sh
+export LD_LIBRARY_PATH=/home/claude/ryu/third_party/acados/x86_64/lib
+export PYTHONPATH=/home/claude/ryu
+python3 devnotes/toolkit/sim_causeB_patch_validate.py
+```
+**의존성**: `build_acados_long_mpc.sh` + `acados_stub_prelude.py` 선행 필요.
