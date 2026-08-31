@@ -1,3 +1,35 @@
+## 181차 (완료 — relative_gated 실측 A/B 재검증 POSITIVE, 179차 문제 최종 해소 확인)
+
+**진행**: 180차에서 미착수였던 실측 재검증을 사용자가 route 00000374
+seg11 zip(t=736.8~782.7, 179차 문제 구간 t≈753.5~759.3 포함)을
+재업로드해 완료. `extract_log.py --with-navi-paths`로 919행 재추출
+(commit=`89581897a4f2`, c3-ms-dev HEAD, 180차 패치 포함 상태) →
+`replay_route_camera_style_vs_baseline.py --apex-mode both_relative
+--start-t 736.8 --end-t 782.7`로 재생.
+
+**결론(POSITIVE)**: 케이스1(연속 실제 커브, t≈746~752)은 nearest와
+relative_gated 완전 동일(diff=0.00, 대응력 희생 없음). 케이스2(근접
+미세잡음 vs 원거리 진짜 급커브, t≈756.3~759.3+)는 nearest가 여전히
+잡음(apex_dist=10m)에 낚여 43.9km/h까지 가속하는 반면, relative_gated는
+진짜 급커브(apex_dist=60~110m, curv≈-0.09~-0.10)를 정확히 잡아
+33~38km/h로 유지 — **최대차 9.64km/h(t=758.69)**, 179차 원 문제(9.72km/h,
+당시 nearest vs sharpest)와 거의 동일한 크기로 실측 재현 + relative_gated가
+정확히 해소함을 확정. 180차 합성 스팟체크에 이어 실제 문제 로그로도
+검증 완료 — **이 패치는 이번 회차로 검증 완료 종결**.
+
+**toolkit/ryu 변경**: 없음(기존 도구/패치 재사용, 신규 코드 없음).
+
+**CSV 보관**: Drive 커넥터 미연결로 이번 세션도 CSV 미보관(devnotes
+정책상 원래도 커밋 대상 아님). `route_00000374.csv`는 컨테이너 리셋 시
+소실.
+
+**다음 단계**: 179차/180차/181차로 이어진 route-apex 게이트 이슈는
+일단락. 다음 우선순위는 WIP.md 이전 회차들에 남아있는 미해결 항목
+(147~149차 deceleration-gap 4개 옵션, 123~124차 cut-in 4개 옵션) 중
+사용자가 지시하는 방향으로 진행.
+
+---
+
 ## 180차 (체크포인트 — 179차 후속2 대안1(상대적 심각도 게이트) ryu 프로덕션 반영, 패치 완료/실차검증 대기)
 
 **진행**: 179차 후속2에서 시뮬레이션 POSITIVE로 확정된 대안1

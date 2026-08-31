@@ -11973,6 +11973,43 @@ min_persist_points(기본 2)개 연속 지점 모두 threshold 미만이어야 a
 갱신. **범위**: `toolkit/sim_route_camera_style_decel.py`만 변경(ryu
 프로덕션 코드 변경 없음, patch 파일 없음).
 
+## 181차 — [VALIDATED, 실측 A/B 재검증 완료] relative_gated 프로덕션 패치, route 00000374 seg11 실측 로그로 179차 문제 재현 + 해소 확인
+
+**진행**: 180차에서 프로덕션 반영했으나 미착수였던 "실제 route 00000374
+CSV(179차 문제 로그, t≈753.5~759.3)로 both_relative 실측 A/B 재검증"을
+사용자가 해당 zip(seg11, t=736.8~782.7, 정확히 문제 구간 포함)을
+재업로드하여 완료.
+
+**결론(POSITIVE, 179차 문제가 relative_gated로 해소됨을 실측 확인)**:
+- **케이스1 (연속 실제 커브, t≈746.0~752.0)**: nearest와 relative_gated가
+  전 구간에서 완전히 동일(diff=0.00, apex_dist=10.0m, curv=0.0238 그대로
+  유지) — 179차가 개선한 대응력이 relative_gated 적용 후에도 전혀
+  희생되지 않음을 실측으로 재확인.
+- **케이스2 (근접 미세잡음 vs 원거리 진짜 급커브, t≈756.3~759.3+)**:
+  nearest는 t=756.34부터 apex_dist=10.0m(curv≈-0.001~-0.02, floor
+  바로 위 잡음)에 고정되어 out_speed가 계속 상승(t=758.69에 43.92km/h까지
+  가속). relative_gated는 같은 구간에서 apex_dist=60~110m(curv≈-0.09~
+  -0.10, 실제 급커브)를 정확히 잡아 out_speed를 33~38km/h대로 유지.
+  **최대 절대차 9.64km/h(t=758.69, nearest가 더 높음/덜 안전)** —
+  179차에서 발견했던 nearest vs sharpest 차이(9.72km/h)와 거의 동일한
+  크기로 실측 재현되었고, relative_gated가 이를 그대로 해소함을 확인.
+- t≥759.29 구간은 naviPaths 부족으로 camera-style 계산 불가(기존에도
+  알려진 한계, 이번 회차 범위 밖).
+
+**의의**: 180차 합성 스팟체크(POSITIVE)에 이어, 실제 문제를 유발했던
+바로 그 실측 로그로도 relative_gated 게이트가 의도대로 동작함이
+확정됨. 이번 회차 이후 이 패치를 "검증 완료"로 종결.
+
+**toolkit 변경**: 없음(기존 `replay_route_camera_style_vs_baseline.py
+--apex-mode both_relative` 재사용, 180차에 이미 구현된 그대로 사용).
+`ryu` 프로덕션 코드도 변경 없음(180차 패치 그대로).
+
+**CSV 보관**: 이번 세션 Drive 커넥터 미연결 — `/home/claude/work/
+route_00000374.csv`는 컨테이너 리셋 시 소실, 재사용 필요 시 재추출
+필요(원본 zip: `00000374--c0c7a9c087--11`, t=736.8~782.7).
+
+---
+
 ## 180차 — [PATCH_APPLIED(실차 push 완료), 코드 추적 검증 완료] 대안1(상대적 심각도 게이트) 프로덕션 반영 + 순서 보장 불변식 재확인
 
 **배경**: 179차 후속2에서 시뮬레이션(toolkit) POSITIVE로 확정된 대안1을
