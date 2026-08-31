@@ -1,3 +1,46 @@
+## 167차 계속2 (체크포인트 — 163차 게이트(방향2) 발동조건을 cc_pose_valid=False로 좁혀 방향1과 병행하기로 재결정, 구현+diff-0 검증 완료)
+
+**배경**: 앞선 167차 항목에서 "방향1 실차검증 통과 시 방향2 롤백"으로
+정리했으나, 사용자가 트레이드오프 재검토를 요청 — 방향2 게이트는
+`position_dt_since_fix`(fix 이후 경과시간)만 보고 방향1이 이미 정확하게
+고쳤는지 여부를 모르므로, 방향1이 정상 동작 중(`cc_pose_valid=True`)에도
+`dt>3.0s`이기만 하면 계속 완화(hi)를 동결 — 방향1이 만든 이득(완화 방향
+정확도 회복)이 상쇄되는 과도보수화 문제 확인. 반대로 `cc_pose_valid=False`
+(캘리브레이션 미완료 등 방향1이 무력화되는 폴백)일 때는 방향2가 유일한
+안전망(165차 FINDINGS 미해결3). **결론: 완전 롤백 대신, 방향2 발동조건을
+`cc_pose_valid=False`로 좁혀서 병행**하는 쪽이 더 낫다고 재결정.
+
+**패치(원격 `a7d317d`=166차 기준)**:
+- `carrot_serv.py`: `_update_gps()` 지역변수였던 `cc_pose_valid`를
+  `self.cc_pose_valid`로 노출(`carrot_man.py`에서 읽을 수 있게).
+  `__init__` 기본값 `False`(안전측 — 첫 프레임 전엔 방향2가 정상 발동
+  가능한 상태로 시작).
+- `carrot_man.py`: 게이트 조건을 `position_dt_since_fix > 3.0
+  and not self.carrot_serv.cc_pose_valid`로 변경(AND 추가). 하강(lo)
+  쪽은 기존과 동일, 변경 없음.
+
+**검증**: `python3 -m ast`/`py_compile` 양쪽 파일 PASS. `origin/c3-ms-dev`
+(`a7d317d`)에서 분기한 throwaway 브랜치에 `git format-patch`→`git am`
+적용 후 diff-0 확인(패치=실제 커밋 내용 일치). throwaway 브랜치 삭제 완료.
+synthetic 재검증(163차 게이트 시뮬레이션에 `cc_pose_valid` 조건 반영)은
+아직 안 함 — 다음 세션 후보.
+
+**다음 세션 재개 시**:
+1. (우선) `0001-yaw-anchor-heading-correction.patch`(166차, 이미 실차
+   적용됨) 실차검증 — 우회전 구간 재주행.
+2. `0001-narrow-position-gate-to-pose-invalid.patch`(167차, base
+   `a7d317d`) 실차 적용 → 정상 구간(cc_pose_valid=True 대부분)에서
+   방향2가 더 이상 불필요하게 완화를 억제하지 않는지, `cc_pose_valid=False`
+   폴백 구간에서는 여전히 안전망으로 동작하는지 확인. 단, 이번 route
+   데이터는 `ccPoseValid` 100% True라 두번째 케이스는 실측 검증 데이터
+   없음(향후 과제).
+3. (선택) `sim_route_position_uncertainty_gate.py`에 `cc_pose_valid`
+   파라미터 추가해 조건 좁힘 자체를 synthetic 재검증.
+
+**전달**: WIP.md(이 항목)/patch 파일(`0001-narrow-position-gate-to-pose-invalid.patch`,
+`C:\dev\patch\`). FINDINGS.md/PARAMS_REGISTRY.md/toolkit 변경 없음(이번
+회차는 병행조건 좁히기 패치 구현만).
+
 ## 167차 (체크포인트 — 166차 검증 통과 헤딩보정 패치 구현+diff-0 검증 완료, 실차검증 대기. 163차 방향2는 방향1 실차검증 통과 시 롤백 결정)
 
 **배경**: 166차가 부호+수식 양쪽 검증(POSITIVE)을 마친 165차 설계(orientationNED
