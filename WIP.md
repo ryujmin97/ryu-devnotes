@@ -1,3 +1,20 @@
+## 161차 (체크포인트 — 160차 실측 재검증 진행중, route156 PASS + 신규 이슈 발견, 898edd0f96 미완료)
+
+**배경**: 160차(camera-style route 감속)를 "이전에 문제 있었던 주행 로그"로 실측 검증하는 세션. 158차가 157차 검증에 썼던 `replay_route_apex_vs_baseline.py` 구조를 재사용해 `replay_route_camera_style_vs_baseline.py`(신규, toolkit) 작성.
+
+**1) route156(`aeeed9e4a5`, 157차가 고친 104kph 고정 버그) — PASS**: zip 재업로드(seg1/seg2, `--with-navi-paths` 재추출 2400행) 후 재생. 157차가 고쳤던 3개 stuck 구간(104.0kph 9.9~12.3초 고정) 전부에서 160차도 정상 반응(54.0~70.7kph 범위, 158차가 검증한 157차 결과 56.3~76.7kph와 동급). 프레임간 최대낙차 0.16km/h(이론상한 0.13, 157차의 0.26보다 오히려 이론값에 근접 — 톱니 진동 없음). 직선 구간(곡률<0.002) 오탐 스캔 0건. **결론: 160차가 157차의 핵심 개선을 회귀 없이 유지.**
+
+**2) 898edd0f96(149차 근정지 오버슈트 원본) — 미완료**: 사용자가 원본 zip을 보유하지 않음. 대신 route156과 동일 route id(`aeeed9e4a5`)의 나머지 세그먼트(seg0/seg3, 총 4세그 2260~2406 t범위 아니고 6166~6406 연속)를 제공, "유사한 우회전 로그"로 검증 요청.
+
+**3) 신규 발견(NEEDS_INVESTIGATION, 149차와 다른 유형)**: 4세그 통합 재추출(`route_full.csv`, 4800행) 후 rightBlinker 스캔으로 seg3 끝부분(t=6389~6393)에서 실제 급우회전 발견(steer 최대 -121.9°, vEgo 58→26.8kph, vturn이 desiredSpeed 55→45→36→30→21kph로 막판 개입). 149차와 검증 방법 동일하게 접근했으나 **naviPaths가 이 회전을 아예 감지하지 못함**(해당 구간 내내 curvature≈-0.0003~-0.0005, 사실상 0=직선 취급) — 149차 케이스(fine 곡률은 280m/19초 전 정확히 잡았으나 감속률 부족)와 근본적으로 다른 유형. TBT(`xTurnInfo`/`xDistToTurn`)도 이 교차로를 전혀 추적 못 하고 1600m+ 떨어진 무관한 다른 턴을 가리키고 있었음(t=6394.97에야 xTurnInfo 리셋 후 새 턴 재포착, 이미 회전 종료 후). `verify_and_extract_frames.py`로 t=6385/6389/6390/6391/6392/6393 대시캠 프레임 확인 — 실제 신호교차로, 직진+우회전 겸용차선, 진짜 회전 맞음(가짜 이벤트 아님). **결론: 149차~160차 계열 패치(감속 공식/감속률)는 이 케이스에 적용 여지 자체가 없음 — naviPaths/TBT가 이 교차로 회전을 왜 못 봤는지가 별도 원인**. 사용자에게 처리 방향 질문 중 체크포인트 요청으로 세션 일시중단.
+
+**다음 세션 재개 시**:
+1. 898edd0f96 원본 zip이 확보되면 그걸로 160차 최종 검증 완료(1순위 목적)
+2. 신규 발견(naviPaths/TBT 교차로 회전 미감지)을 더 팔지, FINDINGS.md 기록만 하고 넘어갈지 사용자 확인 필요(질문 던진 상태에서 중단됨)
+3. toolkit 변경사항(`replay_route_camera_style_vs_baseline.py`) README/CHANGELOG 반영은 이번 체크포인트에 포함해 완료함(아래 toolkit 변경 참고)
+
+**toolkit 변경(이번 회차)**: `replay_route_camera_style_vs_baseline.py` 신규(158차 스크립트 구조 재사용, `carrot_navi_route_camera_style` 오프라인 재생). README/CHANGELOG 갱신 완료. route156(`aeeed9e4a5` seg1/seg2) CSV는 devnotes에 미보관(대용량 정책) — 필요 시 재추출.
+
 ## 160차 계속 (완료 — 로컬 패치 적용 확인 + 브랜치 혼선 정리)
 
 **배경**: 160차 패치(`0001-route-decel-reuse-camera-calculate_current_speed-for.patch`) 전달 후 사용자가 로컬(`C:\dev\ryu`)에서 적용하는 과정에, 이전에 남아있던 `c3-ms-curv` 로컬 브랜치 때문에 커밋이 잘못된 브랜치에 얹히는 혼선 발생.

@@ -1340,6 +1340,36 @@ DISENGAGED<->ENGAGED를 오갈 때마다 132차 램프리미터의 "제약 해�
 python3 replay_route_apex_hysteresis_ab.py <route.csv> --accel 0.70
 ```
 
+## replay_route_camera_style_vs_baseline.py (161차, 신규 — 160차 실측 검증)
+**목적**: extract_log.py --with-navi-paths로 뽑은 실측 로그를 20Hz 프레임
+단위로 재생해, 160차 camera-style route 감속 알고리즘
+(sim_route_camera_style_decel.carrot_navi_route_camera_style)이 그 실제
+상황에서 어떻게 반응했을지 오프라인으로 계산하고, CSV에 이미 기록된
+liveRouteSpeed(실측 ground truth)와 비교한다. 158차
+`replay_route_apex_vs_baseline.py`(157차용)와 구조가 거의 동일 —
+`find_stuck_segments`는 그 파일에서 그대로 import해서 재사용, `replay()`만
+carrot_navi_route_camera_style 호출로 교체.
+**주의**: carrot_navi_route_camera_style()은 v_ego_kph를 안 씀(거리만으로
+계산하는 카메라 공식 특성) — 157차용 replay와 인자 구성이 다름.
+**의존성**: analysis_helpers.py(load_csv/parse_navi_paths/
+recompute_route_curvature_speed), sim_route_camera_style_decel.py
+(carrot_navi_route_camera_style), sim_route_boundary_ramp_limiter.py
+(RampLimiterState), replay_route_apex_vs_baseline.py(find_stuck_segments)
+**161차 실측 검증 결과**: route156(`aeeed9e4a5`) 재생 — 157차가 고쳤던
+liveRouteSpeed 104.0kph 9.9~12.3초 고정 구간 3곳 전부에서 160차도 정상
+반응(54.0~70.7kph). 프레임간 최대낙차 0.16km/h(이론상한 0.13, 157차의
+0.26보다 이론값에 더 근접). 직선구간 오탐 0건. 상세는 FINDINGS.md 161차
+참고. **주의**: 같은 세션에서 이 route의 다른 세그먼트(seg0/seg3)의 실제
+우회전 이벤트(t=6389~6393)에 이 스크립트를 돌려본 결과 naviPaths 자체가
+그 회전을 감지 못하는(apex_curvature≈0) 별개의 신규 이슈를 발견함 —
+149차~160차 계열(감속 공식/감속률)로는 해결 불가능한 유형이므로 160차
+검증 결과 집계에서는 제외, FINDINGS.md 161차에 별도 기록.
+**사용**:
+```bash
+python3 replay_route_camera_style_vs_baseline.py <route.csv> \
+    [--safe-time 2.2] [--decel 0.70] [--start-t T0] [--end-t T1] [--json out.json]
+```
+
 ## 아직 없는 카테고리 (필요해지면 추가)
 - `toolkit/sim/` — 시뮬레이터 스크립트가 `sim_vision_rate.py` 하나를
   넘어 여러 개로 늘어나면 이 시점에 하위 폴더로 분리 검토.

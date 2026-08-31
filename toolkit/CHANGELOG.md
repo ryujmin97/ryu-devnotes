@@ -3,6 +3,13 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+- 2026-08-31 (161차) `replay_route_camera_style_vs_baseline.py` 신규:
+  158차 `replay_route_apex_vs_baseline.py` 구조 재사용, 160차 camera-style
+  알고리즘을 실측 CSV로 오프라인 재생 + liveRouteSpeed 대조. route156 실측
+  검증 PASS(157차 stuck 버그 3곳 전부 정상 반응, 회귀없음). 같은 세션에
+  naviPaths/TBT가 실제 급우회전을 전혀 감지 못하는 신규 이슈 발견(149차와
+  다른 유형, FINDINGS.md 161차 참고).
+
 - 2026-08-30 (158차계속/159차) `sim_route_apex_hysteresis.py` 신규:
   157차 무상태 apex 알고리즘에 대한 3상태(reset/engaged/disengaged)
   히스테리시스 대안, 단위테스트 4/4 PASS. `replay_route_apex_hysteresis_ab.py`
