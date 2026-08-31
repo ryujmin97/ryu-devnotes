@@ -1,3 +1,50 @@
+## 167차 (체크포인트 — 166차 검증 통과 헤딩보정 패치 구현+diff-0 검증 완료, 실차검증 대기. 163차 방향2는 방향1 실차검증 통과 시 롤백 결정)
+
+**배경**: 166차가 부호+수식 양쪽 검증(POSITIVE)을 마친 165차 설계(orientationNED
+델타앵커링)에 대해 사용자가 패치 진행 승인. (별도 브랜치 분기 시도했다가
+사용자 지시로 `c3-ms-dev`에 직접 커밋하는 기존 방식으로 원복.)
+
+**패치**: `carrot_serv.py::_update_gps()`. `__init__`에 상태변수 2개
+(`cc_yaw_at_fix`, `_prev_fix_time_for_heading`) 추가. L729의 기존 TODO
+주석("CC.orientationNED[2] 이용하여 bearing 보정") 자리에 15줄 구현 —
+`last_calculate_gps_time` 변화로 새 fix 도착 감지 → 그 시점 `CC.orientationNED[2]`를
+`cc_yaw_at_fix`로 고정 → 이후 매 프레임 `Δyaw = wrap(cc_yaw_now - cc_yaw_at_fix)`를
+`heading_correction_deg`로 계산해 `bearing_calculated`에 가산. 165차 의사코드
+그대로, 적분이 아닌 절대값 직접 차분(Diff) 방식.
+
+**검증**: `python3 -m ast`/`py_compile` PASS. `c3-ms-dev`(`eecac50`)에서 분기한
+throwaway 브랜치(`verify-166-patch`)에 `git format-patch`→`git am` 적용 후
+`git diff c3-ms-dev`로 diff-0 확인(패치 파일과 실제 커밋 내용 완전 일치).
+throwaway 브랜치는 검증 후 삭제. synthetic 검증(5/5 PASS)은 166차에서 이미
+완료(오차 66.11°→2.8e-14°) — 이번엔 패치 코드 자체의 무결성만 재확인.
+
+**163차 방향2(위치불확실성 게이트) 처리 결정**: 사용자 지시 — "방향1이
+검증되면 방향2는 롤백". 단, 방향1은 아직 synthetic 검증만 통과했고 실차
+검증은 미완료 상태이므로, 이번 회차에서는 163차 게이트 코드(`carrot_man.py`
+램프리미터의 `position_dt_since_fix>3.0s` 동결 로직)를 **아직 건드리지
+않음**. 방향1 패치의 실차 재주행 검증(우회전 구간, route= HUD가 정체 중
+매끄럽게 오르지 않고 헤딩보정으로 정상 추종하는지)이 통과하면, 그 다음
+세션에서 163차 게이트를 롤백(또는 완화)하는 후속 패치를 진행.
+
+**다음 세션 재개 시**:
+1. `0001-yaw-anchor-heading-correction.patch`(base `c3-ms-dev` `eecac50`,
+   local HEAD `b8e74cd`) 실차 `git am` 적용(`c3-ms-dev` 브랜치에 그대로) →
+   우회전 구간(가능하면 162차와 유사한 상황) 재주행 → route= HUD/추정위치가
+   정체 구간 동안 실제 회전을 반영해 움직이는지, 정상 구간은 기존과 동일한지
+   확인.
+2. 실차검증 PASS 시: 163차 게이트(`eecac50`) 롤백 패치를 `c3-ms-dev`에
+   이어서 작성.
+3. 실차검증에서 문제 발견 시: 원인 분석 후 방향1 패치 수정, 방향2는 계속
+   유지.
+
+**브랜치 상태**: 별도 브랜치(`c3-ms-route`) 시도는 폐기됨 — 최종적으로
+로컬 `c3-ms-dev`에 직접 커밋(`b8e74cd`, `origin/c3-ms-dev` 대비 1커밋 앞섬).
+아직 origin에 push 안 됨.
+
+**전달**: WIP.md(이 항목)/patch 파일(`0001-yaw-anchor-heading-correction.patch`,
+`C:\dev\patch\`). FINDINGS.md/PARAMS_REGISTRY.md/toolkit 변경 없음(166차에서
+이미 기록 완료, 이번 회차는 패치 구현만).
+
 ## 166차 (체크포인트 — 165차 미해결 부호검증 완료(POSITIVE)+앵커링/wrap 수식 synthetic검증 5/5 PASS, 패치는 사용자 승인 대기)
 
 **배경**: 사용자가 162~164차 route(`aeeed9e4a5` seg0/seg3) zip 업로드.
