@@ -1432,6 +1432,20 @@ apex(sharpest)와 179차 apex(nearest)를 같은 프레임에서 나란히 계�
 ```bash
 python3 replay_route_camera_style_vs_baseline.py <route.csv> --apex-mode both --json out.json
 ```
+**2026-08-31 추가(180차)**: `--apex-mode`에 `relative_gated`(179차 후속2/
+180차 프로덕션 반영 게이트, road_limit_speed=200.0/relative_severity_ratio=
+0.85 고정 — `carrot_man.py` 프로덕션 기본값과 동일)와 `both_relative`
+(nearest vs relative_gated 나란히 비교, "sharpest vs nearest 차이" 출력을
+`{m0} vs {m1} 차이`로 일반화해 재사용) 신규 추가. 합성 스팟체크(근접 floor
+잡음 3점 + 원거리 실제 급커브 1점 시나리오)로 relative_gated가 sharpest와
+동일 결과(81.2km/h)를 내고 nearest(199.5km/h, 잡음에 낚임)와 다름을
+확인 — 179차 실측 문제(route 00000374 t≈753.5~759.3)에 대한 실측 A/B
+재검증은 해당 CSV 재확보 후 별도 수행 예정(FINDINGS.md 180차 참고).
+**사용(both_relative)**:
+```bash
+python3 replay_route_camera_style_vs_baseline.py <route.csv> --apex-mode both_relative \
+    --start-t 736.8 --end-t 782.7 --json out.json
+```
 **2026-08-31 추가(179차 후속, NEGATIVE 결과)**: `sim_route_camera_style_decel.py`에
 `carrot_navi_route_camera_style_nearest_severity_gated()`(도로제한속도
 대비 비율 최소심각도 게이트, 3단 폴백) + `noise_then_real_curve_curvature_fn()`

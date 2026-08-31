@@ -38,7 +38,11 @@ import json
 import sys
 
 from analysis_helpers import load_csv, parse_navi_paths, recompute_route_curvature_speed
-from sim_route_camera_style_decel import carrot_navi_route_camera_style, carrot_navi_route_camera_style_nearest
+from sim_route_camera_style_decel import (
+    carrot_navi_route_camera_style,
+    carrot_navi_route_camera_style_nearest,
+    carrot_navi_route_camera_style_nearest_relative_gated,
+)
 from sim_route_boundary_ramp_limiter import RampLimiterState
 from replay_route_apex_vs_baseline import find_stuck_segments
 
@@ -47,11 +51,18 @@ ROUTE_CURVE_NEGLIGIBLE_THRESHOLD = 0.001  # 157차/160차 공통값
 
 def replay(rows, safe_time, decel_rate_mss, apex_mode="sharpest"):
     """프레임별로 camera-style 알고리즘을 오프라인 재생. apex_mode="sharpest"
-    (기본, 157/160/161차 기존값 -- 가장 급한 지점) 또는 "nearest"(179차 신규
-    -- 가장 가까운 지점). 반환: 프레임별 dict 리스트 (t, v_ego_kph, src,
+    (기본, 157/160/161차 기존값 -- 가장 급한 지점), "nearest"(179차 신규 --
+    가장 가까운 지점), 또는 "relative_gated"(179차 후속2/180차 신규 --
+    nearest 위에 sharpest 대비 상대적 심각도 게이트, road_limit_speed=200.0
+    기본가정 및 relative_severity_ratio=0.85는 sim_route_camera_style_decel.py
+    프로덕션 기본값과 동일). 반환: 프레임별 dict 리스트 (t, v_ego_kph, src,
     live_route_speed(실측), cam_out_speed(알고리즘 오프라인 계산, 132차
     램프 통과 후), cam_apex_dist, cam_apex_curvature)."""
-    algo = carrot_navi_route_camera_style if apex_mode == "sharpest" else carrot_navi_route_camera_style_nearest
+    algo = {
+        "sharpest": carrot_navi_route_camera_style,
+        "nearest": carrot_navi_route_camera_style_nearest,
+        "relative_gated": carrot_navi_route_camera_style_nearest_relative_gated,
+    }[apex_mode]
     ramp = RampLimiterState()
     out = []
     prev_t = None
@@ -94,10 +105,21 @@ def replay(rows, safe_time, decel_rate_mss, apex_mode="sharpest"):
 
         if apex_mode == "sharpest":
             apex_idx = min(range(len(speeds_only)), key=lambda k: speeds_only[k])
-        else:
+        elif apex_mode == "nearest":
             apex_idx = next((k for k in range(len(speeds_only)) if speeds_only[k] < 200.0), None)
             if apex_idx is None:
                 apex_idx = min(range(len(speeds_only)), key=lambda k: speeds_only[k])
+        else:  # relative_gated -- carrot_navi_route_camera_style_nearest_relative_gated와
+               # 동일 로직으로 apex_idx 재계산 (표시용, out_speed 자체는 이미 algo()가 계산함)
+            candidates = [k for k in range(len(speeds_only)) if speeds_only[k] < 200.0]
+            if not candidates:
+                apex_idx = min(range(len(speeds_only)), key=lambda k: speeds_only[k])
+            else:
+                sharpest_severity = 200.0 - min(speeds_only[k] for k in candidates)
+                gated = [k for k in candidates
+                         if sharpest_severity > 0
+                         and (200.0 - speeds_only[k]) >= 0.85 * sharpest_severity]
+                apex_idx = gated[0] if gated else candidates[0]
         out.append({
             "t": t, "v_ego_kph": v_ego_kph, "src": row.get("src", ""),
             "live_route_speed": float(row["liveRouteSpeed"]),
@@ -133,8 +155,11 @@ def main():
     ap.add_argument("--decel", type=float, default=0.70, help="AutoNaviSpeedDecelRate 실측값 (기본 0.70)")
     ap.add_argument("--start-t", type=float, default=None)
     ap.add_argument("--end-t", type=float, default=None)
-    ap.add_argument("--apex-mode", choices=["sharpest", "nearest", "both"], default="sharpest",
-                     help="sharpest=157/160/161차 기존(전역 최소속도), nearest=179차 신규(가장 가까운 지점), both=둘 다 계산해 나란히 비교")
+    ap.add_argument("--apex-mode", choices=["sharpest", "nearest", "relative_gated", "both", "both_relative"],
+                     default="sharpest",
+                     help="sharpest=157/160/161차 기존(전역 최소속도), nearest=179차(가장 가까운 지점), "
+                          "relative_gated=179차 후속2/180차(nearest+상대적 심각도 게이트), "
+                          "both=sharpest vs nearest 비교, both_relative=nearest vs relative_gated 비교(180차 신규)")
     ap.add_argument("--json", default=None)
     args = ap.parse_args()
 
@@ -147,7 +172,12 @@ def main():
         print("no rows in range", file=sys.stderr)
         sys.exit(1)
 
-    modes = ["sharpest", "nearest"] if args.apex_mode == "both" else [args.apex_mode]
+    if args.apex_mode == "both":
+        modes = ["sharpest", "nearest"]
+    elif args.apex_mode == "both_relative":
+        modes = ["nearest", "relative_gated"]
+    else:
+        modes = [args.apex_mode]
     results = {m: replay(rows, args.safe_time, args.decel, apex_mode=m) for m in modes}
     result = results[modes[0]]  # stuck-segment 표는 첫 모드 기준(기존 출력과 호환)
 
@@ -171,15 +201,17 @@ def main():
         print(f"    (decel={args.decel} m/s^2 기준 이론 상한 = {args.decel*3.6*0.05:.2f} km/h/frame @ dt=0.05s)")
 
     if len(modes) == 2:
+        m0, m1 = modes
         diffs = []
-        for a, b in zip(results["sharpest"], results["nearest"]):
+        for a, b in zip(results[m0], results[m1]):
             if a["cam_out_speed"] is not None and b["cam_out_speed"] is not None:
                 diffs.append((a["t"], a["cam_out_speed"] - b["cam_out_speed"]))
         if diffs:
             max_diff = max(diffs, key=lambda x: abs(x[1]))
             n_diff_gt1 = sum(1 for _, d in diffs if abs(d) > 1.0)
-            print(f"\n=== sharpest vs nearest 차이 ===")
-            print(f"    최대 절대차: {abs(max_diff[1]):.2f} km/h (t={max_diff[0]})")
+            print(f"\n=== {m0} vs {m1} 차이 ===")
+            print(f"    최대 절대차: {abs(max_diff[1]):.2f} km/h (t={max_diff[0]}, "
+                  f"양수={m0}가 더 높음/양수 값 방향 주의)")
             print(f"    1km/h 초과 차이 프레임 수: {n_diff_gt1}/{len(diffs)}")
 
     if args.json:

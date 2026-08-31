@@ -777,3 +777,9 @@ discontinuity 0건). 개발 중 트리거 소스별 boost_s 미구분 버그가 
   신규 -- 패치 ON/OFF 비교, 부호전환 1.5s->1.25s(0.25s 단축), t=3.0s gap 9.19->7.99kph.
   HIGH 임계값 1.0->0.85 재조정(EMA 평활화로 정상상태 ~0.906 도달, 최초 설정으론 완전완화 미달성).
   PARAMS_REGISTRY.md 신규 등록(NEEDS_VALIDATION). git am 검증/실차 검증 아직.
+- 180차: `replay_route_camera_style_vs_baseline.py`에 `--apex-mode relative_gated`
+  (179차 후속2/180차 프로덕션 반영 게이트) + `both_relative`(nearest vs relative_gated
+  비교) 신규 추가. `carrot_navi_route_camera_style_nearest_relative_gated` import 및
+  A/B 비교 출력부 일반화(하드코딩된 sharpest/nearest → modes[0]/modes[1]). 합성
+  스팟체크로 relative_gated가 sharpest와 동일 결과를 냄을 확인. **route 00000374
+  실측 CSV 재확보 후 both_relative 실측 A/B 재검증은 아직 미착수(다음 세션 과제).**
