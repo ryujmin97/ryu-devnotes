@@ -3,6 +3,14 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+- **2026-08-31 (165차)**: `extract_log.py` — `ccYawDeg`/`ccYawRateZ`/`ccPoseValid`
+  컬럼 추가(carControl.orientationNED[2] 나침반변환값 + calibrated
+  angularVelocity[2] 원시값 + 유효성 — livePose 직접구독 대신 carrot_man이
+  이미 구독 중인 carControl에서 추출, carrot_serv.py L729 기존 TODO가
+  가리키던 바로 그 필드). 162차 근본원인(bearing 정체+직진외삽)의 방향1
+  (헤딩보정) 설계 검증용 지상진실 확보 목적. 이 시점 이전 CSV엔 당연히
+  없음, 재추출 필요.
+
 - 2026-08-31 (161차) `replay_route_camera_style_vs_baseline.py` 신규:
   158차 `replay_route_apex_vs_baseline.py` 구조 재사용, 160차 camera-style
   알고리즘을 실측 CSV로 오프라인 재생 + liveRouteSpeed 대조. route156 실측

@@ -1,3 +1,51 @@
+## 165차 — [설계, NEEDS_VALIDATION] 162차 방향1(livePose 자세데이터 헤딩보정) 코딩설계 — CC.orientationNED/angularVelocity 델타앵커링 방식으로 확정, synthetic 검증은 다음 단계
+
+**배경**: 163차에서 사용자가 방향2(위치불확실성 게이트, 완료+실차검증대기)를 선택하며 "방향1(livePose 헤딩보정)은 비용이 커 향후 과제로 보류"했던 항목. 이번 세션에서 사용자가 명시적으로 "미뤄뒀던 1번 livepose 자세데이터로 헤딩 보정 코딩설계 가자"고 재개 지시. 아직 코드 변경(패치) 없이 설계만 확정하는 단계(패치는 사용자 승인 후, 원칙대로).
+
+**문제 재확인**: `carrot_serv.py::_update_gps()`가 쓰는 `bearing`(≈1Hz CarrotNavi 앱/폰의 `nPosAngle`)이 외부 GPS 갱신이 끊기면(162차 실측 최대 24초) 마지막 값에 고정된 채로 `estimate_position()`이 그 옛 헤딩으로 계속 직진 데드레커닝 — 실제 급회전(steer -121.9°)을 "직선"으로 오판(위치오차 최대 28m). L729의 기존 TODO 주석이 정확히 "`CC.orientationNED[2]`를 이용해 보정하라"고 이미 가리키고 있었음(원저자가 이미 알고 있던 미해결 과제).
+
+**설계 결정 1 — 데이터소스: `livePose` 직접구독이 아니라 이미 흐르는 `CC.orientationNED`/`CC.angularVelocity` 사용**: `controlsd.py` L250-252가 `calibrated_pose`(livePose를 캘리브레이션 보정한 값)를 매 프레임 `CC.orientationNED`/`CC.angularVelocity`(List(Float32), index 2 = yaw/yaw rate)에 실어 100Hz로 발행 중이고, `carrot_man.py`는 이미 `'carControl'`을 구독 중(L306)이라 **신규 SubMaster 서비스 추가가 필요 없음** — TODO 주석이 가리켰던 바로 그 경로. `_update_gps(v_ego, sm, gps_service)`는 이미 `sm['carControl']`(`CC` 변수)을 받고 있어 코드 변경 범위가 `carrot_serv.py` 내부로 국한됨.
+
+**설계 결정 2 — 절대치 대입이 아니라 마지막 fix 기준 델타(상대회전) 앵커링**: `locationd.py`(livePose 발행원)의 SubMaster 구독은 `['carState', 'liveCalibration', 'cameraOdometry']`뿐 — **GPS/외부 GNSS를 전혀 안 씀**(순수 IMU+카메라 오도메트리 융합, `PoseKalman`). 즉 CarrotNavi 앱의 정체 문제(nPosAngle)와 완전히 독립된 신호라 근본적으로 유효한 보정원이지만, 반대로 절대 나침반 방향(진북) 보정 입력이 없어 **긴 시간축에서는 절대값으로 신뢰 불가**(자이로 바이어스 등으로 서서히 드리프트). 따라서 `CC.orientationNED[2]`를 절대 헤딩으로 그대로 대입하지 않고, **마지막으로 유효했던 외부 fix 시점의 `CC.orientationNED[2]`를 기준점(`cc_yaw_at_fix`)으로 저장해뒀다가, 그 이후의 변화량(Δyaw = 현재값 - 기준점, ±π wrap)만 `bearing`에 더하는 방식**으로 설계 — 정체 구간(11~24초)처럼 짧은 시간축에서는 드리프트가 무시할 수준이면서, 매 정상 fix 갱신마다 기준점이 재정렬돼 오차가 누적되지 않음(정상 동작 구간에서는 보정량이 항상 0으로 리셋 — 기존 동작과 완전히 동일, 정체 구간에서만 보정이 커짐).
+
+**설계 결정 3 — "새 fix 도착" 감지 지점: UDP 파서가 아니라 `_update_gps()` 내부**: `nPosAngle`이 실제로 갱신되는 지점은 UDP JSON 파서(L1379-1383 navi, L1406-1412 phone, `sm`/`CC` 접근 불가한 별도 컨텍스트로 추정)지만, 거기 훅을 걸지 않고 **`_update_gps()` 안에서 `self.last_calculate_gps_time`이 이전 호출 대비 바뀌었는지로 "새 fix 도착"을 간접 감지**하는 방식을 채택 — `_update_gps()`는 이미 매 프레임 `sm['carControl']`을 갖고 있고(함수 진입부의 `if not sm.updated['carState'] or not sm.updated['carControl']: return` 가드 덕분에 이 지점에 도달하면 `CC`가 항상 신선한 프레임임이 보장됨), UDP 파서 쪽은 아예 안 건드려도 돼서 diff가 `carrot_serv.py` 한 파일, `__init__` 상태변수 2개(`cc_yaw_at_fix`, `_prev_last_calculate_gps_time`) + `_update_gps()` 내부 10줄 안팎으로 최소화됨.
+
+**의사코드(구현 예정, 아직 미적용)**:
+```python
+# __init__: self.cc_yaw_at_fix = None; self._prev_fix_time = 0
+
+# _update_gps() 내부, bearing_calculated 계산 직전:
+ned = list(CC.orientationNED)
+cc_pose_valid = len(ned) > 2
+heading_correction_deg = 0.0
+if cc_pose_valid:
+    cc_yaw_now = ned[2]
+    if self.last_calculate_gps_time != self._prev_fix_time:  # 새 fix 도착
+        self.cc_yaw_at_fix = cc_yaw_now
+    self._prev_fix_time = self.last_calculate_gps_time
+    if self.cc_yaw_at_fix is not None:
+        dyaw = (cc_yaw_now - self.cc_yaw_at_fix + math.pi) % (2 * math.pi) - math.pi
+        heading_correction_deg = math.degrees(dyaw)
+
+bearing_calculated = (bearing + self.bearing_offset + heading_correction_deg) % 360
+```
+
+**미해결/검증 필요 사항(정직하게 기록)**:
+1. **부호 검증 안 됨**: `CC.orientationNED`가 "NED"(진북기준 시계방향 양수, 나침반과 동일 관례)라는 것은 `_ned_from_calib()`/`euler_from_rot()` 명명과 항공/네비게이션 관례에 근거한 추정이지 실측 대조가 아직 없음. 162차가 확정한 실제 우회전 사례(t=6389~6393, steer 최대 -121.9°, 실측 bearing이 296°→3°로 증가/랩어라운드)를 이번에 확장한 `extract_log.py`의 `ccYawDeg`/`ccYawRateZ`로 **재추출 후 대조하면 부호가 맞는지 바로 확인 가능** — 다음 세션 최우선 검증 항목.
+2. `angularVelocity[2]`(요레이트)는 이번 설계에서 실제로 안 씀(델타는 `orientationNED[2]` 두 시점 직접 차분으로 계산, 적분 불필요 — 적분 방식보다 오차 누적 경로가 하나 적음). 다만 synthetic 검증에서 "orientationNED 두 프레임 사이 실제로 부드럽게 변하는지"를 교차검증하는 용도로는 유용해 CSV엔 남겨둠.
+3. `cc_pose_valid=False` 구간(캘리브레이션 미완료 등, `CC.orientationNED`가 빈 리스트)이 하필 정체 구간과 겹치면 보정 자체가 무력화(기존 동작과 동일하게 폴백) — 실측 로그로 이 구간의 `ccPoseValid` 비율 확인 필요.
+4. 이 설계는 `_update_gps()`의 `bearing_calculated`(estimate_position에 쓰이는 헤딩)만 고치는 것으로, 163차 게이트(방향2, `position_dt_since_fix>3.0s`시 route 완화방향 동결)와 **상호배타적이지 않고 병행 가능** — 방향1이 근본원인(헤딩오차)을 줄이면 방향2 게이트가 발동하는 빈도/폭 자체가 줄어드는 보완관계. 두 패치를 동시에 넣을지, 방향1 실측검증 후 방향2를 재평가(완화 조건)할지는 사용자 확인 필요.
+
+**toolkit 변경**: `extract_log.py`에 `ccYawDeg`/`ccYawRateZ`/`ccPoseValid` 컬럼 추가(항상 포함, `carControl.orientationNED[2]`/`angularVelocity[2]` 추출 — 위 검증 필요 사항 1번의 실측 대조용 지상진실 확보). README/CHANGELOG 갱신 완료.
+
+**다음 세션 재개 시**:
+1. 162차/163차/164차가 쓴 route(`aeeed9e4a5` seg0/seg3, 업로드분 zip: `drive-download-20260830T095322Z-1-001__2_.zip`)를 신규 `extract_log.py`(ccYawDeg 포함)로 재추출
+2. t=6370.93~6394.92(navAngle 정체구간) 동안 `ccYawDeg`가 실제로 어떻게 변하는지, 그 Δ가 steer/실제 회전 방향과 부호가 맞는지 확인(위 미해결 1번)
+3. 부호 확인되면 `sim_route_position_uncertainty_gate.py`류와 같은 패턴으로 신규 synthetic 검증 스크립트 작성(정상 시나리오 회귀없음 + 정체구간 재현 시 실제 회전과 유사하게 헤딩 추적하는지)
+4. 검증 통과 시 사용자 승인 받고 `carrot_serv.py` 패치(git format-patch) 생성
+
+**전달**: FINDINGS.md(이 항목)/WIP.md(체크포인트)/toolkit/extract_log.py(수정)/toolkit/README.md/toolkit/CHANGELOG.md. ryu 코드 변경 없음(설계만, 패치 없음 — 원칙대로 사용자 승인 전 미적용).
+
 ## 164차 — [OFFLINE 재구성 검증, POSITIVE] 163차 위치불확실성 게이트를 실측 원본(패치 이전) 로그로 역산 검증 — 실제 정체 24초, 게이트 있었으면 route 과열 78.6→149.8kph 상승을 78.6에서 동결했을 것
 
 **배경**: 163차 패치("git am 적용 후 실차 재주행 검증" 대기 상태)에 대해 사용자가 실측 로그를 업로드 — 확인 결과 패치 커밋(`eecac50`, author date 2026-08-31 02:31 UTC)보다 기록 시각(20260830 17:57~18:00)이 앞서는 **패치 이전** 로그로, 162차가 근본원인 분석에 썼던 바로 그 route(`aeeed9e4a5` seg0/seg3)와 동일함(사용자 확인). 실차검증은 아니지만, 163차가 "cereal에 `position_dt_since_fix`가 없어 합성 시나리오로만 검증했다"고 남긴 한계를 이 실측 로그의 관측 가능한 대체 지표로 메우는 오프라인 재구성 검증을 진행.

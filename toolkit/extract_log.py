@@ -38,6 +38,7 @@ leadStatus=False로 강제 리셋되어, 실제로는 리드가 유지되고 있
 import argparse
 import csv
 import json
+import math
 import os
 import re
 import subprocess
@@ -62,7 +63,26 @@ FIELDNAMES = [
     "activeCarrot", "xTurnInfo", "xDistToTurn", "xSpdType", "xSpdDist",
     "atcType", "leftSec", "xSpdCountDown", "xTurnCountDown",
     "liveRouteSpeed",
+    "ccYawDeg", "ccYawRateZ", "ccPoseValid",
 ]
+# 2026-08-31 추가(165차): carControl.orientationNED[2](라디안, calibrated
+# NED 요/헤딩)를 나침반 표기(0~360도)로 변환한 ccYawDeg + carControl.
+# angularVelocity[2](calibrated 요레이트, rad/s) 원시값 ccYawRateZ + 두 리스트가
+# 실제로 채워져 있는지(calibrated_pose is not None일 때만 controlsd.py가
+# 채움, 그 전엔 빈 List) 나타내는 ccPoseValid. **livePose를 직접 구독하지
+# 않고 carControl에서 뽑는 이유**: carrot_serv.py L729의 기존 TODO 주석이
+# 이미 "CC.orientationNED[2]를 이용하여" 보정하라고 명시해뒀고, controlsd.py
+# L250-252(`CC.orientationNED = calibrated_pose.orientation.xyz.tolist()`,
+# `CC.angularVelocity = calibrated_pose.angular_velocity.xyz.tolist()`)가
+# 이미 캘리브레이션 보정까지 끝낸 값을 100Hz로 CarControl에 실어보내고
+# 있음 -- carrot_man.py는 이미 'carControl'을 구독 중(L306)이라 신규
+# SubMaster 서비스 추가 없이 기존 sm['carControl']에서 바로 꺼내 쓸 수 있음.
+# (raw 'livePose' 구독 방식은 신규 서비스 추가 + 자체 캘리브레이션 처리가
+# 필요해 더 무거움 -- 방향1 설계, FINDINGS.md 165차 참고).
+# 목적: 162차가 확정한 근본원인(_update_gps()가 쓰는 bearing이 외부 GPS
+# 정체 중 옛 헤딩으로 직진외삽)에 대한 방향1(헤딩보정) synthetic/실측
+# 검증용 지상진실(ground truth) 확보. 프레임당 숫자 3개뿐이라 naviPaths처럼
+# 별도 플래그 없이 기본 추출에 항상 포함.
 # 2026-08-30 추가(149차): carrotMan.szPosRoadName -- carrot_serv.py
 # L1100 `self.debugText += f"route={route_speed:.1f}"`가 이 필드에
 # 그대로 실려 20Hz로 이미 발행되고 있었음(147차가 영상 오버레이를
@@ -204,7 +224,7 @@ def get_repo_git_info(repo_dir):
 
 def process_segment(rlog_path, seg_name, repo_dir, max_mb, commit_short="",
                      carry_cs=None, carry_ctrl=None, carry_lead=None, carry_lat=None,
-                     carry_model=None, with_navi_paths=False):
+                     carry_model=None, carry_pose=None, with_navi_paths=False):
     """
     carry_cs/carry_ctrl/carry_lead: 이전 세그먼트에서 넘어온 마지막 상태.
     None이면 이 세그먼트가 라우트의 첫 세그먼트라는 뜻으로 기본값 사용.
@@ -234,6 +254,9 @@ def process_segment(rlog_path, seg_name, repo_dir, max_mb, commit_short="",
     last_model = dict(carry_model) if carry_model is not None else {
         "modelTurnSpeed": "",
         "lllProb": "", "rllProb": "", "lllStd": "", "rllStd": "",
+    }
+    last_pose = dict(carry_pose) if carry_pose is not None else {
+        "ccYawDeg": "", "ccYawRateZ": "", "ccPoseValid": "",
     }
     rows = []
     for evt in iter_events(rlog_path, repo_dir=repo_dir, max_output_mb=max_mb):
@@ -273,6 +296,16 @@ def process_segment(rlog_path, seg_name, repo_dir, max_mb, commit_short="",
                 "lllStd": lls[1] if len(lls) > 2 else "",
                 "rllStd": lls[2] if len(lls) > 2 else "",
             }
+        elif w == "carControl":
+            cc = evt.carControl
+            ned = list(cc.orientationNED)
+            avl = list(cc.angularVelocity)
+            pose_valid = len(ned) > 2 and len(avl) > 2
+            last_pose = {
+                "ccYawDeg": ((math.degrees(ned[2]) + 360.0) % 360.0) if pose_valid else "",
+                "ccYawRateZ": avl[2] if pose_valid else "",
+                "ccPoseValid": pose_valid,
+            }
         elif w == "radarState":
             lo = evt.radarState.leadOne
             if lo.status:
@@ -295,7 +328,7 @@ def process_segment(rlog_path, seg_name, repo_dir, max_mb, commit_short="",
             live_route_speed = m.group(1) if m else ""
             rows.append({
                 "t": t, "seg": seg_name, "commit": commit_short,
-                **last_cs, **last_ctrl, **last_lead, **last_lat, **last_model,
+                **last_cs, **last_ctrl, **last_lead, **last_lat, **last_model, **last_pose,
                 "src": str(cm.desiredSource), "desiredSpeed": cm.desiredSpeed, "vTurnSpeed": cm.vTurnSpeed,
                 "activeCarrot": cm.activeCarrot, "xTurnInfo": cm.xTurnInfo,
                 "xDistToTurn": cm.xDistToTurn, "xSpdType": cm.xSpdType,
@@ -305,7 +338,7 @@ def process_segment(rlog_path, seg_name, repo_dir, max_mb, commit_short="",
                 "naviPaths": str(cm.naviPaths) if with_navi_paths else "",
                 "liveRouteSpeed": live_route_speed,
             })
-    return rows, last_cs, last_ctrl, last_lead, last_lat, last_model
+    return rows, last_cs, last_ctrl, last_lead, last_lat, last_model, last_pose
 
 
 def main():
@@ -344,14 +377,14 @@ def main():
         sys.exit(1)
 
     all_rows = []
-    carry_cs, carry_ctrl, carry_lead, carry_lat, carry_model = None, None, None, None, None
+    carry_cs, carry_ctrl, carry_lead, carry_lat, carry_model, carry_pose = None, None, None, None, None, None
     for seg in seg_dirs:
         rlog_path = os.path.join(args.route_dir, seg, "rlog.zst")
-        rows, carry_cs, carry_ctrl, carry_lead, carry_lat, carry_model = process_segment(
+        rows, carry_cs, carry_ctrl, carry_lead, carry_lat, carry_model, carry_pose = process_segment(
             rlog_path, seg, args.repo, args.max_mb,
             commit_short=git_info["commit_short"] or "",
             carry_cs=carry_cs, carry_ctrl=carry_ctrl, carry_lead=carry_lead, carry_lat=carry_lat,
-            carry_model=carry_model, with_navi_paths=args.with_navi_paths,
+            carry_model=carry_model, carry_pose=carry_pose, with_navi_paths=args.with_navi_paths,
         )
         all_rows.extend(rows)
         print(f"done {seg}: {len(rows)} rows ({len(all_rows)} total)")

@@ -1,3 +1,40 @@
+## 165차 (체크포인트 — 162차 방향1(livePose 헤딩보정) 코딩설계 확정, 부호검증/synthetic검증은 다음 단계)
+
+**배경**: 163차가 "비용이 커 보류"했던 방향1(livePose 자세데이터로 헤딩보정)을
+사용자가 재개 지시. 아직 패치 없이 설계만 확정.
+
+**핵심 설계(상세는 FINDINGS.md 165차)**:
+1. `livePose` 직접구독 대신 이미 `carrot_man.py`가 구독 중인 `carControl`의
+   `CC.orientationNED[2]`/`CC.angularVelocity[2]`(`controlsd.py`가 이미
+   캘리브레이션 보정해 100Hz로 발행 중 — `carrot_serv.py` L729 기존 TODO가
+   가리키던 바로 그 경로) 사용 — 신규 SubMaster 서비스 추가 불필요.
+2. `locationd.py`(livePose 발행원)는 GPS를 전혀 안 쓰는 순수 IMU+카메라
+   오도메트리 융합이라 CarrotNavi 앱 정체 문제와 완전히 독립적인 신호지만,
+   절대 진북 보정이 없어 긴 시간축엔 드리프트 가능 — **절대값 대입이
+   아니라 마지막 유효 fix 시점 기준 델타(Δyaw)만 더하는 앵커링 방식**으로
+   설계(정상 구간은 매 fix마다 기준점 재정렬돼 보정량 0으로 리셋 = 기존
+   동작과 완전히 동일, 정체 구간에서만 보정 발생).
+3. "새 fix 도착" 감지는 UDP 파서가 아니라 `_update_gps()` 내부에서
+   `self.last_calculate_gps_time` 변화로 간접 감지 — diff를
+   `carrot_serv.py` 한 파일, 상태변수 2개 + 함수 내부 10줄 안팎으로 최소화.
+
+**미해결(다음 세션 최우선)**: `CC.orientationNED`가 "NED"(진북기준
+시계방향 양수, 나침반과 동일 관례)라는 부호 가정이 아직 실측 대조가
+없음 — 162차 실제 우회전 사례(t=6389~6393, steer 최대 -121.9°, bearing
+296°→3°)를 신규 `ccYawDeg` 컬럼으로 재추출해 대조하면 바로 확인 가능.
+
+**다음 세션 재개 시**: 1) route(`aeeed9e4a5` seg0/seg3) 재추출(신규
+`ccYawDeg`/`ccYawRateZ`/`ccPoseValid` 포함) → 2) 정체구간(t=6370.93~
+6394.92) 동안 ccYawDeg 변화가 실제 회전 방향과 부호 일치하는지 확인 →
+3) 일치하면 synthetic 검증 스크립트 작성 → 4) 사용자 승인 후 패치.
+
+**toolkit 변경**: `extract_log.py`에 `ccYawDeg`/`ccYawRateZ`/`ccPoseValid`
+컬럼 추가(carControl에서 추출, 항상 포함). README/CHANGELOG 갱신 완료.
+
+**전달**: FINDINGS.md(165차)/WIP.md(이 항목)/toolkit/extract_log.py(수정)/
+toolkit/README.md/toolkit/CHANGELOG.md. ryu 코드 변경 없음(설계만, 패치는
+사용자 승인 전이라 미생성).
+
 ## 164차 (체크포인트 — 163차 게이트를 실측 원본 로그로 오프라인 역산 검증, POSITIVE, 실차검증은 여전히 대기)
 
 **배경**: 163차 패치("실차 git am 후 재주행 검증" 대기)에 대해 사용자가 로그를

@@ -128,6 +128,23 @@ python3 extract_log.py /home/claude/work/route /home/claude/work/route.csv \
     --repo /home/claude/ryu --with-navi-paths
 ```
 
+**2026-08-31 추가(165차)**: `ccYawDeg`/`ccYawRateZ`/`ccPoseValid` 컬럼(기본 항상
+포함, 플래그 불필요 — 프레임당 숫자 3개뿐). `carControl.orientationNED[2]`
+(라디안, calibrated NED 요/헤딩)를 나침반 표기(0~360도)로 변환한 `ccYawDeg`,
+`carControl.angularVelocity[2]`(calibrated 요레이트 rad/s 원시값) `ccYawRateZ`,
+두 List가 실제로 채워져 있는지(`controlsd.py`가 `calibrated_pose is not None`일
+때만 채움, 그 전엔 빈 List) 나타내는 `ccPoseValid`. **`livePose`를 직접 안 뽑고
+`carControl`에서 뽑는 이유**: `carrot_serv.py` L729의 기존 TODO 주석이 이미
+"`CC.orientationNED[2]`를 이용하여" 보정하라 명시해뒀고, `controlsd.py`
+L250-252가 캘리브레이션 보정까지 끝낸 값을 100Hz로 `CarControl`에 이미
+싣고 있어 `carrot_man.py`가 이미 구독 중인 `'carControl'`(L306)에서 바로 꺼내
+쓸 수 있음(raw `livePose` 구독은 신규 서비스 추가+자체 캘리브레이션 처리가
+필요해 더 무거움). 목적: 162차 근본원인(`_update_gps()`가 쓰는 bearing이
+외부 GPS 정체 중 옛 헤딩으로 직진외삽)에 대한 **방향1(헤딩보정, FINDINGS.md
+165차 설계)**의 synthetic/실측 검증용 지상진실(ground truth) 확보. **주의**:
+165차 이전에 뽑힌 CSV(`aeeed9e4a5` seg0/seg3 등 162~164차가 쓴 것 포함)에는
+당연히 없음 — 방향1 검증을 이 route로 하려면 반드시 재추출 필요.
+
 ## analysis_helpers.py
 **목적**: `extract_log.py`로 뽑은 CSV를 후처리하는 함수 모음. 대부분의
 "패턴 찾기" 분석(플리커, 급제동, 커브 위반, cut-in 등)은 여기서 시작.
