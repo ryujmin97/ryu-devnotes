@@ -44,6 +44,85 @@ pre-patch 로그에 167차 패치를 적용해 재생해도 baseline(게이트 �
 **전달**: FINDINGS.md(이 항목). WIP.md/toolkit 변경 없음(이번은 순수
 분석, 코드/스크립트 변경 없음).
 
+## 169차 — [코드리뷰+로그전수조사, NEEDS_INVESTIGATION] 기존 "내부GPS 폴백" 로직 재발견 — 162/163/167차 게이트가 실제 이벤트에서 발동했는지 자체가 불확실함
+
+**배경**: 사용자가 "코드 전반 검토 + 업로드 로그 전수조사"를 명시적으로 요청
+(누락된 위치확인 로직/로그가 없는지). `carrot_serv.py::_update_gps()`
+전체를 처음부터 재검토 + 업로드 route(`aeeed9e4a5` seg0/seg3)의 rlog
+전체 capnp 채널을 빠짐없이 나열.
+
+**1) 코드리뷰 발견 — 기존 "내부GPS 폴백"(L726-732, L762, 162~167차와
+무관하게 이미 있던 코드로 추정)**:
+```python
+external_gps_update_timedout = not (gps_updated_phone or gps_updated_navi)
+if self.gps_valid and external_gps_update_timedout:
+    self.vpPosPointLatNavi = gps.latitude
+    self.vpPosPointLonNavi = gps.longitude
+    self.last_calculate_gps_time = now
+```
+"폰 앱(navi) 신호가 3초 이상 없으면 차량 자체 GPS(`gpsLocation`)로
+폴백"하는 안전장치가 이미 존재. 그런데:
+- `gps_updated_navi`의 근거인 `last_update_gps_time_navi`는 L1405-1406에서
+  **패킷이 "도착"하기만 하면(값이 바뀌었든 아니든) 매번 리셋됨**
+  (`if self.vpPosPointLatNavi != 0.0: self.last_update_gps_time_navi = now`).
+  폰 앱이 "연결은 유지되지만 같은 값을 반복 전송"하는 실패모드라면 이
+  타임아웃은 영원히 안 걸림 — 폴백도, `position_dt_since_fix`(162/163/
+  167차 게이트가 읽는 바로 그 변수, `last_calculate_gps_time`도 같은
+  줄에서 같이 리셋됨)도 3.0을 못 넘음.
+- `gps_valid = sm.updated[gps_service] and gps.hasFix`인데
+  `gps_service`(gpsLocation)는 1Hz, carrot_man 루프는 20Hz(`Ratekeeper(20)`,
+  L474) — `sm.updated[gps_service]`가 True인 프레임은 20개 중 1개뿐이라
+  이 폴백이 발동할 수 있는 창 자체가 좁음.
+
+**NEEDS_INVESTIGATION(정직하게 기록)**: 실제 162차 이벤트가 "패킷 자체
+단절"이었는지 "패킷은 오지만 내용 정지"였는지는 현재 로그로 구분 불가
+(`vpPosPointLatNavi`/`last_calculate_gps_time` 자체가 cereal 미기록 —
+163차부터의 기존 한계와 동일 이유, 168차 계속의 채널조사로도 재확인됨).
+**후자라면 162/163/167차 게이트가 이 이벤트에서 한 번도 발동하지 않았을
+가능성이 있음** — 지금까지의 모든 synthetic 검증(163차/168차)은 "dt가
+실제로 11초까지 자란다"는 가정 위에서 짜여 있었는데, 그 가정 자체가
+검증된 적이 없었음.
+
+**2) 로그 전수조사 — 이번 업로드 route(seg0) rlog 전체 채널 50개
+나열**. 위치 관련만 정리:
+- `gpsLocation`(1Hz) — 기존에 이미 씀(`compare_navpos_vs_gps.py`,
+  162차). 문제구간(seg3 t=6389.86~6394.87)에서도 hasFix=True로 정상
+  추종(296.7°→299.0°→311.7°→332.1°→352.5°→3.7°) 재확인.
+- `livePose`(20Hz) — **이번에 처음 원본 채널로 직접 확인**(그동안은
+  `CC.orientationNED`로 간접 확인만 함). valid/inputsOK/posenetOK/
+  sensorsOK 전부 True, 문제구간(t=6388~6396) 동안 각속도 기반으로
+  298.9°→3.8°까지 매끄럽게 추종 — `CC.orientationNED`가 이 값을 그대로
+  반영한다는 것을 원본으로 재확인(166차 carControl 경유 검증과 정합,
+  새 모순 없음).
+- `qcomGnss`(454개) — 모뎀 raw GNSS 진단데이터, 처리된 위치 아님이라
+  직접 활용성 낮음(참고 기록만).
+- `gpsLocationExternal` — **존재하지 않음**(168차 계속에서 이미 확인한
+  것 재확인).
+
+**결론**: "완전히 새로운 위치 소스"는 로그에 없음(`livePose` 원본은
+새로 확인했지만 `CC.orientationNED` 경로로 이미 사실상 동일 정보를
+사용 중). 진짜 새로운 발견은 코드 쪽 — **이미 있던 내부GPS 폴백이 왜
+실제 이벤트에서 작동하지 않았는지(혹은 애초에 작동 불가능한 구조인지)**.
+165/166/167차가 `CC.orientationNED` 신규 보정 경로를 새로 만드는 대신,
+어쩌면 기존 폴백의 타임아웃 판정 방식(패킷 도착 기준 → 패킷 내용 변화
+기준으로 전환)을 고치는 쪽이 더 근본적이고 간단한 해법이었을 수 있음 —
+단, 이건 새 방향 "제안"이지 확정된 결론 아님. 사용자 판단 필요.
+
+**미해결(다음 세션 재개 시 판단 필요)**:
+1. 이 발견을 이어서 조사할지(예: `last_update_gps_time_navi`를 "패킷
+   도착"이 아니라 "내용 변화"로 리셋하도록 고쳐서 재설계) — 사용자 결정
+   대기.
+2. 기존 이월 항목(166차/167차 실차검증)은 이 발견과 무관하게 여전히
+   유효 — 실차에서 CC.orientationNED 보정 자체는 잘 동작할 것으로 보임
+   (livePose가 문제구간 내내 valid).
+3. `vpPosPointLatNavi`/`last_update_gps_time_navi`/`last_calculate_gps_time`을
+   cereal에 발행하도록 계측을 추가하면(신규 patch), 다음 실차 로그부터는
+   "패킷 단절 vs 내용정지" 자체를 직접 구분할 수 있음 — 근본 해법 설계
+   전에 이 계측부터 하는 것도 방법.
+
+**전달**: FINDINGS.md(이 항목). WIP.md/toolkit/ryu 코드 변경 없음(순수
+코드리뷰+로그조사).
+
 ## 166차 — [부호실측검증+synthetic검증, POSITIVE] 165차 방안1(orientationNED 델타앵커링) 부호가정 실측으로 확인, 앵커링/wrap 수식 자체 5/5 PASS — 패치 전 사용자 승인 단계 남음
 
 **배경**: 165차가 남긴 "다음 세션 최우선"(`CC.orientationNED`가 나침반
