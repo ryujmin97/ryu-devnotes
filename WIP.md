@@ -1,3 +1,16 @@
+## 160차 계속 (완료 — 로컬 패치 적용 확인 + 브랜치 혼선 정리)
+
+**배경**: 160차 패치(`0001-route-decel-reuse-camera-calculate_current_speed-for.patch`) 전달 후 사용자가 로컬(`C:\dev\ryu`)에서 적용하는 과정에, 이전에 남아있던 `c3-ms-curv` 로컬 브랜치 때문에 커밋이 잘못된 브랜치에 얹히는 혼선 발생.
+
+**해결 경과**:
+- `git status` 확인 결과 `c3-ms-dev`는 `origin/c3-ms-dev`와 정상 동기화 상태였음 (`tinygrad_repo` 하위 2개 파일 삭제 표시는 이번 작업과 무관한 기존 로컬 상태 — 임의 복구/커밋하지 않고 그대로 둠).
+- `git am 0001-route-decel-reuse-camera-calculate_current_speed-for.patch` 재실행 → `c3-ms-dev`(`712d76b`, 157차 HEAD) 바로 위에 정상 커밋(`32982de`, "route decel: reuse camera calculate_current_speed() formula for apex (160차)") 생성 확인.
+- `py_compile`로 `carrot_man.py` 컴파일 OK 확인.
+- 혼선의 원인이었던 로컬 `c3-ms-curv` 브랜치(`85995f0`) `git branch -D`로 삭제, `git branch -vv` 결과 `* c3-ms-dev 32982de [origin/c3-ms-dev: ahead 1]`만 남아 정상 정리 확인.
+- **주의**: 원격 `origin/c3-ms-curv`는 삭제하지 않고 그대로 남아있음 — 삭제 여부는 별도 확인 필요(로컬 브랜치만 정리한 것).
+
+**최종 상태**: 로컬 `C:\dev\ryu`의 `c3-ms-dev`가 `origin/c3-ms-dev`(`712d76b`) 위에 160차 패치(`32982de`) 1커밋 ahead. 다음 세션은 이 상태를 기준으로 (필요 시 `origin/c3-ms-curv` 원격 브랜치 삭제 여부만 사용자에게 확인 후) 이어가면 됨. devnotes 변경 없음 (WIP.md 기록만 추가).
+
 ## 160차 (완료 — 설계+시뮬레이션 검증+패치전달 완료) — route 감속을 과속카메라 감속(calculate_current_speed)과 완전히 동일한 물리공식으로 전면 교체(사용자 설계, 곡선_가감속_코딩.txt+곡선_개념도.pdf 첨부 기반) — 157차의 accel_limit 동적 부스트 분기 폐기, apex 선택은 157차와 동일(가장 급한 지점) 유지, safe_time 버퍼(91차에 미뤄뒀던 부분) 신규 적용. toolkit/sim_route_camera_style_decel.py(신규) 7/7 PASS(연속S자커브 apex 전환 케이스 포함, 톱니 진동 없음 확인), git am 클린클론 검증 완료, 패치 전달.
 
 ## 159차(158차 계속) (완료 — 대안 설계 A/B 검증, NEGATIVE, 결론 확정) — apex 히스테리시스(명시적 3상태 리셋, target_curv 기억) 설계를 재구현+실측 A/B — 157차 무상태 설계 대비 stuck구간 3곳 중 2곳 무반응(disengaged 고착), 프레임간 최대낙차 244km/h(A는 0.26km/h) 확인, 히스테리시스 방향 폐기·157차 유지로 종결. ryu 코드 변경 없음(toolkit만).
