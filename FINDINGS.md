@@ -1,3 +1,49 @@
+## 168차 계속 — [실측 로그검증] 167차 계속2 좁힘 패치, 실제 pre-patch route(aeeed9e4a5 seg0/seg3)로 재확인 — 이 route로는 좁히기 효과 관측 불가함을 실측으로 확정
+
+**배경**: 168차(synthetic만)에 이어 사용자가 실제 route zip
+(`drive-download-20260830T095322Z-1-001__2_.zip`, 162~166차가 계속 써온
+바로 그 pre-patch 로그, 기록시각 20260830 17:57~18:00)을 재업로드.
+`extract_log.py`(현재 repo `d1ace31`=167차 계속2 기준, `ccYawDeg`/
+`ccYawRateZ`/`ccPoseValid` 컬럼 포함)로 재추출(2400행, t=6166.1~6406.1,
+기존 범위와 동일).
+
+**1) ccPoseValid 실측 분포**: 2400행 **전부 True** (`{'True': 2400}`).
+166차가 이미 관측했던 것과 동일 — 이번 재확인으로도 변함없음.
+
+**2) position_dt_since_fix 실측 재구성 시도 — 원천적으로 불가능함을 채널
+단위로 재확인**: seg0 rlog의 전체 capnp 채널 목록을 뽑아 GPS/nav 관련
+채널만 추림 — `gpsLocation`(차량 자체 GPS, 1Hz, 60행)과
+`navInstruction`/`navInstructionCarrot`/`carrotMan`만 존재,
+`gpsLocationExternal`이나 그 외 "폰 앱 위치" 전용 채널은 **아예 없음**.
+즉 162차가 발견한 "11초/16초 앱 GPS 위치 끊김"은 `carrot_serv.py`가
+UDP로 직접 받는 폰 앱 위치이고, 이 값 자체가 어떤 cereal 채널에도
+발행되지 않는다 — `position_dt_since_fix`(그 위치 fix 이후 경과시간)를
+실측 로그에서 복원하는 것은 이 route뿐 아니라 **구조적으로 불가능**
+(163차부터의 기존 한계가 채널 인벤토리 조사로 다시 한번 확정됨).
+참고로 차량 자체 `gpsLocation`(1Hz)엔 세그먼트 경계(seg0 끝→seg3 시작,
+121.00s 갭 = 업로드 안 된 중간 seg1/seg2 구간일 뿐) 외엔 1.5초 이상
+갭이 없음 — 이 채널은애초에 문제가 된 신호가 아님.
+
+**3) 결론(실측 기반)**: 167차 계속2의 좁힌 조건은
+`position_dt_since_fix > 3.0 and not cc_pose_valid`이고, 이 route는
+`ccPoseValid`가 전 구간 True이므로 `not cc_pose_valid`가 항상 False —
+**`position_dt_since_fix`가 실제로 얼마였든(복원 불가와 무관하게) 이
+route의 모든 프레임에서 게이트는 발동하지 않는다.** 즉 이 실제
+pre-patch 로그에 167차 패치를 적용해 재생해도 baseline(게이트 완전
+미적용)과 100% 동일한 route_speed가 나왔을 것 — **패치 적용 전/후 차이
+"0건"이 실측 데이터로 확정**됨. 이는 168차 synthetic 결론(과도억제
+해소 케이스)과 정합적이지만, "안전망이 실제로 발동하는 상황"에 대해서는
+이 route가 원천적으로 증거를 줄 수 없다는 168차의 추정을 실측으로
+재확인한 것 — 새로운 정보는 없으나 근거가 synthetic 가정에서 실측
+채널조사로 격상됨.
+
+**미해결(이월)**: `ccPoseValid=False`가 실제로 나타나는 route(예:
+캘리브레이션 미완료 직후 구간)를 아직 확보 못함 — 안전망 발동 여부의
+실측 검증은 여전히 불가능.
+
+**전달**: FINDINGS.md(이 항목). WIP.md/toolkit 변경 없음(이번은 순수
+분석, 코드/스크립트 변경 없음).
+
 ## 166차 — [부호실측검증+synthetic검증, POSITIVE] 165차 방안1(orientationNED 델타앵커링) 부호가정 실측으로 확인, 앵커링/wrap 수식 자체 5/5 PASS — 패치 전 사용자 승인 단계 남음
 
 **배경**: 165차가 남긴 "다음 세션 최우선"(`CC.orientationNED`가 나침반

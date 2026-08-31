@@ -1,3 +1,83 @@
+## 168차 계속 (체크포인트 — 사용자 재업로드 실제 pre-patch 로그로 167차 계속2 검증, "이 route로는 패치 전/후 차이 0건" 실측 확정)
+
+**배경**: 168차(synthetic 5/5 PASS)에 이어 사용자가 실제 route zip을
+재업로드해 실측 검증 진행.
+
+**핵심 결과(상세는 FINDINGS.md 168차 계속)**:
+1. 재추출 CSV(2400행) `ccPoseValid` 전부 True — 166차 관측 재확인.
+2. seg0 rlog 전체 채널 인벤토리 조사 — 폰 앱 GPS 위치를 나르는 cereal
+   채널 자체가 존재하지 않음 확인(`gpsLocationExternal` 등 없음).
+   `position_dt_since_fix` 실측 복원이 이 route뿐 아니라 구조적으로
+   불가능함을 채널 단위로 재확정.
+3. **결론**: 167차 계속2 좁힌 조건(`dt>3.0 and not cc_pose_valid`)은
+   이 route 전 구간에서 `cc_pose_valid=True`이므로 dt 실제값과 무관하게
+   항상 미발동 — 이 실제 pre-patch 로그에 패치를 적용해 재생해도
+   baseline과 100% 동일했을 것(차이 0건)이 실측으로 확정. 168차
+   synthetic 결론과 정합, 새 정보는 아니지만 근거가 실측으로 격상.
+
+**미해결(이월)**: `ccPoseValid=False` 실측 route 없음 — 안전망(게이트가
+실제로 발동하는 상황) 검증은 여전히 불가능. 다음 이월 항목(166차/167차
+실차검증)은 변경 없음.
+
+**전달**: FINDINGS.md(168차 계속 항목)/WIP.md(이 항목). toolkit/ryu
+변경 없음(순수 실측 분석).
+
+## 168차 (체크포인트 — 167차 계속2 좁힘 패치(cc_pose_valid=False 조건) synthetic 재검증 완료, 실측 재생검증은 데이터 공백으로 보류)
+
+**배경**: 사용자가 "이번 패치를 패치적용 이전 로그에서 시뮬레이션 검증"
+요청. 167차 계속2가 "다음 세션 후보"로 남긴 3번 항목(`sim_route_position_uncertainty_gate.py`에
+`cc_pose_valid` 파라미터 추가해 synthetic 재검증)에 해당.
+
+**실측 로그 재생검증 불가 확인(정직하게 기록)**:
+1. `data/routes/aeeed9e4a5/`엔 `meta.json`만 있고 `route.csv.gz` 자체가
+   한 번도 커밋된 적 없음(git 히스토리 확인) — 이 route는 세션마다
+   사용자가 zip을 재업로드해온 방식이라, 이번 세션(파일 업로드 없음)엔
+   원본 데이터가 아예 없음.
+2. 설령 있었어도 `position_dt_since_fix`가 cereal 미발행이라 정확한
+   프레임별 재생은 애초에 불가(163차부터의 기존 한계, 여전히 유효).
+3. 게다가 이 route는 `ccPoseValid`가 구간 내내 100% True(FINDINGS.md
+   166차 관측) — 167차의 좁히기(`cc_pose_valid=False`일 때만 발동)가
+   실제로 발동을 막는 효과 자체를 이 route로는 재생해봐도 관측 불가능
+   (분모가 없는 케이스).
+따라서 이번 요청은 synthetic 경로로 처리(사용자에게 대화 중 설명 완료).
+
+**시뮬레이션 검증 내용**: `sim_route_position_uncertainty_gate.py::GatedRampLimiterState.apply()`에
+`cc_pose_valid` 파라미터 추가(기본 `False`=163차 원본과 하위호환).
+`carrot_man.py`(`d1ace31`) 실제 조건문(`position_dt_since_fix > 3.0 and
+not cc_pose_valid`)을 그대로 복제 확인 후, 신규 테스트 2개 추가:
+- `test_167_narrowed_gate_bypassed_when_pose_valid`: `cc_pose_valid=True` +
+  dt 11초까지 증가해도 baseline(게이트 없음)과 완전 동일(max_diff=0) —
+  방향1 정상 동작 중엔 방향2가 물러나 과도억제가 해소됨을 확인.
+- `test_167_gate_still_freezes_when_pose_invalid`: `cc_pose_valid=False`면
+  기존과 동일하게 3.0s 이후 완전 동결 — 방향1 폴백 시 안전망 유지 확인.
+기존 3개 테스트도 `cc_pose_valid=False` 명시해 하위호환 재확인.
+**총 5/5 PASS** (`py_compile` PASS 포함).
+
+**결론**: 167차 계속2 패치(AND 조건 좁히기) 자체의 로직은 synthetic으로
+정확성 확인됨(과도억제 해소 케이스/안전망 유지 케이스 둘 다 PASS). 다만
+"실제로 이 로직이 실차에서 의도대로 트리거되는지"(즉 `ccPoseValid=False`가
+실제로 발생하는 상황, 예: 캘리브레이션 미완료 구간)는 여전히 미검증 —
+이번 route 데이터로는 원천적으로 확인 불가한 항목이라 향후 과제로 이월.
+
+**다음 세션 재개 시**:
+1. (우선) `0001-yaw-anchor-heading-correction.patch`(166차) 실차검증 —
+   우회전 구간 재주행 (기존 이월 항목, 미변경).
+2. `0001-narrow-position-gate-to-pose-invalid.patch`(167차) 실차 적용 →
+   정상 구간에서 방향2가 더 이상 불필요한 억제를 안 하는지 확인 (기존
+   이월 항목, 미변경).
+3. `ccPoseValid=False`가 실제로 발생하는 route(캘리브레이션 미완료
+   구간 등)를 사용자가 확보/업로드하면, 그 route로 방향2 안전망이
+   실제로 발동하는지(`carrot_serv.py`의 `cc_pose_valid` 실측값 기준)
+   1차 실측 관측이라도 가능한지 검토 — position_dt_since_fix 자체는
+   여전히 cereal 미발행이라 완전한 프레임별 재생은 못하지만
+   `ccPoseValid` 실측 트레이스만으로도 "이 게이트가 실제로 켜질 수
+   있는 상황이 존재하는지"는 확인 가능.
+
+**전달**: WIP.md(이 항목)/toolkit/sim_route_position_uncertainty_gate.py
+(수정)/toolkit/README.md(수정)/toolkit/CHANGELOG.md(수정). ryu 코드
+변경 없음(이번 회차는 시뮬레이션 스크립트 검증만). FINDINGS.md/
+PARAMS_REGISTRY.md 변경 없음.
+
 ## 167차 계속2 (체크포인트 — 163차 게이트(방향2) 발동조건을 cc_pose_valid=False로 좁혀 방향1과 병행하기로 재결정, 구현+diff-0 검증 완료)
 
 **배경**: 앞선 167차 항목에서 "방향1 실차검증 통과 시 방향2 롤백"으로
