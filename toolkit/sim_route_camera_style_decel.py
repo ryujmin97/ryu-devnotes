@@ -101,6 +101,40 @@ def carrot_navi_route_camera_style_nearest(speeds, distances, safe_time, decel_r
     return min(out_speed, 300.0), decel_rate_mss * 3.6
 
 
+def carrot_navi_route_camera_style_nearest_severity_gated(speeds, distances, safe_time, decel_rate_mss,
+                                                            road_limit_speed=200.0, min_severity_ratio=0.5):
+    """179차 후속(사용자 제안, 미채택 -- 아래 유닛테스트 참고) -- nearest
+    게이트에 "목표속도가 도로제한속도 대비 일정 비율(min_severity_ratio)
+    이상 낮을 때만 유효 apex 후보로 인정"하는 최소 심각도 기준을 추가한
+    버전. speeds[k] < road_limit_speed * min_severity_ratio 인 첫 지점을
+    선택 -- 그런 지점이 없으면(모두 완만) 폴백으로 기존 nearest 방식
+    (speeds[k] < road_limit_speed)으로 재탐색, 그마저 없으면 전역
+    min(speeds)로 폴백(3단 폴백, 179차 기존 2단에서 1단 추가).
+
+    [사전 경고, 179차 후속 유닛테스트로 확정] 이 게이트는 설계 의도와
+    반대로 작동할 수 있다 -- lookup 테이블(V_CURVE_LOOKUP_BP/VALS)이
+    "낮은 curvature 구간에서 기울기가 매우 가파른" 비선형 형태라, floor
+    (0.001) 바로 위 미세잡음(curv~0.01~0.02)이 실제 완만한 커브(curv=0.01)
+    보다 오히려 목표속도가 더 낮게(=비율 기준 "더 심각하게") 나오는
+    경우가 실측에서 이미 확인됐음(179차 검증1, curv1=0.010의 target=54.0
+    vs 잡음 curv~0.015의 target=45.0 -- 잡음이 더 "심각"). 즉 min_severity_
+    ratio를 아무리 조정해도 curve1을 통과시키는 동시에 그보다 ratio가
+    낮은(더 심각해 보이는) 잡음을 걸러내는 단일 임계값은 존재하지 않을
+    수 있다 -- 아래 유닛테스트가 이를 직접 재현/확정한다."""
+    if not speeds:
+        return 300.0, decel_rate_mss * 3.6
+    strict_threshold = road_limit_speed * min_severity_ratio
+    apex_idx = next((k for k in range(len(speeds)) if speeds[k] < strict_threshold), None)
+    if apex_idx is None:
+        apex_idx = next((k for k in range(len(speeds)) if speeds[k] < road_limit_speed), None)
+    if apex_idx is None:
+        apex_idx = min(range(len(speeds)), key=lambda k: speeds[k])
+    apex_dist = distances[apex_idx]
+    apex_speed = speeds[apex_idx]
+    out_speed = camera_calculate_current_speed(apex_dist, apex_speed, safe_time, decel_rate_mss)
+    return min(out_speed, 300.0), decel_rate_mss * 3.6
+
+
 def simulate_road_camera(sampler, road_len_m, v_ego_kph_start, safe_time, decel_rate_mss,
                           dt=0.05, max_steps=6000):
     """sim_route_apex_redesign.simulate_road()와 동일 방법론(완벽추종 가정,
@@ -148,6 +182,21 @@ def double_curve_curvature_fn(apex1_m=200.0, apex2_m=260.0, curv1=0.011, curv2=0
             return curv1
         if abs(abs_d - apex2_m) < width_m / 2:
             return curv2
+        return 0.0003
+    return fn
+
+
+def noise_then_real_curve_curvature_fn(noise_m=10.0, real_m=80.0, noise_curv=0.015, real_curv=0.09,
+                                        noise_width_m=8.0, real_width_m=20.0):
+    """179차 후속 -- 179차 검증1(실측 route 00000374, t=753.5~759.3) 지오메트리를
+    합성 재현: 가까운 곳(10m)에 floor 바로 위 미세잡음(curv=0.015, 실측
+    -0.001~-0.02 범위 대표값), 더 먼 곳(80m)에 실제 급커브(curv=0.09, 실측
+    -0.08~-0.10 범위 대표값). 그 외 구간은 직선."""
+    def fn(abs_d):
+        if abs(abs_d - noise_m) < noise_width_m / 2:
+            return noise_curv
+        if abs(abs_d - real_m) < real_width_m / 2:
+            return real_curv
         return 0.0003
     return fn
 
@@ -250,6 +299,79 @@ def _run_unit_tests():
     check("[179차] 1차 통과 후 2차 접근 시 sharpest/nearest 완전 수렴(2차 대응력 희생 없음)",
           abs(sharp_post1 - near_post1) < 0.01,
           f"sharpest={sharp_post1:.2f}, nearest={near_post1:.2f}")
+
+    # 7) [179차 후속, 사용자 제안 "최소 심각도 게이트" 검증] 검증2(연속
+    #    S자커브, curve1=0.010)와 검증1(근접잡음 vs 원거리 실제커브)을
+    #    동일 게이트 함수로 동시에 만족시키는 min_severity_ratio가
+    #    존재하는지 직접 탐색.
+    from sim_route_apex_redesign import V_CURVE_LOOKUP_BP, V_CRUVE_LOOKUP_VALS, _interp
+
+    # 7a) 검증2 재현 (road_limit=110 가정, sim 시나리오와 동일)
+    dbl2_fn = double_curve_curvature_fn(apex1_m=120.0, apex2_m=260.0, curv1=0.010, curv2=0.011, width_m=20.0)
+    sampler_dbl2 = lambda pos: sample_curvature_road(dbl2_fn, pos, 400.0, 110.0, 0.001)
+    speeds_v2, dist_v2 = sampler_dbl2(119.0)
+    curve1_own_target = _interp(0.010, V_CURVE_LOOKUP_BP, V_CRUVE_LOOKUP_VALS)
+
+    # 7b) 검증1 재현 (road_limit=200 가정, 179차 검증1의 오프라인 재계산 관례와 동일)
+    noise_fn = noise_then_real_curve_curvature_fn()
+    sampler_noise = lambda pos: sample_curvature_road(noise_fn, pos, 400.0, 200.0, 0.001)
+    speeds_v1, dist_v1 = sampler_noise(0.0)
+
+    # 두 시나리오의 road_limit이 달라(110 vs 200) ratio 자체도 시나리오별로
+    # 계산해 표로 남긴다 -- 단일 ratio가 "curve1은 통과, noise는 차단"을
+    # 동시에 만족하려면 ratio_needed_for_curve1 >= ratio_needed_to_block_noise
+    # 여야 하는데, 아래에서 이게 성립하지 않음을 직접 확인한다.
+    ratio_curve1 = curve1_own_target / 110.0
+    noise_idx_v1 = next((k for k in range(len(speeds_v1)) if speeds_v1[k] < 200.0), None)
+    noise_speed = speeds_v1[noise_idx_v1] if noise_idx_v1 is not None else None
+    ratio_noise = noise_speed / 200.0 if noise_speed is not None else None
+    print(f"  (참고) curve1 ratio(target/road_limit)={ratio_curve1:.3f}, "
+          f"noise ratio(target/road_limit)={ratio_noise:.3f} (noise가 더 낮으면 게이트로 분리 불가)")
+
+    # 7c) 게이트 함수로 각 시나리오에서 실제 apex가 어디로 잡히는지 여러
+    #     ratio에 대해 스캔 -- curve1을 살리면서 noise를 죽이는 ratio가
+    #     하나라도 있는지 전수 확인.
+    def apex_dist_with_ratio(speeds, distances, ratio, road_limit):
+        out_speed = None
+        strict_threshold = road_limit * ratio
+        idx = next((k for k in range(len(speeds)) if speeds[k] < strict_threshold), None)
+        if idx is None:
+            idx = next((k for k in range(len(speeds)) if speeds[k] < road_limit), None)
+        if idx is None:
+            idx = min(range(len(speeds)), key=lambda k: speeds[k])
+        return distances[idx]
+
+    real_curve_dist_expected = 80.0  # noise_then_real_curve_curvature_fn의 real_m
+    curve1_dist_expected = 120.0     # double_curve_curvature_fn(apex1_m=120)의 근접 지점(첫 샘플=119m 시점)
+
+    found_working_ratio = None
+    for ratio_pct in range(5, 100, 5):
+        ratio = ratio_pct / 100.0
+        d_v2 = apex_dist_with_ratio(speeds_v2, dist_v2, ratio, 110.0)
+        d_v1 = apex_dist_with_ratio(speeds_v1, dist_v1, ratio, 200.0)
+        curve1_ok = abs(d_v2 - curve1_dist_expected) < 15.0   # 검증2: 여전히 1차(가까운) 지점을 apex로 선택
+        noise_blocked = abs(d_v1 - real_curve_dist_expected) < 15.0  # 검증1: 잡음이 아닌 원거리 실제커브를 apex로 선택
+        if curve1_ok and noise_blocked:
+            found_working_ratio = ratio
+            break
+
+    check("[179차 후속] 검증2(curve1 유지)와 검증1(noise 차단)을 동시에 만족하는 "
+          "min_severity_ratio가 존재하지 않음(단일 비율 게이트로는 두 케이스 분리 불가 -- "
+          "noise가 curve1보다 ratio 기준 더 '심각'해서, curve1을 살리는 ratio는 항상 noise도 같이 살림)",
+          found_working_ratio is None,
+          f"found_working_ratio={found_working_ratio}" if found_working_ratio is not None else "(전 구간 탐색, 없음 확인됨)")
+
+    # 게이트 함수 자체(carrot_navi_route_camera_style_nearest_severity_gated)로도
+    # 동일하게 재확인 -- ratio=0.5(검증2의 curve1 ratio=0.491보다 살짝 높게 설정,
+    # 즉 "curve1은 통과시키려는 의도"로 고른 값)에서 검증1의 apex가 여전히
+    # noise(10m)로 고정되는지 직접 함수 호출로 검증.
+    gated_out_v1, _ = carrot_navi_route_camera_style_nearest_severity_gated(
+        speeds_v1, dist_v1, SAFE_TIME, DECEL_RATE, road_limit_speed=200.0, min_severity_ratio=0.5)
+    sharpest_out_v1, _ = carrot_navi_route_camera_style(speeds_v1, dist_v1, SAFE_TIME, DECEL_RATE)
+    check("[179차 후속] ratio=0.5(curve1 기준 설정) 게이트를 검증1에 적용해도 여전히 "
+          "noise 지점을 apex로 선택(=게이트가 목적을 달성 못 함, sharpest보다 여전히 높은/불안전한 값)",
+          gated_out_v1 > sharpest_out_v1 + 5.0,
+          f"gated={gated_out_v1:.1f}, sharpest(기존, 원거리 실제커브 타겟)={sharpest_out_v1:.1f}")
 
     print(f"\n{passed} PASS / {failed} FAIL")
     return failed == 0

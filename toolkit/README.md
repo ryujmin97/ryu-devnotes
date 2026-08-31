@@ -1432,6 +1432,15 @@ apex(sharpest)와 179차 apex(nearest)를 같은 프레임에서 나란히 계�
 ```bash
 python3 replay_route_camera_style_vs_baseline.py <route.csv> --apex-mode both --json out.json
 ```
+**2026-08-31 추가(179차 후속, NEGATIVE 결과)**: `sim_route_camera_style_decel.py`에
+`carrot_navi_route_camera_style_nearest_severity_gated()`(도로제한속도
+대비 비율 최소심각도 게이트, 3단 폴백) + `noise_then_real_curve_curvature_fn()`
+(검증1 지오메트리 합성 재현) 추가. 유닛테스트로 "이 게이트는 작동하지
+않음"을 확정(5~95% 전 구간 비율 스캔에서 curve1 유지+noise 차단을 동시
+만족하는 비율 0건) -- lookup 테이블 저곡률 구간 비선형성 때문에 noise가
+curve1보다 항상 더 "심각"하게 계산됨. 상세는 FINDINGS.md 179차 후속 참고.
+이 방향은 폐기, 대안(상대적 심각도 비교/연속성 게이트)은 미착수 제안만
+기록됨.
 
 ## 아직 없는 카테고리 (필요해지면 추가)
 - `toolkit/sim/` — 시뮬레이터 스크립트가 `sim_vision_rate.py` 하나를

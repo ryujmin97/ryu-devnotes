@@ -3,6 +3,15 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+## 2026-08-31 (179차 후속)
+- `sim_route_camera_style_decel.py`: `carrot_navi_route_camera_style_nearest_severity_gated()`
+  (도로제한속도 대비 비율 최소심각도 게이트 시도) + `noise_then_real_curve_curvature_fn()`
+  (검증1 지오메트리 합성 재현) 신규 추가. 유닛테스트 2건 추가(12/12 PASS)로
+  이 게이트 방향이 **작동하지 않음**을 확정(단일 비율로 curve1 유지 +
+  noise 차단 동시 만족 불가 -- lookup 테이블 비선형성 때문에 noise가
+  curve1보다 항상 더 "심각"하게 계산됨). 이 방향 폐기, 대안 제안만
+  FINDINGS.md에 기록.
+
 ## 2026-08-31 (179차)
 - `sim_route_camera_style_decel.py`: `carrot_navi_route_camera_style_nearest()`
   신규 추가(179차 apex 선택기준 "가장 가까운 지점" 오프라인 재현). 유닛테스트

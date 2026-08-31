@@ -11854,3 +11854,60 @@ route 00000374 지점(카카오맵 스크린샷 위치)의 재주행 로그로 �
 
 **범위**: `selfdrive/carrot/carrot_man.py` (커밋 `5c2728b`/origin `4f90922`,
 c3-ms-dev). patch 파일: `0001-179-route-apex-nearest.patch`.
+
+## 179차 후속 — [시뮬레이션 검증, NEGATIVE] "도로제한속도 대비 비율" 최소 심각도 게이트는 작동 불가 — 단일 비율로 검증1(noise)/검증2(curve1) 동시 해결 불가능함을 확정
+
+**배경**: 179차에서 발견된 두 상반된 특성(검증1: 근접 미세잡음이 원거리
+실제급커브를 이김 / 검증2: nearest가 연속커브 1차 무시 문제를 고침) 중
+검증1만 고치고 검증2는 깨지지 않는 절충안으로 "목표속도가 도로제한속도
+대비 일정 비율(min_severity_ratio) 이상 낮을 때만 유효 apex 후보로 인정"
+하는 게이트를 사용자 확인 하에 시뮬레이션으로 먼저 검증(코드 변경 전).
+
+**구현**: `sim_route_camera_style_decel.py`에
+`carrot_navi_route_camera_style_nearest_severity_gated()` 신규 추가
+(3단 폴백: strict_threshold(=road_limit*ratio) 미달 지점 우선 탐색 →
+없으면 기존 nearest(road_limit 미달) → 없으면 전역 min). `ryu` 프로덕션
+코드는 변경하지 않음(시뮬레이션 전용).
+
+**검증 결과(NEGATIVE, 유닛테스트 12/12 PASS로 확정)**:
+- lookup 테이블(`V_CURVE_LOOKUP_BP/VALS`)이 저곡률 구간에서 극도로
+  비선형(가파름)이라, curv=0.010(검증2 curve1, 실제 완만한 커브, 반드시
+  통과해야 함)의 target=54.0km/h(110km/h 도로 기준 ratio=0.491)보다,
+  curv=0.015(검증1 noise 대표값, floor 바로 위 잡음, 반드시 차단해야 함)의
+  target=45.0km/h(200km/h 가정 기준 ratio=0.225)가 **비율상 더 낮음(더
+  "심각")**.
+- 즉 noise가 curve1보다 항상 더 심각하게 계산되므로, curve1을 살리는
+  어떤 min_severity_ratio를 잡아도 noise는 자동으로 같이 살아남는다.
+  5%~95% 전 구간(5%p 간격) 비율 스캔에서 "curve1 유지 AND noise 차단"을
+  동시에 만족하는 비율은 **하나도 존재하지 않음**을 확인(유닛테스트
+  `found_working_ratio is None` PASS).
+- ratio=0.5(curve1의 실제 ratio=0.491보다 살짝 높게, 즉 "curve1을 살리려는
+  의도"로 설정)로 검증1 시나리오에 게이트 함수를 직접 호출해도 여전히
+  noise(10m) 지점이 apex로 선택됨(게이트가 목적을 달성 못 함) 확인.
+
+**근본 원인**: "도로제한속도 대비 비율"이라는 지표 자체가 곡률의 진짜
+심각도가 아니라 lookup 테이블의 비선형성에 의해 왜곡된다. floor 바로
+위의 아주 작은 곡률 증가가 테이블 저곡률 구간의 가파른 기울기 때문에
+목표속도를 급격히 떨어뜨려, "잡음"이 수치상 "진짜 커브"보다 더 급한
+것처럼 보이는 역설이 발생.
+
+**결론**: 이 방향(도로제한속도 대비 비율 게이트)은 폐기. 다음 세션에서
+검토할 대안 방향(미구현, 제안만):
+1. **상대적 심각도 비교**: 도로제한속도가 아니라 "같은 lookahead 윈도우
+   내 가장 급한 지점(sharpest) 대비 후보 지점의 곡률 비율"을 게이트
+   기준으로 사용. curv1(검증2)/curv2(검증2 sharpest) = 0.010/0.011 = 0.91
+   (통과 쉬움) vs noise/far-curve(검증1) = 0.015/0.09 = 0.167(차단 쉬움) —
+   두 값 사이(예: 0.3~0.5)에 워킹 구간이 존재할 가능성 있음(수기 계산만,
+   아직 유닛테스트로 검증 안 됨).
+2. **연속성/지속성 기준**: 잡음은 대개 fine-sample 1개 지점에서만
+   튀고, 진짜 커브는 여러 연속 지점에서 낮은 speed가 유지됨 -- 후보
+   지점이 인접 1~2개 지점에서도 threshold를 유지하는지 확인하는 게이트.
+3. 두 방향 모두 아직 코드/시뮬레이션 미착수 -- 사용자 확인 후 진행.
+
+**toolkit 변경(이번 회차)**: `sim_route_camera_style_decel.py`에
+`carrot_navi_route_camera_style_nearest_severity_gated()`,
+`noise_then_real_curve_curvature_fn()` 신규 추가 + 유닛테스트 2건
+(비율 전수스캔 1건 + 함수 직접호출 1건) 추가, 총 12/12 PASS.
+
+**범위**: `toolkit/sim_route_camera_style_decel.py`만 변경(ryu 프로덕션
+코드 변경 없음, patch 파일 없음).
