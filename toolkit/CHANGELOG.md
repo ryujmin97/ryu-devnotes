@@ -723,3 +723,8 @@ discontinuity 0건). 개발 중 트리거 소스별 boost_s 미구분 버그가 
   옵션(기본 False, 하위호환 유지) 추가 — 172차 원인A(132차 대칭 램프가
   160차 apex 재설계 "즉시 원복" 의도를 무력화) 패치 후보 사전검증.
   `run()`에 `--road-limit-speed-kph` 옵션도 추가.
+## 175차
+- `build_acados_long_mpc.sh` + `acados_stub_prelude.py`: 실제 acados 롱컨 솔버를
+  이 컨테이너에서 코드젠+컴파일해 살아있는 LongitudinalMpc로 인스턴스화하는 절차 신규
+  작성 (스크립트 단독 재실행으로 재현성 검증 완료). 174차 원인B(A_CHANGE_COST=200
+  구조적 지연) acados 실솔버 재현검증의 선행 작업.

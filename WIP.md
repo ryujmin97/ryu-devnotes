@@ -1,3 +1,43 @@
+## 175차 (체크포인트 — acados 실솔버 빌드 절차 확립+toolkit 편입 완료, 재현시뮬레이션은 다음)
+
+**배경**: 174차에서 정적분석으로 확인한 원인B(A_CHANGE_COST=200이 리드없는 cruise
+모드에서 가속→감속 부호전환을 구조적으로 지연시킨다는 가설)를 acados 실솔버로
+재현검증하기 위해 시작. 참고로 이번 세션 초반에 172/174차와 동일한 route
+zip(00000372--6310bba9b8--5,6, t=778.86~898.85, 2401행)과 대시캠 mp4(29.95초,
+15:06:28)가 재업로드됐으나, 신규 케이스가 아닌 기존 route 재업로드로 확인 —
+분석에 사용하지 않고 원래 계획(acados 재현검증)대로 계속 진행.
+
+**완료한 것**:
+- 이 컨테이너(x86_64)에서 long_mpc.py의 실제 acados 솔버를 처음부터 빌드하는 데 성공
+  (casadi/cython/future-fstrings/setproctitle/smbus2/pyzmq pip 설치 →
+  Params_pyx/cereal.messaging/selfdrived.events 등 무거운 의존성을 no-op 스텁으로
+  대체해 long_mpc.py import 체인 통과 → ACADOS_SOURCE_DIR 등 SConstruct와 동일한
+  환경변수로 acados OCP 코드젠 → gcc 2단계 컴파일(libacados_ocp_solver_long.so,
+  acados_ocp_solver_pyx.so) → `LongitudinalMpc(mode='acc')` 실제 인스턴스화 성공,
+  살아있는 AcadosOcpSolverCython 객체 확보).
+- 이전 세션이 도구 사용 한도로 중단되면서 이 빌드 결과가 devnotes에 기록되지
+  않았던 것을 확인 → 이번 세션 시작 시 컨테이너 리셋으로 전부 소실된 상태였음.
+  동일 절차를 재현해 성공 확인 후, **재현 시뮬레이션 작성으로 넘어가기 전에** 먼저
+  `toolkit/build_acados_long_mpc.sh`(빌드 스크립트, 실행 가능) +
+  `toolkit/acados_stub_prelude.py`(스텁 모듈)로 정식 편입. 스크립트 자체를 처음부터
+  독립 실행해서 산출물 없이도 재현되는지 검증 완료(README에 사용법/제약사항 기록).
+- `toolkit/README.md`, `toolkit/CHANGELOG.md` 갱신.
+
+**다음 세션 시작 시 반드시**:
+1. `bash devnotes/toolkit/build_acados_long_mpc.sh` 로 솔버 재빌드 (매 세션 필요,
+   컨테이너 리셋으로 산출물 안 남음)
+2. 리드없음(leadStatus=False) + route 소스 조건으로 `set_weights()/update()/run()`
+   호출 시퀀스 구성 → 174차에서 확인한 실측 구간(t≈829.5~832.5, 요구감속
+   0.75~0.95 m/s²) 주입한 재현 스크립트 작성
+3. A_CHANGE_COST=200 조건에서 "가속→감속 부호전환 지연"이 실제 solver 출력
+   (a_solution)에서도 나타나는지 확인 — 나타나면 174차 가설 검증 완료, 그 다음
+   패치 설계로 진행
+4. `acados_stub_prelude.py`는 Params 값을 읽는 분기가 전부 기본값으로 흐르므로,
+   A_CHANGE_COST 등 비교 대상 상수는 long_mpc.py 소스 patch 또는 인스턴스 속성
+   직접 덮어쓰기로 주입해야 함(README 제약사항 참고)
+
+---
+
 ## 174차 (체크포인트 — 원인B 정적분석 완료, 재현검증/패치는 다음 세션)
 
 **배경**: 173차 우선순위 2번 지시대로 `longitudinal_planner.py` accel

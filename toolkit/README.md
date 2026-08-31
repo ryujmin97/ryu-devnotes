@@ -1885,3 +1885,38 @@ Diff 방식(실제 설계)은 절대값을 그대로 빼는 연산이라 오차 
 **사용**: `python3 sim_route_position_uncertainty_gate.py --unit-tests`
 **의존성**: 없음(표준 라이브러리만, `sim_route_boundary_ramp_limiter.RampLimiterState`와
 동일 인터페이스를 자체 재구현).
+
+## build_acados_long_mpc.sh + acados_stub_prelude.py (175차, 신규)
+`long_mpc.py`가 사용하는 **실제 acados 솔버**(purely-python 근사가 아님)를 이 컨테이너
+안에서 코드젠+컴파일해서 살아있는 `LongitudinalMpc` 객체로 인스턴스화하는 절차.
+기존 `sim_*`/`replay_*` 스크립트들은 전부 acados MPC 자체는 재현하지 않고 순수함수로
+근사했었는데(FINDINGS 참고), 이건 그 한계를 처음으로 넘은 것 — A_CHANGE_COST 등 실제
+비용함수 파라미터가 solver 출력에 미치는 영향을 직접 확인 가능해짐 (174차 원인B 재현검증
+용도로 175차에 작성).
+
+**사용**:
+```
+bash /home/claude/devnotes/toolkit/build_acados_long_mpc.sh
+export LD_LIBRARY_PATH=/home/claude/ryu/third_party/acados/x86_64/lib
+export PYTHONPATH=/home/claude/ryu
+python3 -c "
+exec(open('/home/claude/devnotes/toolkit/acados_stub_prelude.py').read())
+from openpilot.selfdrive.controls.lib.longitudinal_mpc_lib.long_mpc import LongitudinalMpc
+mpc = LongitudinalMpc(mode='acc')
+"
+```
+
+**소요**: 1~2분 (pip 설치 + acados 코드젠 + gcc 컴파일 2단계). 컨테이너 리셋마다 재실행 필요
+(빌드 산출물은 세션 간 보존 안 됨 — repo에도 커밋하지 않음, `.so`/`c_generated_code/`는
+`work/`급 산출물).
+
+**의존성**: `pip install setproctitle smbus2 pyzmq casadi cython future-fstrings` (스크립트가
+자동 설치). `third_party/acados/x86_64/{lib,t_renderer}` 사전빌드 바이너리가 ryu repo에
+이미 포함돼 있어야 함(현재 c3-ms-dev에 있음, x86_64 전용 — larch64/Darwin 컨테이너에선
+경로 수정 필요).
+
+**제약**: `acados_stub_prelude.py`가 `Params`/`cereal.messaging`/`Events`를 전부 no-op으로
+스텁하므로, `LongitudinalMpc.set_weights()/update()/run()` 등 solver 계산 자체는 정상이지만
+Params에서 값을 읽는 분기는 전부 기본값으로 흐름. 재현 시뮬레이션 작성 시
+A_CHANGE_COST 등 비교하려는 상수는 `long_mpc.py` 소스를 직접 patch하거나 인스턴스
+속성을 덮어써서 주입해야 함(다음 세션에서 재현 스크립트 작성 시 이 패턴 사용 예정).
