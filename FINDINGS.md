@@ -11911,3 +11911,64 @@ c3-ms-dev). patch 파일: `0001-179-route-apex-nearest.patch`.
 
 **범위**: `toolkit/sim_route_camera_style_decel.py`만 변경(ryu 프로덕션
 코드 변경 없음, patch 파일 없음).
+
+## 179차 후속2 — [시뮬레이션 검증 완료, 대안1 POSITIVE / 대안2 NEGATIVE 확정] 179차 후속에서 제안만 됐던 두 대안(상대적 심각도 비교, 연속성/지속성 기준)을 실제 함수로 구현하고 실함수 호출 유닛테스트로 확정
+
+**배경**: 179차 후속에서 "도로제한속도 대비 절대 비율" 게이트가
+작동 불가함을 확정하고, 대안 두 개(상대적 심각도 비교 / 연속성·지속성
+기준)를 제안만 한 채 미착수로 남겼음(사용자 판단 대기). 이번 회차에서
+사용자 지시("1,2번 계속 진행해봐")로 두 대안 모두 구현/검증.
+
+**대안1: 상대적 심각도 비교 — POSITIVE, 채택 유력**
+
+`carrot_navi_route_camera_style_nearest_relative_gated()` 신규 구현.
+핵심 아이디어: 도로제한속도 대비 절대 비율 대신, "같은 lookahead 윈도우
+내 가장 급한 지점(sharpest)의 severity 대비 후보 지점의 severity 비율"을
+게이트 기준으로 사용. severity(k) := road_limit_speed - speeds[k]로 정의.
+
+- 5~95% 구간 전수 스캔(거리 인덱스 기준 약식 검증)에서 ratio=0.80~0.95
+  구간이 검증2(curve1 유지)와 검증1(noise 차단)을 동시에 만족하는 워킹
+  구간으로 확인됨 (폐기된 절대비율 접근과 달리 POSITIVE).
+- 실제 함수 호출(carrot_navi_route_camera_style_nearest_relative_gated,
+  기본값 relative_severity_ratio=0.85) 기준 최종 확정 검증:
+  - 검증2(연속 S자커브, curve1=0.010, apex1 진입 직전): 게이트 없는
+    nearest와 완전히 동일한 out_speed(±0.5kph 이내) — 1차 대응력 100% 유지.
+  - 검증1(근접잡음 10m curv=0.015 vs 원거리 실제커브 80m curv=0.09):
+    게이트 없는 nearest는 잡음(45.0kph)에 고정되지만, relative_gated는
+    잡음을 차단하고 sharpest(원거리 실제커브 기준값 37.7kph)와 정확히
+    일치하는 값을 냄.
+- 기본값 0.85는 워킹 구간(0.80~0.95)의 중간값으로 마진을 둔 선택.
+- 폴백: 게이트를 만족하는 후보가 하나도 없으면(모든 후보가 sharpest
+  대비 상대적으로 완만) 기존 nearest(게이트 없음)로 폴백 — "게이트 때문에
+  아예 반응 안 함"보다 안전 쪽 폴백을 우선.
+
+**대안2: 연속성/지속성 기준 — NEGATIVE, 폐기**
+
+`carrot_navi_route_camera_style_nearest_persistence_gated()` 신규 구현.
+핵심 아이디어(가설): 잡음은 대개 fine-sample 단일 지점에서만 threshold를
+넘고, 진짜 커브는 인접 지점에서도 유지될 것이다 — 후보 지점이 인접
+min_persist_points(기본 2)개 연속 지점 모두 threshold 미만이어야 apex로
+인정.
+
+- 검증2(연속 S자커브) 시나리오를 fine-sample(0.001 간격)로 재확인한 결과,
+  curve1(width=20m)도 실제로는 단일 10m 지점에서만 threshold를 넘는 것으로
+  확인됨(같은 시나리오의 curve2만 2개 연속지점에서 넘음) — 즉 "진짜
+  커브=항상 연속, 잡음=항상 단일"이라는 가설의 전제 자체가 이 시나리오에서
+  성립하지 않음.
+- 실제 함수 호출 검증: min_persist_points=2를 적용하면 curve1도 noise와
+  마찬가지로 걸러져, out_speed가 게이트 없는 nearest 기준값에서 뚜렷이
+  벗어남(1차 대응력 상실) — 검증2가 깨짐. **폐기.**
+
+**다음 단계(제안, 미착수)**: 대안1(relative_gated)을 `carrot_man.py`
+프로덕션 코드에 반영할지 사용자 확인 필요. 반영 시 149~161/179차와
+동일하게 patch 생성 → py_compile/git am 검증 → 실차 적용은 사용자
+담당. 실차 적용 전 가능하면 cruiseEnabled=True 상태의 실제 연속커브 +
+근접잡음이 섞인 로그로 오프라인 재검증(`replay_route_camera_style_vs_baseline.py`
+에 relative_gated 모드 추가 필요, 아직 없음) 권장.
+
+**toolkit 변경(이번 회차)**: `sim_route_camera_style_decel.py`에
+`carrot_navi_route_camera_style_nearest_relative_gated()`,
+`carrot_navi_route_camera_style_nearest_persistence_gated()` 신규 추가 +
+실함수 호출 유닛테스트 3건 추가(총 15/15 PASS). `README.md`/`CHANGELOG.md`
+갱신. **범위**: `toolkit/sim_route_camera_style_decel.py`만 변경(ryu
+프로덕션 코드 변경 없음, patch 파일 없음).

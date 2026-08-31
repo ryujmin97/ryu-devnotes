@@ -3,6 +3,16 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+## 2026-08-31 (179차 후속2)
+- `sim_route_camera_style_decel.py`: 179차 후속에서 제안만 됐던 대안 2개를
+  구현하고 실함수 호출 유닛테스트로 확정(3건 추가, 15/15 PASS) —
+  `carrot_navi_route_camera_style_nearest_relative_gated()`(윈도우 내
+  sharpest 대비 상대 심각도 비율 게이트, 기본 0.85): **POSITIVE**, 검증2
+  (curve1) 대응력 유지 + 검증1(잡음) 차단 동시 만족 확정. 채택 유력.
+  `carrot_navi_route_camera_style_nearest_persistence_gated()`(인접
+  연속지점 지속성 게이트): **NEGATIVE**, curve1이 fine-sample 특성상
+  단일 지점에서만 threshold를 넘어 대응력이 깨짐 — 폐기.
+
 ## 2026-08-31 (179차 후속)
 - `sim_route_camera_style_decel.py`: `carrot_navi_route_camera_style_nearest_severity_gated()`
   (도로제한속도 대비 비율 최소심각도 게이트 시도) + `noise_then_real_curve_curvature_fn()`

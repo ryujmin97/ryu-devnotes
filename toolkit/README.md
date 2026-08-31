@@ -1441,6 +1441,20 @@ python3 replay_route_camera_style_vs_baseline.py <route.csv> --apex-mode both --
 curve1보다 항상 더 "심각"하게 계산됨. 상세는 FINDINGS.md 179차 후속 참고.
 이 방향은 폐기, 대안(상대적 심각도 비교/연속성 게이트)은 미착수 제안만
 기록됨.
+**2026-08-31 추가(179차 후속2, 대안1 POSITIVE / 대안2 NEGATIVE 확정)**:
+`sim_route_camera_style_decel.py`에 대안 두 개를 모두 구현 + 실함수 호출
+유닛테스트로 확정(15/15 PASS, 신규 3건 추가) —
+`carrot_navi_route_camera_style_nearest_relative_gated()`(도로제한속도
+절대비율 대신 "같은 lookahead 윈도우 내 sharpest 대비 상대 심각도 비율"을
+게이트 기준으로 사용, 기본 relative_severity_ratio=0.85): 검증2(연속
+S자커브 curve1)는 게이트 없는 nearest와 동일 결과(대응력 유지), 검증1
+(근접잡음 vs 원거리 실제커브)은 잡음을 차단하고 sharpest(원거리 실제커브)
+와 정확히 일치 — **POSITIVE, 이 방향 채택 유력**.
+`carrot_navi_route_camera_style_nearest_persistence_gated()`(인접
+min_persist_points개 연속 지점이 모두 threshold 미만이어야 apex 인정,
+기본 2): 검증2의 curve1이 fine-sample 특성상 단일 지점에서만 threshold를
+넘는 것으로 확인돼(curve2는 2개 연속) curve1 대응력이 깨짐 —
+**NEGATIVE, 폐기**. 상세는 FINDINGS.md 179차 후속2 참고.
 
 ## 아직 없는 카테고리 (필요해지면 추가)
 - `toolkit/sim/` — 시뮬레이터 스크립트가 `sim_vision_rate.py` 하나를

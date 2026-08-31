@@ -135,6 +135,76 @@ def carrot_navi_route_camera_style_nearest_severity_gated(speeds, distances, saf
     return min(out_speed, 300.0), decel_rate_mss * 3.6
 
 
+def carrot_navi_route_camera_style_nearest_relative_gated(speeds, distances, safe_time, decel_rate_mss,
+                                                            road_limit_speed=200.0, relative_severity_ratio=0.85):
+    """179차 후속, 대안1(상대적 심각도 비교) -- 도로제한속도 대비 절대
+    비율(위 severity_gated, 폐기됨) 대신, "같은 lookahead 윈도우 내
+    가장 급한 지점(sharpest) 대비 후보 지점의 심각도 비율"을 게이트
+    기준으로 사용. severity(k) := road_limit_speed - speeds[k] (클수록
+    급커브)로 정의하면, 이 지표는 road_limit_speed 절대값에 덜 민감하고
+    같은 윈도우 안에서의 상대적 위험도만 비교하므로 폐기된 접근의 핵심
+    결함(잡음이 절대비율상 더 "심각"해 보이는 문제)을 피할 수 있다.
+
+    apex 후보(=speeds[k] < road_limit_speed인 지점들) 중 severity(k) >=
+    relative_severity_ratio * sharpest_severity(윈도우 내 최댓값)를
+    만족하는 가장 가까운 지점을 선택. 그런 지점이 없으면(모든 후보가
+    sharpest 대비 상대적으로 완만) 기존 nearest(게이트 없음, 가장 가까운
+    후보)로 폴백 -- "게이트 때문에 아예 반응 안 함"이 되는 것보다는
+    안전 쪽으로 폴백.
+
+    [유닛테스트로 확정] relative_severity_ratio=0.80~0.95 구간에서
+    검증2(curve1, 상대severity=0.962)는 유지, 검증1(noise, 상대severity=
+    0.795)은 차단 -- 두 조건을 동시에 만족하는 워킹 구간이 실제로 존재함
+    (폐기된 절대비율 접근과 달리 POSITIVE). 기본값 0.85는 그 구간의
+    중간값으로 마진을 둔 선택."""
+    if not speeds:
+        return 300.0, decel_rate_mss * 3.6
+    candidates = [k for k in range(len(speeds)) if speeds[k] < road_limit_speed]
+    if not candidates:
+        apex_idx = min(range(len(speeds)), key=lambda k: speeds[k])
+    else:
+        sharpest_severity = road_limit_speed - min(speeds[k] for k in candidates)
+        gated = [k for k in candidates
+                 if sharpest_severity > 0 and (road_limit_speed - speeds[k]) >= relative_severity_ratio * sharpest_severity]
+        apex_idx = gated[0] if gated else candidates[0]
+    apex_dist = distances[apex_idx]
+    apex_speed = speeds[apex_idx]
+    out_speed = camera_calculate_current_speed(apex_dist, apex_speed, safe_time, decel_rate_mss)
+    return min(out_speed, 300.0), decel_rate_mss * 3.6
+
+
+def carrot_navi_route_camera_style_nearest_persistence_gated(speeds, distances, safe_time, decel_rate_mss,
+                                                               road_limit_speed=200.0, min_persist_points=2):
+    """179차 후속, 대안2(연속성/지속성 기준) -- 잡음은 대개 fine-sample
+    1개 지점에서만 threshold를 넘고, 진짜 커브는 인접 지점에서도 유지될
+    것이라는 가설. 후보 지점 k가 "인접한 min_persist_points개 연속
+    지점(k, k+1, ..., 또는 k-1, k)이 모두 road_limit_speed 미만"을
+    만족해야 apex로 인정, 아니면 다음 후보로 넘어간다. 만족하는 지점이
+    하나도 없으면 기존 nearest(게이트 없음)로 폴백.
+
+    [유닛테스트로 확정, NEGATIVE] 검증2의 curve1(width=20m)도 실제로는
+    fine-sample merge 특성상 단일 10m 지점에서만 threshold를 넘는 것으로
+    확인됨(대상 시나리오에서 curve2는 2개 연속지점에서 넘지만 curve1은
+    1개뿐) -- 즉 "진짜 커브=항상 연속, 잡음=항상 단일"이라는 가설의
+    전제 자체가 이 시나리오에서 성립하지 않는다. min_persist_points=2를
+    적용하면 curve1도 noise와 마찬가지로 걸러져 검증2가 깨진다."""
+    if not speeds:
+        return 300.0, decel_rate_mss * 3.6
+    candidates = [k for k in range(len(speeds)) if speeds[k] < road_limit_speed]
+    apex_idx = None
+    for k in candidates:
+        window = range(k, min(k + min_persist_points, len(speeds)))
+        if len(list(window)) == min_persist_points and all(speeds[j] < road_limit_speed for j in window):
+            apex_idx = k
+            break
+    if apex_idx is None:
+        apex_idx = candidates[0] if candidates else min(range(len(speeds)), key=lambda k: speeds[k])
+    apex_dist = distances[apex_idx]
+    apex_speed = speeds[apex_idx]
+    out_speed = camera_calculate_current_speed(apex_dist, apex_speed, safe_time, decel_rate_mss)
+    return min(out_speed, 300.0), decel_rate_mss * 3.6
+
+
 def simulate_road_camera(sampler, road_len_m, v_ego_kph_start, safe_time, decel_rate_mss,
                           dt=0.05, max_steps=6000):
     """sim_route_apex_redesign.simulate_road()와 동일 방법론(완벽추종 가정,
@@ -372,6 +442,44 @@ def _run_unit_tests():
           "noise 지점을 apex로 선택(=게이트가 목적을 달성 못 함, sharpest보다 여전히 높은/불안전한 값)",
           gated_out_v1 > sharpest_out_v1 + 5.0,
           f"gated={gated_out_v1:.1f}, sharpest(기존, 원거리 실제커브 타겟)={sharpest_out_v1:.1f}")
+
+    # 8) [179차 후속, 대안1(상대적 심각도 비교) 실함수 검증, POSITIVE 확정]
+    #    검증2(연속 S자, curve1=0.010)와 검증1(근접잡음 vs 원거리 실제커브)에
+    #    실제 게이트 함수(carrot_navi_route_camera_style_nearest_relative_gated,
+    #    기본값 relative_severity_ratio=0.85)를 그대로 호출해 두 조건을 동시에
+    #    만족하는지 확인(위 7번은 거리 인덱스만 보는 약식 스캔이었고, 이번엔
+    #    실제 프로덕션 시그니처와 동일한 함수 호출 + out_speed 비교로 확정).
+    gated_v2_out, _ = carrot_navi_route_camera_style_nearest_relative_gated(
+        speeds_v2, dist_v2, SAFE_TIME, DECEL_RATE, road_limit_speed=110.0)
+    nearest_v2_out, _ = carrot_navi_route_camera_style_nearest(
+        speeds_v2, dist_v2, SAFE_TIME, DECEL_RATE, road_limit_speed=110.0)
+    check("[179차 후속 대안1] 검증2(curve1): relative_gated(0.85)가 게이트 없는 "
+          "nearest와 동일한 apex(1차)를 선택 -- curve1 대응력 유지됨",
+          abs(gated_v2_out - nearest_v2_out) < 0.5,
+          f"gated={gated_v2_out:.2f}, nearest(게이트없음)={nearest_v2_out:.2f}")
+
+    gated_v1_out, _ = carrot_navi_route_camera_style_nearest_relative_gated(
+        speeds_v1, dist_v1, SAFE_TIME, DECEL_RATE, road_limit_speed=200.0)
+    nearest_v1_out, _ = carrot_navi_route_camera_style_nearest(
+        speeds_v1, dist_v1, SAFE_TIME, DECEL_RATE, road_limit_speed=200.0)
+    sharpest_v1_out, _ = carrot_navi_route_camera_style(speeds_v1, dist_v1, SAFE_TIME, DECEL_RATE)
+    check("[179차 후속 대안1] 검증1(잡음 vs 원거리 실제커브): relative_gated(0.85)가 "
+          "잡음(10m)을 차단하고 sharpest(원거리 실제커브 타겟)와 정확히 일치하는 값을 냄 "
+          "-- 게이트 없는 nearest(잡음에 고정)와 뚜렷이 구분됨",
+          abs(gated_v1_out - sharpest_v1_out) < 0.5 and gated_v1_out < nearest_v1_out - 5.0,
+          f"gated={gated_v1_out:.1f}, nearest(게이트없음)={nearest_v1_out:.1f}, "
+          f"sharpest(기준)={sharpest_v1_out:.1f}")
+
+    # 9) [179차 후속, 대안2(연속성/지속성 기준) 실함수 검증, NEGATIVE 확정]
+    #    min_persist_points=2를 검증2(curve1)에 적용하면 curve1(단일 지점만
+    #    threshold 통과)이 걸러지고 더 먼 curve2(2개 연속 통과)로 apex가
+    #    이동해버려 -- 원래 목적(1차 자신의 곡률에 맞는 감속)이 깨지는지 확인.
+    persist_v2_out, _ = carrot_navi_route_camera_style_nearest_persistence_gated(
+        speeds_v2, dist_v2, SAFE_TIME, DECEL_RATE, road_limit_speed=110.0, min_persist_points=2)
+    check("[179차 후속 대안2] 검증2(curve1): persistence_gated(min=2)를 적용하면 "
+          "1차 고유속도(nearest 기준값)에서 벗어남 -- 1차 대응력 상실 확인(NEGATIVE)",
+          abs(persist_v2_out - nearest_v2_out) > 1.0,
+          f"persistence_gated={persist_v2_out:.2f}, nearest(게이트없음, 기준)={nearest_v2_out:.2f}")
 
     print(f"\n{passed} PASS / {failed} FAIL")
     return failed == 0

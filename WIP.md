@@ -1,3 +1,35 @@
+## 179차 후속2 (체크포인트 — 대안1 상대적 심각도 게이트 POSITIVE 확정, 대안2 지속성 게이트 NEGATIVE 확정, ryu 반영 여부 사용자 판단 대기)
+
+**진행**: 179차 후속에서 제안만 하고 미착수였던 두 대안(사용자 지시:
+"1,2번 계속 진행해봐")을 모두 구현하고 유닛테스트로 확정.
+
+**결론**:
+1. **상대적 심각도 비교** (`carrot_navi_route_camera_style_nearest_relative_gated`,
+   기본 relative_severity_ratio=0.85) — **POSITIVE, 채택 유력**. 검증2
+   (연속 S자커브 curve1)는 게이트 없는 nearest와 동일 결과로 대응력 100%
+   유지, 검증1(근접잡음 vs 원거리 실제커브)은 잡음을 정확히 차단하고
+   sharpest(원거리 실제커브) 기준값과 정확히 일치. 실함수 호출 기준으로
+   최종 확정(약식 거리스캔이 아니라 실제 프로덕션 시그니처와 동일한 함수
+   호출 + out_speed 비교).
+2. **연속성/지속성 기준** (`carrot_navi_route_camera_style_nearest_persistence_gated`,
+   기본 min_persist_points=2) — **NEGATIVE, 폐기**. "잡음=단일지점,
+   진짜커브=연속지점"이라는 가설 전제가 검증2 시나리오에서 성립하지 않음
+   (curve1도 fine-sample 특성상 단일 지점에서만 threshold 통과) — 적용
+   시 curve1 대응력이 noise와 함께 걸러져 오히려 회귀.
+
+**toolkit 변경**: `sim_route_camera_style_decel.py`(신규 함수 2개는
+이미 있었고 이번 회차에서 실함수 호출 유닛테스트 3건 추가, 총 15/15
+PASS), `README.md`/`CHANGELOG.md` 갱신. `ryu` 프로덕션 코드는 이번
+회차에서 변경 없음(patch 파일 없음).
+
+**다음 단계(사용자 판단 대기)**: 대안1(relative_gated)을 `carrot_man.py`
+프로덕션에 반영할지 확인 필요. 반영 시 (1) patch 생성 → py_compile/git am
+검증 → 실차 적용은 사용자 담당, (2) 가능하면 실차 적용 전
+`replay_route_camera_style_vs_baseline.py`에 relative_gated 모드를
+추가해 cruiseEnabled=True 실측 로그로 오프라인 재검증 권장(아직 미착수).
+
+---
+
 ## 179차 후속 (완료 — 최소심각도 게이트(도로제한속도 대비 비율) 시뮬레이션 검증, NEGATIVE 결론 확정)
 
 **결론**: 사용자 제안 "목표속도가 도로제한속도 대비 일정 비율 이상 낮을
