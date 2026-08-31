@@ -1,3 +1,39 @@
+## 180차 (체크포인트 — 179차 후속2 대안1(상대적 심각도 게이트) ryu 프로덕션 반영, 패치 완료/실차검증 대기)
+
+**진행**: 179차 후속2에서 시뮬레이션 POSITIVE로 확정된 대안1
+(`carrot_navi_route_camera_style_nearest_relative_gated`,
+relative_severity_ratio=0.85)을 `carrot_man.py::carrot_navi_route()`
+프로덕션 apex 선택 로직에 반영. 179차(nearest, 감속필요 최근접) 위에
+"같은 lookahead 윈도우 내 sharpest 대비 상대적 심각도 비율" 게이트를
+추가하는 방식 — 179차 로직 자체를 대체하지 않고 그 위에 필터를 씌움.
+
+**변경 내용**: `ROUTE_APEX_RELATIVE_SEVERITY_RATIO = 0.85` 상수 신규
+추가(주석에 근거/실측/유닛테스트 요약 포함). apex_idx 선택을
+"candidates(감속필요 지점) 중 severity(k) >= ratio * sharpest_severity
+인 가장 가까운 지점, 없으면 게이트 없는 nearest(candidates[0])로 폴백"
+방식으로 교체. `road_limit_speed`는 `self.carrot_serv.nRoadLimitSpeed`
+그대로 사용(toolkit 시뮬레이션과 동일 정의).
+
+**검증**: `py_compile` + `ast.parse` 문법 확인 OK. `git format-patch` ->
+throwaway 브랜치(base=4f90922, 179차 nearest 커밋)에서 `git am` 성공 ->
+`git diff c3-ms-dev --stat` 변경 없음(=c3-ms-dev HEAD와 정확히 일치,
+diff-0 확인). **오프라인 replay(`replay_route_camera_style_vs_baseline.py`
+에 relative_gated 모드 추가, cruiseEnabled=True 실측 로그 재검증)와
+실차 적용은 아직 수행하지 않음** — 179차 후속2에서 권장된 다음 단계로
+이번 회차 범위 밖.
+
+**patch**: `0001-route-apex-relative-gated.patch` (커밋 `2e58d04`,
+base=`4f90922`, 로컬만 존재 — 실차 적용 및 origin push는 사용자 담당).
+
+**다음 단계**: (1) 실차 적용 후 잡음(근접 미세곡률) 무시 + 진짜 커브
+반응 유지 여부 실측 확인, (2) 가능하면 실차 적용 전
+`replay_route_camera_style_vs_baseline.py`에 relative_gated 모드
+추가해 cruiseEnabled=True 실측 로그로 오프라인 재검증(179차 후속2
+권장, 아직 미착수), (3) 179차 계속에서 언급된 카카오맵 연속커브
+지점 재주행 로그가 확보되면 그 로그로 대조 검증.
+
+---
+
 ## 179차 후속2 (체크포인트 — 대안1 상대적 심각도 게이트 POSITIVE 확정, 대안2 지속성 게이트 NEGATIVE 확정, ryu 반영 여부 사용자 판단 대기)
 
 **진행**: 179차 후속에서 제안만 하고 미착수였던 두 대안(사용자 지시:
