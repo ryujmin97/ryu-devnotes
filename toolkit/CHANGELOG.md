@@ -783,3 +783,12 @@ discontinuity 0건). 개발 중 트리거 소스별 boost_s 미구분 버그가 
   A/B 비교 출력부 일반화(하드코딩된 sharpest/nearest → modes[0]/modes[1]). 합성
   스팟체크로 relative_gated가 sharpest와 동일 결과를 냄을 확인. **route 00000374
   실측 CSV 재확보 후 both_relative 실측 A/B 재검증은 아직 미착수(다음 세션 과제).**
+- 182차: `check_navi_route_activity.py` 신규 -- navi_points_active 드롭아웃("route
+  사전감속이 61초간 전혀 없었음", route=390.0 노출) 자동 진단. `naviPointsActive`
+  =False 연속구간을 찾아 지속시간/드롭아웃 직전 route 소스(navd/tcp_raw/tcp_navi)/
+  vEgo 범위를 리포트. `extract_log.py`에 `naviPointsActive`/`navdActive`/
+  `dtRouteInactive`/`routeSource` 4컬럼 신규(carrotMan, 항상 포함). 이 필드들은
+  `0001-navi-route-activity-instrumentation.patch`(182차, ryu 본체)로 실차 반영
+  해야만 새 rlog에 찍힘 -- 패치 적용 전 로그는 `--fallback-naviPaths` 근사 모드로
+  degrade(naviPaths 텍스트 비어있음 + liveRouteSpeed==390.0 휴리스틱, 원인규명은
+  불가능하고 지속시간만 근사 추정). 사용자 실차 패치 반영 대기 중(NEEDS_VALIDATION).

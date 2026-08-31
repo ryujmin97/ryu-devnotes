@@ -1,3 +1,22 @@
+## c3-ms-dev (182차, 좌회전 접근시 route 사전감속 61초 완전공백 발견 + 계측 패치 — NEEDS_VALIDATION, 실차 검증 대기)
+- last_analyzed_commit: `89581897a4f2` (179차 후속2/relative_gated HEAD,
+  이 회차 분석 시작 시점 기준. 이번 회차 자체 코드변경은 이 HEAD 위에
+  로컬 커밋으로 존재 — 패치 미적용 상태에서 분석)
+- date: 2026-08-31 (182차, 직전 세션 미체크포인트로 유실됐던 분석을
+  사용자 제공 요약 텍스트로 복구 + 계측 패치 신규 추가)
+- 분석 대상: 사용자 스크린샷(06:08:50, "Signal slowing" HUD) GPS 시각
+  매핑 → t≈250.3~250.5, segment 2 전체(06:08:56~06:09:56, 61초/1200프레임)
+- note: `naviPaths` 0/1200(완전 공백) 확인, `route=390.0`은
+  `navi_points_active=False`일 때 `carrot_navi_route()`가 즉시 반환하는
+  "제약없음" 기본값(300×1.3)임을 코드 추적으로 확정. 172~181차 apex
+  선택 게이트와 무관, 162/163차(위치추정 데드레커닝 정체)와도 다른
+  별개의 상위 실패모드("애초에 폴리라인 수신 자체가 끊김"). 원인
+  자체(navi 앱/네트워크/재요청)는 미규명 — `naviPointsActive`/
+  `navdActive`/`dtRouteInactive`/`routeSource` cereal 계측 패치
+  (`0001-navi-route-activity-instrumentation.patch`)와 진단 스크립트
+  (`check_navi_route_activity.py`) 신규 작성, 실차 반영 후 다음 로그로
+  재분석 필요. 상세는 FINDINGS.md/WIP.md "182차" 참고.
+
 ## c3-ms-dev (149차, liveRouteSpeed 신규계측 + "route 미작동" 근본원인 확정 — ROOT_CAUSE_CONFIRMED, ryu 코드 변경 없음, toolkit push 대기)
 - last_analyzed_commit: `46f0aed4f239` (147/148차 패치 포함 HEAD, ryu 코드
   변경 없음 — 이번 회차는 devnotes/toolkit(extract_log.py)만 변경)

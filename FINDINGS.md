@@ -12083,3 +12083,56 @@ relative_gated 나란히 비교) 신규 추가. 기존 `both`(sharpest vs neares
 **범위**: `toolkit/replay_route_camera_style_vs_baseline.py`,
 `toolkit/README.md`, `toolkit/CHANGELOG.md`만 변경(ryu 프로덕션 코드
 변경 없음, patch 파일 없음).
+
+## 182차 — [NEEDS_VALIDATION, 신규 이슈 + 계측 패치] 좌회전 접근시 route 사전감속 완전 공백(61초) — naviPaths(route 폴리라인) 자체가 수신 안 됨, 162/163차와는 별개 실패모드
+
+**배경**: 사용자 제보 스크린샷(HUD, 06:08:50, "Signal slowing" 표시)을 GPS
+타임스탬프로 로그 t축에 정밀 매핑(t≈250.3~250.5, xDistToTurn=36·route=390.0
+완전 일치)한 결과, 이 좌회전 접근에서 route 사전감속이 없었다는 제보가
+사실로 확인됨.
+
+**핵심 발견**: 172~181차가 다뤄온 apex 선택 게이트(가장 급한/가까운 지점
+선택 로직) 문제가 아니다. `carrotMan.naviPaths`(route 폴리라인)가 좌회전
+접근 구간(segment 2, 06:08:56~06:09:56, 61초/1200프레임) 동안 **완전히
+비어있었다**(0/1200). `carrot_navi_route()`는 `navi_points_active`가
+False면 곡률 계산 자체를 스킵하고 `[], [], 300`을 즉시 반환한다
+(300 × `mapTurnSpeedFactor`(1.3) = 390.0 — 스샷의 "route=390.0"과 정확히
+일치, 이게 "제약 없음" 기본값이 노출된 것). 실제 정지(32km/h→0)는 HUD
+"Signal slowing" 표기대로 e2e 모델의 신호정지 로직(xState 3/5)이
+전담했고, vTurnSpeed(vturn/비전)는 이 구간 내내 -140~+150 사이를
+요동치는 노이즈성 값으로 실제 감속에 관여하지 못했다.
+
+`naviPaths`는 세그먼트 경계 후 t=256.95(약 1.15초 뒤)에야 처음 채워졌는데,
+그 시점 v_ego는 이미 0.8km/h — 사실상 이미 정지한 뒤였다. 그 순간
+좌표 데이터(y offset -3→-39, 70m 구간에서 급격히 커짐)를 보면 실제로는
+뚜렷한 좌회전 곡률이 존재했다 — 폴리라인만 제때 있었다면 카메라식
+사전감속이 정상적으로 걸렸을 상황.
+
+**162/163차와의 관계(중요, 혼동 주의)**: 162/163차도 같은 유형의 증상
+("route가 실제 회전을 못 봄", route id `aeeed9e4a5`)을 다뤘지만 근본원인이
+다르다. 162차는 `navi_points_active=True`인 상태에서 **위치추정(bearing/
+`nPosAngle`) 데드레커닝이 11초간 정체**돼 곡률 계산 입력 자체가 틀린
+경우였고, 163차 패치(`ROUTE_POSITION_UNCERTAIN_DT_S=3.0` 게이트, 이미
+ryu 실차 반영됨 — 커밋 `eecac50`)는 그 경우만 완화한다. 이번 182차는
+`navi_points_active`가 **61초간 통째로 False**였던, 폴리라인 수신 자체가
+끊긴 완전히 별개의 상위 단계 실패모드다 — 163차 게이트와 무관, 163차가
+반영돼 있어도 이 케이스는 막지 못한다.
+
+**미해결(원인 미특정)**: 왜 드롭아웃됐는지(navi 앱 재요청 실패/네트워크
+문제/재계산 트리거 등)는 코드 리뷰만으로는 특정 불가 — `navi_points_active`
+상태전이 자체가 이전엔 cereal에 발행되지 않아 print()로만 남고, rlog
+재분석으로는 다음 3개 route 수신 경로(navd cereal `navRouteNavd`/TCP
+7709 raw 소켓/TCP 7712 `handle_route` JSON) 중 어디가 실패했는지조차
+구분할 수 없었다.
+
+**조치(코드 변경, 182차)**: `carrotMan`에 `naviPointsActive`/`navdActive`/
+`dtRouteInactive`/`routeSource` 4개 필드 신규 발행 —
+`0001-navi-route-activity-instrumentation.patch`. 다음 실차 로그부터
+드롭아웃 지속시간과 직전 마지막 성공 소스를 CSV로 직접 확인 가능해짐.
+`toolkit/check_navi_route_activity.py`(신규) + `extract_log.py` 4컬럼
+추가. **아직 원인 자체는 미규명 — 이번 조치는 계측 추가일 뿐, 다음
+실차 로그 확보 후 재분석 필요(NEEDS_VALIDATION 다음 단계).**
+
+**범위**: `ryu`(cereal/custom.capnp, carrot_man.py, carrot_serv.py, 코드
+변경 있음 — 계측 전용, 제어로직 변경 없음) + `toolkit/`(extract_log.py,
+check_navi_route_activity.py 신규, README/CHANGELOG). 실차 검증 전.

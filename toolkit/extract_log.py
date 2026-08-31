@@ -65,7 +65,24 @@ FIELDNAMES = [
     "liveRouteSpeed",
     "ccYawDeg", "ccYawRateZ", "ccPoseValid",
     "vpPosPointLatNavi", "vpPosPointLonNavi", "dtNaviPacketAge", "positionDtSinceFix",
+    "naviPointsActive", "navdActive", "dtRouteInactive", "routeSource",
 ]
+# 2026-08-31 추가(182차 계측): carrotMan.naviPointsActive/navdActive/
+# dtRouteInactive/routeSource -- "route 사전감속이 61초간 전혀 없었음"
+# (FINDINGS.md 182차, route=390.0 기본값 노출)의 원인을 다음 실차 로그
+# CSV만으로 직접 진단하기 위한 계측. naviPointsActive=False가 지속되는
+# 동안(dtRouteInactive로 지속시간 직접 확인 가능) carrot_navi_route()는
+# 곡률계산 자체를 스킵한다 -- 162/163차 게이트(positionDtSinceFix, "값은
+# 들어오는데 위치추정이 부정확")와는 별개의 상위 단계 실패모드("애초에
+# 폴리라인 수신 자체가 끊김"). routeSource는 마지막으로 route를 성공
+# 수신한 경로(navd cereal/TCP 7709 raw/TCP 7712 handle_route)를 표시 --
+# 드롭아웃 직전 어느 경로가 살아있었는지로 원인 후보를 좁히는 용도.
+# 이 계측은 `0001-navi-route-activity-instrumentation.patch`(182차)로
+# `ryu` 본체(cereal/custom.capnp, carrot_man.py, carrot_serv.py)에 실제
+# 적용해야만 새 rlog에 찍힌다 -- **패치 적용 전 로그(과거 route)에는
+# naviPointsActive=False, navdActive=False, dtRouteInactive=0.0,
+# routeSource=""로 전부 capnp 기본값이 나옴(크래시 아님, "데이터 없음"과
+# 동일 의미).**
 # 2026-08-31 추가(169차 계측): carrotMan.vpPosPointLatNavi/LonNavi,
 # dtNaviPacketAge, positionDtSinceFix -- "패킷단절 vs 내용정지" 구분용
 # (FINDINGS.md 169차 NEEDS_INVESTIGATION). dtNaviPacketAge가 3.0을 넘으면
@@ -352,6 +369,10 @@ def process_segment(rlog_path, seg_name, repo_dir, max_mb, commit_short="",
                 "vpPosPointLonNavi": cm.vpPosPointLonNavi,
                 "dtNaviPacketAge": cm.dtNaviPacketAge,
                 "positionDtSinceFix": cm.positionDtSinceFix,
+                "naviPointsActive": cm.naviPointsActive,
+                "navdActive": cm.navdActive,
+                "dtRouteInactive": cm.dtRouteInactive,
+                "routeSource": str(cm.routeSource),
             })
     return rows, last_cs, last_ctrl, last_lead, last_lat, last_model, last_pose
 

@@ -1,3 +1,59 @@
+## 182차 (체크포인트 — 좌회전 접근시 route 사전감속 61초 완전공백 발견 + 원인규명용 계측 패치 작성 완료, 실차 반영/재검증은 다음)
+
+**배경**: 직전 세션(182차 최초 시도)이 WIP.md 기록 중 스크립트 오류로
+중단되며 devnotes에 push 안 된 채 유실(checkpoint 실패). 이번 세션은
+사용자가 그 세션의 최종 요약 텍스트를 제공해 devnotes 전체 재확인 후
+복구 + 다음 단계(계측 패치)까지 이어서 진행.
+
+**복구된 분석 결론**: 사용자 스크린샷(06:08:50, "Signal slowing" HUD)을
+GPS 시각으로 로그에 정밀 매핑(t≈250.3~250.5, xDistToTurn=36·route=390.0
+일치)해 "좌회전 접근시 route 사전감속 없었다"는 제보를 사실로 확인.
+`carrotMan.naviPaths`가 좌회전 접근 61초(segment 2, 1200프레임) 동안
+완전히 비어있었고(`navi_points_active=False`), `carrot_navi_route()`가
+곡률계산 자체를 스킵 → route=390.0(제약없음 기본값) 노출. 172~181차
+apex 게이트와 무관. **162/163차(위치추정 데드레커닝 정체, 이미 실차
+반영된 게이트)와도 근본원인이 다른 별개의 상위 실패모드**임을 이번
+세션에서 코드 추적으로 재확인(`navi_points_active`는 `navd_active`/
+`send_routes()`/`handle_route()` 흐름으로 결정되는 완전히 독립된
+플래그 — 163차 게이트(`position_dt_since_fix`)와 무관).
+
+**이번 세션 신규 작업(계측 패치)**: "왜 61초간 route가 안 왔는지"는
+`navi_points_active` 상태전이가 cereal 미발행이라 rlog만으로는 원인
+특정이 불가능했음(3개 수신경로 — navd cereal/TCP 7709 raw/TCP 7712
+`handle_route` 중 어디가 실패했는지조차 구분 불가) — 코드리뷰로 확인.
+`cereal/custom.capnp`(CarrotMan @34~@37)/`carrot_man.py`/`carrot_serv.py`에
+`naviPointsActive`/`navdActive`/`dtRouteInactive`(비활성 지속시간, 초)/
+`routeSource`(마지막 성공 수신경로) 4개 필드 신규 발행하는 패치 작성 —
+`0001-navi-route-activity-instrumentation.patch`. `verify-am` 브랜치
+`git am` + `py_compile` 통과 확인. `extract_log.py`에 대응 컬럼 4개 추가
+(항상 포함, 패치 미적용 과거 로그는 전부 capnp 기본값으로 찍힘 — 크래시
+아님). `toolkit/check_navi_route_activity.py` 신규 — 계측 모드(정확)와
+패치 적용 전 로그용 `--fallback-naviPaths` 근사 모드(naviPaths 공백 +
+route==390.0 휴리스틱, 182차 최초 분석이 실제 썼던 수동 방법과 동일)
+둘 다 지원, 자체 합성 테스트로 두 모드 모두 정상 동작 확인.
+
+**아직 미해결**: 드롭아웃의 근본원인(navi 앱 재요청 실패/네트워크/
+백엔드 재계산 트리거 등) 자체는 이번 회차로 규명되지 않음 — 이번은
+"다음 로그부터 원인을 특정할 수 있게 만드는" 계측 추가 단계. 패치를
+실차에 반영하고 같은 유형의 좌회전 케이스가 다시 발생했을 때 새 로그로
+`check_navi_route_activity.py`를 돌려야 실제 원인(어느 경로가 언제
+끊겼는지)이 나온다.
+
+**toolkit/ryu 변경**: `ryu`(cereal/custom.capnp, carrot_man.py,
+carrot_serv.py — 계측 전용, 제어로직/기존 동작 변경 없음, 기존 호출부
+하위호환 유지를 위해 `update_navi()` 신규 인자 4개는 기본값 지정) +
+`toolkit/`(extract_log.py 컬럼 4개 추가, check_navi_route_activity.py
+신규, README/CHANGELOG 갱신).
+
+**다음 단계**: (1) 패치를 `C:\dev\ryu`에 `git am`으로 적용 후 push,
+실차 반영. (2) 좌회전/route 드롭아웃 의심 상황 재발 시 새 로그를
+`check_navi_route_activity.py`로 진단해 원인(navd/tcp_raw/tcp_navi
+중 어느 경로 문제인지, 지속시간) 확정. (3) 원인 확정 후에만 실제
+수정 패치(예: 타임아웃 시 재요청 로직, 재연결 로직 등) 설계 착수 —
+이번 회차는 원인 모르는 채로 성급한 수정을 하지 않음.
+
+---
+
 ## 181차 (완료 — relative_gated 실측 A/B 재검증 POSITIVE, 179차 문제 최종 해소 확인)
 
 **진행**: 180차에서 미착수였던 실측 재검증을 사용자가 route 00000374

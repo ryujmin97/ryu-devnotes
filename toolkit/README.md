@@ -163,6 +163,39 @@ python3 extract_log.py /home/claude/work/route /home/claude/work/route.csv \
     --repo /home/claude/ryu --with-navi-paths
 ```
 
+**2026-08-31 추가(182차 계측)**: `naviPointsActive`/`navdActive`/
+`dtRouteInactive`/`routeSource` 컬럼(기본 항상 포함) -- carrot_man.py의
+`navi_points_active`(route 폴리라인 활성 플래그)가 이전엔 cereal 미발행이라
+"route 사전감속이 61초간 전혀 없었음"(FINDINGS.md 182차, route=390.0
+"제약없음" 기본값 노출) 같은 드롭아웃 현상을 rlog만으로 사후분석할 수
+없었던 문제 대응. `dtRouteInactive`는 비활성 지속시간(초, True면 0.0),
+`routeSource`는 마지막으로 route를 성공 수신한 경로("navd"=navd cereal
+채널/"tcp_raw"=TCP 7709/"tcp_navi"=TCP 7712 handle_route, 성공 수신시만
+갱신·비었으면 그대로 유지). **162/163차 게이트(positionDtSinceFix)와는
+별개의 상위 실패모드**: 163차는 "route가 오는데 위치추정이 부정확한"
+경우를 다루고, 182차는 "route 자체가 애초에 안 옴"인 경우. 진단은
+`check_navi_route_activity.py` 참고. 이 계측은
+`0001-navi-route-activity-instrumentation.patch`(182차)로 `ryu` 본체
+(`cereal/custom.capnp`, `carrot_man.py`, `carrot_serv.py`)에 실제
+적용해야만 새 rlog에 찍힘 -- **패치 적용 전 로그(과거 route)에는 이
+4컬럼이 전부 기본값(False/False/0.0/"")으로 나옴(크래시 아님)에 주의**.
+
+## check_navi_route_activity.py
+**목적**: `naviPointsActive`(182차 계측) 연속 False 구간을 찾아 드롭아웃
+지속시간/직전 route 소스/vEgo 범위를 리포트. 182차 계측 패치 적용 전
+로그(구 CSV)에는 `--fallback-naviPaths`로 naviPaths 텍스트 공백 +
+liveRouteSpeed==390.0 휴리스틱 근사 모드 사용 가능(정확도 낮음, 원인
+소스는 알 수 없음 -- 182차 최초 분석이 실제 썼던 수동 방법과 동일).
+**사용**:
+```bash
+python3 extract_log.py <route_dir> <out.csv> --repo /home/claude/ryu
+python3 check_navi_route_activity.py <out.csv> --min-duration 3.0
+# 계측 패치 적용 전 로그:
+python3 extract_log.py <route_dir> <out.csv> --repo /home/claude/ryu --with-navi-paths
+python3 check_navi_route_activity.py <out.csv> --fallback-naviPaths
+```
+**의존성**: `analysis_helpers.load_csv`.
+
 **2026-08-31 추가(165차)**: `ccYawDeg`/`ccYawRateZ`/`ccPoseValid` 컬럼(기본 항상
 포함, 플래그 불필요 — 프레임당 숫자 3개뿐). `carControl.orientationNED[2]`
 (라디안, calibrated NED 요/헤딩)를 나침반 표기(0~360도)로 변환한 `ccYawDeg`,
