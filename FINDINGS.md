@@ -1,3 +1,106 @@
+## 181차 — [완료] c3-ms-dev 전체 정적 재점검(로직충돌/죽은코드/CPU-메모리) — HEAD `8958189`(180차) 기준
+
+**배경**: 사용자 요청 — origin/c3-ms-dev 브랜치 전체 코드에서 (1)로직 상호충돌,
+(2)불필요한 코드, (3)CPU 과다점유, (4)메모리 과다점유 여부를 종합 점검(로그
+분석 아님, 정적 코드 리뷰). 135차(기준 HEAD `976fefd`, 134차)가 마지막
+전면 재점검이었고, 그 이후 이 리뷰 대상 파일 중 실제로 바뀐 건 5개
+(`carrot_man.py` +317/-, `carrot_serv.py` +58/-, `controlsd.py` +30/-,
+`long_mpc.py` +42/-, `cruise.py` +9/-, 19개 커밋) — 이번 세션은 (a)
+`toolkit/scan_perf_antipatterns.sh` 재실행, (b) `pyflakes` 재실행,
+(c) `976fefd..HEAD` diff 정밀 검토, (d) 병합충돌마커/TODO 잔존 전수 검색을
+병행.
+
+**결과 1 — 로직 충돌: 없음**. 135차 이후 신규 로직 5건(147/157/160/162/166/
+167/172/173/177/179/179후속2차 누적) 전부 상호배타적 게이트(if/elif 또는
+독립 조건문)로 설계되어 있어 충돌 지점 없음을 확인:
+- `long_mpc.py` 177차 route `a_change_cost` 완화는 `elif self.source ==
+  'cruise'`로 리드케이스(j_lead 기반) 분기와 상호배타적.
+- `carrot_man.py` 173차 비대칭 램프(`hi=math.inf` 기본)와 162/167차 위치불확실
+  게이트(`hi=self._route_speed_prev`로 재고정)는 `if (position_dt_since_fix >
+  3.0 and not cc_pose_valid)` 조건 하나로 배타 제어, 겹쳐 발동해도 마지막
+  대입이 결정적(비결정 없음).
+- 폐기된 91차 `ROUTE_ENTRY_MARGIN_KPH`(157/160차가 아키텍처 교체하며 제거)의
+  잔존 참조를 `grep -rn`으로 전수 검색 — 잔존 없음, 완전 제거 확인
+  (반쯤 지워진 죽은 참조로 인한 `NameError` 리스크 없음).
+- `controlsd.py` 140/141차 `use_mpc_curvature` 분기도 `PathOffset==0`이면
+  기존 동작과 100% 동일하도록 설계되어 리그레션 경로 없음(주석에 명시,
+  코드로도 확인).
+
+**결과 2 — CPU/메모리: 신규 이슈 없음(135차 결론과 동일 유지)**.
+`scan_perf_antipatterns.sh` 재스캔 결과가 135차 때와 사실상 동일한 매치
+목록(신규 추가 매치 없음). 135차 이후 신규 도입된 상태값 전수 확인:
+- `long_mpc.py`: `_v_cruise_prev`(스칼라), `route_decel_rate`(EMA 0.1/0.9,
+  스칼라) — O(1).
+- `carrot_serv.py`: `cc_yaw_at_fix`/`_prev_fix_time_for_heading`/
+  `cc_pose_valid`/`position_dt_since_fix`/`dt_navi_packet_age` — 전부 스칼라,
+  `ned = list(CC.orientationNED)`는 20Hz마다 원소 3개짜리 리스트 1개
+  생성(무시 가능한 수준).
+- `carrot_man.py`: `candidates`/`gated`(179/179후속2차 apex 게이트)는
+  lookahead 윈도우 크기(distance_interval=10m 기준 보통 수십 개) 한정
+  리스트 컴프리헨션, 매 프레임 새로 생성되고 누적되지 않음(무한성장 없음).
+  `fine_points` 보조샘플(147차) 탐색은 while+for 이중루프처럼 보이나
+  fine_idx가 단조증가하는 two-pointer라 실질 O(n)(O(n²) 아님) — 재확인.
+- `controlsd.py`: `_path_offset_active`(bool 스칼라, readParams 캐싱
+  주기에서만 갱신, 매 프레임 재조회 아님).
+- 신규 `Params()` 인스턴스 생성/미캐싱 `.get*` 호출 diff 범위 내 없음.
+
+**결과 3 — pyflakes: 135차와 동일 목록, 신규 없음**. 미사용
+import(`carrot_man.py`/`carrot_serv.py`/`controlsd.py`/`radard.py`/
+`longitudinal_planner.py`/`long_mpc.py`) 및 미사용 지역변수
+(`steer_angle_without_offset`/`CS`(carrot_serv)/`my_accel`/`peer`) 목록이
+135차 기록과 정확히 일치 — 정리 여전히 미실시 상태(우선순위 낮음, 런타임
+영향 무시 가능은 135차와 동일 판단).
+
+**결과 4 — cruise.py 죽은 분기 재확인**: line 500(`if False:
+#self._cruise_button_mode in [2, 3]:`)은 135차 권고대로 `pass`로 정리되어
+있음(변경 이력 확인, 재점검 완료). line 562(`if False: #...paddle_decel_active
+# 수정필요...`)는 135차 때와 동일하게 미정리 상태로 남아있음(이번에도
+그대로 -- 사용자 결정 대기 유지).
+
+**결과 5 — [신규 발견] `VCruiseCarrot.initialize_v_cruise()`가 사실상
+no-op 스텁 (base fork 시절부터 존재, 세션 히스토리 이전 -- 회귀 아님)**:
+`selfdrive/car/cruise.py`에 동일 이름 메서드가 두 벌 존재:
+- L129 `VCruiseHelper.initialize_v_cruise()`: 원본 openpilot 로직 그대로
+  (PCM cruise 여부 체크 + 버튼기반 v_cruise 초기화). 이 클래스는 런타임에
+  전혀 인스턴스화되지 않음(`card.py:162`가 `VCruiseCarrot(self.CP)
+  #VCruiseHelper(self.CP)`로 대체 -- 원본은 주석처리) -- `test_cruise_speed.py`
+  단위테스트에서만 사용됨. **런타임 CPU/메모리 영향 0**(클래스 정의
+  파싱은 모듈 import 시 1회성, 인스턴스 생성 자체가 없음).
+- L355 `VCruiseCarrot.initialize_v_cruise()`(실제 런타임에 호출되는 쪽,
+  `card.py:209`가 `CC.enabled` False→True 전환(인게이지) 시점마다 호출):
+  함수 본문 첫 줄이 `return`(git blame: `9d2ca2b`, `ajouatom` 원작자,
+  이 fork의 base import 시점부터 존재 -- ryu 세션 1~180차 어느 커밋도
+  건드린 적 없음). 이 때문에 이하 코드(버튼기반 v_cruise 초기화, `print(
+  CS.buttonEvents)` 디버그 출력 포함) 전체가 도달 불가능한 죽은 코드이고,
+  **인게이지 시점마다 이 함수가 의도했을 것으로 보이는 초기화 동작 자체가
+  현재 아무 것도 하지 않음**.
+  두 정의가 서로 다른 클래스에 속해 있어 "충돌"은 아니나(파이썬
+  네임스페이스 분리), 실행되는 쪽이 완전 무력화된 스텁이라는 점이 핵심.
+  `update_v_cruise()`(`VCruiseCarrot`, 매 프레임 호출되는 별도 함수)가
+  인게이지 순간의 초기화까지 이미 충분히 커버하고 있어 의도적으로
+  비워둔 것인지, 아니면 실제로 미완성/방치된 것인지는 코드만으로는
+  판단 불가 -- **사용자 확인 필요**(동작 영향 여부는 로그분석 대상,
+  이번 세션은 정적 리뷰라 실차 영향 미검증).
+
+**종합 판단**: 134차 이후 19개 커밋(147~180차, apex 재설계/헤딩보정/
+위치불확실게이트/PathOffset레인리스/A_CHANGE_COST route완화 등)은
+CPU/메모리/로직충돌 관점에서 전부 클린 -- 135차 결론이 그대로 유지됨.
+이번 세션의 실질적 신규 발견은 **`VCruiseCarrot.initialize_v_cruise()`
+no-op 스텁**(base fork 시절부터 존재, 인게이지 초기화 동작 실행 안 됨)
+하나. cruise.py line 562 죽은 분기와 미사용 import/변수 정리는 135차와
+동일하게 대기 상태 유지.
+
+**미검증/사용자 결정 대기**:
+- `VCruiseCarrot.initialize_v_cruise()` no-op 상태 -- 의도된 설계인지
+  방치된 버그인지 확인 필요. 실제 인게이지 시 체감 이상(예: 첫 RES 시
+  v_cruise 튐/정체) 있었는지 사용자 확인이 우선, 있었다면 로그분석
+  세션으로 원인 특정 후 패치 여부 논의 권장.
+- cruise.py line 562 죽은 분기: 135차와 동일, 삭제 여부 미결.
+- 미사용 import/변수 일괄 정리: 135차와 동일, 리스크 낮은 기계적 작업,
+  사용자 원하면 다음 세션 일괄 patch 가능.
+- 실제 comma 기기 `top`/`htop` CPU·메모리 실측: 이번에도 미실시(정적
+  리뷰 범위 밖, 97~135차와 동일 유지).
+
 ## 178차 계속2 — [해소] 빌드 아이덴티티 미스터리 원인 확정 + 디바이스 clean 정리 완료, 177차 코드 실행 확정
 
 **원인**: 40차 때 휴대폰 SSH로 디바이스 로컬에 만든 미정리 커밋(`89382ac`,
