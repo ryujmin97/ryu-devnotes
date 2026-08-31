@@ -1,3 +1,63 @@
+## 178차 계속2 (완료 — 빌드 아이덴티티 미스터리 해소 + 디바이스 정리 완료, 177차 코드 존재 확정)
+
+**배경**: 178차 블로커(디바이스 gitCommit `0ef6b6a...`가 origin 히스토리에
+없고 dirty=True)를 사용자와 함께 원인 추적.
+
+**원인 확정**: 사용자 확인 — "다른 컴퓨터에서 패치 작업하고 push한 후
+그걸 디바이스에 git pull"한 정상 워크플로우였음. WIP.md 40차 이력 대조 결과,
+40차 때 휴대폰 SSH로 디바이스에 긴급 수정(로컬 커밋 `89382ac`, radard.py
+sccFallback)을 적용했다가 `git push` 실패(SSH 공개키 미등록)로 **디바이스
+로컬에 미정리 커밋이 방치**된 전례가 있었고, 당시 권고된
+`git fetch && git reset --hard origin/c3-ms-dev` 정리가 이후 세션 어디에도
+"완료" 기록이 없어 실행 안 된 것으로 추정. 이런 패턴이 누적돼 디바이스
+로컬 `c3-ms-dev`가 origin보다 23커밋 ahead 상태였고, 여기에 177차 push분을
+pull하며 두 히스토리를 합치는 로컬 전용 merge 커밋(`0ef6b6a`)이 생성된 것.
+merge 커밋 자체는 origin에 존재할 필요가 없으므로 "미스터리"가 아니었음.
+
+**177차 코드 존재 확인**: 디바이스에서 직접
+`grep -n "CRUISE_DECEL_RATE_RELAX\|route_decel_rate" long_mpc.py` 실행 →
+`CRUISE_DECEL_RATE_RELAX_LOW/HIGH`, `route_decel_rate` EMA, interp 완화
+로직 전부 확인됨. merge 시 충돌 없이(파일 미겹침) 병합돼 177차 패치가
+실제로 실행 중이었음이 확정됨(178차 결론의 전제 하나가 해소).
+
+**디바이스 정리 완료**: 사용자가 실행
+- untracked 4개 파일(`fix_radard.sh`, `scripts/add/events_en.py`,
+  `selfdrive/controls/radard.py.bak_1787381309`,
+  `opendbc_repo/.../hyundai_canfd_radar.dbc`) + tracked 수정분(`git diff`)
+  전부 `~/device_local_backup_20260901/`에 백업
+- `git fetch origin` → `git reset --hard origin/c3-ms-dev` → `git clean -fd`
+- 결과: `git status --short` clean, `git log -1` =
+  `ef016dbaa4cfb98f14f60fbc23b19fe3fbc842fa`(177차 커밋)와 정확히 일치.
+  디바이스가 origin과 완전히 동기화된 clean 상태로 확정.
+
+**미해결(devnotes 전체에 기록 없음, 정체불명)**: `fix_radard.sh`,
+`scripts/add/events_en.py`, `radard.py.bak_1787381309`,
+`hyundai_canfd_radar.dbc` — 4개 파일 모두 WIP.md/FINDINGS.md/CHANGELOG.md
+어디에도 언급 없음(40차 `fix_radard_urgent_40cha.sh`와 이름 유사하나 다른
+파일). 디바이스 로컬 백업 폴더에 보존만 해둔 상태 — 내용 확인 시 후속
+기록 필요.
+
+**178차 원래 결론(리드차량 게이트 커버리지 문제)은 그대로 유효**:
+코드 실행 여부 불확실성은 해소됐지만, 178차가 지적한 두 번째 문제
+(우회전 구간 대부분 leadStatus=True라 177차 게이트(무리드 전용)가
+t≈410.2~413.0 2.8초만 열림 → 관측된 사후복원이 177차 신규 로직 덕인지
+기존 리드기반 로직 덕인지 이 로그만으로 분리 불가)는 미해결.
+
+**재발 방지 원칙(신규)**: 노트북 없을 때 휴대폰 SSH로 디바이스 로컬에
+직접 커밋하는 방식은 origin과의 divergence를 누적시킴 — 급한 상황이라도
+디바이스 로컬 커밋은 지양하고, PC 복귀 후 `git am`으로만 반영.
+
+**다음 세션 시작 시**:
+1. 정리된 clean 상태(`ef016db`)에서 재빌드 → 177차 게이트 효과를 깨끗이
+   보려면 (a) 리드 없는 우회전 로그, 또는 (b) 동일 지점 패치 전/후 비교
+   로그 필요 (178차부터 이월)
+2. 실측 프레임(route `6310bba9b8`) 재검증 — `sim_acados_causeB_real_replay.py`
+   (176차 계속, zip 재업로드 필요) — 177차부터 이월
+3. `git am` verify-am 브랜치 검증 + py_compile — 177차부터 이월
+4. PARAMS_REGISTRY.md 여전히 NEEDS_VALIDATION 유지
+
+---
+
 ## 178차 (체크포인트 — 177차 패치 실차검증 시도, 빌드 아이덴티티 문제로 검증 보류)
 
 **배경**: 사용자가 177차(원인B) 패치 적용 후 실차 클립+로그 업로드,

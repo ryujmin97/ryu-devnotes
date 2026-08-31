@@ -1,3 +1,30 @@
+## 178차 계속2 — [해소] 빌드 아이덴티티 미스터리 원인 확정 + 디바이스 clean 정리 완료, 177차 코드 실행 확정
+
+**원인**: 40차 때 휴대폰 SSH로 디바이스 로컬에 만든 미정리 커밋(`89382ac`,
+당시 `git push` 실패로 방치, 정리 권고 미실행)류 패턴이 누적돼 디바이스
+`c3-ms-dev`가 origin보다 23커밋 ahead 상태였음. 여기에 "다른 PC에서 177차
+패치 push → 디바이스 git pull"을 하며 로컬 전용 merge 커밋(`0ef6b6a`)이
+생성됨(origin에 없는 게 정상 — 미스터리 아님).
+
+**177차 코드 실행 확정**: 정리 전 디바이스에서
+`grep "CRUISE_DECEL_RATE_RELAX|route_decel_rate" long_mpc.py` 실행 →
+177차 구현(EMA, 상수, interp 완화) 전부 존재 확인. merge 시 파일 미겹침으로
+충돌 없이 병합된 것으로 판단.
+
+**디바이스 정리**: untracked 4개 파일(`fix_radard.sh`,
+`scripts/add/events_en.py`, `radard.py.bak_1787381309`,
+`hyundai_canfd_radar.dbc`, devnotes 전체에 언급 없음, 정체불명 —
+`~/device_local_backup_20260901/`에 백업만 해둠) + tracked diff 백업 후
+`git fetch && git reset --hard origin/c3-ms-dev && git clean -fd` 실행.
+결과: `git status --short` clean, HEAD = `ef016dbaa4cfb98f14f60fbc23b19fe3fbc842fa`
+(177차 커밋)와 정확히 일치 — origin과 완전 동기화 확인.
+
+**여전히 미해결**: 178차 원 결론의 두 번째 문제(리드차량 존재 구간이
+대부분이라 177차 게이트 커버리지가 2.8초뿐 → 패치 효과 분리 검증 불가)는
+그대로 유효. 상세는 WIP.md "178차 계속2" 참고.
+
+---
+
 ## 178차 — [177차 패치 실차검증 시도 → 빌드 아이덴티티 불일치로 검증 보류] 우회전(대덕대로, 탑립동 인근) 사전감속/사후복원 실차 로그 분석 -- 디바이스 실제 gitCommit이 origin 히스토리에 없고 dirty=True로 확인돼 "이 로그가 177차 패치를 실행했다"를 확정할 근거 없음. 설령 실행했더라도 해당 우회전 구간 대부분(leadStatus=True)은 177차 게이트(self.source=='cruise', 무리드 전용) 미적용 구간이라 패치 효과를 이 로그만으로 분리 검증 불가
 
 **배경**: 사용자가 177차(원인B) 패치 적용 후 실차 주행 클립(`260831_181645_clip.mp4`, 29.95s)과 로그(qlog/rlog 2세그먼트, `20260831_181603`/`20260831_181703`)를 업로드하고 "우회전시 사전감속, 사후복원" 패치 반영 여부 확인 요청.
