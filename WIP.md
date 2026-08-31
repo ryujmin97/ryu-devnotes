@@ -1,44 +1,3 @@
-## 181차 (완료 — 전체 정적 재점검 완료, 패치 미적용/사용자 확인 대기) — c3-ms-dev 브랜치 로직충돌/죽은코드/CPU-메모리 종합 점검
-
-**요청**: c3-ms-dev 브랜치 최신(HEAD `8958189`, 180차) 전체를 대상으로
-(1)서로 충돌하는 로직 (2)불필요한 코드 (3)CPU 과다점유 (4)메모리 과다점유
-여부를 종합 분석. 로그분석/실차검증 아닌 정적 코드 리뷰.
-
-**방법**: 135차(마지막 전면 재점검, 기준 HEAD `976fefd`)를 베이스라인으로
-삼아 `976fefd..HEAD`(19개 커밋, 5개 파일 변경) 증분만 정밀 diff 리뷰 +
-`toolkit/scan_perf_antipatterns.sh` 재실행 + `pyflakes` 재실행 + 병합충돌
-마커/TODO 전수 검색.
-
-**핵심 결론**:
-1. 로직 충돌 없음 — 신규 로직(147~180차 누적) 전부 상호배타적 게이트로 설계.
-   폐기된 91차 `ROUTE_ENTRY_MARGIN_KPH` 잔존참조도 없음(완전제거 확인).
-2. CPU/메모리 신규 이슈 없음 — 135차 결론 유지. 신규 상태값 전부 스칼라/EMA,
-   신규 리스트는 lookahead 윈도우 크기 한정(무한성장 없음), 이중루프로 보이는
-   `fine_points` 탐색도 실제론 two-pointer O(n).
-3. pyflakes 미사용 import/변수 목록 135차와 동일(신규 없음, 여전히 미정리).
-4. cruise.py line 500 죽은분기: 135차 권고대로 `pass`로 이미 정리됨(재확인).
-   line 562는 135차와 동일하게 미정리 상태 유지(사용자 결정 대기).
-5. **[신규 발견]** `VCruiseCarrot.initialize_v_cruise()`(`cruise.py` L355,
-   `card.py:209`가 인게이지(CC.enabled False→True) 시마다 호출)가 함수
-   본문 첫 줄 `return`으로 인해 완전 no-op 스텁 상태 — git blame 확인 결과
-   base fork 원작자(`ajouatom`, 커밋 `9d2ca2b`) 시절부터 존재, ryu 세션
-   1~180차 중 누구도 건드린 적 없음(회귀 아님). 동일 이름의 원본 로직
-   (`VCruiseHelper.initialize_v_cruise()`, L129)은 별개 클래스에 속해있고
-   런타임에 전혀 인스턴스화 안 됨(test에서만 사용, `card.py`는
-   `VCruiseCarrot` 사용). 의도된 설계인지 방치된 버그인지 코드만으론 판단
-   불가 — **사용자 확인 필요**.
-
-**상세**: FINDINGS.md "181차" 항목 참고.
-
-**다음 세션 필요 시**:
-- `initialize_v_cruise` no-op 관련, 실제 인게이지 시 이상 체감(첫 RES 시
-  v_cruise 튐/정체 등) 있었는지 사용자 확인 → 있었다면 로그분석으로 원인
-  특정 후 패치 논의.
-- cruise.py line 562 죽은 분기 삭제 여부 결정.
-- 미사용 import/변수 일괄 정리 원하면 기계적 patch로 처리 가능.
-- (175차에서 이어지는 별개 작업) acados 재현 시뮬레이션 스크립트 작성 +
-  빌드절차 devnotes 커밋 — 이번 세션에서 다루지 않음, 여전히 미완료 상태.
-
 ## 180차 (체크포인트 — 179차 후속2 대안1(상대적 심각도 게이트) ryu 프로덕션 반영, 패치 완료/실차검증 대기)
 
 **진행**: 179차 후속2에서 시뮬레이션 POSITIVE로 확정된 대안1
@@ -63,15 +22,33 @@ diff-0 확인). **오프라인 replay(`replay_route_camera_style_vs_baseline.py`
 실차 적용은 아직 수행하지 않음** — 179차 후속2에서 권장된 다음 단계로
 이번 회차 범위 밖.
 
-**patch**: `0001-route-apex-relative-gated.patch` (커밋 `2e58d04`,
-base=`4f90922`, 로컬만 존재 — 실차 적용 및 origin push는 사용자 담당).
+**patch**: `0001-route-apex-relative-gated.patch` (base=`4f90922`) —
+사용자가 실차에 `git am` 적용 후 origin `c3-ms-dev`에 push 완료
+(`8958189`). 재클론으로 원격 반영 직접 확인함.
 
-**다음 단계**: (1) 실차 적용 후 잡음(근접 미세곡률) 무시 + 진짜 커브
-반응 유지 여부 실측 확인, (2) 가능하면 실차 적용 전
-`replay_route_camera_style_vs_baseline.py`에 relative_gated 모드
-추가해 cruiseEnabled=True 실측 로그로 오프라인 재검증(179차 후속2
-권장, 아직 미착수), (3) 179차 계속에서 언급된 카카오맵 연속커브
-지점 재주행 로그가 확보되면 그 로그로 대조 검증.
+**외부 검토 대응(코드 추적 검증)**: 패치 리뷰에서 "candidates/gated의
+index 순서가 실제로 거리순 보장이 있는가"라는 지적이 나와,
+`carrot_navi_route()` 내 `distances[]` 생성부(604~618행)를 직접
+추적 — `distance` 변수가 루프마다 10.0m씩 단조 증가하며 순서대로
+append되므로 오름차순이 구조적으로 보장됨을 재확인(FINDINGS.md 180차
+항목 참고, 179차부터 이미 명시돼 있던 불변식과 일치 — 우려는 기우).
+
+**진행2**: `replay_route_camera_style_vs_baseline.py`에 `--apex-mode
+relative_gated`/`both_relative`(nearest vs relative_gated 비교) 신규
+추가. 합성 스팟체크(근접 floor 잡음 3점 + 원거리 실제 급커브 1점)로
+relative_gated가 sharpest와 동일 결과(81.2km/h)를 내고 nearest(199.5km/h,
+잡음에 낚임)와 다름을 확인 — 스크립트 배선 자체는 정상 동작. **실제
+route 00000374 CSV(179차 문제 로그, t≈753.5~759.3)로 both_relative
+실측 A/B 재검증은 원본 zip이 이번 세션 업로드 폴더에 없어 미착수**
+(devnotes 대용량 정책상 CSV 미보관, `/mnt/user-data/uploads/
+20260831_182250_00000374--c0c7a9c087--11.zip` 사용자 로컬 보관 가정 —
+재업로드 필요).
+
+**다음 단계**: (1) 사용자가 위 zip(또는 동일 route 재추출본)을
+재업로드하면 `both_relative`로 179차 문제 구간 실측 A/B 재검증 진행,
+(2) 실차 적용 후 잡음(근접 미세곡률) 무시 + 진짜 커브 반응 유지
+여부 실측 확인, (3) 179차 계속에서 언급된 카카오맵 연속커브 지점
+재주행 로그가 확보되면 그 로그로 대조 검증.
 
 ---
 
