@@ -3,6 +3,14 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+- **2026-08-31 (166차)**: `sim_yaw_anchor_delta.py` 신규 — 165차 방안1
+  (orientationNED 절대값 직접차분 앵커링, 적분 아님) 수식 자체의 정합성
+  검증. 166차 실측(`ccYawDeg`/`ccYawRateZ`)으로 `CC.orientationNED`가
+  나침반 관례(우회전=증가)임을 확인 후, 그 부호를 전제로 리셋무드리프트/
+  wrap경계연속성(좌우 양방향)/162차 실측 정체사건 재현(Diff 오차 2.8e-14°
+  vs baseline 오차 66.11°)/적분방식과의 교차검증(0.60° 이내) 5/5 PASS.
+  ryu 패치 없음(설계 검증만, 사용자 승인 대기).
+
 - **2026-08-31 (165차)**: `extract_log.py` — `ccYawDeg`/`ccYawRateZ`/`ccPoseValid`
   컬럼 추가(carControl.orientationNED[2] 나침반변환값 + calibrated
   angularVelocity[2] 원시값 + 유효성 — livePose 직접구독 대신 carrot_man이

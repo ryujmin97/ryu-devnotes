@@ -1802,6 +1802,39 @@ dist_m의 프레임간 개별 값보다 **추세(지속 증가/유지)**로 판�
 구간 재현 결과 min=0.7 max=28.1 mean=12.3 (n=260) — 최초 실행과 정확히 일치
 확인 완료.
 
+## sim_yaw_anchor_delta.py (165차 설계/166차 신규 — 앵커링/wrap 로직 검증, POSITIVE)
+**목적**: 165차가 설계한 방안1(livePose 대신 이미 흐르는
+`carControl.orientationNED[2]`를 마지막 fix 시점 절대값과 현재값의
+**직접 차분**(Δyaw = cc_yaw_now - cc_yaw_at_fix)으로 앵커링해
+`carrot_serv.py::_update_gps()` 헤딩 정체 버그를 고치는 방식, 적분 아님)의
+앵커링/wrap 수식 자체를 ryu 코드와 독립적으로 순수함수로 복제해 검증.
+`BaselineFrozenHeadingState`(현재 동작: fix 값을 다음 fix 올 때까지 고정),
+`AnchoredHeadingStateDiff`(**실제 채택 설계**, orientationNED 두 시점
+직접차분), `AnchoredHeadingStateIntegrated`(FINDINGS 165차가 교차검증용으로
+언급한 대안 — angularVelocity 적분, 실제 설계 아님) 세 상태머신 비교.
+**전제(166차 실측으로 확인 완료)**: `CC.orientationNED[2]`는 나침반 관례
+(진북기준 시계방향 양수) — 우회전 시 증가, 좌회전 시 감소. `ccYawRateZ`
+부호도 일치. 부호 반전 불필요.
+**검증 결과(5/5 PASS)**: (1) fix 50회 반복 시 매 리셋 순간 오차 0(앵커링
+코드 자체의 드리프트 없음), (2)(3) 합성 좌/우회전이 359→0/0→359 양방향
+wrap 경계를 프레임당 최대점프 1.5°(정상 이동량)로 연속 통과, 최종값
+이론치 정확 일치 — 입력 orientationNED가 랩 없이(raw) 계속 누적되는
+경우까지 포함, (4) **166차 실측 정체 구간(route aeeed9e4a5 seg3,
+t=6371.0~6394.8, 23.8초, 162차가 발견한 그 사건)을 그대로 재생 —
+Diff 방식(실제 설계)은 절대값을 그대로 빼는 연산이라 오차 2.8e-14°
+(부동소수 수준)로 실제 최종 헤딩(4.24°)과 사실상 완전 일치, baseline
+(현재 동작)은 시작값(298.1°)에 고정돼 오차 66.11°(버그 재현, 방안1의
+개선폭 정량 확인)**, (5) 실제 설계(Diff)와 교차검증용 대안(적분)이
+같은 사건에서 0.60° 이내로 근접(두 독립 신호경로의 자체정합성 확인 —
+적분측만 24초간 이산화오차 누적, Diff는 무오차이므로 실제 설계가
+이론적으로도 우위).
+**한계**: `_update_gps()`의 "새 fix 도착" 감지(`self.last_calculate_gps_time`
+변화) 자체는 시뮬레이션 안 함 — `on_fix()` 호출 시점을 테스트가 직접 지정.
+**사용**: `python3 sim_yaw_anchor_delta.py --unit-tests`
+**의존성**: 없음(표준 라이브러리만). 실측 데이터는 파일 상단
+`REAL_FREEZE_WINDOW_SAMPLES`에 120행 인라인 임베드(route CSV는 대용량
+정책상 레포 미커밋 — 스크립트 자체가 재현 가능하도록 필요 구간만 내장).
+
 ## sim_route_position_uncertainty_gate.py (163차, 신규)
 **목적**: 162차 방향2(보수적 완화) 패치 — `carrot_man.py::carrot_navi_route()`
 132차 램프리미터에 추가한 "위치불확실성 게이트"(`position_dt_since_fix`가

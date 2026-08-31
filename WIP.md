@@ -1,3 +1,35 @@
+## 166차 (체크포인트 — 165차 미해결 부호검증 완료(POSITIVE)+앵커링/wrap 수식 synthetic검증 5/5 PASS, 패치는 사용자 승인 대기)
+
+**배경**: 사용자가 162~164차 route(`aeeed9e4a5` seg0/seg3) zip 업로드.
+165차가 남긴 "다음 세션 최우선"인 `CC.orientationNED[2]` 부호 검증부터
+재개.
+
+**핵심 결과(상세는 FINDINGS.md 166차)**:
+1. 재추출한 `ccYawDeg`/`ccYawRateZ`로 실측 우회전(steer -121.9°)/좌회전
+   (steer +41.3°) 두 사례 모두 대조 — 나침반 관례(우회전=증가/양수,
+   좌회전=감소/음수) 확인, 부호 반전 불필요. 우회전 사례(302°→3.5°)는
+   162차가 기록한 실제 frozen bearing 정체 사건(296°→3°)과 같은 회전임도
+   부수 확인.
+2. **설계 재확인 중요 정정**: 165차 실제 채택 설계는 "각속도 적분"이
+   아니라 "orientationNED 두 절대값의 **직접 차분**"(적분 아님) —
+   신규 `sim_yaw_anchor_delta.py`가 이를 `AnchoredHeadingStateDiff`로
+   정확히 복제해 검증(각속도 적분 버전은 교차검증용 보조로만 별도 구현).
+3. 5/5 PASS: 리셋무드리프트, 좌/우 wrap 경계 연속성(합성), 162차 실측
+   정체사건 재생(Diff 오차 2.8e-14° vs baseline 오차 66.11°, 버그
+   재현+개선폭 정량화), Diff-vs-Integrated 교차검증(0.60° 이내).
+
+**미해결**: `_update_gps()`의 "새 fix 도착" 감지 로직 자체는 시뮬레이션
+대상 아님(간단해서 별도 검증가치 낮음). `ccPoseValid=False` 구간과
+정체가 겹치는 폴백 케이스는 이번 route가 100% valid라 여전히 미검증.
+
+**다음 세션 재개 시**: 부호+수식 둘 다 검증 통과 — 사용자 승인 받으면
+바로 `carrot_serv.py` 패치(165차 의사코드를 Diff 방식대로) 작성 →
+표준 패치워크플로우(format-patch/am/py_compile) → 전달. 163차 방향2
+게이트와 병행 여부도 이때 결정.
+
+**전달**: FINDINGS.md(166차)/WIP.md(이 항목)/toolkit/sim_yaw_anchor_delta.py(신규)/
+toolkit/README.md/toolkit/CHANGELOG.md. ryu 코드 변경 없음.
+
 ## 165차 (체크포인트 — 162차 방향1(livePose 헤딩보정) 코딩설계 확정, 부호검증/synthetic검증은 다음 단계)
 
 **배경**: 163차가 "비용이 커 보류"했던 방향1(livePose 자세데이터로 헤딩보정)을
