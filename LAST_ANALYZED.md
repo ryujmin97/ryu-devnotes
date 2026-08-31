@@ -1145,3 +1145,13 @@ WIP.md/FINDINGS.md 131차 항목 참고. **다음은 실제 도로좌표 확보 
 지도 API 없이 해결됨. 이 반경 대입 재검증 결과 Δ-20.65kph 단일프레임
 급락 재현 — 129차 실측(Δ-24.0)과 거의 동일 규모로 정밀매칭 완료.
 Hypothesis C SUCCESS 확정. 다음은 패치(윈도우 경계 완충) 설계.
+
+2026-08-31 (171차, c3-ms-dev): 신규 커밋 없음(분석만, repo HEAD `f2e80d8`=
+169/170차 계측 반영). 사용자 업로드 route `00000372--6310bba9b8`(x17seg,
+997.3s)+클립 8개 분석. 170차 계측(dtNaviPacketAge/positionDtSinceFix/
+ccPoseValid) 정상기록 확인되었으나 이 드라이브엔 패킷단절/내용정지
+이벤트 자체가 없어(전부 정상범위, ccPoseValid 100% True) 170차 원래
+목적(실측 구분) 검증은 여전히 데이터 공백. 8클립 교차로/회전 대조 및
+route_target_jump_events/turn_speed_violations/소스플리커 정량스캔 결과
+신규 회귀 없음. 상세는 WIP.md/FINDINGS.md 171차 참고. **다음은 GPS
+신호저하 구간(터널/고가하부 등) 로그 확보 우선.**
