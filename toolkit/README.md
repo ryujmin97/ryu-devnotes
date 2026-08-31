@@ -40,6 +40,27 @@ CHANGELOG.md를 같이 갱신**한다 (세션 종료 체크리스트에 포함�
 **주의**: `capnp.remove_import_hook()`을 `capnp.load()` 이전에 반드시
 호출. zstd 압축 해제 시 `max_output_size` 명시 필요.
 
+## check_device_build.py (178차 신규)
+**목적**: `extract_log.py` meta.json의 "repo commit"은 분석 컨테이너
+checkout일 뿐 **디바이스가 실제로 실행한 빌드가 아님**(기존 원칙, 178차에서
+실제로 이 구분이 결정적이었던 사례 발생). rlog/qlog의 `InitData` capnp
+이벤트를 직접 읽어 디바이스가 기록한 `gitCommit`/`gitCommitDate`/
+`gitBranch`/`dirty`를 추출하고, 로컬 repo 히스토리 존재 여부 + 특정 커밋의
+조상인지까지 확인.
+**의존성**: `decode_rlog.py`(get_schema/iter_events 재사용), `ryu` repo clone.
+**사용**:
+```bash
+python3 check_device_build.py <route_dir> --repo /home/claude/ryu \
+    [--compare-commit <hash>]
+```
+**주의**: `dirty=True`면 빌드 시점 워킹트리에 커밋 안 된 로컬 변경이 있었다는
+뜻이므로, gitCommit 해시가 맞더라도 "그 커밋 코드 그대로 실행 중"이라고
+단정할 수 없음. 또한 gitCommit 해시가 로컬(unshallow) repo 히스토리에
+아예 없는 경우도 있을 수 있음(178차 실측 사례: 해시가 origin 어디에도 없고
+GitHub이 "not our ref"로 거부 -- 원인 미상, 사용자 확인 필요한 케이스로
+FINDINGS.md 178차 참고). 패치 반영 여부를 "확정"이 아니라 "확인 시도"로
+취급하고, 불일치 발견 시 반드시 사용자에게 보고 후 빌드 절차를 확인할 것.
+
 ## extract_log.py
 **목적**: 라우트 폴더(세그먼트 여러 개) 전체를 순회하며 종방향/조향
 관련 필드를 20Hz CSV 하나로 뽑는다. 로그 분석의 시작점 — 대부분의

@@ -1,3 +1,38 @@
+## 178차 (체크포인트 — 177차 패치 실차검증 시도, 빌드 아이덴티티 문제로 검증 보류)
+
+**배경**: 사용자가 177차(원인B) 패치 적용 후 실차 클립+로그 업로드,
+우회전 사전감속/사후복원 패치 반영 확인 요청.
+
+**[중요 발견] 빌드 아이덴티티 불일치**: rlog InitData 직접 디코드로 디바이스
+실제 gitCommit(`0ef6b6a35e57...`, dirty=True) 확인 -- 이 해시가 `ryu` origin
+히스토리 어디에도 없음(unshallow fetch로도 못 찾음, GitHub API도 "not our
+ref"). 시간순서상 177차 push 이후 빌드된 것 자체는 모순 없으나(gitCommitDate
+18:09:27 KST > push 09:01:04 UTC=18:01:04 KST), dirty=True + 해시 미존재로
+"177차 패치를 실행 중인 빌드"라고 확정할 근거 없음. 상세는 FINDINGS.md 178차.
+
+**우회전 이벤트**: log t≈400~419 (rightBlinker/steeringAngle/xTurnInfo +
+클립 HUD 시계·회전거리 안내 교차검증 완료). 이 구간 대부분 leadStatus=True
+(리드차량 존재, 클립에서도 확인) -- 177차 패치 게이트(무리드 전용)는
+t≈410.2~413.0(약 2.8s, 회전 정점)에서만 이론상 발동 가능. 이 로그만으로는
+패치 OFF 대비 개선 여부를 격리 검증 불가(베이스라인 로그 없음 + 리드기반
+기존 로직도 자체 완화 가능해 원인 분리 안 됨).
+
+**toolkit**: `check_device_build.py` 신규(디바이스 실제 gitCommit/dirty
+검증용, README/CHANGELOG 갱신 완료).
+
+**다음 세션 시작 시 반드시**:
+1. 사용자에게 디바이스 빌드 절차 확인 요청(git am 후 rebuild vs 로컬 직접
+   수정, dirty 원인) -- 필요시 디바이스에서 `git log -1`/`git status --short`
+   직접 확인 요청
+2. 패치 효과 분리 검증용 로그 확보: (a) 리드 없는 우회전 구간 또는 (b) 동일
+   지점 패치 전/후 비교 로그
+3. 177차부터 이월: 실측 프레임(route `6310bba9b8`) 재검증
+   (`sim_acados_causeB_real_replay.py`, zip 재업로드 필요, 캐싱 안 됨)
+4. 177차부터 이월: `git am` verify-am 브랜치 검증 + py_compile,
+   PARAMS_REGISTRY.md는 여전히 NEEDS_VALIDATION 유지
+
+---
+
 ## 177차 (체크포인트 — 원인B 패치 구현+합성검증 완료, 실측/실차/git am 검증은 다음)
 
 **배경**: 176차(합성+실측 폐루프)가 원인B 가설을 두 독립 방법으로 확인 완료.

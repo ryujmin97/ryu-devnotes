@@ -3,6 +3,12 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+## 2026-08-31 (178차)
+- `check_device_build.py` 신규: rlog InitData에서 디바이스 실제
+  gitCommit/gitCommitDate/gitBranch/dirty 추출 + 로컬 repo 존재여부/조상관계
+  확인. 177차 패치 실차검증 시도 중 디바이스 gitCommit이 origin 히스토리에
+  없고 dirty=True인 것을 발견해 작성.
+
 - **2026-08-31 (166차)**: `sim_yaw_anchor_delta.py` 신규 — 165차 방안1
   (orientationNED 절대값 직접차분 앵커링, 적분 아님) 수식 자체의 정합성
   검증. 166차 실측(`ccYawDeg`/`ccYawRateZ`)으로 `CC.orientationNED`가
