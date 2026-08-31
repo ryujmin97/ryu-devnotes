@@ -1,3 +1,47 @@
+## 179차 계속 (체크포인트 — 실측 로그 A/B 검증 완료, 사용자 가설(연속커브) 시뮬레이션으로 확정, 두 상반된 특성 발견 — 최소심각도 게이트 추가 여부 사용자 판단 대기)
+
+**진행**: 사용자 업로드 실주행 로그(route 00000374, extract_log.py
+--with-navi-paths로 추출, /home/claude/work/route_00000374.csv)를
+`replay_route_camera_style_vs_baseline.py --apex-mode both`(신규 옵션)로
+sharpest(기존)/nearest(179차) 나란히 재생. 이어서 사용자가 카카오맵
+스크린샷으로 제시한 "연속 좌회전(2차가 1차보다 조금 더 급함)" 가설을
+`sim_route_camera_style_decel.py` 신규 유닛테스트 3건으로 확정 검증.
+
+**핵심 결론(FINDINGS.md 179차 상세)**: 179차 nearest 변경은 두 가지
+상반된 특성을 동시에 가짐 —
+1. **연속된 두 실제 커브(2차가 조금 더 급함)**: nearest가 160차부터
+   있던 실질적 결함("1차는 사실상 무시됨")을 명백히 해소. 1차 진입
+   직전 sharpest=68.2km/h(1차 고유속도 54.0보다 14.2 과속) vs
+   nearest=54.0km/h(정확히 도달). 1차 통과 후 2차 접근 시 두 모드
+   0.01km/h 이내로 완전 수렴 — 2차 대응력 희생 없음. (10/10 PASS)
+2. **근접 미세잡음(floor 바로 위) vs 조금 더 먼 진짜 급커브**: 실측
+   로그(t≈753.5~759.3)에서 nearest가 10m 앞 미세곡률(curv≈-0.001~-0.02)
+   에 apex 고정, 60~100m 앞 진짜 급커브(curv≈-0.08~-0.10)를 무시 —
+   sharpest 대비 최대 9.72km/h 더 높은(덜 안전한) 값.
+
+**원인**: "가장 가까운" 게이트가 "floor(0.001)를 넘겼는가"만 보고
+실제 위험도(곡률 크기)는 전혀 안 봄. 최소 심각도 기준(예: 목표속도가
+도로제한속도 대비 일정 비율 이상 낮을 때만 apex 후보 인정)을 추가하면
+케이스 2는 개선하면서 케이스 1(curv1=0.010, floor 대비 훨씬 큼)은
+깨지지 않을 가능성 — **이번 회차엔 코드 추가 변경 없이 발견사항만
+기록, 사용자 판단 대기**.
+
+**중요 캐비아트**: 실측 로그(route 00000374)는 전 구간 cruiseEnabled=False
+(ACC 미체결) — 실제 제어 영향 검증이 아니라 순수 알고리즘 반응 비교임.
+오프라인 재계산은 nRoadLimitSpeed를 CSV가 기록하지 않아 200.0 가정 사용
+(148/161차부터의 기존 한계) — 절대값 아닌 sharp/near 상대 차이만 신뢰 가능.
+
+**toolkit 변경**: `sim_route_camera_style_decel.py`
+(`carrot_navi_route_camera_style_nearest()` 신규 + 유닛테스트 3건, 10/10
+PASS), `replay_route_camera_style_vs_baseline.py`(`--apex-mode
+{sharpest,nearest,both}` 옵션 신규, 기본값 sharpest로 기존 호환 유지).
+README.md/CHANGELOG.md 갱신 완료.
+
+**다음 단계**: (1) 최소 심각도 게이트 추가 여부 사용자 확인, (2)
+cruiseEnabled=True 상태의 실제 연속커브 로그로 재검증, (3) 가능하면
+카카오맵 스크린샷 지점(route 00000374 위치)의 재주행 로그로 검증 2
+실측 대조.
+
 ## 179차 (체크포인트 — apex 선택기준 변경: "가장 급한 지점"→"가장 가까운 지점", 패치 완료/실차검증 대기)
 
 **배경**: 157/160차부터 유지되던 route apex 선택 로직

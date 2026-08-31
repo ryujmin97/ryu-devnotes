@@ -3,6 +3,15 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+## 2026-08-31 (179차)
+- `sim_route_camera_style_decel.py`: `carrot_navi_route_camera_style_nearest()`
+  신규 추가(179차 apex 선택기준 "가장 가까운 지점" 오프라인 재현). 유닛테스트
+  3건 추가(10/10 PASS) — 연속커브(2차가 살짝 더 급한 경우) 1차 무시 문제를
+  nearest가 해소하면서도 2차 대응력은 희생하지 않음을 확정 검증.
+- `replay_route_camera_style_vs_baseline.py`: `--apex-mode {sharpest,nearest,both}`
+  옵션 추가(기본 sharpest, 기존 호환). `both`로 실측 로그에서 두 방식을
+  나란히 비교 가능. route 00000374 재생 결과 FINDINGS.md 179차 기록.
+
 ## 2026-08-31 (178차)
 - `check_device_build.py` 신규: rlog InitData에서 디바이스 실제
   gitCommit/gitCommitDate/gitBranch/dirty 추출 + 로컬 repo 존재여부/조상관계

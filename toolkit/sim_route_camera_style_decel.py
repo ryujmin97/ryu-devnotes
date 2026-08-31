@@ -80,6 +80,27 @@ def carrot_navi_route_camera_style(speeds, distances, safe_time, decel_rate_mss)
     return min(out_speed, 300.0), decel_rate_mss * 3.6
 
 
+def carrot_navi_route_camera_style_nearest(speeds, distances, safe_time, decel_rate_mss,
+                                            road_limit_speed=200.0):
+    """179차 신규 -- apex 선택기준을 "가장 급한 지점"(전역 min(speeds))에서
+    "가장 가까운 지점"(감속필요 최근접, speeds[k] < road_limit_speed인 최소
+    index)으로 변경. carrot_man.py 179차 패치와 동일 로직(distances가 항상
+    오름차순이라는 production 불변식 그대로 사용). road_limit_speed는
+    실측 nRoadLimitSpeed를 CSV가 기록하지 않아 recompute_route_curvature_speed()
+    와 동일한 200.0 기본 가정을 그대로 재사용(내부 floor 로직과 정합성
+    유지 -- floor가 리셋하는 기준값과 apex 게이트 기준값이 같아야 "감속
+    필요 없는 직선"과 "실제 커브"가 일관되게 구분됨)."""
+    if not speeds:
+        return 300.0, decel_rate_mss * 3.6
+    apex_idx = next((k for k in range(len(speeds)) if speeds[k] < road_limit_speed), None)
+    if apex_idx is None:
+        apex_idx = min(range(len(speeds)), key=lambda k: speeds[k])
+    apex_dist = distances[apex_idx]
+    apex_speed = speeds[apex_idx]
+    out_speed = camera_calculate_current_speed(apex_dist, apex_speed, safe_time, decel_rate_mss)
+    return min(out_speed, 300.0), decel_rate_mss * 3.6
+
+
 def simulate_road_camera(sampler, road_len_m, v_ego_kph_start, safe_time, decel_rate_mss,
                           dt=0.05, max_steps=6000):
     """sim_route_apex_redesign.simulate_road()와 동일 방법론(완벽추종 가정,
@@ -200,6 +221,35 @@ def _run_unit_tests():
         deltas = [abs(near_apex1[i+1][2] - near_apex1[i][2]) for i in range(len(near_apex1)-1)]
         print(f"  (참고) 1차 apex(200m) 통과 구간 프레임간 낙차: max={max(deltas):.3f}kph, "
               f"구간속도범위={min(r[2] for r in near_apex1):.1f}~{max(r[2] for r in near_apex1):.1f}kph")
+
+    # 6) [179차, 사용자 가설 검증] "2차가 1차보다 아주 조금이라도 더 급하면
+    #    apex가 처음부터 2차로 고정되어 1차는 사실상 무시됨"(160차 자체
+    #    기록에 이미 있던 현상, 당시엔 "2차까지는 정상 감속하니 문제 아님"
+    #    으로 넘어감) -- 1차 자신의 곡률에 맞는 감속이 실제로 되는지는
+    #    검증한 적이 없었음. sharpest는 1차 진입 직전에도 1차 고유
+    #    안전속도보다 훨씬 높은 값을 낼 것이고, nearest는 1차 진입 직전
+    #    1차 고유 안전속도에 정확히 도달해야 한다.
+    from sim_route_apex_redesign import V_CURVE_LOOKUP_BP, V_CRUVE_LOOKUP_VALS, _interp
+    dbl2_fn = double_curve_curvature_fn(apex1_m=120.0, apex2_m=260.0, curv1=0.010, curv2=0.011, width_m=20.0)
+    sampler_dbl2 = lambda pos: sample_curvature_road(dbl2_fn, pos, 400.0, 110.0, 0.001)
+    speeds_at_apex1, dist_at_apex1 = sampler_dbl2(119.0)  # apex1 진입 1m 직전
+    sharp_at_apex1, _ = carrot_navi_route_camera_style(speeds_at_apex1, dist_at_apex1, SAFE_TIME, DECEL_RATE)
+    near_at_apex1, _ = carrot_navi_route_camera_style_nearest(speeds_at_apex1, dist_at_apex1, SAFE_TIME, DECEL_RATE)
+    curve1_own_target = _interp(0.010, V_CURVE_LOOKUP_BP, V_CRUVE_LOOKUP_VALS)
+    check("[179차] 연속커브(2차가 살짝 더 급함): sharpest는 1차 진입 직전에도 1차 고유속도보다 과속 상태(=1차 사실상 무시, 160차 기존 특성 재확인)",
+          sharp_at_apex1 > curve1_own_target + 5.0,
+          f"sharpest={sharp_at_apex1:.1f}, 1차고유속도={curve1_own_target:.1f}")
+    check("[179차] 연속커브(2차가 살짝 더 급함): nearest는 1차 진입 직전 1차 고유속도에 정확히 도달(±1kph)",
+          abs(near_at_apex1 - curve1_own_target) < 1.0,
+          f"nearest={near_at_apex1:.1f}, 1차고유속도={curve1_own_target:.1f}")
+    # 1차 통과 후(윈도우에서 사라진 뒤) 2차 접근 시 두 모드가 완전히
+    # 수렴하는지(=nearest가 2차 대응력을 전혀 희생하지 않는지) 확인.
+    speeds_post1, dist_post1 = sampler_dbl2(200.0)
+    sharp_post1, _ = carrot_navi_route_camera_style(speeds_post1, dist_post1, SAFE_TIME, DECEL_RATE)
+    near_post1, _ = carrot_navi_route_camera_style_nearest(speeds_post1, dist_post1, SAFE_TIME, DECEL_RATE)
+    check("[179차] 1차 통과 후 2차 접근 시 sharpest/nearest 완전 수렴(2차 대응력 희생 없음)",
+          abs(sharp_post1 - near_post1) < 0.01,
+          f"sharpest={sharp_post1:.2f}, nearest={near_post1:.2f}")
 
     print(f"\n{passed} PASS / {failed} FAIL")
     return failed == 0

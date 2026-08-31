@@ -1421,6 +1421,17 @@ liveRouteSpeed 104.0kph 9.9~12.3초 고정 구간 3곳 전부에서 160차도 �
 python3 replay_route_camera_style_vs_baseline.py <route.csv> \
     [--safe-time 2.2] [--decel 0.70] [--start-t T0] [--end-t T1] [--json out.json]
 ```
+**2026-08-31 추가(179차)**: `--apex-mode {sharpest,nearest,both}` 옵션
+추가(기본 sharpest, 기존 동작 그대로 호환). `both`로 실행하면 160/161차
+apex(sharpest)와 179차 apex(nearest)를 같은 프레임에서 나란히 계산해
+차이를 요약 출력(최대 절대차, 1km/h 초과 차이 프레임 수) + `--json` 덤프
+시 `{"sharpest": [...], "nearest": [...]}` 형태로 저장. route 00000374
+실측 재생 결과(FINDINGS.md 179차): 129/450 유효 프레임에서 1km/h+ 차이,
+최대 9.72km/h(near가 더 높음, floor 근접 잡음 지점 문제) 확인.
+**사용(both)**:
+```bash
+python3 replay_route_camera_style_vs_baseline.py <route.csv> --apex-mode both --json out.json
+```
 
 ## 아직 없는 카테고리 (필요해지면 추가)
 - `toolkit/sim/` — 시뮬레이터 스크립트가 `sim_vision_rate.py` 하나를
@@ -1828,6 +1839,32 @@ apex가 1차->2차로 자연 전환되는 구간의 프레임간 최대낙차가
 스크립트에서도 반올림 표시용 trace와 검증용 원본값을 반드시 분리할 것.
 **사용**: `python3 sim_route_camera_style_decel.py --unit-tests`
 **의존성**: `sim_route_apex_redesign.py`(샘플러/apex157차 함수), `sim_route_boundary_ramp_limiter.py`(RampLimiterState).
+
+**2026-08-31 추가(179차)**: apex 선택기준을 "가장 급한 지점"(전역
+min(speeds))에서 "가장 가까운 지점"(감속필요 최근접,
+`speeds[k] < road_limit_speed`인 최소 index)으로 바꾼
+`carrot_navi_route_camera_style_nearest(speeds, distances, safe_time,
+decel_rate_mss, road_limit_speed=200.0)` 신규 추가 (`carrot_man.py` 179차
+패치와 동일 로직). 위 문단의 "2차가 더 급한 경우 1차는 사실상 무시됨"
+현상을 사용자가 정확히 지적(연속 좌회전 스크린샷 기반) — 신규 유닛테스트
+3건으로 확정 검증(10/10 PASS):
+1. sharpest는 1차 진입 직전에도 1차 고유 안전속도보다 5kph+ 과속 상태 유지
+   (=1차 사실상 무시, 160차 기존 특성 재확인)
+2. nearest는 1차 진입 직전 1차 고유 안전속도에 ±1kph 이내로 정확히 도달
+3. 1차 통과 후(윈도우에서 사라진 뒤) 2차 접근 시 sharpest/nearest가
+   완전히 수렴(0.01kph 이내) — **nearest가 1차를 제대로 처리하면서도
+   2차 대응력은 전혀 희생하지 않음**을 확인.
+
+**단, 별개의 반대 사례도 실측 로그(route 00000374)에서 발견됨(FINDINGS.md
+179차 참고)**: 근접(10m) 지점이 실제 커브가 아니라 floor 임계값(0.001)
+바로 위의 미세 곡률(거의 잡음 수준)이고, 진짜 급커브가 그보다 조금 더
+멀리(60~100m) 있는 경우 -- 이 경우 nearest가 미세 곡률 지점에 apex를
+고정해버려 sharpest 대비 최대 9.7km/h 더 높은(덜 안전한) 값을 냄. 즉
+**"연속된 두 실제 커브(2차가 조금 더 급함)" 케이스에서는 nearest가
+명백히 우월하지만, "근접한 미세잡음 vs 약간 먼 진짜 급커브" 케이스에서는
+nearest가 오히려 불리할 수 있음** -- 두 특성이 공존. 최소 심각도 게이트
+추가 여부는 사용자 판단 대기 중(FINDINGS.md 179차).
+**사용(nearest)**: `carrot_navi_route_camera_style_nearest(speeds, distances, safe_time, decel_rate_mss)`
 
 ## compare_navpos_vs_gps.py (162차, 신규)
 **목적**: `carrotMan.xPosLat/xPosLon/xPosAngle`(carrot_serv.py `_update_gps()`가

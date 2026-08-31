@@ -38,18 +38,20 @@ import json
 import sys
 
 from analysis_helpers import load_csv, parse_navi_paths, recompute_route_curvature_speed
-from sim_route_camera_style_decel import carrot_navi_route_camera_style
+from sim_route_camera_style_decel import carrot_navi_route_camera_style, carrot_navi_route_camera_style_nearest
 from sim_route_boundary_ramp_limiter import RampLimiterState
 from replay_route_apex_vs_baseline import find_stuck_segments
 
 ROUTE_CURVE_NEGLIGIBLE_THRESHOLD = 0.001  # 157차/160차 공통값
 
 
-def replay(rows, safe_time, decel_rate_mss):
-    """프레임별로 160차 camera-style 알고리즘을 오프라인 재생. 반환:
-    프레임별 dict 리스트 (t, v_ego_kph, src, live_route_speed(실측),
-    cam_out_speed(160차 알고리즘 오프라인 계산, 132차 램프 통과 후),
-    cam_apex_dist, cam_apex_curvature)."""
+def replay(rows, safe_time, decel_rate_mss, apex_mode="sharpest"):
+    """프레임별로 camera-style 알고리즘을 오프라인 재생. apex_mode="sharpest"
+    (기본, 157/160/161차 기존값 -- 가장 급한 지점) 또는 "nearest"(179차 신규
+    -- 가장 가까운 지점). 반환: 프레임별 dict 리스트 (t, v_ego_kph, src,
+    live_route_speed(실측), cam_out_speed(알고리즘 오프라인 계산, 132차
+    램프 통과 후), cam_apex_dist, cam_apex_curvature)."""
+    algo = carrot_navi_route_camera_style if apex_mode == "sharpest" else carrot_navi_route_camera_style_nearest
     ramp = RampLimiterState()
     out = []
     prev_t = None
@@ -85,12 +87,17 @@ def replay(rows, safe_time, decel_rate_mss):
 
         distances_only = [m[0] for m in merged]
         speeds_only = [m[2] for m in merged]
-        raw_out, accel_limit_kmh = carrot_navi_route_camera_style(
+        raw_out, accel_limit_kmh = algo(
             speeds_only, distances_only, safe_time, decel_rate_mss,
         )
         smoothed = ramp.apply(raw_out, accel_limit_kmh, dt)
 
-        apex_idx = min(range(len(speeds_only)), key=lambda k: speeds_only[k])
+        if apex_mode == "sharpest":
+            apex_idx = min(range(len(speeds_only)), key=lambda k: speeds_only[k])
+        else:
+            apex_idx = next((k for k in range(len(speeds_only)) if speeds_only[k] < 200.0), None)
+            if apex_idx is None:
+                apex_idx = min(range(len(speeds_only)), key=lambda k: speeds_only[k])
         out.append({
             "t": t, "v_ego_kph": v_ego_kph, "src": row.get("src", ""),
             "live_route_speed": float(row["liveRouteSpeed"]),
@@ -126,6 +133,8 @@ def main():
     ap.add_argument("--decel", type=float, default=0.70, help="AutoNaviSpeedDecelRate 실측값 (기본 0.70)")
     ap.add_argument("--start-t", type=float, default=None)
     ap.add_argument("--end-t", type=float, default=None)
+    ap.add_argument("--apex-mode", choices=["sharpest", "nearest", "both"], default="sharpest",
+                     help="sharpest=157/160/161차 기존(전역 최소속도), nearest=179차 신규(가장 가까운 지점), both=둘 다 계산해 나란히 비교")
     ap.add_argument("--json", default=None)
     args = ap.parse_args()
 
@@ -138,27 +147,44 @@ def main():
         print("no rows in range", file=sys.stderr)
         sys.exit(1)
 
-    result = replay(rows, args.safe_time, args.decel)
+    modes = ["sharpest", "nearest"] if args.apex_mode == "both" else [args.apex_mode]
+    results = {m: replay(rows, args.safe_time, args.decel, apex_mode=m) for m in modes}
+    result = results[modes[0]]  # stuck-segment 표는 첫 모드 기준(기존 출력과 호환)
 
     stuck = find_stuck_segments(rows, "liveRouteSpeed", min_len_s=5.0, tol=0.05)
     print(f"=== 총 {len(rows)} rows, t={rows[0]['t']}~{rows[-1]['t']} ===")
+    print(f"=== apex_mode={'+'.join(modes)} ===")
     print(f"=== liveRouteSpeed 5초+ 고정 구간: {len(stuck)}건 ===\n")
     for (s, e, length, val) in stuck:
         print(f"[{rows[s]['t']} ~ {rows[e]['t']}] ({length:.1f}s, value={val})")
         print(summarize_stuck_segment(result, s, e, val))
         print()
 
-    max_frame_drop = 0.0
-    for i in range(1, len(result)):
-        a, b = result[i - 1]["cam_out_speed"], result[i]["cam_out_speed"]
-        if a is not None and b is not None:
-            max_frame_drop = max(max_frame_drop, a - b)
-    print(f"=== camera-style 오프라인 계산 결과의 프레임간 최대 낙차: {max_frame_drop:.2f} km/h ===")
-    print(f"    (decel={args.decel} m/s^2 기준 이론 상한 = {args.decel*3.6*0.05:.2f} km/h/frame @ dt=0.05s)")
+    for m in modes:
+        r = results[m]
+        max_frame_drop = 0.0
+        for i in range(1, len(r)):
+            a, b = r[i - 1]["cam_out_speed"], r[i]["cam_out_speed"]
+            if a is not None and b is not None:
+                max_frame_drop = max(max_frame_drop, a - b)
+        print(f"=== [{m}] camera-style 오프라인 계산 결과의 프레임간 최대 낙차: {max_frame_drop:.2f} km/h ===")
+        print(f"    (decel={args.decel} m/s^2 기준 이론 상한 = {args.decel*3.6*0.05:.2f} km/h/frame @ dt=0.05s)")
+
+    if len(modes) == 2:
+        diffs = []
+        for a, b in zip(results["sharpest"], results["nearest"]):
+            if a["cam_out_speed"] is not None and b["cam_out_speed"] is not None:
+                diffs.append((a["t"], a["cam_out_speed"] - b["cam_out_speed"]))
+        if diffs:
+            max_diff = max(diffs, key=lambda x: abs(x[1]))
+            n_diff_gt1 = sum(1 for _, d in diffs if abs(d) > 1.0)
+            print(f"\n=== sharpest vs nearest 차이 ===")
+            print(f"    최대 절대차: {abs(max_diff[1]):.2f} km/h (t={max_diff[0]})")
+            print(f"    1km/h 초과 차이 프레임 수: {n_diff_gt1}/{len(diffs)}")
 
     if args.json:
         with open(args.json, "w") as f:
-            json.dump(result, f, indent=1)
+            json.dump(results if len(modes) == 2 else result, f, indent=1)
         print(f"\nwrote {args.json}")
 
 
