@@ -1,3 +1,34 @@
+## 163차 (완료 — 162차 근본원인 방향2 패치 구현+시뮬레이션검증, 실차검증 대기)
+
+**배경**: 162차 확정 근본원인(route aeeed9e4a5 seg3, 데드레커닝 위치추정
+~11초 정체로 실제 급우회전을 "직선"으로 오판)에 대해 사용자가 방향2
+(데드레커닝 불확실 구간엔 route "완화" 판단 억제, 보수적)를 선택.
+방향1(livePose 헤딩보정)은 비용이 커 향후 과제로 보류.
+
+**패치**: `carrot_serv.py::_update_gps()`의 기존 `dt`(마지막 실제 위치
+fix 이후 경과시간)를 `self.position_dt_since_fix`로 노출하고,
+`carrot_man.py::carrot_navi_route()`의 132차 램프리미터에서 이 값이
+3.0초(기존 gps_updated_navi/phone 신선도 판정과 동일 관례값)를 넘으면
+"완화(상승)" 방향 상한만 이전 값으로 고정(하강은 그대로 허용). 코드
+변경 최소(carrot_man.py 상수1+게이트3줄, carrot_serv.py 2줄).
+
+**검증**: 신규 `sim_route_position_uncertainty_gate.py` 3/3 PASS(정상
+시나리오 회귀없음/실측규모 재현 시 3.0초 이후 완전동결/불확실 구간중
+하강은 차단 안 함). 기존 `sim_route_apex_redesign.py --unit-tests` 7/7
+재확인(곡률/apex 로직 자체는 무변경이라 회귀 없음). 상세는 FINDINGS.md
+163차 참고.
+
+**한계**: `position_dt_since_fix`가 cereal에 미발행돼 실측 CSV 직접 재생
+검증은 이번엔 불가, 합성 시나리오로만 검증(향후 cereal 필드 추가 고려).
+
+**다음 세션 재개 시**: patch 파일(`0001-route-position-uncertainty-gate.patch`,
+base `712d76babc08`) 실차 `git am` 적용 → 우회전 구간 재주행 → route= HUD가
+불확실 구간 동안 더 이상 매끄럽게 상승하지 않고 동결되는지, 정상 구간은
+기존과 동일 동작하는지 확인.
+
+**전달**: FINDINGS.md(163차)/WIP.md(이 항목)/toolkit/sim_route_position_uncertainty_gate.py(신규)/
+toolkit/README.md/toolkit/CHANGELOG.md/patch 파일(C:\dev\patch\).
+
 ## 162차 (체크포인트 — 161차 "route가 우회전을 못 봄" 근본원인 확정, 패치 방향 사용자 확인 대기)
 
 **배경**: 161차가 발견한 신규 이슈(route `aeeed9e4a5` seg0/seg3, 실제 급우회전

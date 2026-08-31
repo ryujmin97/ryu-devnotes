@@ -1784,3 +1784,21 @@ dist_m의 프레임간 개별 값보다 **추세(지속 증가/유지)**로 판�
 **검증(162차, 컨테이너 리셋 후 재실행)**: route `aeeed9e4a5` seg3 t=6383~6396
 구간 재현 결과 min=0.7 max=28.1 mean=12.3 (n=260) — 최초 실행과 정확히 일치
 확인 완료.
+
+## sim_route_position_uncertainty_gate.py (163차, 신규)
+**목적**: 162차 방향2(보수적 완화) 패치 — `carrot_man.py::carrot_navi_route()`
+132차 램프리미터에 추가한 "위치불확실성 게이트"(`position_dt_since_fix`가
+`ROUTE_POSITION_UNCERTAIN_DT_S=3.0`을 넘으면 완화(상승) 방향만 동결, 하강은
+그대로 허용) 사전검증. `RampLimiterState`(패치 전 기준선)와
+`GatedRampLimiterState`(162차 패치와 동일 로직)를 나란히 구현해 비교.
+**검증 결과(3/3 PASS)**: 정상 시나리오(dt 항상 낮음) 회귀 없음(출력 완전
+동일), 실측 규모(경과 ~11초, accel_limit_kmh~3.3) 합성 재현에서 baseline은
+매끄럽게 상승(실측 92→149 패턴과 동일 기울기)하는데 gated는 3.0초 이후
+완전 동결, 불확실 구간 중에도 raw가 낮아지면(진짜 커브 감지) 게이트가
+하강을 막지 않음 확인.
+**한계**: `carrotMan`이 `position_dt_since_fix`를 cereal로 발행하지 않아
+실측 CSV 직접 재생(replay) 검증은 불가 — 합성 시나리오로만 검증(FINDINGS.md
+163차 참고, 향후 cereal 필드 추가 시 재생 검증 가능).
+**사용**: `python3 sim_route_position_uncertainty_gate.py --unit-tests`
+**의존성**: 없음(표준 라이브러리만, `sim_route_boundary_ramp_limiter.RampLimiterState`와
+동일 인터페이스를 자체 재구현).

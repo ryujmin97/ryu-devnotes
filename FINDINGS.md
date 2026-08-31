@@ -10876,3 +10876,52 @@ confirm-hold, 권장) 패치 설계/구현 재착수 가능.
 
 **범위**: 코드 변경 없음(원인규명만). 컨테이너 리셋으로 최초 실측 CSV(route_full/
 gps_full)는 유실 — 사용자 재업로드로 후속 재검증 진행(같은 세션 계속).
+
+## 163차 — [PATCH_WRITTEN, NEEDS_VALIDATION] 162차 근본원인에 대한 방향2(보수적 완화) 패치 구현+시뮬레이션 검증
+
+**배경**: 162차가 확정한 근본원인(route aeeed9e4a5 seg3, 데드레커닝 위치추정이
+실제 GPS/앱 위치갱신 없이 ~11초간 정체돼 실제 급우회전을 "직선"으로 오판,
+최대 28m 위치오차)에 대해 3가지 패치 방향 중 **방향2(데드레커닝 불확실
+구간엔 route의 "완화(속도상향)" 판단을 억제, vturn 등 다른 소스가 안전하게
+대응하도록 보수적으로 처리)**를 사용자가 선택. 방향1(livePose 자세데이터로
+헤딩 자체를 정확히 보정)은 근본적이지만 신규 구독+검증 비용이 크다는 이유로
+향후 과제로 보류.
+
+**설계**: `carrot_serv.py::_update_gps()`가 이미 계산 중이던 `dt`(마지막
+실제 위치 fix 이후 데드레커닝 경과시간)를 `self.position_dt_since_fix`로
+노출. `carrot_man.py::carrot_navi_route()`의 132차 램프리미터(`_route_speed_prev`
+기반 프레임간 상한)에서, 이 값이 `ROUTE_POSITION_UNCERTAIN_DT_S=3.0`(기존
+`gps_updated_navi`/`gps_updated_phone` 신선도 판정과 동일 관례값)을 넘는
+프레임에서는 "완화(상승)" 방향 상한(`hi`)만 이전 값으로 고정. "감속(하강)"
+방향(`lo`)은 그대로 둬, 불확실 구간 중에도 실제로 더 낮은 target이
+계산되면(진짜 커브가 늦게라도 잡히면) 즉시 반영되도록 함. 코드 변경은
+carrot_man.py(상수 1개 + 게이트 조건 3줄) + carrot_serv.py(속성 초기화 1줄 +
+대입 1줄)로 최소화.
+
+**시뮬레이션 검증(`sim_route_position_uncertainty_gate.py`, 신규, 3/3 PASS)**:
+1. `regression_dt_always_low`: dt가 항상 임계값 미만인 정상 시나리오에서
+   패치 전/후 출력이 완전히 동일(max_diff=0.0) — 정상 주행 회귀 없음 확인.
+2. `reproduction_real_event_scale`: 실측 규모(경과 ~11초, accel_limit_kmh
+   ~3.3, raw가 즉시 300으로 열리려는 상황) 합성 재현 — baseline(패치 전)은
+   실측처럼 매끄럽게 상승(92→128.3, 11초 규모), 패치 후(gated)는 3.0초
+   경과 시점부터 완전히 동결됨 확인.
+3. `decrease_still_allowed`: 불확실 구간 중에도 raw가 더 낮아지면(진짜
+   커브 감지) 게이트가 하강을 막지 않음(out=lo 방향 정상 반영) 확인.
+
+**기존 157차 apex 재설계 회귀 테스트**(`sim_route_apex_redesign.py --unit-tests`)
+재실행 7/7 PASS — 이번 패치가 곡률/apex 계산 로직 자체는 건드리지 않아
+기존 회귀 없음 재확인.
+
+**한계(정직하게 기록)**: `carrotMan` cereal 메시지가 `position_dt_since_fix`를
+발행하지 않아, 실측 CSV(route_full.csv)로 이 게이트의 프레임별 판정을
+직접 재생(replay)하는 검증은 이번엔 불가능했음 — 합성 시나리오(실측과
+동일 규모로 구성)로만 검증됨. 실차 적용 후 로그에서 이 필드를 cereal에
+추가 발행하면 다음 세션에 직접 재생 검증 가능(향후 과제로 남김).
+
+**다음 단계**: 실차 `git am` 적용 → 우회전 구간 재주행 → route= HUD가
+불확실 구간 동안 더 이상 매끄럽게 상승(오도 완화)하지 않고 동결되는지,
+그리고 정상 커브/직선 구간에서는 기존과 동일하게 동작하는지 확인.
+
+**범위**: `selfdrive/carrot/carrot_man.py`, `selfdrive/carrot/carrot_serv.py`.
+patch 파일: `0001-route-position-uncertainty-gate.patch` (base `712d76babc08`,
+c3-ms-dev).

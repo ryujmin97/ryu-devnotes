@@ -689,3 +689,8 @@ discontinuity 0건). 개발 중 트리거 소스별 boost_s 미구분 버그가 
   헤딩 정체(회전 중 11초간 296.0°로 고정, 최대 28m 위치오차)임을 확인.
   (컨테이너 리셋으로 최초 작성분 유실 → 재업로드 로그로 재작성+재검증,
   수치 완전 일치 확인.)
+- (2026-08-31, 163차 신규) sim_route_position_uncertainty_gate.py 추가 —
+  162차 근본원인 방향2(보수적 완화) 패치의 램프리미터 위치불확실성 게이트
+  검증. carrot_man.py/carrot_serv.py 패치(0001-route-position-uncertainty-gate)로
+  이어짐. 3/3 PASS(회귀없음/재현/하강허용), 157차 apex 재설계 기존 회귀
+  테스트 7/7 재확인.
