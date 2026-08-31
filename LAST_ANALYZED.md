@@ -1155,3 +1155,38 @@ ccPoseValid) 정상기록 확인되었으나 이 드라이브엔 패킷단절/�
 route_target_jump_events/turn_speed_violations/소스플리커 정량스캔 결과
 신규 회귀 없음. 상세는 WIP.md/FINDINGS.md 171차 참고. **다음은 GPS
 신호저하 구간(터널/고가하부 등) 로그 확보 우선.**
+
+2026-08-31 (172차, c3-ms-dev): 신규 커밋 없음(분석만, repo HEAD `f2e80d8`=
+171차와 동일). 사용자 업로드 route `00000372--6310bba9b8--5,6`(2세그,
+t=778.86~898.85, 120초)+클립1개(`260831_150628`, 15:05:58~15:06:27,
+프레임 HUD로 시각 검증) 분석 — "우회전 사전감속 약해서 브레이크 개입"+
+"우회전 통과 후 route가 즉시 원복이 아니라 서서히 상승" 2건 제보.
+**원인 A(원복 서서히 문제, 확정)**: `carrot_man.py::carrot_navi_route()`의
+132차 out_speed 프레임간 램프리미터(`_route_speed_prev` 기반)가 증가
+방향에도 대칭 적용됨 — 132차 당시 코드주석에 이미 "129/131차의 원복측
+계단도 함께 완화됨"이라 명시돼 있었음. 160차(camera-style 재설계) 이후
+"apex 도달 시 원복"이 설계 의도인데도 이 구舊램프가 그대로 남아 있어
+`calculate_current_speed()`가 이론상 즉시 반환하는 도로제한속도를
+프레임당 accel_limit_kmh*dt로 깎아 냄. 대조군인 `atc_desired`(L890)/
+`sdi_speed`(L1025)/`speedLimitDistance`(L1032) 호출부는 이 램프가 없어
+카메라/회전 감속은 실제로 거리<=0 즉시 원복함 -- 사용자가 원하는 동작이
+이미 코드 안에 존재. t≈849(xDistToTurn=-1, apex 통과) 이후 desiredSpeed가
+30→48(t=853~858.55, 5.5초, ≈1.9kph/s ≈ accel_limit_kmh 이론치에 근접)로
+서서히 상승하다 33kph 실제 과속카메라에 재클램프된 것을 실측으로 확인.
+**원인 B(사전감속 약함→브레이크 개입, NEEDS_INVESTIGATION)**: t=821.7~
+832.5(xDistToTurn 214→54m) 구간에서 route desiredSpeed는 accel_limit=
+0.70m/s²(≈2.5kph/s) 근사 속도로 정상 하강했으나, 실측 aEgo는 이 구간
+대부분 -0.05~-0.7m/s²(가끔만 -0.7 근접)로 가정치의 절반 이하만
+추종 -- t=829.95(gap=+0.17)부터 t=832.51(사용자 브레이크, gap=3.75,
+cruiseEnabled False)까지 gap이 계속 벌어짐. A_CRUISE_MIN=-2.0m/s²라
+컨트롤러 하드리밋이 원인은 아님 -- carrot route 스케줄(accel_limit
+가정)과 실제 종방향 MPC의 추종 응답(수렴 속도/저크비용) 사이의
+불일치로 추정되나 longitudinal_planner.py 내부 코스트 튜닝까지는
+이번 세션에서 확인 못함. 149~151차의 "accel_limit 자체 부족" 가설과
+달리, 이번 실측은 "가정한 accel_limit=0.70 자체는 물리적으로
+합리적이나 실제 차량이 그 감속률을 못 따라간다"는 다른 유형의
+갭이므로 별도 항목으로 구분. 상세는 WIP.md/FINDINGS.md 172차 참고.
+**다음은 (A) 램프리미터 비대칭화(증가측 무제한 또는 대폭 완화) 패치
+설계+시뮬검증, (B) longitudinal_planner.py 종방향 추종 지연 정적분석
+또는 신규 analysis_helpers 스캔 함수(aEgo vs 가정 accel_limit 괴리
+구간 자동탐지, 149차 옵션4와 동일 방향) 착수.**
