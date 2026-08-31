@@ -682,3 +682,10 @@ discontinuity 0건). 개발 중 트리거 소스별 boost_s 미구분 버그가 
   과속카메라 calculate_current_speed()와 동일 공식으로 재구현(157차 accel_limit
   동적 부스트 폐기, safe_time 버퍼 신규), 연속 S자커브 apex 전환 시나리오 포함
   7/7 PASS. carrot_man.py 패치(0001-route-decel-reuse-camera-...)로 이어짐.
+- (2026-08-31, 162차 신규) compare_navpos_vs_gps.py 추가 — carrotMan
+  xPosLat/xPosLon/xPosAngle(데드레커닝 ego 추정위치, 20Hz) vs gpsLocation
+  (실측, 1Hz) 이격 비교. 161차 "route가 우회전을 못 봄" 근본원인이
+  carrot_navi_route() 곡률계산이 아니라 estimate_position() 데드레커닝의
+  헤딩 정체(회전 중 11초간 296.0°로 고정, 최대 28m 위치오차)임을 확인.
+  (컨테이너 리셋으로 최초 작성분 유실 → 재업로드 로그로 재작성+재검증,
+  수치 완전 일치 확인.)

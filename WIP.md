@@ -1,3 +1,45 @@
+## 162차 (체크포인트 — 161차 "route가 우회전을 못 봄" 근본원인 확정, 패치 방향 사용자 확인 대기)
+
+**배경**: 161차가 발견한 신규 이슈(route `aeeed9e4a5` seg0/seg3, 실제 급우회전
+t=6389~6393 steer 최대 -121.9°인데 naviPaths curvature≈0, TBT는 1600m+ 떨어진
+엉뚱한 턴을 가리킴)를 "이 상황부터 해결" 지시로 이어받음. 149~160차 계열 route
+감속 패치들은 이 케이스에 적용 여지가 없다는 161차 결론 재확인 후, "왜 route가
+이 회전을 아예 못 봤는가"를 신규 조사.
+
+**핵심 발견(근본원인 확정, FINDINGS.md 162차 상세)**: `carrot_navi_route()`가
+쓰는 ego 위치/헤딩(`current_position`/`heading_deg`)은 `carrot_serv.py::
+_update_gps()`가 `estimate_position()`으로 매 20Hz 직선 데드레커닝한 값인데,
+이때 쓰는 헤딩(`bearing_calculated`)이 CarrotNavi 앱의 ~1Hz `nPosAngle`을 그대로
+쓴다. 신규 스크립트(`compare_navpos_vs_gps.py`)로 carrotMan 추정위치/헤딩(20Hz)과
+차량 실측 GPS(1Hz)를 직접 비교한 결과, 회전 시작~종료(11초)간 `xPosAngle`이
+296.0°로 완전 고정돼 있다가 회전 종료 직후 3.0°로 한번에 점프, 그 사이 추정위치가
+실측 GPS 대비 최대 28m까지 누적 이격됨을 확인 — `carrot_serv.py` L725의 기존
+TODO 주석("bearing 보정로직 추가 필요, CC.orientationNED[2] 이용")이 정확히
+이 간극을 가리키고 있었음. 즉 naviPaths/TBT 이상은 곡률계산 버그가 아니라
+**입력 위치/헤딩 자체의 정확도 문제** — 149~161차 route 패치들과 독립된 신규
+버그 카테고리. 안전 결과는 정상(vturn이 t=6385.27부터 즉시 인계, 58→27kph
+정상 감속) — route 사전감속 보조 공백이지 안전 회귀는 아님.
+
+**컨테이너 리셋 유실 및 재현 메모**: 이 항목은 이전 세션에서 devnotes에 push되기
+전 컨테이너가 리셋되며 최초 손실됐던 것을 트랜스크립트 원문 기준으로 재구성한
+기록임. 최초 실측 CSV(route_full.csv/gps_full.csv)도 함께 유실됐으나 사용자가
+동일 zip을 재업로드해 같은 세션 내에서 재추출/재검증 진행.
+
+**다음 세션 재개 시**: 패치 방향 사용자 확인 필요 —
+1) `estimate_position()` 헤딩을 `livePose.angularVelocityDevice`/`orientationNED`
+   등 차량 자체 고빈도 자세데이터로 보정(정확도 개선, 신규 구독 필요)
+2) dt/조향각변화율 기반으로 데드레커닝 신뢰도 저하 구간엔 route보다 vturn
+   우선순위 유지(보수적, 낮은 리스크)
+3) 이번엔 기록만 하고 종결(안전 회귀는 없었으므로)
+확인 후 설계+시뮬레이션검증 진행(분석 우선 원칙).
+
+**toolkit 변경**: `compare_navpos_vs_gps.py`(신규) — carrotMan 추정위치/헤딩
+vs 실측 GPS 이격 비교 도구, README/CHANGELOG 갱신 완료.
+
+**전달**: FINDINGS.md(162차)/WIP.md(이 항목)/toolkit/compare_navpos_vs_gps.py(신규)/
+toolkit/README.md/toolkit/CHANGELOG.md. ryu 코드 변경 없음(원인규명만, 패치 없음).
+route_full.csv/gps_full.csv 등 대용량 산출물은 devnotes 미보관(대용량 정책).
+
 ## 161차 (체크포인트 — 160차 실측 재검증 진행중, route156 PASS + 신규 이슈 발견, 898edd0f96 미완료)
 
 **배경**: 160차(camera-style route 감속)를 "이전에 문제 있었던 주행 로그"로 실측 검증하는 세션. 158차가 157차 검증에 썼던 `replay_route_apex_vs_baseline.py` 구조를 재사용해 `replay_route_camera_style_vs_baseline.py`(신규, toolkit) 작성.

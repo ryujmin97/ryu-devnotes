@@ -1757,3 +1757,30 @@ apex가 1차->2차로 자연 전환되는 구간의 프레임간 최대낙차가
 스크립트에서도 반올림 표시용 trace와 검증용 원본값을 반드시 분리할 것.
 **사용**: `python3 sim_route_camera_style_decel.py --unit-tests`
 **의존성**: `sim_route_apex_redesign.py`(샘플러/apex157차 함수), `sim_route_boundary_ramp_limiter.py`(RampLimiterState).
+
+## compare_navpos_vs_gps.py (162차, 신규)
+**목적**: `carrotMan.xPosLat/xPosLon/xPosAngle`(carrot_serv.py `_update_gps()`가
+`estimate_position()`으로 데드레커닝한 ego 추정위치/헤딩, 20Hz)와
+`gpsLocation`(차량 실측 GPS, 1Hz)을 시간 정렬해 거리(m) 이격을 계산.
+naviPaths/route 곡률이 특정 구간에서 이상하게 0으로 나오면, `carrot_navi_route()`의
+곡률/DP 계산 로직을 의심하기 전에 **입력값(current_position/heading_deg) 자체가
+실측 GPS와 벌어져 있는지**부터 이 스크립트로 배제할 것.
+**배경/발견**: route `aeeed9e4a5` seg3의 실제 급우회전 구간(t=6389~6393,
+steer 최대 -121.9°)에서 이 이격이 최대 28m까지 누적되고, `xPosAngle`이 회전
+내내(11초) 296.0°로 고정돼 있다가 회전 종료 직후 3.0°로 한번에 점프하는 패턴을
+확인 — `bearing_calculated`가 CarrotNavi 앱의 ~1Hz `nPosAngle`을 그대로 쓰고,
+그 사이는 직선 데드레커닝만 하기 때문(161차 "route가 커브를 못 봄" 이슈의
+근본원인, FINDINGS.md 162차).
+**CSV 컬럼**(`--out` 지정 시): `t, seg, navLat, navLon, navAngle, gpsLat, gpsLon, dist_m`.
+**사용**:
+```bash
+python3 compare_navpos_vs_gps.py /home/claude/work/route [--repo /home/claude/ryu] \
+    [--t-start 6383] [--t-end 6396] [--out out.csv]
+```
+**의존성**: `decode_rlog.py`. `extract_gps.py`와 달리 gpsLocation을 자체
+내장 추출(별도 CSV 선추출 불필요, route_dir만 주면 됨).
+**주의**: `gpsLocation`이 1Hz라 매칭은 가장 가까운 t 기준(선형보간 아님) —
+dist_m의 프레임간 개별 값보다 **추세(지속 증가/유지)**로 판단할 것.
+**검증(162차, 컨테이너 리셋 후 재실행)**: route `aeeed9e4a5` seg3 t=6383~6396
+구간 재현 결과 min=0.7 max=28.1 mean=12.3 (n=260) — 최초 실행과 정확히 일치
+확인 완료.

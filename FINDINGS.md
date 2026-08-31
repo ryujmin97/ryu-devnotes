@@ -10812,3 +10812,67 @@ confirm-hold, 권장) 패치 설계/구현 재착수 가능.
   항목(위 1~5번)만 결론으로 채택함.
 
 - **범위**: 코드/패치 변경 없음. 실차 미검증(관찰/코드대조 리뷰만).
+
+## 162차 — [NEEDS_VALIDATION, 원인규명] 161차 "route가 교차로 우회전을 아예 못 봄" 근본원인 확정 — bearing(nPosAngle) 데드레커닝 정체, naviPaths 문제 아님
+
+**배경**: 161차가 발견한 신규 이슈("route156과 동일 route `aeeed9e4a5`의 seg0/seg3에서
+실제 급우회전(t=6389~6393, steer 최대 -121.9°)을 naviPaths/TBT가 아예 못 봄")를
+이어받아 "이 상황부터 해결"하기로 사용자 지시. 149차~160차 계열 패치(감속
+공식/감속률)는 애초에 이 케이스에 적용 여지가 없다는 161차 결론을 재확인하고,
+"왜 route가 이 회전 자체를 못 봤는가"를 새로 조사.
+
+**조사 경로**: `carrot_navi_route()`(carrot_man.py)가 쓰는 `current_position`/
+`heading_deg`의 출처를 코드 추적 → `carrot_serv.py::_update_gps()`까지 도달.
+`self.vpPosPointLat/Lon`(`carrot_navi_route()`가 쓰는 ego 위치)는 매 20Hz 프레임
+`estimate_position()`으로 **데드레커닝(dt·speed·bearing 직선외삽)** 계산되고, 이때
+쓰이는 `bearing_calculated`는 CarrotNavi 앱이 UDP로 보내는 `nPosAngle`(≈1Hz
+갱신)을 그대로 쓴다 — **차량 자체 조향각/요레이트가 아니라 외부 앱이 보고한
+헤딩값**.
+
+**핵심 실측 증거** (신규 스크립트로 `carrotMan.xPosLat/xPosLon/xPosAngle`(20Hz) vs
+`gpsLocation`(1Hz, 차량 실측 GPS) 직접 비교):
+- 회전 시작(t≈6384, steer -5°대) 직전부터 종료 직후(t=6394.97)까지 **11초 동안
+  `xPosAngle`(=bearing_calculated)이 296.0°로 완전히 고정**되어 있음 — 그 사이
+  실제 조향각은 -5°→-121.9°→+2.9°까지 크게 요동(진짜 우회전).
+- 같은 구간에서 `carrotMan`이 보고하는 위치(`xPosLat/Lon`, ego 추정위치)와
+  차량 실측 GPS(`gpsLocation`) 사이 거리가 **~10m에서 점점 벌어져 t=6394경
+  ~28m까지 누적 이격** — 데드레커닝이 296° 방향으로 계속 직진 외삽하는 동안
+  실제 차량은 우회전 중이었기 때문.
+- t=6394.97(회전 거의 종료 시점)에 `xPosAngle`이 296.0°→3.0°로 **한 번에 67°
+  점프**하며 동시에 `xTurnInfo`가 -1(리셋) 후 새 턴(185m 앞)으로 재포착 —
+  회전 내내 정체돼 있던 앱측 헤딩/포지션이 한꺼번에 따라잡히는 패턴과 정확히
+  일치.
+- `carrot_serv.py` L725 기존 코드에 이미 `# TODO: 여기서 bearing 보정로직
+  추가 필요함. CC.orientationNED[2]를 이용하여.`라는 주석이 있음 — 원 개발자가
+  이 정확한 간극(외부 앱 헤딩만 쓰고 차량 자체 자세 데이터 미사용)을 이미
+  인지하고 있었음.
+
+**결론(확정)**: 161차가 관측한 "naviPaths curvature≈0, TBT가 1600m+ 떨어진
+엉뚱한 턴을 가리킴"은 `carrot_navi_route()`의 곡률 계산 로직 버그가 아니라,
+**그 계산에 입력되는 `current_position`/`heading_deg` 자체가 회전 중
+~10~11초간 부정확했기 때문**(최대 28m 위치오차 + 최대 67° 헤딩오차) — 근본
+원인 레이어가 한 단계 더 아래(`_update_gps`/`estimate_position`의 데드레커닝
+설계)에 있음. `self.navi_points`(원본 경로 폴리라인) 자체나 `carrot_navi_route()`
+곡률/DP 계산 함수는 무관 — 149차~161차 계열 route 패치들과 독립된 신규
+버그 카테고리.
+
+**참고**: 이 케이스에서 안전 결과 자체는 정상이었음 — route가 반응 못하는
+동안 vturn(비전)이 t=6385.27부터 즉시 인계받아 정상 감속(58→27kph)해
+위험 상황은 없었음. 즉 "route 사전감속 보조 기능 공백" 이슈이지 안전
+회귀는 아님.
+
+**패치 방향(설계 전, 사용자 확인 대기 — 코드 미작성)**:
+1. `estimate_position()`의 헤딩을 앱 보고값(`nPosAngle`) 고정 대신, 차량 자체
+   고빈도 자세 데이터(`livePose.angularVelocityDevice`/`orientationNED`,
+   기존 TODO 주석이 가리키는 방향)로 보정 — dead-reckoning 구간 동안 실제
+   요레이트를 반영해 헤딩이 회전을 따라가도록 함.
+2. 대안(더 단순): dt(마지막 앱 fix 이후 경과시간)가 일정 임계 이상이거나
+   조향각 변화율이 큰 구간에서는 데드레커닝 신뢰도를 낮춰 `get_path_after_distance`
+   탐색 반경/판정을 보수적으로 처리(예: 위치 불확실성 크면 route 곡률을
+   그대로 신뢰하지 않고 vturn 우선순위 유지) — 이미 vturn이 안전하게
+   인계받고 있으므로 "고쳐서 route가 더 잘 돕게" 하는 성격의 개선.
+3. 사용자 판단 필요: 1번(정확도 개선, `livePose` 신규 구독 필요)과 2번(보수적
+   완화, 낮은 리스크) 중 방향 선택, 또는 이번엔 기록만 하고 종결.
+
+**범위**: 코드 변경 없음(원인규명만). 컨테이너 리셋으로 최초 실측 CSV(route_full/
+gps_full)는 유실 — 사용자 재업로드로 후속 재검증 진행(같은 세션 계속).
