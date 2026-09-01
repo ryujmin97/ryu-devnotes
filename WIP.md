@@ -1,4 +1,46 @@
-## 193차 (진행 중 — route apex 진단 telemetry 패치 검증/교정 완료, 코드 동작 변경 없음, 미적용) — camera-style route 감속 원인 분리 계측
+## 193차 계속 (완료 — 교정 패치 적용/commit/push 확인) — camera-style route 감속 원인 분리 계측
+
+**Worker**: Claude (확인)
+
+**Repository**: `ryujmin97/ryu`
+
+**Branch**: `c3-ms-dev`
+
+**세션 시작 시 GitHub 상태 확인(§3)**: 새 세션에서 `ryu`/`ryu-devnotes`를
+원격 기준으로 신규 clone. `ryu` HEAD가 아래 193차 항목이 기록한
+base(`6c00b9c`)보다 앞선 `ea97831`인 것을 발견 — WIP.md는 아직
+"미적용"으로 기록되어 있었으나 실제 코드는 이미 반영되어 있어 §33
+("WIP와 실제 코드가 다름") 상황으로 판단, 임의로 진행하지 않고 먼저
+diff를 직접 확인한 뒤 사용자에게 보고.
+
+**확인 내용**: 사용자가 다른 PC에서 `route_apex_telemetry_193_FIXED.patch`를
+적용 → commit(`ea97831`, "193차: route apex 진단 telemetry 추가") → push
+완료. `git show --stat ea97831` 결과 `selfdrive/carrot/carrot_man.py`
+17줄 추가/0줄 삭제, diff 내용(3개 위치: `carrot_navi_route()` 시작부
+진단값 초기화, `calculate_current_speed()` 직후 결과 저장,
+`make_send_message()` JSON 필드 4개 추가)이 아래 193차 항목의 서술 및
+Claude가 재생성했던 FIXED 패치와 정확히 일치. 기존 계산 로직/apex
+선택 기준/limiter/arbitration 변경 없음(순수 필드 추가만) 재확인.
+
+**사용자 확인**: 사용자가 위 이해가 맞다고 확인(1번 확인), WIP 상태
+갱신 진행 승인(2번 확인).
+
+**검증**: 원격 커밋 직접 diff 확인(정적 확인). 실차/replay를 통한
+telemetry 데이터 자체의 검증은 아직 미실시.
+
+**다음 작업** (아래 193차 원본 항목의 "다음 작업" 2~6번 계속 유효):
+1. 새 telemetry(`route_apex_idx/dist/speed`, `route_out_speed`)가
+   포함된 실차/replay 로그 확보
+2. apex 이동과 route 출력, 최종 speed source를 시간축으로 분석하여
+   apex 선택/route 계산/MPC 추종/arbitration/naviPaths 드롭아웃 중
+   원인 분리
+3. 분석 결과에 따라 실제 수정 패치 필요 여부 결정
+4. (사용자 판단 보류 중) AI 간 패치 전달 시 텍스트 손상 재발 방지를
+   위한 첨부파일 전달 표준화 여부
+
+---
+
+## 193차 (진행 중 → 위 "193차 계속" 항목에서 완료로 확정 — route apex 진단 telemetry 패치 검증/교정 완료, 코드 동작 변경 없음, 미적용) — camera-style route 감속 원인 분리 계측
 
 **Worker**: ChatGPT (설계/1차 패치), Claude (검증 중 패치 파일 결함 발견 및 교정)
 
