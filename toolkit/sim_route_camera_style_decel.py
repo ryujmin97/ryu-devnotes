@@ -205,6 +205,76 @@ def carrot_navi_route_camera_style_nearest_persistence_gated(speeds, distances, 
     return min(out_speed, 300.0), decel_rate_mss * 3.6
 
 
+def carrot_navi_route_camera_style_nearest_relative_gated_min_of_both(
+        speeds, distances, safe_time, decel_rate_mss,
+        road_limit_speed=200.0, relative_severity_ratio=0.85):
+    """182차 후속(ChatGPT 설계 제안, 사용자 확인 하 toolkit 프로토타입 --
+    아직 실측/프로덕션 미검증) -- 179~181차 relative_gated(노이즈 차단,
+    실측 검증 완료, FINDINGS.md 181차)를 그대로 보존하면서, relative_gated
+    자체가 갖는 신규 edge case를 보정하기 위한 시도.
+
+    [문제] 180/181차 프로덕션 relative_gated는 "같은 lookahead 윈도우 내
+    가장 급한 지점(sharpest) 대비 상대적으로 완만한(severity <
+    relative_severity_ratio * sharpest_severity) 후보는 통째로 제외"한다.
+    이는 179차 검증1(근접 노이즈 vs 원거리 진짜 급커브, 두 심각도가
+    0.795 정도로 근접)에서는 의도대로 작동하지만, "1차(근접, 완만한
+    진짜 커브)/2차(원거리, 훨씬 급한 진짜 커브)"처럼 두 진짜 커브의
+    심각도 격차가 아주 큰 경우(예: severity 비율 0.25 수준)에는 1차가
+    노이즈와 동일하게 걸러져 apex가 곧바로 2차로 건너뛴다. 2차는
+    멀리 있어 calculate_current_speed()의 decel_dist가 아직 크게
+    남아있으므로, 1차 진입 시점에 1차 자신의 안전속도까지 감속이
+    안 된 채(과속 상태로) 통과할 위험이 있다 -- 이게 사용자가 제기한
+    원 설계 문제(순차 apex 처리 요구)의 핵심.
+
+    [시도한 보정] apex를 하나만 고르지 않고, "게이트 없는 가장 가까운
+    후보(nearest, 1차 자신의 감속요구 대변)"와 "관계형 게이트를 통과한
+    후보(gated, 179~181차 노이즈 차단 로직 그대로)" 두 곳에 대해 각각
+    camera-style 공식을 적용한 뒤, **더 보수적인(낮은) out_speed를
+    최종값으로 채택**한다. gated==nearest인 경우(검증2처럼 두 후보
+    심각도가 비슷해 둘 다 게이트를 통과하는 경우)는 기존과 완전히
+    동일한 결과. gated가 noise를 걸러 원거리 실제커브를 가리키는
+    경우(검증1)는 gated_out이 항상 nearest_out(노이즈, 상대적으로
+    완만)보다 낮으므로 min()이 자동으로 gated_out을 선택 -- 179~181차
+    검증을 깨지 않는다(아래 유닛테스트로 확인). nearest가 1차(완만하지만
+    진짜 커브)를 가리키고 gated가 2차(훨씬 급함, 아직 멀어서 decel_dist
+    여유 있음)를 가리키는 경우는 1차 접근 구간에서 nearest_out이 gated_out
+    보다 낮게 나와 min()이 1차 자신의 감속요구를 강제 -- 이게 이번에
+    보정하려는 신규 edge case.
+
+    **주의(미해결/미검증)**: 이 함수는 179~181차처럼 실측 로그 A/B
+    재검증을 거치지 않았다. "게이트에 못 든 근접 후보가 우연히 매우
+    낮은 target을 내는" 경우(예: 근접 지점 자체가 노이즈인데 노이즈
+    curvature 계산이 크게 튀어 target이 아주 낮게 나오는 경우) 그
+    지점이 동시에 candidates 중 가장 가까운 지점이자 사실상 가장
+    급한 지점이 되어 nearest==gated로 수렴하며, 이 경우 노이즈에 대한
+    방어력은 기존 relative_gated와 동일하게 없다(=이 함수가 새로
+    악화시키는 것은 아니지만, 별도로 방어하지도 않는다) -- 아래 유닛
+    테스트로 이 한계도 함께 확인한다."""
+    if not speeds:
+        return 300.0, decel_rate_mss * 3.6
+    candidates = [k for k in range(len(speeds)) if speeds[k] < road_limit_speed]
+    if not candidates:
+        apex_idx = min(range(len(speeds)), key=lambda k: speeds[k])
+        apex_dist = distances[apex_idx]
+        apex_speed = speeds[apex_idx]
+        out_speed = camera_calculate_current_speed(apex_dist, apex_speed, safe_time, decel_rate_mss)
+        return min(out_speed, 300.0), decel_rate_mss * 3.6
+
+    nearest_idx = candidates[0]
+    sharpest_severity = road_limit_speed - min(speeds[k] for k in candidates)
+    gated = [
+        k for k in candidates
+        if sharpest_severity > 0
+        and (road_limit_speed - speeds[k]) >= relative_severity_ratio * sharpest_severity
+    ]
+    gated_idx = gated[0] if gated else nearest_idx
+
+    nearest_out = camera_calculate_current_speed(distances[nearest_idx], speeds[nearest_idx], safe_time, decel_rate_mss)
+    gated_out = camera_calculate_current_speed(distances[gated_idx], speeds[gated_idx], safe_time, decel_rate_mss)
+    out_speed = min(nearest_out, gated_out)
+    return min(out_speed, 300.0), decel_rate_mss * 3.6
+
+
 def simulate_road_camera(sampler, road_len_m, v_ego_kph_start, safe_time, decel_rate_mss,
                           dt=0.05, max_steps=6000):
     """sim_route_apex_redesign.simulate_road()와 동일 방법론(완벽추종 가정,
@@ -480,6 +550,91 @@ def _run_unit_tests():
           "1차 고유속도(nearest 기준값)에서 벗어남 -- 1차 대응력 상실 확인(NEGATIVE)",
           abs(persist_v2_out - nearest_v2_out) > 1.0,
           f"persistence_gated={persist_v2_out:.2f}, nearest(게이트없음, 기준)={nearest_v2_out:.2f}")
+
+    # 10) [182차 후속, min_of_both 프로토타입 검증 -- ChatGPT 설계 제안]
+    #     기존 179~181차 검증 두 건(검증1 노이즈차단, 검증2 curve1유지)을
+    #     min_of_both가 그대로 재현하는지 회귀 재확인.
+    minboth_v2_out, _ = carrot_navi_route_camera_style_nearest_relative_gated_min_of_both(
+        speeds_v2, dist_v2, SAFE_TIME, DECEL_RATE, road_limit_speed=110.0)
+    check("[182차 후속] min_of_both: 검증2(curve1) 회귀 없음 -- gated/nearest와 동일값",
+          abs(minboth_v2_out - gated_v2_out) < 0.5,
+          f"min_of_both={minboth_v2_out:.2f}, gated(기존)={gated_v2_out:.2f}")
+
+    minboth_v1_out, _ = carrot_navi_route_camera_style_nearest_relative_gated_min_of_both(
+        speeds_v1, dist_v1, SAFE_TIME, DECEL_RATE, road_limit_speed=200.0)
+    check("[182차 후속] min_of_both: 검증1(노이즈 차단) 회귀 없음 -- gated(기존)와 동일값",
+          abs(minboth_v1_out - gated_v1_out) < 0.5,
+          f"min_of_both={minboth_v1_out:.2f}, gated(기존)={gated_v1_out:.2f}")
+
+    # 10a) [신규 edge case] 1차(근접, 완만한 진짜 커브)/2차(원거리, 훨씬
+    #      급한 진짜 커브) -- severity 격차를 크게 벌려(curv1=0.010 vs
+    #      curv2=0.040) 179~181차가 검증한 "격차가 작은" 케이스(curv1=
+    #      0.010/curv2=0.011)와 구분되는 상황을 만든다. 기존 프로덕션
+    #      relative_gated는 1차 severity가 0.85*sharpest(2차 severity)에
+    #      못 미쳐 1차를 통째로 건너뛰고 apex를 2차로 고정할 것으로
+    #      예상 -- 이게 사용자가 제기한 문제. min_of_both는 1차 접근
+    #      구간에서 1차 자신의 고유속도에 근접해야 한다(검증2와 동일한
+    #      판정 기준 재사용).
+    # (참고, 스캔으로 확인) apex2가 1차와 아주 가까우면(예: 180m) curv2가
+    # 아무리 급해도 calculate_current_speed 물리공식이 "먼 목표라도 지금부터
+    # 감속해야 늦지 않음"으로 자연히 과감속되어 문제가 저절로 가려짐(예:
+    # curv2=0.040@180m -> gated=32.5, curve1_own=54.0 -- gated가 오히려
+    # 더 낮음, 문제 재현 안 됨). apex2를 충분히 멀리(300~400m) 떨어뜨려야
+    # "아직 감속 여유가 있어 보이는" 진짜 under-braking이 드러남(스캔:
+    # curv2=0.03/apex2=300 -> gated=58.8, apex2=400 -> gated=72.6, 둘 다
+    # curve1_own=54.0 초과 -- 아래는 400m로 고정해 여유있게 재현).
+    dbl3_fn = double_curve_curvature_fn(apex1_m=120.0, apex2_m=400.0, curv1=0.010, curv2=0.03, width_m=20.0)
+    sampler_dbl3 = lambda pos: sample_curvature_road(dbl3_fn, pos, 500.0, 110.0, 0.001)
+    speeds_v3, dist_v3 = sampler_dbl3(119.0)  # 1차 진입 1m 직전
+    curve1_own_target_v3 = _interp(0.010, V_CURVE_LOOKUP_BP, V_CRUVE_LOOKUP_VALS)
+
+    gated_v3_out, _ = carrot_navi_route_camera_style_nearest_relative_gated(
+        speeds_v3, dist_v3, SAFE_TIME, DECEL_RATE, road_limit_speed=110.0)
+    minboth_v3_out, _ = carrot_navi_route_camera_style_nearest_relative_gated_min_of_both(
+        speeds_v3, dist_v3, SAFE_TIME, DECEL_RATE, road_limit_speed=110.0)
+
+    check("[182차 후속, 신규 edge case] 기존 프로덕션 relative_gated(0.85)는 "
+          "severity 격차가 큰 연속곡선(1차=0.010 vs 2차=0.040)에서 1차를 건너뛰고 "
+          "2차로 apex가 고정됨(=1차 진입 시 과속 상태, 문제 재현)",
+          gated_v3_out > curve1_own_target_v3 + 5.0,
+          f"gated(기존)={gated_v3_out:.1f}, 1차고유속도={curve1_own_target_v3:.1f}")
+    check("[182차 후속] min_of_both는 같은 상황에서 1차 진입 직전 1차 고유속도에 "
+          "근접 도달(±2kph) -- 1차가 더 이상 무시되지 않음",
+          abs(minboth_v3_out - curve1_own_target_v3) < 2.0,
+          f"min_of_both={minboth_v3_out:.1f}, 1차고유속도={curve1_own_target_v3:.1f}")
+
+    # 1차 통과 후 2차 접근 시 min_of_both가 여전히 2차에 정상 대응하는지
+    # (=검증2처럼 대응력 희생이 없는지) 확인.
+    speeds_v3_post1, dist_v3_post1 = sampler_dbl3(399.0)  # 2차 진입 1m 직전(1차는 이미 윈도우 밖)
+    gated_v3_post1, _ = carrot_navi_route_camera_style_nearest_relative_gated(
+        speeds_v3_post1, dist_v3_post1, SAFE_TIME, DECEL_RATE, road_limit_speed=110.0)
+    minboth_v3_post1, _ = carrot_navi_route_camera_style_nearest_relative_gated_min_of_both(
+        speeds_v3_post1, dist_v3_post1, SAFE_TIME, DECEL_RATE, road_limit_speed=110.0)
+    check("[182차 후속] min_of_both: 1차 통과 후 2차 접근 구간에서 기존 gated와 "
+          "동일 수렴(2차 대응력 희생 없음)",
+          abs(minboth_v3_post1 - gated_v3_post1) < 0.5,
+          f"min_of_both={minboth_v3_post1:.2f}, gated(기존)={gated_v3_post1:.2f}")
+
+    # 10b) [역방향 스트레스 테스트] 근접 지점 자체가 "노이즈인데 우연히
+    #      매우 낮은 target을 내는" 경우 -- min_of_both가 기존 gated 대비
+    #      더 악화되지는 않는지(=악화 없음, 방어도 안 됨을 확인) 점검.
+    #      noise_curv를 0.09로 올려(=noise가 국소적으로는 가장 급한
+    #      지점이 되는 극단값) 원거리 진짜 커브(0.05, noise보다 완만)와
+    #      대비시킨다.
+    reverse_noise_fn = noise_then_real_curve_curvature_fn(
+        noise_m=10.0, real_m=80.0, noise_curv=0.09, real_curv=0.05,
+        noise_width_m=8.0, real_width_m=20.0)
+    sampler_rev = lambda pos: sample_curvature_road(reverse_noise_fn, pos, 400.0, 200.0, 0.001)
+    speeds_rev, dist_rev = sampler_rev(0.0)
+    gated_rev_out, _ = carrot_navi_route_camera_style_nearest_relative_gated(
+        speeds_rev, dist_rev, SAFE_TIME, DECEL_RATE, road_limit_speed=200.0)
+    minboth_rev_out, _ = carrot_navi_route_camera_style_nearest_relative_gated_min_of_both(
+        speeds_rev, dist_rev, SAFE_TIME, DECEL_RATE, road_limit_speed=200.0)
+    check("[182차 후속, 한계 확인용] 근접 지점이 국소적으로 가장 급한 경우(노이즈 여부와 "
+          "무관하게) min_of_both는 기존 gated와 동일값 -- 새로운 악화 없음(방어도 안 됨, "
+          "179~181차와 동일한 기존 한계 유지)",
+          abs(minboth_rev_out - gated_rev_out) < 0.5,
+          f"min_of_both={minboth_rev_out:.1f}, gated(기존)={gated_rev_out:.1f}")
 
     print(f"\n{passed} PASS / {failed} FAIL")
     return failed == 0

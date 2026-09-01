@@ -1,3 +1,119 @@
+## 183차 — [시뮬레이션 검증 완료, 프로토타입 단계 -- 실측/프로덕션 미검증] ChatGPT 제안("85% relative_gated 게이트 삭제") 기각 + min_of_both 프로토타입으로 신규 edge case(1차 완만/2차 훨씬 급한 연속곡선) 재현 및 해소 확인
+
+**배경**: 사용자가 ChatGPT 세션에서 작성된 설계 문서를 가져와 "연속곡선에서
+apex를 전방 전체 sharpest가 아니라 가장 가까운 유효 곡선으로 순차 처리해야
+한다"며 `ROUTE_APEX_RELATIVE_SEVERITY_RATIO = 0.85` 게이트(180/181차
+프로덕션 반영, 실측 검증 완료)를 통째로 삭제하고 `carrot_navi_route()`의
+apex 선택을 순수 `candidates[0]`(nearest, 게이트 없음)로 되돌리는 패치를
+요청.
+
+**1차 검토 결과 -- 패치 보류, 충돌 발견**: WIP.md/FINDINGS.md 179~181차를
+확인한 결과, 이 요청은 이미 실측 로그(route 00000374)로 3회차에 걸쳐
+검증하고 실차에 반영한 노이즈 오탐 수정을 되돌리는 것으로 확인됨.
+
+- **179차 검증1(실측)**: 순수 nearest는 10m 앞 floor 바로 위 미세잡음
+  (curv≈0.001~0.02)에 apex가 고정되어 60~100m 앞 진짜 급커브를 무시,
+  sharpest 대비 최대 9.72km/h 더 높은(덜 안전한) 값을 냄.
+- **180/181차**: "윈도우 내 sharpest 대비 상대적 심각도 비율 0.85"
+  게이트(`relative_gated`)를 프로덕션 반영, route 00000374 seg11 실측
+  A/B 재검증으로 노이즈 차단 확인(nearest 43.9km/h까지 가속 vs
+  relative_gated 33~38km/h 유지, 최대차 9.64km/h) -- "검증 완료 종결"로
+  기록됨.
+
+사용자가 제기한 문제(1차 완만/2차 급한 연속곡선에서 1차가 무시될 수 있음)
+자체는 새 지적이 아니라 179차 검증2에서 이미 정확히 이 시나리오(curv1=
+0.010@120m, curv2=0.011@260m)로 테스트되어 "순수 nearest가 이미 잘
+처리한다"로 결론난 바 있음. 다만 180/181차에서 검증된 케이스는 전부
+1차/2차 severity가 비슷한(비율 0.91 근처) 경우였고, **1차/2차 severity
+격차가 훨씬 큰 경우(예: 1차 완만, 2차 매우 급함)는 미검증 edge case**임을
+확인 -- 사용자에게 이 충돌을 보고하고 진행 방향 확인 요청.
+
+**사용자(ChatGPT와 재확인)** 도 동일하게 "게이트 삭제는 179~181차 검증을
+되돌리는 잘못된 방향"이라는 결론에 도달, "게이트는 유지하되 노이즈 배제와
+연속곡선(1차 완만/2차 급함) 문제를 모두 만족하는 방식"으로 방향 전환을
+제안(곡선 단위 spatial segmentation 아이디어 포함).
+
+**신규 edge case 존재 여부 재현(합성 시나리오)**: `sim_route_camera_style_decel.py`
+`double_curve_curvature_fn`을 이용해 curv1=0.010@120m(1차, 완만)/
+curv2=0.03@apex2m(2차, 훨씬 급함, target≈20.5km/h) 조합을 apex2 거리를
+바꿔가며 스캔.
+
+- apex2=180m(1차와 가까움): 기존 `relative_gated`=32.5km/h, 1차고유속도=
+  54.0km/h -- **gated가 오히려 더 낮음(과감속), 문제 재현 안 됨**. 2차가
+  워낙 급하고 가까우면 물리공식(calculate_current_speed)이 "지금부터
+  감속해야 늦지 않음"으로 자연히 과감속되어 저절로 가려짐.
+- **apex2=300m: gated=58.8km/h, apex2=400m: gated=72.6km/h** -- 둘 다
+  1차고유속도(54.0km/h)를 뚜렷이 초과. 2차가 1차로부터 충분히 멀리
+  떨어져 있으면(≈250~300m 이상) 물리공식상 아직 감속 여유가 있어 보여,
+  **1차 진입 시점에 1차 자신에게 필요한 감속이 이뤄지지 않은 채(최대
+  +18.6km/h 과속) 통과하는 문제가 실제로 재현됨**. 이번 회차에서
+  apex1=120m/apex2=400m/curv1=0.010/curv2=0.03 조합을 정식 유닛테스트로
+  채택.
+
+**시도한 보정(min_of_both, 프로토타입)**: 단일 apex를 고르지 않고, (a)
+게이트 없는 nearest(가장 가까운 후보, 1차 자신의 감속요구 대변)와 (b)
+기존 `relative_gated`(179~181차 노이즈 차단 로직 그대로) 각각에
+camera-style 공식(`calculate_current_speed`와 동일 수식)을 적용한 뒤,
+**더 보수적인(낮은) out_speed를 최종값으로 채택**하는 방식
+(`carrot_navi_route_camera_style_nearest_relative_gated_min_of_both`).
+gated==nearest인 경우(검증2처럼 두 후보 severity가 비슷해 둘 다 게이트를
+통과)는 기존과 완전히 동일. gated가 노이즈를 걸러 원거리 실제커브를
+가리키는 경우(검증1)는 gated_out이 항상 nearest_out(노이즈, 상대적으로
+완만)보다 낮으므로 min()이 자동으로 gated_out을 선택. nearest가 1차를,
+gated가 2차(아직 멀어서 decel_dist 여유 있음)를 가리키는 신규 edge case는
+1차 접근 구간에서 nearest_out이 gated_out보다 낮게 나와 min()이 1차 자신의
+감속요구를 강제.
+
+**유닛테스트 결과(21/21 PASS, 기존 15 + 신규 6)**:
+1. min_of_both가 검증2(curve1)를 회귀 없이 재현(기존 gated와 동일값).
+2. min_of_both가 검증1(노이즈 차단)을 회귀 없이 재현(기존 gated와 동일값).
+3. 기존 프로덕션 relative_gated가 신규 edge case(curv1=0.010@120m,
+   curv2=0.03@400m)에서 1차를 건너뛰어 1차고유속도(54.0)보다 18.6km/h
+   높은(72.6) 과속 상태로 만듦을 재확인.
+4. min_of_both는 동일 상황에서 1차 진입 직전 1차고유속도(54.0)에 ±2kph
+   이내로 정확히 도달(=1차가 더 이상 무시되지 않음).
+5. 1차 통과 후(윈도우에서 사라진 뒤) 2차 접근 구간에서 min_of_both가
+   기존 gated와 완전히 수렴(2차 대응력 희생 없음).
+6. **한계 확인(스트레스 테스트)**: 근접 지점 자체가 노이즈이면서 동시에
+   윈도우 내 가장 급한 지점(=sharpest)이 되는 경우(noise_curv=0.09 >
+   real_curv=0.05로 역전), min_of_both는 기존 gated와 동일값 -- 이
+   케이스는 애초에 relative_gated 자체가 노이즈/실커브 구분을 못하는
+   기존 한계이며(179차 후속에서 이미 확인된 "노이즈가 curve1보다 항상
+   더 심각하게 계산될 수 있음" 문제와 동일 계열), min_of_both가 새로
+   악화시키지도 해결하지도 않음을 확인.
+
+**결론**: min_of_both는 179~181차 검증 두 건을 보존하면서 신규 edge
+case(1차 완만/2차 훨씬 급함, 간격 넓음)를 시뮬레이션 상으로 해소한다.
+**단, 이번 검증은 전부 합성(synthetic) 시나리오이며 179~181차처럼 실측
+로그 A/B 재검증을 거치지 않았다.** ChatGPT가 제안했던 "곡선 단위 spatial
+segmentation"(candidate를 연속 구간으로 묶어 곡선 단위로 처리) 방향은
+이번 회차에서 시도하지 않음 -- 179차 후속2 "연속성/지속성 기준"(대안2)
+검증에서 이미 "진짜 커브도 fine-sample 특성상 단일 지점에서만 threshold를
+넘는 경우가 있다"(curve1 자체가 그랬음)는 것이 확인되어 있어, 인접-포인트
+기반 클러스터링이 신뢰성 있게 동작할지 의문이 있었고, min_of_both가 더
+단순한 방식으로 동일 문제를 해소하는 것을 먼저 확인했으므로 이번 회차
+범위로 채택하지 않았음(추가 검토 여지는 있음).
+
+**ryu 프로덕션 코드**: 변경 없음(180/181차 `ROUTE_APEX_RELATIVE_SEVERITY_RATIO=0.85`
+그대로 유지). 이번 회차 결과물은 toolkit 프로토타입뿐.
+
+**toolkit 변경**: `sim_route_camera_style_decel.py`에
+`carrot_navi_route_camera_style_nearest_relative_gated_min_of_both()`
+신규 + 유닛테스트 6건 추가(21/21 PASS). `README.md`/`CHANGELOG.md` 갱신.
+
+**다음 단계(제안, 미착수)**:
+1. min_of_both를 프로덕션에 반영할지 사용자 확인.
+2. 반영 시 179~181차와 동일한 절차: `carrot_man.py::carrot_navi_route()`
+   패치 → py_compile/git am 검증 → **실측 로그 A/B 재검증(181차 방식,
+   가능하면 실제로 1차/2차 severity 격차가 큰 연속곡선을 포함한 로그)**
+   → 실차 반영.
+3. (선택) ChatGPT가 제안한 "곡선 단위 spatial segmentation" 방향도
+   min_of_both와 별개로 시뮬레이션 검증해볼 여지 있음 -- 사용자 판단 대기.
+
+**범위**: `ryu-devnotes/toolkit/sim_route_camera_style_decel.py`,
+`README.md`, `CHANGELOG.md`만 변경(`ryu` 프로덕션 코드 변경 없음, patch
+파일 없음).
+
 ## 178차 계속2 — [해소] 빌드 아이덴티티 미스터리 원인 확정 + 디바이스 clean 정리 완료, 177차 코드 실행 확정
 
 **원인**: 40차 때 휴대폰 SSH로 디바이스 로컬에 만든 미정리 커밋(`89382ac`,

@@ -1,3 +1,39 @@
+## 183차 (체크포인트 — ChatGPT의 "85% relative_gated 게이트 삭제" 제안 기각, min_of_both 프로토타입 시뮬레이션 검증 완료/실측·프로덕션 반영은 다음) — 연속곡선 apex 선택 신규 edge case
+
+**진행**: 사용자가 ChatGPT 설계 문서를 가져와 180/181차 프로덕션
+`ROUTE_APEX_RELATIVE_SEVERITY_RATIO=0.85` 게이트를 삭제하고 순수
+nearest로 되돌리는 패치를 요청. WIP/FINDINGS 확인 결과 179~181차가
+실측 로그로 검증 완료한 노이즈 차단 수정을 되돌리는 것이라 충돌 발견,
+사용자에게 보고 후 방향 확인. 사용자(ChatGPT와 재확인)도 동일 결론에
+도달, "게이트는 유지하되 1차완만/2차훨씬급함 edge case도 해결"하는
+방향으로 전환.
+
+**작업**: `sim_route_camera_style_decel.py`에
+`carrot_navi_route_camera_style_nearest_relative_gated_min_of_both()`
+신규(게이트 없는 nearest와 기존 relative_gated 중 더 보수적인 쪽 채택).
+유닛테스트 6건 추가(21/21 PASS) — 179~181차 검증 2건(노이즈 차단/curve1
+유지) 회귀 없음 확인 + 신규 edge case(curv1=0.010@120m, curv2=0.03@400m
+-- apex2가 1차와 충분히 멀 때만 재현됨, gated=72.6 vs 1차고유속도=54.0)
+재현 및 해소(min_of_both=54.0±2) 확인 + 노이즈=sharpest 동시성 케이스
+한계 확인(악화 없음, 방어도 안 됨 -- 기존 한계 그대로).
+
+**중요**: 이번 회차는 전부 합성(synthetic) 시뮬레이션. `ryu` 프로덕션
+코드는 변경하지 않음(180/181차 상태 그대로 유지). 실측 로그 A/B
+재검증(181차 방식)을 거치지 않은 상태.
+
+**toolkit/ryu 변경**: `ryu-devnotes/toolkit/sim_route_camera_style_decel.py`,
+`README.md`, `CHANGELOG.md`만 변경. `ryu` 변경 없음, patch 파일 없음.
+
+**다음 단계**: (1) min_of_both 프로덕션 반영 여부 사용자 확인. (2) 반영
+시 179~181차와 동일 절차(patch → py_compile/git am → 실측 A/B 재검증,
+가능하면 1차/2차 severity 격차 큰 실제 연속곡선 로그로) 진행. (3) ChatGPT가
+제안한 "곡선 단위 spatial segmentation" 방향은 이번 회차에서 시도 안 함
+(179차 후속2 대안2 NEGATIVE 검증에서 인접-포인트 클러스터링 신뢰성에
+의문이 이미 제기된 바 있음) -- 추가 검토 여지는 있으나 min_of_both가
+더 단순하게 동일 문제를 해소함을 먼저 확인.
+
+---
+
 ## 182차 (체크포인트 — 좌회전 접근시 route 사전감속 61초 완전공백 발견 + 원인규명용 계측 패치 작성 완료, 실차 반영/재검증은 다음)
 
 **배경**: 직전 세션(182차 최초 시도)이 WIP.md 기록 중 스크립트 오류로

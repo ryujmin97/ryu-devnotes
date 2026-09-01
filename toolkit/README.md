@@ -1910,6 +1910,26 @@ apex가 1차->2차로 자연 전환되는 구간의 프레임간 최대낙차가
 **사용**: `python3 sim_route_camera_style_decel.py --unit-tests`
 **의존성**: `sim_route_apex_redesign.py`(샘플러/apex157차 함수), `sim_route_boundary_ramp_limiter.py`(RampLimiterState).
 
+**2026-09-01 추가(183차, 프로토타입 -- 실측/프로덕션 미검증)**:
+`carrot_navi_route_camera_style_nearest_relative_gated_min_of_both()` 신규.
+180/181차 프로덕션 `relative_gated`(0.85)가 갖는 신규 edge case(1차=근접
+완만한 진짜커브 / 2차=원거리 훨씬 급한 진짜커브, severity 격차 큼 --
+예: curv1=0.010 vs curv2=0.03, apex2가 1차로부터 충분히 멀 때(≥250~300m
+간격) 1차가 게이트에서 탈락해 apex가 2차로 건너뛰며 1차 진입 시 과속
+상태가 됨, 유닛테스트로 재현: gated=72.6kph vs 1차고유속도=54.0kph)를
+"게이트 없는 nearest(1차 자신의 감속요구)"와 "관계형 게이트를 통과한
+후보(gated, 179~181차 노이즈 차단 로직 그대로)" 중 camera-style 공식
+결과가 더 낮은(보수적인) 쪽을 채택하는 방식으로 보정 시도. 179~181차가
+검증 완료한 두 케이스(검증1 노이즈 차단/검증2 curve1 유지) 모두 회귀
+없이 재현하고, 신규 edge case에서 1차 진입 시 1차 고유속도(±2kph)로
+정상 도달함을 유닛테스트로 확인(21/21 PASS, 기존 15/15 + 신규 6건).
+**주의**: 근접 후보 자체가 노이즈이면서 우연히 그 지점이 윈도우 내
+가장 급한 지점도 되는 경우(noise==sharpest)에는 기존 relative_gated와
+동일하게 방어력이 없음(이 프로토타입이 새로 악화시키는 것은 아니나
+해결하지도 않음, 별도 유닛테스트로 한계 확인함). **실측 로그 A/B
+재검증(181차 방식) 및 프로덕션 반영은 사용자 확인 후 진행 예정 --
+이번 회차는 시뮬레이션 프로토타입 단계.**
+
 **2026-08-31 추가(179차)**: apex 선택기준을 "가장 급한 지점"(전역
 min(speeds))에서 "가장 가까운 지점"(감속필요 최근접,
 `speeds[k] < road_limit_speed`인 최소 index)으로 바꾼
