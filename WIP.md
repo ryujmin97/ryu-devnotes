@@ -1,3 +1,70 @@
+## 193차 (진행 중 — route apex 진단 telemetry 패치 검증/교정 완료, 코드 동작 변경 없음, 미적용) — camera-style route 감속 원인 분리 계측
+
+**Worker**: ChatGPT (설계/1차 패치), Claude (검증 중 패치 파일 결함 발견 및 교정)
+
+**Repository**: `ryujmin97/ryu`
+
+**Branch**: `c3-ms-dev`
+
+**Base commit**: `6c00b9c` (Claude가 재확인 시점 원격 HEAD와 일치, 191/192차 이후 변경 없음)
+
+**배경**: 192차까지의 기록과 현재 `c3-ms-dev` 코드를 기준으로 route 감속 문제를 재검토했다. 현재 route에는 navi path 기반 curvature/fine curvature, relative severity 0.85 apex 선택, camera-style `calculate_current_speed()`, 하강측 ramp, 정상 상황 상승측 즉시 원복이 이미 구현되어 있다. 최종 speed는 route 단독 출력이 아니라 다른 speed source와 arbitration을 거쳐 결정되므로, 실차 증상만으로 apex/route 계산/MPC/arbitration 문제를 구분하면 안 된다.
+
+**이번 작업 판단**: `min_of_both` 등 route 알고리즘을 바로 변경하지 않는다. 먼저 실제 선택된 apex와 route 계산 결과를 telemetry로 계측하여 원인을 분리한다.
+
+**코드 변경(의도)**: `selfdrive/carrot/carrot_man.py`에 진단용 필드만 추가한다.
+- `route_apex_idx`
+- `route_apex_dist`
+- `route_apex_speed`
+- `route_out_speed`
+
+`carrot_navi_route()` 호출 시작 시 진단값을 초기화(비활성/후보없음 프레임에서 이전 값이 남지 않도록)하고, apex 선택 및 `calculate_current_speed()` 호출 직후 결과를 저장한다. `make_send_message()`에서 기존 JSON에 위 4개 값을 추가한다. 주행 계산식, apex 선택 기준, limiter, arbitration 로직은 변경하지 않는다.
+
+**[Claude 검증 중 발견] 전달된 패치 파일 자체가 손상됨**:
+- 업로드된 `route_apex_telemetry_193.patch`는 `git apply --check` 시 `error: corrupt patch at line 18`로 실패.
+- 원인 분석: 3개 hunk 모두 `@@ -a,b +a,c @@` 헤더의 라인 카운트(b, c)가 실제 본문 라인 수와 불일치(예: 1번째 hunk는 헤더상 new count=12지만 실제 context+added=13). 대화/마크다운 전달 과정에서 공백만 있는 context 라인의 선행 공백이 소실되는 등 텍스트 손상이 있었던 것으로 추정됨. 패치 로직 자체(무엇을 어디에 추가하는지)는 WIP 서술과 일치했음.
+- Claude가 원격 `6c00b9c` 기준으로 동일한 3곳(§`carrot_navi_route()` 시작부 line 578 부근, `calculate_current_speed()` 호출 직후 line 741 부근, `make_send_message()` line 875 부근)에 서술된 내용을 직접 반영하여 패치를 재생성함.
+- 재생성한 패치는 별도 임시 브랜치(`verify-193-clean-tmp`, base `6c00b9c`)에서 `git apply --check` → `git apply` → `python3 -m py_compile` 전부 통과 확인. `git diff --stat` 결과 17줄 추가/0줄 삭제(순수 추가, 삭제 없음) — WIP 서술("주행 계산식/기존 로직 변경 없음")과 일치.
+- 교정된 패치 파일: `route_apex_telemetry_193_FIXED.patch` (원본 patch는 참고용으로 보존, 적용하지 말 것).
+
+**목적**:
+`apex_idx / apex_dist / apex_speed`
+→ `route_out_speed`
+→ `vEgo`
+→ `desiredSpeed / source`
+의 시간축 관계를 실차/replay에서 확인하여 다음을 분리한다.
+1. apex 선택 문제
+2. route camera-style 계산 문제
+3. route 출력 이후 MPC 추종 문제
+4. 최종 speed arbitration 문제
+5. naviPoints/dropout 문제
+
+**검증 상태**:
+- 현재 원격 `6c00b9c` 코드 직접 확인: 완료 (ChatGPT, Claude 각각 재확인)
+- 원본 패치(`route_apex_telemetry_193.patch`) `git apply --check`: **실패**(손상된 hunk 헤더)
+- 교정 패치(`route_apex_telemetry_193_FIXED.patch`) `git apply --check` / `git apply`: **성공** (Claude, 별도 임시 브랜치 `verify-193-clean-tmp`, base `6c00b9c`)
+- `python3 -m py_compile selfdrive/carrot/carrot_man.py`: **성공**
+- 기존 알고리즘 변경 여부: 없음(순수 필드 추가만, diff 17 insertions / 0 deletions 확인됨)
+- 사용자 로컬 적용: **미실시** — 7이 교정 패치를 직접 적용해야 함(§10, ryu 소스는 AI가 push하지 않음)
+- 실차 검증: 미실시
+- replay 검증: 미실시
+
+**중요**: 이 회차의 상태는 사용자가 **교정된 패치(`_FIXED.patch`)**를 적용하고 검증/commit/push하기 전까지 완료로 확정하지 않는다. 원본 `route_apex_telemetry_193.patch`는 손상되어 있으므로 적용하지 말 것.
+
+**다음 작업**:
+1. `route_apex_telemetry_193_FIXED.patch`를 `C:\dev\ryu`에 적용 (`patch` 또는 `git apply`), `git diff` 육안 확인
+2. `c3-ms-dev`에 commit/push, comma 장치로 pull
+3. 새 telemetry가 포함된 실차/replay 로그 확보
+4. apex 이동과 route 출력 및 최종 source를 시간축 분석
+5. 분석 결과에 따라 실제 수정 패치 필요 여부 결정
+6. (선택) AI 간 패치 전달 시 텍스트 손상 재발 방지를 위해, 향후 코드 패치는 markdown 본문이 아닌 첨부 파일로만 전달하고 전달 즉시 `git apply --check`로 1차 검증하는 절차를 표준화할지 사용자 판단 필요
+
+**주의**:
+- `min_of_both`를 근거 없이 production 적용하지 않는다.
+- 기존 `WIP.md` 회차를 삭제/수정하지 않는다.
+- 실차 검증 전에는 알고리즘 대규모 변경을 하지 않는다.
+- 원본 손상 패치(`route_apex_telemetry_193.patch`)는 적용 금지, 참고용으로만 보관.
+
 ## 192차 (완료 — 191차 다음단계 1 실행: routeA/routeB 원본 zip 재업로드로 v3 실측 회귀 검증) — scan_type3 v3 정차게이트, 오탐#4/#6 REJECT 전환 실패 확인
 
 **세션 시작 시 GitHub 상태 확인(§3)**: `ryu` c3-ms-dev HEAD `6c00b9c`
