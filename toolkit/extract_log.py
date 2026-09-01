@@ -66,7 +66,18 @@ FIELDNAMES = [
     "ccYawDeg", "ccYawRateZ", "ccPoseValid",
     "vpPosPointLatNavi", "vpPosPointLonNavi", "dtNaviPacketAge", "positionDtSinceFix",
     "naviPointsActive", "navdActive", "dtRouteInactive", "routeSource",
+    "routeApexIdx", "routeApexDist", "routeApexSpeed", "routeOutSpeed",
 ]
+# 2026-09-02 추가(194차): carrotMan.routeApexIdx/routeApexDist/
+# routeApexSpeed/routeOutSpeed -- 193차에서 추가했던 route apex 진단값이
+# 실제로는 cereal(carrotMan)이 아니라 동반앱용 UDP JSON에만 채워지고
+# rlog에는 전혀 기록되지 않던 설계 실수를 194차 패치로 바로잡은 뒤 추가한
+# 컬럼(FINDINGS.md/WIP.md 193차/194차 참고). 이 계측은
+# `cereal/custom.capnp`(routeApexIdx@38~routeOutSpeed@41)/carrot_man.py/
+# carrot_serv.py 3곳을 함께 수정한 194차 패치 적용 이후 채록한 rlog에서만
+# 값이 채워진다 -- **194차 이전 로그에는 capnp 기본값(0/0.0)만 나온다.**
+# routeApexIdx=-1은 "해당 프레임에서 route apex 계산 자체가 스킵됨"(예:
+# navi_points_active=False)을 의미하며 크래시나 데이터 없음과는 다르다.
 # 2026-08-31 추가(182차 계측): carrotMan.naviPointsActive/navdActive/
 # dtRouteInactive/routeSource -- "route 사전감속이 61초간 전혀 없었음"
 # (FINDINGS.md 182차, route=390.0 기본값 노출)의 원인을 다음 실차 로그
@@ -373,6 +384,10 @@ def process_segment(rlog_path, seg_name, repo_dir, max_mb, commit_short="",
                 "navdActive": cm.navdActive,
                 "dtRouteInactive": cm.dtRouteInactive,
                 "routeSource": str(cm.routeSource),
+                "routeApexIdx": cm.routeApexIdx,
+                "routeApexDist": cm.routeApexDist,
+                "routeApexSpeed": cm.routeApexSpeed,
+                "routeOutSpeed": cm.routeOutSpeed,
             })
     return rows, last_cs, last_ctrl, last_lead, last_lat, last_model, last_pose
 
