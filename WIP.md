@@ -1,3 +1,63 @@
+## 186차 (완료 — 182차 계측 패치 적용 후 첫 실차 로그 2건 분석, GPS/naviPaths 드롭아웃 전혀 미발생 확인) — 182차 계측 결과 첫 실측
+
+**배경**: 182차 "다음 단계 (2)" — 계측 패치(`naviPointsActive`/`navdActive`/
+`dtRouteInactive`/`routeSource`, 169차 `dtNaviPacketAge`/
+`positionDtSinceFix` 포함)가 실차에 반영된 이후 재발 의심 상황에서
+새 로그로 `check_navi_route_activity.py`를 돌려 원인을 확정하는
+단계 — 에 대응. 사용자가 route `0000037a--2fde2e3826`(seg2~19,
+18세그먼트) + `0000037b--fc9313110d`(seg0~7, 8세그먼트) 2건을 제공.
+
+**작업**: `extract_log.py --with-navi-paths`로 두 라우트 각각 추출
+(routeA: 21598행, t=598.9~1678.8, commit=`6c00b9c`(182차 계측 커밋
+그대로, dirty=False) / routeB: 8637행, t=1678.8~2110.6, 동일 commit).
+`logMonoTime` 기준 routeA 마지막 행(t=1678.755)과 routeB 첫 행
+(t=1678.818) 사이 간극이 0.06초에 불과함을 확인 — 두 zip은 route ID
+(navi 목적지 재계산 등으로 추정)만 바뀌었을 뿐 동일 부팅 세션 내
+연속 주행(총 실측 구간 1511.7초, 약 25분)임. `check_navi_route_activity.py`
+(계측 모드 자동 인식)로 두 CSV 각각 진단, 이어서 A→B 경계 구간(routeSource/
+naviPointsActive/dtNaviPacketAge)도 별도로 직접 대조.
+
+**결과 (NEGATIVE — 드롭아웃 미발생)**:
+- `naviPointsActive`: 두 라우트 전체(30235행) 100% `True` — 0.1초
+  임계값까지 낮춰도 드롭아웃 0건.
+- `navdActive`: 100% `True`. `routeSource`: 100% `tcp_navi`(경로전환
+  없음, navd cereal/TCP 7712 raw 경로로의 폴백조차 발생 안 함).
+- `dtNaviPacketAge`(169차, "패킷단절" 판정 임계값 3.0초) 전체 구간
+  최대값 routeA 1.45초 / routeB 1.32초 — 패킷단절 없음.
+- `positionDtSinceFix`(162/163차 게이트, GPS fix 이후 데드레커닝
+  경과시간) 최대값도 동일하게 routeA 1.45초 / routeB 1.32초 —
+  162차가 지목한 "외부 GPS bearing이 최대 24초 정체" 같은 장기
+  정체 이벤트 자체가 이번 두 로그(25분)에는 없었음.
+- `ccPoseValid`(165차, 방향1 헤딩보정용 지상진실): 두 라우트 모두
+  100% `True` — `carControl.orientationNED`/`angularVelocity`가
+  전 구간 유효값으로 채워짐(방향1 sign 검증용 재추출 시 이 로그도
+  후보가 될 수 있으나, 급커브 구간 포함 여부는 별도 확인 필요).
+- `naviPaths` 텍스트: 두 라우트 전체 빈 문자열 0건(`liveRouteSpeed`가
+  390.0(제약없음)으로 나온 routeB 1556행도 naviPaths 자체는 채워져
+  있었음 — 곡률 없는 직선구간에서의 정상적인 무제약 값이지 드롭아웃
+  아님, `naviPointsActive`도 해당 구간 내내 `True`).
+- A→B 경계(route ID 전환 순간)도 `naviPointsActive`/`routeSource`
+  끊김 없이 매끄럽게 이어짐 — route ID가 바뀌는 이벤트 자체는
+  naviPaths 수신에 영향 없음을 이번 사례로 확인.
+
+**결론**: 182차 계측이 정상 동작함을 첫 실측으로 확인(계측 자체의
+유효성 검증 완료, 171차의 170차 계측 첫 검증과 동일한 성격).
+다만 **이번 두 로그(총 25분)에는 검증 대상 이벤트(route/GPS
+드롭아웃) 자체가 재현되지 않아, 182차가 원래 규명하려던 "61초
+드롭아웃의 근본원인(navi 앱 재요청 실패/네트워크/백엔드 재계산
+트리거 등)"은 여전히 미해결** — 171차와 동일한 패턴(계측은 정상,
+검증목적 이벤트 미발생).
+
+**toolkit/ryu 변경**: 없음(기존 도구 재사용, 신규 코드 없음). CSV는
+Drive 커넥터 미연결로 devnotes에 미보관(섹션 23 정책), 컨테이너
+리셋 시 소실 — 재분석 필요 시 재업로드 필요.
+
+**다음 단계**: 좌회전 접근/route 드롭아웃이 실제로 재발한 시점의
+로그가 확보되면 동일하게 `check_navi_route_activity.py` 재실행.
+그 전까지는 이번 2건 로그로 다른 목적(예: 165차 방향1 sign 검증용
+`ccYawDeg`/실측 대조 등)에 재사용 가능한지 검토.
+
+---
 ## 185차 (체크포인트 — 183차 min_of_both 대상 edge case, 이번 실측 로그에선 route가 desiredSpeed 실제 승자가 아니었음 확인 / 재현 여부는 미결) — 1차/2차곡선 실측 로그로 route apex(nearest vs relative_gated) 검증
 
 **배경**: 183차 체크포인트의 "다음 단계" — "min_of_both 반영 시 179~181차와
