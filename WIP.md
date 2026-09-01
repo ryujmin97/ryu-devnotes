@@ -1,3 +1,51 @@
+## 194차 계속 (완료 — 패치 작성/적용/push 확인) — route apex telemetry(193차)를 실제 cereal(carrotMan)로 발행
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu` + `ryujmin97/ryu-devnotes`
+
+**Branch**: `c3-ms-dev` / `main`
+
+**Base commit (ryu, 이 회차 시작 시점)**: `ea978314fa37fcc8823e04963a1e5366bee0e696` (193차)
+
+**Base commit (devnotes, 이 회차 시작 시점)**: `f8a87d6a940d027de917736d7285440d9517270d` (194차 진단 체크포인트)
+
+**배경**: 위 "194차 (진행 중)" 항목에서 확인한 문제 — 193차가 추가한 route apex 진단값(`route_apex_idx/dist/speed`, `route_out_speed`)이 `carrot_man.py` 내부(`self._route_apex_*`)에만 저장되고, `make_send_message()`의 동반앱용 UDP JSON에만 채워질 뿐 실제 rlog에 기록되는 cereal `carrotMan`(`carrot_serv.py` `pm.send()`)에는 전혀 반영되지 않던 문제 — 를 ChatGPT가 원인(CarrotMan≠CarrotServ, 별개 객체) 및 수정 방향을 분석했고, 그 방향대로 Claude가 패치를 작성/적용함.
+
+**변경 파일**:
+- `cereal/custom.capnp` — `CarrotMan`에 `routeApexIdx@38`(Int32)/`routeApexDist@39`(Float32)/`routeApexSpeed@40`(Float32)/`routeOutSpeed@41`(Float32) 추가. 기존 `@0`~`@37`은 변경 없음(append만).
+- `selfdrive/carrot/carrot_serv.py` — `__init__`에 `route_apex_idx/dist/speed`, `route_out_speed` 저장 필드 추가(기본값 193차와 동일: `-1`/`0.0`/`0.0`/`300.0`). 실제 cereal 발행부(`update_navi()`, `pm.send('carrotMan', msg)` 직전)에 4개 필드를 `msg.carrotMan`에 채우는 코드 추가.
+- `selfdrive/carrot/carrot_man.py` — `carrot_navi_route()` 진입부 초기화 블록(매 호출 리셋)과 apex 계산 직후 대입 블록, 양쪽 모두에서 기존 `self._route_apex_*` 대입에 이어 `self.carrot_serv.route_apex_*` 대입 추가. 초기화 블록 쪽을 빠뜨리면 route가 비활성화된 프레임에서도 rlog에 직전 활성 프레임의 apex 값이 남는 문제가 생기므로 두 곳 다 반영.
+- `toolkit/extract_log.py` — `FIELDNAMES` + CSV row 생성부에 `routeApexIdx`/`routeApexDist`/`routeApexSpeed`/`routeOutSpeed` 4개 컬럼 추가.
+
+**핵심 변경**: 주행 계산 로직(apex 선택 기준, `out_speed` 계산, `min(...,300.0)` 클램프 등)은 일절 변경하지 않음 — 순수 telemetry 전달 경로(CarrotMan → CarrotServ → cereal) 추가.
+
+**적용 중 겪은 문제(기록)**: 첫 시도에서 `git am`이 `carrot_man.py:582` 컨텍스트 불일치로 실패, 이어진 `git push`도 non-fast-forward로 거부됨. 원인은 다른 AI의 개입이 아니라 사용자의 로컬 `C:\dev\ryu` 클론이 193차 이전 상태로 뒤처져 있었던 것(원격 `c3-ms-dev`는 패치 생성 시점부터 계속 `ea978314`로 변동 없었음, `git fetch`로 확인). `git am --abort` → `git pull --ff-only origin c3-ms-dev`로 193차까지 로컬을 맞춘 뒤 재시도하여 해결.
+
+**검증**:
+- 정적 분석: 완료 — python `ast` 파싱 통과(3개 py 파일), `pycapnp`로 `custom.capnp` 로드 후 `CarrotMan.schema.fields`에 4개 필드 존재 확인, 코드 전체 grep으로 관련 필드 참조가 이 3개 파일 외 없음(UI 등 다른 소비처 없음) 확인.
+- 로그 검증: 미실시 — 이 패치 적용 이전 로그(예: `a57501e67f`)에는 새 필드가 capnp 기본값(0/0.0)으로만 나오므로 재사용 불가, 재채록 필요.
+- 시뮬레이션: 미실시(해당 없음 — 순수 telemetry 추가, 계산 로직 변경 없음).
+- 실차 검증: 미실시.
+
+**적용/push 확인**:
+- `ryu`: `ea97831..0194815` (`c3-ms-dev`), 사용자가 실제 push 완료 확인(터미널 로그로 확인).
+- `ryu-devnotes`: `f8a87d6..4c7c92c` (`main`), 사용자가 실제 push 완료 확인(터미널 로그로 확인).
+
+**미확인 사항**: 없음(코드 반영 자체는 완료, 재검증은 재채록 로그로만 가능).
+
+**다음 작업**:
+1. 위 194차 패치가 반영된 `ryu`로 재빌드
+2. 재빌드된 빌드로 실차 로그 재채록 (route apex/apex 부근 감속 구간 포함되도록)
+3. `toolkit/extract_log.py --repo <ryu clone>`로 CSV 추출 → `routeApexIdx/Dist/Speed`, `routeOutSpeed` 컬럼이 실제로 채워지는지 1차 확인
+4. 값이 확인되면, 원래 목표였던 `apex_idx → apex_dist → apex_speed → route_out_speed → liveRouteSpeed → desiredSpeed → 최종 source → 실제 vEgo` 시간축 분석으로 apex 선정/route 계산/MPC 추종/arbitration 문제 분리 진행
+
+**주의**:
+- 기존 "194차 (진행 중 — telemetry 미기록 문제 발견, 코드 수정 전)" 항목은 삭제/수정하지 않고 그대로 유지(§14).
+- 이번 회차는 devnotes toolkit 스크립트(`extract_log.py`)만 devnotes 저장소에 별도 커밋으로 push했고, WIP.md 체크포인트는 이 커밋과 분리하여 이번에 기록.
+
+---
+
 ## 194차 (진행 중 — telemetry 미기록 문제 발견, 코드 수정 전) — route apex telemetry(193차)가 실제로는 rlog에 기록되지 않음을 확인
 
 **Worker**: Claude
