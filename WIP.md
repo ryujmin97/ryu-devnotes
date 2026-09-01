@@ -1,3 +1,64 @@
+## 185차 (체크포인트 — 183차 min_of_both 대상 edge case, 이번 실측 로그에선 route가 desiredSpeed 실제 승자가 아니었음 확인 / 재현 여부는 미결) — 1차/2차곡선 실측 로그로 route apex(nearest vs relative_gated) 검증
+
+**배경**: 183차 체크포인트의 "다음 단계" — "min_of_both 반영 시 179~181차와
+동일 절차로 실측 A/B 재검증(가능하면 1차/2차 severity 격차 큰 실제
+연속곡선 로그로)" — 에 대응. 사용자가 184차와 동일한 세그먼트
+(`20260901_105050_0000037a--2fde2e3826--16`)를 "1차곡선"/"2차곡선"
+명명 스크린샷과 함께 제공한 것이 이 검증용 실측 로그 요청이었음을
+사용자 지적으로 파악(184차 세션 중 vturn<->bump 쪽으로 분석 방향을
+잘못 잡았던 것을 정정).
+
+**작업**: `extract_log.py --with-navi-paths`로 `route16.csv`(1200행)
+추출 후 `replay_route_camera_style_vs_baseline.py --apex-mode
+both_relative`로 `nearest`/`relative_gated`(180/181차 프로덕션) 오프라인
+재계산, 실측 `liveRouteSpeed`와 대조(t=1450~1480, 1차/2차곡선 스크린샷
+시각 포함 구간).
+
+**핵심 확인 1 (제약 사항)**: 이 구간에서 실제 desiredSpeed 승자는
+route가 아니라 vturn/bump였음(184차에서 이미 확인한 그대로,
+`liveRouteSpeed` 96~157km/h대가 실제 vturn/bump 요구속도 35~71km/h보다
+항상 높아 route가 병목이 된 적 없음). 따라서 **183차가 노린 "route
+apex가 1차를 건너뛰어 실제 제어에 영향을 준" 상황이 이번 로그의 실제
+제어 결과에는 나타나지 않음** — 이 특정 세그먼트는 min_of_both의 실차
+영향을 직접 검증하는 데는 쓸 수 없음.
+
+**핵심 확인 2 (오프라인 알고리즘 자체 비교, 참고용)**: route 후보 값만
+따로 떼어 재계산한 결과, `nearest`는 전 구간(30초) 내내 근거리(d=10m)
+노이즈성 지점에 고정되어 96~162km/h(179차 문제 패턴 재현) 산출, 반면
+`relative_gated`(프로덕션)는 38~51km/h로 실제 커브를 정확히 추종함 —
+179~181차 검증이 신규 실측 데이터에서도 재확인됨. t≈1463.1 부근에서
+apex가 근거리(d=10, 1차 곡률→0 수렴 중=탈출)에서 원거리(d=230, 2차,
+곡률 부호반전)로 전환되나, **relative_gated 출력값 자체는 38.8→38.9로
+매끄럽게 이어져 183차가 우려한 "1차 apex가 무시되며 튀는" 패턴은 이
+전환 지점에서 관찰되지 않음**(1차/2차 severity 격차가 183차 합성
+시나리오만큼 크지 않았을 가능성).
+
+**결론**: min_of_both 실측 검증은 이번 로그로는 결론 내지 못함(재현
+안 됨) — 183차 신규 edge case 자체가 틀렸다는 뜻이 아니라, 이번
+세그먼트의 1차/2차 severity 격차가 그 edge case를 유발할 만큼 크지
+않았던 것으로 추정. 계속 route가 실제 승자가 되는(vturn/bump보다 route
+쪽이 더 낮은 값을 내는) 구간을 포함한 로그가 필요.
+
+**CSV 보관**: `route16.csv`(1200행) 생성. Drive 커넥터 미연결로 devnotes
+git에는 미보관(섹션 23 정책 — 대용량 CSV 직접 커밋 금지). 사용자 PC
+로컬(`c:\dev\ryu-devnotes-local-data\route16.csv`)에만 보관, 컨테이너
+리셋 시 devnotes 쪽 접근 불가 — 재분석 필요 시 재업로드 필요.
+**drive_csv: (미보관, Drive 연결 시 다음 세션에 업로드 가능)**.
+
+**toolkit/ryu 변경**: 없음(기존 `replay_route_camera_style_vs_baseline.py`
+재사용, 신규 코드 없음). `ryu` 프로덕션 코드 변경 없음.
+
+**다음 단계**:
+1. route가 실제 desiredSpeed 승자가 되는(vturn/bump 값보다 route 후보가
+   더 낮은) 실제 1차완만/2차급함 연속곡선 구간을 포함한 로그 추가 확보
+   필요 — 사용자가 실제로 겪은 사례가 있으면 해당 시각대 로그가 최우선.
+2. 위 로그 확보 시 동일하게 `replay_route_camera_style_vs_baseline.py
+   --apex-mode both_relative`(및 필요시 min_of_both 함수를 replay
+   스크립트에 추가) 실행해 실측 A/B.
+3. Google Drive 연결 시 향후 route CSV는 커밋 대신 Drive 업로드 +
+   `drive_csv:` 기록으로 전환 권장.
+
+---
 ## 184차 (체크포인트 — 실측 로그 분석 완료, vturn<->bump 소스 플리커가 실제 jerk 스파이크 유발 확인 / 수정 착수는 다음) — 곡선구간 accel 그래프 노이즈 원인규명
 
 **배경**: 사용자가 실차 화면 스크린샷 2장(1차곡선 10:50:13/vturn=38,
