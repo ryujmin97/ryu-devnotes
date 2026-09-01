@@ -1,3 +1,17 @@
+## c3-ms-dev (187차, 우회전 교차로 route 사전감속 미작동 신규 실차 사례 — 152차 유형3 재현 확인, ryu 코드 변경 없음)
+- last_analyzed_commit: `6c00b9c` (182차 계측 커밋 HEAD, ryu 코드
+  변경 없음 — 이번 회차는 분석 전용)
+- date: 2026-09-01 (187차)
+- 분석 대상: 사용자 스크린샷(10:48:41, 우회전 화살표 안내, route=146.4)
+  GPS 시각 매핑 → t≈1370.06, seg14+seg15 결합(2399행)
+- note: 182/186차형 naviPaths 드롭아웃 아님(naviPointsActive/
+  navdActive/routeSource 전 구간 정상), 162/163/166/167차형 GPS
+  bearing 정체/헤딩보정 필요 상황도 아님(positionDtSinceFix 낮음,
+  ccPoseValid=True, compare_navpos_vs_gps.py 이격 정상범위). 실제
+  원인은 152차 유형3(naviPaths 폴리라인 원본 좌표 자체가 이 교차로의
+  급회전을 담고 있지 않음, TBT도 별도 포착 안 함) 재현 — 152차 이후
+  처음 확보된 실차 사례. 상세는 FINDINGS.md/WIP.md "187차" 참고.
+
 ## c3-ms-dev (182차, 좌회전 접근시 route 사전감속 61초 완전공백 발견 + 계측 패치 — NEEDS_VALIDATION, 실차 검증 대기)
 - last_analyzed_commit: `89581897a4f2` (179차 후속2/relative_gated HEAD,
   이 회차 분석 시작 시점 기준. 이번 회차 자체 코드변경은 이 HEAD 위에
