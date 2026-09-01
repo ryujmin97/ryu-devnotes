@@ -2481,6 +2481,146 @@ def route_curvature_underestimate_scan(rows, min_gap_kph=15.0):
     return results
 
 
+def type3_curvature_blindspot_scan(rows, lookahead_s=6.0, steering_thresh_deg=60.0,
+                                    min_recomputed_speed_kph=150.0, min_duration_s=0.3,
+                                    sample_fine=1, merge_gap_s=1.0,
+                                    near_field_guard_m=50.0, far_check_max_m=250.0):
+    """152차가 확정한 "유형3"(naviPaths 원본 폴리라인 좌표 자체에 급회전
+    형상이 담겨있지 않은 경우 -- chord 샘플 간격 문제가 아니므로
+    recompute_route_curvature_speed()의 sample_fine을 아무리 줄여도 못
+    잡는 유형) 이벤트를 blinker에 의존하지 않고 자동 탐지한다.
+
+    152차는 이 유형이 required_decel_gap_scan()(blinker 필수)으로는
+    원천적으로 탐지 불가함을 확인했고("blinker가 아예 없어서 이 함수로
+    탐지 불가"), 187차가 실차로 재현한 세그먼트도 blinker 없이 발생.
+    이 함수는 blinker 대신 "실제로 곧 급조향이 일어났는가"
+    (steeringAngleDeg)를 ground truth로 사용한다.
+
+    **near_field_guard_m(187차 검증 중 추가)**: 187차 실측 검증 결과,
+    naviPaths 최근접 몇 개 점(대략 0~40m)은 ego 진입 지점 자체의 앵커
+    전환/노이즈로 인해 sample_fine=1 3점곡률이 스스로 튀는 경우가 흔함
+    (예: (0,0)->(10,0.08)->(20,0.15)->(28.5,1.6) 같은 전환 구간).
+    149/179차가 이미 확인한 "근접 노이즈가 진짜 원거리 곡선을 가릴 수
+    있다"는 것과 대칭되는 반대 방향 함정 -- 근접 노이즈 curvature가
+    "이미 이 폴리라인은 곡률을 잡고 있다"는 오탐을 유발해, 정작 그
+    뒤(50m~250m)에 실제로 비어있는 급회전 구간을 놓칠 수 있다.
+    따라서 "직선처럼 보이는가" 판정은 near_field_guard_m 이후,
+    far_check_max_m 이내 구간의 중앙값(median, 단일 경계점 노이즈에
+    강함)으로 수행한다.
+
+    로직: 각 시점 t에서
+    1) naviPaths가 채워져 있고, recompute_route_curvature_speed(그 시점
+       실측 폴리라인, sample_fine=1=10m chord)에서 distance가
+       [near_field_guard_m, far_check_max_m] 구간에 속하는 점들의
+       speed_cap 중앙값이 min_recomputed_speed_kph 이상 -- 즉 "이
+       폴리라인은 근접 노이즈를 제외해도 중간~원거리가 사실상 직선으로
+       보인다"
+    2) 그럼에도 t ~ t+lookahead_s 사이에 steeringAngleDeg 절대값이
+       steering_thresh_deg 이상인 상태가 min_duration_s 이상 지속됨
+       -- "실제로는 곧 급조향이 일어났다"
+    두 조건이 겹치는 t들을 merge_gap_s 이내 간격으로 병합해 이벤트로
+    반환한다.
+
+    반환: [{start_t, end_t, recomputed_median_speed_kph, steering_peak_deg,
+            steering_peak_t}, ...] (심각도 오름차순 아님, 시간순)
+
+    주의: naviPaths가 없는 CSV(--with-navi-paths 없이 추출)에서는
+    이 스캔이 항상 빈 리스트를 반환한다(조용히 스킵, 에러 아님).
+    """
+    import statistics
+
+    n = len(rows)
+    ts = [None] * n
+    steers = [None] * n
+    for i, r in enumerate(rows):
+        try:
+            ts[i] = float(r.get("t"))
+        except (TypeError, ValueError):
+            pass
+        try:
+            steers[i] = abs(float(r.get("steeringAngleDeg")))
+        except (TypeError, ValueError):
+            pass
+
+    events = []
+    for i, r in enumerate(rows):
+        t = ts[i]
+        if t is None:
+            continue
+        naq = r.get("naviPaths", "")
+        if not naq:
+            continue
+        points, distances = parse_navi_paths(naq)
+        if not points:
+            continue
+        recomputed = recompute_route_curvature_speed(points, distances, sample_fine=sample_fine)
+        if not recomputed:
+            continue
+        far_window = [x[2] for x in recomputed if near_field_guard_m <= x[0] <= far_check_max_m]
+        if not far_window:
+            continue
+        med_speed = statistics.median(far_window)
+        if med_speed < min_recomputed_speed_kph:
+            continue  # 근접노이즈 제외한 중간~원거리도 이미 곡률을 잡고 있음 -- 유형3 후보 아님
+
+        window_end_t = t + lookahead_s
+        peak = 0.0
+        peak_t = None
+        consec_start = None
+        sustained = False
+        k = i
+        while k < n and ts[k] is not None and ts[k] <= window_end_t:
+            sv = steers[k]
+            if sv is not None and sv >= steering_thresh_deg:
+                if consec_start is None:
+                    consec_start = ts[k]
+                if ts[k] - consec_start >= min_duration_s:
+                    sustained = True
+                if sv > peak:
+                    peak = sv
+                    peak_t = ts[k]
+            else:
+                consec_start = None
+            k += 1
+
+        if sustained:
+            events.append({
+                "t": round(t, 2),
+                "recomputed_median_speed_kph": round(med_speed, 1),
+                "steering_peak_deg": round(peak, 1),
+                "steering_peak_t": round(peak_t, 2) if peak_t is not None else None,
+            })
+
+    if not events:
+        return []
+
+    merged = [{
+        "start_t": events[0]["t"],
+        "end_t": events[0]["t"],
+        "recomputed_median_speed_kph": events[0]["recomputed_median_speed_kph"],
+        "steering_peak_deg": events[0]["steering_peak_deg"],
+        "steering_peak_t": events[0]["steering_peak_t"],
+    }]
+    for ev in events[1:]:
+        last = merged[-1]
+        if ev["t"] - last["end_t"] <= merge_gap_s:
+            last["end_t"] = ev["t"]
+            if ev["steering_peak_deg"] > last["steering_peak_deg"]:
+                last["steering_peak_deg"] = ev["steering_peak_deg"]
+                last["steering_peak_t"] = ev["steering_peak_t"]
+            if ev["recomputed_median_speed_kph"] < last["recomputed_median_speed_kph"]:
+                last["recomputed_median_speed_kph"] = ev["recomputed_median_speed_kph"]
+        else:
+            merged.append({
+                "start_t": ev["t"],
+                "end_t": ev["t"],
+                "recomputed_median_speed_kph": ev["recomputed_median_speed_kph"],
+                "steering_peak_deg": ev["steering_peak_deg"],
+                "steering_peak_t": ev["steering_peak_t"],
+            })
+    return merged
+
+
 def required_decel_gap_scan(rows, near_stop_target_kph=15.0, detection_search_s=40.0,
                              min_regression_points=5, turn_confirm_deg=15.0,
                              turn_confirm_window_s=8.0):

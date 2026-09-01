@@ -3,6 +3,25 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+## 2026-09-01 (187차)
+- `analysis_helpers.py::type3_curvature_blindspot_scan()` 신규 추가 +
+  `scan_type3_curvature_blindspot.py` 신규 CLI 도구. 152차가 확정한
+  "유형3"(naviPaths 폴리라인 원본 좌표 자체에 급회전 형상 부재, chord
+  샘플 간격 문제가 아니라 못 잡음)를 blinker 없이 자동 탐지 —
+  152차 다음 단계 제안("blinker 기반 required_decel_gap_scan()은 유형3을
+  체계적으로 누락")에 대응. steeringAngleDeg(실제 급조향 발생)를 ground
+  truth로 사용해, naviPaths가 median 기준 사실상 직선(near_field_guard_m
+  ~far_check_max_m 구간)인데도 lookahead_s 안에 실제 급조향이 온 시점을
+  이벤트로 잡는다. **near_field_guard_m 설계 근거(187차 검증 중 발견)**:
+  naviPaths 최근접(~0~40m) 점들은 ego 진입 앵커 전환 노이즈로 그 자체가
+  스스로 튀는 경우가 있어(149/179차 근접노이즈 문제와 대칭되는 반대
+  방향 함정), min()이 아닌 근접 제외+median으로 오탐 방지. 187차
+  seg14/15(우회전 교차로 미탐지 실사례, t≈1370)로 검증 — 근접노이즈
+  포함 min() 방식 1차 시도는 이 실제 사례를 놓쳤고(근접 앵커전환
+  구간의 가짜 curvature 때문), near_field_guard/median 방식으로
+  수정 후 정확히 해당 구간(t=1365.71~1376.56)을 이벤트로 포착함을
+  확인. **ryu 프로덕션 코드 변경 없음, 분석 전용 신규 도구.**
+
 ## 2026-09-01 (183차)
 - `sim_route_camera_style_decel.py`: `carrot_navi_route_camera_style_nearest_relative_gated_min_of_both()`
   신규 추가(ChatGPT 제안, 사용자 확인 하 프로토타입). 배경: 사용자가

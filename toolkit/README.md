@@ -180,6 +180,32 @@ python3 extract_log.py /home/claude/work/route /home/claude/work/route.csv \
 적용해야만 새 rlog에 찍힘 -- **패치 적용 전 로그(과거 route)에는 이
 4컬럼이 전부 기본값(False/False/0.0/"")으로 나옴(크래시 아님)에 주의**.
 
+## scan_type3_curvature_blindspot.py
+**목적**: 152차가 확정한 "유형3"(naviPaths 원본 폴리라인 좌표 자체가
+급회전을 담고 있지 않은 경우 -- chord 샘플 간격을 줄여도 못 잡음) 이벤트를
+blinker 없이 자동 탐지(`analysis_helpers.type3_curvature_blindspot_scan()`).
+naviPaths가 근접(기본 50m 미만) 이후~원거리(기본 250m 이내) 구간에서
+median 기준 사실상 직선(speed_cap이 임계값 이상)인데, 그 이후
+lookahead_s(기본 6초) 안에 실제 steeringAngleDeg 급변(기본 60도 이상,
+0.3초 이상 지속)이 오면 이벤트로 기록. 근접(0~50m) 구간은 ego 진입
+앵커 전환 노이즈로 자체 curvature가 튈 수 있어(187차 발견) 판정에서
+제외 — 이 노이즈를 포함해 min()으로 판정하면 실제 유형3 사례를 오히려
+"이미 곡률을 잡고 있다"고 오탐할 수 있음(187차 seg14/15 검증으로 확인).
+**사용**:
+```bash
+python3 extract_log.py <route_dir> <out.csv> --repo /home/claude/ryu --with-navi-paths
+python3 scan_type3_curvature_blindspot.py <out.csv>
+# 파라미터 조정 예:
+python3 scan_type3_curvature_blindspot.py <out.csv> --lookahead 8.0 --steering-thresh 45.0
+```
+**의존성**: `analysis_helpers.load_csv`,
+`analysis_helpers.type3_curvature_blindspot_scan`(내부적으로
+`parse_navi_paths`/`recompute_route_curvature_speed` 재사용).
+**전제**: `--with-navi-paths`로 뽑은 CSV 필요(없으면 이벤트 0건).
+**187차 검증**: seg14/seg15(우회전 교차로 route 미탐지 실사례,
+FINDINGS.md 187차)로 실행 시 확인된 실제 구간(t≈1370.06 포함,
+t=1365.71~1376.56)을 정확히 이벤트로 포착.
+
 ## check_navi_route_activity.py
 **목적**: `naviPointsActive`(182차 계측) 연속 False 구간을 찾아 드롭아웃
 지속시간/직전 route 소스/vEgo 범위를 리포트. 182차 계측 패치 적용 전
