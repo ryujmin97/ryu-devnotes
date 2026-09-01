@@ -1,3 +1,76 @@
+## 189차 (체크포인트 — 곡선 가감속 재설계 문서 재검토, 기존 179~185차 스레드와 중복 확인 + 진짜 미해결 지점 특정, 코드/도구 변경 없음) — route apex 재설계 방향 점검
+
+**배경**: 사용자가 `곡선_가감속_코딩.txt`(과속카메라 스타일 route 사전감속
+설계 문서)를 프로젝트 파일로 재첨부, "기존 route 검토 내용 전부 무시하고
+이 방향대로 재설계"를 요청. 문서 내용을 그대로 새 요구사항으로 다루기
+전에, 먼저 현재 `c3-ms-dev` HEAD(`6c00b9c`, 182차 계측 커밋) 기준
+`carrot_navi_route()`를 코드 레벨로 재확인.
+
+**작업1 — 현재 코드와 문서 대조**: `carrot_man.py` L577-830
+(`carrot_navi_route()`) 전체 및 관련 상수(`V_CURVE_LOOKUP_BP`,
+`ROUTE_CURVE_NEGLIGIBLE_THRESHOLD`, `ROUTE_CURVATURE_FINE_SAMPLE`,
+`ROUTE_APEX_RELATIVE_SEVERITY_RATIO`, `ROUTE_POSITION_UNCERTAIN_DT_S`)
+주석을 직접 확인.
+
+**핵심 발견 1 — 문서는 이미 160차에서 구현됨**: 사용자가 이번에 올린
+문서가 160차 커밋 당시 이미 설계 근거로 쓰였던 바로 그 문서였음을
+코드 주석(L672-707)에서 확인. "과속카메라(`calculate_current_speed`)와
+완전히 동일한 물리공식 재사용 / apex 도달시 원복" 구조는 이미 프로덕션에
+있음. 문서 요구사항 중 실제로 이후(179차) 변경된 것은 apex 선택 기준
+하나뿐(전역 sharpest → nearest+상대severity게이트).
+
+**핵심 발견 2 — 제안된 A/B 비교는 179~181차에서 이미 완료/종결**:
+`ROUTE_APEX_RELATIVE_SEVERITY_RATIO=0.85` 게이트 도입 전후 비교는
+route `00000374` seg11(t=736.8~782.7) 실측 로그로 181차가 이미 수행함.
+결론: 케이스1(연속 실제 커브)은 nearest/relative_gated 완전 동일,
+케이스2(근접 잡음 vs 원거리 진짜 급커브)는 relative_gated가 정확히
+해소(최대차 9.64km/h 재현+해소 확정). **"이 패치는 검증 완료 종결"로
+이미 닫힌 상태 — 재검증은 §24(FINDINGS 중복 방지) 위반이라 재실행하지
+않음.**
+
+**핵심 발견 3 — 진짜 열려 있는 지점은 "연속곡선(1차완만→2차급함)"
+하나**: 183차가 정확히 이 edge case를 신규 발견(`relative_gated`가
+apex2를 과소평가, curv1=0.010@120m/curv2=0.03@400m 합성 케이스에서
+gated=72.6 vs 실제 1차 고유속도=54.0) → `min_of_both`(게이트 없는
+nearest와 relative_gated 중 더 보수적인 값 채택) 설계, 합성
+유닛테스트 21/21 PASS. 다만:
+- `ryu` 프로덕션 미반영(180/181차 상태 그대로 유지 중)
+- `replay_route_camera_style_vs_baseline.py`에 `min_of_both` apex-mode
+  자체가 아직 연결 안 됨(`sharpest`/`nearest`/`relative_gated` 3개만
+  지원 확인, L52-65)
+- 185차가 실측 검증 시도(`2fde2e3826--16`, 184차와 동일 세그먼트)했으나
+  해당 구간은 route가 애초에 desiredSpeed 승자가 아니었음(vturn/bump가
+  항상 더 낮은 값으로 승리) — min_of_both 실차 영향 검증에 못 씀,
+  **미결 상태로 남아있음**.
+
+**핵심 발견 4 — 감속률 부족(149차)은 별개 문제로 여전히 방치 상태**:
+151차가 시도한 accel_limit 동적 부스트 해결책이 시뮬레이션 NEGATIVE로
+폐기된 이후 대안이 제시되지 않음. 이번 apex 재설계 스레드와는 무관한
+별도 과제.
+
+**결론(사용자 판정표 대비 정정)**: 사용자가 제시한 판정표의 "연속
+1차→2차 곡선 = 핵심 검토 대상"은 정확함 — 다만 이는 신규 과제가 아니라
+183차가 이미 설계를 마치고 185차에서 실측 검증에 실패(적합한 로그
+부재)한 채 **미결로 남아있던 기존 스레드**임. 나머지 항목(apex 오탐/
+조기대응은 종결, 감속률/유형3/GPS불확실/원복은 별개 또는 기존 유지)은
+사용자 판정표와 devnotes 기록이 일치함.
+
+**toolkit/ryu 변경**: 없음(코드/스크립트 열람만 수행, 수정 없음).
+
+**미결 — 사용자 방향 확인 대기**: 다음 두 가지 중 진행 순서 미정
+1. `replay_route_camera_style_vs_baseline.py`에 `min_of_both`
+   apex-mode를 먼저 추가(로그 없이도 준비 가능)
+2. "route가 실제 desiredSpeed 승자이면서 1차/2차 severity 격차가 큰"
+   적합한 실측 로그를 먼저 확보
+
+**검증**: 정적 코드 확인만 수행. 실차 검증: 미실시. 시뮬레이션: 미실시
+(이번 회차는 기존 기록 재확인 및 대조).
+
+**Base commit(ryu)**: `6c00b9c` (변경 없음)
+**Base commit(ryu-devnotes)**: `d880112`
+
+---
+
 ## 188차 (완료 — 187차 재검증 + 유형3 신규 실측 사례 1건 확정 + 탐지도구 오탐 1건 발견/수정) — scan_type3_curvature_blindspot.py v2(2단계 판정) 추가
 
 **배경**: 187차와 동일한 route(seg14/seg15, `0000037a--2fde2e3826`)를
