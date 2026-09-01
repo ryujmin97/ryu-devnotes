@@ -206,6 +206,23 @@ python3 scan_type3_curvature_blindspot.py <out.csv> --lookahead 8.0 --steering-t
 FINDINGS.md 187차)로 실행 시 확인된 실제 구간(t≈1370.06 포함,
 t=1365.71~1376.56)을 정확히 이벤트로 포착.
 
+**188차 추가(`type3_curvature_blindspot_scan_v2`, `--v2` 플래그)**:
+v1(median 단독 판정)이 "far_window 안에 실제 짧은 커브가 있지만 앞뒤
+긴 직선 때문에 median이 희석되는" 케이스를 오탐으로 잡는 것을
+seg14/15 재검증 중 발견(신규 B, t=1352.76~1361.91 — 대시캠 확인 결과
+일반 도로커브, naviPaths도 실제 곡률(d=80~100m, 5km/h)을 담고
+있었음). v2는 1단계(median 후보 발굴)는 v1과 완전 동일하게 유지한
+채, 2단계로 far_window 내 저속 지점의 연속길이(`--low-cap-run-m`,
+기본 20m)/비율(`--low-cap-ratio`, 기본 0.15)을 추가 검사해 오탐을
+분리한다. `--low-cap-eval-start`(기본 80m) 미만 구간은 근접 앵커전환
+노이즈 번짐(188차 발견, 187차 사례 초반부에서도 관찰됨)으로 보고
+2단계 판정에서 제외 — `near_field_guard_m`(1단계, 50m)와는 별개
+파라미터. **188차 회귀테스트**: 187차 기존 사례+신규A(대시캠 확인된
+진짜 유형3, t=1336.76~1346.65)는 accepted 유지, 신규B는 rejected로
+정확히 분리됨(상세는 FINDINGS.md/WIP.md 188차 참고). 기본 CLI 동작은
+여전히 v1(회귀 없음) — `--v2 --show-rejected`로 2단계 판정 + 오탐
+사유 확인 가능.
+
 ## check_navi_route_activity.py
 **목적**: `naviPointsActive`(182차 계측) 연속 False 구간을 찾아 드롭아웃
 지속시간/직전 route 소스/vEgo 범위를 리포트. 182차 계측 패치 적용 전

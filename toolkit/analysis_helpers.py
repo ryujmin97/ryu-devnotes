@@ -2621,6 +2621,225 @@ def type3_curvature_blindspot_scan(rows, lookahead_s=6.0, steering_thresh_deg=60
     return merged
 
 
+def type3_curvature_blindspot_scan_v2(rows, lookahead_s=6.0, steering_thresh_deg=60.0,
+                                       min_recomputed_speed_kph=150.0, min_duration_s=0.3,
+                                       sample_fine=1, merge_gap_s=1.0,
+                                       near_field_guard_m=50.0, far_check_max_m=250.0,
+                                       low_cap_thresh_kph=100.0, low_cap_run_m=20.0,
+                                       low_cap_ratio_thresh=0.15, p25_min_kph=None,
+                                       low_cap_eval_start_m=80.0,
+                                       return_rejected=False):
+    """188차: type3_curvature_blindspot_scan()(v1)의 median 단독 판정이
+    "far_window 안에 실제로 짧은 급커브가 존재하지만 앞뒤가 길게 직선이라
+    median이 희석되는" 케이스를 오탐으로 걸러내지 못하는 한계를 보완한
+    2단계 판정 버전.
+
+    발견 경위(188차): seg14/seg15(187차와 동일 route) 재분석 중 v1이
+    이벤트 3건을 반환했는데, 그중 신규 B(t=1352.76~1361.91)를 대시캠으로
+    대조한 결과 실제로는 일반 도로 커브(교차로 아님)였고, naviPaths
+    원본도 d=80~100m 구간에서 speed_cap이 5km/h까지 정상적으로
+    떨어져 있었음(폴리라인 자체는 곡률을 담고 있었음) -- 다만 그 앞뒤
+    (d=50~70m, d=110~250m)가 길게 직선이라 median이 200km/h로 나와
+    v1의 min_recomputed_speed_kph=150 임계값을 통과, 유형3 후보로
+    오탐됨. 반면 187차 확정 사례(t=1365.71~1376.56)와 188차 신규 A
+    (t=1336.76~1346.65, 대시캠으로 신호교차로 우회전 실측 확인)는 둘 다
+    far_window 전체가 200~300km/h대로 저속 지점이 아예 없어 v1/v2
+    판정이 갈리지 않음.
+
+    v1과의 관계: 1단계(후보 발굴, median 기준)는 v1과 완전히 동일한
+    로직/파라미터를 그대로 재사용한다 -- 진짜 유형3까지 1단계에서
+    사라지지 않도록 v1 파라미터를 절대 건드리지 않고, 그 위에 2단계
+    검사만 추가하는 구조. v1 후보가 나온 시점마다 far_window 안에
+    "실제 커브가 끼어있는가"를 3가지 기준으로 추가 판정하고, 하나라도
+    해당하면 오탐으로 분리한다(accepted에서 제외):
+    1) low_cap_run_m: speed_cap < low_cap_thresh_kph인 지점이 거리축으로
+       연속 low_cap_run_m(m) 이상 이어짐 -- 찰나의 단일 포인트 노이즈가
+       아니라 실제 커브 구간.
+    2) low_cap_ratio_thresh: 평가구간(아래 low_cap_eval_start_m 이후)
+       포인트 중 speed_cap < low_cap_thresh_kph 비율이 이 값 이상.
+    3) p25_min_kph(선택, 기본 None=미사용): 평가구간의 25th percentile
+       speed_cap이 이 값 미만.
+
+    low_cap_eval_start_m(188차 2차 발견으로 추가, 기본 80.0m): 개발 중
+    회귀테스트로 near_field_guard_m(기본 50m) 바로 다음 구간(d=50~80m
+    부근)에서도 187차 기존 확정 이벤트(t=1365.71~1367.76 구간, 신규 A와
+    별개)의 naviPaths가 실제로 5~30km/h까지 떨어지는 "가짜 저속" 패턴을
+    보이는 것을 확인함 -- ego가 교차로에 접근하며 앵커전환 노이즈가
+    near_field_guard 경계 바로 바깥쪽까지 살짝 번진 것으로 추정(v1이
+    이미 명시한 0~50m 노이즈와 동일 계열이나, 경계가 정확히 50m에서
+    끊기지 않음). 반면 신규 B(오탐)의 저속 지점은 전 구간에서 예외 없이
+    d>=80m까지 이어짐(최대 d=210m). 따라서 2단계 저속판정(run/ratio/
+    percentile)은 d < low_cap_eval_start_m 구간을 제외한 뒤 계산한다 --
+    near_field_guard_m 자체(1단계 median 계산, v1과 동일하게 유지)는
+    건드리지 않고 2단계 판정에만 더 넓은 제외구간을 적용하는 구조.
+
+    188차 실측 회귀값(low_cap_eval_start_m=80.0 적용 후):
+    - 신규 A: 평가구간 low 포인트 0개(run=0m, ratio=0.0) -- accepted.
+    - 187차 기존 이벤트(1365.71~1376.56 전 구간): 초반부(1365.71~
+      1367.76)도 d>=80m 평가구간엔 low 포인트가 남지 않아 accepted --
+      전체 구간이 끊기지 않고 하나로 유지됨.
+    - 신규 B: d>=80m 평가구간에도 low 포인트가 그대로 남음(run/ratio
+      기준 유지) -- rejected.
+
+    반환: return_rejected=False(기본)면 v1과 동일한 형식의 accepted
+    이벤트 리스트만 반환. True면 (accepted, rejected) 튜플을 반환하며,
+    rejected 각 항목에는 "reject_reason"(문자열 리스트, 어떤 기준에
+    걸렸는지)이 추가로 담긴다 -- 회귀테스트/리포트용.
+    """
+    import statistics
+
+    n = len(rows)
+    ts = [None] * n
+    steers = [None] * n
+    for i, r in enumerate(rows):
+        try:
+            ts[i] = float(r.get("t"))
+        except (TypeError, ValueError):
+            pass
+        try:
+            steers[i] = abs(float(r.get("steeringAngleDeg")))
+        except (TypeError, ValueError):
+            pass
+
+    accepted_raw = []
+    rejected_raw = []
+
+    for i, r in enumerate(rows):
+        t = ts[i]
+        if t is None:
+            continue
+        naq = r.get("naviPaths", "")
+        if not naq:
+            continue
+        points, distances = parse_navi_paths(naq)
+        if not points:
+            continue
+        recomputed = recompute_route_curvature_speed(points, distances, sample_fine=sample_fine)
+        if not recomputed:
+            continue
+        far_window = [x for x in recomputed if near_field_guard_m <= x[0] <= far_check_max_m]
+        if not far_window:
+            continue
+        speeds = [x[2] for x in far_window]
+        med_speed = statistics.median(speeds)
+        if med_speed < min_recomputed_speed_kph:
+            continue  # v1과 동일 1단계 기준 -- 이미 곡률을 잡고 있음, 후보조차 아님
+
+        # ---- 2단계: far_window 안에 실제 커브가 끼어있는지 확인(188차 신규) ----
+        # near_field_guard_m 바로 다음 구간(경계 인접 노이즈)은 2단계
+        # 저속판정에서 별도로 제외(low_cap_eval_start_m) -- 1단계 median
+        # 계산(far_window/med_speed)에는 영향 없음(v1과 동일하게 유지).
+        eval_window = [x for x in far_window if x[0] >= low_cap_eval_start_m]
+        reasons = []
+        if eval_window:
+            eval_speeds = [x[2] for x in eval_window]
+            low_pts = [x for x in eval_window if x[2] < low_cap_thresh_kph]
+            ratio = len(low_pts) / len(eval_window)
+            if ratio >= low_cap_ratio_thresh:
+                reasons.append(f"low_cap_ratio={ratio:.2f}>={low_cap_ratio_thresh}")
+
+            max_run = 0.0
+            run_start = None
+            prev_dist = None
+            for dist, _curv, speed in eval_window:
+                if speed < low_cap_thresh_kph:
+                    if run_start is None:
+                        run_start = dist
+                    prev_dist = dist
+                else:
+                    if run_start is not None:
+                        max_run = max(max_run, prev_dist - run_start)
+                    run_start = None
+            if run_start is not None:
+                max_run = max(max_run, prev_dist - run_start)
+            if max_run >= low_cap_run_m:
+                reasons.append(f"low_cap_run_m={max_run:.1f}>={low_cap_run_m}")
+
+            if p25_min_kph is not None and len(eval_speeds) >= 4:
+                p25 = statistics.quantiles(eval_speeds, n=4)[0]
+                if p25 < p25_min_kph:
+                    reasons.append(f"p25={p25:.1f}<{p25_min_kph}")
+
+        window_end_t = t + lookahead_s
+        peak = 0.0
+        peak_t = None
+        consec_start = None
+        sustained = False
+        k = i
+        while k < n and ts[k] is not None and ts[k] <= window_end_t:
+            sv = steers[k]
+            if sv is not None and sv >= steering_thresh_deg:
+                if consec_start is None:
+                    consec_start = ts[k]
+                if ts[k] - consec_start >= min_duration_s:
+                    sustained = True
+                if sv > peak:
+                    peak = sv
+                    peak_t = ts[k]
+            else:
+                consec_start = None
+            k += 1
+
+        if not sustained:
+            continue
+
+        ev = {
+            "t": round(t, 2),
+            "recomputed_median_speed_kph": round(med_speed, 1),
+            "steering_peak_deg": round(peak, 1),
+            "steering_peak_t": round(peak_t, 2) if peak_t is not None else None,
+        }
+        if reasons:
+            ev["reject_reason"] = reasons
+            rejected_raw.append(ev)
+        else:
+            accepted_raw.append(ev)
+
+    def _merge(events):
+        if not events:
+            return []
+        merged = [{
+            "start_t": events[0]["t"],
+            "end_t": events[0]["t"],
+            "recomputed_median_speed_kph": events[0]["recomputed_median_speed_kph"],
+            "steering_peak_deg": events[0]["steering_peak_deg"],
+            "steering_peak_t": events[0]["steering_peak_t"],
+        }]
+        if "reject_reason" in events[0]:
+            merged[0]["reject_reason"] = list(events[0]["reject_reason"])
+        for ev in events[1:]:
+            last = merged[-1]
+            if ev["t"] - last["end_t"] <= merge_gap_s:
+                last["end_t"] = ev["t"]
+                if ev["steering_peak_deg"] > last["steering_peak_deg"]:
+                    last["steering_peak_deg"] = ev["steering_peak_deg"]
+                    last["steering_peak_t"] = ev["steering_peak_t"]
+                if ev["recomputed_median_speed_kph"] < last["recomputed_median_speed_kph"]:
+                    last["recomputed_median_speed_kph"] = ev["recomputed_median_speed_kph"]
+                if "reject_reason" in ev:
+                    merged_reasons = sorted(set(last.get("reject_reason", [])) | set(ev["reject_reason"]))
+                    last["reject_reason"] = merged_reasons
+            else:
+                new_ev = {
+                    "start_t": ev["t"],
+                    "end_t": ev["t"],
+                    "recomputed_median_speed_kph": ev["recomputed_median_speed_kph"],
+                    "steering_peak_deg": ev["steering_peak_deg"],
+                    "steering_peak_t": ev["steering_peak_t"],
+                }
+                if "reject_reason" in ev:
+                    new_ev["reject_reason"] = list(ev["reject_reason"])
+                merged.append(new_ev)
+        return merged
+
+    accepted = _merge(accepted_raw)
+    rejected = _merge(rejected_raw)
+
+    if return_rejected:
+        return accepted, rejected
+    return accepted
+
+
 def required_decel_gap_scan(rows, near_stop_target_kph=15.0, detection_search_s=40.0,
                              min_regression_points=5, turn_confirm_deg=15.0,
                              turn_confirm_window_s=8.0):

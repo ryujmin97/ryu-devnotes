@@ -3,6 +3,28 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+## 2026-09-01 (188차)
+- `analysis_helpers.py::type3_curvature_blindspot_scan_v2()` 신규 추가 +
+  `scan_type3_curvature_blindspot.py`에 `--v2`/`--show-rejected`/
+  `--low-cap-*` 플래그 추가. 187차 도구(v1)를 seg14/15(187차와 동일
+  route)로 재실행하는 과정에서 발견: v1의 median 단독 판정이 "far_window
+  안에 실제 짧은 커브가 있지만 앞뒤 긴 직선 때문에 median이 희석되는"
+  경우(t=1352.76~1361.91 — 대시캠 확인 결과 일반 도로커브, naviPaths도
+  실제 곡률(d=80~100m 구간 5km/h)을 담고 있었으나 median은 200km/h로
+  나와 오탐)를 걸러내지 못함. v2는 1단계(median 후보 발굴, v1과 완전
+  동일)는 그대로 두고, 2단계로 far_window 내 저속 지점의 연속길이
+  (`low_cap_run_m`)/비율(`low_cap_ratio_thresh`)을 추가 검사해 오탐을
+  분리. **개발 중 자체 회귀 실패 1건 발견/수정**: 2단계 저속판정에
+  근접 경계 제외 없이 1차 구현했더니 187차 확정 이벤트 초반부
+  (1365.71~1367.76)까지 오탐 제외되는 문제 발생 — 원인은
+  `near_field_guard_m`(50m) 바로 다음 d=50~80m 구간에서도 187차 사례
+  naviPaths가 순간적으로 저속을 보이는 별도의 근접노이즈 번짐 패턴
+  (원인 미확정, FINDINGS.md 188차 NEEDS_INVESTIGATION). `low_cap_eval_
+  start_m`(기본 80.0m) 파라미터로 2단계 판정에서만 이 구간을 제외해
+  해결. 회귀테스트 3건(187차 기존 사례/신규 A/신규 B) 전부 기대대로
+  통과 확인. **기본 CLI 동작(플래그 없이 실행)은 v1 그대로 — 회귀 없음.**
+  **ryu 프로덕션 코드 변경 없음, 분석도구 전용 수정.**
+
 ## 2026-09-01 (187차)
 - `analysis_helpers.py::type3_curvature_blindspot_scan()` 신규 추가 +
   `scan_type3_curvature_blindspot.py` 신규 CLI 도구. 152차가 확정한
