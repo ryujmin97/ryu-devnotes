@@ -1,3 +1,19 @@
+## c3-ms-dev (194차 계속2, route apex telemetry 20Hz 생존 최초 검증 — VALIDATED, ryu 코드 변경 없음)
+- last_analyzed_commit: `019481515afd` (194차 패치 반영 HEAD, 드리프트 없음)
+- date: 2026-09-02 (194차 계속2)
+- 분석 대상: 신규 실차 로그 2건 — route `abe1d2bb34`(6세그, 6,328행),
+  route `e635e188cf`(19세그, 22,799행), `extract_log.py --with-navi-paths`로
+  추출
+- note: 194차에서 추가한 `routeApexIdx/Dist/Speed`, `routeOutSpeed` 4개
+  cereal 필드가 실제 rlog에 20Hz(median dt=0.050s)로 정상 기록됨을
+  최초 확인. 두 로그 모두 non-null, apex idx가 0~14+ 범위로 프레임마다
+  변화(고정 상수 아님), 값 분포 정상범위(dist 20~230m, speed 5~263km/h).
+  route 활성 비율 85.8~89.6%. 이로써 149차에서 확정했던 근본원인
+  (`liveRouteSpeed=390.0` 무제약 센티넬) 이후 막혀있던 apex 단위
+  시간축 분석(apex 선정/camera-style 감속계산/MPC 추종/arbitration
+  4갈래 원인 분리)의 데이터 기반이 처음으로 확보됨. 상세는
+  WIP.md "194차 계속2" 참고.
+
 ## c3-ms-dev (187차, 우회전 교차로 route 사전감속 미작동 신규 실차 사례 — 152차 유형3 재현 확인, ryu 코드 변경 없음)
 - last_analyzed_commit: `6c00b9c` (182차 계측 커밋 HEAD, ryu 코드
   변경 없음 — 이번 회차는 분석 전용)

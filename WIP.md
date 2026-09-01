@@ -1,3 +1,55 @@
+## 194차 계속2 (완료 — 신규 실차 로그 2건 CSV 검증, 20Hz telemetry 생존 확인) — route apex telemetry(194차 패치) 최초 실측 검증
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu` (검증만, 코드 변경 없음) + `ryujmin97/ryu-devnotes`
+
+**Branch**: `c3-ms-dev` / `main`
+
+**Base commit (ryu)**: `019481515afd` (194차 패치 반영 HEAD, 드리프트 없음 — `git clone --branch c3-ms-dev` 재확인)
+
+**Base commit (devnotes, 이 회차 시작 시점)**: `1b47689` (194차 계속 체크포인트)
+
+**배경**: 194차 패치(`cereal/custom.capnp` + `carrot_man.py` + `carrot_serv.py`, `routeApexIdx/Dist/Speed`, `routeOutSpeed` 4필드를 실제 cereal `carrotMan`에 발행)가 반영된 빌드로 사용자가 신규 실차 로그 2건을 채록/업로드.
+
+**분석 대상**:
+- route `abe1d2bb34` (6세그먼트, 07:56~08:00): 6,328행 추출
+- route `e635e188cf` (19세그먼트, 07:37~07:55): 22,799행 추출
+
+둘 다 `toolkit/extract_log.py --repo <ryu clone> --with-navi-paths`로 추출, 추출 시점 `repo commit: 019481515afd (c3-ms-dev) dirty=False` 확인(패치 미반영 빌드로 채록됐을 가능성 배제).
+
+**검증 결과 (통과)**:
+- 샘플링 주기: 두 로그 모두 median dt=0.050s → **실효 20Hz 확인**(기존 CarrotMan 발행 주기와 일치, telemetry가 저주파로 죽어있지 않음).
+- 4개 필드 non-null: 두 로그 전체 프레임(6,328 / 22,799)에서 `routeApexIdx/Dist/Speed`, `routeOutSpeed` 모두 non-null.
+- route 활성 비율(`routeApexIdx != -1`): `abe1d2bb34` 89.6%(5,672/6,328), `e635e188cf` 85.8%(19,553/22,799).
+- 값이 고정 상수가 아님: `routeApexIdx`가 0~14+ 범위에서 프레임마다 변화(정적 기본값이 박혀 나오는 게 아니라 실제 계산 결과가 매 프레임 갱신됨을 확인).
+- 값 분포: `routeApexDist` 20~230m, `routeApexSpeed` 5~263km/h, `routeOutSpeed` 8.7~263km/h — apex 거리/속도 계산이 정상 범위로 나오고 있음(비정상적으로 튀는 이상치 없음).
+
+**결론**: 193차→194차에서 목표했던 "route apex telemetry가 실제 rlog/qlog에 20Hz로 살아있는지" 검증이 **최초로 통과**함. `routeApexIdx→Dist→Speed→routeOutSpeed→liveRouteSpeed→desiredSpeed/desiredSource→vEgo` 시간축 분석에 필요한 데이터 기반이 이제 확보됨.
+
+**CSV 산출물**: `out_abe1d2bb34.csv`(6,328행), `out_e635e188cf.csv`(22,799행). §23 원칙에 따라 devnotes Git 저장소에는 커밋하지 않음(대용량). 이번 세션 사용자에게 `.txt`로 직접 전달(Google Drive 미연동 상태), 재사용 필요 시 재전달 필요.
+
+**검증**:
+- 정적 분석: 완료(commit hash/dirty flag로 패치 반영 빌드 확인)
+- 로그 분석: 완료(20Hz 주기, non-null, 값 분포, apex idx 변화 확인 — 위 항목)
+- 시뮬레이션: 미실시(해당 없음)
+- 실차 검증: 해당 없음(이번 회차는 "telemetry가 로그에 남는가" 자체의 검증이며, route 감속 로직의 실차 거동 검증은 다음 단계)
+
+**미확인 사항**:
+- 아직 시간축 정렬(apex idx/dist/speed → liveRouteSpeed → desiredSpeed → vEgo)로 apex 선정/camera-style 감속 계산/MPC 추종/arbitration 4가지 원인을 분리하는 분석은 미실시(다음 작업).
+- `routeSource`가 `e635e188cf`에서 3,246행(22,799-19,553) non-null 아님으로 나온 이유는 미조사(route 비활성 구간과 일치하는지 확인 필요 — routeApexIdx=-1 구간과 정확히 겹치는지 다음 회차에서 대조).
+
+**다음 작업**:
+1. 두 로그(특히 `routeApexSpeed`가 낮게 찍히는 구간 — 5km/h 근접) 중 실제 커브 감속 구간을 골라 `routeApexIdx/Dist/Speed → routeOutSpeed → liveRouteSpeed → desiredSpeed/desiredSource → vEgo` 시간축 분석 시작
+2. `routeSource` non-null 여부와 `routeApexIdx==-1` 구간의 일치 여부 확인
+3. 분석 결과에 따라 ①apex 오선정 ②camera-style 감속계산 오류 ③MPC 추종 지연 ④다른 source의 덮어쓰기 중 원인 분리
+4. route 알고리즘 자체 수정은 원인 분리 완료 전까지 보류(사용자 지시, 194차 요청 유지)
+
+**주의**:
+- 기존 "194차 (진행 중...)" / "194차 계속" 항목은 삭제/수정하지 않고 그대로 유지(§14).
+
+---
+
 ## 194차 계속 (완료 — 패치 작성/적용/push 확인) — route apex telemetry(193차)를 실제 cereal(carrotMan)로 발행
 
 **Worker**: Claude
