@@ -2840,6 +2840,270 @@ def type3_curvature_blindspot_scan_v2(rows, lookahead_s=6.0, steering_thresh_deg
     return accepted
 
 
+def type3_curvature_blindspot_scan_v3(rows, lookahead_s=6.0, steering_thresh_deg=60.0,
+                                       min_recomputed_speed_kph=150.0, min_duration_s=0.3,
+                                       sample_fine=1, merge_gap_s=1.0,
+                                       near_field_guard_m=50.0, far_check_max_m=250.0,
+                                       low_cap_thresh_kph=100.0, low_cap_run_m=20.0,
+                                       low_cap_ratio_thresh=0.15, p25_min_kph=None,
+                                       low_cap_eval_start_m=80.0,
+                                       stop_v_ego_thresh=0.3, min_stop_duration_s=1.0,
+                                       return_rejected=False):
+    """191차: v2(type3_curvature_blindspot_scan_v2)가 190차 25분 전수
+    스캔에서 새로 노출한 오탐 유형(a) -- "급정거/장기정차 후 xTurnInfo가
+    reset되어 naviPaths가 '제약없음' 기본값으로 복귀하는 구간"이 스캔
+    후보를 계속 생성/연장시켜, route가 이미 정상적으로 완주한 급선회
+    이벤트를 50초 이상의 긴 오탐 이벤트로 부풀리는 문제(190차 4번/6번,
+    t=1483.51~1534.01 / t=1940.76~1998.20)를 보완한다.
+
+    핵심 확인(191차): `recomputed_median_speed_kph`는 "50초 구간의
+    median"이 아니라 **매 프레임(시점)별 naviPaths의 공간적(distance축)
+    median**이다. 190차 4번/6번은, 정차 전 실제 급선회를 이미 정상
+    수행했더라도 정차 중(vEgo=0) steeringAngleDeg가 감긴 각도에 고정된
+    채 유지되고, 동시에 xTurnInfo reset으로 naviPaths가 "제약없음"
+    기본값으로 복귀한 여러 프레임이 각각 독립적으로 1단계(median)/
+    steering sustained 조건을 만족해 merge_gap_s 이내로 잇달아 병합되며
+    긴 이벤트로 부풀려진 것 -- 실제 route 실패가 지속된 것이 아니다.
+
+    (기술검토 반영) 190차 WIP가 제안했던 "naviPaths y값 단조성 직접
+    검사"는 채택하지 않는다 -- 정상적인 단일 좌/우커브도 상대좌표에서
+    y가 한 방향으로 계속 단조 증가할 수 있어(y monotonic != 직선),
+    오히려 정상 커브를 유형3으로 오판할 위험이 있다는 지적을 반영.
+
+    v2와의 관계: 1단계(far_window median)/2단계(low_cap run/ratio/p25)
+    판정 로직과 파라미터는 v2와 완전히 동일 -- v1/v2는 전혀 건드리지
+    않는다(§27 최소변경 원칙). v3가 추가하는 것은 아래 3단계(신규)뿐이다.
+
+    3단계(신규, 191차) -- 정차 프레임 배제:
+    stop_v_ego_thresh(기본 0.3m/s = 프로덕션 `LAUNCH_BYPASS_STOP_V_EGO`
+    와 동일한 기존 검증값 재사용, 신규 상수 임의 도입 지양)를 두 지점에
+    적용한다.
+    (1) 후보 생성 게이트: vEgo < stop_v_ego_thresh인 프레임은 far_window
+        median/steering 조건을 모두 만족하더라도 애초에 후보로 만들지
+        않는다 -- 정차 중 naviPaths 기본값 복귀는 "이 시점에 route가
+        실패"를 의미하지 않는다(조향은 이미 정차 전에 실행 완료된
+        상태이므로).
+    (2) 병합 차단: 두 후보 시점 사이에 min_stop_duration_s(기본 1.0초)
+        이상 연속으로 vEgo < stop_v_ego_thresh인 구간이 존재하면
+        merge_gap_s 이내라도 병합하지 않고 별개 이벤트로 분리한다 --
+        "정차 전 급선회 실행 구간"과 "정차 후 기본값 복귀 오탐 구간"이
+        하나의 긴 이벤트로 섞이는 것을 원천 차단.
+
+    **미해결로 남기는 부분(191차, 의도적)**: 190차 3번/5번 -- 국지적으로만
+    존재하는 좁은 실제 커브(예: d=10~90m 구간에만 존재)가 far_window
+    (50~250m) 넓은 구간의 median에 희석되거나, 2단계 eval_window
+    (d>=80m 고정)가 정확히 그 커브 위치(d<80m)를 비껴가 걸러내지 못하는
+    문제는 이번 v3에서 다루지 않는다. near_field_guard_m/
+    low_cap_eval_start_m 등은 이미 187차 확정사례(d=50~80m 구간에
+    "가짜 저속" 패턴이 있어도 accepted로 유지되어야 하는 사례)를 깨지
+    않도록 맞춰진 값이라, 실측 회귀 데이터 없이 추측만으로 건드리면
+    기존 정탐을 깰 위험이 크다(§28 추측 금지 원칙). 8개 회귀 세트
+    (187차 1건/188차 신규 2건/190차 6건) 재실행 검증에는 routeA.csv/
+    routeB.csv 원본이 필요하나 190차 종료 시 미보관 상태(§23, Drive
+    커넥터 미연결) -- 사용자가 원본 zip을 재업로드해야 재분석 가능.
+
+    또한 vEgo 정차게이트가 4번/6번을 완전히 REJECT로 바꿔줄지, 아니면
+    정차 전 실제 접근 구간이 여전히 (근접 커브가 near_field_guard_m
+    안쪽이라 far_window에서 "직후 직선"으로 보이는) 짧은 별개 후보를
+    만들어낼지는 이번 회차에서 실측으로 확인하지 못했다 -- 이 함수는
+    "정차로 인한 인위적 이벤트 연장/부풀림"을 제거한다는 것만
+    보장하며, 그 이상의 효과는 실측 CSV 재검증 전까지 단정하지 않는다.
+
+    반환 형식은 v2와 동일. **실차/데이터 검증: 미실시** -- 정적 로직만
+    작성됨. routeA.csv/routeB.csv 재확보 후 8개 회귀 세트 재실행 필요.
+    """
+    import statistics
+
+    n = len(rows)
+    ts = [None] * n
+    steers = [None] * n
+    vegos = [None] * n
+    for i, r in enumerate(rows):
+        try:
+            ts[i] = float(r.get("t"))
+        except (TypeError, ValueError):
+            pass
+        try:
+            steers[i] = abs(float(r.get("steeringAngleDeg")))
+        except (TypeError, ValueError):
+            pass
+        try:
+            vegos[i] = float(r.get("vEgo"))
+        except (TypeError, ValueError):
+            pass
+
+    def _stopped_span_between(t_start, t_end):
+        """(t_start, t_end) 구간 내 vEgo < stop_v_ego_thresh 연속 구간의
+        최대 길이(초)를 반환. rows가 시간순 정렬되어 있다는 가정 하에
+        선형 스캔(기존 함수들과 동일 스타일, 이진탐색 불필요할 만큼
+        row 수가 적음)."""
+        max_run = 0.0
+        run_start = None
+        prev_t = None
+        for i in range(n):
+            ti = ts[i]
+            if ti is None or ti <= t_start or ti >= t_end:
+                continue
+            vi = vegos[i]
+            if vi is not None and vi < stop_v_ego_thresh:
+                if run_start is None:
+                    run_start = ti
+                prev_t = ti
+            else:
+                if run_start is not None:
+                    max_run = max(max_run, prev_t - run_start)
+                run_start = None
+        if run_start is not None and prev_t is not None:
+            max_run = max(max_run, prev_t - run_start)
+        return max_run
+
+    accepted_raw = []
+    rejected_raw = []
+
+    for i, r in enumerate(rows):
+        t = ts[i]
+        if t is None:
+            continue
+        # 3단계 게이트(1, 191차 신규): 정차 프레임은 후보 생성에서 제외
+        vi = vegos[i]
+        if vi is not None and vi < stop_v_ego_thresh:
+            continue
+        naq = r.get("naviPaths", "")
+        if not naq:
+            continue
+        points, distances = parse_navi_paths(naq)
+        if not points:
+            continue
+        recomputed = recompute_route_curvature_speed(points, distances, sample_fine=sample_fine)
+        if not recomputed:
+            continue
+        far_window = [x for x in recomputed if near_field_guard_m <= x[0] <= far_check_max_m]
+        if not far_window:
+            continue
+        speeds = [x[2] for x in far_window]
+        med_speed = statistics.median(speeds)
+        if med_speed < min_recomputed_speed_kph:
+            continue  # v1/v2와 동일 1단계 기준
+
+        # ---- 2단계(v2와 동일): far_window 안에 실제 커브가 끼어있는지 ----
+        eval_window = [x for x in far_window if x[0] >= low_cap_eval_start_m]
+        reasons = []
+        if eval_window:
+            eval_speeds = [x[2] for x in eval_window]
+            low_pts = [x for x in eval_window if x[2] < low_cap_thresh_kph]
+            ratio = len(low_pts) / len(eval_window)
+            if ratio >= low_cap_ratio_thresh:
+                reasons.append(f"low_cap_ratio={ratio:.2f}>={low_cap_ratio_thresh}")
+
+            max_run = 0.0
+            run_start = None
+            prev_dist = None
+            for dist, _curv, speed in eval_window:
+                if speed < low_cap_thresh_kph:
+                    if run_start is None:
+                        run_start = dist
+                    prev_dist = dist
+                else:
+                    if run_start is not None:
+                        max_run = max(max_run, prev_dist - run_start)
+                    run_start = None
+            if run_start is not None:
+                max_run = max(max_run, prev_dist - run_start)
+            if max_run >= low_cap_run_m:
+                reasons.append(f"low_cap_run_m={max_run:.1f}>={low_cap_run_m}")
+
+            if p25_min_kph is not None and len(eval_speeds) >= 4:
+                p25 = statistics.quantiles(eval_speeds, n=4)[0]
+                if p25 < p25_min_kph:
+                    reasons.append(f"p25={p25:.1f}<{p25_min_kph}")
+
+        window_end_t = t + lookahead_s
+        peak = 0.0
+        peak_t = None
+        consec_start = None
+        sustained = False
+        k = i
+        while k < n and ts[k] is not None and ts[k] <= window_end_t:
+            sv = steers[k]
+            if sv is not None and sv >= steering_thresh_deg:
+                if consec_start is None:
+                    consec_start = ts[k]
+                if ts[k] - consec_start >= min_duration_s:
+                    sustained = True
+                if sv > peak:
+                    peak = sv
+                    peak_t = ts[k]
+            else:
+                consec_start = None
+            k += 1
+
+        if not sustained:
+            continue
+
+        ev = {
+            "t": round(t, 2),
+            "recomputed_median_speed_kph": round(med_speed, 1),
+            "steering_peak_deg": round(peak, 1),
+            "steering_peak_t": round(peak_t, 2) if peak_t is not None else None,
+        }
+        if reasons:
+            ev["reject_reason"] = reasons
+            rejected_raw.append(ev)
+        else:
+            accepted_raw.append(ev)
+
+    def _merge(events):
+        if not events:
+            return []
+        merged = [{
+            "start_t": events[0]["t"],
+            "end_t": events[0]["t"],
+            "recomputed_median_speed_kph": events[0]["recomputed_median_speed_kph"],
+            "steering_peak_deg": events[0]["steering_peak_deg"],
+            "steering_peak_t": events[0]["steering_peak_t"],
+        }]
+        if "reject_reason" in events[0]:
+            merged[0]["reject_reason"] = list(events[0]["reject_reason"])
+        for ev in events[1:]:
+            last = merged[-1]
+            gap_ok = ev["t"] - last["end_t"] <= merge_gap_s
+            # 3단계 게이트(2, 191차 신규): 병합 후보 사이에 sustained
+            # stop이 있으면 merge_gap_s 이내라도 강제 분리
+            if gap_ok and min_stop_duration_s > 0:
+                stopped = _stopped_span_between(last["end_t"], ev["t"])
+                if stopped >= min_stop_duration_s:
+                    gap_ok = False
+            if gap_ok:
+                last["end_t"] = ev["t"]
+                if ev["steering_peak_deg"] > last["steering_peak_deg"]:
+                    last["steering_peak_deg"] = ev["steering_peak_deg"]
+                    last["steering_peak_t"] = ev["steering_peak_t"]
+                if ev["recomputed_median_speed_kph"] < last["recomputed_median_speed_kph"]:
+                    last["recomputed_median_speed_kph"] = ev["recomputed_median_speed_kph"]
+                if "reject_reason" in ev:
+                    merged_reasons = sorted(set(last.get("reject_reason", [])) | set(ev["reject_reason"]))
+                    last["reject_reason"] = merged_reasons
+            else:
+                new_ev = {
+                    "start_t": ev["t"],
+                    "end_t": ev["t"],
+                    "recomputed_median_speed_kph": ev["recomputed_median_speed_kph"],
+                    "steering_peak_deg": ev["steering_peak_deg"],
+                    "steering_peak_t": ev["steering_peak_t"],
+                }
+                if "reject_reason" in ev:
+                    new_ev["reject_reason"] = list(ev["reject_reason"])
+                merged.append(new_ev)
+        return merged
+
+    accepted = _merge(accepted_raw)
+    rejected = _merge(rejected_raw)
+
+    if return_rejected:
+        return accepted, rejected
+    return accepted
+
+
 def required_decel_gap_scan(rows, near_stop_target_kph=15.0, detection_search_s=40.0,
                              min_regression_points=5, turn_confirm_deg=15.0,
                              turn_confirm_window_s=8.0):

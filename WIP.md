@@ -1,3 +1,81 @@
+## 191차 (완료 — scan_type3 v3 설계+구현, 정차 오탐 게이트 추가, 합성데이터 단위테스트 검증 / 실측 회귀 미실시) — 190차 오탐 유형(a) 보완
+
+**배경**: 사용자가 190차 결과에 대한 ChatGPT측 기술검토를 전달. 검토는
+Claude의 190차 판정(신규 유형3 실차 2건 확정, 오탐 2종 발견, 185차
+min_of_both 미결 유지, ryu 프로덕션 코드 변경 없음)에 전부 동의하되,
+190차 WIP가 다음 단계로 제안했던 v3 설계 중 (b) "naviPaths y값 단조성
+직접 검사"는 채택하지 말 것을 권고(정상 단일커브도 상대좌표에서 y가
+단조 증가할 수 있어 오히려 정상커브를 유형3으로 오판할 위험). (a)
+정차구간 median 제외 방향은 동의, 다만 "vEgo==0만 제거"로는 부족하고
+정차 상태를 제외한 연속 주행구간 기준 통계가 안전하다고 제안.
+
+**세션 시작 시 GitHub 상태 확인(§3)**: `ryu` c3-ms-dev HEAD `6c00b9c`
+(190차/문서 언급과 일치), `ryu-devnotes` HEAD `0313a88`(190차, 문서의
+"0313a885"와 동일 커밋 지칭), `LAST_ANALYZED.md` last_analyzed_commit도
+`6c00b9c`로 일치. `HANDOFF.md`/`CURRENT_STATUS.md` 파일 자체가 저장소에
+없음(WIP.md 최신 항목이 인수인계 역할). 다른 AI의 추가 push 없음 —
+충돌/드리프트 없이 그대로 진행.
+
+**기존 로직 재확인(구현 전 확인)**: `type3_curvature_blindspot_scan_v2`의
+`recomputed_median_speed_kph`는 "이벤트 전체 시간창의 median"이 아니라
+**프레임(시점)별 naviPaths의 공간적(distance축) median**임을 코드로
+재확인. 즉 190차 4번/6번(50.5초/57.4초 오탐)은 정차 전 실제 급선회를
+이미 정상 수행했더라도, 정차 중(vEgo=0) steeringAngleDeg가 감긴 채
+유지되고 동시에 xTurnInfo reset으로 naviPaths가 "제약없음" 기본값
+복귀 → 그 상태의 여러 프레임이 각각 독립적으로 1단계/steering sustained
+조건을 만족해 merge_gap_s 이내로 계속 병합되며 부풀려진 것 — 검토가
+지적한 메커니즘과 정확히 일치.
+
+**구현**: `analysis_helpers.py::type3_curvature_blindspot_scan_v3()`
+신규 추가. v1/v2의 1단계(median)/2단계(low_cap run/ratio/p25) 로직·
+파라미터는 전혀 건드리지 않고(§27), 3단계(신규)만 추가:
+1. 후보 생성 게이트: `vEgo < stop_v_ego_thresh`(기본 0.3m/s = 프로덕션
+   `long_mpc.py::LAUNCH_BYPASS_STOP_V_EGO`와 동일값 재사용, 신규 상수
+   임의 도입 지양 — §기존 검증값 재사용 원칙)인 프레임은 far_window/
+   steering 조건을 만족해도 애초에 후보로 만들지 않음.
+2. 병합 차단: 두 후보 시점 사이에 `min_stop_duration_s`(기본 1.0초)
+   이상 연속 정차가 존재하면 `merge_gap_s` 이내라도 강제로 이벤트 분리.
+`scan_type3_curvature_blindspot.py`에 `--v3`/`--stop-v-ego-thresh`/
+`--min-stop-duration` CLI 플래그 추가(`--v2`와 동시 지정 시 `--v3` 우선).
+
+(b)(y단조성)는 검토 지적대로 채택하지 않음. 190차 3번/5번(국지적 실제
+커브가 far_window median에 희석되거나 `low_cap_eval_start_m`(80m)
+경계를 비껴가 걸러지지 않는 문제)도 이번엔 다루지 않음 — 관련
+파라미터는 이미 187차 확정사례(d=50~80m 구간의 "가짜 저속" 패턴에도
+accepted 유지되어야 함)를 지키도록 튜닝된 값이라, 실측 회귀 데이터 없이
+추측만으로 건드리면 기존 정탐을 깰 위험(§28 추측 금지 원칙).
+
+**검증**: `python3 -m py_compile` 통과. 합성 데이터(정차 전/중/후 3구간,
+naviPaths는 항상 직선/steering은 항상 sustained 유지하도록 구성) 단위
+테스트로 게이트 동작 확인 — v2는 정차구간(2.0~3.5초, 1.5초)을 포함해
+0.0~3.6초를 하나의 이벤트로 병합하지만, v3(merge_gap_s=2.0,
+min_stop_duration_s=1.0)는 정차 전(0.0~1.9)/후(3.6~)로 정확히 분리됨.
+**실차/실측 로그 검증: 미실시.** 190차 8개 회귀 세트(187차 1건/188차
+신규 2건/190차 6건) 재실행은 `routeA.csv`(21598행)/`routeB.csv`(8637행)
+원본이 190차 종료 시 미보관 상태(Drive 커넥터 미연결, §23)라 불가 —
+사용자가 원본 zip을 재업로드해야 재분석 가능.
+
+**미확인 사항(명시적으로 단정하지 않음)**: vEgo 정차게이트가 190차
+4번/6번을 완전히 REJECT로 바꿔줄지, 아니면 정차 전 실제 접근 구간이
+(근접 커브가 `near_field_guard_m`(50m) 안쪽이라 far_window에서
+"직후 직선"으로 보이는 구조적 한계로) 여전히 더 짧은 별개 후보를
+만들어낼지는 실측 CSV 없이 확인 불가 — v3는 "정차로 인한 인위적 이벤트
+연장/부풀림 제거"만 보장.
+
+**toolkit/ryu 변경**: `toolkit/analysis_helpers.py`(v3 함수 추가),
+`toolkit/scan_type3_curvature_blindspot.py`(`--v3` 플래그 추가),
+`toolkit/README.md`/`toolkit/CHANGELOG.md` 갱신(§22). `ryu` 프로덕션
+코드 변경 없음.
+
+**다음 단계**:
+1. 사용자가 190차 원본 routeA/routeB zip 재업로드 → 8개 회귀 세트로
+   v3 `--show-rejected` 재실행, 4번/6번이 REJECT로 바뀌는지, 187차/
+   188차 정탐 3건이 여전히 accepted로 유지되는지 확인.
+2. 회귀 통과 확인 후에도 190차 3번/5번(오탐 유형 b) 미해결 — 별도
+   회차에서 실측 데이터 기반으로 다룰 것(추측 금지).
+3. 185차 min_of_both 미결 항목은 계속 별도 로그 확보 필요.
+
+---
 ## 190차 (완료 — route 0000037a/0000037b 전체 구간 유형3 스캔 + qcamera 전수 대조, 신규 실차 사례 2건 확정 + scan v2 잔존 오탐 패턴 2종 신규 발견) — 189차 후 첫 전체 로그(25분) 유형3 전수 스캔
 
 **배경**: 186차가 확보했던 `0000037a--2fde2e3826`(seg2~19, 18세그, t=598.9~

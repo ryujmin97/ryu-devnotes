@@ -223,6 +223,25 @@ seg14/15 재검증 중 발견(신규 B, t=1352.76~1361.91 — 대시캠 확인 �
 여전히 v1(회귀 없음) — `--v2 --show-rejected`로 2단계 판정 + 오탐
 사유 확인 가능.
 
+**191차 추가(`type3_curvature_blindspot_scan_v3`, `--v3` 플래그)**:
+190차 25분 전수스캔 중 발견한 새 오탐 유형(a) — 급정거/장기정차 후
+xTurnInfo reset으로 naviPaths가 "제약없음" 기본값으로 복귀하는데,
+정차 중에도 steeringAngleDeg는 감긴 채 유지되어 여러 프레임이 계속
+후보를 생성·병합, 실제로는 route가 정상 완주한 급선회를 50초 이상의
+긴 오탐 이벤트로 부풀리는 문제(190차 4번/6번)를 보완. v2 로직/파라미터는
+그대로 두고, vEgo가 `--stop-v-ego-thresh`(기본 0.3m/s, 프로덕션
+`LAUNCH_BYPASS_STOP_V_EGO` 재사용) 미만인 프레임은 (1) 후보 생성에서
+제외, (2) 두 후보 사이에 `--min-stop-duration`(기본 1.0초) 이상 정차가
+있으면 `--merge-gap` 이내라도 강제로 이벤트 분리하는 3단계 게이트를
+추가. 합성 데이터 단위테스트로 게이트 동작 확인(WIP.md 191차 참고).
+**190차 오탐 유형(b)(국지적 실제 커브가 far_window median에 희석/
+low_cap_eval_start_m 경계를 비껴가는 문제)는 다루지 않음** — 관련
+파라미터가 187차 확정사례를 지키도록 이미 튜닝되어 있어 실측 데이터
+없이 건드리면 회귀 위험. **실측 8개 회귀 세트 재실행은 미실시**
+(routeA.csv/routeB.csv 190차 종료 시 미보관, 원본 zip 재업로드 필요).
+기본 CLI 동작은 여전히 v1 — `--v3 --show-rejected`로 3단계 판정 +
+오탐 사유 확인 가능.
+
 ## check_navi_route_activity.py
 **목적**: `naviPointsActive`(182차 계측) 연속 False 구간을 찾아 드롭아웃
 지속시간/직전 route 소스/vEgo 범위를 리포트. 182차 계측 패치 적용 전

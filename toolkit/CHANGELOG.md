@@ -3,6 +3,31 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+## 2026-09-01 (191차)
+- `analysis_helpers.py::type3_curvature_blindspot_scan_v3()` 신규 추가 +
+  `scan_type3_curvature_blindspot.py`에 `--v3`/`--stop-v-ego-thresh`/
+  `--min-stop-duration` 플래그 추가. 190차 25분 전수스캔에서 새로 발견한
+  오탐 유형(a) — 급정거/장기정차 후 xTurnInfo reset으로 naviPaths가
+  "제약없음" 기본값으로 복귀하는 프레임들이, 정차 중에도 감긴 채 유지된
+  steeringAngleDeg와 결합해 계속 후보를 생성/병합시켜 실제로는 route가
+  정상 완주한 급선회(190차 4번/6번, t=1483.51~1534.01/50.5초,
+  t=1940.76~1998.20/57.4초)를 긴 오탐 이벤트로 부풀리는 문제를 보완.
+  v2 로직(1단계 median/2단계 low_cap)은 완전히 동일하게 유지하고, 3단계로
+  vEgo<stop_v_ego_thresh(기본 0.3m/s=프로덕션 `LAUNCH_BYPASS_STOP_V_EGO`
+  재사용) 프레임을 (1)후보 생성 자체에서 배제, (2)두 후보 사이
+  min_stop_duration_s(기본 1.0초) 이상 정차가 끼어 있으면 merge_gap_s
+  이내라도 강제로 이벤트 분리. 합성 데이터로 두 게이트 모두 의도대로
+  동작함을 단위 테스트로 확인(정차 구간 포함 시 v2는 하나로 병합, v3는
+  정차 전/후로 분리). **190차가 같이 발견한 오탐 유형(b)(190차 3번/5번,
+  국지적 실제 커브가 far_window median에 희석되거나 low_cap_eval_start_m
+  경계를 비껴가는 문제)는 이번에 다루지 않음** — 관련 파라미터가 이미
+  187차 확정사례를 지키기 위해 튜닝된 값이라 실측 회귀 데이터 없이
+  건드리면 기존 정탐을 깰 위험(§28). **8개 회귀 세트(187차 1건/188차
+  신규 2건/190차 6건) 재실행 검증은 미실시 — routeA.csv/routeB.csv가
+  190차 종료 시 미보관되어(§23) 원본 zip 재업로드 필요.** 기본 CLI
+  동작(`--v2`/`--v3` 미지정)은 v1 그대로 — 회귀 없음. **ryu 프로덕션
+  코드 변경 없음, 분석도구 전용 수정.**
+
 ## 2026-09-01 (188차)
 - `analysis_helpers.py::type3_curvature_blindspot_scan_v2()` 신규 추가 +
   `scan_type3_curvature_blindspot.py`에 `--v2`/`--show-rejected`/

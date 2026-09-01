@@ -42,6 +42,7 @@ from analysis_helpers import (
     load_csv,
     type3_curvature_blindspot_scan,
     type3_curvature_blindspot_scan_v2,
+    type3_curvature_blindspot_scan_v3,
 )
 
 
@@ -65,6 +66,17 @@ def main():
     ap.add_argument("--v2", action="store_true",
                      help="188차 2단계 판정(type3_curvature_blindspot_scan_v2) 사용 "
                           "-- far_window 안에 실제 커브가 끼어있는 오탐 후보를 별도로 걸러냄")
+    ap.add_argument("--v3", action="store_true",
+                     help="191차 3단계 판정(type3_curvature_blindspot_scan_v3) 사용 "
+                          "-- v2 로직 그대로 + 정차(vEgo<stop-v-ego-thresh) 프레임을 "
+                          "후보생성/이벤트병합에서 배제(190차 4번/6번류 정차후 리셋 "
+                          "오탐 방지). --v2와 동시 지정 시 --v3 우선")
+    ap.add_argument("--stop-v-ego-thresh", type=float, default=0.3,
+                     help="[--v3] 이 값(m/s) 미만이면 정차로 간주(기본 0.3 = 프로덕션 "
+                          "LAUNCH_BYPASS_STOP_V_EGO와 동일)")
+    ap.add_argument("--min-stop-duration", type=float, default=1.0,
+                     help="[--v3] 두 후보 사이 이 시간(초) 이상 연속 정차가 있으면 "
+                          "merge-gap 이내라도 병합하지 않고 분리(기본 1.0초)")
     ap.add_argument("--show-rejected", action="store_true",
                      help="--v2와 함께 사용 시 오탐으로 제외된 후보도 사유와 함께 출력")
     ap.add_argument("--low-cap-thresh", type=float, default=100.0,
@@ -101,6 +113,33 @@ def main():
             if "reject_reason" in ev:
                 print(f"           -> 제외사유: {', '.join(ev['reject_reason'])}")
         print()
+
+    if args.v3:
+        accepted, rejected = type3_curvature_blindspot_scan_v3(
+            rows,
+            lookahead_s=args.lookahead,
+            steering_thresh_deg=args.steering_thresh,
+            min_recomputed_speed_kph=args.min_recomputed_speed,
+            min_duration_s=args.min_duration,
+            merge_gap_s=args.merge_gap,
+            near_field_guard_m=args.near_field_guard,
+            far_check_max_m=args.far_check_max,
+            low_cap_thresh_kph=args.low_cap_thresh,
+            low_cap_run_m=args.low_cap_run_m,
+            low_cap_ratio_thresh=args.low_cap_ratio,
+            low_cap_eval_start_m=args.low_cap_eval_start,
+            stop_v_ego_thresh=args.stop_v_ego_thresh,
+            min_stop_duration_s=args.min_stop_duration,
+            return_rejected=True,
+        )
+        if not accepted and not rejected:
+            print(f"유형3 후보 이벤트 0건 (rows={len(rows)}, v3)")
+            return
+        print(f"rows={len(rows)}, v3(3단계 판정: median+low_cap+정차배제) 결과:\n")
+        _print_table(accepted, "확정 유형3 후보(3단계 통과)")
+        if args.show_rejected or rejected:
+            _print_table(rejected, "오탐 제외(far_window 내 실제 커브 감지)")
+        return
 
     if args.v2:
         accepted, rejected = type3_curvature_blindspot_scan_v2(
