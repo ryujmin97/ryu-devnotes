@@ -1,3 +1,85 @@
+## 208차 (완료 — 207차 패치를 202/203차 문제 로그로 실측 A/B 재검증, ryu 코드 변경 없음, devnotes만 갱신) — 207차 실차로그 A/B 검증(POSITIVE)
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu`(분석만, 변경 없음) + `ryujmin97/ryu-devnotes`
+
+**Branch**: `c3-ms-dev` / `main`
+
+**Base commit (ryu, 이 회차 시작 시점)**: `2b44b65`(207차, 드리프트 없음 — `git log`로 확인)
+
+**Base commit (devnotes, 이 회차 시작 시점)**: `bcb46fc`(207차)
+
+**배경**: 사용자가 "최신 레포 확인. 이번 패치로 로그 시뮬레이션 해줘"라고
+요청. 세션 시작 시 GitHub 상태를 확인한 결과 사용자가 함께 업로드한
+`202cha_baseline_investigation.md`(202차 문서)보다 프로젝트가 207차까지
+진행돼 있었음. "이번 패치" = 최신 커밋인 207차(ceiling 항 apex_speed ->
+sharpest_candidate_speed), "문제가 있던 로그" = 사용자가 이번에 재업로드한
+199차 8세그(`199cha_8seg_route_extracted.csv`, 202/203차가 분석한 북대전IC
+스파이크/고원 로그, 이전 세션에서 컨테이너 리셋으로 소실됐던 것과 동일
+로그) — 206차와 동일한 방법론으로, 비교 대상만 202차(고정150) vs 205차에서
+205차 vs 207차로 교체.
+
+**작업 내용(전부 ryu 코드 변경 없음, 시뮬레이션만)**:
+
+1. GitHub 상태 확인(§3): `ryu`(`2b44b65`)/`devnotes`(`bcb46fc`) 둘 다 207차
+   상태와 일치, 다른 작업자 흔적 없음.
+2. `sim_route_205_vego_cap_ab_206.py`와 동일한 구조(raw 클리핑만 OLD/NEW
+   분기, 199차 boost/172·173차 램프/162·167차 position 게이트는 공유)로
+   신규 `sim_route_207_ceiling_ab_208.py` 작성. 이번 로그엔 204차 candidate
+   telemetry가 없어(204차 이전 로그) `analysis_helpers.recompute_route_curvature_speed()`
+   (147차 계측 naviPaths 원시 폴리라인 재사용, macro sample=4 + fine
+   sample=1)로 candidates를 직접 재구성 -- apex_dist/apex_speed/raw는 CSV
+   실측 텔레메트리 그대로 사용, candidates 재구성에만 road_limit_speed=200.0
+   고정가정(148/161차 기존 한계) 적용.
+3. **핵심 결과(POSITIVE)**: 북대전IC 구간(t=450.0~498.0, 960프레임)
+   would_bind가 OLD(205차) 37.1%(206차 NEGATIVE와 동일 수치) -> NEW(207차)
+   76.8~77.3%로 대폭 개선. apex 최근접 프레임(t=461.08, apex_speed=59.4):
+   OLD=63.7(목표 초과 +4.3kph) -> NEW=56.9(목표 이하 -2.6kph, 초과하지 않는
+   안전한 방향). 206차가 확인한 NEGATIVE(205차 단독으로는 이 로그의 핵심
+   실패모드를 해결 못함)를 207차가 이 로그 기준으로는 상당 부분 해소.
+4. **부수 발견(재현 아티팩트, 보정 반영)**: naviPaths 마지막 리샘플
+   포인트가 드물게(7,098프레임 중 28개/0.4%) 실제 유클리드 간격이 명목
+   10m와 어긋나는 경계 클램프를 만들어(t=437.98 실측: 실제 간격 6.55m,
+   y가 -1.22->-5.15로 급변) 허위 급커브(5.0kph)로 오판될 수 있음을 발견
+   -- 스크립트에 마지막 포인트 트림 보정 반영. 트림 전/후 결과 차이는
+   미미(76.8% vs 77.3%)해 전체 결론에 영향 없음.
+5. **교차검증**: t=466~467 구간에서는 실제 device 텔레메트리
+   (routeApexSpeed 컬럼, CSV 실측값) 자체가 5.0을 기록 -- sharpest_candidate가
+   미리 감지한 5.0kph 후보가 트림 대상 아티팩트가 아니라 실재하는 급커브임을
+   확인. 207차 WIP가 우려했던 "먼 GPS 노이즈성 저속 후보가 정당한 가속
+   복귀를 억제할 위험"(미확인 사항 #2)이 적어도 이 로그·이 구간에서는
+   나타나지 않았고, 오히려 진짜 급커브를 조기 포착하는 정상 동작이었음.
+
+**검증**:
+- 정적 분석: `py_compile`/`ast.parse` PASS
+- 로그 분석: 완료(199차 8세그, naviPaths 재구성 기반 프레임단위 A/B)
+- 시뮬레이션: 완료(북대전IC 구간 상세 통계 + 전체 스캔)
+- 실차 검증: 미실시(207차와 동일하게 유지)
+
+**결론/판단**: 207차 패치는 이 로그(199차 8세그, 북대전IC) 기준으로
+206차가 발견한 NEGATIVE를 해소하는 방향으로 실측 확인됨(POSITIVE) --
+다만 단일 로그 1건 검증이므로 일반화에는 주의가 필요.
+
+**미확인 사항 / 다음 작업**:
+1. 203차가 우려했던 "정상 연속곡선 통과 후 가속 억제"(sim_route_hi_debounce_sweep_203.py
+   가 t=382~393에서 발견) 시나리오를 이번 sharpest_candidate 방식으로도
+   재확인 필요 -- 이번 세션에서는 북대전IC 구간만 집중 검증.
+2. naviPaths 마지막 포인트 경계 클램프 아티팩트(0.4% 프레임)는 이번 로그
+   결과에는 영향이 없었으나, ryu 본체 코드(carrot_man.py)의
+   resample_10m_np()/candidates 계산 자체에도 동일한 트림이 필요한지는
+   별도 확인 필요(현재 ryu 코드는 트림하지 않음 -- 이번 스크립트만 보정).
+3. road_limit_speed=200.0 고정가정(148/161차)을 실제 도로제한속도로
+   교체하면 candidates 재구성 결과가 어떻게 달라지는지는 여전히 미확인.
+4. 다른 문제 로그(356/357 routes 등)로도 207차 재검증 필요.
+
+**Devnotes**: `toolkit/sim_route_207_ceiling_ab_208.py`(신규),
+`toolkit/README.md` + `toolkit/CHANGELOG.md`(신규 섹션), `FINDINGS.md`(208차 항목 추가)
+
+**전달 파일**: `toolkit/sim_route_207_ceiling_ab_208.py` (devnotes toolkit 신규, ryu 변경 없음)
+
+---
+
 ## 207차 (완료 — 206차 NEGATIVE 원인 대응 패치 작성+검증, ryu 코드 변경 O, 실차 미검증) — route out_speed 상한(ceiling) 항을 sharpest_candidate_speed로 교체
 
 **Worker**: Claude

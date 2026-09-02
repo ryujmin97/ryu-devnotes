@@ -900,3 +900,20 @@ discontinuity 0건). 개발 중 트리거 소스별 boost_s 미구분 버그가 
   오염시키는 문제)에 대응하는 설계(ceiling 항만 apex_speed -> sharpest_candidate_speed)를
   ryu 코드 반영 전 시나리오 기반으로 사전검증. 6/6 PASS(핵심 재현 시나리오 150->55,
   대조 시나리오 3종 diff-0). ryu 패치는 `0001-207-...patch`로 별도 전달, 실차 미검증.
+## 208차
+- `sim_route_207_ceiling_ab_208.py`: 신규 -- 207차(ceiling apex_speed ->
+  sharpest_candidate_speed, `2b44b65` 현재 코드)를 199cha 8세그 실차로그로
+  처음 실측 재검증(207차 사전검증은 합성 시나리오였음, NEEDS_VALIDATION 해소).
+  이 로그엔 204차 candidate telemetry가 없어 naviPaths 원시 폴리라인에서
+  `analysis_helpers.recompute_route_curvature_speed()`로 candidates를 직접
+  재구성(macro sample=4 + fine sample=1, road_limit_speed=200.0 고정가정
+  148/161차 기존 한계 재사용). 북대전IC 구간(t=450~498) would_bind
+  37.1%(205차, 206차 NEGATIVE와 동일)->76.8~77.3%(207차)로 대폭 개선을 실측
+  확인 -- 205차 단독으로 해결 못했던 202/203차 문제를 207차가 이 로그
+  기준으로는 상당 부분 해소함(POSITIVE). 부수 발견: naviPaths 마지막
+  리샘플 포인트가 드물게(0.4%, 28/7098프레임) 실제 유클리드 간격이 10m와
+  불일치하는 경계 클램프 아티팩트를 만들어 허위 급커브(5.0kph)로 오판되는
+  사례 1건 발견 -- 스크립트에 트림 보정 반영, 결과 영향은 미미(76.8% vs
+  77.3%)함을 확인. 이 결과와 별개로 t=466~467 구간 실제 device 텔레메트리
+  자체(routeApexSpeed)가 5.0을 기록해, sharpest_candidate가 미리 잡아낸
+  5.0kph 후보가 아티팩트가 아니라 실재하는 급커브임을 교차검증함.

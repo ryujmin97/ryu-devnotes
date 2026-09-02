@@ -2349,6 +2349,53 @@ disengaged 전환, FINDINGS.md 159차)와는 무관함을 확인하는 목적도
 실패의 구조적 원인(상태 전환 시 _route_speed_prev가 300 쪽으로
 즉시통과+점프)이 애초에 발생하지 않는다.
 
+## sim_route_207_ceiling_ab_208.py (208차, 신규 -- 207차 실차로그 A/B 재검증, POSITIVE)
+
+207차(ceiling 항 apex_speed -> sharpest_candidate_speed)의 사전검증
+(`sim_route_ceiling_sharpest_candidate_207.py`)은 206차 WIP 기록 수치로
+재구성한 합성 시나리오였다(NEEDS_VALIDATION). 이 스크립트가 199cha 8세그
+원본 로그로 하는 첫 실측 재현이다. 이 로그엔 204차 candidate telemetry가
+없으므로(204차 이전 로그) naviPaths 원시 폴리라인 컬럼에서
+`analysis_helpers.recompute_route_curvature_speed()`(macro sample=4 + fine
+sample=1, ROUTE_CURVATURE_FINE_SAMPLE과 동일)로 candidates를 직접
+재구성한다. apex_dist/apex_speed/raw(routeOutSpeed)는 CSV 실측 텔레메트리를
+그대로 사용하고, candidates(및 sharpest_candidate_speed) 재구성에만
+road_limit_speed=200.0 고정 가정(148/161차 기존 오프라인 한계와 동일 관행)을
+적용한다.
+
+**핵심 결과(POSITIVE)**: 북대전IC 구간(t=450.0~498.0, 960프레임) would_bind가
+OLD(205차) 37.1% -> NEW(207차) 76.8~77.3%로 대폭 개선. 206차가 확인한 NEGATIVE
+(205차 단독으로는 이 로그의 핵심 실패모드를 해결 못함)를 207차가 이 로그
+기준으로는 상당 부분 해소함을 실측으로 처음 확인.
+
+apex 최근접 프레임(t=461.08, dist=20.0m, apex_speed=59.4): OLD=63.7(목표 대비
++4.3kph 초과) -> NEW=56.9(목표 대비 -2.6kph, 초과하지 않는 방향).
+
+**부수 발견 및 보정**: naviPaths 마지막 리샘플 포인트가 드물게(전체
+7,098프레임 중 28개/0.4%) 실제 유클리드 간격이 명목 10m와 크게 어긋나는
+경계 클램프 아티팩트를 만들어(t=437.98 실측: 마지막 두 점 실간격 6.55m,
+y가 -1.22->-5.15로 급변) 허위 급커브(5.0kph)로 오판될 수 있음을 발견 --
+스크립트에 마지막 포인트 트림 보정 반영(결과에 미치는 영향은 미미,
+76.8% vs 트림 전 77.3%). 이와 별개로 t=466~467 구간에서는 실제 device
+텔레메트리(routeApexSpeed 컬럼) 자체가 5.0을 기록하고 있어, sharpest_candidate가
+미리 감지한 5.0kph 후보가 트림 대상 아티팩트가 아니라 실재하는 급커브임을
+교차검증함(207차 WIP 미확인사항 #2가 우려한 "먼 GPS 노이즈성 저속 후보"
+위험이 이 로그에서는 실제로는 나타나지 않았고, 오히려 진짜 급커브를 조기
+포착하는 정상 동작이었음).
+
+**한계**: nRoadLimitSpeed 미기록으로 인한 200.0 고정가정(148/161차 기존
+한계) 그대로 적용 -- 실제 도로제한이 200보다 낮으면 candidates 집합이
+실제보다 넓게 잡힐 수 있음. 이 로그 1건(북대전IC 8세그)만의 검증이며,
+203차가 우려한 "정상 연속곡선 통과 후 가속 억제" 시나리오는 이번에
+별도로 재확인하지 않음(다음 세션 과제).
+
+**사용**:
+```
+python3 devnotes/toolkit/sim_route_207_ceiling_ab_208.py [csv_path]
+```
+기본 csv_path는 `/mnt/user-data/uploads/199cha_8seg_route_extracted.csv`
+(naviPaths 컬럼 필요, `extract_log.py --with-navi-paths`로 추출).
+
 ## sim_route_205_vego_cap_ab_206.py (206차, 신규 -- 205차 패치 실차로그 A/B 재검증, NEGATIVE)
 205차(out_speed 상한 고정 150 -> max(vEgo_kph, apex_speed)와 150 중 min으로
 동적화)가 실제 202/203차 문제 로그(199차 8세그, 북대전IC 진입 26초 전

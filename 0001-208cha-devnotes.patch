@@ -1,0 +1,500 @@
+diff --git a/FINDINGS.md b/FINDINGS.md
+index 84c2fcf..7f9643f 100644
+--- a/FINDINGS.md
++++ b/FINDINGS.md
+@@ -12593,3 +12593,45 @@ ryu 실차 반영됨 — 커밋 `eecac50`)는 그 경우만 완화한다. 이번
+ **범위**: `ryu`(cereal/custom.capnp, carrot_man.py, carrot_serv.py, 코드
+ 변경 있음 — 계측 전용, 제어로직 변경 없음) + `toolkit/`(extract_log.py,
+ check_navi_route_activity.py 신규, README/CHANGELOG). 실차 검증 전.
++
++## 208차 — 207차(ceiling apex_speed -> sharpest_candidate_speed) 199차 8세그 실측 A/B: POSITIVE
++
++206차가 199차 8세그 실차로그로 205차(out_speed 상한 vEgo 동적화)를
++재검증한 결과는 NEGATIVE였다(would_bind 37.1%->37.1% 불변, apex_speed
++자체가 오염돼 vEgo 하한이 작동하지 않음). 207차는 이 문제에 대응해
++ceiling 항을 apex_speed 대신 candidates 전체 중 sharpest(최솟값)로
++교체했으나, 207차 사전검증은 합성 시나리오였다(NEEDS_VALIDATION).
++
++208차가 `sim_route_207_ceiling_ab_208.py`로 같은 로그에 처음 실측
++재현한 결과: 북대전IC 구간(t=450.0~498.0, 960프레임) would_bind가
++OLD(205차) 37.1% -> NEW(207차) 76.8~77.3%로 대폭 개선. apex 최근접
++프레임(t=461.08)에서 OLD는 목표 대비 +4.3kph 초과, NEW는 -2.6kph로
++초과하지 않는 방향. **결론: 207차 패치는 이 로그 기준으로 206차가
++발견한 NEGATIVE를 해소한다(POSITIVE, 단일 로그 검증).**
++
++이 로그엔 204차 candidate telemetry가 없어 naviPaths 원시 폴리라인에서
++`analysis_helpers.recompute_route_curvature_speed()`로 candidates를
++재구성했다. 재구성 과정에서 naviPaths 마지막 리샘플 포인트가 드물게
++(7,098프레임 중 28개/0.4%) 실제 유클리드 간격이 명목 10m와 크게
++어긋나는 경계 클램프 아티팩트를 만들어 허위 급커브(5.0kph)로 오판될
++수 있음을 발견했다(t=437.98 실측 사례). 스크립트에 트림 보정을
++반영했으며, 트림 전/후 결과 차이는 미미(76.8% vs 77.3%)해 전체 결론에
++영향을 주지 않는다.
++
++**중요 교차검증**: t=466~467 구간에서는 실제 device 텔레메트리
++(routeApexSpeed 컬럼, 재구성이 아닌 CSV 원본 실측값)가 5.0을 그대로
++기록하고 있다. 즉 sharpest_candidate가 그보다 앞선 프레임들(t=438~466
++부근)에서 미리 감지한 5.0kph 후보는 재구성 아티팩트가 아니라 실재하는
++급커브였다. 207차 WIP 미확인사항 #2가 이론적으로 우려했던 "먼 GPS
++노이즈성 저속 후보가 지속적으로 존재하면 정당한 가속 복귀를 과도하게
++억제할 위험"은 적어도 이 로그·이 구간에서는 나타나지 않았다 — 오히려
++sharpest_candidate가 진짜 급커브를 더 일찍(원거리에서부터) 포착해
++ceiling을 선제적으로 낮추는 정상 동작으로 확인됐다.
++
++**남은 미확인**: 203차가 발견했던 "정상 연속곡선 통과 후 가속 억제"
++시나리오(sim_route_hi_debounce_sweep_203.py, t=382~393)는 이번엔
++sharpest_candidate 방식으로 재확인하지 않았다 — 다음 세션 과제.
++road_limit_speed=200.0 고정가정(148/161차 기존 한계)도 그대로 남아있다.
++
++**범위**: `ryu` 코드 변경 없음(분석만) + `toolkit/sim_route_207_ceiling_ab_208.py`
++신규, README/CHANGELOG 갱신.
+diff --git a/WIP.md b/WIP.md
+index 11fb106..a78ccbe 100644
+--- a/WIP.md
++++ b/WIP.md
+@@ -1,3 +1,85 @@
++## 208차 (완료 — 207차 패치를 202/203차 문제 로그로 실측 A/B 재검증, ryu 코드 변경 없음, devnotes만 갱신) — 207차 실차로그 A/B 검증(POSITIVE)
++
++**Worker**: Claude
++
++**Repository**: `ryujmin97/ryu`(분석만, 변경 없음) + `ryujmin97/ryu-devnotes`
++
++**Branch**: `c3-ms-dev` / `main`
++
++**Base commit (ryu, 이 회차 시작 시점)**: `2b44b65`(207차, 드리프트 없음 — `git log`로 확인)
++
++**Base commit (devnotes, 이 회차 시작 시점)**: `bcb46fc`(207차)
++
++**배경**: 사용자가 "최신 레포 확인. 이번 패치로 로그 시뮬레이션 해줘"라고
++요청. 세션 시작 시 GitHub 상태를 확인한 결과 사용자가 함께 업로드한
++`202cha_baseline_investigation.md`(202차 문서)보다 프로젝트가 207차까지
++진행돼 있었음. "이번 패치" = 최신 커밋인 207차(ceiling 항 apex_speed ->
++sharpest_candidate_speed), "문제가 있던 로그" = 사용자가 이번에 재업로드한
++199차 8세그(`199cha_8seg_route_extracted.csv`, 202/203차가 분석한 북대전IC
++스파이크/고원 로그, 이전 세션에서 컨테이너 리셋으로 소실됐던 것과 동일
++로그) — 206차와 동일한 방법론으로, 비교 대상만 202차(고정150) vs 205차에서
++205차 vs 207차로 교체.
++
++**작업 내용(전부 ryu 코드 변경 없음, 시뮬레이션만)**:
++
++1. GitHub 상태 확인(§3): `ryu`(`2b44b65`)/`devnotes`(`bcb46fc`) 둘 다 207차
++   상태와 일치, 다른 작업자 흔적 없음.
++2. `sim_route_205_vego_cap_ab_206.py`와 동일한 구조(raw 클리핑만 OLD/NEW
++   분기, 199차 boost/172·173차 램프/162·167차 position 게이트는 공유)로
++   신규 `sim_route_207_ceiling_ab_208.py` 작성. 이번 로그엔 204차 candidate
++   telemetry가 없어(204차 이전 로그) `analysis_helpers.recompute_route_curvature_speed()`
++   (147차 계측 naviPaths 원시 폴리라인 재사용, macro sample=4 + fine
++   sample=1)로 candidates를 직접 재구성 -- apex_dist/apex_speed/raw는 CSV
++   실측 텔레메트리 그대로 사용, candidates 재구성에만 road_limit_speed=200.0
++   고정가정(148/161차 기존 한계) 적용.
++3. **핵심 결과(POSITIVE)**: 북대전IC 구간(t=450.0~498.0, 960프레임)
++   would_bind가 OLD(205차) 37.1%(206차 NEGATIVE와 동일 수치) -> NEW(207차)
++   76.8~77.3%로 대폭 개선. apex 최근접 프레임(t=461.08, apex_speed=59.4):
++   OLD=63.7(목표 초과 +4.3kph) -> NEW=56.9(목표 이하 -2.6kph, 초과하지 않는
++   안전한 방향). 206차가 확인한 NEGATIVE(205차 단독으로는 이 로그의 핵심
++   실패모드를 해결 못함)를 207차가 이 로그 기준으로는 상당 부분 해소.
++4. **부수 발견(재현 아티팩트, 보정 반영)**: naviPaths 마지막 리샘플
++   포인트가 드물게(7,098프레임 중 28개/0.4%) 실제 유클리드 간격이 명목
++   10m와 어긋나는 경계 클램프를 만들어(t=437.98 실측: 실제 간격 6.55m,
++   y가 -1.22->-5.15로 급변) 허위 급커브(5.0kph)로 오판될 수 있음을 발견
++   -- 스크립트에 마지막 포인트 트림 보정 반영. 트림 전/후 결과 차이는
++   미미(76.8% vs 77.3%)해 전체 결론에 영향 없음.
++5. **교차검증**: t=466~467 구간에서는 실제 device 텔레메트리
++   (routeApexSpeed 컬럼, CSV 실측값) 자체가 5.0을 기록 -- sharpest_candidate가
++   미리 감지한 5.0kph 후보가 트림 대상 아티팩트가 아니라 실재하는 급커브임을
++   확인. 207차 WIP가 우려했던 "먼 GPS 노이즈성 저속 후보가 정당한 가속
++   복귀를 억제할 위험"(미확인 사항 #2)이 적어도 이 로그·이 구간에서는
++   나타나지 않았고, 오히려 진짜 급커브를 조기 포착하는 정상 동작이었음.
++
++**검증**:
++- 정적 분석: `py_compile`/`ast.parse` PASS
++- 로그 분석: 완료(199차 8세그, naviPaths 재구성 기반 프레임단위 A/B)
++- 시뮬레이션: 완료(북대전IC 구간 상세 통계 + 전체 스캔)
++- 실차 검증: 미실시(207차와 동일하게 유지)
++
++**결론/판단**: 207차 패치는 이 로그(199차 8세그, 북대전IC) 기준으로
++206차가 발견한 NEGATIVE를 해소하는 방향으로 실측 확인됨(POSITIVE) --
++다만 단일 로그 1건 검증이므로 일반화에는 주의가 필요.
++
++**미확인 사항 / 다음 작업**:
++1. 203차가 우려했던 "정상 연속곡선 통과 후 가속 억제"(sim_route_hi_debounce_sweep_203.py
++   가 t=382~393에서 발견) 시나리오를 이번 sharpest_candidate 방식으로도
++   재확인 필요 -- 이번 세션에서는 북대전IC 구간만 집중 검증.
++2. naviPaths 마지막 포인트 경계 클램프 아티팩트(0.4% 프레임)는 이번 로그
++   결과에는 영향이 없었으나, ryu 본체 코드(carrot_man.py)의
++   resample_10m_np()/candidates 계산 자체에도 동일한 트림이 필요한지는
++   별도 확인 필요(현재 ryu 코드는 트림하지 않음 -- 이번 스크립트만 보정).
++3. road_limit_speed=200.0 고정가정(148/161차)을 실제 도로제한속도로
++   교체하면 candidates 재구성 결과가 어떻게 달라지는지는 여전히 미확인.
++4. 다른 문제 로그(356/357 routes 등)로도 207차 재검증 필요.
++
++**Devnotes**: `toolkit/sim_route_207_ceiling_ab_208.py`(신규),
++`toolkit/README.md` + `toolkit/CHANGELOG.md`(신규 섹션), `FINDINGS.md`(208차 항목 추가)
++
++**전달 파일**: `toolkit/sim_route_207_ceiling_ab_208.py` (devnotes toolkit 신규, ryu 변경 없음)
++
++---
++
+ ## 207차 (완료 — 206차 NEGATIVE 원인 대응 패치 작성+검증, ryu 코드 변경 O, 실차 미검증) — route out_speed 상한(ceiling) 항을 sharpest_candidate_speed로 교체
+ 
+ **Worker**: Claude
+diff --git a/toolkit/CHANGELOG.md b/toolkit/CHANGELOG.md
+index 0f0f6ea..dcecb52 100644
+--- a/toolkit/CHANGELOG.md
++++ b/toolkit/CHANGELOG.md
+@@ -900,3 +900,20 @@ discontinuity 0건). 개발 중 트리거 소스별 boost_s 미구분 버그가
+   오염시키는 문제)에 대응하는 설계(ceiling 항만 apex_speed -> sharpest_candidate_speed)를
+   ryu 코드 반영 전 시나리오 기반으로 사전검증. 6/6 PASS(핵심 재현 시나리오 150->55,
+   대조 시나리오 3종 diff-0). ryu 패치는 `0001-207-...patch`로 별도 전달, 실차 미검증.
++## 208차
++- `sim_route_207_ceiling_ab_208.py`: 신규 -- 207차(ceiling apex_speed ->
++  sharpest_candidate_speed, `2b44b65` 현재 코드)를 199cha 8세그 실차로그로
++  처음 실측 재검증(207차 사전검증은 합성 시나리오였음, NEEDS_VALIDATION 해소).
++  이 로그엔 204차 candidate telemetry가 없어 naviPaths 원시 폴리라인에서
++  `analysis_helpers.recompute_route_curvature_speed()`로 candidates를 직접
++  재구성(macro sample=4 + fine sample=1, road_limit_speed=200.0 고정가정
++  148/161차 기존 한계 재사용). 북대전IC 구간(t=450~498) would_bind
++  37.1%(205차, 206차 NEGATIVE와 동일)->76.8~77.3%(207차)로 대폭 개선을 실측
++  확인 -- 205차 단독으로 해결 못했던 202/203차 문제를 207차가 이 로그
++  기준으로는 상당 부분 해소함(POSITIVE). 부수 발견: naviPaths 마지막
++  리샘플 포인트가 드물게(0.4%, 28/7098프레임) 실제 유클리드 간격이 10m와
++  불일치하는 경계 클램프 아티팩트를 만들어 허위 급커브(5.0kph)로 오판되는
++  사례 1건 발견 -- 스크립트에 트림 보정 반영, 결과 영향은 미미(76.8% vs
++  77.3%)함을 확인. 이 결과와 별개로 t=466~467 구간 실제 device 텔레메트리
++  자체(routeApexSpeed)가 5.0을 기록해, sharpest_candidate가 미리 잡아낸
++  5.0kph 후보가 아티팩트가 아니라 실재하는 급커브임을 교차검증함.
+diff --git a/toolkit/README.md b/toolkit/README.md
+index 7d53cb5..de1a333 100644
+--- a/toolkit/README.md
++++ b/toolkit/README.md
+@@ -2349,6 +2349,53 @@ disengaged 전환, FINDINGS.md 159차)와는 무관함을 확인하는 목적도
+ 실패의 구조적 원인(상태 전환 시 _route_speed_prev가 300 쪽으로
+ 즉시통과+점프)이 애초에 발생하지 않는다.
+ 
++## sim_route_207_ceiling_ab_208.py (208차, 신규 -- 207차 실차로그 A/B 재검증, POSITIVE)
++
++207차(ceiling 항 apex_speed -> sharpest_candidate_speed)의 사전검증
++(`sim_route_ceiling_sharpest_candidate_207.py`)은 206차 WIP 기록 수치로
++재구성한 합성 시나리오였다(NEEDS_VALIDATION). 이 스크립트가 199cha 8세그
++원본 로그로 하는 첫 실측 재현이다. 이 로그엔 204차 candidate telemetry가
++없으므로(204차 이전 로그) naviPaths 원시 폴리라인 컬럼에서
++`analysis_helpers.recompute_route_curvature_speed()`(macro sample=4 + fine
++sample=1, ROUTE_CURVATURE_FINE_SAMPLE과 동일)로 candidates를 직접
++재구성한다. apex_dist/apex_speed/raw(routeOutSpeed)는 CSV 실측 텔레메트리를
++그대로 사용하고, candidates(및 sharpest_candidate_speed) 재구성에만
++road_limit_speed=200.0 고정 가정(148/161차 기존 오프라인 한계와 동일 관행)을
++적용한다.
++
++**핵심 결과(POSITIVE)**: 북대전IC 구간(t=450.0~498.0, 960프레임) would_bind가
++OLD(205차) 37.1% -> NEW(207차) 76.8~77.3%로 대폭 개선. 206차가 확인한 NEGATIVE
++(205차 단독으로는 이 로그의 핵심 실패모드를 해결 못함)를 207차가 이 로그
++기준으로는 상당 부분 해소함을 실측으로 처음 확인.
++
++apex 최근접 프레임(t=461.08, dist=20.0m, apex_speed=59.4): OLD=63.7(목표 대비
+++4.3kph 초과) -> NEW=56.9(목표 대비 -2.6kph, 초과하지 않는 방향).
++
++**부수 발견 및 보정**: naviPaths 마지막 리샘플 포인트가 드물게(전체
++7,098프레임 중 28개/0.4%) 실제 유클리드 간격이 명목 10m와 크게 어긋나는
++경계 클램프 아티팩트를 만들어(t=437.98 실측: 마지막 두 점 실간격 6.55m,
++y가 -1.22->-5.15로 급변) 허위 급커브(5.0kph)로 오판될 수 있음을 발견 --
++스크립트에 마지막 포인트 트림 보정 반영(결과에 미치는 영향은 미미,
++76.8% vs 트림 전 77.3%). 이와 별개로 t=466~467 구간에서는 실제 device
++텔레메트리(routeApexSpeed 컬럼) 자체가 5.0을 기록하고 있어, sharpest_candidate가
++미리 감지한 5.0kph 후보가 트림 대상 아티팩트가 아니라 실재하는 급커브임을
++교차검증함(207차 WIP 미확인사항 #2가 우려한 "먼 GPS 노이즈성 저속 후보"
++위험이 이 로그에서는 실제로는 나타나지 않았고, 오히려 진짜 급커브를 조기
++포착하는 정상 동작이었음).
++
++**한계**: nRoadLimitSpeed 미기록으로 인한 200.0 고정가정(148/161차 기존
++한계) 그대로 적용 -- 실제 도로제한이 200보다 낮으면 candidates 집합이
++실제보다 넓게 잡힐 수 있음. 이 로그 1건(북대전IC 8세그)만의 검증이며,
++203차가 우려한 "정상 연속곡선 통과 후 가속 억제" 시나리오는 이번에
++별도로 재확인하지 않음(다음 세션 과제).
++
++**사용**:
++```
++python3 devnotes/toolkit/sim_route_207_ceiling_ab_208.py [csv_path]
++```
++기본 csv_path는 `/mnt/user-data/uploads/199cha_8seg_route_extracted.csv`
++(naviPaths 컬럼 필요, `extract_log.py --with-navi-paths`로 추출).
++
+ ## sim_route_205_vego_cap_ab_206.py (206차, 신규 -- 205차 패치 실차로그 A/B 재검증, NEGATIVE)
+ 205차(out_speed 상한 고정 150 -> max(vEgo_kph, apex_speed)와 150 중 min으로
+ 동적화)가 실제 202/203차 문제 로그(199차 8세그, 북대전IC 진입 26초 전
+diff --git a/toolkit/sim_route_207_ceiling_ab_208.py b/toolkit/sim_route_207_ceiling_ab_208.py
+new file mode 100644
+index 0000000..519275b
+--- /dev/null
++++ b/toolkit/sim_route_207_ceiling_ab_208.py
+@@ -0,0 +1,271 @@
++#!/usr/bin/env python3
++"""
++208차 -- 207차 패치(out_speed 상한(ceiling) 항 apex_speed -> sharpest_candidate_speed
++교체) 실차로그 A/B 재검증. 207차 사전검증(sim_route_ceiling_sharpest_candidate_207.py)은
++206차 WIP 기록 수치로 재구성한 합성 시나리오였고(NEEDS_VALIDATION), 이번이 199cha
++8세그 원본 로그로 하는 첫 실측 재현이다(206차와 동일한 로그/방법론, ceiling 분기만
++205차->207차로 교체).
++
++  방식 OLD (205차, 206차가 NEGATIVE로 확인한 버전):
++      out_speed = min(raw_col, max(vEgo_kph, apex_speed), 150.0)
++  방식 NEW (207차, 현재 코드):
++      out_speed = min(raw_col, max(vEgo_kph, sharpest_candidate_speed), 150.0)
++      sharpest_candidate_speed = min(speeds[k] for k in candidates) if candidates else apex_speed
++
++apex_dist/apex_speed/raw_col(routeOutSpeed)은 199cha 8세그 CSV에 이미 실측 텔레메트리로
++들어있다(193/194차). 그러나 candidates 리스트(도로제한속도 미만인 모든 후보의 speed)는
++이 로그에 없다(204차 계측 이전 로그) -- naviPaths 원시 폴리라인 컬럼(147차 계측)에서
++carrot_man.py와 동일한 3점 곡률(macro sample=4 + fine sample=1, ROUTE_CURVATURE_FINE_SAMPLE)
++계산을 재현해(analysis_helpers.recompute_route_curvature_speed) candidates를 직접
++재구성한다.
++
++**알려진 한계(148/161차 기존 한계와 동일)**: nRoadLimitSpeed(실제 도로제한속도)는
++CSV에 기록되지 않아 오프라인 재현에서는 고정값 200.0을 가정한다(recompute_route_
++curvature_speed의 기본값과 동일 관행). 실제 도로제한이 200보다 낮으면 candidates
++집합이 실제보다 넓게(더 보수적으로) 잡힐 수 있다 -- 이 스크립트는 apex_dist/apex_speed
++자체는 CSV 실측값을 그대로 쓰고, candidates 재구성에만 이 가정을 적용한다.
++
++CSV 컬럼 요구: t, vEgo, naviPointsActive, routeApexIdx, routeApexDist,
++routeApexSpeed, routeOutSpeed, ccPoseValid, positionDtSinceFix, src, desiredSpeed,
++naviPaths(--with-navi-paths로 추출 필요)
++"""
++import csv
++import math
++import sys
++import os
++
++sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
++from analysis_helpers import parse_navi_paths, recompute_route_curvature_speed
++
++ROUTE_MAX_SPEED_KPH = 150.0
++ROUTE_SPEED_LOOP_DT = 0.05
++ROUTE_APEX_SPEED_DISCONTINUITY_THRESH_KPH = 15.0
++ROUTE_VEGO_BOOST_MAX_MSS = 3.0
++ROUTE_POSITION_UNCERTAIN_DT_S = 3.0
++AUTO_NAVI_SPEED_DECEL_RATE = 0.70
++ASSUMED_ROAD_LIMIT_KPH = 200.0  # 148/161차 기존 오프라인 한계와 동일 가정
++ROUTE_CURVE_NEGLIGIBLE_THRESHOLD = 0.001  # 157차 패치 값(carrot_man.py와 동일)
++
++
++def load_rows(path):
++    with open(path, newline="") as f:
++        return list(csv.DictReader(f))
++
++
++def f(row, key, default=0.0):
++    v = row.get(key, "")
++    if v in ("", None):
++        return default
++    try:
++        return float(v)
++    except ValueError:
++        return default
++
++
++def sharpest_candidate_speed_for_row(navi_paths_str, apex_speed):
++    """naviPaths 원시 폴리라인에서 carrot_man.py L839 candidates(=speed <
++    도로제한속도인 전체 지점)를 재구성하고 그중 최솟값(sharpest)을 반환.
++    파싱 실패/포인트 부족 시 apex_speed로 폴백(179차 폴백 경로와 동일).
++
++    [208차, 실측 중 발견한 재현 아티팩트 보정] naviPaths의 마지막 포인트는
++    resample_10m_np()가 실제 경로 길이보다 요청 거리(route_lookahead_m)가
++    더 길 때 물리적으로 균등하지 않은 위치로 클램프하는 경우가 있음(라벨
++    거리는 정확히 10m 간격이지만 실제 x,y 유클리드 간격은 그렇지 않음--
++    t=437.98 실측: 마지막 두 점 간 실제 간격 6.55m인데 y가 -1.22->-5.15로
++    급변, 3점 곡률 스텐실이 이를 반경 20m 미만의 급커브로 오판(speed=5.0)).
++    이 스크립트는 재현 목적상 마지막 1개 포인트를 드롭하고 재계산해 이
++    경계 아티팩트를 제거한다(전체 로그 스캔 결과 실제 유클리드 간격이
++    7~13m 범위를 벗어나는 프레임은 7,098개 중 28개/0.4%뿐이나, 문제
++    구간에서 24초 이상 연속 재현돼 영향이 누적됨 -- 상세는 WIP.md 208차).
++    """
++    points, distances = parse_navi_paths(navi_paths_str)
++    if len(points) < 4 * 2 + 1 + 1:  # sample*2+1 + 경계 트림 1개
++        return apex_speed, 0
++    points, distances = points[:-1], distances[:-1]
++    entries = recompute_route_curvature_speed(
++        points, distances, sample=4, sample_fine=1,
++        road_limit_speed=ASSUMED_ROAD_LIMIT_KPH,
++        floor_threshold=ROUTE_CURVE_NEGLIGIBLE_THRESHOLD,
++    )
++    candidates = [spd for (_, _, spd) in entries if spd < ASSUMED_ROAD_LIMIT_KPH]
++    if not candidates:
++        return apex_speed, 0
++    return min(candidates), len(candidates)
++
++
++class Branch:
++    """OLD/NEW 각 갈래가 독립적으로 갖는 상태(_route_speed_prev류)."""
++    def __init__(self):
++        self.prev = None
++        self.apex_speed_prev = None
++        self.boost_armed = False
++        self.boost_armed_speed = None
++
++    def reset(self):
++        self.prev = None
++        self.apex_speed_prev = None
++        self.boost_armed = False
++        self.boost_armed_speed = None
++
++    def step(self, raw_clipped, apex_dist, apex_speed, v_ego_ms,
++             cc_pose_valid, position_dt_since_fix):
++        out_speed = raw_clipped
++
++        accel_limit_kmh = AUTO_NAVI_SPEED_DECEL_RATE * 3.6
++        if self.apex_speed_prev is None:
++            pass
++        else:
++            apex_delta_kph = self.apex_speed_prev - apex_speed
++            if apex_delta_kph > ROUTE_APEX_SPEED_DISCONTINUITY_THRESH_KPH:
++                self.boost_armed = True
++                self.boost_armed_speed = apex_speed
++            elif self.boost_armed:
++                if abs(apex_speed - self.boost_armed_speed) > ROUTE_APEX_SPEED_DISCONTINUITY_THRESH_KPH:
++                    self.boost_armed = False
++                    self.boost_armed_speed = None
++        self.apex_speed_prev = apex_speed
++
++        if self.boost_armed and apex_dist > 0:
++            v_target_ms = apex_speed / 3.6
++            if v_ego_ms > v_target_ms:
++                required_decel_mss = (v_ego_ms ** 2 - v_target_ms ** 2) / (2.0 * apex_dist)
++                if required_decel_mss > AUTO_NAVI_SPEED_DECEL_RATE:
++                    boosted_mss = min(required_decel_mss, ROUTE_VEGO_BOOST_MAX_MSS)
++                    accel_limit_kmh = boosted_mss * 3.6
++
++        if self.prev is not None:
++            max_step_kmh = accel_limit_kmh * ROUTE_SPEED_LOOP_DT
++            lo = self.prev - max_step_kmh
++            hi = math.inf
++            if (position_dt_since_fix > ROUTE_POSITION_UNCERTAIN_DT_S
++                    and not cc_pose_valid):
++                hi = self.prev
++            out_speed = min(max(out_speed, lo), hi)
++        self.prev = out_speed
++        return out_speed
++
++
++def simulate(rows):
++    old = Branch()
++    new = Branch()
++    out = []
++    n_candidate_recompute = 0
++    for r in rows:
++        t = f(r, "t")
++        active = r["naviPointsActive"] == "True"
++        v_ego_ms = f(r, "vEgo")
++        v_ego_kph = v_ego_ms * 3.6
++        apex_idx = int(float(r["routeApexIdx"])) if r["routeApexIdx"] not in ("", None) else -1
++        apex_dist = f(r, "routeApexDist")
++        apex_speed = f(r, "routeApexSpeed")
++        raw_col = f(r, "routeOutSpeed", 300.0)
++        cc_pose_valid = r.get("ccPoseValid", "") == "True"
++        position_dt_since_fix = f(r, "positionDtSinceFix")
++
++        if not active:
++            old.reset()
++            new.reset()
++            out.append(dict(t=t, active=False, apex_idx=apex_idx, apex_dist=apex_dist,
++                             apex_speed=apex_speed, v_ego_kph=v_ego_kph, raw_col=raw_col,
++                             sharpest=None, n_cand=0, out_old=None, out_new=None))
++            continue
++
++        sharpest, n_cand = sharpest_candidate_speed_for_row(r.get("naviPaths", ""), apex_speed)
++        n_candidate_recompute += 1
++
++        raw_old = min(raw_col, max(v_ego_kph, apex_speed), ROUTE_MAX_SPEED_KPH)
++        raw_new = min(raw_col, max(v_ego_kph, sharpest), ROUTE_MAX_SPEED_KPH)
++
++        out_old = old.step(raw_old, apex_dist, apex_speed, v_ego_ms,
++                            cc_pose_valid, position_dt_since_fix)
++        out_new = new.step(raw_new, apex_dist, apex_speed, v_ego_ms,
++                            cc_pose_valid, position_dt_since_fix)
++
++        out.append(dict(t=t, active=True, apex_idx=apex_idx, apex_dist=apex_dist,
++                         apex_speed=apex_speed, v_ego_kph=v_ego_kph, raw_col=raw_col,
++                         sharpest=sharpest, n_cand=n_cand, out_old=out_old, out_new=out_new))
++    return out, n_candidate_recompute
++
++
++def main():
++    csv_path = sys.argv[1] if len(sys.argv) > 1 else "/mnt/user-data/uploads/199cha_8seg_route_extracted.csv"
++    rows = load_rows(csv_path)
++    sim, n_recompute = simulate(rows)
++    actual = {round(f(r, "t"), 3): (r["src"], f(r, "desiredSpeed")) for r in rows}
++
++    print(f"총 프레임: {len(rows)}, 활성 프레임: {sum(1 for s in sim if s['active'])}, "
++          f"candidates 재계산 프레임: {n_recompute}")
++    print()
++
++    print("=== 스파이크/고원 구간 t=418.40~423.30 (OLD=205차 vs NEW=207차) ===")
++    print(f"{'t':>8} {'idx':>4} {'dist':>6} {'apexSpd':>8} {'sharp':>7} {'nCand':>5} "
++          f"{'vEgo':>6} {'raw':>7} {'OLD':>7} {'NEW':>7}")
++    for s in sim:
++        if s['active'] and 418.40 <= s['t'] <= 423.30:
++            print(f"{s['t']:8.2f} {s['apex_idx']:4d} {s['apex_dist']:6.1f} {s['apex_speed']:8.1f} "
++                  f"{s['sharpest']:7.1f} {s['n_cand']:5d} {s['v_ego_kph']:6.1f} {s['raw_col']:7.1f} "
++                  f"{s['out_old']:7.1f} {s['out_new']:7.1f}")
++    print()
++
++    print("=== 북대전IC 구간 t=450.0~498.0 통계 (실제 apex 도달~통과 구간) ===")
++    seg = [s for s in sim if s['active'] and 450.0 <= s['t'] <= 498.0]
++    print(f"프레임 수: {len(seg)}")
++
++    def stats(key):
++        vals = [s[key] for s in seg]
++        return sum(vals) / len(vals), max(vals), min(vals)
++
++    for label, key in [("OLD(205차)", "out_old"), ("NEW(207차 sharpest)", "out_new")]:
++        avg, mx, mn = stats(key)
++        print(f"{label}: 평균={avg:.1f} 최대={mx:.1f} 최소={mn:.1f}")
++    avg_ego, mx_ego, mn_ego = stats("v_ego_kph")
++    print(f"실제 vEgo: 평균={avg_ego:.1f} 최대={mx_ego:.1f} 최소={mn_ego:.1f}")
++    avg_apex, mx_apex, mn_apex = stats("apex_speed")
++    print(f"routeApexSpeed(실제목표): 평균={avg_apex:.1f} 최대={mx_apex:.1f} 최소={mn_apex:.1f}")
++    print()
++
++    would_bind_old = would_bind_new = 0
++    for s in seg:
++        key = round(s['t'], 3)
++        if key in actual:
++            _, actual_spd = actual[key]
++            if s['out_old'] <= actual_spd + 1e-6:
++                would_bind_old += 1
++            if s['out_new'] <= actual_spd + 1e-6:
++                would_bind_new += 1
++    n = len(seg)
++    print(f"would_bind OLD(205차):        {would_bind_old}/{n} ({100*would_bind_old/n:.1f}%)")
++    print(f"would_bind NEW(207차 sharpest): {would_bind_new}/{n} ({100*would_bind_new/n:.1f}%)")
++    print()
++
++    apex_arrival = min(seg, key=lambda s: s['apex_dist'] if s['apex_dist'] > 0 else 1e9)
++    print(f"=== apex 최근접 프레임(t={apex_arrival['t']:.2f}, dist={apex_arrival['apex_dist']:.1f}) ===")
++    print(f"apex_speed(목표)={apex_arrival['apex_speed']:.1f}  vEgo={apex_arrival['v_ego_kph']:.1f}  "
++          f"OLD={apex_arrival['out_old']:.1f}  NEW={apex_arrival['out_new']:.1f}")
++    print(f"목표 대비 격차: OLD={apex_arrival['out_old']-apex_arrival['apex_speed']:.1f}kph  "
++          f"NEW={apex_arrival['out_new']-apex_arrival['apex_speed']:.1f}kph")
++    print()
++
++    spike_seg = [s for s in sim if s['active'] and 418.40 <= s['t'] <= 423.30]
++    max_old = max(s['out_old'] for s in spike_seg)
++    max_new = max(s['out_new'] for s in spike_seg)
++    min_sharp = min(s['sharpest'] for s in spike_seg)
++    max_ncand = max(s['n_cand'] for s in spike_seg)
++    print("=== 스파이크 구간(t=418.40~423.30) 내 OLD/NEW 최댓값 ===")
++    print(f"OLD(205차) 최댓값: {max_old:.1f}   NEW(207차) 최댓값: {max_new:.1f}")
++    print(f"이 구간 sharpest_candidate_speed 최솟값: {min_sharp:.1f}   "
++          f"candidates 개수 최댓값: {max_ncand}")
++    print()
++
++    # 전체 로그 스캔: OLD != NEW인 프레임 수 (206차와 동일 형식의 요약)
++    diff_frames = [s for s in sim if s['active'] and abs(s['out_old'] - s['out_new']) > 1e-6]
++    print(f"=== 전체 로그(활성 {sum(1 for s in sim if s['active'])}프레임) 중 OLD!=NEW 프레임: "
++          f"{len(diff_frames)}개 ===")
++    if diff_frames:
++        biggest = max(diff_frames, key=lambda s: abs(s['out_old'] - s['out_new']))
++        print(f"최대 격차 프레임: t={biggest['t']:.2f}  OLD={biggest['out_old']:.1f}  "
++              f"NEW={biggest['out_new']:.1f}  (Δ={biggest['out_old']-biggest['out_new']:.1f})")
++
++
++if __name__ == "__main__":
++    main()

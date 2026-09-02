@@ -12593,3 +12593,45 @@ ryu 실차 반영됨 — 커밋 `eecac50`)는 그 경우만 완화한다. 이번
 **범위**: `ryu`(cereal/custom.capnp, carrot_man.py, carrot_serv.py, 코드
 변경 있음 — 계측 전용, 제어로직 변경 없음) + `toolkit/`(extract_log.py,
 check_navi_route_activity.py 신규, README/CHANGELOG). 실차 검증 전.
+
+## 208차 — 207차(ceiling apex_speed -> sharpest_candidate_speed) 199차 8세그 실측 A/B: POSITIVE
+
+206차가 199차 8세그 실차로그로 205차(out_speed 상한 vEgo 동적화)를
+재검증한 결과는 NEGATIVE였다(would_bind 37.1%->37.1% 불변, apex_speed
+자체가 오염돼 vEgo 하한이 작동하지 않음). 207차는 이 문제에 대응해
+ceiling 항을 apex_speed 대신 candidates 전체 중 sharpest(최솟값)로
+교체했으나, 207차 사전검증은 합성 시나리오였다(NEEDS_VALIDATION).
+
+208차가 `sim_route_207_ceiling_ab_208.py`로 같은 로그에 처음 실측
+재현한 결과: 북대전IC 구간(t=450.0~498.0, 960프레임) would_bind가
+OLD(205차) 37.1% -> NEW(207차) 76.8~77.3%로 대폭 개선. apex 최근접
+프레임(t=461.08)에서 OLD는 목표 대비 +4.3kph 초과, NEW는 -2.6kph로
+초과하지 않는 방향. **결론: 207차 패치는 이 로그 기준으로 206차가
+발견한 NEGATIVE를 해소한다(POSITIVE, 단일 로그 검증).**
+
+이 로그엔 204차 candidate telemetry가 없어 naviPaths 원시 폴리라인에서
+`analysis_helpers.recompute_route_curvature_speed()`로 candidates를
+재구성했다. 재구성 과정에서 naviPaths 마지막 리샘플 포인트가 드물게
+(7,098프레임 중 28개/0.4%) 실제 유클리드 간격이 명목 10m와 크게
+어긋나는 경계 클램프 아티팩트를 만들어 허위 급커브(5.0kph)로 오판될
+수 있음을 발견했다(t=437.98 실측 사례). 스크립트에 트림 보정을
+반영했으며, 트림 전/후 결과 차이는 미미(76.8% vs 77.3%)해 전체 결론에
+영향을 주지 않는다.
+
+**중요 교차검증**: t=466~467 구간에서는 실제 device 텔레메트리
+(routeApexSpeed 컬럼, 재구성이 아닌 CSV 원본 실측값)가 5.0을 그대로
+기록하고 있다. 즉 sharpest_candidate가 그보다 앞선 프레임들(t=438~466
+부근)에서 미리 감지한 5.0kph 후보는 재구성 아티팩트가 아니라 실재하는
+급커브였다. 207차 WIP 미확인사항 #2가 이론적으로 우려했던 "먼 GPS
+노이즈성 저속 후보가 지속적으로 존재하면 정당한 가속 복귀를 과도하게
+억제할 위험"은 적어도 이 로그·이 구간에서는 나타나지 않았다 — 오히려
+sharpest_candidate가 진짜 급커브를 더 일찍(원거리에서부터) 포착해
+ceiling을 선제적으로 낮추는 정상 동작으로 확인됐다.
+
+**남은 미확인**: 203차가 발견했던 "정상 연속곡선 통과 후 가속 억제"
+시나리오(sim_route_hi_debounce_sweep_203.py, t=382~393)는 이번엔
+sharpest_candidate 방식으로 재확인하지 않았다 — 다음 세션 과제.
+road_limit_speed=200.0 고정가정(148/161차 기존 한계)도 그대로 남아있다.
+
+**범위**: `ryu` 코드 변경 없음(분석만) + `toolkit/sim_route_207_ceiling_ab_208.py`
+신규, README/CHANGELOG 갱신.

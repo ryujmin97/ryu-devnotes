@@ -1,0 +1,475 @@
+From a55f321cd7409821013e421fa46f03995b84c257 Mon Sep 17 00:00:00 2001
+From: Claude <claude@anthropic.local>
+Date: Wed, 2 Sep 2026 08:11:31 +0000
+Subject: [PATCH] =?UTF-8?q?207=EC=B0=A8:=20=5Froute=5Fspeed=5Fprev=20vEgo?=
+ =?UTF-8?q?=20anchor=20=EC=A0=9C=EC=95=88(=EC=A7=80=EC=84=A0=EC=83=9D)=20A?=
+ =?UTF-8?q?/B/C=20=EA=B2=80=EC=A6=9D(MIXED)=20-=20toolkit/README/CHANGELOG?=
+ =?UTF-8?q?/FINDINGS/WIP?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+- 합성 시나리오: anchor로 apex도달 격차 72.5kph -> 0.0kph 완전 해결
+- 199차 8세그 저속접근 구간(t=371~391): NEW 대비 최대 139.3kph 개선,
+  205차 로직이 저속 접근시 사실상 무력화되는 신규 실패모드 확인
+- 북대전IC 스파이크(202/203/206차 핵심실패)와는 직교 확인(영향 없음)
+- 회귀위험 신규발견: anchor 트리거가 203차 문서화 구간(t=378~393)과
+  동일한 apex_idx flicker에 86% 확률로 반응 -- 실차반영 보류, 디바운스
+  설계 또는 204차 candidate_count 실측 연동 필요(사용자 결정 대기)
+- ryu 코드 변경 없음, 실차 검증 미실시
+- 전달 파일: toolkit/sim_route_207_prev_anchor.py
+---
+ FINDINGS.md                          |  25 +++
+ WIP.md                               |  45 ++++
+ toolkit/CHANGELOG.md                 |   8 +
+ toolkit/README.md                    |  28 +++
+ toolkit/sim_route_207_prev_anchor.py | 296 +++++++++++++++++++++++++++
+ 5 files changed, 402 insertions(+)
+ create mode 100644 toolkit/sim_route_207_prev_anchor.py
+
+diff --git a/FINDINGS.md b/FINDINGS.md
+index 578ba17..0b56084 100644
+--- a/FINDINGS.md
++++ b/FINDINGS.md
+@@ -1,3 +1,28 @@
++## 207차 — [MIXED] `_route_speed_prev` vEgo anchor 제안 검증 — 저속접근 실패모드는 확실히 개선하나, 트리거가 203차와 동일한 apex_idx flicker에 취약
++
++**대상**: 다른 세션(ChatGPT)이 제안한 설계 — `carrot_man.py`의 199차 boost 무장 시점(`apex_delta_kph > ROUTE_APEX_SPEED_DISCONTINUITY_THRESH_KPH`)에 한해 `self._route_speed_prev`가 실제 vEgo보다 높게 부풀어있으면 vEgo 수준으로 눌러주는(anchor) 방안. 206차가 확인한 "205차로도 북대전IC 실패모드 미해결" 문제에 대한 대응안으로 제시됨.
++
++**방법**: 206차 `toolkit/sim_route_205_vego_cap_ab_206.py`의 OLD/NEW 구조에 세 번째 갈래 C(NEW + anchor, `toolkit/sim_route_207_prev_anchor.py`)를 추가. (1) 손으로 만든 합성 시나리오(vEgo=70/직전prev=150/100m앞target=30), (2) 199차 8세그 로그 전체(9,598프레임)로 검증.
++
++**결론 1(유효, 정량 확인)**: 합성 시나리오에서 apex 도달 시 목표 대비 격차가 72.5kph→0.0kph로 완전 해결. 8세그 로그의 북대전IC 구간(t=450~498)에서도 would_bind 37.1%→45.3%, apex 최근접 프레임 격차 4.3kph→0.0kph로 개선. 스파이크 구간(t=418.4~423.2, apex_speed 자체가 297~298로 오염되는 202/203/206차 핵심 실패모드)에서는 OLD/NEW/C 세 갈래가 완전히 동일(150.0, ROUTE_MAX_SPEED_KPH 절대상한) — anchor는 apex_speed가 **하강**하는 불연속에만 반응하므로 이 **상승** 스파이크와는 정량적으로 직교함을 확인(206차 결론과 모순 없음, 별도 문제로 유지됨).
++
++**결론 2(신규 발견 — 더 심각한 실패모드)**: 8세그 로그 전체 스캔에서 t=371~391 구간(북대전IC와 무관, 저속 접근 상황)에 NEW가 사실상 무력화되는 사례를 다수 확인. vEgo=7~55km/h로 이미 저속 주행 중인데 NEW(205차)는 route 출력을 149~150 부근에 방치(예: t=371.22, apexSpd=5.0/vEgo=7.1/NEW=146.4). C는 이를 vEgo/apex_speed 수준으로 즉시 교정(같은 프레임 C=7.1). 두 값 차이가 최대 139.3kph. **저속 급커브 접근 시 205차 로직은 route 감속 신호를 사실상 전혀 내지 않는다**는, 북대전IC 사례보다 더 근본적인 실패모드로 판단.
++
++**결론 3(회귀 위험, 실측 확인)**: anchor 트리거(`apex_delta_kph > 15`)가 전체 로그에서 334회 발동하며, 그중 288회(86%)가 발동 후 1초 이내 apex_speed가 다시 15kph 이상 반등 — 즉 대다수가 진짜 새 근접 커브 감지가 아니라 apex 후보 selection의 순간적 flicker. 이 flicker가 집중되는 구간(t=378~393)을 직접 조사한 결과, **203차가 이미 "hi=vEgo 앵커링 회귀 위험" 사례(§203차 결론3)로 지목한 바로 그 구간과 동일**함을 확인 — 교차로 통과 중 vEgo가 18.6→29+km/h로 자연 가속하는 정상 상황에서 apex_idx가 0.3~0.5초 간격으로 격렬히 바뀌며 apex_speed가 5~190 사이를 요동(예: t=378.78~379.13 사이 0.35초 동안 124.2→105.4→81.9→47.2→63.5→94.8→119.9→173.3). 이 구간에서 C는 매 flicker마다 재발동해 route 출력 자체가 20~150 사이를 오르내리는 진동을 만듦. 반대로 NEW(현재 코드)는 stale ramp(디자인 결함으로 지목했던 바로 그 성질)가 우연히 저역통과필터처럼 작동해 이 flicker를 지금까지 감춰온 것으로 재해석됨 — 즉 이번에 고치려는 "결함"이 다른 실패모드(flicker)에 대해서는 의도치 않은 보호 역할도 하고 있었음.
++
++**근본 원인**: 203차가 이미 규명한 것과 동일 — `carrot_navi_route()` 텔레메트리가 선택된 apex 1개(idx/dist/speed)만 노출하고 매 프레임 candidates 리스트 전체를 노출하지 않아, "진짜 새 근접 후보 등장"과 "후보 리스트는 그대로인데 최근접 인덱스만 잠깐 바뀌는 정상적 flicker"를 신호 레벨에서 구분할 수 없음. anchor를 상승측(hi, 203차)에 걸든 하강측(prev, 이번 제안)에 걸든 동일한 구조적 한계에 부딪힘.
++
++**대응 방향(미착수, 사용자 결정 대기)**:
++1. anchor 트리거에 디바운스 추가(예: apex_speed 하강이 N프레임 이상 연속 유지되어야 anchor 적용 — 202/203차가 상승측에 제안했던 패턴을 하강측에 대칭 적용).
++2. 204차 candidate_count 실측 텔레메트리 패치를 디바이스에 반영해 flicker와 진짜 재평가를 직접 구분(203차/206차와 동일한 대기 항목, 근본 대응).
++3. 위 결정 전까지는 anchor를 ryu에 패치하지 않음 — min() 설계라 방향성 자체는 안전(항상 감속 쪽)하지만, 승차감(빈번한 진동) 영향은 로그 지표로 검증 불가하며 실차 없이는 판단 근거 부족.
++
++**실차 검증**: 미실시.
++
++**관련**: 203차(`hi=vEgo` 앵커링 제안 및 동일 구간(t=378~393) flicker 회귀위험 최초 문서화), 206차(205차 NEGATIVE 검증), 205차(vEgo 동적상한 패치 원커밋), 202차(baseline 스파이크 최초 규명), 199차(boost 로직 원형).
++
++**전달 파일**: `toolkit/sim_route_207_prev_anchor.py`
++
+ ## 206차 — [NEGATIVE] 205차 패치(out_speed 상한 vEgo 동적화)는 202/203차 실제 문제 로그에서 효과 없음 — apex_idx 오선택이 apex_speed 자체도 오염시킴
+ 
+ **대상**: 205차가 적용한 `out_speed = min(out_speed, max(v_ego_kph, apex_speed), ROUTE_MAX_SPEED_KPH)`(고정 150 상한을 vEgo/apex_speed 기반 동적 상한으로 교체)를, 202/203차가 실제로 규명한 문제 로그(199차 8세그, 북대전IC 진입 26초 전 t=418.62~423.18 apex_idx 슬라이딩 스파이크/고원)로 재현 검증.
+diff --git a/WIP.md b/WIP.md
+index 62d6533..b3af0a3 100644
+--- a/WIP.md
++++ b/WIP.md
+@@ -1,3 +1,48 @@
++## 207차 (완료 — anchor 제안 시뮬레이션 검증, ryu 코드 변경 없음, devnotes만 갱신) — `_route_speed_prev` vEgo anchor 제안(지선생 의견) A/B/C 검증(MIXED)
++
++**Worker**: Claude
++
++**Repository**: `ryujmin97/ryu`(분석만, 변경 없음) + `ryujmin97/ryu-devnotes`
++
++**Branch**: `c3-ms-dev` / `main`
++
++**Base commit (ryu, 이 회차 시작 시점)**: `e4f68a8`(205차, 드리프트 없음)
++
++**Base commit (devnotes, 이 회차 시작 시점)**: `eef37a0`(206차 체크포인트)
++
++**배경**: 사용자가 다른 세션(ChatGPT, "지선생")과 나눈 대화를 공유 — 206차가 확인한 "205차로도 북대전IC 실패모드가 안 풀린다"는 문제에 대해, "지선생"이 `_route_speed_prev`(램프 기준값)를 원인으로 지목하고 "route 감속 진입 시 `_route_speed_prev`를 현재 vEgo로 anchor한 뒤 기존 199차 boost/172·173차 램프를 그대로 적용" 하는 설계를 제안함. 사용자 요청: 최신 레포 확인 후 이 제안을 시뮬레이션으로 검증.
++
++**작업 내용(전부 ryu 코드 변경 없음, 시뮬레이션만)**:
++
++1. GitHub 상태 확인(§3): `ryu`(`e4f68a8`)/`devnotes`(`eef37a0`) 둘 다 206차 상태와 일치, 다른 작업자 흔적 없음.
++2. 206차 `toolkit/sim_route_205_vego_cap_ab_206.py`(OLD/NEW 재현 구조)에 세 번째 갈래 C를 추가한 `toolkit/sim_route_207_prev_anchor.py` 작성. C = NEW과 raw 클리핑은 동일하되, `apex_delta_kph > ROUTE_APEX_SPEED_DISCONTINUITY_THRESH_KPH`로 199차 boost가 새로 무장되는 프레임에서만 `self._route_speed_prev = min(self._route_speed_prev, v_ego_kph)`를 적용(min이므로 vEgo가 더 큰 경우엔 손대지 않음 — 173차 `hi=math.inf` 정책과 충돌 방지).
++3. **합성 시나리오(vEgo=70, 직전 prev=150 가정, 100m 앞 target=30) 검증**: anchor 적용 시 apex 도달 격차가 72.5kph → **0.0kph**로 완전 해결. 제안의 핵심 메커니즘이 코드 레벨에서 정확히 작동함을 확인.
++4. **199차 8세그 로그, 북대전IC 구간(t=450~498, 202/203차 분석 구간) 검증**: would_bind 37.1%→**45.3%**, apex 최근접 프레임 격차 4.3kph→**0.0kph**로 개선. 단, 완전 해결은 아님(54.7%는 여전히 미바인드) — 스파이크 구간(t=418.4~423.2, apex_speed 자체가 297~298로 오염)에서는 OLD/NEW/C **세 갈래 모두 동일하게 150.0**(ROUTE_MAX_SPEED_KPH 절대상한에 걸림, anchor는 이 구간과 무관 — apex_speed가 **상승**하는 불연속이라 anchor 트리거 조건(하강 불연속)과 무관함을 확인, 206차 findings와 모순 없음).
++5. **전체 로그 스캔에서 별도의 더 극적인 개선 사례 발견**: t=371~391 구간(북대전IC와 무관, 저속 접근 시나리오로 추정)에서 vEgo=7~55km/h로 이미 저속인데 NEW는 route 출력을 149~150에 방치(사실상 무감속). C는 이 구간에서 vEgo/apex_speed 수준으로 즉시 스냅 — 차이가 최대 139.3kph에 달함. **저속 급커브 접근 시나리오에서 205차 로직은 사실상 route 감속 신호가 전혀 작동하지 않는다는 더 심각한 실패모드**를 새로 확인.
++6. **회귀 위험 발견(FINDINGS.md 별도 등록)**: `apex_delta_kph > 15` 트리거가 전체 로그에서 334회 발동하는데, 그중 288회(86%)가 발동 1초 이내 apex_speed가 다시 15kph 이상 반등 — 즉 진짜 새 커브 감지가 아니라 apex 후보 selection flicker인 경우가 대다수. **t=378~393 구간을 직접 조사한 결과, 이 구간이 정확히 203차가 이미 "hi=vEgo 앵커링 회귀 위험" 사례로 지목했던 그 구간과 동일**(교차로 통과 중 vEgo 18.6→29+km/h로 자연 가속하는 상황에서 apex_idx가 0.3~0.5초 간격으로 격렬하게 flicker, apex_speed가 5~190 사이를 요동). 이 구간에서 C는 매 flicker마다 anchor를 재발동시켜 route 출력 자체가 20~150 사이를 오르내리는 진동 패턴을 만듦 — NEW(현재 코드)는 역설적으로 stale ramp가 저역통과필터처럼 작동해 이 진동을 감춰왔던 것으로 재해석됨.
++
++**검증**:
++- 정적 분석: 완료(carrot_man.py L905~1038 실제 코드 재확인)
++- 로그 분석: 완료(199차 8세그, 프레임단위 A/B/C)
++- 시뮬레이션: 완료(합성 시나리오 1개 + 전체 8세그 스캔 + 문제구간 상세 트레이스 + flicker 재발률 통계)
++- 실차 검증: 미실시
++
++**결론(MIXED)**: anchor 제안은 방향과 메커니즘 모두 유효하며(합성 시나리오 완전 해결, 저속 접근 실패모드 확인 및 개선), 북대전IC 스파이크 문제와는 정량적으로 직교(악화도 개선도 없음). 그러나 **트리거 신호(`apex_delta_kph > 15` 단독)가 203차가 이미 문서화한 것과 동일한 apex_idx flicker에 취약**하여, 현재 형태로는 실차 반영 전 추가 설계(디바운스 또는 204차 candidate_count 실측 연동)가 필요하다고 판단. §27(최소변경) 원칙상으로도 "낮추는 방향만 작동"(min())이라 안전 방향이지만, 승차감 관점(빈번한 감속신호 진동)은 로그 지표만으로 검증 불가 — 실차 없이는 사용자 결정 대기.
++
++**미확인 사항 / 다음 작업**:
++1. anchor 트리거에 디바운스 추가 여부 결정(예: N프레임 연속 하강 유지 후에만 적용, 202/203차가 상승측에 제안했던 패턴과 대칭) — 사용자 결정 대기.
++2. 204차 candidate_count 텔레메트리 패치를 디바이스에 반영해, "진짜 새 근접 후보 등장"과 "후보 flicker"를 실측으로 구분하는 근본 대응(203차/206차와 동일 대기 항목) — 여전히 미착수.
++3. 위 결정 이후에만 실제 ryu 패치 작성 진행(사용자 승인 필요, §패치 원칙).
++
++**Devnotes**:
++- WIP: 이 항목(207차)
++- FINDINGS: `_route_speed_prev` vEgo anchor 관련 신규 항목 1건(MIXED — 효과 확인 + flicker 회귀위험, 203차 관련 항목과 교차참조)
++- toolkit: `sim_route_207_prev_anchor.py` 신규 추가, README/CHANGELOG 갱신
++
++**관련**: 206차(205차 NEGATIVE 검증), 205차(vEgo 동적상한 패치), 203차(hi=vEgo 앵커링 유사 제안 및 동일 구간 flicker 회귀위험 최초 문서화), 202차(baseline 스파이크 최초 규명), 199차(boost 로직 원형).
++
++---
++
+ ## 206차 (완료 — 205차 패치를 202/203차 문제 로그로 시뮬레이션 재검증, ryu 코드 변경 없음, devnotes만 갱신) — 205차 실차로그 A/B 검증(NEGATIVE)
+ 
+ **Worker**: Claude
+diff --git a/toolkit/CHANGELOG.md b/toolkit/CHANGELOG.md
+index 8f6b158..81d1b23 100644
+--- a/toolkit/CHANGELOG.md
++++ b/toolkit/CHANGELOG.md
+@@ -3,6 +3,14 @@
+ 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
+ 남긴다. `README.md`도 같이 갱신할 것.
+ 
++## 2026-09-02 (207차)
++- `sim_route_207_prev_anchor.py` 신규 추가 -- 지선생(ChatGPT) 제안
++  `_route_speed_prev` vEgo anchor 설계를 합성 시나리오 + 199차 8세그
++  로그로 검증. 결과 MIXED: 저속접근 실패모드 개선 확인(최대 139.3kph),
++  북대전IC 스파이크와는 직교 확인. 단 트리거가 203차 문서화 구간(t=378~393)
++  과 동일한 apex_idx flicker에 86% 확률로 반응하는 회귀위험 신규 발견 --
++  실차 반영 보류, 디바운스 설계 필요.
++
+ ## 2026-09-02 (206차)
+ - `sim_route_205_vego_cap_ab_206.py` 신규 추가 -- 205차 패치(out_speed
+   상한 vEgo 동적화)를 202/203차 문제 로그(199차 8세그)로 A/B 재검증.
+diff --git a/toolkit/README.md b/toolkit/README.md
+index 4ad6b67..d0b52ae 100644
+--- a/toolkit/README.md
++++ b/toolkit/README.md
+@@ -2360,3 +2360,31 @@ raw/apex_speed 동시 오염)를 이 로그 기준으로는 해결하지 못함.
+ python3 devnotes/toolkit/sim_route_205_vego_cap_ab_206.py [csv_path]
+ ```
+ 기본 csv_path는 `/mnt/user-data/uploads/199cha_8seg_route_extracted.csv`.
++
++## sim_route_207_prev_anchor.py (207차)
++
++지선생(ChatGPT) 제안 -- `_route_speed_prev`가 실제 vEgo보다 높게 부풀어있을
++때, 199차 boost가 새로 무장되는 프레임(`apex_delta_kph > 15`)에 한해
++`self._route_speed_prev = min(self._route_speed_prev, v_ego_kph)`로
++눌러주는 anchor 설계를 검증. 206차 sim_route_205_vego_cap_ab_206.py의
++OLD/NEW 구조에 세 번째 갈래 C(NEW+anchor)를 추가.
++
++**핵심 발견(MIXED)**: 합성 시나리오(vEgo=70/prev=150/100m앞target=30)에서
++격차 72.5kph -> 0.0kph로 완전 해결. 199차 8세그 로그의 저속 접근 구간
++(t=371~391)에서도 NEW 대비 최대 139.3kph 개선(NEW는 저속 상황에서 route
++감속신호가 사실상 무력화됨을 신규 확인). 북대전IC 스파이크 구간(202/203/
++206차 핵심 실패모드)과는 직교(영향 없음, 정량 확인).
++
++**단, 회귀 위험 확인**: anchor 트리거(`apex_delta_kph > 15`)가 전체 로그
++334회 발동 중 288회(86%)가 1초 이내 반등하는 apex_idx flicker -- 203차가
++이미 "hi=vEgo 앵커링 회귀위험" 사례로 지목한 t=378~393 구간과 정확히 동일
++구간에서, anchor가 매 flicker마다 재발동해 route 출력이 20~150 사이를
++진동시킴을 확인. 실차 반영 전 디바운스 설계 또는 204차 candidate_count
++실측 연동 필요(사용자 결정 대기).
++
++**사용**:
++```
++python3 devnotes/toolkit/sim_route_207_prev_anchor.py [csv_path]
++```
++csv_path 생략 시 기본값 `/mnt/user-data/uploads/199cha_8seg_route_extracted.csv`.
++인자 없이 실행하면 먼저 합성 시나리오(NEW vs C)를 출력한 뒤 실차로그 A/B/C를 이어서 출력한다.
+diff --git a/toolkit/sim_route_207_prev_anchor.py b/toolkit/sim_route_207_prev_anchor.py
+new file mode 100644
+index 0000000..0a7f83a
+--- /dev/null
++++ b/toolkit/sim_route_207_prev_anchor.py
+@@ -0,0 +1,296 @@
++#!/usr/bin/env python3
++"""
++207차 -- "_route_speed_prev anchor" 제안(지선생 의견) 검증 시뮬레이션.
++
++206차 sim_route_205_vego_cap_ab_206.py의 OLD/NEW 두 갈래 구조를 그대로 쓰고,
++세 번째 갈래 C(NEW + anchor)를 추가한다.
++
++  OLD: out_speed = min(raw_col, 150.0)                                  (202차)
++  NEW: out_speed = min(raw_col, max(vEgo_kph, apex_speed), 150.0)       (205차, 현재 코드)
++  C  : NEW과 raw 클리핑은 동일. 다만 boost 무장 순간(apex_delta_kph >
++       ROUTE_APEX_SPEED_DISCONTINUITY_THRESH_KPH)에 한해
++           self.prev = min(self.prev, v_ego_kph)
++       를 추가로 적용 -- "_route_speed_prev가 실제 vEgo보다 높게 부풀어
++       있으면, 새로 감속이 필요해지는 바로 그 프레임에서 실제 차량속도
++       수준으로 눌러준다"는 지선생 제안. 상향(vEgo가 prev보다 큰 경우)은
++       건드리지 않는다(min이므로) -- 173차의 hi=inf 정책과 충돌하지 않게
++       최소 변경으로 한정.
++
++CSV 컬럼 요구: 206차와 동일(t, vEgo, naviPointsActive, routeApexIdx,
++routeApexDist, routeApexSpeed, routeOutSpeed, ccPoseValid,
++positionDtSinceFix, src, desiredSpeed)
++"""
++import csv
++import math
++import sys
++
++ROUTE_MAX_SPEED_KPH = 150.0
++ROUTE_SPEED_LOOP_DT = 0.05
++ROUTE_APEX_SPEED_DISCONTINUITY_THRESH_KPH = 15.0
++ROUTE_VEGO_BOOST_MAX_MSS = 3.0
++ROUTE_POSITION_UNCERTAIN_DT_S = 3.0
++AUTO_NAVI_SPEED_DECEL_RATE = 0.70
++
++
++def load_rows(path):
++    with open(path, newline="") as f:
++        return list(csv.DictReader(f))
++
++
++def f(row, key, default=0.0):
++    v = row.get(key, "")
++    if v in ("", None):
++        return default
++    try:
++        return float(v)
++    except ValueError:
++        return default
++
++
++class Branch:
++    """OLD/NEW/C 각 갈래가 독립적으로 갖는 상태(_route_speed_prev류)."""
++
++    def __init__(self, anchor=False):
++        self.anchor = anchor
++        self.prev = None
++        self.apex_speed_prev = None
++        self.boost_armed = False
++        self.boost_armed_speed = None
++        self.anchor_fired_count = 0  # C 갈래 전용 계측
++
++    def reset(self):
++        self.prev = None
++        self.apex_speed_prev = None
++        self.boost_armed = False
++        self.boost_armed_speed = None
++
++    def step(self, raw_clipped, apex_dist, apex_speed, v_ego_kph, v_ego_ms,
++             cc_pose_valid, position_dt_since_fix):
++        out_speed = raw_clipped
++
++        accel_limit_kmh = AUTO_NAVI_SPEED_DECEL_RATE * 3.6
++        if self.apex_speed_prev is None:
++            pass
++        else:
++            apex_delta_kph = self.apex_speed_prev - apex_speed
++            if apex_delta_kph > ROUTE_APEX_SPEED_DISCONTINUITY_THRESH_KPH:
++                self.boost_armed = True
++                self.boost_armed_speed = apex_speed
++                # [207차 제안, anchor] boost가 새로 무장되는 프레임에서만,
++                # prev가 실제 vEgo보다 높게 부풀어있으면 vEgo 수준으로
++                # 눌러준다. min()이므로 vEgo가 prev보다 큰 쪽은 건드리지
++                # 않음(173차 hi=inf와 충돌 방지).
++                if self.anchor and self.prev is not None and self.prev > v_ego_kph:
++                    self.prev = v_ego_kph
++                    self.anchor_fired_count += 1
++            elif self.boost_armed:
++                if abs(apex_speed - self.boost_armed_speed) > ROUTE_APEX_SPEED_DISCONTINUITY_THRESH_KPH:
++                    self.boost_armed = False
++                    self.boost_armed_speed = None
++        self.apex_speed_prev = apex_speed
++
++        if self.boost_armed and apex_dist > 0:
++            v_target_ms = apex_speed / 3.6
++            if v_ego_ms > v_target_ms:
++                required_decel_mss = (v_ego_ms ** 2 - v_target_ms ** 2) / (2.0 * apex_dist)
++                if required_decel_mss > AUTO_NAVI_SPEED_DECEL_RATE:
++                    boosted_mss = min(required_decel_mss, ROUTE_VEGO_BOOST_MAX_MSS)
++                    accel_limit_kmh = boosted_mss * 3.6
++
++        if self.prev is not None:
++            max_step_kmh = accel_limit_kmh * ROUTE_SPEED_LOOP_DT
++            lo = self.prev - max_step_kmh
++            hi = math.inf
++            if (position_dt_since_fix > ROUTE_POSITION_UNCERTAIN_DT_S
++                    and not cc_pose_valid):
++                hi = self.prev
++            out_speed = min(max(out_speed, lo), hi)
++        self.prev = out_speed
++        return out_speed
++
++
++def simulate(rows):
++    old = Branch()
++    new = Branch()
++    c = Branch(anchor=True)
++    out = []
++    for r in rows:
++        t = f(r, "t")
++        active = r["naviPointsActive"] == "True"
++        v_ego_ms = f(r, "vEgo")
++        v_ego_kph = v_ego_ms * 3.6
++        apex_idx = int(float(r["routeApexIdx"])) if r["routeApexIdx"] not in ("", None) else -1
++        apex_dist = f(r, "routeApexDist")
++        apex_speed = f(r, "routeApexSpeed")
++        raw_col = f(r, "routeOutSpeed", 300.0)
++        cc_pose_valid = r.get("ccPoseValid", "") == "True"
++        position_dt_since_fix = f(r, "positionDtSinceFix")
++
++        if not active:
++            old.reset()
++            new.reset()
++            c.reset()
++            out.append(dict(t=t, active=False, apex_idx=apex_idx, apex_dist=apex_dist,
++                             apex_speed=apex_speed, v_ego_kph=v_ego_kph,
++                             raw_col=raw_col, out_old=None, out_new=None, out_c=None))
++            continue
++
++        raw_old = min(raw_col, ROUTE_MAX_SPEED_KPH)
++        raw_new = min(raw_col, max(v_ego_kph, apex_speed), ROUTE_MAX_SPEED_KPH)
++        raw_c = raw_new  # C는 NEW와 raw 클리핑 동일, prev 처리만 다름
++
++        out_old = old.step(raw_old, apex_dist, apex_speed, v_ego_kph, v_ego_ms,
++                            cc_pose_valid, position_dt_since_fix)
++        out_new = new.step(raw_new, apex_dist, apex_speed, v_ego_kph, v_ego_ms,
++                            cc_pose_valid, position_dt_since_fix)
++        out_c = c.step(raw_c, apex_dist, apex_speed, v_ego_kph, v_ego_ms,
++                        cc_pose_valid, position_dt_since_fix)
++
++        out.append(dict(t=t, active=True, apex_idx=apex_idx, apex_dist=apex_dist,
++                         apex_speed=apex_speed, v_ego_kph=v_ego_kph, raw_col=raw_col,
++                         out_old=out_old, out_new=out_new, out_c=out_c))
++    return out, c.anchor_fired_count
++
++
++def run_synthetic():
++    """지선생이 손으로 든 예시: vEgo=70, 직전 route=150, 100m 앞 apex=30."""
++    print("=" * 70)
++    print("[합성 시나리오] vEgo=70 고정주행, 직전 route_speed_prev=150(가정),")
++    print("100m 앞 apex target=30")
++    print("=" * 70)
++
++    v_ego_kph = 70.0
++    v_ego_ms = v_ego_kph / 3.6
++    apex_speed = 30.0
++    apex_dist0 = 100.0
++
++    for label, anchor in [("NEW(205차, anchor 없음)", False), ("C(NEW+anchor)", True)]:
++        br = Branch(anchor=anchor)
++        # 직전 상태를 인위 주입: prev=150, apex_speed_prev=150 (지선생 시뮬레이션과 동일 가정)
++        br.prev = 150.0
++        br.apex_speed_prev = 150.0
++
++        apex_dist = apex_dist0
++        t = 0.0
++        rows_out = []
++        while apex_dist > 0:
++            raw = calculate_current_speed(apex_dist, apex_speed)
++            raw_clipped = min(raw, max(v_ego_kph, apex_speed), ROUTE_MAX_SPEED_KPH)
++            out = br.step(raw_clipped, apex_dist, apex_speed, v_ego_kph, v_ego_ms,
++                          cc_pose_valid=True, position_dt_since_fix=0.0)
++            rows_out.append((t, apex_dist, raw, out))
++            apex_dist -= v_ego_ms * ROUTE_SPEED_LOOP_DT
++            t += ROUTE_SPEED_LOOP_DT
++
++        print(f"\n--- {label} ---")
++        print(f"{'t':>6} {'dist':>7} {'raw':>7} {'out':>7}")
++        for i, (t_, d_, raw_, out_) in enumerate(rows_out):
++            if i % 20 == 0 or i == len(rows_out) - 1:
++                print(f"{t_:6.2f} {d_:7.1f} {raw_:7.1f} {out_:7.1f}")
++        final = rows_out[-1][3]
++        print(f"apex 도달: 최종 out={final:.1f}, 목표={apex_speed:.1f}, 격차={final - apex_speed:.1f}kph"
++              f"  (anchor 발동 횟수={br.anchor_fired_count})")
++
++
++def calculate_current_speed(left_dist, safe_speed_kph, safe_time=9.0, safe_decel_rate=AUTO_NAVI_SPEED_DECEL_RATE):
++    safe_speed = safe_speed_kph / 3.6
++    safe_dist = safe_speed * safe_time
++    decel_dist = left_dist - safe_dist
++    if decel_dist <= 0:
++        return safe_speed_kph
++    temp = safe_speed ** 2 + 2 * safe_decel_rate * decel_dist
++    speed_mps = math.sqrt(temp) if temp >= 0 else safe_speed
++    return max(safe_speed_kph, min(250, speed_mps * 3.6))
++
++
++def run_real_log(csv_path):
++    print()
++    print("=" * 70)
++    print(f"[실차로그] {csv_path}")
++    print("=" * 70)
++
++    rows = load_rows(csv_path)
++    sim, anchor_fired = simulate(rows)
++    actual = {round(f(r, "t"), 3): (r["src"], f(r, "desiredSpeed")) for r in rows}
++
++    print(f"총 프레임: {len(rows)}, 활성 프레임: {sum(1 for s in sim if s['active'])}")
++    print(f"C 갈래 anchor 발동 횟수(전체 로그): {anchor_fired}")
++    print()
++
++    print("=== 스파이크/고원 구간 t=418.40~423.30 (OLD vs NEW vs C) ===")
++    print(f"{'t':>8} {'idx':>4} {'dist':>6} {'apexSpd':>8} {'vEgo':>6} {'raw':>7} "
++          f"{'OLD':>7} {'NEW':>7} {'C':>7}")
++    for s in sim:
++        if s['active'] and 418.40 <= s['t'] <= 423.30:
++            print(f"{s['t']:8.2f} {s['apex_idx']:4d} {s['apex_dist']:6.1f} {s['apex_speed']:8.1f} "
++                  f"{s['v_ego_kph']:6.1f} {s['raw_col']:7.1f} "
++                  f"{s['out_old']:7.1f} {s['out_new']:7.1f} {s['out_c']:7.1f}")
++    print()
++
++    print("=== 북대전IC 구간 t=450.0~498.0 통계 ===")
++    seg = [s for s in sim if s['active'] and 450.0 <= s['t'] <= 498.0]
++    print(f"프레임 수: {len(seg)}")
++
++    def stats(key):
++        vals = [s[key] for s in seg]
++        return sum(vals) / len(vals), max(vals), min(vals)
++
++    for label, key in [("OLD(150고정)", "out_old"), ("NEW(205차)", "out_new"), ("C(NEW+anchor)", "out_c")]:
++        avg, mx, mn = stats(key)
++        print(f"{label}: 평균={avg:.1f} 최대={mx:.1f} 최소={mn:.1f}")
++    avg_ego, mx_ego, mn_ego = stats("v_ego_kph")
++    print(f"실제 vEgo: 평균={avg_ego:.1f} 최대={mx_ego:.1f} 최소={mn_ego:.1f}")
++    avg_apex, mx_apex, mn_apex = stats("apex_speed")
++    print(f"routeApexSpeed(실제목표): 평균={avg_apex:.1f} 최대={mx_apex:.1f} 최소={mn_apex:.1f}")
++    print()
++
++    would_bind = {"old": 0, "new": 0, "c": 0}
++    n = len(seg)
++    for s in seg:
++        key = round(s['t'], 3)
++        if key in actual:
++            _, actual_spd = actual[key]
++            if s['out_old'] <= actual_spd + 1e-6:
++                would_bind["old"] += 1
++            if s['out_new'] <= actual_spd + 1e-6:
++                would_bind["new"] += 1
++            if s['out_c'] <= actual_spd + 1e-6:
++                would_bind["c"] += 1
++    print(f"would_bind OLD:        {would_bind['old']}/{n} ({100*would_bind['old']/n:.1f}%)")
++    print(f"would_bind NEW(205차): {would_bind['new']}/{n} ({100*would_bind['new']/n:.1f}%)")
++    print(f"would_bind C(anchor):  {would_bind['c']}/{n} ({100*would_bind['c']/n:.1f}%)")
++    print()
++
++    apex_arrival = min(seg, key=lambda s: s['apex_dist'] if s['apex_dist'] > 0 else 1e9)
++    print(f"=== apex 최근접 프레임(t={apex_arrival['t']:.2f}, dist={apex_arrival['apex_dist']:.1f}) ===")
++    print(f"apex_speed(목표)={apex_arrival['apex_speed']:.1f}  vEgo={apex_arrival['v_ego_kph']:.1f}")
++    print(f"OLD={apex_arrival['out_old']:.1f} (격차 {apex_arrival['out_old']-apex_arrival['apex_speed']:.1f})")
++    print(f"NEW={apex_arrival['out_new']:.1f} (격차 {apex_arrival['out_new']-apex_arrival['apex_speed']:.1f})")
++    print(f"C  ={apex_arrival['out_c']:.1f} (격차 {apex_arrival['out_c']-apex_arrival['apex_speed']:.1f})")
++    print()
++
++    spike_seg = [s for s in sim if s['active'] and 418.40 <= s['t'] <= 423.30]
++    max_old = max(s['out_old'] for s in spike_seg)
++    max_new = max(s['out_new'] for s in spike_seg)
++    max_c = max(s['out_c'] for s in spike_seg)
++    print("=== 스파이크 구간(t=418.40~423.30) 내 OLD/NEW/C 최댓값 ===")
++    print(f"OLD 최댓값: {max_old:.1f}   NEW 최댓값: {max_new:.1f}   C 최댓값: {max_c:.1f}")
++
++    # 회귀 확인: C가 OLD/NEW 대비 "새로운 문제"를 만들지 않는지 --
++    # apex_speed가 상승하는(스파이크) 구간에서 C==NEW인지 전수 비교.
++    mismatch = 0
++    max_mismatch = 0.0
++    for s in sim:
++        if s['active']:
++            d = abs(s['out_c'] - s['out_new'])
++            if d > 1e-6:
++                mismatch += 1
++                max_mismatch = max(max_mismatch, d)
++    print()
++    print(f"=== 전체 로그 NEW vs C 차이 프레임 수: {mismatch} (최대 차이 {max_mismatch:.2f}kph) ===")
++
++
++if __name__ == "__main__":
++    run_synthetic()
++    csv_path = sys.argv[1] if len(sys.argv) > 1 else "/mnt/user-data/uploads/199cha_8seg_route_extracted.csv"
++    run_real_log(csv_path)
+-- 
+2.43.0
+
