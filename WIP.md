@@ -1,3 +1,45 @@
+## 204차 (완료 — candidate telemetry 계측 패치 작성/커밋, ryu 코드 변경 O, 실차 미검증) — 203차 옵션1(candidate_count 실측) 구현
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu` + `ryujmin97/ryu-devnotes`
+
+**Branch**: `c3-ms-dev` / `main`
+
+**Base commit (ryu, 이 회차 시작 시점)**: `428cf3e`(202차, 203차는 코드 변경 없었으므로 동일)
+
+**Base commit (devnotes, 이 회차 시작 시점)**: 203차 커밋(devnotes HEAD)
+
+**배경**: 203차가 제시한 3가지 옵션(①candidate_count 실계측 추가, ②상승측 게이트 재검토, ③다른 로그 확보) 중, 사용자가 "1번만 우선 진행, 2·3번은 이번 패치를 실차에 반영해 새 로그를 받은 뒤 그 로그로 재개"하기로 결정. ChatGPT("지선생")도 동일 순서(1→3→필요시2)를 권고했고, 사용자는 "실차 검증보다 좋은 게 없다"는 원칙으로 지금 단계에서의 추가 시뮬레이션/설계 논쟁을 보류하고 바로 패치 적용을 요청.
+
+**작업 내용(ryu 코드 변경, 제어 로직 불변경 — telemetry 전용)**:
+
+1. `cereal/custom.capnp`의 `CarrotMan` 구조체에 신규 필드 10개 추가(`@42`~`@51`, 기존 `@0`~`@41` 불변):
+   - `routeCandidateCount` — `carrot_navi_route()`가 apex 선택 직전 갖고 있던 `candidates`(road_limit_speed 미만, 거리 오름차순) 리스트 길이. 0이면 179차 폴백(전역 최소, "직선" 판정) 경로를 탔다는 뜻.
+   - `routeCandidate0/1/2 Idx/Dist/Speed` — candidates 리스트의 최근접 3개(0번째=실제 apex로 선택된 후보와 동일). 후보가 3개 미만이면 나머지는 idx=-1, dist/speed=0.0.
+2. `selfdrive/carrot/carrot_man.py::carrot_navi_route()`: `candidates = [...]` 계산 직후(197차가 `candidates[0]`을 apex로 선택하는 지점 바로 다음) candidate telemetry를 캡처해 `self._route_candidate0/1/2`(튜플)와 `self._route_candidate_count`에 저장. 194차와 동일 패턴으로 `self.carrot_serv.route_candidate*`에도 즉시 mirror. 함수 시작부(매 호출) 초기화 블록에도 추가해 route 비활성/스킵 프레임에 직전 값이 남지 않도록 함(193차와 동일 원칙). JSON 디버그 `msg`에도 동일 노출(기존 `route_apex_*`와 나란히).
+3. `selfdrive/carrot/carrot_serv.py`: `route_candidate_*` 저장소 `__init__`에 추가, `update_navi()`에서 `msg.carrotMan.routeCandidate*`로 실제 cereal 발행(기존 `routeApexIdx` 등 발행부 바로 아래).
+4. **candidates 리스트 순서 확인**: `candidates = [k for k in range(len(speeds)) if speeds[k] < road_limit_speed]`는 `k`를 0부터 오름차순으로 순회하며 조건 만족 시 append하므로, `distances[k]`도 `k`에 비례해 오름차순 — 즉 `candidates` 자체가 이미 거리 오름차순으로 정렬되어 있음(별도 정렬 불필요, 코드 그대로 재확인).
+
+**검증**:
+- 정적 분석: 완료(`ast.parse` 문법 통과, 3개 파일 전부)
+- 스키마 검증: 완료(`pycapnp`로 `custom.capnp` 로드 + `CarrotMan.new_message()`에 신규 10개 필드 실제 set/get 왕복 확인 — `routeCandidateCount=3`, `routeCandidate0Idx=5` 등)
+- 로그 분석: 해당 없음(이번 회차는 계측 추가만, 기존 로그 재분석 없음)
+- 시뮬레이션: 해당 없음(제어 로직 변경 없으므로 A/B 대상 아님)
+- **실차 검증: 미실시** — 다음 실차 로그 수집이 이번 패치의 검증 겸 203차 재개의 데이터 소스
+
+**§27 최소변경 원칙**: 3개 파일, 총 103줄 추가(삭제 0). 기존 apex telemetry(193/194차) 필드·값·계산 순서는 전혀 건드리지 않음. `out_speed`/`accel_limit_kmh`/`hi`/`lo` 등 실제 제어값 계산 경로는 무변경.
+
+**미확인 사항 / 다음 작업**:
+1. 이 패치를 디바이스에 반영 후 실주행 로그 재수집(특히 203차가 지목한 t=418.62~423.18류 apex_idx 슬라이딩 구간이 다시 포착되면 최우선 분석 대상).
+2. 새 로그에서 `routeCandidateCount`/`routeCandidate0~2`를 실측해 "진짜 가까운 후보가 순간적으로 밀리는지" vs "후보 자체가 애초에 멀리만 있는지"를 구분(203차 원 질문에 대한 직접 답).
+3. 203차 옵션2(상승측 hi 게이트 재설계)·옵션3(다른 시나리오 로그 확보)은 이번 새 로그 확보 이후 재개 — 사용자 결정에 따라 지금은 보류.
+4. `extract_log.py`가 이 신규 4개(`routeCandidateCount` 포함 10개) 필드를 추출하도록 갱신 필요 여부 확인(다음 로그 분석 시점에 toolkit 쪽 대응 필요할 수 있음, 아직 미확인).
+
+**전달 파일**: `0001-204-route-apex-candidate-telemetry-routeCandidateCou.patch` (`ryu` 저장소, `cereal/custom.capnp` + `selfdrive/carrot/carrot_man.py` + `selfdrive/carrot/carrot_serv.py`, 3파일)
+
+---
+
 ## 203차 (진행 중 — hi=vEgo 앵커링 A/B 재현 완료, 디바운스 설계 방향 미확정, ryu 코드 변경 없음) — route 상승측(hi) 게이트 설계
 
 **Worker**: Claude
