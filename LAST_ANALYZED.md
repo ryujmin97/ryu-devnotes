@@ -1,3 +1,21 @@
+## c3-ms-dev (194차 계속3, apex 시간축 4갈래 진단 — apex선정/camera계산 정상 확인, MPC지연/덮어쓰기는 고속사례 부재로 미검증, ryu 코드 변경 없음)
+- last_analyzed_commit: `019481515afd` (194차 패치 반영 HEAD, 드리프트 없음)
+- date: 2026-09-02 (194차 계속3)
+- 분석 대상: `abe1d2bb34`(6세그), `e635e188cf`(19세그) — 194차 계속2에서 검증된
+  telemetry로 routeApexIdx→Dist→Speed→routeOutSpeed→liveRouteSpeed→
+  desiredSpeed/src→vEgo 시간축 체인 분석
+- note: 두 로그 전 구간 vEgo≤15.4km/h(도심 저속/정체) — 고속 커브 접근
+  사례 부재로 ③MPC추종지연/④다른source덮어쓰기는 검증 불가. ①apex
+  선정: 동일idx 유지 중 dist 단조감소 100%, idx 상승은 전부 새 곡선
+  재탐색과 일치, 이상 0건. ②routeApexSpeed=5.0 고정 현상은 버그 아님 —
+  V_CURVE_LOOKUP_BP/VALS 테이블(carrot_man.py L44-45)이 곡률 1/25(반경
+  25m) 이상에서 전부 5로 saturate하는 np.interp 외삽특성. route가 이길
+  때 desiredSpeed가 routeOutSpeed보다 평균 +15.6~+19.8km/h 높게
+  유지되는 gap 확인 — 172/173차 비대칭 램프리미터(하강만 제한, 상승
+  무제한)의 설계된 결과, 이번 로그에선 vEgo가 항상 그 아래라 실질
+  제약으로 작용한 적 없음. 결론: 이번 로그로는 route 로직 결함 증거
+  없음, 고속 급커브 접근 로그 필요. 상세는 WIP.md "194차 계속3" 참고.
+
 ## c3-ms-dev (194차 계속2, route apex telemetry 20Hz 생존 최초 검증 — VALIDATED, ryu 코드 변경 없음)
 - last_analyzed_commit: `019481515afd` (194차 패치 반영 HEAD, 드리프트 없음)
 - date: 2026-09-02 (194차 계속2)

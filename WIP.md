@@ -1,3 +1,61 @@
+## 194차 계속3 (완료 — 시간축 분석, ryu 코드 변경 없음) — apex idx→dist→speed→routeOutSpeed→liveRouteSpeed→desiredSpeed/src→vEgo 체인 검증
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu` (분석/코드 리딩만, 변경 없음) + `ryujmin97/ryu-devnotes`
+
+**Branch**: `c3-ms-dev` / `main`
+
+**Base commit (ryu)**: `019481515afd` (194차 패치 HEAD, 드리프트 없음)
+
+**Base commit (devnotes, 이 회차 시작 시점)**: `d0e3580` (194차 계속2)
+
+**배경**: 194차 계속2에서 검증한 `routeApexIdx/Dist/Speed`, `routeOutSpeed` telemetry를 이용해, 사용자가 지정한 4갈래 진단 프레임워크(①apex 선정 ②camera-style 감속계산 ③MPC/추종지연 ④다른 source 덮어쓰기)로 `abe1d2bb34`/`e635e188cf` 두 로그의 실제 시간축 체인을 분석. route 알고리즘 자체는 수정하지 않고 진단만 수행(사용자 지시).
+
+**⚠️ 핵심 전제/한계**: 두 로그 모두 **로그 전 구간 vEgo가 15.4km/h를 넘지 않음**(route 활성 구간뿐 아니라 로그 전체). 완전한 도심 저속/정체 주행이며, 고속 주행 중 급커브 접근 장면이 이번 로그엔 전혀 없음. 이로 인해 ③MPC 추종 지연 / ④다른 source 덮어쓰기는 **결정적으로 검증 불가능**했음 — 아래는 이 한계 안에서 확인된 것.
+
+**분석 방법**: `routeApexIdx`가 -1이 아닌 구간을 "이벤트"로 분할(비활성 전환 또는 idx 상승=새 곡선 재탐색 시 이벤트 경계), 이벤트별 apex 접근 궤적(dist 단조감소 여부, idx 급증=재탐색과 dist 급증의 동시발생 여부)을 자동 탐지. `src`(=`desiredSource`, CSV 컬럼명은 `src`)별로 `desiredSpeed - routeOutSpeed` gap을 집계.
+
+**확인 내용**:
+
+1. **Apex 선정(①)** — 이상 없음. 같은 `routeApexIdx`를 유지하는 동안 `routeApexDist`는 두 로그 합쳐 예외 없이 단조감소("동일 idx인데 거리 급증" 사례 0건). `routeApexIdx`가 커지는(=거리가 튀는) 시점은 전부 새 곡선 재탐색(연속 곡선 전환) 시점과 정확히 일치 — "뒤로 튀는" 진짜 이상 징후 없음.
+
+2. **Camera-style 감속계산(②)** — `routeApexSpeed`가 거의 항상 정확히 `5.0`으로 찍히는 현상을 코드로 직접 확인, **버그 아님**으로 결론. `carrot_man.py` L44-45의 `V_CURVE_LOOKUP_BP/VALS` 곡률→속도 lookup 테이블 최저 breakpoint가 곡률 `1/25`(반경 25m)이고 값이 `5`(km/h)임. `np.interp`는 테이블 범위를 벗어나면 외삽하지 않고 마지막 값으로 saturate하므로, 반경 25m 미만(교차로 회전 등)의 모든 apex는 실제 곡률과 무관하게 전부 `5.0`으로 뭉뚱그려짐. 두 로그의 apex 대부분이 교차로 회전이라 이 saturation이 항상 나타나는 것이 정상. 단, "반경 25m 완만한 회전"과 "반경 5m 급회전"을 구분 못 한다는 설계상 한계는 기록해둘 가치 있음(현재는 문제를 일으키지 않음 — 어차피 5km/h는 두 경우 다 적절한 목표속도).
+   - `routeOutSpeed`(camera-style 공식의 raw 출력)는 `apex_dist` 감소에 따라 정상적으로 낮아짐(예: 140m→48km/h, 20m→12.7km/h) — 공식 자체는 의도대로 작동.
+
+3. **③/④ 대신 발견한 것 — `liveRouteSpeed`(비대칭 램프리미터)가 `routeOutSpeed`보다 체계적으로 높게 유지됨**:
+   `src=='route'`인 프레임만 골라 `desiredSpeed - routeOutSpeed`(≈`liveRouteSpeed - routeOutSpeed`, `desiredSpeed`는 `liveRouteSpeed`의 반올림값임을 확인) gap을 집계:
+   | 로그 | count | 평균 gap | std |
+   |---|---|---|---|
+   | abe1d2bb34 | 4,450 | +15.6 | 9.7 |
+   | e635e188cf | 10,842 | +19.8 | 16.8 |
+
+   route가 이겨서 desiredSpeed를 결정할 때, 실제 명령값은 그 순간의 raw `routeOutSpeed`보다 평균 16~20km/h **높게** 유지됨. 원인은 172/173차에서 도입한 **비대칭 램프리미터**(`carrot_man.py` L820-825: 하강만 `accel_limit_kmh`로 제한, 상승은 `hi=math.inf`로 무제한)로, 코드 주석상 명백히 172/173차가 의도한 설계임 — 새 버그 아님. 다만 이 갭이 실차에서 실제 속도 제약으로 작용하려면 그 순간 vEgo가 이 gap만큼 desiredSpeed 아래가 아니라 위에 있어야 하는데, 이번 두 로그는 vEgo가 항상 desiredSpeed보다 훨씬 아래(≤15 vs 15~90)였으므로 **이 gap이 실제로 속도를 제약한 적 자체가 없었음** — ③(MPC 추종 지연)을 검증할 유효 사례 없음.
+
+   `src` 전환 패턴: 대부분 `route→vturn`(apex 근접 시), 이는 사용자 원 설계문서("route는 Vturn으로 부족한 사전감속용, 최종 실행은 Vturn")와 정합. `src=='cam'`(과속카메라)이 이길 때는 desiredSpeed가 routeOutSpeed보다 평균 -87 낮음(카메라가 더 엄격해서 정상적으로 이김) — arbitration이 상식적으로 작동하는 정황.
+
+**결론**: 이번 두 로그로는 route 로직 자체의 결함 증거를 찾지 못함. apex 선정·camera-style 계산·arbitration(적어도 cam 대비) 모두 설계 의도대로 작동하는 정황이 우세. ③④를 제대로 검증하려면 **고속(30km/h 이상) 주행 중 급커브 접근이 포함된 로그**가 필요 — 현재 확보된 로그엔 그 시나리오 자체가 없음.
+
+**검증**:
+- 정적 분석: 완료(`V_CURVE_LOOKUP_BP/VALS`, `calculate_current_speed`, 비대칭 램프리미터 코드 직접 확인 — `carrot_man.py` L577-830 전체 리딩)
+- 로그 분석: 완료(이벤트 분할/apex 단조성/gap 집계, 위 항목)
+- 시뮬레이션: 미실시
+- 실차 검증: 해당 없음(이번 회차는 기존 로그의 사후 분석)
+
+**미확인 사항**:
+- ③MPC/차량 추종 지연, ④route 대비 다른 source의 실질적 "덮어쓰기(패배)" 여부 — 고속 커브 접근 사례 부재로 검증 불가.
+- `routeApexSpeed=5.0 saturation`이 실제 문제로 이어지는 경우(예: 반경 5m 이하 초급회전과 반경 20m대 회전을 구분해야 하는 상황)가 있는지는 미조사.
+
+**다음 작업**:
+1. 다음 실차 로그는 **고속(30km/h+) 주행 중 급커브 진입** 구간을 포함하도록 채록(고속도로/자동차전용도로 커브, 또는 시내 큰 회전교차로 고속 접근 등) — ③④ 검증에 필수
+2. 확보되면 동일 프레임워크(routeApexIdx→Dist→Speed→routeOutSpeed→liveRouteSpeed→desiredSpeed/src→vEgo)로 재분석
+3. `routeApexSpeed=5.0 saturation` 자체는 당장 조치 불필요로 판단되나, 필요시 V_CURVE_LOOKUP_BP 테이블 하한 확장 여부는 사용자 판단 대기(현재는 코드 변경 보류 상태 유지)
+
+**주의**:
+- 기존 "194차" 계열 항목(진행 중/계속/계속2)은 삭제/수정하지 않고 그대로 유지(§14).
+
+---
+
 ## 194차 계속2 (완료 — 신규 실차 로그 2건 CSV 검증, 20Hz telemetry 생존 확인) — route apex telemetry(194차 패치) 최초 실측 검증
 
 **Worker**: Claude
