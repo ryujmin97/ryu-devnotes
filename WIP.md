@@ -1,3 +1,97 @@
+## 212차 (진행 중 — 원인 분석 완료, 코드 수정 전) — route apex_dist 20.0m 하드플로어로 인한 근접구간 무력화
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu` + `ryujmin97/ryu-devnotes`
+
+**Branch**: `c3-ms-dev` / `main`
+
+**Base commit (ryu, 이 회차 시작 시점)**: `e3bc20a`(211차)
+
+**Base commit (devnotes, 이 회차 시작 시점)**: 211차 시점(`99322a1`)
+
+**배경**: 사용자가 실차 스크린샷을 제보. 우회전 중 `vTurnSpeed=20`으로 이미
+정상 반응 중인데 `route`(HUD `route=40.8`)는 아직 감속 중인 상태. 사용자는
+"콤마 명령보다 차량 반응이 늦어 실제 감속이 늦다"는 기존 문제의식을 언급하며,
+vturn에 적용된 지연보상 로직(81/82차, `vturn_safe_time` 기반 진입측 리드타임
+버퍼 + 원복측 `accel_lead_dist`)을 route에도 동일 적용해달라고 요청.
+
+**분석 절차(§28)**:
+1. 사용자가 함께 업로드한 실차 로그
+   `20260902_181435_4e18e62932_12seg.csv`(커밋 `2b44b65`, 207차 시점, 12세그
+   14185행)에서 스크린샷 상황(vTurnSpeed 15~25, routeOutSpeed 35~45 동시
+   구간)을 검색해 t≈201~206초 구간 특정.
+2. 우선 "route에 vturn식 리드타임 버퍼가 없는 것 아니냐"는 원 가설을
+   코드로 확인 — **기각**. route의 `out_speed`는 이미 `calculate_current_speed()`
+   (160차, 과속카메라 로직 재사용)를 통해 `safe_dist = safe_speed*safe_time`
+   버퍼를 적용 중이며, 기본 `AutoNaviSpeedCtrlEnd=7초`로 vturn의
+   `vturn_safe_time=2초`보다 오히려 더 넉넉함.
+3. CSV 실측 결과, `routeApexDist`가 t=201.02~206.5초(5.5초 이상, 그 사이
+   vEgo 54.4→22km/h로 하강, 즉 차량이 코너를 진입~통과) 동안 **소수점까지
+   정확히 20.0으로 고정**됨을 확인. 정상적인 거리 감소(19.x→...→0→통과 후
+   음수)가 전혀 없음.
+4. `carrot_man.py::carrot_navi_route()` 곡률 스캔 루프(약 741~756행) 코드
+   확인:
+   ```python
+   distance = 10.0
+   sample = 4
+   for i in range(len(resampled_points) - sample*2):
+       distance += distance_interval   # 10.0m
+       p1, p2, p3 = resampled_points[i], resampled_points[i+sample], resampled_points[i+sample*2]
+       ...
+       distances.append(distance)      # i=0 -> 항상 20.0
+   ```
+   `resampled_points[0]`은 `get_path_after_distance()`가 계산한
+   `start_point`(현재 위치에 가장 가까운 경로점) 기준 실질적으로 차량 위치와
+   거의 0m인데, 거리 라벨은 `distance=10.0` 선증가 구조 때문에 인덱스 0에서
+   무조건 `20.0`으로 찍힘. fine 샘플(`ROUTE_CURVATURE_FINE_SAMPLE=1`)도
+   동일 구조(`fine_distance=10.0` 선증가)라 20m 미만은 fine 스캔으로도
+   해상 불가.
+5. 결과적으로 `apex_idx=0` 고정 시 `apex_dist`는 실제 거리와 무관하게 항상
+   `20.0`으로 `calculate_current_speed()`에 전달됨. `safe_dist =
+   target_speed/3.6*7`은 target이 10km/h만 넘어도 20m를 초과하므로
+   `decel_dist<=0`이 되어 **물리식 스무딩이 거의 항상 우회되고 raw 곡률
+   타겟이 그대로 출력**됨. 그 raw 타겟이 차량이 실제로 회전하며 heading이
+   바뀌는 동안 "고정된 가상의 20m 앞 지점"에서 매 프레임 재계산되며 요동:
+   ```
+   t=201.02  vEgo=54.4  apexDist=20.0  apexSpeed=49.1
+   t=202.02  vEgo=53.8  apexDist=20.0  apexSpeed=37.3
+   t=203.42  vEgo=48.6  apexDist=20.0  apexSpeed=31.9
+   t=203.82  vEgo=44.9  apexDist=20.0  apexSpeed=5.0   <- 정점 순간 급락
+   t=205.02  vEgo=32.0  apexDist=20.0  apexSpeed=41.0  <- 코너 통과 중 재급등
+   t=205.52  vEgo=27.2  apexDist=20.0  apexSpeed=43.5  <- 스크린샷(40.8대) 시점
+   ```
+
+**결론(원인)**: vturn 리드타임 버퍼 부재가 아니라, **apex_dist가 20.0m에
+구조적으로 하드플로어**되어 근접/통과 구간에서 거리 기반 감속식 자체가
+무력화되는 것이 근본원인. vturn은 연속 거리값(정점 통과 후 음수 표현 가능,
+82차 `accel_lead_dist`가 그 위에서 작동)을 쓰는 반면, route는 20m 미만이나
+"정점 통과"를 아예 거리로 표현할 방법이 없어 vturn 로직을 그대로 이식해도
+이 구간에는 적용점이 없음.
+
+**완료**:
+- 원인 분석 (실측 CSV + 코드 확인, 위 5단계)
+
+**미완료**:
+- 수정안 확정 (사용자 확인 대기 중, 2개 案 제시함):
+  - A안: `distances[i] = i*10.0`으로 오프셋(20m) 제거 — 근접 해상도만 개선,
+    "통과 후 음수" 표현은 여전히 불가
+  - B안: A안 + 정점 통과 감지 시 즉시 원복하는 로직 추가 — vturn의 원복
+    개념에 가장 가까우나 새 상태/분기 추가(158~159차 히스테리시스 전례로
+    신중 필요)
+- 코드 수정
+- 검증 (정적분석/로그 재생/실차)
+
+**다음 작업**:
+- 사용자로부터 A/B안 중 방향 확정 받기
+- 확정 후 `carrot_man.py::carrot_navi_route()` 곡률 스캔 루프 수정
+- 동일 CSV(`20260902_181435_4e18e62932_12seg.csv`, 12세그)로 회귀 재생하여
+  t=201~206초 구간 apex_dist/apex_speed/out_speed가 정상적으로 감소/통과 후
+  회복하는지 확인
+- Devnotes: FINDINGS.md에 이번 근본원인 신규 항목 추가 필요(아직 미기록)
+
+**실차 검증**: 미실시
+
 ## 211차 (완료 — 사용자 지시로 route 비활성 sentinel 조정 + HUD route= 표시 되돌림, 실차 검증 미실시) — sentinel 300->150, 폰트 2배->1.5배, 우측정렬->prefix이어쓰기
 
 **Worker**: Claude

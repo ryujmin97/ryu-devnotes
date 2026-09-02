@@ -1,3 +1,82 @@
+## 212차 — [ANALYSIS_ONLY, NEEDS_FIX] route apex_dist 20.0m 하드플로어로 근접/통과 구간 감속식 무력화 — vturn과 route는 동일 목표(20)인데 route가 40대에서 요동
+
+**대상**: 사용자가 실차 스크린샷(우회전, `vTurnSpeed=20` vs HUD `route=40.8`)을
+제보하며 "차량 반응지연 때문에 route도 vturn처럼 실제감속이 늦다. vturn에
+있는 지연보상 로직(81/82차)을 route에도 적용해달라"고 요청. 동일 실차로그
+(12세그, `20260902_181435_4e18e62932`, `2b44b65`/207차 커밋)의 t≈201~206초
+구간에서 재현 확인.
+
+**원 가설 기각**: route의 `out_speed`는 이미 `calculate_current_speed()`
+(160차, 과속카메라 로직 재사용)를 통해 vturn의 `vturn_safe_time`(2초)과
+동일 개념의 `safe_dist = safe_speed*safe_time` 리드타임 버퍼를 적용 중이며,
+기본 `AutoNaviSpeedCtrlEnd=7초`로 vturn보다 오히려 더 넉넉하다. "버퍼가
+없다"는 전제는 코드상 사실이 아님.
+
+**핵심 발견**: `carrot_man.py::carrot_navi_route()` 곡률 스캔 루프(약
+741~756행)의 거리 라벨링 구조 문제.
+
+```python
+distance = 10.0
+sample = 4
+for i in range(len(resampled_points) - sample*2):
+    distance += distance_interval   # 10.0m
+    p1, p2, p3 = resampled_points[i], resampled_points[i+sample], resampled_points[i+sample*2]
+    ...
+    distances.append(distance)      # i=0 -> 항상 정확히 20.0
+```
+
+`resampled_points[0]`은 `get_path_after_distance()`가 계산하는
+`start_point`(차량 현재 위치에 가장 가까운 경로점) 기준 실질적으로 0m
+지점인데, `distance` 변수가 루프 진입 전 `10.0`으로 선증가되어 있어 가장
+가까운 인덱스(i=0)조차 라벨이 무조건 `20.0`으로 찍힌다. fine 샘플
+(`ROUTE_CURVATURE_FINE_SAMPLE=1`)도 `fine_distance=10.0` 선증가로 동일
+구조 — 20m 미만은 macro/fine 어느 스캔으로도 해상 불가.
+
+**실측 증거**(CSV, 소수점까지 정확히 `20.0` 유지):
+```
+t=201.02  vEgo=54.4km/h  apexIdx=0  apexDist=20.0  apexSpeed=49.1  outSpeed=49.1
+t=202.02  vEgo=53.8km/h  apexIdx=0  apexDist=20.0  apexSpeed=37.3  outSpeed=37.3
+t=203.42  vEgo=48.6km/h  apexIdx=0  apexDist=20.0  apexSpeed=31.9  outSpeed=31.9
+t=203.82  vEgo=44.9km/h  apexIdx=0  apexDist=20.0  apexSpeed=5.0   outSpeed=12.7   <- 정점 순간 급락
+t=205.02  vEgo=32.0km/h  apexIdx=0  apexDist=20.0  apexSpeed=41.0  outSpeed=41.0   <- 코너 통과 중 재급등
+t=205.52  vEgo=27.2km/h  apexIdx=0  apexDist=20.0  apexSpeed=43.5  outSpeed=43.5   <- 스크린샷(40.8대) 시점
+```
+`apex_dist`가 5.5초 이상(그 사이 vEgo 54.4→22km/h로 하강, 즉 코너 진입~통과
+전 구간) 동안 전혀 줄어들지 않는다 — 정상이라면 19.x→...→0→통과 후 음수로
+연속 감소해야 함.
+
+**메커니즘**: `apex_dist=20.0` 고정 상태에서 `calculate_current_speed()`의
+`safe_dist = target/3.6*7`은 target이 10km/h만 넘어도 20m를 초과 →
+`decel_dist<=0` → 물리식 스무딩이 거의 항상 우회되고 raw 곡률 타겟이 그대로
+출력됨. 그 raw 타겟이, 차량이 실제로 회전하며 heading이 바뀌는 동안 "고정된
+가상의 20m 앞 지점"에서 매 프레임 재계산되며 요동친다(위 표: 49→37→32→
+**5**→41→43.5).
+
+**vturn과의 구조적 차이**: vturn은 연속 거리값(비전모델 `position` 배열,
+정점 통과 후 음수 표현 가능)을 쓰고 82차 `accel_lead_dist`(원복측 보상)가
+그 위에서 작동한다. route는 20m 미만이나 "정점 통과"를 애초에 거리로 표현할
+방법이 없어, vturn의 지연보상 로직을 그대로 이식해도 이 구간(가장 중요한
+근접/통과 구간)에는 적용점이 없다.
+
+**참고 — `곡선 가감속 코딩.txt`(사용자 설계문서) 6항과의 관계**: "차량 반응이
+늦어 목표지점 도달시 실속도가 목표속도보다 높을 수 있다(과속카메라 로직과
+동일, 허용)"는 사용자 설계 의도가 이미 있었음. 그러나 이번에 관측된 현상은
+"약간 늦게 도달"이 아니라 근접/통과 구간에서 raw 타겟 자체가 5~44 사이로
+크게 요동치는 것으로, 설계 의도가 허용한 범위를 벗어난 별개의 구조적 결함으로
+판단.
+
+**수정 방향(미확정, 사용자 확인 대기)**:
+- A안: `distances[i] = i*10.0`으로 +20m 오프셋 제거 — 근접 해상도만 개선.
+  "통과 후 음수" 표현은 여전히 불가.
+- B안: A안 + 정점 통과 감지 시 즉시 원복하는 로직 추가 — vturn의 원복
+  개념에 가장 근접하나 신규 상태/분기 추가(158~159차 히스테리시스 실패
+  전례로 신중 필요, §27).
+
+**검증 상태**: 실측 CSV 기반 원인 규명만 완료. 패치 미작성, 시뮬레이션/실차
+검증 모두 미실시.
+
+**실차 검증**: 미실시.
+
 ## 210차 — [PATCH_WRITTEN, NEEDS_VALIDATION] MapTurnSpeedFactor 곱셈이 205/207차 route vEgo 상한을 하류에서 무력화 — 사용자 실차 스크린샷으로 발견, 곱셈 제거로 대응
 
 **대상**: 사용자가 실차 스크린샷(HUD: vEgo=53, vCruise=70, `route=62.7`)을
