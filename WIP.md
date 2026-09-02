@@ -1,3 +1,56 @@
+## 202차 (완료 — `_route_speed_prev` baseline 형성 메커니즘 규명 + route 상한 300.0→150.0 패치 적용) — 199차 패치 실차 로그 baseline 추적 + route 최대속도 제한
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu` + `ryujmin97/ryu-devnotes`
+
+**Branch**: `c3-ms-dev` / `main`
+
+**Base commit (ryu, 이 회차 시작 시점)**: `a772453`(199차, 201차와 동일 — 다른 AI 작업 흔적 없음 확인)
+
+**Base commit (devnotes, 이 회차 시작 시점)**: `3cf6eba`(201차)
+
+**배경**: 201차에서 규명한 원인 B(북대전IC 커브, arbitration 패배)의 상류 원인으로, 사용자가 "`_route_speed_prev` baseline이 왜 ~230까지 높게 형성되는지" 근본 메커니즘 규명을 요청. 이어서 ChatGPT("지선생")가 route 최대속도 sentinel(300.0)을 실주행 상한(150.0)으로 명시화하자는 제안을 했고, 사용자가 이번 회차에서 바로 적용을 요청.
+
+**작업 내용 1 — baseline 형성 메커니즘 규명(ryu 코드 변경 없음)**:
+
+1. GPS 앵커링 8장 스크린샷 재확인(199차 8세그 로그, 9,598프레임, t=137.72~617.58) — 2장은 로그 범위 밖(t=108/121), 6장은 범위 내(유성 구간 img5/6, 북대전IC 구간 img1~4)
+2. 전체 로그 프레임별 `_route_speed_prev` 시뮬레이션 수행(`route_baseline_trace.csv`, 9,598행)
+3. **스모킹건**: t=418.42~418.59 구간에서 apex_idx 전환에 의한 "직선 오판정 스파이크"로 raw out_speed가 200→298까지 급등. 173차의 상승측 무제한 램프(`hi=math.inf`)가 즉시 발동해 `_route_speed_prev`가 그대로 298까지 점프.
+4. 8세그 전체(480초)에서 이런 raw≥290 스파이크는 이 1회만 발생, 위치가 북대전IC 진입 26초 전 — 우연이 아니라 201차 원인 B의 직접 원인으로 확인.
+5. 하강 램프 속도(2.52km/h/s)로는 298→55까지 96초 필요한데 실제 남은 시간 26~30초뿐 — 물리적으로 따라잡기 불가능함을 정량 확인.
+6. 결론: baseline이 apex_idx 전환 스파이크에 의해 비정상적으로 높게 형성되는 것이 201차 원인 B의 상류 메커니즘. 173차/197차 설계 의도(apex 통과 후 즉시 원복)와의 충돌 여부는 미확인 — 203차 과제로 이월.
+
+**작업 내용 2 — route 최대속도 상한 패치(ryu 코드 변경, 실차 미검증)**:
+
+7. 사용자 제안("route 최대속도를 300 대신 150으로") + ChatGPT 분석("300은 sentinel/제약없음 겸용으로도 쓰이므로 명시적 상한 필요, MapTurnSpeedFactor 적용 순서 확인 필요")을 바탕으로 `selfdrive/carrot/carrot_man.py`의 `carrot_navi_route()` 내 raw out_speed 클리핑(`out_speed = min(out_speed, 300.0)`, 832라인)을 신설 상수 `ROUTE_MAX_SPEED_KPH = 150.0`으로 교체.
+8. **다른 300.0 지점은 의도적으로 유지**: `self._route_out_speed = 300.0`(638라인), `self.carrot_serv.route_out_speed = 300.0`(645라인), `carrot_serv.py`의 `self.route_out_speed = 300.0`(173라인)은 "route 비활성/미계산" sentinel이라 의미가 다름 — 150으로 낮추면 route가 실제로 계산 안 되는 상태에서도 마치 150km/h 제약이 걸린 것처럼 arbitration에 잘못 참여할 위험이 있어 그대로 300.0 유지.
+9. **적용 순서 확인(코드 추적)**: `carrot_navi_route()`가 반환하는 `out_speed`(150 상한 + 132차 램프리미터 적용된 값, 956라인)가 `carrot_serv.update_navi()`로 전달되고, `carrot_serv.py` 1087라인에서 `route_speed = max(route_speed * self.mapTurnSpeedFactor, self.autoCurveSpeedLowerLimit)`로 **MapTurnSpeedFactor(기본 1.30)가 150 상한 이후에 곱해짐**을 확인. 즉 최종 arbitration 입력값 이론상 상한은 150×1.30=195km/h까지 가능 — ChatGPT가 제기한 "적용 순서" 질문에 대한 답. 다른 후보(vturn/road_limit 등)가 통상 더 낮게 형성되므로 실사용상 문제는 없을 것으로 판단하나 **실차 검증 전 확정 아님**.
+10. 문법 검증(`ast.parse`) 통과. 변경 diff는 16줄 추가/1줄 삭제, 단일 파일(`carrot_man.py`)만 수정 — §27 최소변경 원칙 준수.
+
+**검증**:
+- 정적 분석: 완료(코드 흐름 추적 — carrot_navi_route → update_navi → mapTurnSpeedFactor → arbitration)
+- 로그 분석: 완료(baseline 메커니즘, 199차 8세그 9,598프레임)
+- 시뮬레이션: 완료(route_baseline_trace.csv), 단 **150 상한 자체의 시뮬레이션 재검증은 미실시**(§203차 이월 가능)
+- 실차 검증: **미실시**
+
+**미확인 사항**:
+- 150 상한이 baseline 스파이크(t=418.6, raw 298) 자체를 억제하는지 여부 — 150 상한은 스파이크의 최대값만 낮출 뿐(298→150), 스파이크가 발생한다는 사실 자체와 상승측 무제한 램프(173차) 문제는 그대로 남아있음. 즉 이번 패치는 203차가 다뤄야 할 "상승측 디바운스 게이트"의 대체재가 아니라 별개의 상한 안전장치.
+- 150×1.30=195km/h 순간 arbitration 입력이 실제 주행에서 문제를 일으키는지 실차 확인 필요
+- 203차 제안(상승측 디바운스 게이트)이 173차의 원래 의도와 충돌하는지
+
+**다음 작업(203차 제안, 기존 계획 유지)**:
+1. 상승측(hi) 디바운스 게이트 설계 — apex_idx 전환 또는 raw 급등(전 프레임 대비 +100kph 이상) 프레임에서 상승 무제한 미적용
+2. 173차 원래 의도와의 회귀검증
+3. 이 로그(199차 8세그)를 회귀 테스트 셋에 포함
+4. 150 상한 패치의 실차 검증(다음 배포 시 199차 패치와 함께 반영)
+
+**Devnotes**:
+- `202cha_baseline_investigation.md` — baseline 메커니즘 분석 전체(GPS 앵커링 포함), `evidence/202cha_route_baseline/`에 보존
+- `route_baseline_trace.csv`(9,598행), `199cha_8seg_route_extracted.csv` — 대용량(§23 대상), devnotes git에는 미커밋. 세션 컨테이너에만 존재하며 재사용 필요 시 원본 로그(`20260902_133350_00000383--3e6ec098ab`)에서 `extract_log.py --with-navi-paths`로 재추출 가능.
+
+**패치**: `0001-202-route-apex-out_speed-300.0-150.0-ROUTE_MAX_SPEED.patch` (`ryu` 저장소, `carrot_man.py` 단일 파일)
+
 ## 201차 (완료 — 199차 패치 실차 로그 최초 분석, "모든 커브에서 route 작동 안함" 재현/근본원인 규명 — ryu 코드 변경 없음) — route 실차 검증
 
 **Worker**: Claude
