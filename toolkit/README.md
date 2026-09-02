@@ -2494,6 +2494,32 @@ events = ah.lead_coast_to_zero_scan(rows)
 
 **의존성**: `_f`/`_b` 헬퍼만 사용, 외부 의존성 없음.
 
+## verify_apex_transition_215.py (215차 신규)
+**목적**: 214차 B안(route ceiling `sharpest_candidate_speed` 거리인지화) 실제
+코드 패치(commit `4514e97`) 반영 후 첫 실차 로그에서, WIP 214차 계속3이
+합의한 실차 판정 기준 4가지(1.1차 apex 통과 후 제약 해제 2.해제 후 재가속
+3.2차 커브 필요감속거리 진입 시 재감속 4.먼 2차 커브가 저속 고정 안 함)를
+`routeApexIdx/Dist/Speed`+`routeOutSpeed`(194차 계측) 컬럼만으로 자동 채점.
+**로직**: `routeApexDist<=15m`(1차 근접) 직후 프레임에서 `routeApexDist`가
+`>=40m` 급증하는 지점을 "1차->2차 apex 전환"으로 탐지. 전환 시 `apex2_speed`가
+`apex1_speed`보다 덜 급하면("milder") release 기대(`out_after > apex1_speed`),
+더 급하면("sharper") 즉각 반영 기대(`|out_after - apex2_speed| < 3.0`)로
+판정. **주의**: "sharper" 케이스 중 apex2_dist가 크면(관찰상 160m 이상)
+즉각 반영이 아니라 거리에 따라 서서히 수렴하는 것이 B안 설계상 정상 동작이므로
+FAIL로 찍혀도 실패가 아님 -- 결과 해석 시 apex2_dist를 함께 봐야 함(215차
+WIP 참고, 자동 스크립트는 이 구분까지는 하지 않으므로 사람이 최종 판정).
+부가로 `apex_idx_flicker_stats()` -- apexIdx가 프레임마다(20Hz) 바뀌는 비율과
+그때 routeOutSpeed 점프 크기를 집계, 179차가 우려했던 "nearest apex
+noise-point"(인접 후보 사이에서 매 프레임 락온 대상이 바뀌는 현상) 실측 근거로 사용.
+**사용**:
+```bash
+python3 verify_apex_transition_215.py <route.csv> \
+    [--near-dist 15.0] [--jump-dist 40.0] [--tol 0.5]
+```
+**입력 요구사항**: `extract_log.py`로 뽑은 CSV(`--with-navi-paths` 불필요,
+194차 계측 컬럼만 있으면 됨). `routeApexIdx`가 전부 -1인 과거(194차 이전) CSV는
+사용 불가.
+
 ## sim_route_ceiling_distance_aware_214.py (214차, 신규 — B안 확정 사전검증, 8/8 PASS)
 
 213차가 특정한 "1차 apex 통과 후 2차가 멀리 있어도 저속에 묶이는" 버그

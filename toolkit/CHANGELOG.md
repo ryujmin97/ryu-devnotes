@@ -3,6 +3,13 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+## 2026-09-03 (215차)
+- `verify_apex_transition_215.py` 신규 추가 -- 214차 B안(route ceiling 거리인지화)
+  패치 반영 후 첫 실차 로그(x18seg, commit 4514e97)에서 WIP 214차 계속3이
+  합의한 4개 판정기준(1.해제 2.재가속 3.재감속 4.먼커브 비고정)을 apex1->apex2
+  전환 이벤트 단위로 자동 채점. POSITIVE(아래 WIP 215차 참고). 179차 noise-point
+  위험 실측용 apexIdx flicker 통계도 함께 산출.
+
 ## 2026-09-03 (214차)
 - `sim_route_ceiling_distance_aware_214.py` 신규 추가 -- route ceiling
   (sharpest_candidate_speed)을 candidate별 calculate_current_speed()

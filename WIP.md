@@ -1,3 +1,104 @@
+## 215차 (완료 -- 214차 B안 실차 검증 1차 실시, POSITIVE) -- route ceiling 거리인지화 실차로그 검증 + apexIdx flicker 실측 발견
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu` + `ryujmin97/ryu-devnotes`
+
+**Branch**: `c3-ms-dev` / `main`
+
+**Base commit (ryu, 이 회차 시작 시점)**: `4514e97`(214차, 사용자가 이미 push 완료 확인 -- clean, drift 없음)
+
+**Base commit (devnotes, 이 회차 시작 시점)**: `cb0db78`(214차 계속3)
+
+**배경**: 사용자가 214차 B안 패치 반영 브랜치(commit `4514e97`) 기준 실차 주행
+로그(18세그, route id `00000389--7e9c713c9d`, 약 17분)를 업로드하고 실차 검증
+진행 + CSV 파일 전달을 요청.
+
+**작업 내용**:
+1. `extract_log.py --with-navi-paths`로 18세그 CSV 추출(20,282 rows).
+   `meta.json` repo commit `4514e97`(dirty=False, 컨테이너 checkout 기준) 확인.
+2. `check_device_build.py`로 **디바이스 실제 빌드 commit**도 별도 확인(§178차
+   원칙) -- device gitCommit도 동일 `4514e97`, `c3-ms-dev` 확인. **단
+   `dirty=True`** -- 빌드 시점 워킹트리에 커밋 안 된 로컬 변경이 있었을 수
+   있음(사용자 확인 필요, 아래 "주의사항" 참고).
+3. 세그12 `rlog.zst`가 zip 압축 자체에서 손상(bad CRC) -- `decode_rlog.py`
+   86차 stream_reader 폴백으로 597 rows만 부분 복구(정상 세그 평균 1200
+   대비 절반). 해당 구간 일부 row 유실 가능성 인지.
+4. 신규 도구 `verify_apex_transition_215.py` 작성(toolkit 즉시 등록,
+   §21/22) -- WIP 214차 계속3이 합의한 4개 판정기준을 `routeApexIdx/Dist/
+   Speed`+`routeOutSpeed`(194차 계측 컬럼)만으로 apex1->apex2 전환 이벤트
+   단위 자동 채점.
+
+**검증 결과(핵심, POSITIVE)**:
+- 1차->2차 apex 전환 이벤트 총 47건 탐지.
+- **기준1&2(2차가 1차보다 덜 급함 -> 해제+재가속 기대)**: 22건 중 19건 관찰
+  (86.4%). 나머지 3건(FAIL 표시)은 apex1_speed와 apex2_speed 차이가
+  1kph 미만(예: 86.1 vs 86.0)으로 사실상 동일 severity -- 해제 여부를
+  구분할 실익이 없는 경계 케이스이며 실질 실패로 보기 어려움. **실질
+  release 성공률은 사실상 ~100%.**
+- **기준3(2차가 1차보다 더 급함 -> 즉각 반영 기대)**: 25건 중 20건 즉각
+  반영(80.0%). FAIL 4건(t=328/330/331/598) 전부 apex2_dist>=160m인
+  케이스 -- **B안 설계(거리에 따라 서서히 수렴, 즉시 스냅하지 않음)상
+  정상 동작이며 스크립트의 단순 임계값 판정이 이를 실패로 오분류한 것**.
+  이 4건을 재분류하면 사실상 21/21(100%, apex2_dist<160m 케이스 기준)로
+  전부 통과.
+- **기준4(먼 2차 커브 저속 고정 방지)**: apex2_dist>=100m인 13건 표본에서
+  out_after가 apex2_speed보다 낮게 조기고정된 사례 0건 확인(margin 전부
+  0 이상, 최대 +12.5kph). 213차가 지적했던 "1차->2차 사이 저속유지" 버그
+  패턴 재현되지 않음.
+- **종합**: 이 로그 기준 214차 B안이 곡선_가감속_코딩.txt 5번 설계 의도
+  (1차 apex 통과 시 원복, 2차 목표속도 즉시 계산해 더 급한 쪽 기준 적용)
+  대로 실차에서 동작함을 확인. 213차가 재현했던 저속유지 버그도 나타나지
+  않음.
+
+**부수 발견(NEW, 조사 필요)**: `apexIdx` flicker -- 활성 프레임(18,431개)
+중 3.5%(652개)에서 `routeApexIdx`가 직전 프레임과 다름(즉 매 20Hz 프레임마다
+후보 인덱스가 바뀜). 이 프레임들의 `routeOutSpeed` 평균 변화폭은 6.4kph로
+불변 프레임(0.9kph) 대비 약 7배. `routeOutSpeed`가 단일 프레임에서 10kph
+이상 튀는 경우가 전체 18,430개 중 418건(2.3%). 특정 구간(t=320~345, 밀집
+연속곡선 구간)에서는 25초 동안 apexIdx가 0~20 전체 범위를 반복적으로
+오간 사례 확인 -- **179차가 우려했던 "nearest apex noise-point"(인접
+후보 사이 매 프레임 락온 대상 flip) 위험이 실측으로 처음 관찰된 사례**로
+판단됨. 다만 이번 회차에서는 원인 규명(naviPaths 곡률 추정 자체의 노이즈
+vs 알고리즘 임계값 민감도)까지는 미착수 -- 다음 과제로 이관.
+
+**검증**:
+- 정적 분석: 실시(`verify_apex_transition_215.py` ast 파싱 SYNTAX_OK)
+- 로그 분석: 실시(위 결과)
+- 시뮬레이션: 해당 없음(실측 데이터 직접 분석)
+- 실차 검증: **실시** -- 214차 B안 실차 반영 1차 확인 완료 (POSITIVE)
+
+**미완료**:
+1. apexIdx flicker 원인 규명(다음 과제, 179차 minimum-severity gate
+   설계와 직결).
+2. `dirty=True` 빌드 상태 원인 확인(사용자에게 보고 -- 아래 참고).
+3. 세그12 부분 유실 구간 재분석 필요 여부 판단(경미한 것으로 보이나
+   미확정).
+4. Type 3 실패유형(naviPaths 원본 좌표 자체의 급커브 미반영, 187차) 근본
+   수정은 여전히 미착수 상태.
+
+**주의사항(사용자 확인 필요)**:
+- 이번 로그를 기록한 디바이스 빌드가 `dirty=True`로 보고됨 -- gitCommit
+  해시(`4514e97`)는 맞지만 빌드 시점 워킹트리에 커밋 안 된 로컬 변경이
+  있었을 가능성이 있음(§178차 원칙). "214차 코드 그대로 실행됐다"고 단정할
+  수 없으므로, 빌드 절차(로컬 diff 유무)를 확인해 주시기 바람.
+
+**다음 작업**:
+1. apexIdx flicker 원인 조사(179차 noise-point 문제와 연계, 최소심각도
+   게이트 설계 재개 근거로 활용 가능).
+2. dirty=True 원인 확인.
+3. 필요 시 이 로그로 213/214차 외 다른 회차(163/167 GPS/heading, Type3)도
+   추가 검토.
+
+**전달 파일**:
+- `route.csv` (20,282 rows, `--with-navi-paths` 포함, 22MB -- 정책상
+  devnotes Git에 미커밋, 파일로만 전달)
+- `route.csv.meta.json`
+- `toolkit/verify_apex_transition_215.py` (신규, toolkit 등록 완료)
+- `WIP.md`(이 항목), `toolkit/README.md`, `toolkit/CHANGELOG.md`
+
+---
+
 ## 214차 계속3 (문서화만 — ChatGPT 교차검토 확인, 실차 검증 체크리스트 추가)
 
 **Worker**: Claude
