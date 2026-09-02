@@ -2318,3 +2318,45 @@ python3 devnotes/toolkit/sim_route_hi_vego_anchor_203.py [csv_path]
 ```
 python3 devnotes/toolkit/sim_route_hi_debounce_sweep_203.py [csv_path]
 ```
+
+
+## sim_route_205_vego_cap_ab_206.py (206차, 신규 -- 205차 패치 실차로그 A/B 재검증, NEGATIVE)
+205차(out_speed 상한 고정 150 -> max(vEgo_kph, apex_speed)와 150 중 min으로
+동적화)가 실제 202/203차 문제 로그(199차 8세그, 북대전IC 진입 26초 전
+t=418.62~423.18 apex_idx 슬라이딩 스파이크/고원)에서 효과가 있는지 검증.
+carrot_man.py L905~1038의 실제 코드 구조(raw 클리핑 -> 199차 boost ->
+172/173차 비대칭 램프리미터 -> 162/167차 position-uncertainty 게이트)를
+OLD(202차 고정 150)/NEW(205차 동적 상한) 두 갈래로 병렬 재현.
+
+**핵심 발견(NEGATIVE)**: 문제의 스파이크/고원 구간(t=418.4~423.2) 및 이후
+북대전IC 접근 구간(t=423~498) 전체에서 OLD와 NEW가 **완전히 동일**(would_bind
+37.1%->37.1%, 프레임별 출력값 소수점까지 일치). 원인: 이 실패모드에서는
+apex_idx 오선택이 raw out_speed뿐 아니라 apex_speed(목표속도) 자체도 함께
+오염시켜(스파이크 구간 내내 raw==apex_speed, 둘 다 ~297~298로 동일) 205차
+공식의 `max(vEgo, apex_speed)` 항이 항상 apex_speed(오염된 값)에 의해
+지배되고 vEgo 하한이 전혀 작동하지 않음. 205차 WIP 검증에 쓰인 4개 합성
+시나리오는 raw와 apex_speed를 독립 변수로 가정했으나(예: raw=298/apex=50),
+실제 로그에서는 이 둘이 같은 근본원인(candidates 리스트 슬라이딩)으로
+동시에 오염되어 분리되지 않음이 실측으로 확인됨.
+
+전체 8세그(7,098 활성 프레임) 중 OLD!=NEW인 프레임은 56개뿐(t=524 부근
+소규모 사례 1건, 원인 구간과 무관 -- raw와 apex_speed가 실제로 8kph 정도
+벌어지는 경미한 후보전환 상황에서는 205차 공식이 의도대로 작동함을 확인,
+단 이번 202/203차 핵심 실패모드와는 무관).
+
+**참고**: OLD(202차 150고정) 자체는 이미 이 로그에서 상당한 개선을
+보여줌(apex 최근접 프레임 t=461.08 기준 목표 대비 격차 4.3kph -- 202차
+패치 이전 원본 분석의 ~170kph 격차 대비 큰 개선, 단 이 개선은 202차의
+150 cap 자체에 의한 것이며 205차의 기여는 이 로그에서 사실상 0).
+
+**결론**: 205차 패치는 코드 정적 검증/합성 시나리오상으로는 문제 없으나,
+202/203차가 실제로 규명한 핵심 실패모드(apex_idx 슬라이딩으로 인한
+raw/apex_speed 동시 오염)를 이 로그 기준으로는 해결하지 못함. 203차가
+이미 보류해둔 근본 대응(candidate_count 실계측 계측 추가/상승측 게이트
+재설계)이 여전히 유효한 다음 과제.
+
+**사용**:
+```
+python3 devnotes/toolkit/sim_route_205_vego_cap_ab_206.py [csv_path]
+```
+기본 csv_path는 `/mnt/user-data/uploads/199cha_8seg_route_extracted.csv`.

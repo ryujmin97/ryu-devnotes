@@ -3,6 +3,13 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+## 2026-09-02 (206차)
+- `sim_route_205_vego_cap_ab_206.py` 신규 추가 -- 205차 패치(out_speed
+  상한 vEgo 동적화)를 202/203차 문제 로그(199차 8세그)로 A/B 재검증.
+  결과 NEGATIVE: 핵심 스파이크/고원 구간(t=418.4~423.2, 북대전IC 접근
+  t=423~498)에서 OLD/NEW 완전 동일 -- apex_idx 오선택이 raw뿐 아니라
+  apex_speed도 함께 오염시켜 205차의 vEgo 하한이 작동하지 않음.
+
 ## 2026-09-01 (191차)
 - `analysis_helpers.py::type3_curvature_blindspot_scan_v3()` 신규 추가 +
   `scan_type3_curvature_blindspot.py`에 `--v3`/`--stop-v-ego-thresh`/
