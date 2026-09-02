@@ -12744,3 +12744,53 @@ road_limit_speed=200.0 고정가정(148/161차 기존 한계)도 그대로 남�
 
 **범위**: `ryu` 코드 변경 없음(분석만) + `toolkit/sim_route_207_ceiling_ab_208.py`
 신규, README/CHANGELOG 갱신.
+
+---
+
+## 211차 — [PATCH_WRITTEN, NEEDS_VALIDATION] route 비활성 sentinel 300->150 통일 (210차 후속, 사용자 지시) + HUD route= 표시 156차 이전 방식 복원
+
+**대상**: 210차에서 진단한 "HUD route= 표시값이 vEgo/실제 목표속도보다
+과도하게 높게 찍히는" 문제의 연장선. 사용자가 새 스크린샷(`route=390.0`,
+26-09-02 18:13:01)을 제보 -- 분석 결과 이번엔 210차의 apex raw 케이스가
+아니라 `naviPointsActive=False`(route 완전 비활성) 프레임에서
+`carrot_navi_route()`가 반환하는 **비활성 sentinel 300**이 트리거였음
+(300 * mapTurnSpeedFactor(1.30, 당시 차량코드 207차 기준, 210차 곱셈제거
+패치 적용 이전) = 390.0, HUD 값과 정확히 일치). 근본원인 자체는 210차와
+동일(mapTurnSpeedFactor 곱셈)이며, 210차 패치가 실제 차량에 반영되면 이
+경로의 재현도 함께 사라질 것으로 판단됨 -- 별도 신규 결함이 아니므로 §24에
+따라 210차 항목을 참조하는 후속 항목으로만 기록.
+
+**추가 조치(사용자 지시)**: 210차 패치와 별개로, 비활성 sentinel 값 자체를
+`300` -> `150`(`ROUTE_MAX_SPEED_KPH`)으로 낮추도록 지시받아 반영.
+`carrot_man.py::carrot_navi_route()` 내 4개 지점
+(`self._route_out_speed`/`self.carrot_serv.route_out_speed` 초기화 2곳,
+`return [],[],300` 조기반환 1곳, `out_speed = 300` 로컬 초기값 1곳) 전부
+`ROUTE_MAX_SPEED_KPH`로 교체.
+
+**트레이드오프(명시적 인지 필요)**: 202차는 "활성 상태에서 150 상한에
+걸린 경우"와 "route 자체가 비활성/제약없음인 경우"를 CSV `routeOutSpeed`
+값(150 vs 300)만으로 구분할 수 있도록 **의도적으로** sentinel을 300으로
+남겨뒀었다(202차 FINDINGS 참고). 이번 변경으로 그 구분이 값만으로는
+불가능해짐 -- 이후 두 상태를 구분해야 하는 분석/스캐너는 `routeApexIdx`가
+-1인지(=apex 계산이 애초에 돌지 않음)로 대체 판별해야 한다.
+
+**부수 조치(UI, 별개)**: 사용자 지시로 `selfdrive/ui/carrot.cc`의 HUD
+`route=` 숫자 표시를 156차 커밋(`c3e20a4`) 이전 방식으로 복원 -- (1) 숫자
+폰트 크기 156차의 2배(`fs_prefix*2`) -> 1.5배(`fs_prefix*3/2`)로 축소,
+(2) 정렬을 "박스 우측끝 정렬" -> "route= 뒤에 바로 이어쓰기"(nvgTextBounds
+기반)로 되돌림. 이는 longitudinal 로직과 무관한 순수 표시 방식 변경.
+
+**검증**: `py_compile`(carrot_man.py) PASS. 독립 clone에서 `git apply
+--check` + `git am` 성공(패치 그대로 적용 가능 확인). carrot.cc는 C++
+빌드환경 부재로 육안 diff 검토만 수행. **실차 검증: 미실시**(sentinel
+변경/UI 변경 모두 미검증) -- 특히 UI 변경은 실제 화면에서 레이아웃 확인
+필요(1.5배 크기에서 prefix+숫자 조합이 박스 폭을 넘지 않는지 등).
+
+**관련**: 210차(mapTurnSpeedFactor 곱셈 제거, 근본원인), 202차(sentinel
+300 vs 150 구분 설계 최초 도입), 156차(HUD route= 2배+우측정렬 도입,
+이번에 되돌린 대상).
+
+**다음 작업**: (1) 이 패치 실차/실빌드 검증, (2) sentinel 150 변경이
+기존 toolkit 스캐너(routeOutSpeed==300을 "비활성" 판별 기준으로 쓰던
+스크립트가 있다면) 회귀를 일으키는지 점검 -- 이번 세션에서는 미수행.
+

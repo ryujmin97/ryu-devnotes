@@ -1,3 +1,82 @@
+## 211차 (완료 — 사용자 지시로 route 비활성 sentinel 조정 + HUD route= 표시 되돌림, 실차 검증 미실시) — sentinel 300->150, 폰트 2배->1.5배, 우측정렬->prefix이어쓰기
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu` + `ryujmin97/ryu-devnotes`
+
+**Branch**: `c3-ms-dev` / `main`
+
+**Base commit (ryu, 이 회차 시작 시점)**: `2e0022a`(210차)
+
+**Base commit (devnotes, 이 회차 시작 시점)**: 210차 시점(`90b04db`)
+
+**배경**: 사용자가 실차 스크린샷(HUD `route=390.0`, 18:13:01)을 제보. 분석 결과
+이 프레임은 `naviPointsActive=False`(carrot_navi_route() 조기 반환) 경로였고,
+비활성 sentinel `300`이 당시 차량 코드(`2b44b65`, 207차, 210차 패치 적용 전)의
+`route_speed = max(route_speed * mapTurnSpeedFactor(1.30), ...)`를 거쳐
+300*1.30=390.0으로 HUD에 찍힌 것으로 확인(210차와 동일 근본원인의 다른
+트리거 경로 -- 210차는 실제 apex raw 48.2*1.30=62.7 케이스, 이번은 sentinel
+300*1.30=390 케이스). 곱셈 자체는 이미 210차에서 제거되어 HEAD에 반영되어
+있었음(이 로그는 210차 패치 적용 이전 주행 기록이라 재현된 것).
+
+**사용자 지시(추가 조치)**: 위 근본원인 설명과 별개로, 아래 3가지를 이번
+세션에서 코드에 반영하라는 명시적 지시:
+1. `carrot_man.py::carrot_navi_route()`의 비활성/제약없음 sentinel `300`을
+   `150`(`ROUTE_MAX_SPEED_KPH`)으로 통일.
+2. HUD `route=` 숫자 폰트 크기: 156차가 도입한 2배 -> 1.5배로 축소.
+3. HUD `route=` 숫자 정렬: 156차가 도입한 "박스 우측끝 정렬" -> "route= 뒤에
+   바로 이어서"(156차 이전 방식)로 복원.
+
+**작업 내용**:
+1. `carrot_man.py` 4곳 수정 (`carrot_navi_route()` 내부):
+   - `self._route_out_speed = 300.0` -> `ROUTE_MAX_SPEED_KPH`
+   - `self.carrot_serv.route_out_speed = 300.0` -> `ROUTE_MAX_SPEED_KPH`
+   - `return [],[],300` (navi 비활성 조기반환) -> `return [],[],ROUTE_MAX_SPEED_KPH`
+   - `out_speed = 300` (초기값, lookahead 내 유효 포인트 부족 시 그대로 반환됨)
+     -> `out_speed = ROUTE_MAX_SPEED_KPH`
+   - **의도적으로 건드리지 않은 것**: `V_CRUVE_LOOKUP_VALS`(curvature=0 지점의
+     곡률-속도 lookup 테이블 첫 값, 별개 개념 -- 곡률 기반 속도 보간용이며
+     `nRoadLimitSpeed`로 별도 clamp됨, §27 최소변경 원칙상 미변경).
+2. `carrot.cc` 156차 diff(`c3e20a4`) 역방향 복원:
+   - `fs_number = fs_prefix * 2` -> `(fs_prefix * 3) / 2`
+   - `right_edge`(박스 우측끝) 정렬 로직 제거, 156차 이전의
+     `nvgTextBounds()`로 prefix 폭을 구해 숫자를 prefix 바로 뒤에 이어
+     그리는 방식으로 복원.
+3. 커밋(ryu, `6759b09`... 별도 clone 재검증 시 `b99e89e`) 후
+   `git format-patch`로 패치 생성, 독립 clone에서 `git apply --check` +
+   `git am` 성공 확인.
+
+**검증**:
+- 정적 분석: `py_compile`(`carrot_man.py`) PASS. `carrot.cc`는 C++ 전체
+  빌드환경 부재로 육안 diff 검토만 수행 -- **실제 컴파일 검증 미실시**,
+  사용자 로컬 빌드에서 1차 확인 필요.
+- 로그 분석: 해당 없음(코드 수정, 회귀 재현용 로그 없음).
+- 시뮬레이션: 미실시.
+- 실차 검증: **미실시**.
+
+**부작용(반드시 인지, FINDINGS.md 211차 참고)**: sentinel을 150으로 낮추면
+CSV `routeOutSpeed==150`만으로는 "route 비활성/제약없음"과 "route 활성 +
+실제 150 상한에 걸림"을 더 이상 구분할 수 없다(202차가 애초에 300으로
+남겨뒀던 이유). 구분이 필요하면 `routeApexIdx==-1`(apex 계산 자체가 돌지
+않은 프레임) 여부로 대체 판별 가능 -- 이후 스캐너/분석 스크립트 작성 시
+주의.
+
+**미확인 사항 / 다음 작업**:
+1. `carrot.cc` 패치의 실제 빌드/실차 검증(폰트 1.5배 크기감/prefix이어쓰기
+   레이아웃이 실제 화면에서 잘리거나 겹치지 않는지 확인 필요).
+2. sentinel 150 변경 이후 회귀 여부(routeOutSpeed==150을 "비활성"으로
+   가정하던 기존 toolkit 스캐너/분석 스크립트가 있다면 재점검 필요 --
+   이번 세션에서는 devnotes toolkit 전수 재검증은 수행하지 않음).
+3. 210차의 기존 다음 작업(MapTurnSpeedFactor 제거로 인한 route 승률 변화
+   재검증 등)은 그대로 대기.
+
+**Devnotes**: `FINDINGS.md`(211차 항목 신규), `WIP.md`(이 항목)
+
+**전달 파일**: `0001-211-route-sentinel-300-150-HUD-route-2-1.5-prefix.patch`
+(ryu 저장소 대상, `2e0022a` 기준)
+
+---
+
 ## 210차 (완료 — 사용자 실차 스크린샷 제보 원인 규명+패치작성+시뮬레이션 검증, 실차 검증 미실시) — MapTurnSpeedFactor 곱셈이 205/207차 route vEgo 상한 무력화 → 곱셈 제거 패치
 
 **Worker**: Claude
