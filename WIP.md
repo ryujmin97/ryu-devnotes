@@ -1,3 +1,97 @@
+## 214차 계속 (진행 중 — B안 시뮬레이션 8/8 PASS, 프로덕션 코드 미수정) — sharpest_candidate_speed B안(calculate_current_speed 재사용) 시뮬레이션 검증
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu` + `ryujmin97/ryu-devnotes`
+
+**Branch**: `c3-ms-dev` / `main`
+
+**Base commit (ryu, 이 회차 시작 시점)**: `5ee44be`(213차, 변경 없음 재확인)
+
+**Base commit (devnotes, 이 회차 시작 시점)**: `01145d7`(214차 설계논의 체크포인트)
+
+**배경**: 직전 214차 체크포인트에서 A(명시적 required_decel_dist)/B(calculate_current_speed
+재사용) 중 사용자 확답 대기 상태였음. 사용자가 B안 채택을 확정하고, 코드 수정
+전에 4개 시나리오(①207차 회귀 방어 ②멀리 있는 2차 커브 조기고정 방지 ③필요
+감속거리 진입 시 단조수렴 ④연속 S자 전체 타임라인)로 먼저 시뮬레이션 검증할
+것을 지시. 착수 전, "213차 거리축 수정 이후에도 distances[k]가 candidate k의
+실제 거리와 정확히 대응하는지"를 먼저 코드로 확인(전제조건)하도록 요구받음.
+
+**작업 내용**:
+
+1. **원격 상태 재확인**(§3/§33): `ryu` c3-ms-dev 로컬=원격=`5ee44be`(213차),
+   `ryu-devnotes` main 로컬=원격=`01145d7`(214차 체크포인트), 드리프트/타
+   AI 작업 없음 확인.
+2. **전제조건 코드 검증**: `carrot_man.py` L748(`distance = -10.0`, 213차
+   수정 유지 확인), L753-762(macro 루프에서 `distances.append()`와
+   `speeds.append()`가 동일 반복문 동일 인덱스에서 동시 실행 확인),
+   L772-796(fine 보정 루프는 `speeds[j]`/`curvatures[j]`만 조건부 덮어쓰고
+   `distances[]`는 미변경 확인) → `distances[k]`가 candidate k의 실제
+   거리와 정확히 대응함을 코드로 확인(전제 성립).
+3. **시뮬레이션 스크립트 신규 작성**:
+   `toolkit/sim_route_ceiling_distance_aware_214.py` — OLD(207차 현재
+   프로덕션: `sharpest_candidate_speed = min(speeds[k] for k in
+   candidates)`, 거리 무시)와 NEW(B안: `sharpest_candidate_speed = min(
+   calculate_current_speed(distances[k], speeds[k], safe_time,
+   safe_decel_rate) for k in candidates)`, 거리 반영)를 나란히 계산하는
+   `compute()` 함수로 구현. apex_dist/apex_speed(raw 계산, candidates[0]
+   기준)는 전혀 변경하지 않음(§27).
+4. **8개 시나리오 실행 — 8/8 PASS**:
+   - **1. 207차 회귀 방어**(apex=70m/297.5kph trivial, sharpest
+     candidate=230m/50kph, vEgo=55): OLD out=55.00(기존 동작 재확인),
+     NEW out=70.07. 206/207차가 막으려던 150~298 스파이크와는 명확히
+     구분됨(<100). **단, NEW가 OLD(55)보다 높다는 점은 사용자 재확인
+     필요** — B안이 230m 거리를 반영해 "아직 완전 감속 불필요"로 판단한
+     결과이며, OLD보다 물리적으로는 더 정확하지만 vEgo 정확히 bind되던
+     기존 동작과는 다름.
+   - **2. 멀리 있는 2차 커브**(candidate=300m/40kph 단독, vEgo=70): OLD
+     out=70.00(vEgo bind), NEW out=75.05(raw 자체). 둘 다 40으로 조기고정
+     되지 않음 확인.
+   - **3. 필요 감속거리 진입**(candidate=40kph 고정, 거리 300m→0m
+     스윕): NEW out이 75.05→68.74→61.79→...→40.00으로 **단조비증가(진동
+     없음)** 수렴 확인. safe_dist(77.8m) 이내부터 40.00 고정.
+   - **3b. 1차 통과 후 원복 가능 여부**(213차가 지적한 핵심 버그 재현/해소
+     확인, vEgo=30, 남은 후보=2차 300m/40kph뿐): **OLD out=40.00(213차가
+     지적한 "1차→2차 사이 저속유지" 버그 그대로 재현됨) vs NEW
+     out=75.05(원복 허용, 버그 해소)** — 이번 검증에서 가장 명확하게
+     213차 문제와 B안의 효과 차이를 보여준 시나리오.
+   - **4. 연속 S자 전체 타임라인**(1차 통과 후 vEgo=30→2차 300m 접근):
+     거리 감소에 따라 OLD는 즉시 40 고정 유지, NEW는 75→70→64→...→40으로
+     서서히 수렴. 진동(비단조 상승) 없음 확인.
+   - **대조군 1~3**(205~207차 기존 검증 시나리오 재확인): 정상 직선
+     복귀/연속 S자(vEgo 지배 구간)/candidates=[] 폴백 모두 회귀 없음
+     (대조군-3 candidates=[] 폴백은 OLD=NEW 완전 동일, diff-0).
+
+**미완료**:
+1. **시나리오 1의 NEW>OLD 차이(70.07 vs 55.00)에 대한 사용자 판정 대기** —
+   "이대로 패치해도 되는지 / 공식에 문제가 있는지 / 207차 회귀가 숨어
+   있는지"를 사용자가 위 실측 수치로 직접 판정하기로 합의됨(214차 지시
+   원문).
+2. 위 판정 후 승인되면 `carrot_man.py` L994 실제 코드 패치 생성
+   (`sharpest_candidate_speed = min((self.carrot_serv.calculate_current_speed(
+   distances[k], speeds[k], self.carrot_serv.autoNaviSpeedCtrlEnd,
+   self.carrot_serv.autoNaviSpeedDecelRate) for k in candidates),
+   default=apex_speed) if candidates else apex_speed`) — 아직 미생성.
+3. 213차 20m 하드플로어 실차 검증도 여전히 이월 상태(동일 CSV, t=201~206초
+   구간).
+4. toolkit README/CHANGELOG에 신규 스크립트 등록 — 아직 미수행.
+
+**검증**:
+- 정적 분석: 실시(carrot_man.py distances/candidates 대응관계 코드 확인)
+- 로그 분석: 미실시
+- 시뮬레이션: 실시 — `sim_route_ceiling_distance_aware_214.py`, 8/8 PASS
+- 실차 검증: 미실시
+
+**다음 작업**:
+1. 사용자에게 시나리오 1(NEW 70.07 vs OLD 55.00) 판정 요청
+2. 승인 시 `carrot_man.py` L994 패치 생성 + `git am` 검증
+3. toolkit README/CHANGELOG 갱신
+4. 213차 실차 검증 병행 여부 확인
+
+**전달 파일**: `toolkit/sim_route_ceiling_distance_aware_214.py`(신규)
+
+---
+
 ## 214차 (진행 중 — ceiling 수정 설계안 도출, 코드/시뮬레이션 착수 전) — sharpest_candidate_speed ceiling 거리인지화 설계 논의
 
 **Worker**: Claude
