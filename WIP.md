@@ -1,3 +1,42 @@
+## 197차 (완료 — apex 선택 로직 변경(179차후속2 게이트 제거), ryu 패치 생성/검증 완료, 실차 검증 대기) — route sequential apex
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu`
+
+**Branch**: `c3-ms-dev`
+
+**Base commit (ryu)**: `0194815` (194차, 드리프트 없음)
+
+**배경**: 사용자가 179차의 `relative severity 0.85` 게이트(당시 근접 미세잡음이 먼 급커브를 가리는 문제를 막기 위해 도입, 실함수 기준 유닛테스트 15/15 PASS 기록)를 재검토, 연속곡선을 "1차 apex 통과 → 2차 apex 재선택" 순서로 처리하는 설계(`곡선_가감속_코딩.txt` 5번)를 재확정. 이 설계상 근접 감속필요 지점을 게이트 없이 무조건 우선해야 하므로, 179차후속2 게이트를 제거하기로 결정.
+
+사용자가 `route_sequential_apex_196.patch`를 업로드했으나 hunk 헤더가 `@@ -l,s +l,s @@` 형식이 아니라(`@@`만 존재) `git apply --check`에서 `error: patch with only garbage at line 4`로 실패 — 적용 불가 확인. 패치가 의도한 변경 내용(설명 텍스트)은 현재 코드와 정확히 일치하여, 그 의도대로 `str_replace`로 직접 재구성 후 검증 파이프라인을 거쳐 새 패치를 생성함.
+
+**작업 내용** (`selfdrive/carrot/carrot_man.py`):
+1. `ROUTE_APEX_RELATIVE_SEVERITY_RATIO = 0.85` 상수 및 그 배경 설명 주석(179차후속2, L81-103) 제거 → 197차 게이트 폐기 사유로 교체(기존 설명은 삭제하지 않고 devnotes FINDINGS.md 179차/179차후속2 항목에 보존된다고 명시)
+2. `carrot_navi_route()` 내 "apex 선택 기준은 157차와 동일하게 가장 급한 지점 유지" 주석을 "연속곡선 1차→2차 순차 처리, candidates[0] 선택" 설명으로 갱신
+3. `sharpest_severity` 계산 제거
+4. `gated` 후보 리스트 계산 제거
+5. `apex_idx = gated[0] if gated else candidates[0]` → `apex_idx = candidates[0]`로 단순화
+6. `calculate_current_speed()`, 하강측 asymmetric ramp, arbitration은 변경 없음 (사용자 지시대로 유지)
+
+**검증**:
+- 정적 분석: `py_compile` PASS, `ast.parse` PASS, 게이트 관련 식별자(`ROUTE_APEX_RELATIVE_SEVERITY_RATIO`/`sharpest_severity`/`gated`) 코드 내 잔여 참조 없음(주석 설명문 1건 제외) grep 확인
+- diff-0 검증: `git format-patch` → 별도 throwaway clone에 `git am` 성공 → `git diff --stat`으로 의도한 변경(1개 파일, +20/-37줄)만 존재함을 확인, 재적용본도 `py_compile` PASS
+- 로그 분석: 미실시
+- 시뮬레이션: 미실시(179차후속2 게이트가 참조하던 `toolkit/sim_route_camera_style_decel.py::carrot_navi_route_camera_style_nearest_relative_gated()`는 이번 변경으로 게이트 자체가 사라졌으므로 더 이상 검증 대상 아님 — 필요 시 사용자가 회귀 확인)
+- **실차 검증: 미실시** — 이번 변경은 179차가 막았던 "근접 미세잡음이 가짜 apex로 잡히는 문제"를 다시 열 수 있으므로 실차 검증 필수
+
+**패치**: `197차_route_apex_게이트제거.patch` (`selfdrive/carrot/carrot_man.py` 1개 파일, +20/-37)
+
+**다음 작업**: 197차 패치 적용 → 실제 차량 주행 → rlog/qcamera 확보 → GPS 앵커링(195차 VALIDATED, `gpsLocation.unixTimestampMillis` 오프셋 방법론) → 194차 apex telemetry(`routeApexIdx/Dist/Speed`, `routeOutSpeed`) 기반 apex timeline 분석. 핵심 검증 항목 2가지:
+1. 연속곡선에서 `apex_dist ↓ → apex_idx 유지/전환 → route_out_speed ↓ → 1차 apex 통과 → 2차 apex로 전환 → 필요시 추가 감속 → 최종 원복` 체인이 실제로 나타나는지
+2. 직선/완만한 곡선에서 GPS 미세곡률(잡음) 때문에 너무 가까운 가짜 apex를 잡아 불필요한 감속이 발생하는지 (179차 게이트가 막던 문제의 재발 여부)
+
+두 조건을 동시에 만족해야 이번 변경이 유효하다고 판단. 문제 발견 시 최소 범위로만 패치(예: 최소 심각도 하한 등 대안 검토는 179차 devnotes에 미결로 남아있던 "노이즈 지점 문제" 논의 참고).
+
+---
+
 ## 196차 (완료 — route 하강측 램프리미터를 `곡선_가감속_코딩.txt` 공식 예외로 명시, ryu 코드 변경 없음)
 
 **Worker**: Claude
