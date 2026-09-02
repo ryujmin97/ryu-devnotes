@@ -1230,6 +1230,22 @@ route_lookahead_m 최대치(600m)급 긴 경로.
 `resample_10m_np()`를 그대로 가져다 쓰면 됨 — 별도 검증 없이 신뢰
 가능.
 
+## sim_route_distance_offset_213.py (213차 신규)
+**목적**: 212차가 진단한 route 곡률스캔 20m 하드플로어 제거 패치
+(`carrot_man.py` distance 선증가 초기값 `10.0`->`-10.0`)를 실제 함수와
+분리된 순수함수로 복제해, 패치 전/후를 나란히 비교 검증.
+**주요 함수**: `scan_distances(resampled_points, ..., use_old_offset)` --
+`use_old_offset=True`면 213차 이전(버그) 재현, `False`면 213차 이후(패치)
+재현. `make_approach_points()` -- 직선 접근 합성 경로.
+**213차 실측(합성) 결과(5/5 PASS)**: OLD는 index0 거리가 항상 20.0 고정(접근
+중에도 불변, 실차 증상과 일치), NEW는 index0=0.0이고 접근 중 단조비증가
+(거리가 정상적으로 줄어듦). 전 구간 오프셋 차이가 -20.0으로 균일(20m
+하드플로어만 제거, 다른 구조 회귀 없음).
+**사용**:
+```bash
+python3 sim_route_distance_offset_213.py
+```
+
 ## sim_route_curvature_sample.py (90차 신규)
 **목적**: 89차 route 사전감속 과소평가 원인분석에서 나온 대안1(곡률
 샘플링 chord 축소, `sample` 4->2/3)을 검증. raw navi_points(GPS

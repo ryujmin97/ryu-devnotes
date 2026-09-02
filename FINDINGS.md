@@ -1,3 +1,48 @@
+## 213차 — [FIXED(20m 하드플로어) / ANALYSIS_ONLY-NEEDS_USER_DECISION(ceiling)] 212차 A안 반영 + 연속커브 저속유지의 정확한 코드상 원인(sharpest_candidate_speed ceiling이 거리 무시) 특정
+
+**대상**: 사용자가 "route 감속 개선 작업 지시서"(1번=20m 하드플로어, 2번=연속
+커브 저속유지)를 제공하며 원격 확인 후 진행 지시.
+
+**1) 20m 하드플로어(212차) — 수정 완료**: `carrot_navi_route()` macro/fine
+곡률스캔의 `distance`/`fine_distance` 선증가 초기값 `10.0`->`-10.0`으로
+변경, `distances[i]=i*10.0` 정상화(commit `8951a99`). 독립 clone
+apply+py_compile 확인, toolkit `sim_route_distance_offset_213.py` 격리
+시뮬레이션 5/5 PASS. **실차 검증은 아직 미실시** — 이 항목은 실차 로그로
+`t=201~206초`(212차가 특정한 구간) 재생 확인 전까지 완전한 FIXED로 격상하지
+않는다.
+
+**2) 연속커브 저속유지 — 원인 특정, 수정은 사용자 결정 대기**: 사용자가
+제시한 설계(1차 apex 통과 후 즉시 설정속도로 원복, 2차 커브 필요감속거리
+진입 시 재감속)를 코드로 대조하다가, 실제 원인이 사용자가 가정한 "지연
+보상 부재"나 "설정속도 미반영"이 아니라 `carrot_navi_route()` L986-988의
+ceiling 항 자체에 있음을 확인:
+```python
+sharpest_candidate_speed = min((speeds[k] for k in candidates), ...) if candidates else apex_speed
+out_speed = min(out_speed, max(v_ego_kph, sharpest_candidate_speed), ROUTE_MAX_SPEED_KPH)
+```
+1차 커브를 막 통과해 vEgo가 아직 낮은 상태에서, 2차 커브가 실제로는 아직
+수백m 밖에 있어 raw(거리기반 calculate_current_speed 물리식)는 훨씬 높은
+값을 계산해도, `sharpest_candidate_speed`(candidates 중 가장 낮은 목표속도
+= 대개 2차 apex_speed)가 **후보의 실제 거리와 무관하게** 그대로 ceiling으로
+쓰여 route가 2차 apex_speed 근방에 즉시 고정된다. 이 항은 205/207차가
+"apex_idx가 근접 무해 후보를 가리키는 동안 raw가 최대 298까지 스파이크"하는
+별개의 실차 회귀를 막기 위해 검증 도입한 것이라(FINDINGS.md 207차 참고),
+사용자 확인 없이 단독 수정하지 않았다.
+
+**아키텍처 부수 확인(사용자 우려 해소)**: `carrot_serv.py`의 최종
+arbitration(`desired_speed=min(speed_n_sources,...)`, L1165)이 route를
+vturn/cam/road/model과 함께 min() 경쟁 후보로만 다루므로, route가 비구속
+(`ROUTE_MAX_SPEED_KPH`=150) 상태를 반환해도 "설정속도를 넘어 가속을
+권한다"는 위험은 구조적으로 없다 — 다른 소스/하류 vCruise 상한이 그대로
+작동. 즉 "설정속도" 값을 route 내부에 별도로 새로 주입할 필요가 없다.
+
+**미확인 사항**: ceiling 항 수정 방향(사용자 결정 대기, WIP.md 213차
+"미완료" 참고), 213차/212차 항목 모두 실차 검증 미실시.
+
+**관련**: WIP.md 213차, 212차(원 진단), 205차/207차(ceiling 원 도입 배경)
+
+---
+
 ## 212차 — [ANALYSIS_ONLY, NEEDS_FIX] route apex_dist 20.0m 하드플로어로 근접/통과 구간 감속식 무력화 — vturn과 route는 동일 목표(20)인데 route가 40대에서 요동
 
 **대상**: 사용자가 실차 스크린샷(우회전, `vTurnSpeed=20` vs HUD `route=40.8`)을

@@ -1,3 +1,99 @@
+## 213차 (완료 — 212차 A안 코드 반영+독립검증, 실차 검증 미실시 / 추가로 205~207차 ceiling과의 상호작용 원인분석 완료·패치 보류) — route apex_dist 20m 하드플로어 제거 + 연속커브 저속유지 근본원인 특정
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu` + `ryujmin97/ryu-devnotes`
+
+**Branch**: `c3-ms-dev` / `main`
+
+**Base commit (ryu, 이 회차 시작 시점)**: `e3bc20a`(211차, 드리프트 없음 재확인)
+
+**Base commit (devnotes, 이 회차 시작 시점)**: 212차 시점(`f1a6196`)
+
+**배경**: 사용자가 "route 감속 개선 작업 지시서"(1번=20m 하드플로어/지연보상,
+2번=연속커브 저속유지) 및 후속 설계 메시지(설정속도 원복 개념, ROUTE_MAX_SPEED_KPH=150
+상한 명확화)를 제공하며 원격 상태 확인 후 진행 지시.
+
+**작업 내용**:
+
+1. **212차 A안 채택·반영**: `carrot_man.py::carrot_navi_route()` macro/fine
+   곡률스캔 루프의 `distance`/`fine_distance` 선증가(pre-increment) 초기값을
+   `10.0` -> `-10.0`으로 수정. `distances[i]`가 정확히 `i*10.0`(index0=0.0m)이
+   되도록 정상화 -- 기존엔 index0이 항상 20.0m로 찍히던 하드플로어.
+   apex_idx 선택정책/candidate0 우선구조/calculate_current_speed() 호출은
+   전혀 변경하지 않음(§27).
+2. **1번 문서의 "vturn 지연보상을 route에 단순 복사하면 안 된다" 재확인**:
+   기존 `calculate_current_speed()`가 이미 `safe_time`(AutoNaviSpeedCtrlEnd=7초,
+   vturn의 2초보다 넉넉함) 버퍼를 갖고 있어 지연보상 자체는 이미 존재함을
+   재확인(211차 이전부터 유효). 20m 하드플로어가 이 버퍼 계산 자체를 근접
+   구간에서 무력화시켰던 것이 진짜 원인(212차 분석 그대로).
+3. **아키텍처 확인 -- "설정속도 70→150 의도치 않은 상승" 우려는 해당 없음**:
+   `carrot_serv.py` 최종 arbitration(`desired_speed, source =
+   min(speed_n_sources, ...)`, L1165)이 route를 다른 소스(vturn/cam/road/model)와
+   함께 **min() 경쟁 후보**로만 취급함을 코드로 확인. route가 비구속
+   상태(`ROUTE_MAX_SPEED_KPH`=150 반환)여도 다른 소스나 하류의 실제 vCruise
+   상한이 그대로 작동하므로, route에 별도로 "설정속도(vCruise)" 값을 새로
+   주입/합성할 필요가 없다. 사용자 문서의 "설정속도로 원복" 개념은 route
+   출력 관점에서는 기존 sentinel(150, "비구속")과 실질적으로 동일한 효과.
+4. **2번 문서("연속커브 저속유지")의 실제 코드상 원인 특정 -- 20m 하드플로어와
+   무관한 별개 원인**: `carrot_navi_route()` L986-988,
+   ```python
+   sharpest_candidate_speed = min((speeds[k] for k in candidates), ...) if candidates else apex_speed
+   out_speed = min(out_speed, max(v_ego_kph, sharpest_candidate_speed), ROUTE_MAX_SPEED_KPH)
+   ```
+   1차 커브 통과 직후 vEgo가 아직 낮은 상태(예 30km/h)에서, 2차 커브가
+   물리적으로 아직 멀리(예 300m) 있어 raw(거리기반 물리식)는 훨씬 높은 값을
+   계산해도, `sharpest_candidate_speed`(2차 apex_speed, 예 40)가 **거리와
+   무관하게** ceiling으로 그대로 쓰여 `out_speed`가 2차 apex_speed 근방에
+   즉시 고정됨을 코드 추적으로 확인. 이것이 문서가 말한 "1차→2차 사이 저속
+   유지" 체감의 실제 메커니즘. 단, 이 ceiling은 205/207차가 다른 실차
+   회귀(apex 오선택 시 raw 스파이크 최대 298 튐)를 막기 위해 검증 도입한
+   로직이라, **사용자 확인 없이 단독으로 되돌리거나 수정하지 않음** -- 코드
+   수정 미착수, devnotes 기록만 완료.
+
+**완료**:
+- 212차 A안(20m 하드플로어 제거) 코드 반영, 커밋(`8951a99`), 독립 clone에서
+  `git apply --check` + `git am` + `py_compile` 성공 확인
+- devnotes toolkit `sim_route_distance_offset_213.py` 신규 작성(5/5 PASS) --
+  패치 로직을 격리 재현해 index0 거리가 20.0 고정 -> 0.0 정상화되고, 접근
+  중 단조비증가(반대로 거리가 줄어듦)함을 순수함수 레벨에서 확인
+- "70->150 의도치 않은 상승" 우려에 대한 아키텍처 분석(min-arbitration 구조
+  확인, 위 3번)
+- "연속커브 저속유지"의 정확한 코드상 원인 특정(위 4번, ceiling 항)
+
+**미완료**:
+- L986-988 ceiling 로직 수정안 확정(사용자 확인 대기) -- 후보 방향:
+  (a) `sharpest_candidate_speed`를 해당 후보 자신의 거리 기반
+  `calculate_current_speed()` 결과로 교체(거리 무시 고정값 -> 거리 인지),
+  (b) ceiling 항 자체를 apex_idx==selected candidate에만 적용하고 다른
+  candidate는 제외, (c) 그 외 사용자 제안 방향. 205/207차가 막았던
+  "apex 오선택 스파이크"(206차 실측 케이스) 회귀 여부를 반드시 함께
+  재검증해야 함(toolkit `sim_route_ceiling_sharpest_candidate_207.py`
+  재사용/확장 권장)
+- 213차 자체(20m 하드플로어 제거)의 실차 검증
+- 동일 실차 CSV(`20260902_181435_4e18e62932_12seg.csv`)로 213차 패치 회귀
+  재생(t=201~206초 구간 apex_dist가 실제로 감소하는지 확인) -- 이번 세션
+  에서는 미실시(코드 반영+격리 시뮬레이션까지만 완료)
+
+**검증**:
+- 정적 분석: `py_compile` PASS(원본 clone + 독립 clone 둘 다)
+- 로그 분석: 미실시(다음 작업으로 이월)
+- 시뮬레이션: `sim_route_distance_offset_213.py` 5/5 PASS(격리 재현, 실측
+  CSV 재생 아님)
+- 실차 검증: **미실시**
+
+**다음 작업**:
+1. 사용자로부터 ceiling 수정안 방향 확정 받기 (a)/(b)/(c) 중
+2. 확정 후 L986-988 패치 + `sim_route_ceiling_sharpest_candidate_207.py`
+   확장 재검증(205/207차 회귀 없음 확인 필수)
+3. 213차 패치를 동일 실차 CSV로 재생 검증(212차가 특정한 t=201~206초 구간)
+4. 두 수정(213차 거리축 + ceiling 수정)이 함께 적용된 상태로 통합 재생검증
+
+**전달 파일**: `0001-213-route-apex_dist-20.0m-212-A-distances-i-i-10.0.patch`
+(ryu 저장소 대상, `e3bc20a` 기준), `toolkit/sim_route_distance_offset_213.py`
+
+---
+
 ## 212차 (진행 중 — 원인 분석 완료, 코드 수정 전) — route apex_dist 20.0m 하드플로어로 인한 근접구간 무력화
 
 **Worker**: Claude
