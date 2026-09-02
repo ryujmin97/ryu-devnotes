@@ -1,3 +1,118 @@
+## 207차 (완료 — 206차 NEGATIVE 원인 대응 패치 작성+검증, ryu 코드 변경 O, 실차 미검증) — route out_speed 상한(ceiling) 항을 sharpest_candidate_speed로 교체
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu` + `ryujmin97/ryu-devnotes`
+
+**Branch**: `c3-ms-dev` / `main`
+
+**Base commit (ryu, 이 회차 시작 시점)**: `e4f68a8`(205차, 드리프트 없음 — `git log`로 확인)
+
+**Base commit (devnotes, 이 회차 시작 시점)**: `eef37a0`(206차)
+
+**배경**: 사용자가 별도 대화(ChatGPT, "지선생")에서 "route를 과속카메라처럼
+감속구간에서만 활성화(ON/OFF)하고, 감속을 요구하는 동안에는 현재속도(vEgo)보다
+높은 route 속도를 허용하지 않되, 최대곡률 통과 후 2차 곡률이 있으면 계속
+활성 유지, 없으면 비활성화"하는 방향을 제안받고 "최신 레포 확인하고 이
+방향으로 패치 만들어줘"라고 요청. 새 세션에서 GitHub 상태를 먼저 확인한
+결과 사용자 기억(187차 기준)보다 프로젝트가 206차까지 진행돼 있었고, 제안된
+방향이 기존에 이미 검토된 두 갈래와 상당히 겹침을 발견함:
+
+1. **핵심 아이디어("감속 요구 중에는 vEgo보다 높은 속도를 허용하지 않는다")는
+   205차가 이미 구현**(`out_speed = min(raw, max(vEgo, apex_speed), 150)`).
+   206차가 이를 199cha 8세그 실차로그로 재검증한 결과 **NEGATIVE**였음 --
+   apex_idx가 "road_limit 바로 아래인 사실상 무해한 근접 후보"(예:
+   297.5kph)를 가리키는 4.6초짜리 "고원" 구간에서는 apex_speed 자체도
+   함께 오염되어(raw와 거의 동일하게 297~298), `max(vEgo, apex_speed)`가
+   오염된 apex_speed에 지배당해 vEgo 하한이 전혀 작동하지 않았음
+   (would_bind 37.1%->37.1% 불변).
+2. **제안된 "Route ON/OFF" 명시적 상태 설계는 158/159차가 이미 시도해 폐기한
+   "3상태 히스테리시스"(engaged/disengaged, target_curv 기억)와 구조적으로
+   유사**. 159차 실측 결과: 연속 굽이길에서 stuck-disengaged(3곳 중 2곳
+   무반응), 상태 전환 시 `_route_speed_prev`가 "제약없음(300)" 쪽으로
+   즉시통과+리셋되며 **프레임간 최대낙차 244.11km/h**(157차 무상태 설계는
+   0.26km/h) 발생 -- 명시적 리셋 상태 자체가 톱니 진동의 원인임을 확인,
+   폐기 확정된 방향.
+
+이 두 가지를 사용자에게 보고 없이 그대로 재구현하면 이미 NEGATIVE로
+결론난 것(①)을 반복하거나, 폐기된 실패 패턴(②)을 다시 열 위험이 있다고
+판단, 대신 **제안의 핵심 의도(과속카메라식 "감속 요구 중엔 vEgo 초과 금지"
++ "farther 급커브가 있으면 계속 보수적으로 유지, 없으면 원복")를 살리되
+①/②의 실패 원인을 재현하지 않는 무상태(stateless) 설계**로 재구성함.
+
+**작업 내용(ryu 코드 변경, 단일 파일)**:
+
+1. **코드 추적**: `carrot_navi_route()`의 `candidates = [k for k in
+   range(len(speeds)) if speeds[k] < road_limit_speed]`(L839)가 이미
+   "실제 감속이 필요한 지점 전체"(거리 오름차순)를 계산해두고 있음을 확인
+   -- 현재는 204차 계측용 telemetry(candidate0~2)로만 쓰이고, ceiling
+   계산에는 쓰이지 않고 있었음.
+2. **핵심 통찰**: 206차가 발견한 "고원" 구간 동안에도, apex_idx(가장
+   가까운 후보, 196/197차 설계)가 아직 가리키지 않을 뿐, 그보다 훨씬
+   급한(farther, speed가 훨씬 낮은) 후보가 이미 candidates 리스트 안에
+   존재한다(예: idx=21/dist=230m/speed=50이 idx=7~15/speed~297.5와 같은
+   윈도우에 공존). 이 사실을 이용해 **ceiling 항에서만** apex_speed 대신
+   `sharpest_candidate_speed = min(speeds[k] for k in candidates)`(비어
+   있으면 apex_speed로 폴백)를 사용하도록 변경.
+   - `out_speed = min(raw, max(vEgo, apex_speed), 150)` (205차)
+   - -> `out_speed = min(raw, max(vEgo, sharpest_candidate_speed), 150)` (207차)
+3. **raw/apex_dist/apex_speed(1차->2차 순차처리 선택, 196/197차 설계) 자체는
+   전혀 건드리지 않음** -- ceiling만 더 보수적으로(sharpest_candidate_speed
+   <= apex_speed가 항상 성립하므로 상한이 완화되는 방향의 회귀는 구조적으로
+   불가능) 조정. candidates=[]인 완전 직선 폴백 경로는 apex_speed로
+   그대로 폴백해 205차와 diff-0.
+4. **158/159차 실패 패턴과 무관함을 설계 자체로 보장**: 새로운 상태를
+   추가하지 않음(무상태, 매 프레임 candidates에서 즉시 재계산).
+   `_route_speed_prev` 램프리미터는 205/206차와 완전히 동일하게 매 프레임
+   연속으로만 갱신되므로, 159차 실패의 구조적 원인(상태 리셋으로 인한 300
+   즉시통과+점프)이 애초에 발생할 수 없음.
+
+**§27 최소변경 원칙**: `selfdrive/carrot/carrot_man.py` 단일 파일, ceiling
+클리핑 라인 1곳(+주석)만 교체(+47/-1줄). apex 선택/raw 계산/램프리미터/
+불연속 부스트 게이트는 전부 변경 없음.
+
+**검증**:
+- 정적 분석: `py_compile`/`ast.parse` PASS
+- diff-0 검증: `git format-patch` -> 별도 throwaway clone(`e4f68a8` 기준)에
+  `git am` 성공 -> `git diff --stat`으로 의도한 변경(1개 파일, +47/-1)만
+  존재함을 확인, 재적용본도 `py_compile` PASS
+- 시나리오 기반 사전검증(`toolkit/sim_route_ceiling_sharpest_candidate_207.py`,
+  6/6 PASS): 206차 기록 수치로 재구성한 핵심 시나리오(apex_dist=70/
+  apex_speed=297.5/vEgo=55, 같은 윈도우에 sharpest=50 후보 존재)에서
+  OLD(205차) out=150.0 -> NEW(207차) out=55.0으로 vEgo 상한이 실제로
+  작동함을 확인. 정상 직선복귀/연속 S자(2차가 더 급함)/candidates=[]
+  폴백 3개 대조 시나리오는 OLD와 diff-0(회귀 없음) 확인.
+- 로그 분석: **미실시** -- 199cha 8세그 원본 로그(대용량, §23 대상)가
+  컨테이너 리셋으로 소실되어 이번 세션에서는 실측 "실차 vs 실차"
+  재검증을 하지 못함(원본 route zip에서 `extract_log.py --with-navi-paths`
+  로 재추출 가능, NEEDS_VALIDATION).
+- **실차 검증: 미실시**
+
+**미확인 사항 / 다음 작업**:
+1. 199cha 8세그 원본 로그 재추출 후 `sim_route_205_vego_cap_ab_206.py`와
+   동일한 방식(raw 클리핑 단계만 205차/207차 분기)으로 전체 로그 A/B
+   재현 -- 이번 시나리오 검증은 합성 수치이므로 실제 로그 기준 재확인 필요.
+2. `sharpest_candidate_speed`가 매 프레임 candidates 전체의 min이므로,
+   먼 GPS 노이즈성 저속 후보가 지속적으로 존재하면 정당한 가속 복귀가
+   과도하게 억제될 이론적 위험이 있음(157/160차가 애초에 "전역 min"에서
+   "가장 가까운 후보"로 전환한 이유와 정반대 방향의 트레이드오프) --
+   candidates가 apex_dist>0인 실제 감속필요 지점에서만 구성되므로
+   157차 시절의 "먼 급커브 조기감속" 문제(179차가 고치려던 것)는 여기선
+   ceiling 항에만 영향을 주고 raw/apex 선택 자체는 그대로라 재현 가능성은
+   낮다고 판단하나, 실차 로그로 최종 확인 필요.
+3. 패치 적용 후 실주행 -> rlog 확보 -> 194차 apex telemetry
+   (`routeApexIdx/Dist/Speed`, `routeOutSpeed`) + 204차 candidate telemetry
+   (`routeCandidateCount/Candidate0~2`)로 "고원" 구간 재현 여부와 ceiling
+   실제 작동 여부를 함께 확인.
+
+**Devnotes**: `toolkit/sim_route_ceiling_sharpest_candidate_207.py`(신규),
+`toolkit/README.md`(신규 섹션) + `toolkit/CHANGELOG.md`(한 줄 추가)
+
+**전달 파일**: `0001-207-route-out_speed-ceiling-apex_speed-sharpest_cand.patch`
+(`ryu` 저장소, `carrot_man.py` 단일 파일, `e4f68a8`(205차) 위에 적용)
+
+---
+
 ## 206차 (완료 — 205차 패치를 202/203차 문제 로그로 시뮬레이션 재검증, ryu 코드 변경 없음, devnotes만 갱신) — 205차 실차로그 A/B 검증(NEGATIVE)
 
 **Worker**: Claude

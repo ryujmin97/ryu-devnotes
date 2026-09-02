@@ -2320,6 +2320,35 @@ python3 devnotes/toolkit/sim_route_hi_debounce_sweep_203.py [csv_path]
 ```
 
 
+## sim_route_ceiling_sharpest_candidate_207.py (207차, 신규 — 206차 NEGATIVE 원인 대응 설계 사전검증)
+
+206차가 199cha 8세그 실차로그로 205차(`out_speed = min(raw, max(vEgo,
+apex_speed), 150)`)를 재검증한 결과 NEGATIVE였던 원인은, apex_idx가
+"road_limit 바로 아래인 사실상 무해한 근접 후보"(예: 297.5kph)를
+가리키는 4.6초짜리 "고원" 구간에서 apex_speed 자체도 함께 오염되어
+vEgo 하한이 작동하지 않았기 때문(devnotes WIP.md 206차). 이 스크립트는
+"상한(ceiling) 항에서만 apex_speed 대신 candidates 리스트 전체 중
+가장 급한 후보의 speed(sharpest_candidate_speed)를 쓴다"는 207차
+설계를 실제 ryu 코드에 반영하기 전에 시나리오 기반으로 먼저 검증한다.
+
+실행: `python3 sim_route_ceiling_sharpest_candidate_207.py`
+결과: 6/6 PASS — 206차 재현 시나리오(고원+원거리 진짜 급커브 공존)에서
+OLD(205차) out=150.0 → NEW(207차) out=55.0(vEgo)으로 상한이 실제로
+작동함을 확인. 정상 직선복귀/연속 S자/candidates=[] 폴백 3개 대조
+시나리오는 OLD와 diff-0(회귀 없음) 확인.
+
+**한계**: 199cha 8세그 원본 로그(대용량, §23 대상)가 컨테이너 리셋으로
+소실되어 실제 "실차 vs 실차" 재검증은 아직 하지 못했다. 수치는 206차
+WIP 기록에 근거해 재구성한 시나리오이며, 실제 로그 재추출 후
+`sim_route_205_vego_cap_ab_206.py`와 동일한 방식(raw 클리핑 단계만
+OLD/NEW 분기)으로 전체 로그 A/B 재현이 필요하다(NEEDS_VALIDATION).
+
+이 스크립트는 158/159차가 폐기한 "명시적 3상태 히스테리시스"(engaged/
+disengaged 전환, FINDINGS.md 159차)와는 무관함을 확인하는 목적도 겸한다
+-- 207차 설계는 매 프레임 candidates에서 무상태로 재계산하므로, 159차
+실패의 구조적 원인(상태 전환 시 _route_speed_prev가 300 쪽으로
+즉시통과+점프)이 애초에 발생하지 않는다.
+
 ## sim_route_205_vego_cap_ab_206.py (206차, 신규 -- 205차 패치 실차로그 A/B 재검증, NEGATIVE)
 205차(out_speed 상한 고정 150 -> max(vEgo_kph, apex_speed)와 150 중 min으로
 동적화)가 실제 202/203차 문제 로그(199차 8세그, 북대전IC 진입 26초 전

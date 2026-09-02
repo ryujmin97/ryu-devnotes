@@ -894,3 +894,9 @@ discontinuity 0건). 개발 중 트리거 소스별 boost_s 미구분 버그가 
   후보가 vEgo에 고정되어 실가속 억제 위험을 실측으로 확인. "apex_idx 급변"
   단독 신호로는 허위스파이크/정상 연속곡선 구분 불가 결론(FINDINGS.md 203차).
   코드화 보류, 사용자 방향 결정 대기.
+## 207차
+- `sim_route_ceiling_sharpest_candidate_207.py`: 신규 -- 206차 NEGATIVE 원인
+  (근접 trivial 후보가 원거리 진짜 급커브를 "고원" 구간 동안 가려 apex_speed까지
+  오염시키는 문제)에 대응하는 설계(ceiling 항만 apex_speed -> sharpest_candidate_speed)를
+  ryu 코드 반영 전 시나리오 기반으로 사전검증. 6/6 PASS(핵심 재현 시나리오 150->55,
+  대조 시나리오 3종 diff-0). ryu 패치는 `0001-207-...patch`로 별도 전달, 실차 미검증.
