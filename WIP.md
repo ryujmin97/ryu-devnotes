@@ -1,3 +1,44 @@
+## 198차 (진행 중 — vEgo 기반 동적감속 2개 설계 모두 NEGATIVE, ryu 코드 변경 없음) — route dynamic decel
+
+**Worker**: Claude (세션 이어받음, 컨테이너 리셋으로 work/ 소실 -> 업로드 파일로 복구)
+
+**Repository**: `ryujmin97/ryu` (변경 없음, 검토만) + `ryujmin97/ryu-devnotes`
+
+**Branch**: `c3-ms-dev` / `main`
+
+**Base commit (ryu)**: `5f154f7` (197차, 드리프트 없음)
+
+**Base commit (devnotes, 이 회차 시작 시점)**: `14c2fab`
+
+**배경**: 197차 apex 선택(candidates[0])은 그대로 두고, `calculate_current_speed()`/asymmetric ramp가 vEgo(현재 실제 차량속도)를 전혀 반영하지 않아 거리 부족 상황(뒤늦게 발견된 급커브 등)에서 apex 통과 시 실제 속도가 목표보다 크게 높을 수 있는 문제(오버슈트)를 vEgo 기반으로 보완하려는 시도. 두 가지 독립 설계가 이번 회차에 검토됨.
+
+**1) 설계 A(Claude, v1→v2, 이전 세션+이번 세션)**:
+- v1(폐기): `calculate_current_speed()`의 `decel_rate` 인자 자체를 필요감속도(a_req)로 교체 → **물리적으로 역방향**임을 발견. 이 함수는 "지금 decel_rate로 감속 시작하면 목표에 맞는, 지금 낼 수 있는 최대 허용속도(ceiling)"를 계산하므로 decel_rate를 올리면 오히려 out_speed가 더 높게 나옴(실측: v_ego=90kph/apex=60m/target=30kph에서 base(1.2)=47.4kph인데 boosted(3.0)=65.3kph로 **더 높음**). 149/150차(`ROUTE_ACCEL_LIMIT_BOOST_MAX_MSS`, PARAMS_REGISTRY.md 참고, NEGATIVE 배포보류)와 동일한 실수 패턴.
+- v2(이번 세션): raw out_speed(목표속도, `calculate_current_speed()` 호출)는 197차와 100% 동일하게 유지. vEgo 기반 a_req는 **132/173차 프레임간 램프리미터의 하강 상한(accel_limit_kmh)에만** 반영(target 자체는 불변). `toolkit`에 신규 스크립트 `sim_route_vego_required_decel_v2.py` 작성, 유닛테스트 8개 중 처음 6 PASS/2 FAIL.
+  - FAIL 1(저크 이론상한 초과, 0.600 vs 0.540): **원인규명 완료, 수정 완료** — 안전 위반이 아니라 테스트 코드가 `round(v,1)`로 반올림된 trace 값으로 낙차를 계산해서 생긴 반올림 아티팩트(인접 프레임이 서로 반대 방향으로 반올림되면 실제 0.5400이 표시상 0.6으로 보임). 미반올림 값은 전 구간 정확히 0.5400 확인. 안전검증 허용오차를 반올림오차 2배(+0.1)로 조정해 해결, 7/8 PASS로 전환.
+  - FAIL 2(156차 winding road 회귀, diff 최대 39.9kph): **구조적 결함으로 확정, 미해결**. `apex_dist`를 프레임별로 직접 찍어본 결과 연속 굽이길에서 거의 항상 정확히 `10.0`(`DISTANCE_INTERVAL`, 상대 lookahead 배열의 첫 샘플)로 고정됨을 확인 — candidates[0] 선택 방식(197차)이 "road_limit 미만인 가장 가까운 곡률 샘플"을 무조건 apex로 삼기 때문에, 이 값은 실제 "브레이크 걸어야 할 정점까지 거리"가 아니라 그냥 "다음 곡률 읽음값"에 불과함. 결과적으로 `calculate_route_required_decel(v_ego, apex_dist≈10, apex_speed)`가 정상적인 연속 감속 주행에서도 상시 5~9 m/s²급 a_req를 뱉어 램프가 계속 MAXD로 걸림 — "late-discovery만 잡겠다"는 의도와 달리 굽이길 전 구간에서 상시 발동. 차량 위치 이동에도 apex_dist가 계속 10.0으로 재고정됨을 프레임별 로그로 재확인(진짜 discontinuity와 구분 불가능함을 확인).
+  - **판단**: apex_dist 값 자체가 구조적으로 "가장 가까운 다음 샘플"이라, 이 값만으로 "진짜 뒤늦게 발견된 급커브"와 "그냥 다음 곡률점"을 구분할 방법이 없음. 사용자에게 3가지 옵션(폐기/절대위치 추적 재설계/보류) 제시, 결정 전 ChatGPT 패치(설계 B) 도착.
+
+**2) 설계 B(ChatGPT, `route_dynamic_decel_198.patch`, `/mnt/user-data/uploads/` 업로드본)**:
+- apex 선택/arbitration/하강 ramp는 유지한다고 명시했으나, **raw out_speed 계산 자체**를 `calculate_current_speed()` 호출에서 `out_speed = sqrt(target_ms² + 2×dynamic_decel×apex_dist) × 3.6` 직접 계산으로 교체. `dynamic_decel`은 vEgo 기반 a_req를 base~2×base 사이로 클램프.
+- **검토 결과: CRITICAL, 설계 A의 v1과 완전히 동일한 물리적 역방향 버그를 다른 수식으로 재현**. `target² + 2×a×d` 역시 ceiling 공식이라 `dynamic_decel`을 올릴수록 out_speed가 올라감. 수학적으로 증명됨: `dynamic_decel`이 `[base, 2×base]` 구간에 있을 때 `dynamic_decel = a_req`가 되어 `out_speed`가 **정확히 현재 vEgo와 같아짐**(감속 명령이 전혀 나가지 않음) — 직접 계산으로 재현 확인(`v_ego=70kph, apex=100m, target=30kph` → `out_speed=70.00kph`, 완전 일치). 정말 급한 시나리오(v_ego=90kph/apex=60m/target=30kph)에서도 `out_speed=68.1kph`로 197차 baseline(47.4kph)보다 **오히려 높음**(=덜 감속). 즉 "사전감속 부족을 보완"하려는 목적과 정반대로, 급조임 상황에서 감속을 더 늦추거나 생략할 위험.
+- **149/150차·설계A v1과 동일 계열의 실수(감속률을 올리면 ceiling 공식상 오히려 허용속도가 올라가는 함정)가 세 번째로 재현됨** — devnotes에 반드시 남겨 다음 세션(Claude/ChatGPT 무관)이 같은 함정을 또 반복하지 않도록 함.
+
+**검증**:
+- 정적 분석: 설계 A(v1/v2) — `py_compile` 대상 아님(toolkit 순수함수 스크립트), 유닛테스트로 검증. 설계 B — 코드 실행 대신 수식을 그대로 재현하는 별도 스크립트로 out_speed를 직접 계산, `v_ego==out_speed` 항등식을 수치로 재현해 확인(패치 자체를 ryu에 적용해보지는 않음 — 위험 판단으로 적용 보류).
+- 로그 분석: 미실시(이번 회차 범위 아님)
+- 시뮬레이션: 설계 A v2 8개 유닛테스트 7/8 PASS(1개 구조적 결함 미해결). 설계 B는 유닛테스트 미작성(치명적 결함 확인 즉시 중단).
+- 실차 검증: 해당 없음(둘 다 ryu에 미적용)
+
+**다음 작업(사용자 결정 대기)**:
+1. 설계 A(v2) 진행 여부 — apex 절대위치 추적 기반 재설계(진짜 late-discovery만 감지)로 갈지, 이 방향 자체를 폐기할지
+2. 설계 B(ChatGPT 패치)는 **현재 형태로 ryu에 적용하지 않을 것을 권고** — out_speed 직접계산 부분을 걷어내고 197차의 `calculate_current_speed()` 유지 + (A의 접근처럼) 램프 상한만 건드리는 방향으로 재작성한다면 재검토 가능
+3. 두 설계 "조합"은 out_speed 계산 자체가 설계 B에서 이미 안전하지 않으므로, 이 결함을 해소하지 않은 채로는 조합 자체가 위험 — 조합보다 A의 방향(target 불변 + 램프만 동적화) 단일 트랙으로 좁히는 것을 권고
+
+**전달 파일**: `sim_route_vego_required_decel.py`(v1, 참고/기록용), `sim_route_vego_required_decel_v2.py`(v2, FAIL1 수정 반영), `chatgpt_198cha_REJECTED_route_dynamic_decel.patch`(설계 B 원본, 적용 보류 상태로 보존)
+
+---
+
 ## 197차 (완료 — apex 선택 로직 변경(179차후속2 게이트 제거), ryu 패치 생성/검증 완료, 실차 검증 대기) — route sequential apex
 
 **Worker**: Claude
