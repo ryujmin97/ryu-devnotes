@@ -1,3 +1,69 @@
+## 214차 계속2 (완료 — B안 확정+실제 코드 패치 생성, 패치 전달) — route ceiling 거리인지화 B안 적용 + 사용자 설계문서(곡선_가감속_코딩.txt) 대조
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu` + `ryujmin97/ryu-devnotes`
+
+**Branch**: `c3-ms-dev` / `main`
+
+**Base commit (ryu, 이 회차 시작 시점)**: `5ee44be`(213차, 변경 없음 재확인)
+
+**Base commit (devnotes, 이 회차 시작 시점)**: 직전 214차 계속 체크포인트(01145d7) 이후, 신규 push 없음 확인.
+
+**배경**: 사용자가 `사용자 의도(곡선 가감속 코딩).txt` 문서를 제공 -- "지금까지의
+route관련 검토된 내용은 전부 무시하고 아래 방향대로 코딩 설계"라는 문구로
+시작하나, 실제 대조 결과 문서 1/3/4/6번은 160차("과속카메라 감속 공식
+그대로 재사용") 커밋 당시 이미 반영된 동일 설계 원칙(커밋 주석에
+"곡선_가감속_코딩.txt + 곡선_개념도.pdf" 파일명 그대로 언급됨)과 일치함을
+확인. 문서 5번("1차 apex 도달 시 원복, 2차 apex 목표속도를 바로 계산해
+기본곡선 로직 적용, 더 급한 쪽 기준")이 정확히 직전 214차 계속 체크포인트가
+사용자 판정을 기다리던 시나리오1(B안 NEW 70.07 vs OLD 55.00)과 동일
+쟁점이라고 판단하여 사용자에게 확인 요청.
+
+**참고**: 문서 3번이 언급한 "곡선 개념도.pdf" 첨부파일은 이번 업로드에
+포함되지 않음(txt만 제공됨) -- 필요 시 추후 별도 요청.
+
+**사용자 확답**:
+1. 시나리오1 판정: **NEW(70.07, 원복 허용)로 확정, 실제 코드 패치 진행** 승인.
+2. 7번(간섭 코드 정리, 199/172·173/163·167차 추가 레이어) 처리 방향:
+   **"일단 그대로 두고 214차만 마무리"** -- 이번 회차에서는 해당 레이어들에
+   손대지 않음(제거/재검토 보류).
+
+**작업 내용**:
+1. `carrot_man.py` L994 `sharpest_candidate_speed` 계산부를 직전 214차
+   계속 체크포인트의 B안 설계(`self.carrot_serv.calculate_current_speed(
+   distances[k], speeds[k], self.carrot_serv.autoNaviSpeedCtrlEnd,
+   self.carrot_serv.autoNaviSpeedDecelRate)`의 candidate별 min, apex_dist/
+   apex_speed 원본 계산은 미변경)로 실제 교체.
+2. 정적 검증: `python3 -c "import ast; ast.parse(...)"` SYNTAX_OK, diff
+   범위가 해당 한 블록(31줄 추가, 1줄 삭제)으로 최소화됨을 확인(§27).
+3. 커밋 생성(base `5ee44be`) + `git format-patch -1`로 패치 파일 생성,
+   사용자에게 `git am` 적용용으로 전달.
+4. toolkit README.md/CHANGELOG.md에 `sim_route_ceiling_distance_aware_214.py`
+   등록(직전 214차 계속 체크포인트에서 "미완료"로 남았던 항목 처리).
+
+**검증**:
+- 정적 분석: 실시(ast 파싱, diff 범위 확인)
+- 로그 분석: 미실시
+- 시뮬레이션: 실시(직전 214차 계속 체크포인트, 8/8 PASS -- 이번 회차는
+  프로덕션 코드 반영만 수행, 시뮬레이션 재실행 없음)
+- 실차 검증: 미실시
+
+**미완료**:
+1. 실차 검증(213차 20m 하드플로어 + 이번 B안 패치, 동일 CSV 재확보 필요).
+2. 7번(199/172·173/163·167차 레이어) 검토 -- 사용자 지시로 이번 회차 보류.
+
+**다음 작업**:
+1. 사용자가 패치를 로컬에 적용(`git am`) 후 push.
+2. 실차 드라이브로 B안 동작 검증(특히 시나리오1/3b에 대응하는 연속곡선 구간).
+3. 7번 레이어 재검토는 필요 시 별도 회차에서 착수.
+
+**전달 파일**:
+- `0001-214-route-ceiling-sharpest_candidate_speed-B-213.patch` (ryu, `git am`용)
+- `WIP.md`(이 항목), `toolkit/README.md`, `toolkit/CHANGELOG.md` (devnotes)
+
+---
+
 ## 214차 계속 (진행 중 — B안 시뮬레이션 8/8 PASS, 프로덕션 코드 미수정) — sharpest_candidate_speed B안(calculate_current_speed 재사용) 시뮬레이션 검증
 
 **Worker**: Claude

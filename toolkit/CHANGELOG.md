@@ -3,6 +3,12 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+## 2026-09-03 (214차)
+- `sim_route_ceiling_distance_aware_214.py` 신규 추가 -- route ceiling
+  (sharpest_candidate_speed)을 candidate별 calculate_current_speed()
+  재사용(거리인지)으로 교체하는 B안 사전검증. 8/8 PASS. 사용자 확정 후
+  carrot_man.py L994에 실제 코드 패치 완료(실차 검증 미실시).
+
 ## 2026-09-03 (213차)
 - `sim_route_distance_offset_213.py` 신규 추가 -- 212차 A안(20m 하드플로어
   제거) 패치 로직을 격리 재현. distance 선증가 초기값 10.0->-10.0 변경 후

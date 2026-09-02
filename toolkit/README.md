@@ -2493,3 +2493,29 @@ events = ah.lead_coast_to_zero_scan(rows)
 ```
 
 **의존성**: `_f`/`_b` 헬퍼만 사용, 외부 의존성 없음.
+
+## sim_route_ceiling_distance_aware_214.py (214차, 신규 — B안 확정 사전검증, 8/8 PASS)
+
+213차가 특정한 "1차 apex 통과 후 2차가 멀리 있어도 저속에 묶이는" 버그
+(207차 ceiling `sharpest_candidate_speed = min(speeds[k] for k in
+candidates)`가 candidate의 거리를 무시하는 것이 원인)에 대해, 사용자
+설계 문서(곡선_가감속_코딩.txt) 5번 원칙("1차 apex 도달 시 원복, 2차
+apex를 바로 계산해 기본곡선 로직 적용, 더 급한 쪽 기준")에 따라 ceiling도
+candidate별 `calculate_current_speed(dist, speed, safe_time,
+safe_decel_rate)`(apex_dist/apex_speed와 동일한 카메라식 물리공식)로
+교체하는 B안을 실제 코드 반영 전에 검증한다. OLD(207차, 거리 무시)와
+NEW(B안, 거리 반영)를 나란히 계산하는 `compute()`로 구현.
+
+실행: `python3 sim_route_ceiling_distance_aware_214.py`
+결과: 8/8 PASS.
+- 시나리오1(207차 회귀 방어): OLD out=55.00 → NEW out=70.07. NEW가 OLD보다
+  높은 것은 설계 의도(원거리 candidate는 완전감속 불필요로 판단) — 214차
+  세션에서 사용자가 이 수치로 직접 판정, NEW 확정.
+- 시나리오3b(213차 버그 재현): OLD out=40.00(버그 재현) vs NEW
+  out=75.05(원복 허용, 버그 해소) — 가장 명확한 개선 확인.
+- 시나리오2~4/대조군1~3: 조기고정 없음, 단조수렴(진동 없음), 205~207차
+  기존 시나리오 회귀 없음(대조군3 candidates=[] 폴백 diff-0).
+
+**적용 상태**: 214차 세션에서 사용자 확정 후 `carrot_man.py` L994
+(`sharpest_candidate_speed` 계산부)에 실제 패치 완료. **실차 검증: 미실시**
+(213차 20m 하드플로어 실차 검증과 함께 이월).
