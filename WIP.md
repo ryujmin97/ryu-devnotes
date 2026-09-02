@@ -1,3 +1,42 @@
+## 203차 (진행 중 — hi=vEgo 앵커링 A/B 재현 완료, 디바운스 설계 방향 미확정, ryu 코드 변경 없음) — route 상승측(hi) 게이트 설계
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu`(분석만, 변경 없음) + `ryujmin97/ryu-devnotes`
+
+**Branch**: `c3-ms-dev` / `main`
+
+**Base commit (ryu, 이 회차 시작 시점)**: `428cf3e`(202차, 드리프트 없음 — `c3-ms-dev` 재확인)
+
+**Base commit (devnotes, 이 회차 시작 시점)**: `54fe8bb`(202차)
+
+**배경**: 202차가 제안한 "상승측(hi) 디바운스 게이트" 설계를 세션 내에서 먼저 검토(사용자가 별도 세션/AI로 `hi=math.inf` → `hi=vEgo_kph` 앵커링 아이디어와 초기 시뮬레이션 결과를 도출, 이어서 ChatGPT("지선생")가 "150 상한과 `_route_speed_prev` 램프 시작점은 별개 문제"라고 정정 — 이 정정은 이미 202차에 반영되어 있음을 devnotes 대조로 확인함). 사용자가 두 대화 로그를 첨부해 이어서 작업 요청, `199cha_8seg_route_extracted.csv`/`route_baseline_trace.csv`/`202cha_baseline_investigation.md`를 재업로드.
+
+**작업 내용(전부 ryu 코드 변경 없음, 시뮬레이션/검증만)**:
+
+1. **GitHub 상태 재확인(§3)**: `ryu`(`428cf3e`)/`ryu-devnotes`(`54fe8bb`) 둘 다 예상과 일치. 다른 AI 작업 흔적 없음.
+2. **`hi=vEgo` A/B 시뮬레이션 독립 재구현**(`toolkit/sim_route_hi_vego_anchor_203.py` 신규): carrot_man.py의 실제 램프 구조(150 cap + 199차 boost 로직)를 그대로 재현하되 상승측만 A(`hi=math.inf`, 현재)/B(`hi=vEgo_kph`, 제안)로 분기. 첨부된 이전 세션 수치(북대전IC 평균/최대/최소, would_bind 20.5%→66.0%)를 독립 재현 — 절대값은 계산방식 차이로 약간 다르나(would_bind A 37.1%→B 98.9%로 재현) **방향성은 강하게 확인됨**.
+3. **스파이크 메커니즘 재분석(신규 발견)**: `routeApexSpeed`(raw)를 프레임 단위로 재조사한 결과, 202차가 "단발성 스파이크"로 표현한 현상이 실제로는 **t=418.62~423.18 구간(4.6초, 92프레임) 동안 apex_idx가 15→14→...→7로 매끄럽게 슬라이딩하며 raw가 296~298 근방에 계속 머무르는 "고원(plateau)"**임을 확인. t=423.23에 idx=21(dist=230m, 실제 북대전IC 커브)로 전환되는 순간부터 raw가 296.7부터 단조 감소 시작 — 이 지점 이후로는 `hi` 설정과 무관하게 `lo`(하강 램프)만 작동함.
+4. **디바운스 N 스윕**(`toolkit/sim_route_hi_debounce_sweep_203.py` 신규, N=3/5/8/10/60/92/100/120): "spike_proxy"(apex_idx 변화 + `routeOutSpeed`(150 cap 이전 원시값) 급등 ≥20kph + ≥150kph) 신호 기준 armed(hi=vEgo)/disarm(hi=inf, N프레임 연속 무신호) 게이트 시뮬레이션.
+   - **N=92(=4.6s)에서 disarm 시각이 t=423.23으로, 실제 커브 진입 시점과 정확히 일치** — 우연이 아닌 유효 신호로 판단.
+   - **그러나 동일 신호를 8세그 전체(29회 발생)에 적용하면 회귀 위험 확인**: t=382~393 구간을 조향각/vEgo/src로 실측 대조한 결과 **진짜 연속곡선 통과 후 가속 구간**(조향각 ±14°, vEgo 52.0→60.8km/h 실가속, src=road/desiredSpeed=200=사실상 무제한)이었음. N=92 적용 시 이 구간도 armed 상태(hi=vEgo)가 10.1/11초 유지됨 — **armed 상태에서 route 후보가 정확히 현재 vEgo에 고정되므로, 실제 가속 상황에서 route가 그대로 arbitration에 참여한다면 가속을 막는 후보가 될 위험**(doc2가 우려한 "커브 통과 후 서행"보다 더 근본적인 문제).
+5. **근본 원인 규명**: "apex_idx 급변 + raw 급등"이라는 현재 가용 신호(텔레메트리에 apex 후보 전체 리스트가 없어 apex_idx/dist/speed 1개만 확인 가능, §193차/194차 계측 한계)만으로는 **"허위 직선 스파이크"와 "정상적인 연속곡선/커브탈출가속 중 후보 전환"을 구분할 수 없음**을 실측으로 확인. 단순 N-프레임 디바운스로는 이 둘을 가를 수 없어 203차 설계를 그대로 코드화하는 것은 보류.
+
+**검증**:
+- 정적 분석: 해당 없음(ryu 코드 변경 없음)
+- 로그 분석: 완료(199차 8세그, apex_idx/apex_speed/조향각/src/vEgo 프레임단위 대조)
+- 시뮬레이션: 완료(A/B 램프 재현, N값 8종 디바운스 스윕) — 결과가 이전 세션(doc2) 수치를 방향성 있게 재확인함과 동시에 새로운 회귀 위험을 발견
+- 실차 검증: 미실시(코드 변경 자체가 없음)
+
+**미확인 사항 / 다음 작업(사용자 결정 대기, 3가지 옵션 제시함)**:
+1. `carrot_navi_route()`에 candidate_count(실제 후보 개수) 계측값을 신규 추가해 진짜 후보소실 여부를 직접 관측(코드 계측 추가 필요, ryu 변경 + 실차 재수집 필요)
+2. 상승측 디바운스 게이트 접근 자체를 재검토 — 예: `hi=vEgo` 대신 완만한 상승 가속률 상한(현재 하강측 `accel_limit_kmh`처럼 상승측도 유한하지만 넉넉한 램프) 등 다른 설계 방향
+3. 이번 8세그 로그 하나로는 "진짜 직선복귀" 및 "연속곡선 가속 탈출" 두 시나리오를 모두 포함한 회귀검증이 불충분 — 그런 장면이 포함된 별도 로그 확보 후 재개
+
+**전달 파일**: `toolkit/sim_route_hi_vego_anchor_203.py`, `toolkit/sim_route_hi_debounce_sweep_203.py` (devnotes toolkit 신규 2개, ryu 변경 없음)
+
+---
+
 ## 202차 (완료 — `_route_speed_prev` baseline 형성 메커니즘 규명 + route 상한 300.0→150.0 패치 적용) — 199차 패치 실차 로그 baseline 추적 + route 최대속도 제한
 
 **Worker**: Claude

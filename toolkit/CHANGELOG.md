@@ -874,3 +874,16 @@ discontinuity 0건). 개발 중 트리거 소스별 boost_s 미구분 버그가 
   해야만 새 rlog에 찍힘 -- 패치 적용 전 로그는 `--fallback-naviPaths` 근사 모드로
   degrade(naviPaths 텍스트 비어있음 + liveRouteSpeed==390.0 휴리스틱, 원인규명은
   불가능하고 지속시간만 근사 추정). 사용자 실차 패치 반영 대기 중(NEEDS_VALIDATION).
+## 203차
+- `sim_route_hi_vego_anchor_203.py`: 신규 -- 202차 제안(상승측 hi 디바운스
+  게이트) 1단계 검증. `hi=math.inf`(A, 현재) vs `hi=vEgo_kph`(B, 제안) A/B
+  재현. 북대전IC would_bind A 37.1%->B 98.9%로 방향 확인. 스파이크가 단발이
+  아니라 t=418.62~423.18(4.6초) 지속 고원임을 신규 발견 -- 진짜 apex 전환
+  (t=423.23) 시점부터 raw 단조감소, 이후 hi 설정 무관해짐.
+- `sim_route_hi_debounce_sweep_203.py`: 신규 -- N프레임 디바운스 스윕
+  (N=3/5/8/10/60/92/100/120). N=92(4.6초)에서 disarm 시각이 진짜 커브 진입과
+  정확히 일치(유효 신호 확인). 그러나 동일 신호가 정상 연속곡선 통과 후
+  가속 구간(t=382~393, 실측 대조)에서도 반복 발생 -- armed 상태에서 route
+  후보가 vEgo에 고정되어 실가속 억제 위험을 실측으로 확인. "apex_idx 급변"
+  단독 신호로는 허위스파이크/정상 연속곡선 구분 불가 결론(FINDINGS.md 203차).
+  코드화 보류, 사용자 방향 결정 대기.

@@ -2273,3 +2273,48 @@ export PYTHONPATH=/home/claude/ryu
 python3 devnotes/toolkit/sim_causeB_patch_validate.py
 ```
 **의존성**: `build_acados_long_mpc.sh` + `acados_stub_prelude.py` 선행 필요.
+
+## sim_route_hi_vego_anchor_203.py (203차, 신규 — hi=math.inf vs hi=vEgo A/B 재현)
+202차가 제안한 "상승측(hi) 디바운스 게이트" 설계의 1단계 검증. `carrot_man.py`의
+실제 램프 구조(150 cap + 199차 하강측 boost 로직)를 그대로 재현하되, 상승측
+(`hi`)만 A(`hi=math.inf`, 현재 173차 설계)/B(`hi=vEgo_kph`, 203차 제안)로
+병렬 계산. `would_bind`(route 후보가 실제 arbitration 승자값 이하가 되는
+프레임 비율)를 실측 `desiredSpeed`(src 컬럼) 대비로 계산.
+
+**결과 요약**: 북대전IC(t=450~498) would_bind A 37.1% → B 98.9%로 방향 확인.
+단 스파이크가 "단발" 아니라 t=418.62~423.18(4.6초) 지속되는 고원임을 신규
+발견 — apex_idx=21(진짜 커브) 전환 시점(t=423.23)부터 raw가 단조감소로
+전환되어 이 시점 이후로는 `hi` 설정이 무관해짐.
+
+**주의(데이터 한계)**: extract_log.py는 carrot_navi_route()가 선택한
+apex(idx/dist/speed) 1개만 기록하고, 내부 candidates 리스트 전체(개수)는
+텔레메트리에 없음. "candidates_empty"는 이 CSV로 직접 관측 불가(199차
+8세그 로그 기준 activePoints=True 구간에서 apex_idx=-1 프레임 0건).
+
+**사용**:
+```
+python3 devnotes/toolkit/sim_route_hi_vego_anchor_203.py [csv_path]
+```
+기본 csv_path는 `/mnt/user-data/uploads/199cha_8seg_route_extracted.csv`
+(199차 8세그, `extract_log.py --with-navi-paths`로 재추출 가능, devnotes에
+캐싱 안 됨 — §23).
+
+## sim_route_hi_debounce_sweep_203.py (203차, 신규 — N프레임 디바운스 스윕)
+"apex_idx 변화 + routeOutSpeed(150 cap 이전 원시값) 급등(≥20kph, ≥150kph)"을
+스파이크 근사 신호로 삼아 armed(hi=vEgo)/disarm(hi=inf, N프레임 연속 무신호)
+게이트를 N=3/5/8/10/60/92/100/120 프레임(0.15~6.0초)으로 스윕.
+
+**핵심 발견**: N=92(4.6초)에서 disarm 시각이 진짜 커브 진입(t=423.23)과
+정확히 일치 — 유효 신호. **그러나 동일 신호가 정상적인 연속곡선 통과 후
+가속 구간(t=382~393, 실측 조향각/vEgo/src로 확인)에서도 반복 발생**, N=92
+적용 시 이 구간 armed 비율 10.1/11초 — armed 동안 route 후보가 vEgo에
+고정되므로 실제 가속을 억제할 위험. **"apex_idx 급변" 단독 신호로는 허위
+스파이크와 정상 연속곡선 후보전환을 구분 불가**하다는 결론(FINDINGS.md
+203차 참고). 이 결과를 근거로 203차 코드화는 보류, 사용자에게 3가지 방향
+제시(candidate_count 실계측 추가 / 상승측 설계 자체 재검토 / 추가 로그
+확보 후 재검증).
+
+**사용**:
+```
+python3 devnotes/toolkit/sim_route_hi_debounce_sweep_203.py [csv_path]
+```
