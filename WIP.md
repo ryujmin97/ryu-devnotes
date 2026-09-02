@@ -1,3 +1,83 @@
+## 210차 (완료 — 사용자 실차 스크린샷 제보 원인 규명+패치작성+시뮬레이션 검증, 실차 검증 미실시) — MapTurnSpeedFactor 곱셈이 205/207차 route vEgo 상한 무력화 → 곱셈 제거 패치
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu` + `ryujmin97/ryu-devnotes`
+
+**Branch**: `c3-ms-dev` / `main`
+
+**Base commit (ryu, 이 회차 시작 시점)**: `2b44b65`(207차, 209차와 드리프트 없음 —
+업로드된 CSV meta.json의 commit 필드와 재클론 `git log -1` 모두 일치 확인)
+
+**Base commit (devnotes, 이 회차 시작 시점)**: 209차 시점(WIP 최상단 확인,
+`d59e68a`)
+
+**배경**: 사용자가 실차 스크린샷(HUD: 현재속도 53, vCruise 70, `route=62.7`,
+"교차로" 우회전 근접 장면)을 업로드하며 "감속중 라우트 속도는 현재속도를
+못 넘게 했는데, 목표속도를 못 넘게 되어있는듯"이라고 문제 제기 — 205차가
+설계한 "route는 vEgo를 초과하지 않는다" 불변식이 실제로는 깨진 것 같다는
+지적.
+
+**작업 내용**:
+
+1. GitHub 상태 확인(§3): `ryu`(`2b44b65`) 재클론 후 업로드된
+   `20260902_181435_4e18e62932_12seg_csv_meta.json`의 commit과 일치 확인,
+   devnotes(`d59e68a`, 209차)도 확인. 다른 작업자 흔적 없음.
+2. CSV에서 스크린샷과 유사한 조건(vEgo≈50~52, src=route) 구간(t≈197.0~198.4)을
+   찾아 `routeApexSpeed`/`routeOutSpeed`(raw, vEgo 상한 이미 적용된 값,
+   44~49대)와 `liveRouteSpeed`(HUD 표시값, 62~64대)가 크게 괴리됨을 확인.
+3. 코드 추적: `carrot_man.py::carrot_navi_route()` L979의 vEgo 상한
+   (`out_speed = min(out_speed, max(v_ego_kph, sharpest_candidate_speed),
+   ROUTE_MAX_SPEED_KPH)`, 205/207차)은 정상 동작 — 문제는 이 함수가 반환한
+   값이 `carrot_serv.py::update_navi()` L1101 `route_speed = max(route_speed
+   * self.mapTurnSpeedFactor, self.autoCurveSpeedLowerLimit)`에서
+   `MapTurnSpeedFactor`(사용자 실측 1.30, 201차)를 vEgo 상한 적용 **이후에**
+   다시 곱하는 것. 수치 검증: 62.7/1.30=48.2 ≈ raw 값과 일치 — 인과관계 확정.
+4. 201차 기존 FINDINGS와의 관계 정리: 201차는 이 곱셈을 "route가 상시 30%
+   불리해짐"(arbitration 패배) 방향으로만 다뤘음 — 210차는 그 반대 방향
+   (route가 vEgo 초과 속도를 출력) 부작용을 신규로 확인.
+5. **사용자 결정**(질문/응답): "1.3을 안 곱하면 되는거 아녀" → 곱셈을
+   완전히 제거하는 방향으로 확정(대안이었던 "곱셈 이후 vEgo 상한 재적용"
+   방식은 채택 안 함).
+6. **패치 작성**: `carrot_serv.py` L1101 `route_speed = max(route_speed *
+   self.mapTurnSpeedFactor, self.autoCurveSpeedLowerLimit)` →
+   `route_speed = max(route_speed, self.autoCurveSpeedLowerLimit)`로 교체
+   (곱셈만 제거, 하한은 유지). `self.mapTurnSpeedFactor` Params 읽기(L308)와
+   UI 슬라이더는 최소변경 원칙(§27)상 유지하되 이제 dead value임을 주석으로
+   명시. `py_compile` PASS.
+7. **시뮬레이션 검증**: 12세그 로그 t=197.0~198.4(vEgo 50.2~51.2, 28프레임)에
+   OLD(×1.30 유지)/NEW(곱셈 제거) 공식을 각각 적용 — OLD는 28프레임 전부
+   62~64(vEgo 초과 유지), NEW는 28프레임 전부 42~50(전 프레임 vEgo 이하로
+   정상화) 확인.
+8. `push_via_api.py`로 devnotes(FINDINGS.md/PARAMS_REGISTRY.md/WIP.md) 및
+   ryu 패치 파일 반영 대기 — 사용자에게 결과물/PowerShell 명령 전달 예정.
+
+**검증**:
+- 정적 분석: `py_compile` PASS
+- 로그 분석: 완료(12세그 실차로그 t=197.0~198.4 구간, OLD/NEW 공식 재시뮬레이션)
+- 시뮬레이션: 완료(위 7번, 28/28 프레임 vEgo 불변식 복원 확인)
+- 실차 검증: **미실시** — 이 패치 자체는 아직 실차에서 테스트되지 않음
+  (NEEDS_VALIDATION). MapTurnSpeedFactor=1.30 제거로 route가 arbitration에서
+  더 자주 이기게 될 수 있어(201차가 우려했던 방향의 개선), 북대전IC급
+  로그로 회귀 여부 재검증 필요.
+
+**미확인 사항 / 다음 작업**:
+1. 이 패치의 실차 검증(사용자 로컬 반영 후 재주행 로그 수집 필요).
+2. MapTurnSpeedFactor 제거가 202/203/206/207차가 다뤘던 북대전IC급 문제
+   로그에서 route 승률에 미치는 영향 — 개선 방향으로 추정되나 미검증.
+3. UI 슬라이더("경로턴속도반영비율") 자체를 숨기거나 제거할지는 사용자
+   결정 대기(이번 세션 범위 밖).
+4. 209차가 남긴 미해결 항목(lead_coast_to_zero_scan 오탐 여부 등)은 이번
+   세션에서 다루지 않음 — 그대로 대기.
+
+**Devnotes**: `FINDINGS.md`(210차 항목 신규), `PARAMS_REGISTRY.md`
+(`MapTurnSpeedFactor` 행 갱신 — REMOVED 반영), `WIP.md`(이 항목)
+
+**전달 파일**: `0001-210-route_speed-MapTurnSpeedFactor-205-207-vEgo.patch`
+(ryu 저장소 대상, `2b44b65` 기준)
+
+---
+
 ## 209차 (완료 — 실차로그 12세그 CSV 추출+분석, leadDRel coast-to-zero 아티팩트 신규 발견+탐지함수 작성, ryu 코드 변경 없음) — 최신 실차로그 분석 및 신규 아티팩트 패턴 탐지 함수 추가
 
 **Worker**: Claude

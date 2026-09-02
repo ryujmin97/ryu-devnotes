@@ -1,3 +1,60 @@
+## 210차 — [PATCH_WRITTEN, NEEDS_VALIDATION] MapTurnSpeedFactor 곱셈이 205/207차 route vEgo 상한을 하류에서 무력화 — 사용자 실차 스크린샷으로 발견, 곱셈 제거로 대응
+
+**대상**: 사용자가 실차 스크린샷(HUD: vEgo=53, vCruise=70, `route=62.7`)을
+제보하며 "감속중 라우트 속도는 현재속도를 못 넘게 했는데, 목표속도를
+못 넘게 되어있는듯"이라고 문제 제기. 209차와 동일 실차로그(12세그,
+20260902_181435_4e18e62932, `2b44b65`/207차 커밋)의 t≈197.3(vEgo=50.28,
+route src)에서 재현 확인.
+
+**핵심 발견**: `carrot_man.py::carrot_navi_route()`가 205차/207차에서
+구현한 vEgo 상한(`out_speed = min(out_speed, max(v_ego_kph,
+sharpest_candidate_speed), ROUTE_MAX_SPEED_KPH)`, L979 부근)은 정상
+동작해 `self.carrot_serv.route_out_speed`(CSV `routeOutSpeed` 컬럼)엔
+vEgo 근방 값(44.2~49.4)이 정확히 담겨 있었다. 그런데 이 값이
+`carrot_serv.py::update_navi()` L1101 `route_speed = max(route_speed *
+self.mapTurnSpeedFactor, self.autoCurveSpeedLowerLimit)`을 거치면서
+사용자 실측 설정값 **1.30**(201차 확정)이 vEgo 상한 적용 *이후*에
+다시 곱해져, 최종 HUD 표시값/arbitration 후보값(62.7)이 vEgo(50.3)를
+넘어버렸다. **수치 검증**: 62.7 / 1.30 = 48.2 ≈ raw routeOutSpeed와
+일치.
+
+**201차와의 관계**: 201차는 이 동일 곱셈을 "route를 상시 30% 불리하게
+만듦"(arbitration에서 덜 이김) 방향으로만 다뤘다. 이번 210차는 **정반대
+방향의 부작용**을 확인한 것 — 곱셈이 205/207차가 만든 "route는 현재속도
+초과 속도를 권하지 않는다"는 안전 불변식 자체를 최종 출력 단계에서
+깨뜨리고 있었다.
+
+**조치**: 사용자 판단으로 `route_speed = max(route_speed *
+self.mapTurnSpeedFactor, ...)` → `route_speed = max(route_speed, ...)`로
+곱셈 자체를 완전히 제거(`selfdrive/carrot/carrot_serv.py` L1101 부근,
+patch: `0001-210-route_speed-MapTurnSpeedFactor-205-207-vEgo.patch`).
+`MapTurnSpeedFactor` Params 읽기(L308)/UI 슬라이더("경로턴속도반영비율")는
+최소변경 원칙(§27)상 그대로 남김 — repo 전체에서 이 곱셈이 유일한
+사용처였으므로 이제 route 감속에는 관여하지 않는 dead 값이 됨(사용자에게
+UI 설명).
+
+**검증**: 12세그 실차로그 t=197.0~198.4(vEgo 50.2~51.2, 28프레임)을
+OLD(×1.30)/NEW 공식으로 재시뮬레이션 — OLD는 전 프레임 62~64(vEgo 초과
+유지), NEW는 전 프레임 42~50(vEgo 이하로 정상화, "OK(<=vEgo)" 28/28).
+`py_compile` PASS. **실차 검증: 미실시**(패치만 작성, NEEDS_VALIDATION —
+이 패치가 실제 arbitration 승률/전체 주행 느낌에 미치는 영향은 미확인.
+MapTurnSpeedFactor=1.30이 route를 상시 30% 불리하게 만들던 효과도 함께
+사라지므로, 201차가 우려했던 "route가 arbitration에서 덜 이김" 문제는
+오히려 개선될 가능성 — 북대전IC류 로그로 재검증 필요).
+
+**관련**: 201차(MapTurnSpeedFactor 최초 실측 확정), 205차(vEgo 상한
+최초 도입), 206차(205차 NEGATIVE 발견), 207차(ceiling 재설계,
+sharpest_candidate_speed), 곡선_가감속_코딩.txt 사용자 지침 7번("방해하는
+다른 코드가 있으면 과감하게 삭제") — 이번 조치가 정확히 그 사례.
+
+**다음 작업**: (1) 이 패치의 실차 검증(사용자 로컬 반영 후 재주행 로그
+수집), (2) MapTurnSpeedFactor=1.30 제거로 route가 이전보다 더 자주
+arbitration에서 이기게 되는지(202/203/206/207차가 다뤘던 북대전IC급
+로그로) 재확인, (3) UI 슬라이더 자체를 완전히 숨길지/제거할지는 이번
+세션 범위 밖(보류).
+
+---
+
 ## 209차 — [NEEDS_VALIDATION] leadDRel "coast-to-zero" 아티팩트 — 완만한 단조감소로 0.0 도달 후 leadStatus 즉시 False 전환 패턴 발견 (실차 12세그, 208차 이후 신규 로그)
 
 **대상**: 사용자가 업로드한 최신 실차로그(20260902_181435_00000387--4e18e62932,
