@@ -1,0 +1,78 @@
+diff --git a/selfdrive/carrot/carrot_man.py b/selfdrive/carrot/carrot_man.py
+index 62db2c8b0..0000000000 100644
+--- a/selfdrive/carrot/carrot_man.py
++++ b/selfdrive/carrot/carrot_man.py
+@@ -80,6 +80,15 @@ ROUTE_CURVATURE_FINE_SAMPLE = 1
+ # 도입 배경/실험(유닛테스트 15/15 PASS 등)은 devnotes FINDINGS.md
+ # 179차/179차후속2 항목에 그대로 보존되어 있다(삭제하지 않음, §24).
+
++# [198차] route 감속은 과속카메라와 달리 현재 차량속도(vEgo)와
++# apex까지 거리/목표속도의 관계를 이용해 감속률을 동적으로 조정한다.
++# 기본 감속률보다 필요한 평균 감속도가 클수록 더 강한 감속 스케줄을
++# 사용해 apex 도달 전 사전감속 부족/지연을 줄인다. 단, 차량이 감당해야
++# 할 감속도를 무제한으로 키우지 않도록 기본 감속도의 배수로 상한을 둔다.
++ROUTE_DYNAMIC_DECEL_GAIN = 1.0
++ROUTE_MAX_DECEL_MULTIPLIER = 2.0
++
+ # [162차, 방향2 - 보수적 완화] carrot_serv.py::_update_gps()가 계산하는
+ # position_dt_since_fix(마지막 실제 위치 fix 이후 데드레커닝 경과시간)가
+ # route_speed 램프리미터의 위치불확실성 게이트 판정에 사용(FINDINGS.md 162차).
+@@ -680,9 +689,11 @@ def carrot_navi_route(self):
+             # \"apex(최대곡률지점) 목표속도를 과속카메라의
+             # 제한속도처럼 취급해, 카메라와 동일하게 서서히 감속 ->
+             # apex 도달(거리<=0) 시 원복하는 형태로 단순화한다.
++            # [198차] 위와 달리 route의 감속 스케줄은 카메라 공식과
++            # 분리한다. apex까지 남은 거리와 현재 vEgo, apex 목표속도로
++            # 현재 시점에 필요한 평균 감속도를 구해 감속률을 동적으로
++            # 조정한다.
+             # [196차] 전방 lookahead 전체의 sharpest(전역 최저 목표속도)를
+             # 하나의 apex로 선택하지 않는다. 연속곡선을 1차->2차 순서로
+             # 처리하기 위해 \"가장 먼저 만나는 감속 필요 지점\"을 apex로
+@@ -728,15 +739,31 @@ def carrot_navi_route(self):
+             else:
+                 apex_idx = candidates[0]
+             apex_dist = distances[apex_idx]
+             apex_speed = speeds[apex_idx]
+
+-            out_speed = self.carrot_serv.calculate_current_speed(
+-                apex_dist,
+-                apex_speed,
+-                self.carrot_serv.autoNaviSpeedCtrlEnd,    # safe_time -- 카메라와 동일 파라미터 재사용
+-                self.carrot_serv.autoNaviSpeedDecelRate,  # safe_decel_rate -- 카메라와 동일 파라미터 재사용
+-            )
++            # [198차] route 전용 dynamic decel.
++            # 필요한 평균 감속도:
++            #   a_req = (v_target^2 - v_ego^2) / (2 * apex_dist)
++            # (속도는 m/s). a_req가 기본 감속도보다 작으면 기존의
++            # 카메라식 기본 감속률을 유지하고, 더 크면 그 차이만큼
++            # 감속률을 강화한다. 최종 감속률은 기본값의
++            # ROUTE_MAX_DECEL_MULTIPLIER 배수로 제한한다.
++            #
++            # safe_time은 카메라의 고정 반응여유이므로 route에서는
++            # 그대로 재사용하지 않는다. 대신 현재속도를 직접 반영한다.
++            v_ego_ms = max(0.0, self.sm['carState'].vEgo)
++            v_target_ms = max(0.0, apex_speed / 3.6)
++            base_decel_ms2 = max(0.01, self.carrot_serv.autoNaviSpeedDecelRate)
++
++            if apex_dist > 0.0 and v_ego_ms > v_target_ms:
++                a_req_ms2 = (v_ego_ms * v_ego_ms - v_target_ms * v_target_ms) / (2.0 * apex_dist)
++                dynamic_decel_ms2 = base_decel_ms2 + max(0.0, a_req_ms2 - base_decel_ms2) * ROUTE_DYNAMIC_DECEL_GAIN
++                dynamic_decel_ms2 = min(
++                    dynamic_decel_ms2,
++                    base_decel_ms2 * ROUTE_MAX_DECEL_MULTIPLIER,
++                )
++            else:
++                dynamic_decel_ms2 = base_decel_ms2
++
++            # v^2 = v_target^2 + 2*a*d.
++            # safe_time을 넣지 않아 현재 vEgo/거리/목표속도로 감속 스케줄이
++            # 결정되며, apex 도달 시 목표속도에 맞도록 한다.
++            out_speed = math.sqrt(
++                max(0.0, v_target_ms * v_target_ms + 2.0 * dynamic_decel_ms2 * max(0.0, apex_dist))
++            ) * 3.6
+             # [193차] route apex 실차/replay 진단 telemetry.
+             # 주행 계산값은 변경하지 않고, 선택된 apex와 최종 route 출력만 보존한다.
+             self._route_apex_idx = apex_idx
+             self._route_apex_dist = apex_dist
+             self._route_apex_speed = apex_speed
+*** End Patch
