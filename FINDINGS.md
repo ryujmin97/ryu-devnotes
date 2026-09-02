@@ -1,3 +1,15 @@
+## 198차 — [DECISION] ChatGPT 패치(`route_dynamic_decel_198.patch`) 폐기 확정 — out_speed 계산부 직접 vEgo 반영 방식은 149/150차와 동일한 물리적 역방향 함정
+
+**대상**: `ryujmin97/ryu-devnotes` toolkit에 `chatgpt_198cha_REJECTED_route_dynamic_decel.patch`로 보존된 ChatGPT 작성 패치. `carrot_navi_route()`의 `calculate_current_speed()` 호출을 제거하고 `out_speed = sqrt(target_ms² + 2×dynamic_decel×apex_dist)×3.6` 직접 계산으로 교체, `dynamic_decel`은 vEgo 기반 필요감속도(a_req)를 base~2×base로 클램프한 값.
+
+**기존 결론(198차 WIP 항목)과 사용자 최종 결정**: 검토 과정에서 `target²+2×a×d` 역시 ceiling 공식이라 `dynamic_decel`을 올릴수록 out_speed가 오히려 올라가는 물리적 역방향 버그가 수식으로 증명됨(`dynamic_decel`이 `[base, 2×base]` 구간이면 `out_speed`가 정확히 현재 vEgo와 같아져 감속 명령이 전혀 나가지 않음; 급조임 시나리오에서도 baseline(47.4kph)보다 높은 68.1kph로 계산됨). 이 패턴은 149/150차(`ROUTE_ACCEL_LIMIT_BOOST_MAX_MSS`, PARAMS_REGISTRY.md 참고, NEGATIVE 배포보류)와 이번 세션의 설계 A v1(동일 세션 초반, `calculate_current_speed`의 `decel_rate` 인자를 직접 올리는 방식)에 이어 **세 번째로 재현된 동일 계열 함정**.
+
+사용자가 이 결과를 검토 후 **ChatGPT 패치 폐기를 확정**함(2026-09-02). `ryu`에는 처음부터 적용된 적 없음(적용 보류 상태로 유지되다 이번에 공식 폐기).
+
+**향후 참고사항(반드시 지킬 것)**: route 감속 재설계 시 "vEgo/필요감속도를 `calculate_current_speed()`류의 `decel_rate`/`safe_decel_rate` 인자 자체에, 또는 그와 동형인 `target²+2×a×d` 공식에 직접 대입"하는 접근은 **매번 동일한 역방향 버그로 귀결**됨(이 함수/공식군은 "지금 decel_rate로 감속 시작하면 목표에 맞는, 지금 낼 수 있는 최대 허용속도(ceiling)"를 구하는 것이지 "지금부터 이 감속도로 감속하라"는 명령이 아님). vEgo를 반영하려면 **out_speed(target) 자체가 아니라 132/173차 프레임간 램프리미터의 하강 상한(accel_limit_kmh)에만** 반영하는 방향(설계 A v2와 동일한 원칙)을 유지해야 함 — 단, 설계 A v2도 apex_dist가 구조적으로 항상 ~10m(다음 곡률 샘플)로 고정되는 문제(FAIL 2, 198차 WIP 항목 참고)는 별도로 미해결.
+
+**상태**: DECISION — 폐기 확정. 코드 변경 없음(애초에 미적용).
+
 ## [정정] 194차 계속3 "두 로그 모두 vEgo≤15.4km/h" 결론 오류 — 195차
 
 **발견 회차**: 195차 (route `e635e188cf` 원본 rlog 재추출로 확인)

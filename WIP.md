@@ -1,3 +1,23 @@
+## 198차 계속 (완료 — ChatGPT 패치 폐기 확정, ryu 코드 변경 없음)
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu`(변경 없음) + `ryujmin97/ryu-devnotes`
+
+**Branch**: `c3-ms-dev` / `main`
+
+**Base commit (ryu)**: `5f154f7` (197차, 드리프트 없음)
+
+**Base commit (devnotes, 이 계속 시작 시점)**: `a62aac8`
+
+**작업 내용**: 사용자가 위 "198차" 항목의 설계 B(ChatGPT `route_dynamic_decel_198.patch`) 검토 결과를 확인 후 **폐기를 확정**함. FINDINGS.md에 DECISION 항목 신규 추가(149/150차·설계 A v1과 동일 계열의 물리적 역방향 함정으로 세 번째 재현됐음을 명시, 향후 세션이 같은 실수를 반복하지 않도록 "vEgo를 decel_rate 인자나 동형 공식에 직접 대입하지 말 것" 원칙 기록).
+
+**검증**: 해당 없음(기록/결정 반영만, 코드 변경 없음)
+
+**다음 작업**: 설계 A(Claude v2, apex 절대위치 추적 기반 재설계 여부) 방향 결정 대기 — 사용자에게 재질의함.
+
+---
+
 ## 198차 (진행 중 — vEgo 기반 동적감속 2개 설계 모두 NEGATIVE, ryu 코드 변경 없음) — route dynamic decel
 
 **Worker**: Claude (세션 이어받음, 컨테이너 리셋으로 work/ 소실 -> 업로드 파일로 복구)
