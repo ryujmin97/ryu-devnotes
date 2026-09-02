@@ -1,3 +1,53 @@
+## 199차 (완료 — 설계 A v2 FAIL1/FAIL2 처리 + ryu 패치 생성/검증 완료, 실차 검증 대기) — route vEgo 기반 동적 램프 부스트, 불연속 게이트
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu` + `ryujmin97/ryu-devnotes`
+
+**Branch**: `c3-ms-dev` / `main`
+
+**Base commit (ryu)**: `5f154f7` (197차, 드리프트 없음)
+
+**Base commit (devnotes, 이 회차 시작 시점)**: `ac1e979` (198차 계속)
+
+**배경**: 198차가 남긴 두 가지 미결 항목을 이번 회차에서 처리하라는 사용자 지시("설계 A(v2): FAIL1은 해결, FAIL2는 부분 해결하고, 패치 완성").
+
+- **FAIL1(반올림 버그)**: 198차 v2 스크립트(`toolkit/sim_route_vego_required_decel_v2.py`) 자체에 이미 원인규명+수정이 반영되어 7/8 PASS 상태였음(안전검증 허용오차를 반올림오차 2배로 조정, 실제 램프리미터 안전성 위반 없었음을 재확인) — 이번 회차에서 `--unit-tests` 재실행으로 여전히 유효함을 재확인만 함(코드 변경 없음).
+- **FAIL2(구조적 미해결)**: 198차가 "apex_dist가 연속 굽이길에서 구조적으로 항상 `DISTANCE_INTERVAL`(10.0m)로 고정되어, 이 값만으로는 뒤늦게 발견된 진짜 급커브와 정상 주행 중 다음 곡률 샘플을 구분할 수 없다"고 결론지은 부분. 이번 회차에서 실측 재확인(winding road 600m 전체에서 apex_dist 값의 집합이 `{10.0}` 하나뿐임을 재확인) 후, **apex_dist 대신 apex_speed의 프레임간 낙차**를 구분 기준으로 쓰는 "불연속 감지 게이트"를 추가해 부분 해결.
+
+**작업 내용**:
+
+1. `devnotes/toolkit/sim_route_vego_required_decel_v3.py` 신규 작성(v2는 그대로 보존, 삭제/수정 없음 — §24 원칙과 동일하게 toolkit 스크립트도 이력 보존).
+   - `ApexDiscontinuityState`: apex_speed 프레임간 이력을 들고 있다가, 직전 프레임 대비 `ROUTE_APEX_SPEED_DISCONTINUITY_THRESH_KPH`(=15.0km/h, 실측 winding road 최대 완만변화 ~2.6km/h의 약 6배 안전마진) 이상 하락하면 "무장(armed)"하고, 무장된 apex_speed 근방을 유지하는 동안만 무장 유지.
+   - `carrot_navi_route_v3()`: raw out_speed(목표속도)는 197차/v2와 100% 동일(핵심 불변식, 유닛테스트로 검증). accel_limit_kmh(램프 하강상한)만, 위 게이트가 무장된 프레임에서만 vEgo 기반 required_decel로 동적 부스트.
+   - 유닛테스트 9/9 PASS: 핵심 불변식(raw out_speed 동일), 최초관측/반복관측 미무장, 불연속(45→15) 시딩 시 오버슈트 감소(v2 test 3 승계, 시딩 방식만 `ApexDiscontinuityState.prev_apex_speed`도 함께 시딩하도록 확장), 근접 대상(delta<thresh) 오탐 없음, 저크 없음(MAXD 이론상한), **winding road 전체 diff-0 + 게이트 한 번도 무장 안 됨(FAIL2 재검증 핵심)**, 여유상황 diff-0, **급커브 인위 주입 시 해당 프레임 즉시 무장 감지(FAIL2 부분해결 실증)**.
+2. `ryu/selfdrive/carrot/carrot_man.py` 실제 패치 작성:
+   - 신규 상수 2개(위치: `ROUTE_POSITION_UNCERTAIN_DT_S` 정의부 직후): `ROUTE_APEX_SPEED_DISCONTINUITY_THRESH_KPH = 15.0`, `ROUTE_VEGO_BOOST_MAX_MSS = 3.0`(149/150차가 근사값으로 재사용했던 `vturn_decel_rate`=1.2 대신, out_speed 자체를 안 건드리는 구조라 149/150차식 부작용이 재현되지 않으므로 devnotes 시뮬레이션(198/199차)과 동일한 값(3.0)으로 상한 설정 — 근거는 위 상수 정의부 주석에 상세 기록).
+   - `__init__`에 `_route_apex_speed_prev`/`_route_apex_boost_armed`/`_route_apex_boost_armed_speed` 3개 상태 신규 추가(기존 `_route_speed_prev`와 동일한 생명주기).
+   - route 비활성 경로 2곳(조기 return, else 분기) 모두에 위 3개 상태 리셋 추가(기존 `_route_speed_prev = None` 리셋과 동일한 이유/위치).
+   - `carrot_navi_route()`의 `accel_limit_kmh = self.carrot_serv.autoNaviSpeedDecelRate * 3.6` 고정 라인을, apex_speed 불연속 감지 + 무장 시에만 vEgo 기반 required_decel로 동적 부스트하는 블록으로 교체. **out_speed 계산(위쪽) 자체는 한 글자도 건드리지 않음** — 197차 raw out_speed 불변식을 소스 레벨에서도 그대로 유지.
+
+**검증**:
+- 정적 분석: `py_compile` PASS, `ast.parse` PASS(수정본), 재적용본(아래 diff-0 검증 clone)도 `py_compile` PASS.
+- diff-0 검증: `git format-patch` → 독립 throwaway clone(`5f154f7` 동일 base)에 `git apply --check` PASS → `git am` PASS → `git diff --stat`으로 의도한 변경(1개 파일, +116/-3)만 존재함을 확인.
+- 시뮬레이션: `sim_route_vego_required_decel_v3.py --unit-tests` 9/9 PASS(위 상세 내역).
+- 로그 분석: 미실시(이번 회차 범위 아님).
+- **실차 검증: 미실시** — 이 변경은 실제 vEgo/apex_speed 이력에 따라 램프 하강 속도가 달라지므로 반드시 실차 검증 필요.
+
+**패치**: `199차_route_vego_boost_discontinuity_gate.patch` (`selfdrive/carrot/carrot_man.py` 1개 파일, +116/-3)
+
+**미확인 사항 / 알려진 한계(반드시 인지)**:
+- FAIL2는 "부분" 해결이다 — apex_speed가 한 프레임에 크게(threshold 이상) 떨어지는 불연속만 잡는다. 급커브가 여러 프레임에 걸쳐 threshold 미만씩 점진적으로 나타나는 경우(누적으로는 크지만 프레임당 낙차는 항상 threshold 미만)는 이 게이트로 잡히지 않고 여전히 197차와 동일하게 동작한다 — apex 절대위치 추적 재설계(158/159차 폐기 전례) 없이는 원천적으로 닫을 수 없는 구멍(devnotes toolkit 스크립트 상단 주석에도 동일 내용 기록).
+- `ROUTE_APEX_SPEED_DISCONTINUITY_THRESH_KPH=15.0`, `ROUTE_VEGO_BOOST_MAX_MSS=3.0` 둘 다 시뮬레이션/실측 기반 초기값이며 실차 튜닝 여지 있음.
+- 실차 검증 시나리오: (a) 일반 굽이길 주행에서 route= 표시가 197차와 체감상 동일한지(게이트 오탐 없어야 함), (b) 실제로 뒤늦게 발견되는 급커브(예: 교차로 진입 직전 급우회전 등)에서 감속이 더 빨라져 apex 통과 시 초과속도가 줄어드는지.
+
+**다음 작업**:
+1. 199차 패치 적용 → 실차 주행(일반 굽이길 + 뒤늦은 급커브 시나리오 모두 포함) → rlog/qcamera 확보
+2. 194차 apex telemetry(`routeApexIdx/Dist/Speed`, `routeOutSpeed`) + vEgo 시간축으로 (a) 오탐 없음(굽이길에서 diff 없음), (b) 오버슈트 감소 두 가지 모두 확인
+3. 문제 발견 시 threshold/MAX_MSS 값 우선 조정, 구조 변경은 최소화(§27)
+
+---
+
 ## 198차 계속 (완료 — ChatGPT 패치 폐기 확정, ryu 코드 변경 없음)
 
 **Worker**: Claude

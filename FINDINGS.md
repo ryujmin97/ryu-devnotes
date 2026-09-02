@@ -1,3 +1,19 @@
+## 199차 — [PARTIAL FIX] 198차 FAIL2(apex_dist 구조적 10m 고정) 해결 — apex_speed 프레임간 낙차 기반 불연속 게이트
+
+**대상**: 198차 v2가 미해결로 남긴 FAIL2. `carrot_navi_route()`의 apex 선택(`candidates[0]` = 179/196차, "road_limit 미만인 가장 가까운 지점")이 연속 굽이길(winding road)에서 `apex_dist`를 거의 항상 정확히 `DISTANCE_INTERVAL`(10.0m)로 고정시켜, 이 값만으로는 "뒤늦게 발견된 진짜 급커브"와 "정상 주행 중 매 프레임 갱신되는 다음 곡률 샘플"을 구분할 수 없다는 문제.
+
+**199차 재확인**: `toolkit/sim_route_vego_required_decel_v2.py`의 `winding_road_curvature_fn()` 600m 전체 구간을 실측 재검토 — apex_dist 값의 집합이 정확히 `{10.0}` 하나뿐임을 재확인(20Hz 샘플링 및 0.5m 간격 fine sweep 둘 다 동일). 198차 결론 그대로 유효.
+
+**부분 해결책**: apex_dist 대신 **apex_speed의 프레임간 낙차**를 구분 기준으로 채택.
+- 근거(199차 실측): 연속 굽이길에서는 곡률이 서서히 변하므로 apex_speed도 프레임당 최대 ~2.6km/h(fine sweep 기준 ~1.4km/h)로만 완만하게 변함. 반면 "뒤늦게 발견된 급커브"는 정의상 apex_speed가 한 프레임 만에 수십 km/h 단위로 급락함.
+- `ROUTE_APEX_SPEED_DISCONTINUITY_THRESH_KPH=15.0`(실측 최대 완만변화의 약 6배 안전마진) 이상 하락하면 "무장(armed)"하여 vEgo 기반 required_decel로 램프 하강상한(accel_limit_kmh)을 부스트. 무장된 apex_speed 근방을 유지하는 동안만 무장 유지.
+- `toolkit/sim_route_vego_required_decel_v3.py` 유닛테스트 9/9 PASS: winding road 전체 diff-0(게이트 한 번도 무장 안 됨) + 급커브 인위 주입 시 해당 프레임 즉시 무장 감지 + 198차 v2의 오버슈트 감소 효과(불연속 시딩 시나리오) 그대로 유지.
+- `ryu/selfdrive/carrot/carrot_man.py`에 실제 패치 적용(199차). base `5f154f7`(197차) 기준 `git format-patch`→독립 clone `git apply --check`+`git am` PASS, diff 1개 파일(+116/-3)만 존재 확인.
+
+**여전히 남는 한계("부분" 해결인 이유, 반드시 기록)**: apex_speed가 "한 프레임에 크게" 떨어지는 불연속만 잡는다. 급커브가 여러 프레임에 걸쳐 threshold(15.0km/h) 미만씩 점진적으로(계단식이 아니라 매 프레임 조금씩) 나타나는 경우 — 누적으로는 크지만 프레임당 낙차는 항상 threshold 미만인 경우 — 이 게이트는 뚫리지 않고 여전히 197차와 동일하게(부스트 없이) 동작한다. apex 절대위치를 프레임 간 추적하는 완전한 재설계(158/159차가 시도했다 실측 악화로 폐기된 전례, 195차/198차 기록) 없이는 원천적으로 닫을 수 없는 구멍.
+
+**상태**: NEEDS_VALIDATION — 정적분석/diff-0/유닛테스트 완료, **실차 검증 미실시**. WIP.md 199차, PARAMS_REGISTRY.md `ROUTE_APEX_SPEED_DISCONTINUITY_THRESH_KPH`/`ROUTE_VEGO_BOOST_MAX_MSS` 항목 참고.
+
 ## 198차 — [DECISION] ChatGPT 패치(`route_dynamic_decel_198.patch`) 폐기 확정 — out_speed 계산부 직접 vEgo 반영 방식은 149/150차와 동일한 물리적 역방향 함정
 
 **대상**: `ryujmin97/ryu-devnotes` toolkit에 `chatgpt_198cha_REJECTED_route_dynamic_decel.patch`로 보존된 ChatGPT 작성 패치. `carrot_navi_route()`의 `calculate_current_speed()` 호출을 제거하고 `out_speed = sqrt(target_ms² + 2×dynamic_decel×apex_dist)×3.6` 직접 계산으로 교체, `dynamic_decel`은 vEgo 기반 필요감속도(a_req)를 base~2×base로 클램프한 값.
