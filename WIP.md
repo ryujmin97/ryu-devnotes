@@ -1,3 +1,50 @@
+## 200차 (진행 중 — 199차 패치 디바이스 배포전 최종 재검증 완료 + Phase A 데이터 갭 확인, ryu/devnotes 코드 변경 없음) — 세션 재개 체크포인트
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu`(변경 없음, 검증만) + `ryujmin97/ryu-devnotes`
+
+**Branch**: `c3-ms-dev` / `main`
+
+**Base commit (ryu)**: `a772453` (199차, 드리프트 없음)
+
+**Base commit (devnotes, 이 회차 시작 시점)**: `fce33da` (199차)
+
+**배경**: 이전 세션(199차 종료 시점, "Phase A(Shadow 분석) 실행하려면 다음 중 하나가 필요합니다"에서 중단)을 이어받아 세션 재개. GitHub 상태 확인(§3) → 사용자 질의 대응(aeeed9e4a5 원본 날짜) → 199차 패치 디바이스 배포 전 최종 검토 요청까지 처리.
+
+**작업 내용**:
+
+1. **GitHub 상태 재확인(§3)**: `ryu`(`a772453`, 199차)/`ryu-devnotes`(`fce33da`, 199차) 둘 다 예상과 일치, 다른 AI의 IN PROGRESS 흔적 없음. §33 해당 없음(정상 진행).
+2. **Phase A(Shadow 분석) 데이터 갭 확인**: `data/routes/` 17개 폴더 전수 조사.
+   - `aeeed9e4a5`(158/159차가 쓰던 로그, 157차 base): `meta.json`만 남아있고 `route.csv.gz` 자체가 없음(§23 대용량 미보관 정책 + `drive_csv:` 참조 부재로 재확보 경로 없음).
+   - 나머지 14개는 `route.csv.gz` 생존해있으나 전부 commit 72~157차 사이(`284457f38a85`/`3ec4e5c63f28`/`4fa4a44b9311`/`712d76babc08`) — 193차(`ea97831`)에서 추가된 `routeApexIdx/Dist/Speed`/`routeOutSpeed` telemetry가 전무해 결합안(worst_violation/Demand Envelope) 검증에 부적합.
+   - **결론**: 현재 컨테이너 데이터로는 Phase A 착수 불가. 사용자에게 3개 옵션 제시(A: aeeed9e4a5 원본 재업로드, B: 199차 패치 포함 신규 실차 로그 채록[권장 — Phase A와 199차 실차검증을 로그 1건으로 동시 처리 가능], C: 로그 없이 결합안 스크립트 뼈대만 우선 작성) — **사용자 결정 대기**.
+3. **`aeeed9e4a5` 원본 날짜 질의 응답**: WIP.md/FINDINGS.md 교차검색으로 세그먼트 타임스탬프(`20260830_175844`/`20260830_175944`) 확인, 2026-08-30 오후(한국시간 17:58경) 주행으로 답변. `meta.json`의 `commit_date`(코드 커밋 시각)/`extracted_at`(CSV 추출 작업 시각)과 주행 시각을 혼동하지 않도록 구분해 안내.
+4. **199차 패치 디바이스 배포 전 최종 재검증**(사용자 요청, 코드 변경 없는 순수 검증):
+   - `git status`: origin/c3-ms-dev와 fast-forward, working tree clean 확인
+   - 병합 커밋 검사: 197차→199차 구간 선형 히스토리(병합 없음) 확인
+   - conflict marker(`<<<<<<<` 등) 전체 grep: 없음
+   - `py_compile`/`ast.parse`: PASS
+   - 신규 상수 2개(`ROUTE_APEX_SPEED_DISCONTINUITY_THRESH_KPH`/`ROUTE_VEGO_BOOST_MAX_MSS`) 중복 정의 없음 확인
+   - 신규 상태변수 3개 초기화/리셋 3곳(`__init__` + route 비활성 경로 2곳) 전부 존재 확인(199차 WIP 기록과 일치, 누락 없음)
+   - `accel_limit_kmh`가 하강측(`max_step_kmh`)에만 영향을 주고 `hi`(상승/원복)와 분리되어 있음을 라인 단위로 재확인 — 197차 out_speed 불변식 위반 없음 재확인
+   - **독립 throwaway clone 재검증**: 197차 base(`5f154f7`)에 199차 patch를 `git apply --check`(PASS) → `git am`(PASS) → 재적용본 `carrot_man.py`가 origin `a772453`의 파일과 **바이트 단위로 완전 동일**함을 diff로 확인
+   - **결론**: git pull(fast-forward) 자체는 에러 없이 안전. 유일한 리스크는 디바이스 로컬 워킹트리에 커밋 안 된 로컬 수정사항이 남아있는 경우뿐(GitHub 쪽 문제 아님) — pull 전 디바이스에서 `git status` 확인 권장으로 안내.
+
+**검증**:
+- 정적 분석: 완료(위 4번 전체)
+- diff-0 검증: 완료(독립 clone 재적용, 바이트 단위 동일 확인)
+- 로그 분석: 미실시(Phase A 데이터 갭으로 착수 불가)
+- 시뮬레이션: 미실시(이번 회차 범위 아님)
+- **실차 검증: 여전히 미실시** — 199차 패치 자체는 그대로이며 이번 회차는 배포 전 정적 검증만 추가한 것, 실차 검증 상태는 변경 없음.
+
+**미확인 사항 / 다음 작업**:
+1. Phase A 진행 방향 사용자 결정 대기(옵션 A/B/C 중)
+2. 199차 패치 실차 배포 → 실차 검증(일반 굽이길 오탐 없음 + 뒤늦은 급커브 게이트 무장/오버슈트 감소 확인) — 199차부터 이어지는 미해결 항목, 변경 없음
+3. 옵션 B(신규 로그 채록) 선택 시 Phase A 결합안 toolkit 스크립트도 동시 설계 착수 가능
+
+---
+
 ## 199차 (완료 — 설계 A v2 FAIL1/FAIL2 처리 + ryu 패치 생성/검증 완료, 실차 검증 대기) — route vEgo 기반 동적 램프 부스트, 불연속 게이트
 
 **Worker**: Claude
