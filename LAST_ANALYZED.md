@@ -1,3 +1,17 @@
+## c3-ms-dev (201차, 199차 패치 실차 로그 최초 분석 — "모든 커브 route 미작동" 두 원인(navi 폴리라인 미수신 / 감속램프+MapTurnSpeedFactor 지연) 규명, ryu 코드 변경 없음)
+- last_analyzed_commit: `a772453` (199차 패치 HEAD, 드리프트 없음 — device build 실측 일치 확인, dirty=True 주의)
+- date: 2026-09-02 (201차)
+- 분석 대상: 8세그 신규 실차 로그(`20260902_133350_00000383--3e6ec098ab`, 9,598행,
+  t=137.72~617.58) + 스크린샷 8장(GPS 앵커링, 6장이 로그범위 내)
+- note: 유성 커브(t≈210~249)는 naviPointsActive 125초+ 연속 False로 route
+  계산 자체 미실행(182차 유형 재현). 북대전IC 커브(t≈450~510, 239프레임)는
+  apex telemetry 정상 계산되나 감속측 램프리미터(AutoNaviSpeedDecelRate=
+  0.70→2.52km/h/s)가 실제 커브 접근을 못 따라가 route가 arbitration에서
+  단 한 번도 승리 못함(전체 파이프라인 재현 시뮬레이션으로 0/239 정량
+  확인). MapTurnSpeedFactor 실측값을 최초로 1.30(HUD route=390.0=300×1.3)
+  으로 확정 — 이 값이 램프 지연 문제를 30% 추가 악화. 패치 미착수, 사용자
+  방향 결정 대기. 상세는 WIP.md/FINDINGS.md "201차" 참고.
+
 ## c3-ms-dev (195차, GPS 앵커링 VALIDATED 격상 + 194차 계속3 vEgo 오류 정정 + `곡선_가감속_코딩.txt` 설계문서 대조검토 — ryu 코드 변경 없음)
 - last_analyzed_commit: `019481515afd` (194차 패치 반영 HEAD, 드리프트 없음)
 - date: 2026-09-02 (195차)

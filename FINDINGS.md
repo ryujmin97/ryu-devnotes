@@ -1,3 +1,25 @@
+## 201차 — [ROOT_CAUSE_CONFIRMED] 199차 패치 실차 로그 "모든 커브에서 route 작동 안함" — 두 가지 별개 원인 확인
+
+**대상**: 사용자가 199차 패치 배포 후 실차주행(8세그, `20260902_133350_00000383--3e6ec098ab`)에서 "모든 커브에서 route 작동 안함"이라 보고. 199차 패치 이후 최초 실차 검증.
+
+**원인 A — 유성 급커브(t≈210~249, 스크린샷 img5/6)**: `naviPointsActive`가 로그 시작(t=137.72)부터 t=262.74까지 125초 이상 연속 `False`. `routeApexIdx=-1`, `routeOutSpeed=300`(제약없음 기본값) 고정. **route 계산 자체가 실행되지 않는 상태** — 182차가 문서화한 "naviPaths 폴리라인 자체가 비어있음" 유형(코드 로직 결함이 아니라 navi 데이터/네트워크 파이프라인 문제)과 동일 카테고리. `dtNaviPacketAge`가 False 구간 종료 시점(t=262.74)에서 14.97초 — 패킷 자체가 끊겼을 가능성. 이 로그만으로는 "패킷단절 vs 내용정지"(182차가 이미 구분해둔 두 하위유형) 확정 불가(비활성 시작 시점이 로그 범위 밖).
+
+**원인 B(신규) — 북대전IC 커브(t≈450~510, 스크린샷 img1~4)**: `naviPointsActive=True`, apex telemetry(`routeApexIdx/Dist/Speed`, `routeOutSpeed`)가 정상 계산됨(거리 140→20m 단조감소, 목표속도도 그에 맞춰 하강). 그런데도 239프레임(t=450.17~497.97) 전체에서 `desiredSource`가 단 한 번도 `"route"`가 되지 않음.
+
+- **메커니즘**: route가 arbitration에 제출하는 값은 raw `routeOutSpeed`가 아니라, `AutoNaviSpeedDecelRate`(사용자 실측값 0.70, 83차) 기반 프레임간 감속측 램프리미터(132/172/173/199차, 초당 2.52km/h 하강 상한)를 통과 → `MapTurnSpeedFactor`(사용자 실측값 **1.30**, 아래 신규 확정 항목 참고)를 곱한 값.
+- 이 구간 진입 직전 `_route_speed_prev`가 실제 apex 목표(raw≈55~59)보다 훨씬 높은 값(≈230)으로 남아있어, 초당 2.52km/h 램프로는 실제 커브 접근 속도(거리 감소율)를 구조적으로 따라잡지 못함.
+- 199차 불연속 게이트(`ROUTE_APEX_SPEED_DISCONTINUITY_THRESH_KPH=15.0`)는 여러 차례 무장되지만(apex_idx가 프레임마다 자주 바뀌는 부작용으로 추정, 198차가 지적한 apex_dist 구조적 10m 고정과 연관), 부스트 상한(`ROUTE_VEGO_BOOST_MAX_MSS=3.0m/s²`=10.8km/h/s)로도 ≈230에서 실제 목표까지 커브 통과 시간(<40초) 안에 도달 불가.
+- `MapTurnSpeedFactor=1.30`이 램프 통과 후 값에 추가로 30%를 더 얹어 route를 상시 더 불리하게 만듦.
+- **정량 검증**: 전체 파이프라인(raw out_speed→불연속게이트→램프→스케일)을 그대로 재현하는 시뮬레이션으로 239프레임 전수 재현, route 후보값이 실제 승자 이하로 내려온 프레임 `0/239`(`would_win=0`) — 실측(route 승리 0회)과 정확히 일치.
+
+**`MapTurnSpeedFactor` 실측값 신규 확정**: 스크린샷들의 HUD `route=390.0` 디버그 텍스트(route 비활성 시 표시값, `carrot_serv.py::update_navi()` L1152)가 비활성 시 기본값 300의 정확히 1.30배(390/300=1.3)임을 실측으로 확인. 사용자의 실제 설정값은 **130**(`params_keys.h` 기본값 90이 아님). devnotes에서 이 파라미터가 정량적으로 다뤄진 것은 이번이 최초 — PARAMS_REGISTRY.md 반영.
+
+**결론**: 사용자 보고("모든 커브에서 route 작동 안함")는 정확했음. 두 원인이 서로 다른 레이어(A=데이터 미수신, B=램프/스케일 로직)라 하나의 패치로 동시에 해결되지 않음 — 별도 트랙으로 다뤄야 함.
+
+**상태**: ROOT_CAUSE_CONFIRMED(원인 규명 완료) — **패치 미착수**(사용자 방향 결정 대기, WIP.md 201차 "다음 작업" 참고). 코드 변경 없음.
+
+---
+
 ## 199차 — [PARTIAL FIX] 198차 FAIL2(apex_dist 구조적 10m 고정) 해결 — apex_speed 프레임간 낙차 기반 불연속 게이트
 
 **대상**: 198차 v2가 미해결로 남긴 FAIL2. `carrot_navi_route()`의 apex 선택(`candidates[0]` = 179/196차, "road_limit 미만인 가장 가까운 지점")이 연속 굽이길(winding road)에서 `apex_dist`를 거의 항상 정확히 `DISTANCE_INTERVAL`(10.0m)로 고정시켜, 이 값만으로는 "뒤늦게 발견된 진짜 급커브"와 "정상 주행 중 매 프레임 갱신되는 다음 곡률 샘플"을 구분할 수 없다는 문제.
