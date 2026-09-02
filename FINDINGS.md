@@ -1,3 +1,32 @@
+## 세그먼트 폴더명은 wall-clock 앵커로 신뢰하면 안 됨 (60초+ 오차 확인)
+
+**발견 회차**: 194차 (스크린샷 5장 + rlog qcamera 실측 대조)
+
+**증상**: 스크린샷 HUD 타임스탬프(예: 07:38:20)를 세그먼트 폴더명(`20260902_073700_...`)
+기준으로 `t → wall-clock` 선형 매핑해서 로그를 조회했더니, 화면(정상 주행, ACC ON)과
+로그(vEgo=0, cruiseEnabled=False, brakePressed=True 104초 지속) 상태가 정면으로 모순됨.
+
+**원인**: 세그먼트 폴더명 타임스탬프는 실제 wall-clock보다 약 60.6초 늦게 찍혀 있었음.
+(rlog 첫 `gpsLocation` 이벤트: logMonoTime=543.035 → 실제 07:35:59.397 KST,
+폴더명은 07:37:00 — 60.6초 차이)
+
+**해결**: 폴더명 대신 rlog(qlog엔 gpsLocation 없음, 기존 원칙과 동일)의
+`gpsLocation.unixTimestampMillis`를 logMonoTime과 직접 대조해서
+`offset = unixTimestampMillis/1000 - logMonoTime` 산출, 이 offset으로
+`wallclock = logMonoTime + offset` 매핑.
+
+**검증**: 보정된 offset으로 재조회한 3개 시점을 qcamera.ts 동일 offset 프레임과
+육안 대조 — 배경 건물/도로 표식/신호등 상태가 스크린샷과 정확히 일치함을 확인.
+
+**교훈**:
+- 세그먼트 폴더명 타임스탬프는 근사치일 뿐, 초 단위 정밀 매핑에는 부적합.
+  (부팅 초기 GPS 미고정 상태에서 시스템 시계가 아직 보정되지 않았을 가능성)
+- 스크린샷/영상 HUD 타임스탬프를 로그와 대조해야 하는 작업에서는 반드시
+  rlog의 gpsLocation 이벤트로 offset을 구하고, 가능하면 qcamera.ts 프레임과
+  육안 대조까지 해서 검증할 것.
+- 기존 "GPS timestamp anchoring" 원칙(LAST_ANALYZED.md/PARAMS 관련 기록)에
+  "폴더명 fallback 금지, 반드시 gpsLocation 실측" 문구를 명시적으로 추가 권장.
+
 ## 188차 — [실차 확정] 유형3 신규 실측 사례 1건(신규 A) + [분석도구 한계, ryu 결함 아님] scan_type3_curvature_blindspot.py v1 median 판정 오탐 발견/수정
 
 **배경**: 187차와 동일 route(seg14/seg15)로 `scan_type3_curvature_blindspot.py`
