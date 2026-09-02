@@ -1,3 +1,89 @@
+## 214차 (진행 중 — ceiling 수정 설계안 도출, 코드/시뮬레이션 착수 전) — sharpest_candidate_speed ceiling 거리인지화 설계 논의
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu` + `ryujmin97/ryu-devnotes`
+
+**Branch**: `c3-ms-dev` / `main`
+
+**Base commit (ryu, 이 회차 시작 시점)**: `5ee44be`(213차)
+
+**Base commit (devnotes, 이 회차 시작 시점)**: `de523c4`(213차 push 후)
+
+**배경**: 213차가 특정한 "연속커브 저속유지" 원인(`carrot_navi_route()`
+L994-996, `sharpest_candidate_speed`가 candidate의 거리를 무시하고 speed만
+반영)에 대해 사용자가 구체적 설계 방향을 제시: "1차 커브 통과 → Route
+목표를 설정속도로 원복 → 기존 가속 로직으로 가속 → 2차 커브 필요 감속거리에
+들어오면 다시 Route 감속". 사용자는 각 candidate의 dist/speed로 "필요
+감속거리"를 계산해 `candidate_dist <= required_decel_dist`일 때만 ceiling에
+반영하자는 안을 제시.
+
+**논의 내용 — 두 구현 방식 비교**:
+- **(A) 사용자 원안**: candidate마다 별도의 `required_decel_dist`를
+  명시적으로 계산해 임계값으로 포함/제외를 판정.
+- **(B) Claude 제안**: 새 임계값을 만들지 않고, 이미 존재하는
+  `carrot_serv.calculate_current_speed(dist, speed, safe_time,
+  safe_decel_rate)`를 candidate마다 그대로 재사용해 `sharpest_candidate_speed`
+  자체를 raw 값들의 min으로 교체:
+  ```python
+  sharpest_candidate_speed = min(
+      (self.carrot_serv.calculate_current_speed(
+          distances[k], speeds[k],
+          self.carrot_serv.autoNaviSpeedCtrlEnd,
+          self.carrot_serv.autoNaviSpeedDecelRate,
+      ) for k in candidates),
+      default=apex_speed
+  ) if candidates else apex_speed
+  ```
+  apex_dist/apex_speed 계산과 동일한 물리식을 재사용하므로 새 상수·새
+  임계값·새 상태가 전혀 추가되지 않고(§27 최소변경), 거리가 멀면 raw가
+  road_limit 근처로 자연히 높게 나오고 감속거리 안으로 들어오면 자연히
+  낮아져 사용자가 그린 흐름과 동일한 동작을 별도 분기 없이 재현한다고
+  판단. 205/207차 회귀(apex 오선택 시 raw 스파이크)에 대해서도 sharpest
+  후보 자신의 raw에 거리 감쇠가 걸리므로 구조적으로 더 보수적일 것으로
+  예상(단, 실제 시뮬레이션으로 미검증 상태).
+- **사용자 확답 대기 중 세션 종료 요청("저장")으로 A/B 채택 여부 미확정.**
+
+**완료**:
+- 없음 (이번 회차는 분석/설계 논의만 진행, 코드·시뮬레이션 미착수)
+
+**미완료**:
+1. A/B 방식 중 채택안 확정 (다음 세션에서 사용자 확인 필요)
+2. `toolkit/sim_route_ceiling_sharpest_candidate_207.py` 확장 시뮬레이션
+   작성 — 다음 3개 시나리오 세트 반드시 포함:
+   - 206차가 기록한 회귀 방지 시나리오(apex_dist=70/apex_speed=297.5/
+     vEgo=55, sharpest=50 후보 존재) — diff-0 유지 확인
+   - 213차가 지적한 "1차 통과 후 2차가 멀리 있는데 ceiling이 눌리는" 시나리오
+     — OLD(현재 205/207차) vs NEW(A 또는 B) 비교
+   - 사용자가 그린 연속커브 흐름(30 감속→통과→70 원복→가속→300m 앞 2차
+     진입 시 40 감속) 재현
+   - 기존 대조군(정상 직선복귀/연속 S자/candidates=[] 폴백)도 diff-0 확인
+3. 시뮬레이션 결과 확인 후에만 `carrot_man.py` L994-996 실제 코드 수정
+   (§27 — 시뮬레이션/단위테스트 통과 및 사용자 방향 확정 전 프로덕션 코드
+   미변경 원칙 유지)
+4. 213차 자체(20m 하드플로어 제거)의 실차 검증도 여전히 이월 상태 — 동일
+   실차 CSV(`20260902_181435_4e18e62932_12seg.csv`)로 t=201~206초 구간
+   재생 확인 필요 (ceiling 수정과 독립적으로 병행 가능)
+
+**검증**:
+- 정적 분석: 미실시(코드 변경 없음)
+- 로그 분석: 미실시
+- 시뮬레이션: 미실시
+- 실차 검증: 미실시
+
+**다음 작업**:
+1. 사용자에게 A(명시적 required_decel_dist)/B(calculate_current_speed
+   재사용) 중 채택안 확인
+2. 확정된 방식으로 `sim_route_ceiling_sharpest_candidate_207.py` 확장 후
+   위 시나리오 세트 실행
+3. 회귀 없음 확인되면 `carrot_man.py` L994-996 패치 생성 + toolkit
+   README/CHANGELOG 갱신
+4. 213차 20m 하드플로어 실차 검증 병행 진행 여부 확인
+
+**전달 파일**: 없음(이번 회차는 devnotes 체크포인트만 기록)
+
+---
+
 ## 213차 (완료 — 212차 A안 코드 반영+독립검증, 실차 검증 미실시 / 추가로 205~207차 ceiling과의 상호작용 원인분석 완료·패치 보류) — route apex_dist 20m 하드플로어 제거 + 연속커브 저속유지 근본원인 특정
 
 **Worker**: Claude
