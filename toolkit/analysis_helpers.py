@@ -3332,6 +3332,122 @@ def required_decel_gap_scan(rows, near_stop_target_kph=15.0, detection_search_s=
     return results
 
 
+def lead_coast_to_zero_scan(rows, min_duration_s=0.5, dRel_start_max_m=15.0,
+                             dRel_end_max_m=0.3, monotonic_tol_m=0.15,
+                             no_brake_frac_thresh=0.7, min_accel_mps2=-0.5,
+                             require_status_flip=True, flip_window_s=0.15):
+    """
+    209차(2026-09-02) 신규: 실차로그(20260902_181435_4e18e62932--12seg)에서
+    발견된 패턴 -- leadStatus=True 상태에서 leadDRel이 수 초에 걸쳐 매끄럽게
+    (거의 일정한 implied vRel로) 0.0까지 선형 감소하고, 그 순간 leadStatus가
+    False로 전환되는 현상. curve_lead_dRel_jump_events()가 잡는 "프레임간
+    급점프"와는 다른 패턴(점프가 아니라 완만한 드리프트)이라 별도 탐지 필요.
+
+    실제 물리적 근접/정지 추종이라면 ego가 그에 맞춰 감속(brake 또는 aEgo
+    하강)해야 하는데, 이 패턴은 브레이크 미체결/aEgo 유지·상승(가속) 상태로
+    dRel이 0까지 떨어지고 나서 트랙이 끊기는 경우가 많음 -- 레이더/비전
+    트랙이 신뢰도 저하 후 마지막 vRel로 관성 외삽(coast)하다 타임아웃되며
+    끊기는 아티팩트로 추정(FINDINGS.md 209차 참고, 근거는 정황적 -- 실제
+    레이더 내부 상태는 rlog만으로 확정 불가, 확인 필요 사항으로 남김).
+
+    seg 경계는 넘지 않음(seg[i]!=seg[i-1]이면 새 run 시작).
+
+    Args:
+        min_duration_s: 이 이상 지속된 단조감소 구간만 이벤트로 인정.
+        dRel_start_max_m: 단조감소 구간 시작 시점 dRel이 이 이하일 때만
+            "근접 상황"으로 취급(먼 거리에서의 우연한 단조감소 노이즈 제외).
+        dRel_end_max_m: 구간 종료 시점 dRel이 이 이하(사실상 0)여야 함.
+        monotonic_tol_m: 프레임간 dRel이 이 값 이내로 증가하는 것은
+            노이즈로 보고 단조감소가 깨진 것으로 치지 않음(완전 단조 요구는
+            너무 엄격 -- 실측 데이터는 약간의 잔진동이 섞임).
+        no_brake_frac_thresh: 구간 내 brakePressed=False 비율이 이 이상이면
+            "제동 반응 없음"으로 판정(실제 위험 대응이 아니라는 근거 중 하나).
+        min_accel_mps2: 구간 내 aEgo 최소값이 이 이상(즉 강한 감속이
+            없었음)이면 "감속 반응 없음"으로 판정.
+        require_status_flip: True면 구간 종료 직후 flip_window_s 이내에
+            leadStatus가 False로 전환되는 경우만 이벤트로 인정(아티팩트
+            서명의 핵심 -- 실제 정지선행이면 leadStatus는 계속 True로
+            유지되는 것이 정상).
+        flip_window_s: leadStatus False 전환을 확인하는 시간 창.
+
+    리턴: [{"seg","t_start","t_end","duration","dRel_start","dRel_end",
+            "vEgo_start","vEgo_end","brake_frac","min_aEgo",
+            "implied_vRel_mps","status_flipped_after"}]
+    """
+    n = len(rows)
+    t = [_f(r, "t") for r in rows]
+    seg = [r.get("seg") for r in rows]
+    dRel = [_f(r, "leadDRel") for r in rows]
+    lead = [_b(r, "leadStatus") for r in rows]
+    vEgo = [_f(r, "vEgo") for r in rows]
+    aEgo = [_f(r, "aEgo") for r in rows]
+    brake = [_b(r, "brakePressed") for r in rows]
+
+    events = []
+    i = 0
+    while i < n:
+        if not lead[i] or dRel[i] is None or t[i] is None:
+            i += 1
+            continue
+        # run 시작: leadStatus=True 이면서 dRel이 유효한 지점부터 탐색
+        start = i
+        j = i
+        # 단조감소(허용오차 내) 구간 확장
+        while j + 1 < n and lead[j + 1] and seg[j + 1] == seg[start] \
+                and dRel[j + 1] is not None and t[j + 1] is not None:
+            if dRel[j + 1] - dRel[j] > monotonic_tol_m:
+                break
+            j += 1
+
+        if j > start and dRel[start] is not None and dRel[j] is not None:
+            duration = t[j] - t[start]
+            if (duration >= min_duration_s
+                    and dRel[start] <= dRel_start_max_m
+                    and dRel[j] <= dRel_end_max_m):
+                window = rows[start:j + 1]
+                brake_vals = [brake[k] for k in range(start, j + 1) if brake[k] is not None]
+                accel_vals = [aEgo[k] for k in range(start, j + 1) if aEgo[k] is not None]
+                brake_frac_false = (
+                    sum(1 for b in brake_vals if not b) / len(brake_vals)
+                    if brake_vals else 1.0
+                )
+                min_accel = min(accel_vals) if accel_vals else None
+                no_brake_response = brake_frac_false >= no_brake_frac_thresh
+                no_decel_response = (min_accel is None) or (min_accel >= min_accel_mps2)
+
+                status_flipped = False
+                if require_status_flip:
+                    for k in range(j + 1, n):
+                        if t[k] is None or seg[k] != seg[start]:
+                            break
+                        if t[k] - t[j] > flip_window_s:
+                            break
+                        if not lead[k]:
+                            status_flipped = True
+                            break
+                else:
+                    status_flipped = None
+
+                flip_ok = (status_flipped is True) if require_status_flip else True
+
+                if no_brake_response and no_decel_response and flip_ok:
+                    implied_vRel = (dRel[j] - dRel[start]) / duration if duration > 0 else None
+                    events.append({
+                        "seg": seg[start],
+                        "t_start": round(t[start], 2), "t_end": round(t[j], 2),
+                        "duration": round(duration, 2),
+                        "dRel_start": round(dRel[start], 2), "dRel_end": round(dRel[j], 2),
+                        "vEgo_start": round(vEgo[start], 2) if vEgo[start] is not None else None,
+                        "vEgo_end": round(vEgo[j], 2) if vEgo[j] is not None else None,
+                        "brake_frac_false": round(brake_frac_false, 2),
+                        "min_aEgo": round(min_accel, 2) if min_accel is not None else None,
+                        "implied_vRel_mps": round(implied_vRel, 2) if implied_vRel is not None else None,
+                        "status_flipped_after": status_flipped,
+                    })
+        i = j + 1
+    return events
+
+
 if __name__ == "__main__":
     import sys
     if len(sys.argv) < 2:

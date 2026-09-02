@@ -2436,3 +2436,44 @@ raw/apex_speed 동시 오염)를 이 로그 기준으로는 해결하지 못함.
 python3 devnotes/toolkit/sim_route_205_vego_cap_ab_206.py [csv_path]
 ```
 기본 csv_path는 `/mnt/user-data/uploads/199cha_8seg_route_extracted.csv`.
+
+## analysis_helpers.py — lead_coast_to_zero_scan (209차 신규)
+209차(2026-09-02) 실차로그(20260902_181435_00000387--4e18e62932--1~12,
+저속 도심 12세그 전체 추출본)에서 발견된 leadDRel 아티팩트 패턴 탐지용.
+`curve_lead_dRel_jump_events`(프레임간 급점프)와는 다른 패턴 -- 이건
+leadStatus=True 상태에서 leadDRel이 수 초에 걸쳐 매끄럽게(거의 일정한
+implied vRel로) 0.0까지 단조감소하고, 그 순간 leadStatus가 False로
+전환되는 완만한 드리프트형 아티팩트.
+
+**핵심 판정 기준**: (1) dRel이 monotonic_tol_m 오차범위 내 단조감소,
+(2) 구간 시작 dRel <= dRel_start_max_m(기본 15m), 종료 dRel <=
+dRel_end_max_m(기본 0.3m), (3) 구간 지속시간 >= min_duration_s(기본
+0.5s), (4) 구간 내내 brakePressed=False 비율 >= no_brake_frac_thresh
+(기본 0.7) *그리고* aEgo 최저값 >= min_accel_mps2(기본 -0.5) --
+즉 실제 위험 대응(제동)이 없었음, (5) 구간 종료 직후
+flip_window_s(기본 0.15s) 이내에 leadStatus가 False로 전환.
+이 다섯 조건을 실제 물리적 근접정지(운전자가 제동해 실제로 서행하며
+따라붙는 경우, ego도 함께 감속하고 leadStatus는 계속 True 유지)와
+구분하는 근거로 사용.
+
+**검증(209차 세션 로그, 20260902_181435_4e18e62932--12seg, 14185행)**:
+1건 탐지(seg9, t=608.12~610.37, dRel 9.73m->0.0m, 2.25초, ego는 오히려
+가속(vEgo 3.00->3.33), brake_frac_false=0.85). 같은 로그 전체에서
+leadDRel<1.0m 프레임을 별도로 전수조사한 결과 이 1개 구간(20프레임)이
+유일 -- 누락(false negative) 없음 확인. 단 **이 로그 1건만으로 검증됐고,
+다른 로그(예: 실제 정지선/정체 정차 시나리오가 많은 로그)로 오탐(false
+positive) 여부는 아직 미확인** -- 다음 세션 과제.
+
+**추정 원인(정황적, 미확정)**: 레이더/비전 트랙이 신뢰도 저하 후 마지막
+관측 vRel로 관성 외삽(coast)하다 타임아웃되며 트랙이 끊기는 현상으로
+추정. rlog에는 이 판단에 필요한 레이더 내부 트랙 신뢰도/coast 플래그가
+없어 CSV 재구성만으로는 확정 불가 -- FINDINGS.md 209차 참고.
+
+**사용**:
+```python
+import analysis_helpers as ah
+rows = ah.load_csv("route.csv")
+events = ah.lead_coast_to_zero_scan(rows)
+```
+
+**의존성**: `_f`/`_b` 헬퍼만 사용, 외부 의존성 없음.

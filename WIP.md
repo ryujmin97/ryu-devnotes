@@ -1,3 +1,73 @@
+## 209차 (완료 — 실차로그 12세그 CSV 추출+분석, leadDRel coast-to-zero 아티팩트 신규 발견+탐지함수 작성, ryu 코드 변경 없음) — 최신 실차로그 분석 및 신규 아티팩트 패턴 탐지 함수 추가
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu`(분석만, 변경 없음) + `ryujmin97/ryu-devnotes`
+
+**Branch**: `c3-ms-dev` / `main`
+
+**Base commit (ryu, 이 회차 시작 시점)**: `2b44b65`(207차, 208차와 드리프트 없음 — `git log`로 확인)
+
+**Base commit (devnotes, 이 회차 시작 시점)**: 208차 시점(WIP 최상단 확인)
+
+**배경**: 사용자가 "최신패치 적용된 실차주행 로그"(12세그 zip)를 업로드하고
+"모든 세그 csv 추출후 파일주라. 분석도"라고 요청. 세션 시작 시 GitHub
+상태를 먼저 확인(§3) — ryu `2b44b65`(207차), devnotes WIP 208차, 다른
+작업자 흔적 없음.
+
+**작업 내용**:
+
+1. `extract_log.py --with-navi-paths`로 12세그(20260902_181435 ~
+   20260902_182524, `4e18e62932`) 전체를 단일 CSV(14,185행, 20Hz)로 병합
+   추출. `check_device_build.py`로 device 실행 커밋이 `2b44b65`(207차)와
+   일치함을 확인 — 단 `dirty=True`(빌드 시점 미커밋 로컬 변경 존재,
+   참고사항으로만 보고).
+2. `trip_summary`/`source_target_violations`/`route_target_jump_events`/
+   `ttc_danger_events`/`harsh_brake_events`로 기본 분석 수행. 이 로그는
+   저속 도심 위주(평균 15.7km/h)라 207/208차가 검증한 북대전IC급 고곡률
+   시나리오 재검증으로는 약함(참고 표시) — route src 구간 목표속도
+   초과 비율 0.1%(8815중 8프레임, 최대 3.22kph)로 양호, target jump
+   0건.
+3. **신규 발견**: `ttc_danger_events()`가 seg9 t=608.17~610.37에서
+   min_ttc=0.0 이벤트를 검출 → 상세 확인 결과 실제 위험이 아니라
+   leadDRel이 2.25초간 매끄럽게 9.73m→0.0m로 단조감소하다 leadStatus가
+   즉시 False로 전환되는 아티팩트 패턴(제동 없음, ego 오히려 가속) —
+   `curve_lead_dRel_jump_events`(급점프형)와 다른 별개의 "완만한 드리프트"
+   유형. FINDINGS.md 209차 항목으로 신규 등록(상태: NEEDS_VALIDATION,
+   원인은 레이더/비전 트랙 coast-then-drop으로 정황상 추정, 확정 아님).
+4. `analysis_helpers.py::lead_coast_to_zero_scan()` 신규 작성(단조감소+
+   근접시작+0도달+무제동+status flip 5조건 결합) — 이번 로그에서 1건
+   탐지, leadDRel<1.0m 프레임 전수조사(20프레임/1구간)와 대조해 누락
+   없음 확인. `toolkit/README.md`/`CHANGELOG.md` 갱신.
+
+**검증**:
+- 정적 분석: `py_compile` PASS
+- 로그 분석: 완료(12세그 전체, 14,185행)
+- 시뮬레이션: 해당 없음(순수 관찰형 분석 도구)
+- 실차 검증: 해당 없음(로그 재분석 세션, 코드 변경 없음)
+
+**미확인 사항 / 다음 작업**:
+1. `lead_coast_to_zero_scan()` 오탐 여부 — 실제 정지선/정체 정차 시나리오가
+   포함된 다른 로그로 교차검증 필요(이번 로그엔 그런 케이스가 없어 구분력
+   미시험).
+2. coast-to-zero 아티팩트의 실제 원인(레이더 트랙 coast 추정)을
+   `radard.py` 코드 추적으로 직접 확인하지 않음 — 정황 증거만 있음.
+3. 이 아티팩트가 고속 구간에서도 나타나는지, 나타난다면 실제 제어
+   판단(급제동 등)에 영향을 주는지 미확인(이번 케이스는 저속 3km/h라
+   영향 낮아 보임).
+4. 사용자 세션 189 예정 항목(low_cap_eval_start_m=80.0 검증, 50~80m
+   near-field guard 검토, 166/167차 실차 재확인)은 이번 세션에서
+   다루지 않음 — 그대로 대기.
+
+**Devnotes**: `toolkit/analysis_helpers.py`(함수 추가), `toolkit/README.md`
++ `toolkit/CHANGELOG.md`(209차 섹션), `FINDINGS.md`(209차 항목 추가)
+
+**전달 파일**: devnotes 3개 파일(위) + 실차로그 CSV(`20260902_181435_4e18e62932_12seg.csv`,
+`.meta.json`) — CSV는 §23 정책에 따라 devnotes에 커밋하지 않고 사용자에게
+직접 전달만 함(재사용 필요시 Google Drive 보관 권장).
+
+---
+
 ## 208차 (완료 — 207차 패치를 202/203차 문제 로그로 실측 A/B 재검증, ryu 코드 변경 없음, devnotes만 갱신) — 207차 실차로그 A/B 검증(POSITIVE)
 
 **Worker**: Claude

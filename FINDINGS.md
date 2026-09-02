@@ -1,3 +1,55 @@
+## 209차 — [NEEDS_VALIDATION] leadDRel "coast-to-zero" 아티팩트 — 완만한 단조감소로 0.0 도달 후 leadStatus 즉시 False 전환 패턴 발견 (실차 12세그, 208차 이후 신규 로그)
+
+**대상**: 사용자가 업로드한 최신 실차로그(20260902_181435_00000387--4e18e62932,
+12세그, `extract_log.py --with-navi-paths`로 14,185행 CSV 추출, 저속
+도심 위주 709초/3.1km/평균 15.7km/h). 빌드 확인 결과 device gitCommit이
+GitHub 최신(`2b44b65`, 207차)과 일치하나 `dirty=True`(빌드 시점 미커밋
+로컬 변경 존재) — 참고사항으로만 남김, 이 발견 자체와는 무관.
+
+**발견 경위**: `ttc_danger_events()`로 위험 이벤트 스캔 중 seg9
+(20260902_182234_00000387--4e18e62932--9) t=608.17~610.37에서 min_ttc=0.0
+이벤트 1건 검출. 상세 확인 결과 leadDRel이 9.73m에서 0.0m까지 2.25초간
+implied_vRel≈-4.3m/s로 매끄럽게 단조감소(프레임간 급점프 아님 —
+`curve_lead_dRel_jump_events`의 jump_thresh_m=8.0 문턱에도 걸리지 않음).
+같은 구간 동안 vEgo는 3.00→3.33km/h로 오히려 소폭 **가속**, brake는
+85% 프레임에서 미체결, aEgo 최저값 -0.09(강한 감속 없음). dRel=0.0
+도달 직후(t=610.42) leadStatus가 True→False로 전환.
+
+**해석(정황적, 미확정)**: 실제 물리적 근접·정지추종이라면 ego가 그에
+맞춰 제동/감속하는 것이 정상인데, 이 구간은 제동 반응이 사실상 없고
+오히려 가속 중이었음 → 실제 위험 상황이 아니라 **레이더/비전 트랙이
+신뢰도 저하 후 마지막 관측 vRel로 관성 외삽(coast)하다 타임아웃되며
+끊기는 아티팩트**로 추정. 다만 rlog CSV 재구성만으로는 레이더 내부
+트랙 신뢰도/coast 플래그를 직접 볼 수 없어 확정은 아님.
+
+**탐지 도구**: `analysis_helpers.py::lead_coast_to_zero_scan()` 신규
+작성(단조감소+근접 시작+0 도달+무제동+status flip 5개 조건 결합).
+이번 로그에서 1건 탐지. leadDRel<1.0m 프레임 전수조사(20개, 연속구간
+1개)와 대조해 누락 없음 확인 — 탐지 함수가 존재하는 근접구간을 놓치지
+않음.
+
+**한계(NEEDS_VALIDATION로 분류한 이유)**:
+1. 검증 로그가 1건뿐 — 오탐(false positive) 여부 미확인. 특히 실제
+   정지선/정체 상황에서 운전자가 제동하며 서서히 근접정차하는 정상
+   케이스가 이 함수에 걸리지 않는지 다른 로그로 교차검증 필요(이번
+   로그에는 그런 케이스가 없어 구분력을 시험 못 함).
+2. 원인이 레이더 coast 추정이라는 것도 정황 증거(제동 없음+status
+   flip 동시성)일 뿐, ryu 코드(`radard.py`) 내부 로직 추적으로 직접
+   확인하지 않음.
+3. 이 아티팩트가 route/vturn 등 실제 제어 판단에 영향을 줬는지는
+   미확인 — 이번 케이스는 src=vturn/route였지만 브레이크가 이미
+   해제된 저속(3km/h) 구간이라 실질적 안전 영향은 낮아 보이나,
+   고속 구간에서 유사 패턴이 나타나면 다를 수 있음(미확인).
+
+**관련**: `curve_lead_dRel_jump_events`(21차, 급점프형 아티팩트 —
+이번 패턴과 다른 별개 현상), `segment_boundary_lead_loss_artifacts`
+(세그먼트 경계형 아티팩트 — 이번 건은 세그먼트 경계와 무관, seg9
+내부에서 발생).
+
+**전달 파일**: `toolkit/analysis_helpers.py`(lead_coast_to_zero_scan 함수
+추가), `toolkit/README.md`/`toolkit/CHANGELOG.md`(209차 섹션 추가).
+ryu 코드 변경 없음(devnotes만).
+
 ## 207차 — [PATCH_WRITTEN, NEEDS_VALIDATION] 206차 NEGATIVE 원인에 대응하는 ceiling 재설계 — apex_speed 대신 sharpest_candidate_speed 사용, 사용자 제안("Route ON/OFF 감속구간 게이트")과의 관계 정리
 
 **대상**: 사용자가 (Claude 세션 밖) ChatGPT와의 대화에서 "route를 과속카메라처럼 감속구간에서만 활성화(ON/OFF)하고, 감속 요구 중엔 vEgo보다 높은 route 속도를 허용하지 않되, 2차 곡률이 있으면 계속 유지, 없으면 비활성화"하는 설계를 제안받고 "이 방향으로 패치 만들어줘"라고 요청. GitHub 최신 상태(206차) 확인 결과 이 제안이 기존 두 갈래와 겹침을 발견.
