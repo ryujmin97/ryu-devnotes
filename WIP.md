@@ -1,3 +1,47 @@
+## 205차 (완료 — route out_speed 상한 vEgo 기반 동적 캡으로 교체, ryu 코드 변경 O, 실차 미검증) — 202차 고정 150 상한 재설계
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu` + `ryujmin97/ryu-devnotes`
+
+**Branch**: `c3-ms-dev` / `main`
+
+**Base commit (ryu, 이 회차 시작 시점)**: 204차 커밋(`428cf3e` 위)
+
+**Base commit (devnotes, 이 회차 시작 시점)**: 204차 커밋
+
+**배경**: 사용자가 "감속로직은 바꿔야지, 최대값 150이 아니라 현재속도(예 70)에서 목표속도로 내려오는 로직으로"라고 지시. 이어서 "과속카메라도 현재속도에서 목표속도로 감속하지 않나? 그쪽 로직도 같이 봐봐"라고 대조 요청.
+
+**작업 내용(ryu 코드 변경, 단일 파일)**:
+
+1. **카메라(sdi_speed) 로직 코드 확인**: `calculate_current_speed(left_dist, safe_speed_kph, safe_time, safe_decel_rate)`는 `v_ego`를 인자로 받지 않음(선언부 직접 확인, `carrot_serv.py` L415). 카메라/route 둘 다 "남은 거리"만으로 물리공식(v_i²=v_f²+2ad)을 풀어 raw 값을 매 프레임 재계산하는 구조 -- 카메라(`sdi_speed`, `carrot_serv.py` L1050 부근)는 이 raw를 250 cap(함수 내부) 외 추가 제한 없이 그대로 arbitration에 사용. 즉 **"현재속도에서 시작"하는 로직은 카메라에도 원래 없었음** -- 거리가 멀수록 raw가 크고(최대 250), 가까워지며 sqrt 곡선으로 목표속도에 수렴하는 것 자체가 "부드럽게 감속하는 것처럼 보이는" 효과의 정체. 이 사실을 사용자에게 먼저 보고.
+2. **설계 변경**: `carrot_man.py::carrot_navi_route()`의 `out_speed = min(out_speed, ROUTE_MAX_SPEED_KPH)`(202차, 고정 150)를 `out_speed = min(out_speed, max(v_ego_kph, apex_speed), ROUTE_MAX_SPEED_KPH)`로 교체.
+   - `max(v_ego_kph, apex_speed)`: route는 현재 주행 속도보다 더 빠르게 가라고 권하지 않는다(사전감속 신호라는 route의 목적과 부합). apex_speed(물리적으로 요구되는 최종 목표속도) 밑으로는 깎이지 않는다(`calculate_current_speed` 자신의 반환 하한과 동일한 하한을 `max()`로 보장).
+   - `ROUTE_MAX_SPEED_KPH`(150, 202차): 폐기하지 않고 그 위에 얹는 **절대 안전상한(secondary ceiling)**으로 유지 -- 정상 주행에서는 vEgo가 이 값을 넘지 않으므로(실차 계측 최대 117~122km/h, 129차/153차 real-drive calibration 참고) 사실상 발동하지 않지만, vEgo 센서 이상값 등 예상 밖 입력에 대한 방어선.
+3. **수치 검증(4개 시나리오, 순수 산식 시뮬레이션)**:
+   - 스파이크 시나리오(203차가 규명한 apex_idx 오선택, raw=298/vEgo=55/apex=50) → **55** (기존 고정 150보다 근본 원인에 훨씬 직접적으로 대응 -- vEgo가 낮으면 상한도 즉시 낮아짐)
+   - 정상 원거리 커브 접근(raw=200/vEgo=70/apex=45) → **70** (현재속도까지만 허용, 그 이상 가속신호를 주지 않음)
+   - 직선/도로제한 구간(raw=250/vEgo=60/apex=100) → **100** (도로제한까지는 허용, vEgo에 과도하게 묶이지 않음)
+   - 감속 진행 중(raw=48/vEgo=52/apex=45) → **48** (raw 그대로, 추가로 낮추지 않음)
+   - 4개 전부 기대값과 일치.
+
+**§27 최소변경 원칙**: `selfdrive/carrot/carrot_man.py` 단일 파일, `ROUTE_MAX_SPEED_KPH` 정의부 주석 갱신(값 자체는 150 유지) + `out_speed` 클리핑 라인 1곳만 교체. 132/172/173차의 프레임간 램프리미터(`_route_speed_prev` 기반 lo/hi, `hi=math.inf`)는 이 상한 이후 단계이므로 그대로 유지(건드리지 않음) -- 이번 변경은 그 이전 단계(raw 클리핑)에만 국한.
+
+**검증**:
+- 정적 분석: `ast.parse` 통과
+- 수치 시뮬레이션: 완료(4개 시나리오, 위 결과)
+- 로그 분석: 해당 없음(기존 로그 재분석 없음, 새 실차 로그 필요)
+- 실차 검증: **미실시**
+
+**미확인 사항 / 다음 작업**:
+1. 이번 패치(204차+205차)를 함께 디바이스에 반영 후 실주행 로그 재수집 -- 새 `routeCandidateCount`류 telemetry와 함께, 이번 vEgo 동적 상한이 실제로 스파이크를 억제하는지 동시 확인 가능.
+2. 203차 옵션2(상승측 hi 게이트 재설계)·옵션3(다른 시나리오 로그)은 사용자 결정대로 새 로그 확보 후 재개.
+3. 132/172/173차 램프리미터(hi=math.inf 상승측 무제한)가 이번 vEgo 동적 상한과 상호작용해 예상 밖 거동을 만드는지는 실차에서만 최종 확인 가능 -- 이론상 이번 변경이 상한 자체를 vEgo에 묶어두므로 hi=inf라도 vEgo 이상으로는 못 올라가지만, 실측 필요.
+
+**전달 파일**: `0002-205-route-out_speed-150-202-vEgo.patch` (`ryu` 저장소, `carrot_man.py` 단일 파일, 204차 패치 위에 적용)
+
+---
+
 ## 204차 (완료 — candidate telemetry 계측 패치 작성/커밋, ryu 코드 변경 O, 실차 미검증) — 203차 옵션1(candidate_count 실측) 구현
 
 **Worker**: Claude
