@@ -950,6 +950,15 @@ discontinuity 0건). 개발 중 트리거 소스별 boost_s 미구분 버그가 
   후보가 vEgo에 고정되어 실가속 억제 위험을 실측으로 확인. "apex_idx 급변"
   단독 신호로는 허위스파이크/정상 연속곡선 구분 불가 결론(FINDINGS.md 203차).
   코드화 보류, 사용자 방향 결정 대기.
+## 221차
+- `sim_route_ceiling_vego_221.py`: 신규 -- ceiling 기준항 vCruise(217차) ->
+  vEgo(221차) 재교체를 사용자 설계문서 예시 2건 + 안전조건(무개입) 1건 +
+  vEgo<=0 폴백 대조군으로 합성검증. 시나리오2(완만 원거리 후보 65kph 존재,
+  vEgo=50/vCruise=70)에서 OLD=65(vEgo보다 빠르게 가라는 신호, 위반) vs
+  NEW=50(vEgo로 정확히 눌림)으로 실제 분기 확인(4/4 assert PASS). 단일후보
+  케이스(시나리오2b)는 mid항이 이미 vEgo로 지배해 OLD==NEW로 수렴함을
+  대조군으로 별도 기록(ceiling 차이가 "항상" 드러나는 게 아님을 명시).
+  실차로그 없음(§23, 미보관 정책 + 미업로드) -- 합성검증 한정, 실차 검증 미실시.
 ## 207차
 - `sim_route_ceiling_sharpest_candidate_207.py`: 신규 -- 206차 NEGATIVE 원인
   (근접 trivial 후보가 원거리 진짜 급커브를 "고원" 구간 동안 가려 apex_speed까지

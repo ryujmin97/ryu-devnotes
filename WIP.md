@@ -1,3 +1,100 @@
+## 221차 (진행 중 — 코드 수정+정적검증+합성검증 완료, 패치 전달 준비, 실차 검증 전) — route ceiling vCruise->vEgo 재교체 + lookahead 300m->600m (사용자 설계문서 1/2번)
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu` + `ryujmin97/ryu-devnotes`
+
+**Branch**: `c3-ms-dev` / `main`
+
+**Base commit (ryu, 세션 시작 시점, 재클론 확인)**: `78e76a9`(217차 계속, clean)
+
+**Base commit (devnotes, 세션 시작 시점, 재클론 확인)**: `6a89531`(220차)
+
+**상태**: 다른 AI 작업 흔적 없음(HANDOFF.md/CURRENT_STATUS.md 없음, WIP.md 최상단이
+220차 그대로) — 충돌 없이 이어서 진행. **이 세션은 컨테이너 재시작으로 중단된
+직전 세션이 로컬에 작성해둔 `carrot_man.py` 패치, `sim_route_ceiling_vego_221.py`,
+갱신된 `toolkit/README.md`/`CHANGELOG.md`를 사용자가 업로드하여 이어받았다** —
+§3/§33에 따라 재클론한 GitHub 최신 상태(위 base commit)와 diff 대조 후 그대로
+재검증만 수행, ryu 소스는 이번 세션에서도 아직 push되지 않았다(사용자가
+`git am`으로 로컬 반영 후 push 예정).
+
+**배경**: 사용자 설계문서 "Route 감속 다음 설계 방향(2026-09 개정)"의 1번(ceiling
+기준 vCruise->vEgo 재교체)/2번(lookahead 300m->600m 재확장) 적용.
+
+**작업 내용**:
+1. `ryu`/`ryu-devnotes` 재클론, GitHub가 이전 세션 종료 시점과 완전히 동일함을
+   확인(드리프트 없음, 다른 AI 작업 없음).
+2. 업로드된 `carrot_man.py`를 재클론된 `78e76a9` 기준과 diff로 대조 — 변경은
+   정확히 2건(§27 최소변경 확인):
+   - `route_lookahead_m = 300.0` -> `600.0`
+   - ceiling 기준항 `min(v_cruise_kph, ROUTE_MAX_SPEED_KPH)` ->
+     `min(v_ego_kph, ROUTE_MAX_SPEED_KPH)`(vEgo<=0일 때 150 폴백은 동일 유지)
+3. `py_compile` + `ast.parse` 정적검증 PASS.
+4. 로컬 커밋(`f8de7a1`) -> `git format-patch` -> throwaway clone(`ryu-verify`,
+   base `78e76a9`)에서 `git am` 적용 -> 적용 결과 파일과 원본 커밋 파일
+   `diff` 0 확인(diff-0 CONFIRMED) -> throwaway 삭제.
+5. `toolkit/sim_route_ceiling_vego_221.py`(업로드분) 재실행 재확인 — 5개
+   시나리오(vCruise==vEgo 회귀없음 / **핵심: vCruise=70,vEgo=50,원거리 완만
+   후보=65kph 존재 시 OLD=65(안전조건 위반) vs NEW=50(vEgo로 정확히 눌림)** /
+   단일후보 대조군(OLD==NEW, ceiling 차이가 항상 드러나는 게 아님을 확인) /
+   vEgo<목표 무개입조건 / vEgo<=0 폴백) 전부 PASS.
+6. `toolkit/README.md`/`CHANGELOG.md`에 `sim_route_ceiling_vego_221.py` 섹션
+   추가(업로드분 그대로, append-only 위치 확인 후 반영).
+7. `PARAMS_REGISTRY.md`에 신규 행 2건 추가(기존 `route_lookahead_dynamic_cap`
+   행은 삭제하지 않고 "217차 롤백됨" 명시만 보강, §24/26 원칙):
+   - `route_lookahead_m`(221차, 600.0 고정)
+   - `route_ceiling_kph`(221차, vEgo 기준)
+
+**⚠️ 반드시 인지할 리스크 (코드 주석에도 명시됨)**:
+- `route_lookahead_m` 600m 재확장은 **217차가 정확히 반대 방향으로 이미
+  롤백한 값과 동일**(217차 사유: "탐색범위를 속도에 따라 늘리면 먼 후속
+  곡선이 조기 개입해 apexIdx flicker 악화", 215차 실측과 연결). 다만
+  84/85차의 "동적" 캡과 이번 "고정 600m"은 메커니즘이 다름(apex 선택은
+  여전히 `candidates[0]`=가장 가까운 지점이라 불변, 600m는 후보 리스트
+  뒤쪽에 원거리 후보만 추가). 220차가 확정한 flicker 근본원인("리샘플
+  그리드 재앵커링")은 lookahead 크기와 무관한 현상이라 이론상 무관해
+  보이나, **이번 세션에서 이 무관함 자체를 검증하지는 않았다**(§28 원칙 —
+  추측만으로 안전 확정 금지).
+- `route_ceiling_kph` vEgo 전환의 부작용: `max(vEgo, sharpest_candidate_speed)`
+  항이 이 변경 이후 항상 vEgo 이하로 눌려 사실상 죽은 항이 됨(207/214차가
+  도입한 "sharpest_candidate_speed로 ceiling을 관대하게 풀어주는" 효과가
+  vEgo 상한 아래에서는 발동 불가) — §27에 따라 변수/계산 자체는 그대로
+  보존(삭제 안 함).
+
+**검증**:
+- 정적 분석: 실시 (`py_compile`+`ast.parse` PASS, `git am` diff-0 CONFIRMED)
+- 로그 분석: 미실시
+- 시뮬레이션: 실시 (합성 시나리오 5/5 PASS, `sim_route_ceiling_vego_221.py`) —
+  **실차로그 없음(§23, 이번 세션 미업로드)**, 합성검증 한정
+- 실차 검증: **미실시**
+
+**미완료**:
+1. `route_lookahead_m` 600m 확장이 apexIdx flicker(219/220차 이슈)를
+   악화시키는지 실차로그 기준 A/B 대조(215차 지표: naviPointsActive 활성
+   구간 프레임당 apexIdx 변경빈도) — 반드시 219/220차 작업과 함께 진행.
+2. `route_ceiling_kph` vEgo 전환 실차 검증(위 5번 합성검증은 실차로그
+   없이 수행됨).
+3. 사용자 설계문서 3번(`AutoNaviSpeedCtrlEnd` 관련, 디바이스 Params값이라
+   코드 패치 아님, 아래 참고)/4번(`AutoNaviSpeedDecelRate`=1.0, 218차에서
+   이미 디바이스 적용 완료 — 이번 검증의 전제값으로 사용).
+4. 219/220차 apexIdx flicker 게이트 재설계 자체(별도 이월 항목, 미결).
+
+**다음 작업**:
+1. 패치 파일 `C:\dev\patch\`에 반영 -> `git am` -> **push 전 219/220차
+   작업과 함께 apexIdx flicker A/B 실차 대조** 완료 후 최종 push 여부 결정
+   (§27/28 원칙 — 검증 전 확정 지양 권고, 단 최종 판단은 사용자).
+2. `AutoNaviSpeedCtrlEnd` 값(사용자 설계문서 3번, 디바이스 Params 직접
+   설정 대상) `PARAMS_REGISTRY.md` 신규 등록 — 코드 변경 아님, 별도 진행.
+
+**전달 파일**:
+- `selfdrive/carrot/carrot_man.py` 패치(`0001-221-route-ceiling-vCruise-vEgo-lookahead-300m-600m-1.patch`)
+- `toolkit/sim_route_ceiling_vego_221.py`(신규)
+- `toolkit/README.md`, `toolkit/CHANGELOG.md`(갱신)
+- `PARAMS_REGISTRY.md`(신규 행 2건: `route_lookahead_m`, `route_ceiling_kph`)
+- `WIP.md`(이 항목)
+
+---
+
 ## 220차 (중단 — rolling-max 게이트 회귀 발견 + 219차 결론 자체 재검토 필요, ryu 코드 미확정) — apexIdx flicker debounce/게이트 재설계 검증 중 실차데이터 기반 반례 발견
 
 **Worker**: Claude

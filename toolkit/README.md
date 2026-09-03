@@ -2546,6 +2546,30 @@ NEW(B안, 거리 반영)를 나란히 계산하는 `compute()`로 구현.
 (`sharpest_candidate_speed` 계산부)에 실제 패치 완료. **실차 검증: 미실시**
 (213차 20m 하드플로어 실차 검증과 함께 이월).
 
+## sim_route_ceiling_vego_221.py (221차, 신규 — ceiling vCruise→vEgo 재교체 합성검증)
+
+**목적**: 사용자 설계문서("Route 감속 다음 설계 방향(2026-09 개정)") 1번 —
+ceiling 기준항을 217차(vCruise)에서 vEgo(현재 실제속도)로 재교체하는 변경을
+ryu 코드(`carrot_man.py`) 반영과 함께 합성 시나리오로 사전검증. 실차로그
+없음(§23, 이번 세션 미업로드) — 합성검증 한정.
+
+**시나리오 4종 + 대조군 1종**:
+1. vCruise==vEgo(70, 목표40): OLD==NEW(46.65) — 회귀 없음.
+2. **핵심**: vCruise=70/vEgo=50/완만후보=65(원거리 완만 후보 존재, 600m
+   lookahead 확장 이후 흔해질 구성) — OLD=65(vEgo보다 빠르게 가라는 신호,
+   설계문서 안전조건 위반) vs NEW=50(vEgo로 정확히 눌림, 안전조건 성립).
+   OLD/NEW가 실제로 분기하는 유일한 시나리오.
+3. 2b(대조군): 단일 후보만 있으면 mid항(`max(vEgo,sharpest)`)이 이미 vEgo로
+   지배해 OLD==NEW==50 — ceiling 차이가 "항상" 드러나는 게 아니라 mid항이
+   vEgo를 넘어서는 경우에만 드러남을 명시.
+4. vEgo(30) < apex_speed(40): NEW==vEgo(30) — route가 가속을 요구하지 않는
+   무개입 조건 확인.
+5. vEgo<=0 폴백: ceiling=150 그대로(기존 150 고정과 동일, 회귀 없음).
+
+**결과**: 5/5 시나리오 assert 전부 PASS. **실차 검증: 미실시**.
+
+---
+
 ## sim_route_217_ceiling_vcruise_ab.py (217차 계속2, 신규 — 217-2 실차로그 A/B 재검증, POSITIVE)
 
 **목적**: 217-2(`out_speed` ceiling 상수항 `ROUTE_MAX_SPEED_KPH=150` 고정 →
