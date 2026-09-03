@@ -1,3 +1,42 @@
+## 223차 계속3 (STEP3 완료 — arbitration 흐름 확인, 코드 미수정) — Route 감속 로직 전면 단순화 재설계
+
+Worker: Claude
+Base commit: 7519a3a91df530ee6667183759b6c94afa8ae287 (STEP1/STEP2와 동일)
+Repository: ryujmin97/ryu, Branch: c3-ms-dev
+
+**STEP3 — arbitration 전체 흐름 확인 완료** (design/223cha_step3_arbitration.md 원문 참고):
+- 실제 흐름 확인: carrot_navi_route() 반환값 -> broadcast_version_info()의 route_speed
+  지역변수 -> update_navi() 인자 -> autoCurveSpeedLowerLimit 바닥 적용 ->
+  turnSpeedControlMode in [2,3,4]일 때 speed_n_sources에 ("route", route_speed) 추가 ->
+  min(speed_n_sources)로 desired_speed 결정. 별도 우선순위/가중치 없음, 단순 min() 경쟁.
+- mapTurnSpeedFactor 곱셈은 210차에 이미 완전 제거 확인, 재도입 우려 없음.
+- §19 우려("route source가 이전 값을 붙잡는 현상") -- arbitration 레이어 자체는 매
+  프레임 신선한 값을 그대로 전달받아 캐싱 없음. 문제가 있었다면 원인은
+  carrot_navi_route() 내부 _route_speed_prev 램프리미터였음(STEP1 DELETE 확정,
+  STEP2 신규 감속식으로 대체) -- arbitration은 무죄로 확인.
+- STEP1 A항 재확인: mode 0/1에서도 carrot_navi_route() 계산 자체는 매 프레임 실행됨
+  (arbitration이 채택만 안 할 뿐) -- STEP4에서 진입부 mode 게이트 신규 필요 재확인.
+
+**STEP1 F-3(150 sentinel) 최종 결론**:
+- 제어입력(carrot_navi_route() 반환값)은 비활성/직선 시 None으로 변경 제안 ->
+  update_navi()에서 route_speed is not None 조건 추가 시 애초에 min() 후보에서
+  제외됨(150이 다른 소스보다 항상 큰가에 의존하던 기존의 "우연한 안전"을
+  "구조적 안전"으로 전환).
+- cereal 텔레메트리(msg.carrotMan.routeOutSpeed)는 capnp float라 None 불가 ->
+  로깅 전용 sentinel(150)은 그대로 유지, 제어 경로와 완전히 분리(이미 별개 변수라
+  충돌 없이 분리 가능 확인).
+
+**미착수**: STEP4(실제 코드 수정 -- STEP1/STEP2/STEP3 결론 종합 반영). 사용자 승인
+대기 중. 실차 검증: 미실시.
+
+**다음 작업**: 사용자 승인 시 STEP4 착수 -- carrot_man.py(_route_speed_prev/hi=inf/
+boost/ceiling 삭제, STEP2 신규 감속식 적용, mode 게이트 신규, route_active 상태기계
++ 2초 release hold 신규) + carrot_serv.py(update_navi() route_speed is not None 게이트)
+동시 수정. STEP5(시뮬레이션, 기존 sim_route_* 재사용) -> STEP6(diff 검토) ->
+STEP7(devnotes 기록) 순서.
+
+---
+
 ## 223차 계속2 (STEP2 완료 — 신규 감속식 설계, 코드 미수정) — Route 감속 로직 전면 단순화 재설계
 
 Worker: Claude
