@@ -3,6 +3,14 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+## 2026-09-03 (223차)
+- `sim_route_223_state_machine_step5.py` 신규 추가 -- route 감속 전면 재설계
+  (무상태 감속식 + route_active/route_release_time 2상태 상태기계)의 합성
+  검증. CASE1/2/6/7/8/9/10/11/12/14 전부 PASS, 특히 222차가 발견한 정지→
+  재출발 vEgo 초과 버그가 새 구조에서 재발 불가능함을 확인(CASE14). 독립
+  재구현(실제 코드 import 아님) -- 실제 코드와의 diff 일치는 223차 계속4
+  STEP6에서 별도 라인 단위 재검토. 상세는 FINDINGS.md/WIP.md "223차" 참고.
+
 ## 2026-09-03 (220차)
 - `replay_route_apex_debounce_only_220.py` 신규 추가 -- "(A) apex_idx debounce만
   으로 199차 OLD 게이트가 충분한가"를 합성 모델이 아니라 route.csv의 raw

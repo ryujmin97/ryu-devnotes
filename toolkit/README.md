@@ -2702,3 +2702,37 @@ python3 replay_route_apex_debounce_only_220.py <route.csv> --t-start 990 --t-end
 CSV 컬럼 요구: `t, routeApexIdx, routeApexDist, routeApexSpeed, vEgo, aEgo,
 brakePressed`(`naviPaths` 불필요 — `--with-navi-paths` 없이 뽑은 기본 CSV로도
 동작).
+
+## sim_route_223_state_machine_step5.py (223차, 신규 — route 감속 전면 재설계 상태기계/감속식 합성검증)
+
+**목적**: 223차(사용자 지시로 route 감속 로직을 과속카메라 감속과 동일한
+무상태 물리식 + `route_active`/`route_release_time` 2상태 상태기계로 전면
+재설계)의 `carrot_man.py::carrot_navi_route()` 실제 구현 로직을 순수 함수
+(`RouteSim`)로 재구현해, 설계 문서(`design/223cha_design_instructions.md`)
+§20의 CASE 1~14 중 코드 레벨로 검증 가능한 항목(모드 게이트, 무가속 진입
+조건, `out<=vEgo` 불변식, apex 도달+release+2초 hold, hold 중 재부착 방지,
+hold 만료 후 재검색, mode 전환 즉시 리셋, 정지→재출발 시 vEgo 초과 없음)을
+합성 시나리오로 확인한다.
+
+**핵심 결과**: CASE1/2/6/7/8/9/10/11/12/14 전부 PASS. 특히 CASE14는 222차가
+실차로그로 발견한 "정지→재출발 구간에서 liveRouteSpeed가 vEgo를 최대 55kph
+초과"하는 버그가 새 감속식 구조(`out=max(target, vEgo-decel*dt)`, 매 프레임
+`out<=vEgo`가 수식 자체로 보장)에서는 100프레임 시뮬레이션 전체에서 재발
+0건임을 확인 — 해당 버그 클래스가 구조적으로 닫혔음을 뒷받침.
+
+**주의(반드시 인지)**: **실제 `carrot_man.py`를 import해서 도는 테스트가
+아니라 독립 재구현**이다. openpilot 런타임 의존성(cereal, messaging 등)
+없이 로직/수식만 빠르게 검증하기 위한 목적 — 기존 `sim_route_*` 스크립트들과
+동일한 패턴. 실제 코드와의 diff 일치 여부는 별도로 `git diff` 라인 단위
+재검토(223차 계속4, STEP6)로 확인했으며, 이 스크립트 자체는 로직/수식의
+논리적 정합성만 사전검증한다.
+
+**실차 검증: 미실시** — 합성 시나리오 검증만 수행.
+
+**사용**:
+```bash
+python3 sim_route_223_state_machine_step5.py
+```
+인자 없음, 고정 시나리오 7개(mode0/1 off / 무가속 게이트 / decel<=vEgo
+단조안전 / apex release+hold / hold 만료 재검색 / mode 전환 리셋 /
+정지→재출발 vEgo초과없음) 실행 후 "ALL STEP5 SIM CASES PASSED" 출력 확인.

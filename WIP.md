@@ -1,3 +1,99 @@
+## 223차 계속4 (STEP4~7 완료 — 코드 수정+합성검증+devnotes 기록+패치 전달 완료, 실차 검증 전) — Route 감속 로직 전면 단순화 재설계
+
+**Worker**: Claude
+**Base commit (ryu)**: `7519a3a91df530ee6667183759b6c94afa8ae287`(221차, STEP1~3와 동일, 변경 없음 재확인)
+**Base commit (devnotes)**: `fc245264f2c4d5e6e5302e9669c3dd3025408514`(223차 계속3)
+**Repository**: `ryujmin97/ryu` + `ryujmin97/ryu-devnotes`, **Branch**: `c3-ms-dev` / `main`
+
+**상태**: 직전 세션이 도구 호출 한도로 STEP4(코드 수정) 완료 직후, STEP5(시뮬레이션)까지
+마친 상태에서 중단됨(devnotes 미기록, 패치 미생성). 이번 세션은 그 중단 지점을
+이어받아 사용자가 업로드한 `carrot_man.py`/`carrot_serv.py`/
+`sim_route_223_state_machine_step5.py` 3개 파일을 **재클론한 GitHub 최신 상태
+(base `7519a3a`)와 diff 대조로 재검증**한 뒤(§3/§33 원칙 — 업로드분을 맹신하지
+않고 실제 diff 자체를 처음부터 다시 읽음) STEP6/STEP7을 마무리했다.
+
+**STEP4 — 코드 수정 (업로드분 재검증 완료)**:
+- `carrot_man.py` (606줄 삭제/195줄 추가, 순감소):
+  - 삭제: `ROUTE_POSITION_UNCERTAIN_DT_S`(162/167차), `ROUTE_APEX_SPEED_DISCONTINUITY_THRESH_KPH`/
+    `ROUTE_VEGO_BOOST_MAX_MSS`(199차), 205~221차 route ceiling 계열 전체(`route_ceiling_kph`,
+    `sharpest_candidate_speed`, vEgo/vCruise ceiling, 3항 min()), 132/172/173차
+    프레임간 램프리미터(`_route_speed_prev`, `accel_limit_kmh`/`max_step_kmh`/`lo`/`hi`) —
+    설계 문서 §15/§17이 요구한 "무상태 감속식"으로 전량 대체되며 구조적으로 불필요해짐.
+    과거 배경/실측 근거는 전부 FINDINGS.md/WIP.md 해당 회차에 보존, 삭제하지 않음(§24).
+  - 신규 상수: `ROUTE_APEX_REACHED_DIST_M=10.0`(apex 도달 판정 거리, distance_interval과
+    동일), `ROUTE_RELEASE_HOLD_S=2.0`(apex 도달 직후 재부착 방지 hold, 사용자 설계문서 지시값).
+  - 신규 상태(§17): `self.route_active`(bool), `self.route_release_time`(monotonic
+    timestamp 또는 None) 2개로 축소 — 기존 5개 상태(`_route_speed_prev`,
+    `_route_apex_speed_prev`, `_route_apex_boost_armed`, `_route_apex_boost_armed_speed`)
+    전량 삭제.
+  - `carrot_navi_route()` 진입부에 `route_enabled = turnSpeedControlMode in [2,3]` 게이트
+    신규(STEP1 A항이 지적한 "mode 미참조" 문제 해결) — mode 0/1이면 curve
+    search/apex 계산 자체를 스킵하고 `[], [], None` 즉시 반환 + 상태 전량 리셋.
+  - RELEASE 2초 hold 게이트 신규 — `route_release_time`이 설정된 후 2초 이내는
+    curve 검색 자체를 스킵.
+  - candidates 탐색(`candidates[0]`, 179/196차 방식)은 그대로 재사용(STEP1 KEEP 확정).
+  - 신규 감속식(STEP2, 무상태): `required_decel = (vEgo²-target²)/(2×eff_dist)`,
+    `autoNaviSpeedDecelRate`로 상한 clamp 후 `out = max(target, vEgo - decel×dt)` —
+    `out<=vEgo`가 수식 구조로 항상 보장(증명: `design/223cha_step2_decel_formula.md`).
+  - 상태전이: 진입 게이트(`vEgo<=apex_speed`면 개입 안 함, 가속 명령 절대 금지) →
+    ACTIVE(매 프레임 재계산) → apex 도달(`apex_dist<=10m`) 시 즉시 RELEASE+hold 시작.
+  - **버그 수정 2건(구코드 초기값 잔존)**: (1) `carrot_navi_route()` 진입부
+    `out_speed` 지역변수 기본값이 `ROUTE_MAX_SPEED_KPH`(150)로 남아있던 것을
+    `None`으로 수정(150 ceiling 시절엔 무해했으나, 제어입력을 None=텔레메트리
+    sentinel과 완전 분리하기로 한 STEP3 결론 하에서는 150이 그대로 arbitration
+    min() 후보에 잘못 들어갈 위험이 있었음). (2) 리샘플 포인트 부족 분기(`elif
+    self.route_active:`)에 RELEASE 처리 누락 발견 — ACTIVE 중 이 분기로 빠지면
+    상태가 갇히는 버그였음, hold 없이 즉시 해제하도록 추가.
+- `carrot_serv.py` (33줄, update_navi() 2곳):
+  - `route_speed is not None`일 때만 `autoCurveSpeedLowerLimit` 바닥 적용 +
+    `speed_n_sources`에 append(None이면 애초에 min() 후보에서 제외 — 과거
+    150 sentinel이 "다른 후보보다 항상 큰가"라는 암묵 가정에 의존하던 것을
+    구조적 안전으로 전환, STEP3 결론).
+  - `debugText` HUD 포맷 방어(`route_speed is None`이면 `f"{:.1f}"` 크래시 —
+    `"route=off"`로 대체).
+
+**STEP5 — 합성 시뮬레이션 재실행 재확인**: `toolkit/sim_route_223_state_machine_step5.py`
+(업로드분, 실제 코드를 import하지 않는 독립 재구현 — docstring에 명시) 실행 결과
+CASE 1/2/6/7/8/9/10/11/12/14 전부 PASS 재확인(mode 0/1 항상 OFF, vEgo<target
+무개입, decel<=vEgo 항상 유지, apex 도달+2초 hold, hold 중 재부착 안 됨, hold
+만료 후 재검색, mode 전환 시 즉시 리셋, 정지→재출발 시 vEgo 초과 없음=222차
+버그 구조적 해소).
+
+**STEP6 — 최종 diff 검토(이번 세션 신규 수행)**: 재클론한 `7519a3a` 기준
+`git diff`로 `carrot_man.py`(680줄)/`carrot_serv.py`(51줄) 전체를 라인 단위로
+재검토. 삭제된 코드가 실제로 다른 곳에서 참조되지 않는지(`_route_speed_prev`,
+`ROUTE_APEX_SPEED_DISCONTINUITY_THRESH_KPH` 등 grep 결과 주석 외 잔존 없음),
+sentinel(150) 초기화가 함수 진입부(매 호출)에서 이뤄져 mode-gate `return`
+경로에서도 정상 유지되는지, 위 버그 수정 2건이 실제로 반영됐는지 확인 —
+이상 없음.
+
+**STEP7 — devnotes 기록(이번 항목)**: 아래 참고.
+
+**전달 파일**: `WIP.md`(이 항목), `FINDINGS.md`(223차 항목 신규),
+`PARAMS_REGISTRY.md`(구 상수 superseded 표시 + 신규 2행), `toolkit/README.md`/
+`CHANGELOG.md`(sim_route_223_state_machine_step5.py 등록), ryu 패치
+(`0001-223cha-route-redesign.patch`, `carrot_man.py`+`carrot_serv.py` 통합).
+
+**검증**:
+- 정적 분석: `ast.parse` PASS(양쪽 파일), `git am --check` 예정(사용자 적용 시)
+- 시뮬레이션: 실시(STEP5, 위 CASE 전부 PASS) — **독립 재구현이라는 한계 명시**
+- 로그 분석: 미실시(이번 재설계는 실차로그 기반 재현이 아니라 사용자 설계문서
+  전면 재작성 지시에 따른 것)
+- **실차 검증: 미실시**
+
+**다음 작업 (우선순위순)**:
+1. 사용자가 패치 `git am` + push 완료 후, 반드시 실차 검증 진행(가장 중요 —
+   이 회차는 기존 감속식/상태기계를 통째로 교체하는 대규모 변경).
+2. `navi_points_active` dropout 원인 조사(계측 패치 배포됨, 로그 데이터 대기 중,
+   이번 회차와 무관하게 이월).
+3. 디바이스 HEAD가 GitHub보다 23커밋 앞선 로컬 merge + `radard.py` 직접수정
+   dirty 상태 — 이번 패치 적용 전에 먼저 정리 필요(사용자 확인 요망).
+4. 실차 검증 후 문제 없으면 STEP1 audit에서 보류됐던 "사용자 확인 필요 3건"
+   중 이번에 실제로 결정된 내용(203차 폐기/relative-severity 게이트 미보존
+   유지/150 sentinel 분리)을 `design/223cha_step1_audit.md`에 후기록.
+
+---
+
 ## 223차 계속3 (STEP3 완료 — arbitration 흐름 확인, 코드 미수정) — Route 감속 로직 전면 단순화 재설계
 
 Worker: Claude

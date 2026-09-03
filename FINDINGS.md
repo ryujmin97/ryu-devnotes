@@ -1,3 +1,45 @@
+## 223차 — [완료] Route 감속 로직 전면 재설계(사용자 지시 곡선_가감속_코딩.txt 반영) + 코드 감사 중 발견된 초기값 버그 2건
+
+**배경**: 사용자가 기존 route 감속의 모든 검토 내용을 무시하고 새 방향으로
+설계할 것을 명시적으로 지시(`ryu-devnotes/사용자_의도_곡선_가감속_코딩_.txt`
+원문 참고, 핵심: 과속카메라 감속 로직을 route apex에 그대로 재사용, 무상태
+감속식, apex 도달 시 즉시 원복, 2초 완전 OFF 후 재검색). 202~221차에 걸쳐
+누적된 ceiling/램프리미터/불연속부스트 계열 보정을 전량 삭제하고 STEP1(코드
+감사)→STEP2(감속식 설계)→STEP3(arbitration 흐름 확인)→STEP4(코드 수정)→
+STEP5(합성검증)→STEP6(diff 재검토)→STEP7(devnotes 기록) 순서로 진행, 이번
+회차(223차 계속4)에서 STEP4~7 완료.
+
+**핵심 변경**: `carrot_navi_route()`가 매 프레임 실측 vEgo와 apex까지 남은
+거리만으로 필요 감속도를 역산하는 무상태 감속식으로 전면 교체(`out<=vEgo`가
+수식 구조로 항상 보장 — 222차가 실차로그로 발견한 "정지→재출발 구간에서
+liveRouteSpeed가 vEgo를 최대 55kph 초과" 버그가 이 구조에서는 재발 불가능함을
+합성검증으로 확인, CASE14). 상태는 `route_active`/`route_release_time` 2개로
+축소(기존 5개 상태 삭제). 상세 설계/증명은 `design/223cha_*.md` 4개 문서 참고.
+
+**발견된 버그 2건 (STEP4 코드 수정 중, 구코드 잔존 초기값)**:
+1. `carrot_navi_route()` 진입부 `out_speed` 지역변수의 기본값이 여전히
+   `ROUTE_MAX_SPEED_KPH`(150)로 남아있었음 — 150 ceiling이 살아있던 시절엔
+   무해했으나(150이 항상 다른 후보보다 크다는 암묵 가정), 제어입력을
+   None(=텔레메트리 sentinel과 완전 분리)으로 표현하기로 한 이번 재설계
+   하에서는 리샘플 포인트가 곡률 계산에 부족한 경로에서 150이 그대로
+   arbitration min() 후보에 잘못 들어갈 뻔했음. `None`으로 수정.
+2. 리샘플 포인트 부족 분기(`elif`)에 RELEASE 처리가 누락돼 있었음 —
+   ACTIVE 상태에서 이 분기로 빠지면 `route_active=True`가 그대로 갇혀버려
+   다음 정상 프레임에도 부적절하게 ACTIVE로 시작할 위험이 있었음. hold 없이
+   즉시 `route_active=False`로 해제하도록 추가(132차 "제약 해제는 즉시"
+   원칙 계승).
+
+**검증**: `ast.parse` 정적검증 PASS(양쪽 파일), `sim_route_223_state_machine_step5.py`
+합성 시나리오 CASE1/2/6/7/8/9/10/11/12/14 전부 PASS(단, 실제 코드를 import하지
+않는 독립 재구현이라는 한계 명시). 이번 세션(223차 계속4)에서 재클론한
+GitHub 최신 상태(base `7519a3a`) 기준 `git diff` 전체를 라인 단위로 재검토해
+삭제된 심볼의 잔존 참조 없음을 grep으로 재확인. **실차 검증: 미실시** — 기존
+감속식/상태기계를 통째로 교체하는 대규모 변경이므로 반드시 실차 검증 필요.
+
+**상세**: `WIP.md` "223차 계속4" 항목 참고.
+
+---
+
 ## 222차 — [CONFIRMED] 221차 실차검증: routeOutSpeed 텔레메트리 선행버그 확인 + [CORRECTION] vEgo ceiling "항상 성립" 결론에 대한 반례(정지→재출발 구간, 132차 램프리미터 lo 하한이 ceiling 무력화)
 
 **대상**: 221차(`route_ceiling_kph` vCruise→vEgo 재교체, `route_lookahead_m`
