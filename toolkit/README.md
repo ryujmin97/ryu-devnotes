@@ -2959,3 +2959,30 @@ python3 sim_route_228_v2.py
 ```
 인자 없음, 고정 시나리오 A(3개)/B(2개, CURRENT/FIXED_V2 각각) 실행 후
 "TOTAL: 12/12 PASS" 출력 확인.
+
+## sim_route_228_edge_cases_AJ.py (228차 계속, 신규 — route_inert v2 실제 patch diff 기준 A~J 엣지케이스 단위검증)
+**목적**: 228차 route_inert v2 실제 ryu 패치(`carrot_man.py` inert 3분기
+세분화 + `carrot_serv.py` 클램프 조건 `route_active and not route_inert`)
+diff의 로직을 그대로 재현해, 사용자가 지정한 vEgo/target/eff_dist 조합
+10개 엣지케이스(A~J)를 개별적으로 직접 검증. `sim_route_228_v2.py`
+(통합 타임라인 시나리오 A/B, design-level)와 상호 보완 관계 — 이쪽은
+분기 단위 단위테스트 성격.
+**의존성**: 없음(순수 Python 재구현 모델, 실제 selfdrive 모듈 import 안 함
+— 기존 toolkit sim류와 동일한 축소 방식).
+**커버 케이스**: A(vEgo>target,eff>0)/B(==)/C(<)/D(=0) — eff_dist>0에서의
+3분기 구분, E(vEgo>target,eff<=0)/F(vEgo=0,eff<=0) — apex 근접 224차
+의도 보존 + floor 회귀 없음, G(apex 도달 RELEASE+2초 hold), H(Stop&Go
+재출발 통합, 물리모델 포함), I(mode 0/1 진입 시 전체 상태 리셋),
+J(candidate 소실 RELEASE 시 far-inert 마킹 동시 해제).
+**결과**: 44/44 PASS(2026-09-04).
+**주의(교훈)**: 1차 시도에서 B/C/D/E/F를 단일 프레임으로 구성했다가
+`route_active`가 아직 False인 첫 프레임이라 226차 GATE_CEILING 분기나
+RELEASE 분기로 먼저 빠지는 문제를 발견 — `route_inert` 관련 분기는
+이미 ACTIVE 추적 중(`route_active=True`)일 때만 의미가 있으므로, 반드시
+ACTIVE 진입 프레임을 먼저 통과시킨 뒤 다음 프레임에서 각 케이스 조건을
+적용하는 2-프레임 구성이 필요함(스크립트 상단 docstring에 기록).
+**사용**:
+```bash
+python3 sim_route_228_edge_cases_AJ.py
+```
+인자 없음, A~J 44개 체크 실행 후 "TOTAL: 44/44 PASS" 출력 확인.

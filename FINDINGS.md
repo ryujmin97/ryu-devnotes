@@ -1,3 +1,56 @@
+## 228차 후속 — [PATCH_APPLIED, 실차 검증 전] route_inert v2 실제 ryu 패치 적용 완료 (아래 "228차" 원 항목 연결, 중복 아님 — §24 확인)
+
+**연결**: 아래 "228차" 항목(ACTIVE-inert 영구 고착 메커니즘 규명 + 1차
+가설 기각 + v2 설계 도출 + 12/12 PASS)에서 사용자 승인을 받아 실제
+`carrot_man.py`/`carrot_serv.py` 패치를 작성/적용함. 원 항목의 결론
+(고착 메커니즘, 1차 가설 기각 사유, v2 설계 방향)은 변경 없음 — 여기서는
+상태만 "설계+시뮬레이션 검증 완료(패치 미적용)" → "실제 코드 반영+push
+완료(실차 검증 전)"로 갱신.
+
+**적용 커밋**: `ryu` `5fa02548fe2a77e52c2ee03a393892d19aee9b7b`
+(base `925a07a`, 227차).
+
+**변경 파일**: `selfdrive/carrot/carrot_man.py::carrot_navi_route()`
+(inert 3분기 세분화 + route_inert 상태/mirroring), `selfdrive/carrot/
+carrot_serv.py::update_navi()`(L1167 클램프 조건에 `not self.route_inert`
+추가).
+
+**추가 검증(원 항목의 `sim_route_228_v2.py` 12/12 PASS 외)**: 실제 patch
+diff의 3분기/클램프 조건을 그대로 재현한 신규
+`toolkit/sim_route_228_edge_cases_AJ.py`로 사용자가 지정한 10개
+엣지케이스를 개별 직접 검증 — **44/44 PASS**:
+- A/B/C/D: ACTIVE 추적 중(eff_dist>0) vEgo가 target보다 큼/같음/작음/0인
+  네 경우를 구분 — B/C/D는 `route_inert=True`로 마킹되어 vEgo 상한
+  클램프가 생략됨(고착 방지 핵심 확인, 특히 D).
+- E/F: eff_dist<=0(apex 근접) 구간은 vEgo가 target보다 크든 0이든
+  `route_inert=False`로 유지되어 기존 224차 클램프 경로를 그대로 타며,
+  floor(30)로 밀어올려지는 회귀가 없음(228차 2차 버그 재발 방지 확인).
+- G: apex 도달 RELEASE 시 `route_active`/`route_inert` 동시 해제 +
+  2초 hold 정상 동작.
+- H: 정차→재출발 통합 시나리오(물리모델 포함) — 정차 원인 해소 후
+  90kph까지 정상 회복(고착 없음).
+- I: mode 0/1 진입 시 `route_active`/`route_inert`/`route_release_time`
+  전부 리셋 확인.
+- J: candidate 소실(곡선 통과) 시 far-inert 마킹까지 함께 해제되어 다음
+  진입 판정이 오염되지 않음을 확인.
+
+**독립 클론 재검증**: 신규 clone에서 `git apply --check` → OK, `git am`
+→ 커밋 생성 성공, `py_compile` → OK. push 후 `git ls-remote`로 원격 HEAD가
+`5fa0254...`임을 독립적으로 재확인(사용자 로컬 push 로그와 별개로
+Claude가 직접 원격 조회해 대조).
+
+**금지사항 준수 확인**: git diff 전수 grep 결과 VTurn 미터치,
+132/172/173 ramp limiter·199 boost·205~221 sharpest-candidate/ceiling·
+`sqrt(target²+2·decel·dist)` 공식 재도입 전부 미검출.
+
+**실차 검증: 미실시** — 위 전부 합성 시나리오(단순 차량모델)/정적 컴파일
+검증. 실제 차량 거동에서 far-inert 케이스(정차 원인 해소 후 route_speed가
+0에 고착되지 않고 target ceiling으로 정상 유지되는지)가 재현되는지는
+확인되지 않음.
+
+**다음**: 실차 로그로 far-inert 케이스 재현/확인. apexIdx flicker
+(219/220차)는 이번 범위 밖.
+
 ## 228차 — [설계+시뮬레이션 검증 완료, 패치 미적용/사용자 승인 대기] ACTIVE 추적(inert) 중 완전정차 시 227차 클램프가 실측 v_ego를 자기 자신의 상한으로 사용 -- 정차 원인 해소 후에도 재가속 경로 없음(고착) + v2 수정 설계
 
 **[체크포인트 복구 메모]** 이 항목은 작성 도중 컨테이너 세션이

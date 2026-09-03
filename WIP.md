@@ -1,3 +1,78 @@
+## 228차 계속 (완료 — route_inert v2 실제 ryu 패치 작성+검증+독립클론 재검증+push 완료, 실차 검증 전) — carrot_man.py/carrot_serv.py 패치 적용
+
+**Worker**: Claude
+
+**Base commit (ryu, 작업 시작 시점)**: `925a07a`(227차, HEAD)
+**Base commit (ryu, push 후)**: `5fa02548fe2a77e52c2ee03a393892d19aee9b7b`
+**Base commit (devnotes, 이 시점)**: `76e509a`(228차 checkpoint, HEAD)
+
+**배경**: 아래 "228차" 항목(checkpoint)에서 route_inert v2 설계+시뮬레이션
+검증(12/12 PASS)까지 끝내고 사용자 승인 대기 중이던 상태에서, 사용자가
+실제 ryu 소스 패치 작성을 명시적으로 지시(carrot_man.py/carrot_serv.py
+정확한 구현 범위 지정, route_inert 초기화/reset/전달 경로 확인, 금지사항
+목록, A~J 10개 엣지케이스 직접 검증, push 전 diff 선보고 등 구체 요구사항
+포함).
+
+**한 일**:
+1. `carrot_man.py::carrot_navi_route()` 수정:
+   - `self.route_inert = False` 신규 상태 도입(`self.route_active`와
+     동일 위치/패턴).
+   - ACTIVE 추적 else 블록의 기존 단일 조건
+     `if v_ego_ms <= target_ms or eff_dist <= 0:` 을 3분기로 재분리:
+     - `eff_dist <= 0` → `out=v_ego_ms`, `route_inert=False`(224차 의도
+       그대로 유지 — apex 근접 시 vEgo 통과, floor 밀어올림 방지)
+     - `eff_dist > 0 and v_ego_ms <= target_ms`(신규) → `out=target_ms`,
+       `route_inert=True`(far-inert — ceiling만 유지, 가속 명령 생성 안 함)
+     - 그 외(실제 감속 중) → 기존 223차 감속식 그대로, `route_inert=False`
+   - route_active가 False로 리셋되는 모든 경로(mode 0/1 전환, navi 비활성,
+     candidate 소실 RELEASE, apex 도달 RELEASE, resample/lookahead 부족)
+     에서 `route_inert`도 함께 False로 초기화 — stale 값 잔류 차단.
+   - ACTIVE 진입 게이트(226차 ceiling 분기)에도 방어적으로
+     `route_inert=False` 명시.
+   - 함수 반환 직전 `self.carrot_serv.route_inert = self.route_inert`
+     추가(`route_active`와 동일 mirroring 패턴).
+2. `carrot_serv.py::update_navi()` 수정:
+   - `__init__`에 `self.route_inert = False` 추가.
+   - L1167 클램프 조건을 `if self.route_active:` →
+     `if self.route_active and not self.route_inert:` 로 변경(else 분기는
+     기존 `max(route_speed, floor)` 그대로 유지).
+3. **금지사항 확인**(git diff 전수 grep): VTurn 코드 미터치, 132/172/173
+   ramp limiter·199 boost·205~221 sharpest-candidate/ceiling 구조·
+   `sqrt(target²+2·decel·dist)` 공식 재도입 없음 — 전부 미검출 확인.
+4. **검증**:
+   - `py_compile` 통과(작업 클론 1차 + 독립 재검증 클론 2차, 총 2회).
+   - 기존 `toolkit/sim_route_228_v2.py`(design-level, 시나리오 A/B) 재실행
+     → **12/12 PASS** 재확인(변경 없음).
+   - 신규 `toolkit/sim_route_228_edge_cases_AJ.py` 작성 — 실제 patch diff의
+     3분기/클램프 조건을 그대로 재현해 사용자 지정 A~J 10개 엣지케이스
+     개별 검증 → **44/44 PASS**. 1차 시도에서 B/C/D/E/F를 단일 프레임으로
+     구성했다가 route_active가 아직 False인 첫 프레임이라 226차
+     GATE_CEILING/RELEASE 분기로 먼저 빠지는 문제를 발견 — route_inert
+     관련 분기는 이미 ACTIVE 추적 중일 때만 의미가 있으므로, ACTIVE 진입
+     프레임을 먼저 통과시킨 뒤 다음 프레임에서 조건을 적용하는 2-프레임
+     구성으로 재작성해 통과(스크립트 상단 docstring에 이 교훈 기록).
+   - **독립 클론 재검증**: 신규 `git clone --depth 5`에서
+     `git apply --check` → OK, `git am` → 커밋 생성 성공, `py_compile` →
+     OK. 작업 클론과 파일 diff 0(byte-identical) 확인.
+   - 패치를 `git format-patch`로 생성(`0001-228cha-route_inert-v2-carrot_man-carrot_serv.patch`,
+     ASCII-safe 파일명), 사용자에게 diff와 함께 전달 후 사용자가 로컬
+     (`C:\dev\ryu`)에서 `git am` 적용 + push 수행.
+5. **push 완료 확인**: 사용자가 `git push origin c3-ms-dev` 실행,
+   `925a07a..5fa0254` 반영. 이후 `git ls-remote`로 원격 HEAD가
+   `5fa02548fe2a77e52c2ee03a393892d19aee9b7b`임을 독립적으로 재확인.
+
+**변경 파일**: `selfdrive/carrot/carrot_man.py`, `selfdrive/carrot/carrot_serv.py`
+
+**실차 검증: 미실시** — 위 전부 합성 시나리오/정적 컴파일 검증.
+
+**다음 작업**:
+- 실차 로그로 far-inert 케이스(ACTIVE 추적 중 vEgo=0, eff_dist>0, 즉
+  "정차 원인 해소 후 route_speed가 target ceiling으로 정상 유지되며
+  0에 고착되지 않는지") 재현/확인 필요.
+- apexIdx flicker(219/220차 미해결)는 이번 범위 밖, 별도 트랙으로 유지.
+- devnotes(FINDINGS.md/toolkit README·CHANGELOG) 갱신 → 이 커밋과 함께
+  push 예정(아래 작업 완료 기록 참고).
+
 ## 228차 (진행 중 — ACTIVE-inert 영구 고착 원인 재추적 + v2 수정 설계 검증 완료, 패치 작성 전 사용자 승인 대기) — carrot_man/carrot_serv 통합 상태기계 연속 타임라인 시뮬레이션
 
 **Worker**: Claude

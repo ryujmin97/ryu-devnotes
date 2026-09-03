@@ -3,6 +3,15 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+## 2026-09-04 (228차 계속)
+- route_inert v2 실제 ryu 패치 적용 완료(`carrot_man.py`/`carrot_serv.py`,
+  base `925a07a` -> `5fa0254`). `sim_route_228_edge_cases_AJ.py` 신규
+  추가 -- 실제 patch diff의 3분기/클램프 조건을 그대로 재현해 사용자
+  지정 A~J 10개 엣지케이스 개별 검증, 44/44 PASS. 독립 클론
+  `git apply --check`+`git am`+`py_compile` 통과, push 후 `git ls-remote`로
+  원격 반영 재확인. 실차 검증은 아직 미실시. 상세는 FINDINGS.md/WIP.md
+  "228차 후속"/"228차 계속" 참고.
+
 ## 2026-09-04 (228차)
 - `sim_route_228_v2.py` 신규 추가 -- 227차 클램프 적용 이후에도 남아있던
   결함 재발견: ACTIVE 추적 중 vEgo가 완전정지(0)까지 떨어지면 정차 원인
