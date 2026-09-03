@@ -1,3 +1,39 @@
+## 223차 계속2 (STEP2 완료 — 신규 감속식 설계, 코드 미수정) — Route 감속 로직 전면 단순화 재설계
+
+Worker: Claude
+Base commit: 7519a3a91df530ee6667183759b6c94afa8ae287 (STEP1과 동일, 변경 없음 재확인)
+Repository: ryujmin97/ryu, Branch: c3-ms-dev
+
+**STEP1 F항(사용자 확인 필요 3건) 결정 반영**:
+1. 203차(vEgo-anchor+debounce) vs 223차(전면 재설계) → 223차 확정. 203차 방향 폐기.
+2. 196차에서 이미 제거된 relative-severity 게이트 → 부활 금지, candidates[0] 그대로 유지.
+3. ROUTE_MAX_SPEED_KPH=150 ceiling + sentinel → 최종 삭제 확정. 단 STEP3(arbitration
+   흐름 확인) 이후 대체 반환값을 정하기로 함 — STEP2에서 바로 삭제하지 않음.
+
+**STEP2 — 신규 vEgo 기반 감속식 설계 완료** (design/223cha_step2_decel_formula.md, 원문 참고):
+- 기존 calculate_current_speed(=sqrt(target^2+2*decel*dist))는 vEgo 미입력 + decel_rate
+  증가 시 허용속도가 오히려 올라가는 역방향 민감도 문제(§8) 확인.
+- 신규식: 매 프레임 실측 vEgo와 apex까지 남은 거리로 "필요 감속도"를 역산
+  (required_decel = (vEgo^2-target^2)/(2*eff_dist)), autoNaviSpeedDecelRate로 상한
+  clamp 후 이번 프레임 한 스텝만 vEgo에서 차감 -- out = max(target, vEgo - decel*dt).
+- 상태(state) 없음 -- 매 프레임 실측 vEgo + 그 프레임 apex_dist/apex_speed만 입력.
+  _route_speed_prev류 이전 프레임 출력 의존 없음.
+- out <= vEgo가 수식 구조로 항상 보장됨을 증명 -- 222차가 발견한 liveRouteSpeed>vEgo
+  현상(218차, 39건 중 11건)이 이 구조에서는 수학적으로 재발 불가능함을 확인(코드 적용 전,
+  수식 단계 증명).
+- decel_rate 민감도가 기존과 반대 방향(증가 시 out 감소)임을 증명 -- §8 요구사항 충족.
+- safe_time(autoNaviSpeedCtrlEnd)은 eff_dist=max(0,apex_dist-target*safe_time)
+  형태로 파라미터 의미 보존하며 재사용(§27 최소변경).
+
+**미착수**: STEP3(arbitration 전체 흐름 확인) 이후 코드 반영(STEP4). 이번 세션은 설계
+문서만 작성, 코드/시뮬레이션 미실시. 실차 검증: 미실시.
+
+**다음 작업**: STEP3 착수 -- carrot_navi_route()->liveRouteSpeed->speed_n_sources->
+min()->최종 제어 흐름을 carrot_serv.py 전체(1090~1120줄 주변, 이번엔 일부만 훑음)에서
+확인. STEP1 F-3 sentinel 대체값도 STEP3에서 함께 결정.
+
+---
+
 ## 223차 계속 (STEP1 코드감사 완료 — STEP2 미착수) — Route 감속 로직 전면 단순화 재설계
 
 Worker: Claude
