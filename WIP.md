@@ -1,3 +1,54 @@
+## 222차 (완료 — 221차 최초 실차검증 + 분석완료, 코드 변경 없음) — routeOutSpeed 텔레메트리 선행버그 확인 + vEgo ceiling 반례(정지→재출발 램프리미터 무력화) 발견
+
+**Worker**: Claude
+
+**Base commit (ryu, 이 시점)**: `7519a3a`(221차, push 완료, dirty=False)
+
+**Base commit (devnotes, 이 시점)**: `ea74e9a`(221차 계속)
+
+**입력**: 사용자 업로드 17세그 실차로그(2026-09-03 16:20~16:37, dashcam
+zip). `extract_log.py --with-navi-paths --repo ~/ryu`로 재추출,
+meta.json에서 촬영시점 commit이 `7519a3a91df5`(dirty=False)임을 확인 —
+221차 코드로 찍힌 로그. 20,399행.
+
+**한 일**:
+1. `liveRouteSpeed`(=carrot_navi_route() 반환값) vs `vEgo` 전 구간 대조.
+2. `carrot_man.py` L900-1192 코드 추적으로 `routeOutSpeed` 텔레메트리
+   저장 시점(L914-922, ceiling 이전)과 실제 ceiling(L1087-1088)/
+   램프리미터(L1090-1192) 적용 순서 확인.
+3. 정지→재출발 전이구간(t=268~292 등 3개 에피소드) 프레임 단위 재생으로
+   221차 "out_speed<=vEgo 항상 보장" 증명의 실차 반례 재현+정량화.
+
+**핵심 발견**:
+1. **(CONFIRMED) routeOutSpeed는 ceiling 적용 이전 raw 값** — 실제 제어에
+   영향 없음(제어는 `liveRouteSpeed` 사용), 단 과거 세션 기록 재해석 필요.
+2. **(CORRECTION) vEgo ceiling이 정지→재출발 전이구간(약 8.3초)에서
+   램프리미터(172/173차) 하한(`lo`)에 의해 무력화됨** — `liveRouteSpeed`가
+   `vEgo`보다 최대 55kph 높게 유지되는 구간 실측(t=272.1: vEgo=1.9kph,
+   liveRouteSpeed=57.1kph). 전체 로그 21.6%(4,406/20,399행)가
+   `liveRouteSpeed>vEgo+2kph`이며 이 중 29.6%(1,306행)가 이 전이구간 패턴.
+   상세는 FINDINGS.md 222차 참고.
+
+**미완료**:
+1. 위 반례에 대한 패치 방향 결정(FINDINGS.md 222차에 후보 3안 기록) —
+   사용자 판단 대기.
+2. `AutoNaviSpeedCtrlEnd` 7→10 반영 방식 (a)/(b) 여전히 미결(221차
+   계속 항목에서 이월, 이번 세션 미논의).
+3. 219/220차 apexIdx flicker 게이트 재설계 여전히 미결(이월).
+
+**다음 작업**:
+1. 패치 방향 결정 후 `lo` 보정 또는 `_route_speed_prev` 리셋 패치 구현+
+   `sim_route_boundary_ramp_limiter.py` 확장 검증.
+2. `AutoNaviSpeedCtrlEnd` (a)/(b) 결정.
+
+**검증**: 실차로그 재추출+실측(20,399행), 코드 정적분석(라인 추적). **시뮬레이션:
+미실시. 패치: 없음(분석 세션). 실차 재검증: 미실시(패치가 없으므로 해당 없음).**
+
+**전달 파일**: `WIP.md`(이 항목), `FINDINGS.md`(222차 항목),
+`LAST_ANALYZED.md`.
+
+---
+
 ## 221차 계속 (중단 — 사용자 지시로 실차 주행검증 대기, 이번 세션 코드 변경 없음)
 
 **Worker**: Claude

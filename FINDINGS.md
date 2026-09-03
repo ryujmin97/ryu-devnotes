@@ -1,3 +1,105 @@
+## 222차 — [CONFIRMED] 221차 실차검증: routeOutSpeed 텔레메트리 선행버그 확인 + [CORRECTION] vEgo ceiling "항상 성립" 결론에 대한 반례(정지→재출발 구간, 132차 램프리미터 lo 하한이 ceiling 무력화)
+
+**대상**: 221차(`route_ceiling_kph` vCruise→vEgo 재교체, `route_lookahead_m`
+300m→600m, commit `7519a3a`)의 최초 실차 검증. 17세그(16:20~16:37, 20,399행)
+실차로그를 `extract_log.py --with-navi-paths`로 추출(meta.json 기준
+`7519a3a91df5`, dirty=False 확인 — 촬영 당시 코드와 정확히 일치).
+
+**방법**: `liveRouteSpeed`(=`carrot_navi_route()` 반환값, 실제 arbitration에
+들어가는 최종값) vs `vEgo` 전 구간 대조 + 코드 추적(`carrot_man.py`
+L1087-1088 ceiling, L1090-1192 132/172/173차 램프리미터).
+
+**핵심 결과 1 (CONFIRMED) — routeOutSpeed 텔레메트리 선행버그**:
+`self._route_out_speed`/`self.carrot_serv.route_out_speed`(CSV
+`routeOutSpeed` 컬럼)는 `carrot_navi_route()` L904-909
+`calculate_current_speed()` 직후, **L1087-1088 ceiling 클램프보다 먼저**
+L914-922에서 저장된다. 이후 L1088 ceiling과 L1192 램프리미터가 같은
+지역변수 `out_speed`를 재대입하지만 텔레메트리 저장소는 갱신되지 않는다.
+실측: t 구간에서 vEgo=81.7kph인데 `routeOutSpeed`=236.5로 기록된 사례 확인.
+**실제 제어에 쓰이는 값은 `carrot_navi_route()`의 반환값(=`liveRouteSpeed`,
+ceiling+ramp 모두 적용됨)이므로 주행 안전에는 영향 없음** — 단, 과거
+세션들이 `routeOutSpeed`를 "실제 출력"으로 직접 인용했던 부분은 재해석
+필요(예: 위치기록에 "routeOutSpeed"라는 이름으로 남은 과거 관측치는
+raw/pre-ceiling 값일 수 있음에 주의).
+
+**핵심 결과 2 (CORRECTION, 중요) — vEgo ceiling "out_speed<=vEgo 항상 보장"
+증명의 반례**:
+
+- **기존 결론(221차 설계문서 증명)**: "out_speed = min(raw, max(vEgo,
+  sharpest), route_ceiling_kph=vEgo) 이고 세 번째 항이 항상 지배하므로
+  out_speed <= vEgo가 항상 보장된다."
+- **새로운 증거**: 이 증명은 L1087-1088 **ceiling 클램프 그 자체만** 놓고
+  본 것이고, 바로 다음(L1180-1192)의 **132차/172차/173차 램프리미터가 같은
+  `out_speed` 변수를 다시 덮어쓴다는 사실을 반영하지 않았다.** 램프리미터의
+  하한은 `lo = self._route_speed_prev - accel_limit_kmh*ROUTE_SPEED_LOOP_DT`
+  이고 `out_speed = min(max(out_speed, lo), hi=inf)` — 즉 **ceiling이 방금
+  누른 값보다 `lo`(직전 프레임 값 기준 감속률 제한)가 더 높으면 `lo`가
+  이긴다.** `lo`는 vEgo를 전혀 참조하지 않으므로, ceiling이 vEgo=0(정지)에서
+  vEgo>0(재출발)로 급격히 좁아지는 프레임에 램프리미터가 그 좁아짐을
+  "완만화"시켜버려 ceiling을 사실상 무력화한다.
+
+  실측 재현(t=268~292, 17세그 로그):
+  ```
+  t=268.0~271.1  vEgo=0.0kph   liveRouteSpeed=60.7  (정지, ceiling fallback=150 미적용 자연값)
+  t=272.1        vEgo=1.9kph   liveRouteSpeed=57.1  <- ceiling 이론상 ~1.9여야 하나 57.1
+  t=273.2        vEgo=6.7kph   liveRouteSpeed=53.3
+  t=276.3        vEgo=19.4kph  liveRouteSpeed=42.2
+  t=280.4        vEgo=31.2kph  liveRouteSpeed=31.1  <- 여기서 처음 vEgo와 재수렴
+  t=282.4        vEgo=34.8kph  liveRouteSpeed=34.8  (이후 정상적으로 ceiling=vEgo 추종)
+  ```
+  t=272.1~280.4, **약 8.3초 동안** `liveRouteSpeed`가 `vEgo`보다 최대
+  55.2kph(t=272.1 기준) 높게 유지됨 — "route가 vEgo보다 높은 속도를 강제로
+  요구하면 안 된다"는 221차 설계 의도(사용자 지시)와 정면으로 배치되는
+  구간. 하강률 실측 ≈(60.7-31.1)/8.3 ≈ 3.57 km/h/s로
+  `autoNaviSpeedDecelRate*3.6`(추정 3.6km/h/s, `AutoNaviSpeedDecelRate=1.00
+  m/s²` 기준)와 거의 정확히 일치 — 램프리미터의 감속측 하한이 정확히 이
+  구간을 지배하고 있음을 뒷받침.
+
+  전체 로그에서 `naviPointsActive=True` & `liveRouteSpeed>vEgo_kph+2` 행:
+  4,406/20,399(21.6%). 이 중 70.4%(3,100행)는 완전정지(vEgo<1kph) 중
+  fallback(ceiling 미적용, 정상 설계 — apex 거리기반 감속 스케줄 프리뷰
+  목적이므로 그 자체는 버그 아님), 나머지 29.6%(1,306행, 위 t=272~280류
+  3개 에피소드)가 **재출발 전환구간에서 ceiling이 램프리미터에 의해
+  무력화되는 구간**.
+
+- **변경 이유**: 코드를 두 클램프(ceiling L1088, 램프리미터 L1192)를
+  분리해서 각각 정적으로 봤을 때는 문제가 없어 보이지만, 두 클램프가
+  **동일 변수 `out_speed`에 순차 적용**되고 램프리미터의 하한이 이전 상태에
+  의존(state-dependent)하기 때문에 합성 결과에서 ceiling의 안전 보장이
+  깨진다. 이는 순수 정적분석/합성 시나리오(`sim_route_ceiling_vego_221.py`)
+  만으로는 드러나지 않고, "정지→재출발"이라는 실차 특유의 시간적 시퀀스가
+  있어야 재현되는 문제.
+- **새로운 결론**: 221차 "out_speed<=vEgo 항상 보장" 증명은 **정상주행
+  중(vEgo가 완만하게 변하는 구간)에는 유효하나, vEgo가 급락(특히 0 근처)
+  했다가 재상승하는 정지→재출발 전이구간에서는 성립하지 않는다.** 실차
+  안전 영향은 제한적으로 보임(route가 요구하는 속도가 vEgo보다 *높은*
+  방향의 이탈이므로 급브레이크 등 위험 방향은 아니고, "route가 아직
+  감속을 안 하고 있다"는 정보 지연에 가까움 — 단, 정지 후 재출발 시
+  전방에 실제 저속 제한 커브가 있다면 route 기반 사전 감속 스케줄이 8초
+  이상 지연될 수 있다는 의미이므로 안전 측면 재검토 필요).
+
+**221차 항목과의 관계**: 221차 항목(WIP.md/FINDINGS.md)의 "실차 검증:
+미실시" 표기와 설계 증명 자체는 삭제/수정하지 않고 이 항목으로 보강한다
+(§24). 이번 세션이 처음으로 확보한 실차 데이터 기반 반례.
+
+**상태**: ANALYSIS_ONLY — 코드 변경 없음. 패치 방향 후보(다음 세션 검토용):
+1. 램프리미터 하한 `lo`를 `max(lo_기존, route_ceiling_kph)`로 보정 —
+   즉 ceiling이 램프리미터보다 항상 우선하도록 강제(가장 직접적, §27
+   최소변경에 부합할 가능성 높음, 단 172/173차가 보호하려던 "apex 감속
+   스케줄 급락 방지" 목적과 충돌 여부 시뮬레이션 필요).
+2. 정지 상태(vEgo≈0) 진입 시 `_route_speed_prev`를 리셋(132차가 이미
+   "제약 없음" 전환 시 리셋하는 것과 유사 패턴) — 재출발 시 ramp가 낮은
+   값에서 다시 시작하도록.
+3. 보류 — 안전 영향이 제한적(요구속도가 vEgo보다 *높은* 방향)이므로
+   우선순위 재검토 필요, 사용자 판단 대기.
+
+**검증**: 실차로그 재추출+실측(위), 정적분석(코드 라인 추적)만 수행.
+**시뮬레이션: 미실시. 실차 재검증(패치 후): 미실시.**
+
+**전달 파일**: `WIP.md`, `FINDINGS.md`(이 항목), `LAST_ANALYZED.md`.
+
+---
+
 ## 220차 — [ANALYSIS_ONLY-NEEDS_USER_DECISION] 219차 결론에 대한 실차데이터 기반 반례 + rolling-max 게이트 재설계안의 회귀 확인
 
 **대상**: 219차가 확정한 "199차 게이트가 t=1004~1030류 계단식 하강을 구조적으로
