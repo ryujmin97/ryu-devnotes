@@ -1,3 +1,41 @@
+## 223차 계속 (STEP1 코드감사 완료 — STEP2 미착수) — Route 감속 로직 전면 단순화 재설계
+
+Worker: Claude
+Base commit: 7519a3a91df530ee6667183759b6c94afa8ae287 (221차: route ceiling vCruise->vEgo 재교체 + lookahead 300m->600m)
+Repository: ryujmin97/ryu, Branch: c3-ms-dev
+
+**중요 정정**: 이전 세션 기억(userMemories)에는 "202차 완료, 203차 vEgo-anchor+debounce 설계 진행 중"으로 남아있었으나, 실제로 fresh clone한 origin/c3-ms-dev의 HEAD는 221차까지 진행되어 있었음 (205~221차 사이 여러 회차의 ceiling/lookahead 변경이 이미 반영됨). 기억이 GitHub 상태보다 최소 18개 회차 뒤처져 있었던 것으로 확인 — 이번 세션은 실제 코드(221차 HEAD) 기준으로 STEP1 진행함.
+
+완료 (STEP1 — 현재 코드 감사):
+- carrot_man.py::carrot_navi_route() (645~1200줄대), carrot_serv.py의 mode 게이팅/arbitration(1090~1120줄대) 정적 리딩 완료
+- KEEP/DELETE/MODIFY/NEW 분류표 작성 → `design/223cha_step1_audit.md`에 전문 저장
+- 주요 발견:
+  1. turnSpeedControlMode 값 의미(0/1/2/3)는 223차 설계 지시와 실제 코드가 정확히 일치함 (settings.cc UI 설명, carrot_serv.py:1102/1119 조건문으로 확인)
+  2. 단, carrot_navi_route() 자체는 mode를 전혀 참조하지 않음 — mode 게이팅은 현재 arbitration 단계(carrot_serv.py:1119)에만 있고, curve search/apex 계산은 Mode 0/1에서도 매 프레임 그대로 실행됨. design doc §3("계산 자체 미실행") 요구를 만족하려면 carrot_navi_route() 진입부에 신규 게이트 필요
+  3. calculate_current_speed()(carrot_serv.py:419-434)는 확인 결과 실제로 vEgo 미입력, `sqrt(target²+2·decel·dist)` ceiling formula임을 코드로 재확인 — design doc §7/§8의 지적이 정확함
+  4. 196차 커밋에서 이미 relative-severity 게이트가 제거되어 있음을 확인 — 이전 세션 기억("179-181차 게이트 보존 필요")과 실제 코드가 어긋나는 사례. GitHub 우선 원칙에 따라 현재 코드(게이트 없음) 기준으로 진행하되, 사용자 확인 필요 항목으로 별도 표시함
+  5. apex 도달 후 "2초 완전 OFF" 개념은 현재 코드에 전혀 없음 (196차 무상태 설계라 apex 통과 즉시 다음 프레임에 다음 candidate로 자동 전환) — design doc §11/§12/CASE9~11 요구는 완전 신규 구현 필요
+
+미완료:
+- STEP2 (신규 감속식 확정) 착수 안 함
+- STEP3 (arbitration 전체 흐름 확인) 일부만 확인 (1090~1120줄), mapTurnSpeedFactor 곱셈 등 나머지 흐름 미확인
+- STEP4~7 전부 미착수
+- 코드 수정 없음, 시뮬레이션 없음, 실차 검증 없음
+
+다음 작업 (우선순위순):
+1. 아래 "사용자 확인 필요" 3개 항목에 대해 사용자 판단 받기 — 이게 먼저 정리돼야 STEP2/STEP4 방향이 정해짐
+2. STEP2: vEgo 기반 신규 감속식 확정 (design doc §7 요구사항대로 "현재 vEgo → 남은거리 → target → 감속" 흐름을 코드로 설계)
+3. STEP3 나머지: carrot_serv.py arbitration 흐름 전체(mapTurnSpeedFactor 등) 확인
+
+사용자 확인 필요 (독단 진행 불가, PROJECT_INSTRUCTIONS.md §33/§5 원칙):
+1. 203차(vEgo-anchor+debounce, ceiling 유지)와 223차(ceiling 전량삭제, 전면재설계)는 방향이 정반대 — 어느 쪽으로 진행할지
+2. 196차에서 이미 제거된 relative-severity 게이트를 이번 작업에서도 계속 미보존 상태로 둘지
+3. ROUTE_MAX_SPEED_KPH=150의 "비활성 상태 sentinel" 용도까지 없앨지, 다른 방식(None 등)으로 대체할지
+
+상세 내용은 `design/223cha_step1_audit.md` 참조.
+
+실차 검증: 미실시.
+
 
 ## 222차 (완료 — 221차 최초 실차검증 + 분석완료, 코드 변경 없음) — routeOutSpeed 텔레메트리 선행버그 확인 + vEgo ceiling 반례(정지→재출발 램프리미터 무력화) 발견
 
