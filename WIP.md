@@ -1,3 +1,83 @@
+## 225차 (부분 완료 — carrot_serv.py 수정+검증+패치 완료 / carrot_man.py 부분은 컨테이너 리셋으로 재확인 대기) — 224차 발견2("apex 전 정지 시 RELEASE 미작동")에 대한 코드 수정: route ceiling/floor 버그 2건
+
+**Worker**: Claude
+
+**Base commit (ryu, 이 시점)**: `ee1f5f8`(223차, 변경 없음)
+**Base commit (devnotes, 이 시점)**: `3c6865d`(224차)
+
+**배경**: 224차가 실차로그 오프라인 검증에서 발견한 신규 이슈 2건 중,
+"224차 Route 로직 수정 지침"(사용자 제공, §2/§4/§5/§9)에 따라 이번
+세션에서 실제 코드 수정에 착수:
+- (A) `carrot_man.py::carrot_navi_route()` continuation 분기 — `route`는
+  vEgo에 대한 상한(ceiling)일 뿐 가속 목표가 아닌데, `v_ego_ms<=target_ms`
+  조건에서 `out=max(target_ms, v_ego_ms)=target_ms`로 확정되어 사실상
+  가속 목표처럼 동작하던 버그(224차 실차로그: apex 40m 앞 80.8초 정지 중
+  out_speed가 vEgo=0 대신 target 45~47kph 유지).
+- (B) `carrot_serv.py::update_navi()` — (A)가 고쳐진 뒤에도
+  `route_speed = max(route_speed, autoCurveSpeedLowerLimit)`(기본 30kph)
+  줄이 정지/저속 구간에서 route_speed를 다시 vEgo 위로 밀어올려 (A)가
+  막 없앤 버그를 한 파일 뒤에서 재현시키는 2차 문제.
+
+**컨테이너 리셋 관련 사고 경위(§33 원칙에 따라 명확히 기록)**: 직전
+세션에서 (A)+(B)를 하나의 커밋으로 묶은 패치(`git am` 검증 완료,
+`80db1c5`)와 devnotes(WIP/FINDINGS/PARAMS_REGISTRY 초안, toolkit
+README/CHANGELOG 갱신)까지 준비했으나, FINDINGS.md/PARAMS_REGISTRY.md를
+실제로 파일에 반영하기 전에 컨테이너가 리셋되어 `/home/claude`의 작업
+내용과 `/mnt/user-data/outputs`의 패치 파일이 모두 소실됨(§11과 동일
+성격 — 이 프로젝트 컨테이너는 세션 간 상태가 보존되지 않음).
+
+이번 세션 시작 시 GitHub를 재확인한 결과 `ryu`(`ee1f5f8`)/`ryu-devnotes`
+(`3c6865d`) 모두 리셋 이전과 동일 — 다른 작업자의 개입이나 유실된 push는
+없음(§33 확인 완료). 사용자가 리셋 전 다운로드해 두었던 완성본 4개
+(`carrot_serv.py`, `toolkit/README.md`, `toolkit/CHANGELOG.md`,
+`toolkit/sim_route_224_serv_floor_fix.py`)를 이번 세션에 재업로드해 (B)는
+그대로 재검증/재패치 가능했으나, **(A) `carrot_man.py`의 최종 수정본은
+이번 세션에 재업로드되지 않아 재확인이 불가능**했다 — 안전 관련 코드를
+업로드 없이 기억만으로 재구성하지 않기로 함(§28/§29, 실제 파일 없이
+추측 재작성 금지).
+
+**한 일(이번 세션, (B)만 재검증 가능했던 범위)**:
+1. `selfdrive/carrot/carrot_serv.py` — 사용자가 재업로드한 최종 수정본을
+   독립 클린 클론(`ee1f5f8` 기준)에 적용, 원본과의 diff가 딱 1줄
+   (`route_speed = max(...)` → `route_speed = min(v_ego_kph, max(...))`)
+   임을 확인.
+2. `python3 -m py_compile` 통과 확인.
+3. `git format-patch` -> 별도 클론에서 `git apply --check` + `git am`
+   재적용 -> 재컴파일까지 재검증(자기자신 클론이 아닌 독립 클론 사용,
+   §3/§33 원칙).
+4. `toolkit/sim_route_224_serv_floor_fix.py`(재업로드분) 재실행 —
+   CASE1(정지 중 재현)/CASE2(저속 비정지)/CASE3(바닥값 보호기능 유지,
+   회귀 없음)/REGRESSION(정상 고속감속 무관) 4/4 PASS.
+5. `toolkit/README.md`/`CHANGELOG.md`를 사용자가 재업로드한 최종본으로
+   갱신(두 스크립트 `sim_route_224_ceiling_fix.py`/
+   `sim_route_224_serv_floor_fix.py` 등록 내용, 리셋 전 세션에서 이미
+   작성됐던 것과 diff 없이 동일 — 그대로 반영).
+
+**검증**: 정적분석(`py_compile`, diff 라인 단위 확인) + 독립 클론 재적용
++ 합성 시뮬레이션(위 4/4 PASS). **실차 검증: 미실시.**
+
+**전달 파일(이번 세션)**: `WIP.md`(이 항목), `toolkit/README.md`,
+`toolkit/CHANGELOG.md`, `toolkit/sim_route_224_serv_floor_fix.py`,
+`0001-225cha-carrot_serv.py-autoCurveSpeedLowerLimit-floor.patch`
+(carrot_serv.py 단독 패치, base `ee1f5f8`).
+
+**미완료/주의**: (A) `carrot_man.py` ceiling-fix는 이번 세션에서
+**재검증되지 않음** — 리셋 전 패치(`80db1c5` 상당)가 실제로 사용자
+로컬에 존재하는지, 아니면 다시 만들어야 하는지 확인 필요. FINDINGS.md
+224차 항목 및 PARAMS_REGISTRY.md 갱신도 (A)+(B) 전체 그림이 함께
+있어야 정확히 쓸 수 있어 이번 세션에서는 보류(§28 — 근거 불완전한
+상태로 기록 확정 안 함).
+
+**다음 작업(우선순위순)**:
+1. 사용자가 `carrot_man.py` 최종본(또는 리셋 전 패치 파일)을 재업로드 ->
+   (A)+(B) 통합 재검증 -> FINDINGS.md 224차 항목에 §24 방식으로 root
+   cause+fix 보강 기록 + PARAMS_REGISTRY.md `route_ceiling_kph`/
+   `AutoCurveSpeedLowerLimit` 관련 행 갱신.
+2. 위 완료 후 (A)+(B) 통합 패치 재생성 -> 실차 검증 착수.
+3. 224차 발견3(apexIdx flicker 노출)/219·220차 게이트 재설계는 이월.
+
+---
+
 ## 224차 (완료 — 223차 실차로그 오프라인 검증 완료, 신규 발견 2건, 코드 변경 없음) — 223차 재설계 검증: 222차 버그 FIX 확인 + apex-전-정지 RELEASE 미작동 + apexIdx flicker 노출
 
 **Worker**: Claude

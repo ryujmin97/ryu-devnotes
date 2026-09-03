@@ -2773,3 +2773,45 @@ python3 sim_route_223_state_machine_step5.py
 인자 없음, 고정 시나리오 7개(mode0/1 off / 무가속 게이트 / decel<=vEgo
 단조안전 / apex release+hold / hold 만료 재검색 / mode 전환 리셋 /
 정지→재출발 vEgo초과없음) 실행 후 "ALL STEP5 SIM CASES PASSED" 출력 확인.
+
+### `sim_route_224_ceiling_fix.py` (224차, "224차 Route 로직 수정 지침" §9)
+
+223차 재설계의 continuation 분기(`carrot_man.py` L903-922 부근)가 가진
+"route는 target ceiling인데, `v_ego_ms<=target_ms`일 때
+`out=max(target_ms, v_ego_ms)=target_ms`로 확정되어 사실상 가속 목표처럼
+동작"하는 버그(224차 실차로그: apex 40m 앞 80.8초 정지 중 out_speed가
+vEgo=0 대신 target(45~47kph)로 유지, `liveRouteSpeed>vEgo` 안전 불변식
+위반)를 OLD(223차 코드 그대로 재현)/NEW(`v_ego_ms<=target_ms`이면
+inert=vEgo 그대로 통과) 대조로 검증한다. CASE1(정상감속)/CASE2(target
+아래로 하강)/CASE3(정지, 224차 실차로그 재현)/CASE4(stop&go 재출발+정상
+RELEASE)/CASE5(mode2 arbitration 무관 확인) + 회귀 2건, 전체 PASS.
+
+**실차 검증: 미실시** — 합성 시나리오 검증만 수행. 실제 코드 diff는
+`selfdrive/carrot/carrot_man.py` 패치로 별도 전달(224차).
+
+**사용**:
+```bash
+python3 sim_route_224_ceiling_fix.py
+```
+인자 없음, "ALL 224CHA CEILING-FIX CASES PASSED" 출력 확인.
+
+### `sim_route_224_serv_floor_fix.py` (224차, "224차 Route 로직 수정 지침" §5)
+
+`carrot_man.py` 224차 ceiling-fix(위)로 `route_speed`(out_speed)는 항상
+`v_ego_kph` 이하로 보장되는데, `carrot_serv.py::update_navi()`가 이 값을
+넘겨받은 뒤 `route_speed = max(route_speed, autoCurveSpeedLowerLimit)`
+(기본값 30 -- `common/params_keys.h`)을 무조건 적용해 정지/저속 구간에서
+route_speed를 다시 vEgo 위로 밀어올리는 문제(=carrot_man.py가 막 없앤
+버그를 carrot_serv.py 쪽에서 재현)를 OLD/NEW(`min(v_ego_kph, max(...))`로
+상한 재적용) 대조로 검증한다. CASE1(정지 중 재현)/CASE2(저속 비정지)/
+CASE3(vEgo 여유 있을 때 바닥값 보호기능 유지 확인, 회귀 없음)/REGRESSION
+(정상 고속감속 경로 무관 확인), 전체 PASS.
+
+**실차 검증: 미실시** — 합성 시나리오 검증만 수행. 실제 코드 diff는
+`selfdrive/carrot/carrot_serv.py` 패치로 별도 전달(224차).
+
+**사용**:
+```bash
+python3 sim_route_224_serv_floor_fix.py
+```
+인자 없음, "ALL 224CHA SERV-FLOOR-FIX CASES PASSED" 출력 확인.

@@ -3,6 +3,19 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+## 2026-09-03 (224차)
+- `sim_route_224_ceiling_fix.py` 신규 추가 -- 223차 재설계 continuation
+  분기의 "v_ego<=target일 때 out이 target으로 확정되어 route가 가속 목표
+  처럼 동작"하는 버그(224차 실차로그: apex 40m 앞 80.8초 정지 중 out_speed가
+  vEgo=0 대신 target(45~47kph) 유지) 수정 검증. OLD/NEW 대조 CASE1~5 +
+  회귀 2건 전체 PASS. `carrot_man.py` 패치와 함께 전달.
+- `sim_route_224_serv_floor_fix.py` 신규 추가 -- `carrot_serv.py::update_navi()`
+  의 `autoCurveSpeedLowerLimit`(기본 30kph) 바닥값이 ceiling-fix된
+  route_speed를 vEgo 위로 재상승시키는 2차 버그(같은 성격, 다른 파일) 발견
+  및 수정 검증. `route_speed=min(v_ego_kph, max(route_speed, lower_limit))`
+  로 상한 재적용, 바닥값의 기존 보호 목적은 vEgo 여유가 있을 때 그대로
+  유지됨을 CASE3로 확인(회귀 없음). `carrot_serv.py` 패치와 함께 전달.
+
 ## 2026-09-03 (223차)
 - `sim_route_223_state_machine_step5.py` 신규 추가 -- route 감속 전면 재설계
   (무상태 감속식 + route_active/route_release_time 2상태 상태기계)의 합성
