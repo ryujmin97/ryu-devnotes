@@ -1,3 +1,86 @@
+## 229차 (완료 — ChatGPT 228차 코드리뷰 검증+stale mirror 버그 수정+패치작성+독립클론 재검증 완료, 실차 검증 전) — carrot_man.py 조기 return carrot_serv mirror 누락 수정
+
+**Worker**: Claude
+
+**Base commit (ryu, HEAD)**: `5fa02548fe2a77e52c2ee03a393892d19aee9b7b`(228차 계속)
+**Base commit (devnotes, 이 시점)**: `b6d2821`(228차 계속, HEAD)
+
+**배경**: 사용자가 ChatGPT의 228차(5fa0254) 코드리뷰 문서를 전달. 문서는
+`carrot_navi_route()`의 조기 return 경로들이 함수 말미의 `carrot_serv`
+mirror를 건너뛰어 stale 상태가 남을 수 있다고 주장(우선순위 🔴 1).
+본 프로젝트 지침(§2 GitHub가 Source of Truth)에 따라, 이전 세션 기억이나
+전달받은 문서 내용을 그대로 신뢰하지 않고 GitHub 실제 코드를 새로 clone해
+직접 읽어 독립 검증함.
+
+**검증 결과**:
+1. `ryu` 저장소 branch는 `c3-ms-dev`(HEAD `5fa0254`) — devnotes 기록과
+   일치 확인.
+2. `carrot_man.py::carrot_navi_route()`를 직접 읽어, `self.carrot_serv.
+   route_active`/`route_inert` mirror가 함수 전체에서 딱 한 곳(1039/1045행,
+   정상 종료 직전)뿐임을 확인. 조기 `return`은 3곳 존재:
+   - mode 0/1 전환(650행 부근) — `route_active`/`route_inert`를 갱신하고도
+     mirror 없이 `return` → **ChatGPT 지적이 사실로 확인됨**.
+   - navi 비활성(686행 부근) — 동일 패턴, 마찬가지로 mirror 누락 확인.
+   - RELEASE 2초 hold 중(658행 부근) — 이 경로는 `route_active`/
+     `route_inert` 자체를 변경하지 않으므로 신규 staleness 없음(안전,
+     수정 대상 아님) — 직접 확인 후 배제.
+3. `carrot_serv.py::update_navi()` L1187 클램프 조건
+   (`if self.route_active and not self.route_inert:`)이 문서 설명과
+   정확히 일치함을 확인.
+4. 문서의 "실질 영향은 제한적" 판단(§6)도 코드로 확인: L1153의 클램프
+   블록 전체가 `if route_speed is not None:`으로 감싸여 있고, 위 두 조기
+   return은 항상 `route_speed=None`을 반환하므로 stale 값이 실제로
+   읽히는 프레임 자체가 현재는 발생하지 않음(즉시 차량 거동 영향 없음).
+   다만 향후 다른 로직이 이 두 필드를 참조하기 시작하면 회귀 소지가
+   있어 수정 필요.
+5. 그 외 항목(`eff_dist<=0` 224차 의도 보존, far-inert 분기, VTurn
+   arbitration)도 실제 코드와 대조해 문서 설명이 정확함을 확인.
+
+**한 일 — 최소 변경 수정(§27)**: `carrot_man.py::carrot_navi_route()`의
+두 조기 return(mode 0/1 전환, navi 비활성) 직전에 각각
+```python
+self.carrot_serv.route_active = self.route_active
+self.carrot_serv.route_inert = self.route_inert
+```
+2줄씩 추가. 그 외 로직(VTurn, ramp limiter, boost, sharpest-candidate,
+감속식, `eff_dist`/far-inert 분기 등) 전부 미터치.
+
+**변경 파일**: `selfdrive/carrot/carrot_man.py`
+
+**금지사항 확인**: `git diff` 결과 변경 파일 1개, 삽입 13줄(주석 포함)뿐,
+VTurn 코드 미검출.
+
+**검증**:
+- `py_compile` 통과(작업 클론).
+- 신규 `toolkit/sim_route_229_stale_mirror_fix.py` 작성 — carrot_man 측
+  상태와 carrot_serv 측 상태를 별개 객체로 명시적으로 분리 모델링해
+  버그 클래스 자체를 재현 가능하게 구성(기존 `sim_route_228_edge_cases_AJ.py`는
+  단일 객체 모델이라 이 버그 클래스를 표현할 수 없었음). 결과:
+  - K/M(수정 전 모델): ACTIVE+far-inert 상태에서 mode 0/1 전환/navi 비활성
+    전환 시 `serv_route_active`/`serv_route_inert`가 stale True로 남는
+    버그를 실제로 재현 성공.
+  - L/N(수정 후 모델): 동일 시나리오에서 즉시 False로 갱신됨을 확인.
+  - O(무회귀): candidate 소실 RELEASE 등 정상 경로는 수정 전/후 동일하게
+    동작(mirror가 항상 실행되는 경로이므로 애초에 영향 없음).
+  - **총 10/10 PASS**.
+- 기존 `toolkit/sim_route_228_edge_cases_AJ.py` 재실행(수정 없이 그대로,
+  §21 원칙) → **44/44 PASS 재확인**(무회귀).
+- **독립 클론 재검증**: 신규 `git clone --depth 5` + `git fetch
+  origin c3-ms-dev` 후 `git apply --check` → OK, `git am` → 커밋 생성
+  성공, `py_compile` → OK, 작업 클론과 파일 diff 0(byte-identical) 확인.
+
+**실차 검증: 미실시** — 위 전부 정적 컴파일/합성 시나리오 검증. 다만
+위 §4 분석대로 현재 코드 경로상 실차 거동에 영향을 주는 결함은 아니었음
+(예방적 수정).
+
+**패치**: `0001-229cha-carrot_man.py-return-mode0-1-navi-carrot_serv.patch`
+(사용자에게 파일+적용 명령 전달 예정, 아래 "작업 결과물 전달" 참고)
+
+**다음 작업**:
+- 228차 미완료 항목(실차 far-inert 정차→재출발 검증)이 여전히 최우선
+  대기 항목 — 본 229차는 이와 별개인 예방적 코드 리뷰 후속 수정.
+- apexIdx flicker(219/220차)는 이번 범위 밖, 별도 트랙 유지.
+
 ## 228차 계속 (완료 — route_inert v2 실제 ryu 패치 작성+검증+독립클론 재검증+push 완료, 실차 검증 전) — carrot_man.py/carrot_serv.py 패치 적용
 
 **Worker**: Claude

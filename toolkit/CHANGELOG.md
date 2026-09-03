@@ -3,6 +3,18 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+## 2026-09-04 (229차)
+- ChatGPT의 228차(5fa0254) 코드리뷰 지적사항(조기 return이 carrot_serv
+  mirror를 건너뛰어 stale 값 남을 수 있음)을 Claude가 GitHub 실제 코드로
+  직접 검증 후 사실로 확인, `carrot_man.py` 최소 수정(mode0/1·navi비활성
+  두 조기 return 직전 mirror 2줄씩 추가) 패치 작성. `sim_route_229_stale_
+  mirror_fix.py` 신규 추가 -- carrot_man/carrot_serv 상태를 별개 객체로
+  분리 모델링해 버그 재현+수정검증+무회귀 10/10 PASS. 기존
+  `sim_route_228_edge_cases_AJ.py` 44/44 PASS 재확인(무회귀). 독립 클론
+  `git apply --check`+`git am`+`py_compile` 통과, byte-identical 확인.
+  실차 검증은 미실시(현재 코드 경로상 즉시 영향 없는 예방적 수정으로 분석).
+  상세는 FINDINGS.md/WIP.md "229차" 참고.
+
 ## 2026-09-04 (228차 계속)
 - route_inert v2 실제 ryu 패치 적용 완료(`carrot_man.py`/`carrot_serv.py`,
   base `925a07a` -> `5fa0254`). `sim_route_228_edge_cases_AJ.py` 신규

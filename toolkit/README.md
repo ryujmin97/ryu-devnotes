@@ -2960,6 +2960,30 @@ python3 sim_route_228_v2.py
 인자 없음, 고정 시나리오 A(3개)/B(2개, CURRENT/FIXED_V2 각각) 실행 후
 "TOTAL: 12/12 PASS" 출력 확인.
 
+## sim_route_229_stale_mirror_fix.py (229차, 신규 — carrot_man/carrot_serv 조기 return mirror 누락 버그 재현+수정검증)
+**목적**: ChatGPT의 228차(5fa0254) 코드리뷰가 지적한 "조기 return이
+`self.carrot_serv.route_active`/`route_inert` mirror(함수 말미 유일
+지점)를 건너뛰어 stale 값이 남을 수 있다"는 문제를 Claude가 GitHub
+실제 코드로 직접 검증 후, 그 버그 클래스를 재현하고 229차 수정
+(두 조기 return 지점에 mirror 2줄씩 추가)이 이를 해소하는지 검증.
+**의존성**: 없음(순수 Python 재구현, 실제 selfdrive 모듈 import 안 함).
+**모델링 특징**: 기존 `sim_route_228_edge_cases_AJ.py`는 단일 객체
+모델이라 "carrot_man 상태 vs carrot_serv 상태가 별개 객체라 미러링이
+누락될 수 있다"는 이 버그 클래스 자체를 표현할 수 없었음 — 이 스크립트는
+`route_active`/`route_inert`(carrot_man 측)와
+`serv_route_active`/`serv_route_inert`(carrot_serv 측)를 의도적으로
+분리한 뒤, `MIRROR_ON_EARLY_RETURN` 클래스 변수로 수정 전/후 버전을
+같은 코드베이스에서 스위치.
+**커버 케이스**: K/M(수정 전 모델, mode0/1·navi비활성 각각에서 stale
+재현) / L/N(수정 후 모델, 동일 시나리오에서 즉시 해소 확인) /
+O(무회귀, candidate 소실 RELEASE 등 정상 경로는 수정 전/후 동일).
+**결과**: 10/10 PASS(2026-09-04).
+**사용**:
+```bash
+python3 sim_route_229_stale_mirror_fix.py
+```
+인자 없음, K~O 10개 체크 실행 후 "TOTAL: 10/10 PASS" 출력 확인.
+
 ## sim_route_228_edge_cases_AJ.py (228차 계속, 신규 — route_inert v2 실제 patch diff 기준 A~J 엣지케이스 단위검증)
 **목적**: 228차 route_inert v2 실제 ryu 패치(`carrot_man.py` inert 3분기
 세분화 + `carrot_serv.py` 클램프 조건 `route_active and not route_inert`)

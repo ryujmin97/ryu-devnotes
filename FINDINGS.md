@@ -1,3 +1,56 @@
+## 229차 — [PATCH_APPLIED, 실차 검증 전] carrot_navi_route() 조기 return에서 carrot_serv.route_active/route_inert mirror 누락 (ChatGPT 228차 코드리뷰 지적, Claude 실제 코드 검증 후 수정)
+
+**출처**: 사용자가 전달한 ChatGPT의 228차(5fa0254) 코드리뷰 문서.
+GitHub 실제 코드로 직접 재검증 후 사실로 확인.
+
+**대상**: `carrot_man.py::carrot_navi_route()` — 함수 전체에서 `self.
+carrot_serv.route_active`/`route_inert` mirror는 1039/1045행(정상 종료
+직전) 단 한 곳뿐인데, 조기 return이 3곳 존재. 그중 2곳(mode 0/1 전환
+650행 부근, navi 비활성 686행 부근)은 `self.route_active`/`route_inert`
+(carrot_man 자체 상태)를 갱신하면서도 이 mirror에 도달하지 못하고
+`return`함.
+
+**메커니즘**: ACTIVE 추적 중(`route_active=True`) far-inert 상태
+(`route_inert=True`)였던 프레임 다음에 mode가 0/1로 바뀌거나 navi가
+끊기면:
+- carrot_man 측: `self.route_active`/`route_inert` → 즉시 `False`/`False`
+  (정확).
+- carrot_serv 측: `self.carrot_serv.route_active`/`route_inert` →
+  mirror가 실행되지 않아 직전 프레임 값(`True`/`True`)에 stale 고정.
+
+**현재 실질 영향 — 제한적으로 확인됨**: `carrot_serv.py::update_navi()`
+L1153의 클램프 블록 전체가 `if route_speed is not None:`으로 감싸여
+있고, 위 두 조기 return은 항상 `route_speed=None`을 반환한다. None이면
+route가 애초에 `speed_n_sources`에 추가되지 않으므로(223차 §2/§19),
+stale된 `route_active`/`route_inert`가 이 클램프 조건(`if self.
+route_active and not self.route_inert:`, L1187)에서 실제로 읽히는
+프레임 자체가 발생하지 않는다 — **현재 코드 경로상 즉시 차량 거동에
+영향을 주는 결함은 아님**.
+
+**수정이 필요했던 이유**: 상태 자체가 잘못된 채로 남아 있고, 향후
+`route_active`/`route_inert`를 telemetry나 다른 로직이 참조하기
+시작하면 회귀의 씨앗이 됨. 근본 원인(단일 exit 지점이 아닌 함수 구조)은
+그대로 두고, 최소 변경(§27)으로 두 조기 return 직전에 mirror 2줄씩만
+추가.
+
+**적용 커밋**: `ryu` 패치 작성 완료(base `5fa0254`), 독립 클론
+`git apply --check`+`git am`+`py_compile` 통과. 사용자 push 대기.
+
+**검증**: 신규 `toolkit/sim_route_229_stale_mirror_fix.py`(10/10 PASS) —
+carrot_man/carrot_serv 상태를 별개 객체로 분리 모델링해 버그
+재현(수정 전 모델) + 해소 확인(수정 후 모델) + 무회귀(정상 RELEASE
+경로) 3종 모두 검증. 기존 `sim_route_228_edge_cases_AJ.py` 44/44 PASS
+재확인(무회귀).
+
+**실차 검증: 미실시** — 정적 분석+합성 시나리오 시뮬레이션만 수행.
+단, 위 "현재 실질 영향" 분석 자체가 실차 로그가 아닌 코드 경로 추적에
+근거하므로, 실제로 다른 경로(예: telemetry 발행)가 이 필드를 참조하는지
+전수 확인이 필요하면 별도 grep 작업으로 재확인 가능(현재 grep 결과
+1039/1045행 mirror와 1187행 클램프 읽기 외 참조처는 발견되지 않음).
+
+**다음**: 228차 실차 far-inert 검증이 여전히 최우선. 본 항목은 별도
+트랙(예방적 코드 리뷰 후속)으로 완료 처리.
+
 ## 228차 후속 — [PATCH_APPLIED, 실차 검증 전] route_inert v2 실제 ryu 패치 적용 완료 (아래 "228차" 원 항목 연결, 중복 아님 — §24 확인)
 
 **연결**: 아래 "228차" 항목(ACTIVE-inert 영구 고착 메커니즘 규명 + 1차
