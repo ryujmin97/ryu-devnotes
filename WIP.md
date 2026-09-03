@@ -1,3 +1,103 @@
+## 230차 (완료 — 구현+독립클론 재검증(git am) 완료, 실제 컴파일/실차 검증은 대기) — TBT HUD 하단 2줄 우측정렬+자동줄바꿈+폰트원복, 녹화버튼 x축 중앙이동
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu`
+
+**Branch**: `c3-ms-dev`
+
+**Base commit (작업 시작 시점, HEAD)**: `8c5e775f28aacd9897de46b2142a6c215e615ff2`(229차)
+
+**신규 커밋(패치 적용 후)**: `8a31fa455af42b44df7ac04ea8d0db81c36bb99b`
+
+**요청**: 사용자가 실차 대시캠 스크린샷 1장 첨부, 우측하단 경로안내창(TBT HUD)
+재수정 4건 지시:
+1. 하단 두 줄(도로명/route=)을 박스 우측끝 정렬로 변경.
+2. 글자 크기를 "최초 작업했을 때"(154/156차, route 숫자 2배 크기) 값으로
+   원복 — 211차가 1.5배로 축소했던 것을 되돌림.
+3. 문구가 길어지면 자동 줄바꿈, 이를 감안해 박스 크기를 위쪽으로 키워서
+   글자가 다 보이게 함.
+4. 녹화버튼(빨간 원, `ScreenRecoder`)을 y축은 그대로 두고 x축만 화면
+   가운데(화면 하단 중앙)로 이동.
+
+**진단/설계**:
+- `selfdrive/ui/carrot.cc`의 `TurnInfoDrawer::drawTurnInfoHud()`가 TBT HUD
+  전체를 그림(127차 폭 축소, 154/155차 2줄분리+강조+우측정렬 도입,
+  211차가 폰트 2배->1.5배 + 우측정렬->prefix이어쓰기로 되돌린 이력 확인).
+  이번 요청은 211차 되돌림을 다시 복원하면서, 추가로 "숫자만"이 아니라
+  "두 줄 전체"를 우측끝 정렬하는 것으로 범위 확장.
+- 녹화버튼은 `selfdrive/ui/qt/screenrecorder/screenrecorder.cc`의
+  `ScreenRecoder`(고정 크기 190x190 원형 버튼)이며,
+  `selfdrive/ui/qt/onroad/annotated_camera.cc`에서
+  `main_layout->addWidget(recorder, 0, Qt::AlignBottom | Qt::AlignRight)`로
+  배치됨을 확인. y축 정렬(`AlignBottom`)은 그대로 두고 x축만
+  `AlignRight` -> `AlignHCenter`로 바꾸면 요청과 일치.
+
+**한 일 (§27 최소 변경)**:
+1. `selfdrive/ui/carrot.cc`:
+   - `TBT_LINE_STEP`(=40), `TBT_MAX_NAME_LINES`(=2) 상수 신규 추가.
+   - `drawTurnInfoHud()` 진입 직후, 박스를 그리기 *전에* 도로명(1줄)을
+     `wrap_name_lines()`(신규 람다)로 먼저 줄바꿈 계산: 폰트 30부터 20까지
+     2px씩 낮춰가며 한 줄에 들어가면 그대로 사용, 안 들어가면
+     `nvgTextBreakLines()`로 최대 2줄까지 줄바꿈을 시도해 전체 텍스트를
+     담을 수 있으면 채택, 폰트 20에서도 2줄에 안 담기면(극단적으로 긴
+     경우) 그 상태로 잘림 감수(128차 이후 기존 정책과 동일 — 새로운
+     실패 모드 아님).
+   - 줄바꿈으로 늘어난 줄 수(`tbt_extra_h = (줄수-1)*40`)만큼 박스를
+     **위쪽으로만** 확장: `ui_fill_rect`의 top을 `tbt_y-60-tbt_extra_h`,
+     height를 `TBT_BOX_H+tbt_extra_h`로 — 박스 하단 좌표(`tbt_y` 기준)는
+     그대로라서 route= 줄(`tbt_y+235`)이나 아이콘/ETA 등 다른 요소 위치는
+     전혀 영향받지 않음. 도로명이 원래처럼 1줄에 들어가면
+     `tbt_extra_h=0`이라 박스 크기도 기존과 완전히 동일(회귀 없음).
+   - 도로명 렌더링: `NVG_ALIGN_LEFT` -> `NVG_ALIGN_RIGHT`로 변경, x좌표를
+     `right_x = tbt_x + TBT_BOX_W - 20`으로 고정. 줄바꿈된 마지막 줄이
+     기존과 동일한 y(`tbt_y+195`)에 오도록 하고, 추가 줄은 그 위로
+     `TBT_LINE_STEP` 간격으로 쌓음.
+   - route= 줄: `fs_number`를 `fs_prefix*3/2`(211차) -> `fs_prefix*2`
+     (154/156차 원복)로 변경. 정렬 방식도 "prefix 좌측 고정 + 숫자만 좌측
+     이어붙이기"에서 "숫자 오른쪽 끝이 `right_x`, prefix가 그 왼쪽에 바로
+     붙는" prefix+숫자 통합 우측끝 정렬로 변경(숫자 폭을
+     `nvgTextBounds`로 측정해 prefix 시작 x좌표 역산).
+   - `szSdiDescr`(과속카메라 안내) 단일 라인 블록은 이번 요청 범위 밖이라
+     완전히 미터치(좌측정렬/자동축소 로직 그대로).
+2. `selfdrive/ui/qt/onroad/annotated_camera.cc`:
+   - `main_layout->addWidget(recorder, 0, Qt::AlignBottom | Qt::AlignRight)`
+     -> `Qt::AlignBottom | Qt::AlignHCenter` 1줄 변경.
+
+**변경 파일**: `selfdrive/ui/carrot.cc`, `selfdrive/ui/qt/onroad/annotated_camera.cc`
+
+**금지사항 확인**: `git diff` 전수 grep(`VTurn`/ramp limiter/132·172·173/199/205/221/
+`sqrt(target...)`) 전부 미검출 — control-logic(longitudinal) 코드는 완전히
+미터치, 순수 UI(`selfdrive/ui/`) 파일 2개만 변경.
+
+**검증**:
+- 정적 분석: 전체 파일 중괄호 개수 델타가 삽입한 코드 블록과 정확히
+  일치함을 스크립트로 확인(원본 파일 자체가 이미 +1 불균형 상태였음 —
+  이번 diff와 무관한 기존 특이사항, 델타는 0으로 맞음). **C++ 실제 컴파일은
+  기존과 동일하게 미실시**(컨테이너에 Qt/nanovg/scons 빌드 환경 없음 —
+  211차 등 과거 UI 패치 세션과 동일한 제약).
+- 로그 분석 / 시뮬레이션: 해당 없음(UI 렌더링 코드, 제어로직 미변경).
+- **독립 클론 재검증**: 신규 `git clone --depth 5`에서 `git apply --check`
+  → OK, `git am` → 커밋 생성 성공(`8a31fa4`). 작업 클론과 변경 파일 2개
+  byte-diff 0(완전 동일) 확인.
+- **실차 검증: 미실시** — 위 전부 코드 리뷰/독립클론 적용 검증까지만
+  완료. 사용자 로컬 빌드(scons) 및 실제 화면 확인이 1차 검증 관문.
+
+**미확인 사항 / 다음 작업**:
+1. 실제 scons 빌드에서 컴파일 에러 없는지 확인 필요(특히
+   `nvgTextBreakLines`/`NVGtextRow` 최초 사용 — 헤더(`third_party/nanovg/nanovg.h`)
+   상에는 선언되어 있으나 이 코드베이스에서 실제 호출은 이번이 처음).
+2. 실차/화면에서: (a) 도로명이 실제로 길어 2줄로 줄바꿈되는 케이스가
+   박스 안에 잘리지 않고 표시되는지, (b) route= 숫자 2배 크기가 박스
+   폭을 넘지 않는지, (c) 녹화버튼이 정확히 화면 하단 중앙에 오는지
+   확인 필요.
+3. `_current_carrot_display == 3`(전체화면) 분기는 이미 세로 공간이
+   넉넉해(5 ~ fb_h-15) 이번 `tbt_extra_h` 보정 대상에서 제외했음 — 실제
+   화면에서 문제없는지 확인.
+
+**패치**: `0001-230cha-TBT-HUD-bottom-2-line-right-align-auto-wrap-font-restore-record-button-x-center.patch`
+(사용자에게 파일+적용 명령 전달, 아래 "작업 결과물 전달" 참고)
+
 ## 229차 (완료 — ChatGPT 228차 코드리뷰 검증+stale mirror 버그 수정+패치작성+독립클론 재검증 완료, 실차 검증 전) — carrot_man.py 조기 return carrot_serv mirror 누락 수정
 
 **Worker**: Claude
