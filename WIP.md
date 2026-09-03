@@ -1,3 +1,90 @@
+## 227차 (완료 -- 원인 분석+시뮬레이션 검증+패치 적용+독립클론 재검증 완료) -- carrot_serv.py route_speed 상한 클램프 적용 범위 수정: ACTIVE 추적 분기 vs 226차 ceiling 분기 충돌
+
+**Worker**: Claude
+
+**Base commit (ryu, 이 시점)**: `e2dd7c9`(226차)
+**Base commit (devnotes, 이 시점)**: `854136e`(226차)
+
+**배경**: 사용자가 전달한 ChatGPT 분석 문서 -- 226차(`out_speed=None
+-> apex_speed`)가 ACTIVE 진입 게이트에서 route를 arbitration 후보로
+계속 남기도록 고쳤지만, 바로 다음 단계인 `carrot_serv.py::update_navi()`
+의 225차 B 클램프(`route_speed = min(v_ego_kph, max(route_speed,
+autoCurveSpeedLowerLimit))`)가 이 새 ceiling 값(apex_speed)을 다시
+vEgo로 잘라내 버려 "vEgo=60/apex=80/vCruise=100 -> 60에서 70, 80으로
+가속 허용" 이라는 ceiling의 원래 의도가 무력화된다는 지적. 세션 시작 시
+GitHub 재확인 결과 원격은 `e2dd7c9`(226차, HEAD)/`854136e`로 문서 작성
+시점과 동일 -- 다른 작업자 개입 없음(§33 확인 완료).
+
+**한 일**:
+1. 실제 코드 확인(추측 아님) -- `carrot_man.py` L896-915(226차 ceiling
+   분기), `carrot_serv.py` L1127-1151(225차 B 클램프) 직접 읽어 ChatGPT
+   지적이 실재함을 확인. `carrot_serv.py`에는 `route_active` 상태에
+   접근할 방법이 전혀 없음(grep 결과 0건)도 함께 확인 -- 두 분기를
+   구분할 채널 자체가 없는 것이 근본 원인.
+2. `toolkit/sim_route_227_ceiling_clamp_scope.py` 신규 작성 --
+   `RouteSim`(223/226차 상태기계 재구현) + `clamp_route_speed()`
+   (OLD=225차B 무조건 클램프 / NEW=227차 route_active 분기별 클램프)
+   + `arbitrate()` 3계층. 226차 WIP의 CASE1이 **단일 프레임**만 확인해
+   final=60을 "ceiling 정상 유지"로 해석했던 것과 달리, 이번엔 **다중
+   프레임(최대 1200프레임=60초)** 시뮬레이션으로 확장해 실제로는
+   OLD 코드에서 vEgo가 60에 영구 고착(가속 명령 자체가 생성되지 않음)됨을
+   재현 -- 226차 당시 검증이 이 회귀를 놓쳤던 원인도 함께 특정.
+3. 5 CASE / 7 체크 전부 PASS:
+   - CASE1(OLD 고착 재현): OLD는 400프레임(20초) 동안 final_vEgo=60.00
+     고착 확인(버그 재현). NEW는 60->80까지 정상 가속 후 80에서 유지
+     (ceiling 정상 작동, 80 초과 없음).
+   - CASE2(정상 감속, route_active=True 구간): OLD/NEW 완전 동일(회귀 없음).
+   - CASE3(Stop&Go inert 통과, route_active=True 구간): OLD/NEW 동일,
+     vEgo=0을 30(하한)으로 밀어올리지 않음(224/225차 의도 유지 확인).
+   - CASE4(apex 도달 RELEASE, out_speed=None): 클램프 로직이
+     `route_speed is not None` 가드 밖이므로 영향 없음, None 그대로 유지.
+   - CASE5(vEgo가 이미 apex_speed보다 높은 상태로 진입, 기존 ACTIVE
+     추적 경로): 1200프레임 후 apex_speed(80)까지 정상 감속 확인 --
+     신설 ceiling 분기가 기존 감속 경로를 건드리지 않았음을 재확인.
+4. 5 CASE PASS 확인 후에만 코드 수정 착수(§28 순서 준수):
+   - `carrot_serv.py::__init__()`에 `self.route_active = False` 초기화
+     추가(기존 `route_apex_idx` 등과 동일한 "별개 객체 telemetry
+     mirroring" 패턴).
+   - `carrot_serv.py::update_navi()` L1143 -- `self.route_active`가
+     True일 때만 기존 `min(v_ego_kph, ...)` 상한 클램프 적용, False
+     (226차 ceiling 분기)면 `autoCurveSpeedLowerLimit` 하한만 유지.
+   - `carrot_man.py::carrot_navi_route()` 반환 직전(단일 return 지점)에
+     `self.carrot_serv.route_active = self.route_active` 추가 -- 호출
+     순서(`carrot_navi_route()`가 `update_navi()`보다 항상 먼저 호출됨,
+     L522/L536 확인)상 안전.
+5. `python3 -m py_compile carrot_man.py carrot_serv.py` 통과 확인.
+6. `git commit` -> `git format-patch` -> **별도의 새 독립 클론**(원격에서
+   새로 받은 클론, §3/§33)에서 `git apply --check` + `git am` +
+   재컴파일 전부 성공 확인.
+7. `toolkit/README.md`/`toolkit/CHANGELOG.md` 갱신(§21/22 준수).
+
+**검증**:
+- 정적 분석: 실제 소스(`carrot_man.py`/`carrot_serv.py`) 직접 확인,
+  py_compile 통과
+- 로그 분석: 미실시(이번 세션은 합성 시나리오 검증만)
+- 시뮬레이션: `sim_route_227_ceiling_clamp_scope.py` 5 CASE/7 체크
+  전부 PASS
+- 실차 검증: **미실시**
+
+**미확인 사항**:
+- 226차 자신의 시뮬레이션(`sim_route_226_active_gate_ceiling.py`
+  CASE1)이 단일 프레임 검증으로 이 회귀를 놓쳤던 점 -- 향후 route
+  ceiling 관련 검증은 단일 프레임 스냅샷이 아니라 다중 프레임(가속/감속
+  수렴까지) 시뮬레이션을 기본으로 삼을 것(방법론 교훈, 아래
+  FINDINGS.md에도 기록).
+- 실제 실차/로그 재현으로는 아직 확인 안 됨(합성 시나리오 + 독립 클론
+  patch-apply 검증까지만).
+- PARAMS_REGISTRY.md는 이번 변경이 새 튜닝 파라미터를 도입하지 않아
+  (기존 `autoCurveSpeedLowerLimit` 자체는 불변, `route_active`는 상태
+  플래그이지 조절 파라미터가 아님) 갱신하지 않음.
+
+**다음 작업**:
+- 사용자 확인 후 GitHub push, 패치 적용 결과를 다음 실차 로그로 재검증
+- 226차가 미검토로 남긴 "apex 도달 직전 ceiling과 실제 감속 목표가
+  동시 존재하는 경계에서 텔레메트리 표시 혼선 여부"는 이번에도 계속 이월
+- 217차에서 유보된 3~8단계(연속곡선, 감속률, descent ramp 등)는 이번
+  227차와 별개로 계속 유보 상태
+
 ## 226차 (완료 -- 시뮬레이션 검증+패치 적용+독립클론 재검증 완료) -- ACTIVE 진입 게이트 ceiling 갭 수정: out_speed=None -> apex_speed
 
 **Worker**: Claude

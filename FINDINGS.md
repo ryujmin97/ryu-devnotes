@@ -1,3 +1,72 @@
+## 227차 — [코드 수정 완료] carrot_serv.py route_speed 상한 클램프가 ACTIVE 추적 분기와 226차 ceiling 분기를 구분하지 않아 vEgo가 apex_speed 미만 구간에 영구 고착(가속 봉쇄)되는 회귀 발견 + 수정
+
+**계기**: 사용자가 전달한 ChatGPT 분석 문서. 226차(`out_speed=None ->
+apex_speed`) 자체는 옳은 방향이나, `carrot_serv.py::update_navi()`의
+225차 B 클램프(`route_speed = min(v_ego_kph, max(route_speed,
+autoCurveSpeedLowerLimit))`)가 이 새 ceiling 분기 출력에도 무차별
+적용되어, vEgo=60/apex_speed=80처럼 vEgo가 이미 apex_speed 미만인
+동안은 route_speed가 매 프레임 vEgo 그 자체로 재클램프된다는 지적.
+
+**대상**: `carrot_serv.py::update_navi()` L1143(225차 B 클램프) +
+`carrot_man.py::carrot_navi_route()` L896-915(226차 ceiling 분기).
+
+**핵심 결과**: 실제 코드 확인 결과 지적이 실재함을 확인. 단일 프레임
+관찰로는 "route_speed가 vEgo 이하이니 안전(ceiling 위반 없음)"으로
+보이지만, **다중 프레임 시뮬레이션**으로 확장하면 다음 순환이 드러난다:
+
+```
+매 프레임: route_speed = min(vEgo, max(apex_speed, floor)) = vEgo (apex_speed>=vEgo이므로)
+desired_speed = min(route_speed=vEgo, vCruise, road) = vEgo (route가 최솟값 후보)
+-> desired_speed == vEgo 매 프레임 반복 -> 가속 명령이 원천적으로 생성되지 않음
+-> vEgo는 apex_speed(ceiling) 방향으로 영원히 접근하지 못하고 진입 시점
+   속도에 고착
+```
+
+`toolkit/sim_route_227_ceiling_clamp_scope.py` CASE1으로 재현:
+vEgo=60/apex_speed=80/vCruise=100 시나리오를 400프레임(20초) 실행한
+결과 OLD 코드는 final_vEgo=60.00(고착 확인, 0.01 이내). **226차 자신의
+WIP 기록(CASE1: "NEW는 route가 80 ceiling 유지 -> final=60")도 사실
+이 문제를 이미 노출하고 있었으나**, 단일 프레임 검증만 수행해 "60이
+100보다 낮으니 회귀 없음"으로 (부정확하게) 해석하고 넘어갔던 것으로
+확인됨 — 다중 프레임으로 확장해야 "60에서 더 이상 못 올라간다"는
+고착 자체가 드러남(방법론 교훈, 아래 참고).
+
+이 갭의 근본 원인: 224차 ceiling-fix가 증명한 "`route_speed<=vEgo`가
+항상 보장됨"이라는 불변식(225차 B 클램프가 이 불변식에 의존해 설계됨)은
+**ACTIVE 추적 분기(실제 감속/inert 통과)에서만 성립**하는 증명이었다.
+226차가 신설한 ACTIVE 진입 게이트 ceiling 분기는 애초에 `route_speed >
+vEgo`가 되는 것이 **의도된 정상 동작**(그것이 ceiling의 정의)인데, 이
+분기를 구분하지 않고 동일한 불변식(및 그에 기반한 클램프)을 적용해
+버린 것 — 225차가 223차의 "항상 성립" 일반화 오류를 한 번 정정했던
+것과 정확히 같은 패턴의 오류가 226차 이후 다시 발생.
+
+**수정**: `carrot_serv.py`에 `self.route_active`를 새로 저장(기존
+`route_apex_idx` 등과 동일한 "별개 객체 telemetry mirroring" 패턴,
+`carrot_man.py::carrot_navi_route()`가 반환 직전 값을 써줌 -- 호출
+순서상 `update_navi()`보다 항상 먼저 실행되므로 안전). L1143 클램프를
+`self.route_active`가 True(ACTIVE 추적 분기)일 때만 적용하도록 분기,
+False(226차 ceiling 분기)면 `autoCurveSpeedLowerLimit` 하한만 유지하고
+vEgo 상한 클램프는 생략 — apex_speed ceiling이 정상적으로 min()
+arbitration에 참여해 60->70->80 가속을 허용하면서도 80을 넘지는 않음.
+
+**검증**: `toolkit/sim_route_227_ceiling_clamp_scope.py` 5 CASE/7 체크
+전부 PASS(OLD 고착 재현/NEW ceiling까지 정상 가속/NEW 80 초과 없음/
+정상감속 무회귀/Stop&Go inert 무회귀/RELEASE 무영향/기존 ACTIVE
+추적 경로 무회귀). 독립 클론 `git apply --check`+`git am`+`py_compile`
+검증 완료. 상세는 WIP.md "227차" 참고.
+
+**실차 검증: 미실시** — 합성 시나리오 + 패치 적용 검증만 수행.
+
+**방법론 교훈**: route ceiling/arbitration 관련 검증은 단일 프레임
+스냅샷만으로는 "값이 안전 범위 안에 있는가"는 확인해도 "그 값에
+영구 고착되어 정상 가속/감속 궤적 자체가 막히는가"는 놓칠 수 있다.
+226차의 CASE1이 이 경우였음 — 향후 유사 검증은 기본적으로 다중 프레임
+(수렴/정상상태까지) 시뮬레이션을 우선한다.
+
+**미확인 사항**: 226차가 이미 남긴 "apex 도달 직전 ceiling과 실제 감속
+목표가 동시 존재하는 경계에서 텔레메트리 표시 혼선 여부"는 이번에도
+미검토, 다음 실차 로그 확보 시 확인 필요.
+
 ## 226차 — [코드 수정 완료] ACTIVE 진입 게이트에서 out_speed=None이 route ceiling 자체를 제거하는 설계 갭 발견 + 수정
 
 **계기**: 사용자가 전달한 ChatGPT의 225차 정적점검 보고서. 225차 A/B

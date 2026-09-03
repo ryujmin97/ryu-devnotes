@@ -2816,6 +2816,49 @@ python3 sim_route_224_serv_floor_fix.py
 ```
 인자 없음, "ALL 224CHA SERV-FLOOR-FIX CASES PASSED" 출력 확인.
 
+## sim_route_227_ceiling_clamp_scope.py (227차, 신규 — carrot_serv.py route_speed 상한 클램프 적용범위 검증 + 2파일 패치 사전검증)
+
+**목적**: 226차가 `carrot_navi_route()` ACTIVE 진입 게이트에서
+`out_speed=apex_speed`(ceiling 유지)를 반환하도록 고쳤지만,
+`carrot_serv.py::update_navi()`의 225차 B 클램프(`route_speed =
+min(v_ego_kph, max(route_speed, autoCurveSpeedLowerLimit))`)가 이
+ceiling 분기 출력에도 무차별 적용되어, vEgo가 apex_speed 미만인 동안
+route_speed가 매 프레임 vEgo 그 자체로 재클램프 -> desired_speed도
+vEgo로 고착 -> 가속 명령이 원천 봉쇄되는 회귀를 다중 프레임 시뮬레이션
+으로 재현/검증한다(226차 자신의 CASE1은 단일 프레임만 확인해 이 고착을
+놓쳤음, FINDINGS.md 227차 "방법론 교훈" 참고).
+
+`RouteSim`(223/226차 상태기계 재구현) + `clamp_route_speed()`(OLD=225차B
+무조건 클램프 / NEW=227차, `route_active`일 때만 클램프) + `arbitrate()`
+(`speed_n_sources`+`min()` 재구현) 3계층으로 전체 파이프라인을 재현,
+`run_multiframe()`으로 최대 1200프레임(60초)까지 수렴 여부를 관찰.
+
+**핵심 결과(5 CASE/7 체크 PASS)**:
+- CASE1(vEgo60/apex80/vCruise100, 핵심 재현, 400프레임): OLD는
+  final_vEgo=60.00 영구 고착(회귀 재현) -> NEW는 60에서 80(ceiling)까지
+  정상 가속 후 80 유지, 80 초과 없음.
+- CASE2(정상 감속, route_active=True 구간, 200프레임): OLD/NEW 완전
+  동일(회귀 없음).
+- CASE3(Stop&Go inert 통과, route_active=True 구간): OLD/NEW 동일,
+  vEgo=0을 30(하한)으로 밀어올리지 않음(224/225차 의도 유지).
+- CASE4(apex 도달 RELEASE, out_speed=None): 클램프가
+  `route_speed is not None` 가드 밖이라 영향 없음.
+- CASE5(vEgo가 이미 apex_speed보다 높은 상태로 curve 진입, 기존 ACTIVE
+  추적 경로, 1200프레임): apex_speed(80)까지 정상 감속 확인 -- 신설
+  ceiling 분기가 기존 감속 경로를 건드리지 않았음을 재확인.
+
+**실행**:
+```bash
+python3 sim_route_227_ceiling_clamp_scope.py
+```
+인자 없음, "TOTAL: 7/7 PASS" 출력 확인.
+
+**패치 반영**: PASS 확인 후 `carrot_serv.py`(`self.route_active` 초기화
++ L1143 클램프 분기)와 `carrot_man.py`(반환 직전 `self.carrot_serv.
+route_active = self.route_active` 1줄) 2파일 수정. 독립 클론
+`git apply --check`+`git am`+재컴파일 검증 완료. 상세는 FINDINGS.md/
+WIP.md "227차" 참고.
+
 ## sim_route_226_active_gate_ceiling.py (226차, 신규 — ACTIVE 진입 게이트 ceiling 갭 검증 + 1줄 패치 사전검증)
 
 **목적**: `carrot_navi_route()`의 ACTIVE 진입 게이트(`not self.route_active

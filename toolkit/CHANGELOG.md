@@ -3,6 +3,18 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+## 2026-09-04 (227차)
+- `sim_route_227_ceiling_clamp_scope.py` 신규 추가 -- 226차의 ACTIVE 진입
+  게이트 ceiling 분기(`out_speed=apex_speed`)와 `carrot_serv.py`의 225차 B
+  vEgo 상한 클램프가 구분 없이 결합되어, vEgo가 apex_speed 미만인 동안
+  route_speed/desired_speed가 매 프레임 vEgo에 고착 -> 가속 명령 원천
+  봉쇄되는 회귀를 다중 프레임(최대 1200프레임) 시뮬레이션으로 재현/검증.
+  5 CASE/7 체크 전부 PASS. PASS 확인 후 `carrot_serv.py`(`self.route_active`
+  신규 저장 + L1143 클램프를 `route_active`일 때만 적용) +
+  `carrot_man.py`(`carrot_navi_route()` 반환 직전 `self.carrot_serv.
+  route_active` 동기화 1줄) 2파일 패치 적용, 독립 클론 `git apply --check`+
+  `git am`+재컴파일 검증 완료. 상세는 FINDINGS.md/WIP.md "227차" 참고.
+
 ## 2026-09-04 (226차)
 - `sim_route_226_active_gate_ceiling.py` 신규 추가 -- `carrot_navi_route()`
   ACTIVE 진입 게이트(`not route_active and v_ego_kph<=apex_speed` 분기,
