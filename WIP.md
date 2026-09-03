@@ -1,3 +1,99 @@
+## 228차 (진행 중 — ACTIVE-inert 영구 고착 원인 재추적 + v2 수정 설계 검증 완료, 패치 작성 전 사용자 승인 대기) — carrot_man/carrot_serv 통합 상태기계 연속 타임라인 시뮬레이션
+
+**Worker**: Claude
+
+**Base commit (ryu, 이 시점)**: `925a07a`(227차, HEAD)
+**Base commit (devnotes, 이 시점)**: `bc4a0ab`(227차, HEAD)
+
+**[체크포인트 복구 메모]** 이 회차 작업 도중 컨테이너 세션이 초기화되어
+devnotes push 전에 중단됨(§36 기지 위험). 아래 내용은 중단 시점까지의
+대화 로그를 근거로 다음 세션에서 복구/재검증하여 작성. 재검증 과정에서
+`toolkit/sim_route_228_integrated_timeline.py`(최초 탐색용 스크립트)의
+정확한 최종 소스는 유실되어 복구 불가 -- 대신 그 스크립트로 도출한
+결론을 계승/대체하는 `toolkit/sim_route_228_v2.py`(아래 "핵심 결과"의
+근거, 이번 복구 세션에서 12/12 PASS 재검증 완료)만 devnotes에 실제로
+커밋함. 시나리오 B의 기하 파라미터(`curves_B`/`stop_t`)는 최초 세션의
+정확한 값이 유실되어 이번 복구 세션에서 동일한 검증 조건(ACTIVE 추적
+유지 + eff_dist<=0 + RELEASE 미발동)을 만족하도록 재탐색한 값이며,
+스크립트 상단 주석에 재탐색 사유와 과정을 남겨둠.
+
+**배경**: 사용자가 227차 코드를 직접 검토 후 "정차→재출발 실제
+longitudinal 동작까지는 미검증, apexIdx flicker도 미해결"이라는 두
+지점을 지적하며 "0→출발/60→80/90→80/apex→hold→다음커브를 하나의
+연속 시나리오로 state-machine 시뮬레이션"을 요청. 범위는
+carrot_man/carrot_serv 레이어만(long_mpc/acados 연결은 명시적 보류).
+
+**한 일**:
+1. GitHub 실제 코드 fetch로 227차 HEAD의 `carrot_serv.py`/
+   `carrot_man.py`가 사용자 인용/설명과 정확히 일치함을 확인.
+2. `toolkit/sim_route_227_ceiling_clamp_scope.py`의 `RouteSim`/
+   `clamp_route_speed`/`arbitrate` 골격을 계승해 통합 타임라인
+   시뮬레이션(위치 적분 + `route_release_time` 2초 HOLD + 커브 3개
+   순차 통과, 320초)을 구성 -- 정차(vEgo0/apexA45, ceiling) → 재출발 →
+   curve A 통과(ceiling만) → 직선 자유가속 → curve B(apex30) ACTIVE
+   진입 → **ACTIVE 추적 도중 완전정차(cruise=0 강제 주입)** → 정차
+   해소 → curve B apex 도달/RELEASE/HOLD → curve C(apex80) 재탐색.
+3. **[신규 FINDING] ACTIVE-inert 영구 고착 재발견**: ACTIVE 추적 중
+   vEgo가 완전히 0까지 떨어지면(정차 원인이 무엇이든), 그 원인이
+   해소되고 cruise가 복귀해도 vEgo가 245초(시뮬레이션 종료까지) 동안
+   단 한 프레임도 회복하지 못함. 상세 메커니즘/224차와의 관계는 아래
+   FINDINGS.md "228차" 참고.
+4. **1차 수정 가설 기각**: `carrot_man.py::carrot_navi_route()`의
+   inert 분기(`v_ego_ms<=target_ms`)만 `out=target_ms`로 바꾸는 1차
+   가설을 시뮬레이션으로 테스트했으나 고착이 그대로 재현됨. 디버그
+   로그로 원인 추적 결과, `carrot_serv.py::update_navi()`의 227차
+   클램프(`route_active=True`면 무조건 `min(v_ego_kph, ...)`)가
+   carrot_man이 무엇을 계산해 넘기든 route_speed를 다시 v_ego로
+   눌러버리는 것이 진짜 원인 -- **두 파일에 걸친 결함**임을 확인
+   (방법론 교훈: 단일 파일 수정 가설도 반드시 통합 시뮬레이션으로
+   재검증해야 함, 227차의 "다중 프레임 확장" 교훈과 같은 패턴).
+5. **v2 수정 설계 도출 + 검증**: `carrot_man.py`에 신규 상태
+   `route_inert`(`route_active`와 동일한 mirroring 패턴)를 도입해
+   ACTIVE 추적을 "진짜 감속 중" vs "far-inert(아직 멀리 있는데 target
+   미만)"으로 구분, `carrot_serv.py` 클램프가 후자일 때만 v_ego 상한
+   적용을 생략하도록 설계. `toolkit/sim_route_228_v2.py` 작성해 12개
+   체크 전부 PASS 확인(아래 "핵심 결과" 참고). 이 과정에서 **2차
+   버그도 발견/수정**: `route_inert`를 eff_dist<=0(apex 근접) 구간까지
+   True로 묶었더니 `autoCurveSpeedLowerLimit` floor가 그대로 노출돼
+   v_ego=0을 30으로 강제로 밀어올리는 신규 회귀가 생김을 실측 확인 --
+   eff_dist<=0 구간은 `route_inert=False`로 남겨 기존 v_ego 클램프
+   경로를 그대로 타게 해야 함(224차 의도 보존)으로 최종 확정.
+
+**핵심 결과(v2, 12/12 체크 PASS, `toolkit/sim_route_228_v2.py`)**:
+- 고착 재현(CURRENT) 대비 v2(FIXED_V2)는: 정차 원인 해소 후 즉시 회복
+  (마지막 10초 max=90), curve B RELEASE 정상 발생(2건), curve C ACTIVE
+  추적 재개까지 확인.
+- 224차 원 시나리오(ACTIVE 추적 유지 중 apex 근접 정차, eff_dist<=0,
+  RELEASE 미발동) 재현 시 v2 적용 후에도 v_ego=0 그대로 통과, floor
+  (30)로 튀지 않음(무회귀 확인).
+- curve C(apex80) 접근 시 정상적으로 80까지만 감속 후 RELEASE, ceiling
+  위반(80 초과) 없음 확인(전역 최대값 검사).
+
+**수정 범위(설계만, 아직 미적용)**:
+- `carrot_man.py::carrot_navi_route()`: ACTIVE 추적 else 블록의 inert
+  조건(`v_ego_ms<=target_ms or eff_dist<=0`)을 `eff_dist<=0`(기존
+  유지, `route_inert=False`) / `eff_dist>0 and v_ego_ms<=target_ms`
+  (신규, `out=target_ms`, `route_inert=True`) / 그 외(기존 decel
+  공식, `route_inert=False`) 3분기로 세분화. `self.route_inert` 신규
+  인스턴스 변수 도입, `self.route_active`와 동일 지점(L980 부근)에서
+  `self.carrot_serv.route_inert = self.route_inert` mirroring 추가.
+- `carrot_serv.py::update_navi()`: L1167 클램프 조건을
+  `self.route_active` → `self.route_active and not self.route_inert`
+  로 변경(그 외는 기존 floor-only 경로).
+
+**실차 검증: 미실시** — 합성 시나리오(단순 차량모델) 시뮬레이션만 수행.
+
+**다음 작업**:
+- 사용자에게 위 v2 설계로 실제 ryu 패치 작성 여부 확인(§31, "패치는
+  나한테 물어보고" 원칙) — 현재 승인 대기 중.
+- 승인 시: `carrot_man.py`/`carrot_serv.py` 패치 생성 → 독립 클론
+  `git apply --check`+`git am`+`py_compile` 검증 → 사용자 전달.
+- apexIdx flicker(219/220차 미해결)는 이번 범위 밖, 별도 트랙으로 남음.
+- (참고) 최초 탐색 스크립트 `sim_route_228_integrated_timeline.py`는
+  세션 초기화로 소스 유실, devnotes에 커밋되지 않음 -- 필요 시 재작성
+  후보로 남김(우선순위 낮음, `sim_route_228_v2.py`가 동등 시나리오
+  커버).
+
 ## 227차 (완료 -- 원인 분석+시뮬레이션 검증+패치 적용+독립클론 재검증 완료) -- carrot_serv.py route_speed 상한 클램프 적용 범위 수정: ACTIVE 추적 분기 vs 226차 ceiling 분기 충돌
 
 **Worker**: Claude

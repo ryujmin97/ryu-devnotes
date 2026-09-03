@@ -1,3 +1,116 @@
+## 228차 — [설계+시뮬레이션 검증 완료, 패치 미적용/사용자 승인 대기] ACTIVE 추적(inert) 중 완전정차 시 227차 클램프가 실측 v_ego를 자기 자신의 상한으로 사용 -- 정차 원인 해소 후에도 재가속 경로 없음(고착) + v2 수정 설계
+
+**[체크포인트 복구 메모]** 이 항목은 작성 도중 컨테이너 세션이
+초기화되어 devnotes push 전에 중단된 것을 다음 세션에서 대화 로그
+기준으로 복구/재검증한 내용. 아래 "v2 수정 설계 및 검증"의 수치는
+이번 복구 세션에서 `toolkit/sim_route_228_v2.py`를 다시 실행해 실제로
+재확인한 결과이며, 시나리오 B의 기하 파라미터는 최초 세션의 정확한
+값이 유실되어 동일 검증 조건을 만족하도록 재탐색한 값으로 대체됨
+(스크립트 내 주석 참고). 최초 탐색용 스크립트
+`sim_route_228_integrated_timeline.py`는 소스가 유실되어 devnotes에
+커밋되지 않음.
+
+**계기**: 227차 패치 검토 후 사용자가 요청한 통합 상태기계 타임라인
+시뮬레이션 작성 중, "이미 ACTIVE인 상태에서 정차해도 RELEASE하면 안
+된다"는 요구사항을 검증하는 과정에서 부수적으로 발견.
+
+**대상**: `carrot_serv.py::update_navi()` L1167-1168(227차 클램프,
+`route_active=True` 분기) + `carrot_man.py::carrot_navi_route()`
+L928-946(ACTIVE 추적 inert 분기, `v_ego_ms<=target_ms`일 때
+`out_ms=v_ego_ms`).
+
+**핵심 결과 1 — 고착 메커니즘**: `route_active=True`로 커브를 추적
+중(아직 apex 도달 전) vEgo가 어떤 이유로든(선행차 정지 등) 완전히
+0까지 떨어지면: (1) inert 분기가 `out_speed=v_ego_ms`(=0) 반환(224차
+ceiling-fix 의도대로 정상 동작). (2) `carrot_serv.py` 227차 클램프가
+`route_active=True`이므로 `route_speed=min(v_ego_kph,...)=0` 적용.
+(3) `arbitrate()`의 min()에서 route가 0으로 최솟값을 차지 →
+desired_speed=0 매 프레임 반복. (4) 정차 원인이 사라져 다른 소스가
+높은 값으로 복귀해도, route_speed 자체가 "그 순간의 실측 v_ego"를
+반사하는 구조라 v_ego가 실제로 움직이기 전까지 route_speed도 0에서
+못 벗어남 -- 자기참조적 고착. (5) 탈출 경로(RELEASE)도 차량이 실제로
+전진해야 성립하므로 순환 의존, 이 상태기계 자체로는 탈출 불가능.
+
+`toolkit/sim_route_228_v2.py`(CURRENT 모드)로 재현: curve B(apex30kph,
+접근 중 lookahead 600m 캡 내 진입) ACTIVE 추적 중 vEgo 90→0 강제 정차
+후 cruise 복귀시켜도, 그 이후 245초(시뮬레이션 종료까지) vEgo가 0에서
+회복 못함.
+
+**핵심 결과 2 — 1차 수정 가설 기각(방법론 교훈)**: `carrot_man.py`
+inert 분기만 `out=target_ms`로 바꾸는 1차 가설을 테스트했으나 고착이
+그대로 재현됨. 원인: `carrot_serv.py`의 227차 클램프가 `route_active=
+True`이면 carrot_man이 무엇을 넘기든 무조건 `min(v_ego_kph,...)`를
+적용해 route_speed를 다시 v_ego로 눌러버림 -- **결함이 carrot_man.py
+단독이 아니라 carrot_serv.py 클램프까지 두 파일에 걸쳐 있음**. 227차
+자신이 "단일 프레임 검증만으로는 부족, 다중 프레임 확장이 필요"라고
+남긴 방법론 교훈과 동일한 패턴("한 파일만 고치면 될 것 같다"는 가정도
+통합 시뮬레이션으로 재검증해야 함)이 다시 확인됨.
+
+**224차 "핵심 결과 2"와의 구분(중복 아님, §24 확인)**: 224차 발견
+("apex 진입 전 정지 시 out_speed가 target으로 튐")은 224차 자신의
+ceiling-fix(inert 분기를 `out_ms=v_ego_ms`로 수정)로 이미 해결된
+증상(227차 스크립트 CASE3가 재확인). 이번 228차 발견은 그 수정이
+만든 **부작용**(inert 분기가 v_ego를 정직하게 반영하는 대가로, v_ego가
+실제로 0에 도달하면 그 값에 자기 자신이 갇힘)이다.
+
+**v2 수정 설계 및 검증(12/12 PASS, `toolkit/sim_route_228_v2.py`, 이번
+복구 세션에서 재확인)**: `carrot_man.py`에 신규 상태 `route_inert`
+(`route_active`와 동일한 mirroring 패턴, carrot_serv에 전달)를 도입해
+ACTIVE 추적을 "진짜 감속 중" vs "far-inert(eff_dist>0인데 아직
+target 미만)"으로 구분. `carrot_serv.py` 클램프는 `route_active and
+not route_inert`일 때만 기존 v_ego 상한 적용, 그 외는 floor만(226차
+게이트와 동일 원칙을 inert 분기로 확장).
+
+- eff_dist<=0(apex 근접, 224차가 다루던 케이스) → 기존 그대로
+  `out=v_ego_ms`, `route_inert=False`(v_ego 클램프 경로 유지 -- 이
+  구간까지 route_inert=True로 묶으면 **2차 회귀**가 새로 생김, 아래
+  참고).
+- eff_dist>0이고 v_ego<=target(228차가 발견한 고착 케이스, 아직
+  apex까지 거리가 있는데 어떤 외부 원인으로 target 미만) →
+  `out=target_ms`(신규), `route_inert=True`(v_ego 클램프 생략, floor만
+  적용 -- 226차 진입게이트와 동일 패턴).
+
+검증 결과: 고착 시나리오(A, curve B apex30 추적 중 강제 완전정차)에서
+정차 원인 해소 즉시 회복(마지막10초 max=90, CURRENT는 0), curve B
+RELEASE 정상 발생 후 curve C ACTIVE 추적 재개까지 확인. 224차 원
+시나리오(B, ACTIVE 추적 유지 중 apex 근접 정차 -- apex_dist가
+RELEASE 임계 10m는 넘고 eff_dist 임계 12.5m는 밑도는 좁은 구간에서
+재현, RELEASE 미발동 확인) 무회귀(v_ego=0 그대로 통과, floor로 안
+튐). curve C(apex80) 접근 시 정상적으로 80까지만 감속, ceiling 위반
+없음(전역 최댓값 검사로 확인).
+
+**[2차 버그 발견/수정, 설계 확정 과정에서]**: 최초 v2 설계 시도에서
+`route_inert`를 eff_dist<=0 구간까지 True로 묶었더니,
+`clamp_route_speed()`의 else 분기(`max(route_out, floor)`)가 그대로
+적용되어 v_ego=0인데 `autoCurveSpeedLowerLimit`(30) floor로 밀어
+올려지는 **신규 회귀**가 실측으로 확인됨(224차 의도 위반). eff_dist
+<=0 구간을 `route_inert=False`로 남겨 기존 v_ego 클램프 경로(floor가
+자연히 무력화되는 `min(v_ego, max(out,floor))=v_ego` 구조)를 그대로
+타게 하는 것으로 최종 수정 -- 이 스크립트 자체 개발 과정에서의 자체
+검증 사례로 기록.
+
+**한계**: (1) 시뮬레이션용 단순 차량모델(desired를 향해서만 이동,
+실제 long_mpc/acados 아님) -- 사용자가 이번 범위에서 명시적으로 제외.
+(2) 정차 유발 원인을 cruise=0 강제 주입으로만 단순화 -- 실제로는
+leadSpeed 등 다른 arbitration 후보가 route보다 낮은 값으로 개입해
+route가 애초에 binding 제약이 아닐 수도 있음(이 경우 이 고착 자체가
+관찰 안 됨), 실차에서 route가 실제로 binding 제약인 채로 완전정지까지
+가는 시나리오가 실재하는지는 별도 확인 필요. (3) `AutoNaviSpeedDecelRate`
+/`AutoNaviSpeedCtrlEnd` 가정치 사용(227차와 동일, 1.5 m/s²/1.0).
+(4) 시나리오 B의 기하는 "ACTIVE 유지 + eff_dist<=0 + RELEASE 미발동"
+세 조건을 동시에 만족하는 좁은 파라미터 구간(apex_dist가 RELEASE
+임계 10m와 eff_dist 임계 12.5m 사이)에서만 성립 -- 실차에서 이
+좁은 구간이 실제로 발생 빈도가 있는지는 별도 확인 필요(224차 자체
+시나리오와 동일한 한계).
+
+**실차 검증: 미실시** — 합성 시나리오(단순 차량모델) 시뮬레이션만 수행.
+
+**패치 적용: 아직 안 함** — §31 "패치는 나한테 물어보고" 원칙에 따라
+사용자 승인 대기 중. 승인 시 다음 세션에서 `carrot_man.py`/
+`carrot_serv.py` 패치 생성 → 독립 클론 검증 → 전달.
+
+**다음 작업**: 사용자 패치 작성 승인 여부 확인 후 진행.
+
 ## 227차 — [코드 수정 완료] carrot_serv.py route_speed 상한 클램프가 ACTIVE 추적 분기와 226차 ceiling 분기를 구분하지 않아 vEgo가 apex_speed 미만 구간에 영구 고착(가속 봉쇄)되는 회귀 발견 + 수정
 
 **계기**: 사용자가 전달한 ChatGPT 분석 문서. 226차(`out_speed=None ->

@@ -2917,3 +2917,45 @@ python3 sim_route_226_active_gate_ceiling.py
 ```
 인자 없음, 고정 시나리오 5개(CASE1~5) 실행 후 "ALL 226CHA GATE-CEILING
 CASES PASSED" 출력 확인.
+
+## sim_route_228_v2.py (228차, 신규 — ACTIVE-inert 영구 고착 재현 + route_inert 상태 도입 v2 수정 설계 검증, 12/12 PASS)
+
+227차 클램프 적용 이후 남아있던 결함 재발견: ACTIVE 추적 중(아직 apex
+미도달) vEgo가 완전정지(0)까지 떨어지면, 정차 원인이 해소되고
+vCruise가 복귀해도 route_speed가 영구히 0에 고착되어 재가속 경로가
+없음(자기참조적 고착). `carrot_man.py` inert 분기만 고치는 1차
+가설은 `carrot_serv.py`의 227차 클램프가 이를 다시 v_ego로 눌러버려
+실패 -- 결함이 두 파일에 걸쳐 있음을 확인.
+
+v2 설계: `carrot_man.py`에 `route_inert`(bool, `route_active`와 동일
+mirroring 패턴) 신규 도입, ACTIVE 추적을 "진짜 감속 중" vs
+"far-inert(eff_dist>0인데 target 미만)"으로 구분. `carrot_serv.py`
+클램프는 `route_active and not route_inert`일 때만 기존 v_ego 상한
+적용, 그 외는 floor만(226차 게이트 원칙을 inert 분기로 확장).
+
+**시나리오 A(228차 고착 재현)**: curve 3개 연속 통과 타임라인(320초),
+curve B(apex30) ACTIVE 추적 중 강제 완전정차 → 원인 해소 후 CURRENT는
+245초간 미회복(고착 재현) vs FIXED_V2는 즉시 회복 + RELEASE 정상 발생
++ curve C 재추적까지 확인.
+
+**시나리오 B(224차 원 시나리오 무회귀 확인)**: ACTIVE 추적 유지 +
+eff_dist<=0(apex 근접) + RELEASE 미발동이 동시에 성립하는 좁은 기하
+구간(apex_dist가 RELEASE 임계 10m와 eff_dist 임계 12.5m 사이)에서
+강제 완전정차 재현 -- v2 적용 후에도 v_ego=0 그대로 통과,
+`autoCurveSpeedLowerLimit` floor(30)로 튀지 않음(무회귀).
+
+**[개발 중 자체 발견 2차 버그]**: `route_inert`를 eff_dist<=0 구간까지
+True로 묶으면 floor가 그대로 노출되어 v_ego=0을 30으로 밀어올리는
+신규 회귀가 생김을 실측 확인 -- eff_dist<=0 구간은 `route_inert=False`
+로 남겨 기존 v_ego 클램프 경로를 유지해야 함(224차 의도 보존)으로
+최종 확정.
+
+**실차 검증: 미실시** — 합성 시나리오(단순 차량모델) 시뮬레이션만
+수행. ryu 실제 코드 패치는 아직 작성/적용 안 됨(§31 사용자 승인 대기).
+
+**사용**:
+```bash
+python3 sim_route_228_v2.py
+```
+인자 없음, 고정 시나리오 A(3개)/B(2개, CURRENT/FIXED_V2 각각) 실행 후
+"TOTAL: 12/12 PASS" 출력 확인.

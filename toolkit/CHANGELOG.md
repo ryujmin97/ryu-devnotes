@@ -3,6 +3,19 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+## 2026-09-04 (228차)
+- `sim_route_228_v2.py` 신규 추가 -- 227차 클램프 적용 이후에도 남아있던
+  결함 재발견: ACTIVE 추적 중 vEgo가 완전정지(0)까지 떨어지면 정차 원인
+  해소 후에도 route_speed가 영구 고착되어 재가속 경로가 없음(자기참조적
+  고착). carrot_man.py 단독 수정 가설은 carrot_serv.py의 227차 클램프가
+  이를 다시 눌러버려 실패 -- 결함이 두 파일에 걸침을 확인. `route_inert`
+  신규 상태(route_active와 동일 mirroring)를 도입해 ACTIVE 추적을
+  "진짜 감속" vs "far-inert"로 구분하는 v2 설계로 12/12 PASS(고착 재현
+  시나리오 즉시 회복 + curve 재추적 확인, 224차 원 시나리오 무회귀 확인).
+  개발 과정에서 2차 버그(eff_dist<=0 구간까지 route_inert=True로 묶으면
+  floor 노출로 신규 회귀)도 발견/수정. ryu 실제 코드 패치는 아직
+  작성/적용 안 됨(§31 사용자 승인 대기). 상세는 FINDINGS.md/WIP.md
+  228차 참고.
 ## 2026-09-04 (227차)
 - `sim_route_227_ceiling_clamp_scope.py` 신규 추가 -- 226차의 ACTIVE 진입
   게이트 ceiling 분기(`out_speed=apex_speed`)와 `carrot_serv.py`의 225차 B
