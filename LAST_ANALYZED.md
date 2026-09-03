@@ -1341,3 +1341,16 @@ t=16:20~16:37) 재추출로 (1) routeOutSpeed 텔레메트리가 ceiling 적용
 에서는 성립하지 않음 — FINDINGS.md 222차로 보강(221차 원본 유지).
 **다음은 패치 방향 결정(lo 하한 vEgo ceiling 우선 보정 vs
 _route_speed_prev 리셋 vs 보류) 후 시뮬레이션 검증 착수.**
+
+2026-09-03 (224차, c3-ms-dev): 신규 커밋 없음(분석 세션, repo HEAD `ee1f5f8`=
+223차와 동일). 사용자 재업로드 222차 로그(17세그, `0000038c--2cbdaca9d2`,
+20,399행)로 223차 재설계 최초 실차로그 검증(오프라인 재생, `replay_route_223_
+vs_baseline.py` 신규). 222차 원 버그(정지->재출발 vEgo 55kph 초과 8초+ 고정)
+재현 안 됨 -- FIX 확인. 신규 발견 2건: (1) apex 도달 전 정지 시 RELEASE
+미작동(80.8초간 out_speed 44.996~47.270kph 유지, NEEDS_INVESTIGATION,
+사용자 판단 대기), (2) 219/220차 apexIdx flicker가 램프리미터 삭제로 인해
+out_speed에 그대로 노출(단발 스윙 103건, 이번 로그에서 급제동 유발 사례는
+0건이나 NEEDS_INVESTIGATION). check_device_build.py로 이 로그의 실제
+온디바이스 dirty=True 재확인(222차가 dirty=False로 적었던 것은 컨테이너
+checkout 기준 오기로 추정). 상세는 WIP.md/FINDINGS.md 224차 참고. **다음은
+발견 2건 처리 방향 사용자 결정 후 재검증 -> 실차 재검증 순서.**

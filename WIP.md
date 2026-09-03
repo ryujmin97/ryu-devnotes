@@ -1,3 +1,85 @@
+## 224차 (완료 — 223차 실차로그 오프라인 검증 완료, 신규 발견 2건, 코드 변경 없음) — 223차 재설계 검증: 222차 버그 FIX 확인 + apex-전-정지 RELEASE 미작동 + apexIdx flicker 노출
+
+**Worker**: Claude
+
+**Base commit (ryu, 이 시점)**: `ee1f5f8`(223차, push 완료 재확인 — 이전
+세션 WIP는 "패치 전달 완료, 실차 검증 전"까지만 기록했으나 실제로는 이미
+`git am`+push까지 완료된 상태였음, 이번 세션 시작 시 재클론으로 확인)
+
+**Base commit (devnotes, 이 시점)**: `0567b54`(223차 계속4)
+
+**입력**: 사용자가 222차 때 썼던 그 17세그 실차로그(`0000038c--2cbdaca9d2`,
+2026-09-03 16:20~16:37)를 재업로드(컨테이너 리셋으로 재추출 필요, §11).
+`extract_log.py --with-navi-paths --repo /home/claude/ryu`로 20,399행 재추출.
+`check_device_build.py`로 실제 온디바이스 gitCommit이 `7519a3a`(221차)의
+후손임을 재확인(단 dirty=True — 아래 한계 참고, 222차가 "dirty=False"로
+적었던 것은 컨테이너 checkout의 meta.json dirty 필드를 잘못 인용한 것으로
+추정, 실제 디바이스 dirty 여부는 이번에 `check_device_build.py`로 처음
+직접 확인함).
+
+**핵심 통찰(naviPaths 재파싱 불필요)**: 223차가 curve 후보 선택 로직
+(`candidates[0]`, 179/196차 방식)을 그대로 재사용했으므로(STEP1 KEEP),
+로그에 이미 기록된 `routeApexIdx/routeApexDist/routeApexSpeed`(193/194차
+계측)를 새 상태기계 입력으로 그대로 재사용 가능 — 158차
+`replay_route_apex_vs_baseline.py`가 겪었던 "미기록 파라미터 가정치 대체"
+신뢰도 문제가 없음.
+
+**한 일**:
+1. `toolkit/replay_route_223_vs_baseline.py` 신규 작성 — `carrot_man.py`
+   L840-922 223차 실제 코드를 그대로 옮긴 `RouteSim223`으로 프레임별 재생,
+   `liveRouteSpeed`(구코드 실측) vs `new_out_speed`(223차 재계산)를
+   "vEgo+2kph 초과 유지 구간" 기준으로 대조.
+2. 합성 데이터(222차 버그 패턴 흉내)로 스크립트 자체 자체검증 먼저 완료.
+3. 실제 222차 로그로 재생 실행 — 결과는 FINDINGS.md 224차 참고.
+
+**핵심 발견**(상세는 FINDINGS.md 224차):
+1. **CONFIRMED**: 222차의 "정지→재출발 8초+ vEgo 55kph 초과 고정" 패턴은
+   223차 재계산에서 재현 안 됨 — 설계 의도대로 apex_dist<=10m 즉시 RELEASE.
+2. **신규(NEEDS_INVESTIGATION)**: apex "도달 전"에 정지하면(이번 로그
+   실측: apex_dist=40m 지점에서 80.8초 정지) RELEASE 조건(apex_dist<=10m)이
+   전혀 안 걸려 그 80.8초 내내 out_speed가 44.996~47.270kph로 유지됨(같은
+   구간 구코드 실측 liveRouteSpeed는 20.0~34.8kph로 더 낮았음) — 222차와는
+   다른 메커니즘이지만 같은 성격("정지 중 route가 실질적 브레이크 역할
+   못 함")의 문제가 재설계 후에도 남아있음. 사용자 판단 필요(§10/§11
+   설계의도가 "정지"까지 다루는지 확인 요망).
+3. **신규(NEEDS_INVESTIGATION)**: 219/220차가 이미 확정한 apexIdx flicker
+   (리샘플 그리드 재앵커링 노이즈)가, 223차가 프레임간 램프리미터를
+   전량 삭제(무상태 설계 의도)하면서 그대로 out_speed에 노출됨(t=649~656
+   순항구간 실측: 매 프레임 85→99→86→97kph 요동, 구코드는 동일 구간
+   85.1→86.5로 매끈). 전수조사 결과 이번 로그에서 vEgo보다 낮은 쪽으로
+   튀는 고립 프레임(=실제 감속 오탐)은 0건 — 급제동 유발 사례는 없었으나
+   다른 도로에서는 다를 수 있음. 219/220차 flicker 게이트 재설계 우선순위
+   상향 검토 권고.
+
+**검증**: 실차로그 오프라인 재계산(20,399행, 실측 routeApex* 재사용).
+**정적분석**: 없음(코드 변경 없는 분석 세션). **시뮬레이션**: 실시(위).
+**실차 재검증(패치 적용 후 실주행)**: 여전히 미실시.
+
+**한계(반드시 인지)**: (a) `turnSpeedControlMode`가 로그에 프레임별로
+없어 전 구간 mode on(2/3) 가정 — 실제로 mode가 꺼진 구간이 있었다면 그
+구간 비교는 무효. (b) `autoNaviSpeedDecelRate=1.00`/`autoNaviSpeedCtrlEnd=7.0`
+가정치(222차 시점 추정) — 실제 디바이스 값과 다르면 재실행 필요. (c) 디바이스
+dirty=True(빌드 시점 미커밋 변경 존재) — 로그가 "221차 코드 그대로"인지
+100% 단정 불가(178차와 동일 성격 한계).
+
+**전달 파일**: `WIP.md`(이 항목), `FINDINGS.md`(224차 항목 신규),
+`toolkit/replay_route_223_vs_baseline.py`(신규), `toolkit/README.md`/
+`CHANGELOG.md`(신규 도구 등록).
+
+**다음 작업(우선순위순)**:
+1. 발견 2("apex 전 정지 시 RELEASE 미작동") 처리 방향 사용자 결정 —
+   예: vEgo<=X(예: 1kph) 게이트를 apex_dist 조건과 OR로 추가해 정지 중엔
+   apex_dist 무관 즉시 RELEASE.
+2. 발견 3(apexIdx flicker 노출)과 219/220차 flicker 게이트 재설계를 묶어
+   우선순위 재검토.
+3. 위 2건 반영 여부 결정 후 재검증 -> 그 다음에야 실차 재검증 착수.
+4. `navi_points_active` dropout 원인 조사(이월).
+5. 디바이스 로컬 dirty 상태 정리(이번 세션에서 dirty=True 재확인 —
+   223차 계속4가 언급한 "23커밋 앞선 로컬 merge + radard.py 직접수정"과
+   동일 건일 가능성, 사용자 확인 요망).
+
+---
+
 ## 223차 계속4 (STEP4~7 완료 — 코드 수정+합성검증+devnotes 기록+패치 전달 완료, 실차 검증 전) — Route 감속 로직 전면 단순화 재설계
 
 **Worker**: Claude

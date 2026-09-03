@@ -1439,6 +1439,43 @@ python3 replay_route_apex_vs_baseline.py <route.csv> --accel 0.70
 python3 replay_route_apex_vs_baseline.py <route.csv> --accel 0.70 --json out.json
 ```
 
+## replay_route_223_vs_baseline.py (224차, 신규 -- 실측 패치 검증, MIXED)
+**목적**: 223차 재설계(`carrot_navi_route()`의 무상태 감속식 + route_active/
+route_release_time 상태기계, L840-922)를 "223차 패치 적용 이전" 실측
+로그로 검증한다. 158차 `replay_route_apex_vs_baseline.py`와 달리, 223차는
+curve 후보 선택 로직(`candidates[0]`, 179/196차 방식)을 그대로 재사용했으므로
+naviPaths를 재파싱할 필요가 없다 -- 로그에 이미 기록된
+routeApexIdx/routeApexDist/routeApexSpeed(193/194차 계측)를 그대로
+새 상태기계 입력으로 재사용한다.
+**의존성**: 없음(표준 csv/json만 사용, analysis_helpers 불필요).
+**주요 클래스/함수**:
+- `RouteSim223(decel_rate_mss, ctrl_end_s, assume_mode_on)` -- 실제
+  carrot_man.py 로직을 그대로 옮긴 상태기계. `.step(t, v_ego_kph, apex_idx,
+  apex_dist, apex_speed_kph)` 프레임별 호출.
+- `replay(rows, decel_rate_mss, ctrl_end_s, assume_mode_on)` -- CSV 행
+  리스트를 프레임별 재생.
+- `find_overshoot_segments(result, margin_kph, min_len_s, field)` --
+  liveRouteSpeed 또는 new_out_speed가 vEgo+margin_kph를 min_len_s 이상
+  초과 유지하는 구간 탐지(222차가 쓴 지표와 동일).
+**한계(중요)**: (1) turnSpeedControlMode가 프레임별로 로그에 없어
+  `--assume-mode-on`(기본 True)으로 전 구간 mode on 가정 -- 실제 mode
+  전환 구간이 있으면 그 구간 비교 무효. (2) autoNaviSpeedDecelRate/
+  autoNaviSpeedCtrlEnd는 디바이스 Params값이라 로그에 없어 `--decel-rate`/
+  `--ctrl-end` CLI 인자로 가정치 지정(기본 1.00/7.0, 224차 시점 추정값).
+**224차 실측 검증 결과(MIXED)**: 222차 로그(17세그)로 실행 -- 222차 원
+  버그(정지->재출발 8초+ vEgo 55kph 초과 고정)는 재현 안 됨(FIX 확인).
+  단 신규 발견 2건: (a) apex 도달 "전"에 정지하면 RELEASE 자체가 안
+  걸려 80.8초간 out_speed가 44.996~47.270kph 유지(같은 성격의 다른
+  메커니즘 문제), (b) 219/220차 apexIdx flicker가 프레임간 램프리미터
+  삭제로 인해 그대로 out_speed에 노출(단발 스윙 103건 확인, 단 이번
+  로그 기준 vEgo 미만으로 튀는 고립 감속 프레임은 0건). 상세는
+  FINDINGS.md/WIP.md 224차 참고.
+**사용**:
+```bash
+python3 replay_route_223_vs_baseline.py <route.csv> \
+    --decel-rate 1.00 --ctrl-end 7.0 [--json out.json]
+```
+
 ## sim_route_apex_hysteresis.py (158차계속/159차, 신규 — 대안 설계 검증, NEGATIVE)
 **목적**: 157차 `carrot_navi_route_apex`(매 프레임 무상태 전역탐색)에
 대해 "apex마다 명시적 리셋을 넣으면 연속 굽이길에서 톱니 진동이 생기지

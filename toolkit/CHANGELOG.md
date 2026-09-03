@@ -990,3 +990,13 @@ discontinuity 0건). 개발 중 트리거 소스별 boost_s 미구분 버그가 
   77.3%)함을 확인. 이 결과와 별개로 t=466~467 구간 실제 device 텔레메트리
   자체(routeApexSpeed)가 5.0을 기록해, sharpest_candidate가 미리 잡아낸
   5.0kph 후보가 아티팩트가 아니라 실재하는 급커브임을 교차검증함.
+## 224차
+- `replay_route_223_vs_baseline.py`: 신규 -- 223차 재설계(무상태 감속식,
+  carrot_man.py L840-922) 검증용. curve 후보 선택 로직이 223차에서도
+  불변임을 이용해 naviPaths 재파싱 없이 로그의 routeApexIdx/Dist/Speed
+  (193/194차 계측)를 그대로 입력으로 재사용, liveRouteSpeed(구코드 실측)
+  vs new_out_speed(223차 오프라인 재계산)를 "vEgo+2kph 초과 유지 구간"
+  기준으로 대조. 222차 로그(17세그, 0000038c--2cbdaca9d2)로 실측 검증 --
+  222차 원 버그(정지->재출발 55kph 초과) FIX 확인 + 신규 발견 2건(apex
+  전 정지 시 RELEASE 미작동/apexIdx flicker 무감쇠 노출). 상세는
+  FINDINGS.md 224차 참고.
