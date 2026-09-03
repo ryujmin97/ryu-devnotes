@@ -1,3 +1,91 @@
+## 217차 (진행 중 -- 1/2단계 코드 반영+push 완료, 3단계 이후 미착수) -- 사용자 설계문서 "Route 감속 다음 설계 방향" 적용 착수
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu` + `ryujmin97/ryu-devnotes`
+
+**Branch**: `c3-ms-dev` / `main`
+
+**Base commit (ryu, 이 회차 시작 시점)**: `4514e97`(214차, clean)
+
+**Base commit (devnotes, 이 회차 시작 시점)**: `2a720df`(216차)
+
+**배경**: 사용자가 215차가 실차로그로 확인한 "신호대기 정지 중에도 route
+목표속도가 계속 하강" 현상(172/173차 하강램프가 vEgo/정지여부와 무관하게
+순수 시간 기준 2.52km/h/s로만 동작) 다음 단계로, `Route 감속 다음 설계
+방향.md` 문서를 제공. 핵심 원칙 8개(route는 감속만/가속은 기존로직,
+150 고정 상한을 설정속도 기준으로 전환, 탐색범위 300m 고정 원복, 곡선
+통과 후 해제, 연속곡선 반복적용, 감속률 재검토, 하강램프 즉시삭제 금지,
+전체 8단계 구현순서)를 제시하며 "구현 전 검증 순서"로 1단계(300m 원복)
+->2단계(150->설정속도)->...->8단계(실차검증) 순서를 명시.
+
+**갭 분석(코드 대조 결과)**:
+1. "route는 감속만" / 4. "곡선통과 후 해제": 구조적으로 이미 부분 충족--
+   `carrot_serv.py` update_navi()의 `speed_n_sources` min() 아비트레이션
+   구조상 route_speed는 여러 후보 중 하나일 뿐이며, apex 통과 후 route_speed가
+   다시 올라가면 다른 후보(vturn/model/road)가 자연히 최종값을 결정.
+2. "시작상한 150->설정속도": **미충족 확인** -- `ROUTE_MAX_SPEED_KPH=150`이
+   sentinel과 활성 ceiling(carrot_man.py 舊 L1019 `out_speed = min(...,
+   ROUTE_MAX_SPEED_KPH)`)에 겸용되고 있었음.
+3. "탐색범위 300m 고정": **미충족 확인** -- 84/85차가 300~600m 동적 캡으로
+   변경한 상태 그대로.
+
+**작업 내용**:
+
+1. **1단계(300m 원복)**: 84차가 도입한 `compute_route_lookahead_distance()`
+   (v_ego/accel_limit 기반 300~600m 동적 캡, 85차가 500->600 상향)를 제거하고
+   84차 이전처럼 `route_lookahead_m = 300.0` 리터럴로 복귀. 새 함수 없이
+   호출부 리터럴 사용(§27). 실제 감속 시작 시점은 이 탐색범위가 아니라
+   물리계산(calculate_current_speed)이 담당하므로 회귀 위험 낮음.
+   - 커밋 `67b1ff0` -> 사용자 push 완료(`4621705`).
+
+2. **2단계(150 고정 상한 -> min(vCruise,150))**: 실제 업로드된 215차
+   18세그 CSV(`x18seg_215cha_route.csv`, 20,282 rows)로 직접 재검증 --
+   t=375.522(vCruise=55.0 고정 구간)에서 `liveRouteSpeed`가 정확히
+   150.0에서 클램프됨을 확인(routeOutSpeed raw값은 156.5로 150 초과).
+   즉 "150에서 천천히 감속 시작" 제보의 직접 원인이 ceiling 리터럴 150임을
+   실측으로 재확인. `carrot_man.py` ceiling 라인을 `out_speed = min(out_speed,
+   max(v_ego_kph, sharpest_candidate_speed), ROUTE_MAX_SPEED_KPH)` ->
+   `route_ceiling_kph = min(vCruise, ROUTE_MAX_SPEED_KPH) if vCruise>0 else
+   ROUTE_MAX_SPEED_KPH; out_speed = min(out_speed, max(v_ego_kph,
+   sharpest_candidate_speed), route_ceiling_kph)`로 교체. vCruise<=0(비정상)
+   폴백은 기존 150 유지. 상한은 항상 <=기존 150이므로 완화 방향 회귀는
+   구조적으로 불가능(207차와 동일 논리).
+   - 커밋 `e55dde8` -> **사용자 push 대기 중**(패치 파일 전달, 아래 참고).
+
+**검증**:
+- 정적 분석: 실시(각 커밋 py_compile SYNTAX_OK, diff 범위 최소 확인)
+- 로그 분석: 2단계는 실제 215차 CSV로 문제 재현 지점(t=375.5) 실측 재확인.
+  단, 새 코드 반영 후 재로깅한 "수정 후 실측"은 아직 없음(정성적 확인만).
+- 시뮬레이션: 미실시(1단계는 탐색범위만 바꾸므로 물리계산 영향 없음 판단,
+  2단계는 monotonic-보수화 불변식으로 대체 -- 정식 시뮬레이션 스크립트는
+  아직 작성하지 않음, 다음 과제로 이관 가능)
+- 실차 검증: 미실시(1단계는 push만 완료, 2단계는 push 대기)
+
+**미완료**:
+1. 2단계 패치 사용자 push.
+2. 문서 3단계(곡선 통과 후 route 제한 해제 확인) -- 갭 분석상 구조적으로는
+   이미 되어 있을 가능성이 높으나, 명시적 시나리오 검증은 아직 안 함.
+3. 4단계(연속곡선 1차통과->가속->2차감속 확인).
+4. 5단계(calculate_current_speed 실제 감속거리 계산 재검토).
+5. 6단계(0.70 m/s^2 감속률 적정성 검증).
+6. 7단계(172/173차 하강램프 필요성/적용조건 최종결정 -- 215차가 발견한
+   "정차 중에도 시간기준으로만 하강" 문제와 직결, 아직 손대지 않음).
+7. 8단계(실차 검증) -- 1/2단계 모두 아직.
+
+**다음 작업**:
+1. 2단계 패치 push 확인.
+2. 3~4단계(곡선통과 해제/연속곡선) 시나리오 기반 코드 검토 또는 시뮬레이션.
+3. 실차 주행으로 1/2단계 합산 효과(150 스파이크 소거 여부) 확인 -- 215차와
+   동일한 좌회전 구간 재현 로그 요청 예정.
+
+**전달 파일**:
+- `0001-217-route-ceiling-150-min-vCruise-150.patch` (ryu, `git am`용,
+  1단계는 이미 push되어 base에 포함됨)
+- `WIP.md`(이 항목)
+
+---
+
 ## 215차 (완료 -- 214차 B안 실차 검증 1차 실시, POSITIVE) -- route ceiling 거리인지화 실차로그 검증 + apexIdx flicker 실측 발견
 
 **Worker**: Claude
