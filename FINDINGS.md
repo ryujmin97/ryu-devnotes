@@ -1,3 +1,51 @@
+## 226차 — [코드 수정 완료] ACTIVE 진입 게이트에서 out_speed=None이 route ceiling 자체를 제거하는 설계 갭 발견 + 수정
+
+**계기**: 사용자가 전달한 ChatGPT의 225차 정적점검 보고서. 225차 A/B
+패치(continuation 분기 ceiling-fix, carrot_serv floor-fix) 자체는 정상
+이라고 확인하면서도, 그와 별개로 ACTIVE 진입 게이트가 "Route=vEgo 상한
+(ceiling)"이라는 새 설계 의도와 모순되는 부작용을 갖는다고 지적.
+
+**대상**: `carrot_man.py::carrot_navi_route()` L896-902(ACTIVE 진입 게이트,
+223차부터 존재) + `carrot_serv.py::update_navi()` L1127-1151(`route_speed
+is not None`일 때만 `speed_n_sources`에 추가, 223차 STEP3부터 존재).
+
+**핵심 결과**: 실제 코드 확인 결과 지적이 실재함을 확인.
+
+```python
+elif not self.route_active and v_ego_kph <= apex_speed:
+    out_speed = None   # 223차 의도: "가속 명령을 만들지 않는다"
+```
+
+`out_speed=None`은 `carrot_serv.py`에서 route를 `speed_n_sources`에서
+아예 제외시킨다(`if route_speed is not None: ... speed_n_sources.append(...)`).
+즉 "가속 명령을 안 만든다"가 아니라 "route를 arbitration에서 완전히
+제외"가 되어, `vEgo<=apex_speed`인 동안은 apex_speed라는 ceiling 자체가
+사라진다. vCruise가 apex_speed보다 높으면(예: vEgo=60/apex_speed=80/
+vCruise=100) 다른 소스가 desired_speed를 결정해 apex_speed를 넘어
+vCruise까지 풀릴 수 있다.
+
+이 갭은 225차 A/B와 무관한 **223차 원 설계 자체의 갭**이다(225차가
+새로 만든 문제가 아님) — "가속 명령 생성 금지"와 "ceiling 유지"를
+같은 하나의 반환값(`None`)으로 처리하려다 두 요구사항이 충돌한 경우.
+
+**수정**: `out_speed = apex_speed`로 변경. `min()` arbitration은 절대
+위로 밀어올리지 않으므로 "가속 명령 생성 금지"는 그대로 보장되면서
+apex_speed ceiling만 유지된다. `route_active`는 여전히 False로 유지
+(추적 시작이 아니므로 hold 등 §11 재부착 방지 로직 대상 아님) — 1줄
+로직 변경만으로 두 요구사항을 동시에 만족.
+
+**검증**: `toolkit/sim_route_226_active_gate_ceiling.py` 5 CASE(핵심
+재현/정상감속 회귀없음/Stop&Go ceiling 유지/연속곡선 stale target
+없음/205·207차 유사패턴 재도입 없음) 24/24 체크 PASS. 독립 클론
+`git apply --check`+`git am`+`py_compile` 검증 완료. 상세는 WIP.md
+"226차" 참고.
+
+**실차 검증: 미실시** — 합성 시나리오 + 패치 적용 검증만 수행.
+
+**미확인 사항**: apex_dist가 매우 작아지는 구간(RELEASE 직전 경계)에서
+ceiling(apex_speed)과 실제 감속 목표 간 텔레메트리 표시 혼선 여부는
+미검토. 다음 실차 로그 확보 시 확인 필요.
+
 ## 225차 — [코드 수정 완료] 224차 발견2("apex 전 정지 시 RELEASE 미작동") 근본원인 규명 + 수정: route ceiling/floor 버그 2건
 
 **대상**: 224차가 오프라인 검증으로 발견한 "핵심 결과 2"(apex 진입 전 정지

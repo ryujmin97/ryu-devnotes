@@ -3,6 +3,20 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+## 2026-09-04 (226차)
+- `sim_route_226_active_gate_ceiling.py` 신규 추가 -- `carrot_navi_route()`
+  ACTIVE 진입 게이트(`not route_active and v_ego_kph<=apex_speed` 분기,
+  L896-902)가 `out_speed=None`을 반환하면 `carrot_serv.py::update_navi()`가
+  route를 `speed_n_sources`에서 완전히 제외해 apex_speed ceiling 자체가
+  사라지는 설계 갭(ChatGPT 225차 정적점검, vEgo=60/apex=80/vCruise=100 ->
+  100까지 개방) 검증. GATE 분기만 OLD(None)/NEW(apex_speed) 대조,
+  225차 A/B는 불변으로 고정. CASE1(핵심 재현)/CASE2(정상 감속 회귀
+  없음)/CASE3(Stop&Go ceiling 유지)/CASE4(연속곡선 stale target
+  없음)/CASE5(205/207차 회귀 -- apex flicker 스파이크 없음) 전체 PASS
+  (24/24 체크). PASS 확인 후 `carrot_man.py` 1줄 패치(`out_speed=None`
+  -> `out_speed=apex_speed`) 적용, 독립 클론 `git apply --check`+`git am`
+  검증 완료. 상세는 FINDINGS.md/WIP.md "226차" 참고.
+
 ## 2026-09-03 (224차)
 - `sim_route_224_ceiling_fix.py` 신규 추가 -- 223차 재설계 continuation
   분기의 "v_ego<=target일 때 out이 target으로 확정되어 route가 가속 목표

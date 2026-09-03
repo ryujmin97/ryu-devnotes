@@ -1,3 +1,86 @@
+## 226차 (완료 -- 시뮬레이션 검증+패치 적용+독립클론 재검증 완료) -- ACTIVE 진입 게이트 ceiling 갭 수정: out_speed=None -> apex_speed
+
+**Worker**: Claude
+
+**Base commit (ryu, 이 시점)**: `ec56861`(225차 계속2)
+**Base commit (devnotes, 이 시점)**: `02451de`(225차 계속2)
+
+**배경**: 사용자가 ChatGPT의 225차 정적점검 보고서를 전달 -- `carrot_navi_route()`
+ACTIVE 진입 게이트(`not self.route_active and v_ego_kph<=apex_speed`, L896-902)가
+`out_speed=None`을 반환하면 `carrot_serv.py::update_navi()`가 route를
+`speed_n_sources`에서 완전히 제외해, "Route=vEgo 상한(ceiling)"이라는
+현재 설계 의도와 달리 이 상태에서는 apex_speed ceiling 자체가 사라진다는
+지적(예: vEgo=60/apex_speed=80/vCruise=100 -> 100까지 개방 가능). 세션
+시작 시 GitHub 재확인 결과 원격은 `ec56861`/`02451de`로 문서 작성 시점과
+동일 -- 다른 작업자 개입 없음(§33 확인 완료). 사용자가 "먼저 코드 수정
+말고 시뮬레이션부터"로 226차 작업 지시 -- §28(추측 금지)/§27(최소 변경)
+원칙에 따라 진행.
+
+**한 일**:
+1. 실제 코드 확인(추측 아님) -- `carrot_man.py` L896-902(ACTIVE 진입
+   게이트) + `carrot_serv.py` L1127-1151(`route_speed is not None`일 때만
+   `speed_n_sources`에 추가)을 직접 읽어 ChatGPT 지적이 실재함을 확인.
+   `apex_idx=candidates[0]`(거리 오름차순 최근접, 205/207차의 sharpest
+   방식이 이미 아님)도 함께 재확인.
+2. `toolkit/sim_route_226_active_gate_ceiling.py` 신규 작성 -- `RouteSim`
+   (223차 상태기계+225차 A ceiling-fix 재구현, GATE 분기만 OLD(`None`)/
+   NEW(`apex_speed`) 파라미터화) + `arbitrate()`(225차 B floor-fix+
+   `speed_n_sources`+`min()` 재구현) 2계층으로 전체 파이프라인 재현.
+   1차 작성 시 CASE1/3 워밍업 프레임이 `v_ego>apex_speed`로 시작해 GATE
+   진입 전 `route_active`가 먼저 True가 돼버리는 실수 발견 -- 워밍업도
+   `v_ego<=apex_speed`로 수정해 재검증(디버깅 과정 자체를 이 기록에 남김,
+   §17 "실제로 하지 않은 검증을 했다고 보고하지 않는다" 준수).
+3. 요구된 5개 CASE 전부 실행, PASS(24/24 체크):
+   - CASE1(vEgo60/apex80/vCruise100): OLD는 route 제외->final=100(버그
+     재현), NEW는 route가 80 ceiling 유지->final=60, route_active는
+     NEW도 계속 False(가속 명령 생성 금지 원 의도 보존).
+   - CASE2(vEgo100/apex80, 정상감속): GATE 미개입 구간, OLD==NEW 완전
+     동일 -- 회귀 없음.
+   - CASE3(vEgo0 Stop&Go): OLD는 정지/재출발 중에도 route 제외->vCruise
+     까지 개방. NEW는 정지 중/재출발 후 모두 80 ceiling 유지, RELEASE
+     오발동 없음.
+   - CASE4(연속곡선 A apex->RELEASE/2초 hold->B 재탐색): hold 중 정상
+     None 유지, hold 만료 후 target이 B(45) 방향으로 계속 감소하며 A(60)
+     고착 없음(매 프레임 무상태 재계산 구조상 애초에 "잔류" 불가능함을
+     재확인).
+   - CASE5(205/207차 회귀): 현재(223차+) 구조는 `_route_speed_prev`
+     비대칭 램프/`sharpest_candidate` ceiling 항이 이미 폐기된 무상태
+     구조라 원 버그 메커니즘 자체가 없음. apex 후보가 프레임마다 80<->30
+     흔들리는 최악 시나리오를 강제 주입해도 final이 150(road_limit/
+     vCruise)까지 스파이크하는 프레임 없음(0/10) 확인. apex 후보 선정
+     로직 자체는 미변경([금지] 준수).
+4. 5개 CASE PASS 확인 후에만 `selfdrive/carrot/carrot_man.py` L902
+   `out_speed = None` -> `out_speed = apex_speed` 1줄 로직 변경 적용
+   (+ 배경 설명 주석, 225차 A/B는 미변경).
+5. `python3 -m py_compile` 통과 확인.
+6. `git commit` -> `git format-patch` -> **별도의 새 독립 클론**(원격에서
+   새로 받은 클론, §3/§33)에서 `git apply --check` + `git am` +
+   재컴파일 전부 성공 확인.
+7. `toolkit/README.md`/`toolkit/CHANGELOG.md` 갱신, 시뮬레이션 스크립트를
+   `toolkit/`에 저장(§21/22 준수, `work/`에만 남기지 않음).
+
+**검증**:
+- 정적 분석: 실제 소스(`carrot_man.py`/`carrot_serv.py`) 직접 확인, py_compile 통과
+- 로그 분석: 미실시(이번 세션은 합성 시나리오 검증만, 관련 실차 로그 없음)
+- 시뮬레이션: `sim_route_226_active_gate_ceiling.py` 5 CASE/24 체크 전부 PASS
+- 실차 검증: **미실시**
+
+**미확인 사항**:
+- 실제 실차/로그 재현으로는 아직 확인 안 됨(합성 시나리오 + 독립 클론
+  patch-apply 검증까지만).
+- CASE5는 205/207차 당시와 동일한 코드 경로가 아니라(그 경로 자체가
+  223차에서 이미 폐기됨) "유사 실패 패턴 재도입 여부"를 확인한 것 --
+  엄밀한 의미의 "동일 회귀 시나리오 재실행"은 아님(코드 아키텍처가
+  근본적으로 달라 재현 자체가 불가능).
+- 226차 변경으로 apex 도달 직전(예: apex_dist가 매우 작아지는 구간)에서
+  ceiling(apex_speed)과 실제 감속 목표가 동시에 존재하게 되는 경계에서
+  UI/텔레메트리 표시(`routeApexSpeed` 등)가 혼선을 주는지는 미검토.
+
+**다음 작업**:
+- 사용자 확인 후 GitHub push, 패치 적용 결과를 다음 실차 로그로 재검증
+- 217차에서 유보된 3~8단계(연속곡선, 감속률, descent ramp 등)는 이번
+  226차와 별개로 계속 유보 상태 -- 필요 시 다음 세션에서 재개
+
 ## 225차 계속2 (완료 -- carrot_man.py ceiling-fix 적용+검증+패치 완료, (A)+(B) 전부 완료) -- 224차 발견2 코드 수정 마무리: route ceiling/floor 버그 2건
 
 **Worker**: Claude

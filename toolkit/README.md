@@ -2815,3 +2815,62 @@ CASE3(vEgo 여유 있을 때 바닥값 보호기능 유지 확인, 회귀 없음
 python3 sim_route_224_serv_floor_fix.py
 ```
 인자 없음, "ALL 224CHA SERV-FLOOR-FIX CASES PASSED" 출력 확인.
+
+## sim_route_226_active_gate_ceiling.py (226차, 신규 — ACTIVE 진입 게이트 ceiling 갭 검증 + 1줄 패치 사전검증)
+
+**목적**: `carrot_navi_route()`의 ACTIVE 진입 게이트(`not self.route_active
+and v_ego_kph<=apex_speed` 분기, L896-902)가 `out_speed=None`을 반환하면
+`carrot_serv.py::update_navi()`(L1127-1151)가 route를 `speed_n_sources`에서
+완전히 제외한다. Route는 "가속 목표"가 아니라 "vEgo 상한(ceiling)"이라는
+현재 설계 의도와 달리, 이 상태에서는 apex_speed ceiling 자체가 사라져
+vCruise 등 다른 소스가 desired_speed를 apex_speed 위로 밀어올릴 수 있음
+(예: vEgo=60/apex_speed=80/vCruise=100 -> 100까지 개방). ChatGPT의 225차
+정적점검 보고서가 지적한 갭을 226차 작업 지시에 따라 코드 수정 전에
+합성 시나리오로 재현/검증한다.
+
+`RouteSim`(223차 상태기계 + 225차 A ceiling-fix 재구현, GATE 분기만
+OLD(`out=None`)/NEW(`out=apex_speed`) 파라미터로 분기) + `arbitrate()`
+(`carrot_serv.py` 225차 B floor-fix + `speed_n_sources`+`min()` 재구현)
+두 계층으로 `carrot_navi_route() -> route_speed -> autoCurveSpeedLowerLimit
+-> speed_n_sources -> min() -> final_desired_speed/source`까지 전체
+파이프라인을 재현한다.
+
+**핵심 결과(POSITIVE, 5/5 CASE, 24/24 체크 PASS)**:
+- CASE1(vEgo60/apex80/vCruise100, 핵심 재현): OLD는 route 제외되어
+  final=100(vCruise)까지 개방(버그 재현) -> NEW는 route가 80 ceiling으로
+  arbitration에 남아 final=60(vEgo 그대로, 80 미만이라 가속도 안 함),
+  route_active는 NEW에서도 계속 False 유지(추적 시작 아님, "가속 명령
+  생성 금지" 원 의도 그대로 보존).
+- CASE2(vEgo100/apex80, 정상 감속): GATE 미개입 구간이라 OLD==NEW 완전
+  동일, out<=vEgo 불변식 유지 — 회귀 없음.
+- CASE3(vEgo0 Stop&Go): OLD는 정지/재출발 중 route 제외-> final이
+  vCruise까지 개방. NEW는 정지 중에도 ceiling(80) 유지, 재출발 후에도
+  100까지 안 풀림, RELEASE 오발동 없음(진입한 적이 없으므로 hold 대상
+  아님).
+- CASE4(연속곡선 A apex 도달->RELEASE/2초 hold->B 재탐색): hold 중엔
+  OLD/NEW 모두 정상 None, hold 만료 후 target이 B(45) 방향으로 계속
+  감소하며 A(60)에 고착되지 않음 확인 — 매 프레임 무상태 재계산 구조상
+  "잔류 target" 자체가 애초에 구조적으로 불가능함을 재확인.
+- CASE5(205/207차 회귀 — apex flicker): 현재(223차+) 구조는 205/207차
+  당시의 `_route_speed_prev` 비대칭 램프/`sharpest_candidate` ceiling
+  항이 이미 폐기된 무상태 구조라 원 버그 메커니즘 자체가 없음. apex
+  후보가 프레임마다 80<->30으로 흔들리는 최악 시나리오를 외부 입력으로
+  강제 주입해도 final이 road_limit/vCruise(150)까지 스파이크하는 프레임
+  없음(0/10) — 226차 GATE 변경이 유사 실패 패턴을 재도입하지 않음 확인.
+  apex 후보 선정 로직 자체는 변경/재현 대상 아님(226차 작업 지시 [금지]).
+
+**패치 적용 및 검증**: 5개 CASE PASS 확인 후 `selfdrive/carrot/carrot_man.py`
+L902 `out_speed = None` -> `out_speed = apex_speed` 1줄 로직 변경(+설명
+주석) 패치 적용, `git format-patch`로 패치 생성 후 **독립 클론**에서
+`git apply --check` + `git am` + `py_compile` 전부 성공 확인(base
+`ec56861`, 225차 계속2). 225차 A(ceiling-fix)/B(floor-fix)는 손대지 않음.
+
+**실차 검증: 미실시** — 합성 시나리오 + 독립 클론 patch-apply 검증만
+수행. 실제 코드는 226차 패치로 별도 전달, 사용자 push 전.
+
+**사용**:
+```bash
+python3 sim_route_226_active_gate_ceiling.py
+```
+인자 없음, 고정 시나리오 5개(CASE1~5) 실행 후 "ALL 226CHA GATE-CEILING
+CASES PASSED" 출력 확인.
