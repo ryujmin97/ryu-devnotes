@@ -3,6 +3,16 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+## 2026-09-03 (219차)
+- `diag_route_boost_arm_219.py` 신규 추가 -- 199차 discontinuity boost가
+  t=1004~1030류 사례에서 미작동한 원인을 프레임별로 진단. 기존
+  `sim_route_217_ceiling_vcruise_ab.py`의 `Branch` 클래스를 그대로 재사용(§21),
+  `apex_delta_kph`/`boost_armed`/`required_decel_mss` 관측 레이어만 추가.
+  결과: 199차 게이트가 이 구간에서 armed 0회(최대 프레임간 낙차 10.75kph <
+  임계값 15.0kph) -- "부스트 무력화"가 아니라 "게이트 감지 사각지대"임을 확정.
+  `--decel-rate` 옵션으로 0.70/1.00 비교 가능(218차 결정 반영, 20.04s로 일부
+  단축되나 armed는 여전히 0). 상세는 FINDINGS.md/WIP.md "219차" 참고.
+
 ## 2026-09-03 (217차 계속2)
 - `sim_route_217_ceiling_vcruise_ab.py` 신규 추가 -- 217-2(out_speed ceiling
   상수항 150 고정 -> min(vCruise,150)) 실차로그 A/B 재검증. 215차 18세그

@@ -2614,3 +2614,38 @@ CSV 컬럼 요구: `t, vEgo, vCruise, naviPointsActive, routeApexIdx,
 routeApexDist, routeApexSpeed, routeOutSpeed, ccPoseValid,
 positionDtSinceFix, liveRouteSpeed, naviPaths`(`--with-navi-paths`로 추출
 필요).
+
+## diag_route_boost_arm_219.py (219차, 신규 — 199차 boost 미작동 원인 진단)
+
+**목적**: WIP 218차가 미확인으로 남긴 "199차 discontinuity boost가
+t=1004~1030 사례에서 왜 안 먹혔는지"를 프레임별로 진단. 위
+`sim_route_217_ceiling_vcruise_ab.py`의 `Branch` 클래스(199차 boost 로직을
+프로덕션과 동일하게 이식, sanity check median|diff|=0.74kph로 신뢰도
+확인됨)를 그대로 import해서 재사용(§21) — 새 재구성 로직을 작성하지
+않고, `apex_delta_kph`/`boost_armed`/`required_decel_mss`를 프레임별로
+노출하는 관측 레이어만 얹었다.
+
+**핵심 결과**: t=1000~1040 구간에서 199차 게이트
+(`ROUTE_APEX_SPEED_DISCONTINUITY_THRESH_KPH=15.0kph`)가 **단 한 번도
+무장되지 않음**(armed 프레임 수=0). 구간 내 최대 단일 프레임 낙차는
+10.75kph(t=1005.38)로 임계값 미만 — apexIdx가 매 프레임 인접 후보(10m
+간격)로 계속 전환되며(179차/215차 flicker와 동일 메커니즘) apex_speed가
+"단일 프레임 급락"이 아니라 잘게 쪼개진 계단식 하강(누적 104→42kph대)으로
+나타나기 때문. 199차 게이트는 "직전 프레임 대비 1-스텝 비교"로만
+설계돼 있어 이런 패턴을 구조적으로 감지할 수 없음 — 버그/회귀가 아니라
+설계 사각지대. 실측: 스파이크(104.0kph)에서 50kph 미만까지 0.70 m/s²
+기준 23.19초 소요(218차 "25초 이상" 기술과 근사 일치), 1.00 m/s²(218차
+결정) 적용 시 20.04초로 일부 단축되나 armed는 여전히 0(base ramp만
+빨라진 결과). 상세는 FINDINGS.md/WIP.md "219차" 참고.
+
+**실차 검증: 미실시** — 오프라인 로그 재생 분석만 수행.
+
+**사용**:
+```bash
+python3 diag_route_boost_arm_219.py [csv_path] [t0] [t1] [--decel-rate=1.0]
+```
+기본값: csv_path=`/mnt/user-data/uploads/x18seg_215cha_route.csv`,
+t0=1000.0, t1=1035.0, decel-rate=0.70. CSV 컬럼 요구는
+`sim_route_217_ceiling_vcruise_ab.py`와 동일하되 `naviPaths`는 불필요
+(이 진단은 candidate 재구성이 아니라 boost arm 로직만 검사하므로
+`routeOutSpeed`를 raw로 그대로 사용).
