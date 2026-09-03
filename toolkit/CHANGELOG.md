@@ -3,6 +3,14 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+## 2026-09-03 (217차 계속2)
+- `sim_route_217_ceiling_vcruise_ab.py` 신규 추가 -- 217-2(out_speed ceiling
+  상수항 150 고정 -> min(vCruise,150)) 실차로그 A/B 재검증. 215차 18세그
+  CSV(commit 4514e97) 재사용, naviPaths에서 214차 B안 방식으로 candidates
+  재구성(208차 방식 확장, 거리 포함). OLD 재구성이 recorded liveRouteSpeed와
+  median|diff|=0.74kph로 근접(sanity check PASS). 결과 POSITIVE -- 상세는
+  WIP.md "217차 계속2" 참고.
+
 ## 2026-09-03 (215차)
 - `verify_apex_transition_215.py` 신규 추가 -- 214차 B안(route ceiling 거리인지화)
   패치 반영 후 첫 실차 로그(x18seg, commit 4514e97)에서 WIP 214차 계속3이

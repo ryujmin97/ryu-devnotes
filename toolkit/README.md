@@ -2545,3 +2545,72 @@ NEW(B안, 거리 반영)를 나란히 계산하는 `compute()`로 구현.
 **적용 상태**: 214차 세션에서 사용자 확정 후 `carrot_man.py` L994
 (`sharpest_candidate_speed` 계산부)에 실제 패치 완료. **실차 검증: 미실시**
 (213차 20m 하드플로어 실차 검증과 함께 이월).
+
+## sim_route_217_ceiling_vcruise_ab.py (217차 계속2, 신규 — 217-2 실차로그 A/B 재검증, POSITIVE)
+
+**목적**: 217-2(`out_speed` ceiling 상수항 `ROUTE_MAX_SPEED_KPH=150` 고정 →
+`min(vCruise, 150)`) 패치를 215차 18세그 CSV(commit `4514e97`, 217차 이전
+코드로 촬영된 실차 로그)로 A/B 재생 검증. 이 CSV엔 204차 candidate
+telemetry가 없어(214차 이전 컬럼 구성) `naviPaths` 원시 폴리라인에서
+208차와 동일한 방식으로 candidates(거리+speed)를 재구성하고, 214차 B안
+(`calculate_current_speed(dist, speed, ...)` 재사용, 거리인지화)으로
+`sharpest_candidate_speed`를 계산 — 이 항은 217차가 건드리지 않았으므로
+OLD/NEW 양쪽에 동일 적용해 ceiling 상수항 교체 효과만 분리한다. 172/173차
+비대칭 램프(하강만 제한, 상승 무제한)도 OLD/NEW 각각 독립 상태로 동일
+적용.
+
+**sanity check**: OLD 재구성 out과 CSV의 실제 recorded `liveRouteSpeed`
+비교 — n=19,683, median|diff|=0.74kph, p90|diff|=11.56kph (naviPaths 마지막
+포인트 트림/도로제한 200 고정 가정 등 208차와 동일한 재구성 오차 범위,
+재구성 신뢰도 확인용).
+
+**핵심 결과(POSITIVE)**:
+- OLD가 145kph 이상(150 클램프 근접)으로 튀는 프레임 997개(전체 활성
+  19,683개 중 5.1%) — 이 프레임들에서 NEW는 평균 87.7kph 낮음(당시
+  vCruise 평균 61.4). **NEW 전체 로그 최댓값 = 70.0kph**(=이 로그의
+  vCruise 최댓값과 정확히 일치) — 150 근처 스파이크가 이 로그 전 구간에서
+  완전히 사라짐(NEW>=100kph 프레임 0개).
+- t=375.47 부근(WIP 217차가 지목한 "vCruise=55 고정 구간에서 150 클램프"
+  사례) 실측 재확인: OLD가 apex_idx 전환(0→5, apex_speed 5.0→132.6) 즉시
+  raw가 132.6까지 튀고 곧 150에 클램프된 뒤 172/173차 램프(2.52kph/s)로
+  느리게 하강. NEW는 같은 시점에 ceiling이 즉시 55(=vCruise)로 고정돼
+  raw 자체가 55를 넘지 않으므로 150 스파이크 자체가 발생하지 않고, apex
+  물리감속 곡선(routeOutSpeed)이 자연히 55 아래로 떨어지는 시점부터
+  매끄럽게 인계.
+- 전체 로그에서 이런 "OLD>=145" 클램프 에피소드 8건 확인(t=375.47~377.62,
+  498.23~515.57, 516.62~518.58, 522.28~524.22, 663.43~668.23,
+  896.18~899.83, 925.98~937.98, 1081.98~1087.58) — 각 에피소드 이후 OLD가
+  ramp로 실제 목표(apex_speed)까지 내려오는 데 관측상 30초 안팎 추가
+  소요(원 WIP 217차가 실측했던 패턴과 일치).
+- **arbitration 실측 영향 확인**: 위 8개 에피소드 구간(+후속 30초)에서 실제
+  `src` 컬럼 분포를 보면 대부분 `route`가 우세(예: 첫 에피소드 533/683,
+  두 번째 844/986 프레임) — 즉 이 150 스파이크/서행 감쇠가 내부값에만
+  머물지 않고 실제로 `desiredSpeed`를 상당 시간 지배했음을 실측으로 확인.
+  217-2가 이 문제를 해소하면 실제 종방향 제어에도 유의미한 개선이 기대됨.
+- NEW 브랜치 하강 램프 불변식(`accel_limit_kmh*dt` 이내) 위반 47프레임
+  발견 — 전부 vCruise 변경과 무관, 최대낙차 0.38kph로 미미하며 CSV 실측
+  프레임 간격이 20Hz 명목값(0.05s)에서 미세하게 벗어나는 것에 기인한
+  측정 아티팩트로 판단(램프 로직 자체의 회귀 아님).
+- 전체 활성 프레임의 47.2%(9,291/19,683)에서 OLD!=NEW — vCruise가 150보다
+  낮은 대부분의 구간에서 영향이 있으나, 이는 최종 `desiredSpeed`가 어차피
+  vCruise로 상한이 걸리는 것과 동일한 값으로 route ceiling을 낮추는 것뿐이라
+  기능적 회귀는 아님(§27 논리, 207차와 동일 — 상한이 항상 <=기존150이므로
+  완화 방향 회귀 구조적으로 불가능).
+
+**한계**: `sim_route_207_ceiling_ab_208.py`와 동일 — nRoadLimitSpeed 미기록
+으로 오프라인 재현은 200.0 고정 가정. 이 로그 1건(215차 18세그, 17분)만의
+검증이며, 217차가 아직 안 건드린 172/173차 하강램프(정차 중에도 시간기준
+하강, WIP 217차 미완료 7번)는 이 검증 범위 밖.
+
+**실차 검증: 미실시** — 이 스크립트는 기존 로그의 순수 재생(offline replay)
+검증이며, 217-2가 반영된 코드로 실제 재주행한 로그는 아직 없음.
+
+**사용**:
+```bash
+python3 sim_route_217_ceiling_vcruise_ab.py [csv_path]
+```
+기본 csv_path는 `/mnt/user-data/uploads/x18seg_215cha_route.csv`.
+CSV 컬럼 요구: `t, vEgo, vCruise, naviPointsActive, routeApexIdx,
+routeApexDist, routeApexSpeed, routeOutSpeed, ccPoseValid,
+positionDtSinceFix, liveRouteSpeed, naviPaths`(`--with-navi-paths`로 추출
+필요).
