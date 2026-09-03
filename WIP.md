@@ -1,3 +1,104 @@
+## 218차 (진행 중 -- 분석/설계 논의만, 코드 미수정) -- 217차 문서 5~7단계(감속률/램프 재검토) 착수 전 우선순위 확정 + 199차 boost 미작동 원인규명 필요성 특정
+
+**Worker**: Claude (ChatGPT와 교대 검토 포함)
+
+**Repository**: `ryujmin97/ryu` + `ryujmin97/ryu-devnotes`
+
+**Branch**: `c3-ms-dev` / `main`
+
+**Base commit (ryu, 이 세션 시작 시점, 재클론으로 확인)**: `78e76a9`(217차 계속, clean)
+
+**Base commit (devnotes, 이 세션 시작 시점, 재클론으로 확인)**: `368ff6b`(217차 계속2)
+
+**상태**: 다른 AI 작업 흔적 없음(HANDOFF.md/CURRENT_STATUS.md 없음, WIP.md
+최상단이 217차 계속2 그대로) -- 충돌 없이 이어서 진행.
+
+**배경**: 이전 세션에서 사용자가 발견한 "route가 apex 도달해도 목표속도를
+못 맞추는 문제"를 두 갈래로 분리 -- (1) 217차/217차계속2가 이미 해결한
+150 고정 ceiling 문제, (2) apexIdx flicker + 172/173차 램프 상호작용으로
+인한 별개의 근본원인(이전 세션 실측, t=1004~1030 사례: apex_speed가
+104->44로 튀었다 돌아오는 동안 liveRouteSpeed가 기본 램프율로만 25초 이상
+하강). 이번 세션은 (2)를 어떻게 재설계할지 사용자가 제시한 "A(탐색범위)/
+B(vEgo 기반 물리 트리거)/C(ramp 안정성)" 3분할 설계안을 Claude와 ChatGPT가
+교대로 검토.
+
+**작업 내용**:
+
+1. Claude가 A/B/C 3분할 설계 초안(물리공식 기반 트리거거리, 탐색범위 확장,
+   candidate 선정 hysteresis) 제시.
+2. 실제 코드(`selfdrive/carrot/carrot_man.py`) 대조 결과 초안의 정정사항
+   2건 발견:
+   - **A(탐색범위 확장)는 217차가 정확히 반대 이유로 롤백한 방향과 동일**
+     (L292-303 주석: 84/85차의 v_ego 기반 동적 lookahead(300~600m)가
+     "먼 후속 곡선 조기개입 + apexIdx flicker 악화"를 유발해 300m 고정으로
+     복귀). 지금 바로 재도입하면 215차가 실측한 flicker(활성 프레임 3.5%
+     매프레임 idx 변경, 특정 구간 25초간 idx 0~20 반복)를 다시 키울 위험.
+   - **C(ramp 안정성)는 완전 미해결이 아니라 부분 구현 존재**: 199차가
+     정확히 이 상황(apex_speed 프레임간 급락)을 겨냥한 "불연속 감속 boost"
+     메커니즘(L1040-1074)을 이미 넣어둠 -- 직전 프레임 대비 apex_speed가
+     `ROUTE_APEX_SPEED_DISCONTINUITY_THRESH_KPH`(15kph) 이상 떨어지면
+     무장(armed)하여 하강램프 상한을 기본 0.7 대신 vEgo 기반 필요감속도로
+     최대 `ROUTE_VEGO_BOOST_MAX_MSS`(3.0 m/s²)까지 부스트. t=1004~1030
+     사례(60kph 낙차)는 이 발동조건(15kph)의 4배 -- 이론상 발동했어야
+     하나 실측 liveRouteSpeed는 기본 램프율(2.52km/h/s)로만 25초+ 하강.
+     **"새로 설계"가 아니라 "왜 이미 있는 boost가 이 케이스에서 안 먹혔는지"
+     부터 확인 필요**(§28 원칙) -- 이번 세션엔 해당 CSV가 재업로드되지
+     않아(`/mnt/user-data/uploads` 비어있음) 실측 재검증은 다음 과제로 이관.
+   - (부수 정정) 제안했던 "candidate 선정 hysteresis"는 179차후속2가
+     도입했다가 **196차에 이미 제거한 `ROUTE_APEX_RELATIVE_SEVERITY_RATIO`
+     게이트와 유사** -- 그대로 부활시키면 196차가 고친 문제(사용자 설계문서
+     1차->2차 순차처리 원칙과의 충돌, 먼 급커브보다 가까운 완만커브 우선
+     못 하는 문제)가 재발할 수 있어 단순 부활은 부적절.
+3. ChatGPT 교차검토(본 문서 첨부, 전달 파일 참고) -- 위 2건 정정에 동의.
+   추가로 Claude의 "B(vEgo 기반 물리 트리거)는 calculate_current_speed가
+   이미 연속 물리식으로 구현 중이라 불필요"라는 판단은 **절반만 타당**하다고
+   지적: `calculate_current_speed()`는 거리(left_dist) 기반 연속식으로
+   vEgo를 인자로 쓰지 않으며(205차 주석 재확인), "vEgo 기준 필요감속거리
+   이전엔 아예 비구속" 개념과는 별개 -- B 자체는 유지하되 착수 순서를
+   C(미작동 원인 검증) -> A(300m 한계 재평가) -> B(vEgo 기반 설계)로
+   재정렬 제안.
+4. Claude가 ChatGPT 문서의 전제("Route 기준 감속률=1.0 m/s², Vturn=1.2
+   m/s²로 이미 합의")를 코드 대조 -- **새 정정 발견**: `AutoNaviSpeedDecelRate`
+   리포 기본값은 `120`(=1.2 m/s², `common/params_keys.h:195`)이며,
+   **route apex 감속(`carrot_navi_route`)과 카메라/과속방지턱 감속
+   (`carrot_serv.py`)이 동일 파라미터(`self.autoNaviSpeedDecelRate`)를
+   공유**하는 구조(둘 다 `calculate_current_speed()`에 같은 값 전달).
+   즉 "Route만 1.0으로, Vturn/카메라는 그대로"는 현재(공유 파라미터)
+   구조로는 불가능 -- route 전용 감속률 상수를 먼저 분리해야 함. 기존
+   WIP 세션들이 계산에 써온 "0.7 m/s²"는 리포 기본값이 아니라 사용자
+   디바이스에 저장된 실제 설정값으로 추정(파라미터는 `PERSISTENT` 사용자
+   설정, 리포는 기본값만 정의) -- 디바이스 현재 실제값은 미확인.
+
+**검증**:
+- 정적 분석: 실시(코드 리딩/grep 대조, py_compile 등 실행은 없음 -- 코드
+  변경 자체가 없었음)
+- 로그 분석: 미실시(대상 CSV 미보유)
+- 시뮬레이션: 미실시
+- 실차 검증: 미실시
+- ryu 소스 코드 변경 없음(이번 세션은 순수 분석/설계 논의).
+
+**미완료**:
+1. 199차 boost가 t=1004~1030 사례에서 실제로 왜 안 먹혔는지(미발동 vs
+   발동 후 다른 clamp에 무력화) 미확인.
+2. apexIdx flicker 근본원인 규명(215차 이월 과제) -- 아직 착수 전.
+3. route 전용 감속률 분리 여부 결정(B 착수 전 신규 선결과제로 식별).
+4. 디바이스의 `AutoNaviSpeedDecelRate` 현재 실제 설정값 확인.
+
+**다음 작업**:
+1. t=1004~1030 케이스 포함 CSV 재업로드 -> `_route_apex_boost_armed`/
+   `required_decel_mss`/`accel_limit_kmh`를 프레임별로 재구성해 boost
+   미작동 원인 실측 확인.
+2. apexIdx flicker 원인 조사 착수(naviPaths 원시좌표 노이즈 vs curvature
+   계산 임계값 민감도).
+3. 1/2 완료 후에만 A(300m 한계) 재평가 -> B(vEgo 기반 감속 시작점) 설계
+   착수 -- 이때 route 전용 감속률 분리 여부도 함께 결정.
+
+**전달 파일**:
+- `WIP.md`(이 항목, 패치로 전달 -- 아래 참고)
+- ryu 소스 변경 없음(패치 없음)
+
+---
+
 ## 217차 계속2 (진행 중 -- 2단계 실차로그 A/B 재검증 POSITIVE, 3단계 이후 미착수) -- min(vCruise,150) 217-2 패치 실측 재생 검증
 
 **Worker**: Claude
