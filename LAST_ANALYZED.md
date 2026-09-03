@@ -1,3 +1,25 @@
+## c3-ms-dev (220차, rolling-max 게이트 회귀 확인 + 219차 결론 반례 발견 — ryu 코드 변경 없음, patch 미확정)
+- last_analyzed_commit: `78e76a9`(217차 계속, ryu — 드리프트 없음, 이전 세션이
+  로컬에 작성해둔 carrot_man.py patch는 이 commit 기준, 아직 push 안 됨)
+- devnotes base: `cc9b9dc`(219차)
+- date: 2026-09-03 (220차)
+- 분석 대상: `x18seg_215cha_route.csv`(commit `4514e97`, 219차와 동일 CSV
+  재사용) t=990~1046 구간 — naviPaths/routeApexIdx/routeApexDist/
+  routeApexSpeed/liveRouteSpeed/vEgo/aEgo/brakePressed 전체 컬럼 대조 +
+  `verify_220_gate_regression.py` 합성 시나리오 A/B/C/D
+- note: (1) apex_idx debounce(A)+rolling-max 게이트(B) 패치안이 합성
+  시나리오 A(정상 굽이길)에서 212/400 오무장 회귀 확인, 실차 로그에서도 동일
+  종류의 정상 곡률 잡음(같은 idx 유지한 채 ±15~30kph 오르내림) 존재 확인.
+  (2) debounce(A)만으로는 199차 게이트(OLD)가 여전히 armed 0회 — 단, 이는
+  "실패"가 아니라 debounce가 타겟을 매끈하게 만들어 게이트가 필요한
+  불연속 자체가 사라지기 때문. (3) **가장 중요**: 219차가 "게이트 사각지대
+  (문제)"로 확정한 t=1004~1030 사례를 aEgo/brakePressed로 대조한 결과
+  brakePressed=False 전구간, aEgo 최대 -1.8m/s², liveRouteSpeed가 boost
+  없이도 매끈하게 하강 — 실제 운전자 개입/급제동 없음. 219차의 "게이트
+  미작동=문제"라는 해석 자체가 실차 결과와 대조되지 않은 상태였을 가능성.
+  패치 미확정, 사용자가 "보류"를 선택해 방향 결정 대기 중. 상세는
+  WIP.md/FINDINGS.md "220차" 참고.
+
 ## c3-ms-dev (201차, 199차 패치 실차 로그 최초 분석 — "모든 커브 route 미작동" 두 원인(navi 폴리라인 미수신 / 감속램프+MapTurnSpeedFactor 지연) 규명, ryu 코드 변경 없음)
 - last_analyzed_commit: `a772453` (199차 패치 HEAD, 드리프트 없음 — device build 실측 일치 확인, dirty=True 주의)
 - date: 2026-09-02 (201차)

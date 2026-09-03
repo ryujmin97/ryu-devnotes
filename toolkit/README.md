@@ -2649,3 +2649,32 @@ t0=1000.0, t1=1035.0, decel-rate=0.70. CSV 컬럼 요구는
 `sim_route_217_ceiling_vcruise_ab.py`와 동일하되 `naviPaths`는 불필요
 (이 진단은 candidate 재구성이 아니라 boost arm 로직만 검사하므로
 `routeOutSpeed`를 raw로 그대로 사용).
+
+## replay_route_apex_debounce_only_220.py (220차, 신규 — apex_idx debounce 단독 효과 + 실차 급제동 여부 대조)
+
+**목적**: 220차가 검토한 "(A) apex_idx debounce(완화방향만 N프레임 확인)만
+적용하면 199차 OLD 게이트(직전 프레임 비교)가 충분해지는가"를, 합성
+시나리오가 아니라 route.csv의 raw `routeApexIdx`/`routeApexDist`/
+`routeApexSpeed` 시퀀스를 직접 재생해 검증한다. rolling-max 게이트(B)는
+의도적으로 제외해 (A) 단독 효과만 분리했다. 추가로 같은 구간의
+`vEgo`/`aEgo`/`brakePressed`를 함께 대조해 "게이트가 armed되지 않은 구간이
+실제로 급제동/운전자개입이 필요했던 구간인지"까지 판정한다 — 219차는 게이트
+작동 여부(armed count)만 확인했고 실제 주행 결과와는 대조하지 않았다.
+
+**핵심 결과**: 219차와 동일한 x18seg CSV(commit 4514e97) t=990~1046 구간
+재생 결과, debounce-only 적용 후에도 OLD 게이트는 armed 0회 — 단, 원인은
+"게이트 실패"가 아니라 "debounce가 apex_speed 자체를 매끈하게 만들어 감지할
+불연속이 사라짐"(프레임간 최대낙차가 debounce 전후 동일하게 15kph 미만).
+게다가 이 구간은 `brakePressed=True` 프레임 0개, `aEgo` 최소값 약
+-1.79 m/s²로 실제 급제동 신호 자체가 없었음을 확인 — 219차의 "게이트
+사각지대=문제" 해석에 대한 반례. 상세는 FINDINGS.md/WIP.md "220차" 참고.
+
+**실차 검증: 미실시** — 오프라인 로그 재생 분석만 수행.
+
+**사용**:
+```bash
+python3 replay_route_apex_debounce_only_220.py <route.csv> --t-start 990 --t-end 1046 [--confirm-frames 3]
+```
+CSV 컬럼 요구: `t, routeApexIdx, routeApexDist, routeApexSpeed, vEgo, aEgo,
+brakePressed`(`naviPaths` 불필요 — `--with-navi-paths` 없이 뽑은 기본 CSV로도
+동작).

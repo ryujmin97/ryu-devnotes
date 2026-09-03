@@ -1,3 +1,126 @@
+## 220차 (중단 — rolling-max 게이트 회귀 발견 + 219차 결론 자체 재검토 필요, ryu 코드 미확정) — apexIdx flicker debounce/게이트 재설계 검증 중 실차데이터 기반 반례 발견
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu` + `ryujmin97/ryu-devnotes`
+
+**Branch**: `c3-ms-dev` / `main`
+
+**Base commit (ryu, 세션 시작 시점)**: `78e76a9`(217차 계속, clean — 재클론 확인, 코드 변경 없음)
+
+**Base commit (devnotes, 세션 시작 시점)**: `cc9b9dc`(219차)
+
+**상태**: 다른 AI 작업 흔적 없음(HANDOFF.md/CURRENT_STATUS.md 없음, WIP.md 최상단이
+219차 그대로) — 충돌 없이 이어서 진행. **이 세션은 이전(중단된) 세션이 로컬에
+작성해둔 `carrot_man.py` 패치와 `verify_220_gate_regression.py`를 사용자가
+업로드하여 이어받았다** — §3/§33에 따라 GitHub 최신 상태와 대조 후 검증만
+진행, ryu 소스는 아직 push되지 않았고 이번 세션에서도 push하지 않는다(§9 —
+검증 미완료 상태에서 코드 확정 금지).
+
+**배경**: 219차가 "199차 게이트(`ROUTE_APEX_SPEED_DISCONTINUITY_THRESH_KPH=
+15.0kph`, 직전 프레임 비교)가 t=1004~1030류 계단식 하강을 구조적으로 못
+잡는다"고 확정한 뒤, 중단된 이전 세션이 두 가지 수정을 이미 코드로 작성해둔
+상태였다:
+- (A) `ROUTE_APEX_IDX_RELEASE_CONFIRM_FRAMES=3` — apex_idx가 "더 먼 후보"로
+  바뀌는 완화방향 전환만 3프레임 연속 확인 후 채택(강화방향은 즉시).
+- (B) `ROUTE_APEX_ROLLING_WINDOW_S=1.0` — 게이트 비교 기준을 "직전 프레임"에서
+  "최근 1.0초 내 관측된 apex_speed 최댓값(rolling max)"으로 교체. apex_release_
+  confirmed(=A의 완화방향 전환이 실제 확정된 프레임)에 창을 리셋해 지나간
+  커브의 값이 오염되지 않게 함.
+
+**작업 내용 (검증만 수행, 코드 변경 없음)**:
+1. 재클론 기준 GitHub 상태 확인 — ryu/devnotes 모두 드리프트 없음, 업로드된
+   `carrot_man.py`를 임시 브랜치(`verify-220`, base `78e76a9`)에 얹어
+   `py_compile` 통과 확인(정적검증 PASS).
+2. `verify_220_gate_regression.py`(이전 세션 작성) 그대로 실행 — 시나리오
+   A(완만한 굽이길)/B(단일급락)/C(219차 계단식)/D(rolling max 리셋) 4종
+   회귀검증.
+3. 발견된 시나리오 A 회귀에 대해 실제 로그(`x18seg_215cha_route.csv`,
+   commit `4514e97`, 사용자 재업로드)의 `naviPaths`/`routeApexIdx`/
+   `routeApexDist`/`routeApexSpeed`/`liveRouteSpeed`/`vEgo`/`aEgo`/
+   `brakePressed` 컬럼을 t=990~1046 구간에서 직접 대조(합성 시뮬레이션이
+   아니라 실제 프로덕션 raw 데이터 재생).
+
+**핵심 발견 1 (회귀 확인, `verify_220_gate_regression.py` 결과)**:
+
+| 시나리오 | OLD(199차) | NEW(220차, A+B 적용) | 판정 |
+|---|---|---|---|
+| A. 완만한 굽이길(불연속 없음) | armed 0/400 | **armed 212/400(53%)** | **FAIL — 회귀** |
+| B. 단일 프레임 급낙차 | armed 20프레임부터 | 동일 | PASS |
+| C. 219차 계단식 누적하강 | armed 0회(재현) | armed 40/52(개선) | PASS |
+| D. 커브1→커브2 rolling max 오염 | - | 리셋 적용 시 0회 오무장 | PASS |
+
+시나리오 A 최대 누적낙차=24.0kph, 시나리오 C 최대 누적낙차=73.5kph — 임계값을
+25kph 이상으로 올리면 합성시나리오는 분리되지만, 실차 데이터(아래)에서도
+동일한 종류의 정상 오르내림이 확인되어 **단순 임계값 상향은 근본해결이
+아님**(마진이 얇고, 실제 도로 곡률 변동폭에 좌우됨).
+
+**핵심 발견 2 (실차 데이터 기반, 신규 — 시나리오 A가 실제로도 발생함을 확인)**:
+t=990~1004(문제 구간 진입 전, 완전히 정상적인 저속 접근 구간)에서 **같은
+`routeApexIdx`를 유지한 채로** `routeApexSpeed`가 프레임마다 ±15~30kph씩
+오르내린다(예: idx=8 구간에서 68.99→55.63→71.46kph, idx는 그대로). idx
+flicker가 아니라, 리샘플 그리드가 매 프레임 현재위치 기준으로 재앵커링되면서
+같은 정수 인덱스라도 물리적으로 미세하게 다른 지점의 곡률이 계산되기 때문 —
+합성 시나리오 A와 동일한 현상이 실차 로그에 이미 존재함을 확인. rolling-max
+방식(B)은 이 정상 오르내림을 계단식 하강과 구분하지 못해 오무장한다는 것이
+실측으로도 뒷받침됨.
+
+**핵심 발견 3 (가설: "(A) debounce만으로 충분한가" — 실차 데이터로 검증, 결과: 아니오, 단 이유가 다름)**:
+219차가 실측한 t=1005.4~1013 flicker 원시 구간(`routeApexIdx`가
+0→18→3→17→2→16→1→21→20→19… 로 요동)에 (A) debounce(confirm_frames=3)만
+적용(코드에서 그대로 발췌해 재생, rolling-max(B)는 미적용)한 결과:
+- debounce를 통과한 안정화 시퀀스는 **프레임당 낙차가 15kph를 한 번도
+  넘지 않는다**(chaos 구간의 튐이 흡수되고, 이후 104→42kph가 약 8초에
+  걸쳐 매끄럽게 하강).
+- 따라서 OLD(199차, 미변경) 게이트를 이 debounce 결과에 적용해도 **여전히
+  0회 armed**.
+
+즉 "debounce가 있으면 OLD 게이트가 이 케이스를 잡아준다"는 가설은 틀렸다.
+실제로 벌어진 일은 **debounce가 타겟 자체를 매끈하게 만들어 애초에 게이트가
+감지해야 할 '단일/소수 프레임 불연속'이 사라지는 것**이다(누적으로는 여전히
+104→42kph만큼 떨어지지만, 그 하강 자체가 이미 매끈하다).
+
+**핵심 발견 4 (가장 중요 — 219차 결론 자체에 대한 반례, 미확정 상태)**:
+이 t=1005~1025 구간의 실제 주행 결과(`vEgo`/`aEgo`/`brakePressed`/
+`liveRouteSpeed`)를 대조한 결과:
+- `brakePressed = False`(전 구간)
+- `aEgo` 최대치 약 **-1.8 m/s²**(급제동과는 거리가 먼 수준)
+- `liveRouteSpeed`(그 당시 실제 출력, boost 미장착 상태)가 104→57kph까지
+  **깨끗한 계단식(램프리미터 정상 동작, 132차 "route 카운트다운")으로 이미
+  매끈하게 하강**하며 vEgo를 앞서 유도
+
+→ **이 케이스에서는 운전자 개입도 급제동도 없었다.** 219차가 "게이트가 못
+잡는 사각지대"로 확정한 사례가, 실제로는 boost 없이도 문제없이 지나간
+구간이었을 가능성이 있다. 219차 결론("armed=0회=문제")은 게이트 작동 여부만
+확인했을 뿐, 실제 주행 결과(급제동/aEgo)와는 아직 대조되지 않았다.
+
+**미완료**:
+- 219차 결론을 aEgo/brakePressed 기준으로 재검토(이 사례가 진짜 "boost가
+  필요했던" 문제 상황이었는지 vs 정상 상황이었는지 미확정)
+- 18세그 CSV 전체에서 실제 급제동(`brakePressed=True` 또는 aEgo 큰 음수)
+  구간을 찾아 그 구간으로 가설 3(debounce-only 충분성)을 재검증하는 작업
+  미착수
+- rolling-max(B) 폐기 여부, 임계값/window 재설계 여부 모두 미확정
+- apexIdx flicker 근본원인(그리드 재앵커링)에 대한 debounce 이외의 대안
+  설계(예: apex_idx 변화+apex_speed 변화+지속성을 함께 보는 판별)는 아이디어
+  단계, 코드화 안 됨
+
+**다음 작업 (사용자 결정 대기, 3가지 옵션 제시했으며 사용자가 "보류" 선택)**:
+1. 219차 결론 재검토(aEgo/brake 기준으로 진짜 문제 구간이었는지 먼저 확인)
+2. 18세그 CSV 전체에서 실제 급제동/`brakePressed=True` 구간을 찾아 그것으로
+   가설 3 재검증
+3. (사용자 선택) 보류 — 이 체크포인트 기록 후 사용자가 직접 방향 결정
+
+**검증**:
+- 정적 분석: PASS(임시 브랜치 `verify-220`, base `78e76a9`, py_compile 통과)
+- 로그 분석: 실시(x18seg 215차 CSV, t=990~1046 구간, naviPaths/apexIdx/apexDist/
+  apexSpeed/liveRouteSpeed/vEgo/aEgo/brakePressed 전체 대조)
+- 시뮬레이션: 실시(`verify_220_gate_regression.py` 4개 시나리오 + 실차 데이터
+  기반 debounce-only 재생)
+- 실차 검증: 미실시(이번 세션 전체가 오프라인 로그 재생/시뮬레이션 분석)
+
+---
+
 ## 219차 (완료 -- 원인 확정, NEEDS_VALIDATION(실차)) -- t=1004~1030류 사례 199차 boost 미작동 원인 실측 규명: "부스트 무력화"가 아니라 "게이트가 애초에 감지 못 하는 하강 패턴"
 
 **Worker**: Claude

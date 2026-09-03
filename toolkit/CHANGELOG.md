@@ -3,6 +3,18 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+## 2026-09-03 (220차)
+- `replay_route_apex_debounce_only_220.py` 신규 추가 -- "(A) apex_idx debounce만
+  으로 199차 OLD 게이트가 충분한가"를 합성 모델이 아니라 route.csv의 raw
+  routeApexIdx/Dist/Speed로 직접 재생해 검증(rolling-max(B)는 의도적 제외,
+  (A) 단독 효과 분리). 추가로 같은 구간 vEgo/aEgo/brakePressed를 대조해
+  "게이트 미작동 구간이 실제 급제동이 필요했던 구간인지"까지 함께 판정.
+  x18seg CSV(commit 4514e97) t=990~1046 재생 결과: armed 여전히 0회(원인은
+  "실패"가 아니라 debounce가 타겟을 매끈하게 만들어 불연속 자체가 사라짐),
+  게다가 이 구간은 brakePressed=False/aEgo 최소 -1.79m/s^2로 실제 급제동
+  신호 자체가 없었음을 확인 -- 219차의 "게이트 사각지대=문제" 결론에 대한
+  반례. 상세는 FINDINGS.md/WIP.md "220차" 참고.
+
 ## 2026-09-03 (219차)
 - `diag_route_boost_arm_219.py` 신규 추가 -- 199차 discontinuity boost가
   t=1004~1030류 사례에서 미작동한 원인을 프레임별로 진단. 기존
