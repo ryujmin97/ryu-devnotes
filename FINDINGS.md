@@ -1,3 +1,52 @@
+## 225차 — [코드 수정 완료] 224차 발견2("apex 전 정지 시 RELEASE 미작동") 근본원인 규명 + 수정: route ceiling/floor 버그 2건
+
+**대상**: 224차가 오프라인 검증으로 발견한 "핵심 결과 2"(apex 진입 전 정지
+시 route_active가 계속 유지되며 out_speed가 apex_speed 근처로 열려있는
+현상, 80.8초 사례)를 코드 레벨에서 추적한 결과, 원인이 두 겹으로 겹쳐
+있었음을 확인.
+
+**(A) `carrot_man.py::carrot_navi_route()` continuation 분기(root cause)**:
+`v_ego_ms<=target_ms`(또는 `eff_dist<=0`, 예: apex 진입 전 정지)이면
+`required_decel_mss=0.0` -> `applied_decel_mss=0.0` -> 바깥의
+`out_speed_ms=max(target_ms, v_ego_ms-0)=max(target_ms, v_ego_ms)`가
+`v_ego_ms<=target_ms`인 이 분기에서는 **항상 `target_ms`로 확정**됨.
+route는 vEgo에 대한 상한(ceiling)일 뿐 가속 목표가 아닌데, 이 분기에서만
+사실상 가속 목표처럼 동작 -- 223차 설계문서(`design/223cha_step2_decel_formula.md`)
+가 "`out_speed<=vEgo`가 수식 구조 자체로 항상 보장됨을 증명 완료"라고
+적었던 것은 **정상 감속 경로(`v_ego_ms>target_ms`)에서만 성립하는 증명을
+전체로 잘못 일반화**한 것이었음(PARAMS_REGISTRY.md `route_ceiling_kph` 행
+225차 정정 참고).
+
+**(B) `carrot_serv.py::update_navi()` 2차 문제**: (A)가 고쳐진 뒤에도
+`route_speed = max(route_speed, autoCurveSpeedLowerLimit)`(기본 30kph)
+줄이 정지/저속 구간에서 route_speed를 다시 vEgo 위로 밀어올려, (A)가 막
+없앤 버그를 한 파일 뒤에서 재현시킴(225차 서로 다른 세션에서 (A)와 별도로
+발견, WIP.md "225차" 항목 참고).
+
+**수정**: (A) `v_ego_ms<=target_ms`(또는 `eff_dist<=0`)면
+`out_speed_ms=v_ego_ms`를 그대로 통과(inert), (B)
+`route_speed=min(v_ego_kph, max(route_speed, autoCurveSpeedLowerLimit))`로
+상한 재적용. 두 수정 모두 정상 감속 경로(vEgo>target, vEgo>lower_limit)는
+변경 없음(§27 최소변경).
+
+**검증**: (A) `toolkit/sim_route_224_ceiling_fix.py` CASE1~5+REGRESSION
+6/6 PASS, (B) `toolkit/sim_route_224_serv_floor_fix.py` CASE1~3+REGRESSION
+4/4 PASS. 두 패치 모두 정적분석(`py_compile`) + 독립 클론 `git am` 재적용
+검증 완료. **실차 검증: 미실시** -- 224차 실차로그 재현 시나리오(CASE3/
+CASE1 각각)로 합성 검증만 수행했으며, 실제 arbitration/제어 영향까지는
+확정 불가.
+
+**미해결로 남는 부분**: 이번 수정은 "정지 중에도 route_active가 켜져
+있을 때 out_speed가 무엇을 출력하는가"만 고쳤을 뿐, 224차 발견2가 함께
+지적했던 "RELEASE 조건이 apex '도달'만 보고 '정지 여부'를 보지 않는다"는
+상태기계 설계 자체(=정지 중 `route_active=True`가 계속 유지되는 것 자체)는
+바꾸지 않았음 -- 사용자 확인 필요(§33, 판단 보류). 224차 발견3(apexIdx
+flicker 노출)은 이번 수정과 무관, 여전히 미결.
+
+**상세**: `WIP.md` "225차 계속2" 항목 참고.
+
+---
+
 ## 224차 — [실차로그 오프라인 검증] 223차 재설계: 222차 버그 재현 안 됨(FIX 확인) + 신규 발견 2건(apex 진입 전 정지 시 RELEASE 미작동 / apexIdx flicker 노이즈가 무감쇠로 노출)
 
 **대상**: 223차(무상태 감속식 + route_active 상태기계, commit `ee1f5f8`)의

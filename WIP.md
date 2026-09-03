@@ -1,3 +1,73 @@
+## 225차 계속2 (완료 -- carrot_man.py ceiling-fix 적용+검증+패치 완료, (A)+(B) 전부 완료) -- 224차 발견2 코드 수정 마무리: route ceiling/floor 버그 2건
+
+**Worker**: Claude
+
+**Base commit (ryu, 이 시점)**: `69a5dea`(225차, carrot_serv.py floor-fix 반영됨, carrot_man.py는 변경 없음)
+**Base commit (devnotes, 이 시점)**: `4b23a9f`(225차 partial)
+
+**배경**: 직전 225차 세션이 컨테이너 리셋으로 (A) `carrot_man.py` ceiling-fix
+최종본을 재확인하지 못한 채 (B) `carrot_serv.py` floor-fix만 완료 상태로
+종료(WIP "225차" 항목 참고). 이번 세션 시작 시 GitHub 재확인(`ryu`
+`69a5dea`, `ryu-devnotes` `4b23a9f`) 결과 리셋 이전과 동일 -- 다른 작업자
+개입이나 유실된 push 없음(§33 확인 완료). 사용자가 재업로드한
+`carrot_man.py`(ceiling-fix 적용된 최종본, uploads의 것과 저장소 `69a5dea`
+시점 원본을 diff한 결과 (A) 수정 내용과 정확히 일치 확인)와
+`toolkit/sim_route_224_ceiling_fix.py`(컨테이너 리셋으로 유실됐던 검증
+스크립트)를 이번 세션에 재업로드 -- §28/29 원칙(실제 파일 없이 추측
+재작성 금지)에 따라 이 재업로드본을 그대로 사용.
+
+**한 일**:
+1. `carrot_man.py::carrot_navi_route()` continuation 분기 -- 재업로드된
+   최종본을 독립 클린 클론(`69a5dea` 기준)에 적용, `git diff`로 원본과의
+   차이가 정확히 (A) ceiling-fix 1건(15 insertions, 4 deletions)임을 확인.
+   `v_ego_ms<=target_ms`(또는 `eff_dist<=0`)이면 `out_speed_ms=v_ego_ms`를
+   그대로 통과(inert)시키도록 수정 -- 정상 감속 경로(`v_ego_ms>target_ms`)는
+   변경 없음.
+2. `python3 -m py_compile` 통과 확인.
+3. `toolkit/sim_route_224_ceiling_fix.py`(재업로드분) 실행 --
+   CASE1(정상감속 무회귀)/CASE2(target 아래 하강, 정지 아님)/
+   CASE3(224차 실차로그 재현, 정지 중 80프레임)/CASE4(stop&go 재출발+정상
+   RELEASE)/CASE5(mode 비활성 무관) + REGRESSION(`eff_dist<=0` 경로 별도
+   확인) 6/6 PASS.
+4. `git commit` -> `git format-patch` -> **별도의 새 독립 클론**(자기자신
+   클론이 아닌, 원격에서 새로 받은 클론, §3/§33 원칙)에서
+   `git apply --check` + `git am` 재적용 -> 재컴파일 -> 재업로드
+   원본과의 `diff` 0바이트 확인까지 완료.
+5. `PARAMS_REGISTRY.md`의 `route_ceiling_kph` 행(223차 SUPERSEDED 주석) --
+   "새 감속식이 `out<=vEgo`를 수식 구조 자체로 항상 보장"이라는 223차
+   결론이 이번 발견으로 **부분적으로 틀렸음**을 §26 형식(기존값/새증거/
+   변경이유/새결론)으로 정정 기록.
+
+**검증**: 정적분석(`py_compile`, diff 라인 단위 확인) + 독립 클론 2회
+재적용(패치 검증용, 재컴파일용) + 합성 시뮬레이션(6/6 PASS). **실차 검증:
+미실시.**
+
+**전달 파일(이번 세션)**: `WIP.md`(이 항목), `FINDINGS.md`(224차 항목
+보강), `PARAMS_REGISTRY.md`(위 정정), `toolkit/sim_route_224_ceiling_fix.py`
+(신규 등록, toolkit/에 실제 파일 추가 -- README/CHANGELOG에는 224차 세션에
+이미 항목이 있었으나 실제 파일이 컨테이너 리셋으로 유실돼 있었음),
+`0001-225cha-carrot_man.py-carrot_navi_route-route-ceiling.patch`
+(carrot_man.py 단독 패치, base `69a5dea`).
+
+**미완료/주의**: 이번 (A)+(B) 통합으로 224차 발견2("apex 전 정지 시
+RELEASE 미작동" 중 ceiling/floor 버그 부분)의 코드 수정은 완료됐으나,
+224차 발견2가 지적한 "RELEASE 조건이 apex 도달만 보고 정지 여부를 보지
+않는다" 자체(=정지 중에도 `route_active=True`가 유지되는 상태기계 설계는
+불변)는 이번 수정 범위 밖 -- ceiling/floor는 "정지 중에도 route_active가
+켜져 있을 때 out_speed가 무엇을 출력하는가"만 고쳤을 뿐, "정지 중에
+route_active를 얼마나 오래 켜둘 것인가"는 그대로임(사용자 확인 필요,
+§33). 224차 발견3(apexIdx flicker 노출)/219,220차 게이트 재설계는 이월.
+실차 검증 전체 미실시.
+
+**다음 작업(우선순위순)**:
+1. (A)+(B) 통합 패치 실차 검증 착수 -- 정지->재출발 구간에서
+   `liveRouteSpeed<=vEgo`가 실측으로도 항상 성립하는지 확인.
+2. 224차 발견2의 "정지 중 RELEASE 조건 추가 여부" 사용자 결정 대기(이번
+   세션에서 다루지 않은 잔여 부분).
+3. 224차 발견3(apexIdx flicker 노출)/219,220차 게이트 재설계는 이월.
+
+---
+
 ## 225차 (부분 완료 — carrot_serv.py 수정+검증+패치 완료 / carrot_man.py 부분은 컨테이너 리셋으로 재확인 대기) — 224차 발견2("apex 전 정지 시 RELEASE 미작동")에 대한 코드 수정: route ceiling/floor 버그 2건
 
 **Worker**: Claude
