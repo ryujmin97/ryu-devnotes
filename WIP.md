@@ -1,3 +1,63 @@
+## 221차 계속 (중단 — 사용자 지시로 실차 주행검증 대기, 이번 세션 코드 변경 없음)
+
+**Worker**: Claude
+
+**Base commit (ryu, 이 시점)**: `7519a3a`(221차, push 완료)
+
+**Base commit (devnotes, 이 시점)**: `6f5ca4e`(221차, push 완료)
+
+**상태**: 사용자가 "여기까지 하고 실차 주행 후 다시 검증하자"고 지시 —
+아래 미결 사항을 그대로 남겨두고 세션 종료. 다음 세션은 실차 검증 결과를
+갖고 이어서 진행한다.
+
+**이번 계속 항목에서 있었던 일 (코드 변경 없음)**:
+1. 221차 patch(`carrot_man.py`)/devnotes 커밋(`6f5ca4e`) 모두 사용자가 정상
+   `git am`/`git push` 완료(`78e76a9`→`7519a3a`, `6a89531`→`6f5ca4e`) —
+   재클론으로 확인.
+2. 사용자가 221차에 **`AutoNaviSpeedCtrlEnd` 7초→10초("3초 전 목표속도
+   도달") 변경이 빠졌음**을 지적 — 확인 결과 맞음(221차는 설계문서 1/2번
+   ceiling+lookahead만 적용, 3번은 처음부터 "미완료" 항목으로 명시돼 있었음).
+3. 코드 확인: `autoNaviSpeedCtrlEnd`는 디바이스 Params 값이며
+   `carrot_serv.py`에서 한 번 읽어(`self.autoNaviSpeedCtrlEnd`)
+   **route(`carrot_man.py` L907/L1037, apex_dist/apex_speed 물리계산 +
+   sharpest_candidate_speed 계산)와 카메라 감속(`carrot_serv.py` L1052/1063,
+   `sdi_speed`) 양쪽에 공유**됨을 확인 — `AutoNaviSpeedDecelRate`(83/218차)와
+   동일한 공유 구조.
+4. 반영 방식을 사용자에게 질의(응답 대기 중, 세션 중단으로 미확정):
+   - (a) 디바이스 Params 전역 변경(route+카메라 둘 다 10초, 코드 패치 없음,
+     218차 DecelRate 전례와 동일 패턴)
+   - (b) route 전용으로 코드에서 분리(+3초를 route 계산에만 적용, 카메라는
+     기존값 유지, 신규 코드 필요 — 217차/218차가 이미 지적한 "route 전용
+     분리 여부 최종 결정"(218차 미완료 4번, 여전히 미결)과 직결)
+
+**미완료 (다음 세션 최우선)**:
+1. **실차 주행검증** — 사용자가 이번에 반영된 221차(`route_lookahead_m`
+   600m, `route_ceiling_kph` vEgo 기준) 및 이전 판단 대기 중이던 219/220차
+   apexIdx flicker 이슈까지 포함해 실차로 확인할 예정. 특히:
+   - `route_lookahead_m` 600m 확장이 apexIdx flicker(219/220차 이슈)를
+     악화시키는지 (215차 지표: naviPointsActive 활성구간 프레임당 apexIdx
+     변경빈도)
+   - `route_ceiling_kph` vEgo 전환이 실제로 "route가 vEgo보다 높은 속도를
+     요구하지 않는" 안전조건대로 동작하는지
+2. `AutoNaviSpeedCtrlEnd` 7→10 변경 방식 (a)/(b) 사용자 최종 결정 대기.
+3. 219/220차 apexIdx flicker 게이트 재설계 자체(여전히 미결, 이월).
+4. `AutoNaviSpeedCtrlEnd`를 `PARAMS_REGISTRY.md`에 아직 미등록 —
+   반영 방식 결정 후 등록.
+
+**다음 작업**:
+1. 실차 주행 로그(CSV) 확보 후 재검증 세션 진행 — 위 미완료 1번 항목 순서로
+   naviPointsActive 활성구간 apexIdx 변경빈도(215차 지표) + liveRouteSpeed
+   vs vEgo 비교(설계문서 1번 검증) 우선 확인.
+2. `AutoNaviSpeedCtrlEnd` (a)/(b) 결정 확인 후 반영(코드 패치 또는 디바이스
+   Params 안내).
+
+**검증**: 이번 계속 항목은 분석/논의만 — 정적/시뮬레이션/실차 검증 전부
+미실시(코드 변경 없음).
+
+**전달 파일**: `WIP.md`(이 항목)만 — 다른 파일 변경 없음.
+
+---
+
 ## 221차 (진행 중 — 코드 수정+정적검증+합성검증 완료, 패치 전달 준비, 실차 검증 전) — route ceiling vCruise->vEgo 재교체 + lookahead 300m->600m (사용자 설계문서 1/2번)
 
 **Worker**: Claude
