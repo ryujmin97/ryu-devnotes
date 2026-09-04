@@ -1,3 +1,45 @@
+## 243차 (완료 -- carrot.cc TBT HUD 우측하단 정보박스 레이아웃 변경, ryu 코드 변경(patch, 미적용), 실차 검증 미실시) -- 도착/거리 순서변경(잘림 해소) + vturn= 신규 표시
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu` / `ryujmin97/ryu-devnotes`
+
+**Branch**: `c3-ms-dev` / `main`
+
+**Base commit (ryu)**: `fc48cc6`(242차, 재클론으로 재확인 -- 드리프트 없음)
+
+**devnotes Base commit**: `9e02ffd`(242차 checkpoint, 재클론으로 재확인 -- 드리프트 없음)
+
+**배경**: 사용자가 실차 스크린샷(2026-09-04 채록)을 첨부하며 TBT HUD 우측하단 정보박스의 UI 변경을 요청. "도착: 37.1분(10:3???)" 줄이 폭 초과로 시각(HH:MM) 부분이 잘려 보이는 문제와 함께, 레이아웃 재배치 및 `vturn=` 신규 표시줄 추가를 지시.
+
+**작업**:
+1. §3/§29 원칙대로 `ryu`(`fc48cc6`)/`ryu-devnotes`(`9e02ffd`) 재클론으로 재확인, 드리프트 없음.
+2. `selfdrive/ui/carrot.cc`의 `TurnInfoDrawer::drawTurnInfoHud()` 확인 -- 우측 ETA/거리 2줄과 하단 도로명/`route=` 2줄이 절대좌표(`tbt_y+N`)로 그려지는 구조 확인.
+3. capnp 스키마(`cereal/custom.capnp`) 확인 -- `vTurnSpeed @11 : Int32`가 `CarrotMan` 구조체에 이미 존재하고, `carrot_serv.py` L1307에서 `msg.carrotMan.vTurnSpeed = int(vturn_speed)`로 이미 매 프레임 채워지고 있음을 확인(스키마 변경 불필요, §capnp 필드 검증 원칙 충족).
+4. `carrot.cc` 수정(§27 최소변경):
+   - ETA 1줄="도착 : 48.2km"(라벨+거리), 2줄="37.1분(10:33)"(라벨 없이 잔여시간+도착시각, 폭 여유로 잘림 해소) 순서로 교체, 두 줄 모두 `tbt_y+40`씩 위로 이동(`75->35`, `115->75`).
+   - 도로명 마지막 줄 `195->155`, `route=` 줄 `235->195`로 한 줄(`TBT_LINE_STEP=40`) 위로 이동.
+   - `route=`가 비운 기존 y좌표(`235`)에 신규 `vturn=<값>` 줄 추가 -- 동일 폰트크기(`FS(26)`)/동일 우측끝(`right_x`) 정렬, `route=`와 같은 prefix(흰색)+숫자(초록) 스타일.
+   - 신규 멤버 `nVTurnSpeed` 추가, `carrot_man.getVTurnSpeed()`로 매 프레임 대입.
+5. 정적검증: 괄호/중괄호 균형 스캔(수정 전후 델타 비교로 신규 불균형 없음 확인) + `git format-patch`/`git am --check` 왕복 검증(깨끗한 재클론에 적용 성공).
+6. 사용자에게 변경 전/후 레이아웃 비교 이미지(Visualizer) 제공.
+
+**완료**: 위 1~6번.
+
+**미완료**:
+- 실제 C++ 빌드(scons/Qt/capnp 코드젠 전체 툴체인)는 이 환경(네트워크 제한, 대형 openpilot 빌드 의존성)에서 수행 불가 -- 정적 검증(괄호 균형, patch 왕복 적용)까지만 수행.
+- `vTurnSpeed`가 route 비활성/vturn 미개입 상태일 때 어떤 값(0? 음수?)을 갖는지 UI에서 별도 처리 안 함 -- 화면에 그대로 숫자로 표시(예: 0 또는 음수도 그대로 노출). 필요 시 다음 세션에서 "route/vturn 비활성 시 표시 숨김" 여부 사용자 확인 필요.
+- **실차 검증: 미실시(예정)**.
+
+**검증**: 정적분석(괄호/중괄호 균형, patch apply --check + git am 왕복) 수행. 로그 검증: 해당 없음(UI 렌더링 변경, 로그 기반 로직 변경 아님). **실차 검증: 미실시**.
+
+**전달 파일**: `carrot.cc` patch(git am 대상, ryu), 이 WIP.md 항목(patch, devnotes).
+
+**다음 작업**:
+1. 사용자 실차/시뮬레이터 빌드 후 실제 화면 확인 -- 폰트 크기/줄 간격이 의도대로 보이는지, `vturn=` 값이 route/vturn 비활성 구간에서 이상하게 보이지 않는지 확인.
+2. 필요 시 `vTurnSpeed` 비활성 상태(예: 음수 또는 특정 sentinel 값) 시 `vturn=` 줄을 숨기거나 다른 표시(`vturn=--`)로 바꿀지 결정.
+
+---
 ## 242차 (완료 -- ROUTE_SEVERITY_GATE_RATIO 0.70->0.90 실차 patch 생성, 사용자 지시로 나머지 검증(①~④, 239차 리밋사이클 실측)은 실차주행 결과를 보며 진행) -- Route 속도 노이즈/Apex Flicker 근본개선, ryu 코드 변경(patch, 미적용)
 
 **Worker**: Claude
