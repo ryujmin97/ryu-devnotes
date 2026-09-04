@@ -3,6 +3,17 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+## 2026-09-04 (234차 계속4)
+- `sim_route_234_spatial_apex_continuity.py` 신규 -- ②spatial cluster/
+  ③apex continuity 4단계(baseline/+30%gate/+spatial/+continuity) A/B.
+  `analysis_helpers.recompute_route_curvature_speed()`로 naviPaths에서
+  candidates 전체 배열 재구성(신규 rlog 판독 불필요). 터널 구간(t=2190~
+  2225)은 +30%gate 단계에서 이미 전부 걸러짐(234차 계속2 결론과 일치).
+  전체 로그 기준 프레임간 >40m 점프: 97(baseline)->60(+gate)->16(+spatial)
+  ->3(+continuity). **미확정 가정 2건 있음(road_limit_speed 근사=vEgo,
+  continuity 매칭 허용오차=15m 임의설정) -- 사용자 확인 전까지 결론 확정
+  아님**, 상세는 README.md/WIP.md 234차 계속4 참고.
+
 ## 2026-09-04 (234차 계속3)
 - `extract_log.py` FIELDNAMES/row 생성부에 `routeCandidateCount`/
   `routeCandidate0~2Idx/Dist/Speed` 10개 컬럼 추가. 204차에 capnp+

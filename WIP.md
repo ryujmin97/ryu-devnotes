@@ -1,3 +1,83 @@
+## 234차 계속4 (진행 중 -- ②spatial cluster/③apex continuity 시뮬레이션 1차 완료, 미확정 가정 2건 사용자 확인 대기) -- Route 속도 노이즈/Apex Flicker 근본개선, ryu 코드 변경 없음
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu`
+
+**Branch**: `c3-ms-dev`
+
+**Base commit (ryu)**: `73a8cb3a823869576e4672c4611ac219b99a49b7`(232차, 여전히 코드 변경 없음)
+
+**devnotes Base commit(이번 세션 확인 시점)**: `d8ba7dd`(234차 계속3, 직전 체크포인트)
+
+**입력**: 사용자가 234차 계속3의 확장된 `extract_log.py`로 재추출한 동일
+로그(route `0000039a--7b602ffb85`, seg12-16, 5999행)의 CSV를 이번엔 zip이
+아닌 CSV 직접 업로드로 재사용(신규 컬럼 `routeCandidateCount`/
+`routeCandidate0~2Idx/Dist/Speed` 포함 확인).
+
+**진행한 작업**: `sim_route_234_spatial_apex_continuity.py` 신규 작성
+(toolkit 재사용 우선 검토 -- §21 -- 기존 `sim_route_apex_redesign.py`/
+`sim_route_apex_hysteresis.py`/`replay_route_apex_hysteresis_ab.py`는 157/
+158차류의 구 DP/히스테리시스 알고리즘 재현용이라 234차 설계(severity
+gate+spatial cluster+continuity)와 알고리즘이 달라 직접 재사용 불가,
+단 `analysis_helpers.recompute_route_curvature_speed()`(148차, naviPaths ->
+candidates 전체 배열 재구성, 프로덕션 재현 검증 이력 있음)는 그대로
+재사용). 4단계(baseline/+30%gate/+spatial cluster/+continuity)를
+전체 로그 + 터널 구간(t=2190~2225) 슬라이스 양쪽에서 비교.
+
+**핵심 발견**:
+- 터널 구간(t=2190~2225, 700프레임): stage1(+30%gate)부터 이미 active
+  후보 0건 -- 234차 계속2가 dashcam 대조로 확정한 결론("0.70 gate가 이
+  구간의 flicker 후보 전부를 걸러낸다")과 시뮬레이션으로도 일치. 즉 이
+  특정 구간에 한해서는 ②③이 추가로 증명할 것이 없음(이미 ①만으로 해소).
+- 전체 로그(5999프레임) 기준 "프레임간 apex 거리 낙차 >40m" 점프 횟수:
+  baseline 97건 -> +30%gate 60건 -> +spatial cluster 16건 -> +continuity
+  3건. 즉 30% gate를 통과하고도 남는 나머지 불안정 구간(터널 밖)에서
+  spatial cluster/continuity가 추가로 유의미하게 flicker를 줄이는
+  경향을 확인 -- ②③의 존재 근거(터널 구간 밖에서도 동일 성격의 근거리/
+  원거리 후보 교대가 남아있을 수 있다는 234차 계속3의 관측)와 방향이
+  일치.
+
+**미확정 가정 2건(사용자 확인 필요, 위 수치에 직접 영향)**:
+1. severity gate 기준값: 원 설계(234차 지시서 §3 원문)는 `road_limit_speed
+   * ratio`였으나 `road_limit_speed`(`nRoadLimitSpeed`)가 CSV에 없어
+   234차 계속과 동일하게 `vEgo_kph`로 근사. 이 근사의 sanity check(재구성
+   stage0 apex_dist vs 실측 published `routeApexDist`, ±15m 허용) 결과
+   **정합률 24.4%(569/2335)에 그침** -- baseline(stage0) 자체가 실제
+   232차 프로덕션 거동을 낮은 신뢰도로만 대변한다는 뜻. 위 "97건" 등
+   baseline 관련 절대수치는 참고용이며, **road_limit_speed 실측 컬럼이
+   추가되기 전까지는 이 근사의 한계를 벗어날 수 없음**(gate 이후
+   stage1~3 상대비교는 이 근사 위에서 일관되게 계산됐으므로 상대적
+   감소 경향 자체는 유의미하다고 판단하나, 확정 짓지 않음).
+2. apex continuity 매칭 허용오차 `CONTINUITY_MATCH_TOLERANCE_M=15.0`(리샘플
+   10m 간격의 1.5배)은 지시서 §3 원문에 수치가 없어 이번 세션에서 임의
+   설정 -- 너무 좁으면 continuity가 거의 발동 안 하고, 너무 넓으면 다른
+   물리적 지점을 같은 apex로 오판할 위험. §26(PARAMS_REGISTRY) 등록 전
+   사용자 확인 필요.
+
+**아직 미실시**:
+- 위 가정 1/2 확정(또는 대안 설계) 후 재검증.
+- `extract_log.py`에 `nRoadLimitSpeed` 컬럼 추가 여부 검토(가정 1을
+  근본적으로 해소하려면 필요 -- §22, 순수 계측 컬럼 추가라 로직 변경
+  없음, 234차 계속3의 candidate 컬럼 추가와 동일 성격).
+- 실제 patch(§10, §31) — 위 확정 전까지 보류.
+
+**검증**:
+- 정적 분석: 해당 없음(ryu 코드 변경 없음)
+- 로그 검증: 위 4단계 A/B(offline, naviPaths 재구성 기반)
+- 시뮬레이션: `sim_route_234_spatial_apex_continuity.py` 1차 완료(위 결과)
+- 실차 검증: 미실시
+
+**다음 작업(순서대로)**:
+1. 사용자에게 가정 1(road_limit_speed 근사)/가정 2(continuity 허용오차)
+   확인 요청 -> 필요 시 `nRoadLimitSpeed` 계측 컬럼 추가 후 재검증.
+2. 확정되면 4단계 결과를 최종본으로 devnotes(WIP/FINDINGS) 정리.
+3. 사용자 보고/승인 후 ④ 실제 patch 작성(§10, §31).
+
+**산출물(이번 세션)**: `toolkit/sim_route_234_spatial_apex_continuity.py`
+(신규), `toolkit/README.md`/`toolkit/CHANGELOG.md`(동기화 완료, §22).
+
+---
 ## 234차 계속3 (진행 중 -- ②③ 착수 준비: candidate 텔레메트리가 이미 rlog에 있었음을 확인, extract_log.py 확장) -- Route 속도 노이즈/Apex Flicker 근본개선, ryu 코드 변경 없음
 
 **Worker**: Claude

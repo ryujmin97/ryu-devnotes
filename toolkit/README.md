@@ -3027,3 +3027,30 @@ ACTIVE 진입 프레임을 먼저 통과시킨 뒤 다음 프레임에서 각 �
 python3 sim_route_228_edge_cases_AJ.py
 ```
 인자 없음, A~J 44개 체크 실행 후 "TOTAL: 44/44 PASS" 출력 확인.
+
+## sim_route_234_spatial_apex_continuity.py (234차 계속4, 신규 — ②spatial cluster/③apex continuity 4단계 A/B)
+**목적**: 234차 설계안 B(spatial cluster stability)/C(apex continuity)를
+233/234차 실측 CSV(`--with-navi-paths`)로 4단계(baseline/+30%gate/+spatial/
++continuity) A/B 재현. candidates 전체 배열은 `analysis_helpers.
+recompute_route_curvature_speed()`로 naviPaths에서 재구성(신규 rlog 판독
+불필요, 148차 방식 재사용).
+**미확정 가정 2건(사용자 확인 필요)**: (a) severity gate 기준값 —
+`road_limit_speed` CSV 미가용으로 `vEgo_kph`로 근사(234차 계속과 동일
+근사, sanity check 결과 실측 published apex와 정합률 24.4%에 그침 —
+baseline 단계의 절대적 신뢰도는 낮음, 참고용으로만 사용할 것). (b) apex
+continuity 매칭 허용오차 `CONTINUITY_MATCH_TOLERANCE_M=15.0`은 지시서에
+수치가 없어 이 세션에서 임의 설정.
+**결과(2026-09-04, route `0000039a--7b602ffb85` seg12-16)**: 터널 구간
+(t=2190~2225)은 +30%gate 단계에서 이미 후보가 전부 걸러짐(0 active,
+234차 계속2의 dashcam 결론과 일치) — ②③이 이 특정 구간에서 추가로
+증명할 게 없음. 전체 로그(5999행) 기준 프레임간 >40m 점프: baseline
+97건 -> +30%gate 60건 -> +spatial cluster 16건 -> +continuity 3건 —
+gate 통과 후 남는 잔여 불안정 구간에서 spatial cluster/continuity가
+추가로 유의미하게 flicker를 줄이는 것으로 관측(단, (a) 가정의 낮은
+정합률 때문에 baseline 수치 자체의 절대 신뢰도는 낮음 — 상대적 감소
+경향만 참고할 것).
+**의존성**: `analysis_helpers.py`(parse_navi_paths, recompute_route_curvature_speed).
+**사용**:
+```bash
+python3 sim_route_234_spatial_apex_continuity.py <route.csv> --window 2190 2225
+```
