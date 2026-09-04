@@ -17,9 +17,10 @@
 4. 14건 상세를 ratio 오름차순으로 전수 나열, vEgo로 재분리: vEgo<30kph(n=11, ratio 0.285~10.016 넓게 분산, 시내/교차로/정체 추정)와 vEgo>=30kph(n=3, ratio 0.932~0.966, median=0.953, 범위폭 0.034로 매우 좁음).
 5. `scan_route_vturn_handoff_ratio.py`에 `--min-vego-kph` 옵션 추가(기존 필터링 결과 위에 조건 추가만, 신규 로직 없음, §21)해 위 vEgo 분리를 옵션으로 재실행 가능하게 함 -- `--min-vego-kph 30`으로 3번 재실행, 4번 수치와 일치 확인.
 6. handoff 직후 첫 프레임 raw `vTurnSpeed_at_handoff`가 음수로 표시되는 3건을 확인 -- 기존 FINDINGS의 "raw vTurnSpeed 부호 반전(기능 버그 아님)" 항목과 일치하는 패턴임을 확인, `confirm_t`는 별도의 더 늦은 프레임에서 수렴해 `confirmed` 판정 자체는 영향 없음을 확인.
-7. FINDINGS.md 241차(240차 CRITICAL 보강, §24) 기록, toolkit `README.md`/`CHANGELOG.md` 업데이트.
+7. 사용자가 "시내 교차로 부분은 신호대기 정차 등 다른 변수가 있다"고 지적 -- vEgo<30kph 11건 각각에 대해 handoff ±8초의 `brakePressed`/`cruiseEnabled`/최저vEgo를 CSV에서 직접 교차확인. **11건 중 10건**에서 `brakePressed=True`+`cruiseEnabled=False`(운전자 개입)가 동시 관측, 다수는 최저vEgo≈0(정차 추정) -- 저속 표본 분산의 원인이 route/vturn 로직이 아니라 신호대기/운전자 개입일 가능성이 데이터로 뒷받침됨. 예외 1건(t=1364.1, ratio=2.226)은 원인 미규명.
+8. FINDINGS.md 241차(240차 CRITICAL 보강, §24) 기록, toolkit `README.md`/`CHANGELOG.md` 업데이트.
 
-**완료**: 위 1~7번.
+**완료**: 위 1~8번.
 
 **미완료**:
 - 지시서 원안 §1~§8 완결 여부는 여전히 240차와 동일한 이유(device build mismatch)로 사용자 확인 대기 중 -- 이번 세션은 그 확인 대기 상태에서 "기존 14건 표본을 더 잘 이해하는" 보조 분석이며, 결론 자체(gate ratio 확정 불가)를 뒤집지 않음.
@@ -33,7 +34,8 @@
 **다음 작업**:
 1. (여전히 240차 다음 작업과 동일) 사용자 확인 필요: (a) 223차 이후 빌드로 재플래시 후 새 로그로 재분석 vs (b) 이번 구코드 로그를 참고자료로만 남기고 지시서 결론은 보류 vs (c) 다른 최신 빌드 로그 확인.
 2. (a)로 결정 시: 신규 로그에도 이번 세션의 vEgo 대역 분리 관점을 적용해 "고속 구간 handoff ratio가 실제로 더 안정적인가"를 재검증.
-3. `--min-vego-kph` 기본값을 0이 아닌 값(예: 30)으로 바꿀지는 표본이 더 쌓인 뒤 판단(지금 바꾸면 기존 240차 리포트와 하위호환이 깨짐).
+3. `--min-vego-kph` 기본값을 0이 아닌 값(예: 30)으로 바꿀지, 또는 `brakePressed`/`cruiseEnabled` 기반 "신호대기/운전자개입 구간" 배제 필터를 정식으로 추가할지는 표본이 더 쌓인 뒤 판단(지금 바꾸면 기존 240차 리포트와 하위호환이 깨짐).
+4. 예외 케이스(t=1364.1, `20260901_103650`, ratio=2.226, brake/cruise-off 둘 다 없는데 vEgo=22.2kph로 저속)의 원인 규명 -- 다음 세션 우선순위 낮음.
 
 ---
 
