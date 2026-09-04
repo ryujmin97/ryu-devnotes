@@ -1,3 +1,120 @@
+## 234차 (진행 중 -- 설계 승인 완료, 233차 실차로그(원본 zip) 확보, 단계별 검증 착수 전 체크포인트) -- Route 속도 노이즈/Apex Flicker 근본개선 설계+검증계획, ryu 코드 변경 없음
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu`
+
+**Branch**: `c3-ms-dev`
+
+**Base commit (ryu, 이번 세션 확인 시점)**: `73a8cb3a823869576e4672c4611ac219b99a49b7`(232차)
+
+**devnotes Base commit (이번 세션 확인 시점)**: `dfe02e2b801a745627b208b5f63827f0c5cda379`(233차)
+
+**요청**: 사용자가 "234차 작업지시" 문서로 Route 속도 노이즈/Apex Flicker 근본개선을
+지시(터널 완만한 우커브에서 route<->cam 20초간 18회 플리커, routeApexIdx가
+8<->50/7<->50/5<->35처럼 근거리/원거리 후보 사이를 요동). 이 문서를 기반으로
+설계안을 제시했고, 사용자가 10개 조건을 명시하며 **조건부 승인** — 단, 구현 전에
+233차 로그로 단계별 검증을 먼저 수행하라고 지시.
+
+**코드 추적 결과 (요약, 실제 승인 전 이번 세션에서 수행)**:
+- `carrot_man.py::carrot_navi_route()` candidates 필터(L868-869):
+  `speeds[k] < road_limit_speed` — severity gate 없음. 196차가 179차후속2의
+  `ROUTE_APEX_RELATIVE_SEVERITY_RATIO` 게이트를 이미 제거한 상태(현재 코드엔
+  주석 흔적만 남음, L81-90) — 234차 지시서의 "30% gate"는 이것과 무관한
+  **신규 도입 개념**임을 확인(§33 절차, 혼동 방지 목적으로 명시 기록).
+- apex 선택(L910): `apex_idx = candidates[0]`, 매 프레임 재계산, 안정성 검사
+  전무 — flicker의 직접 원인으로 특정.
+- **158/159차 전례 확인(중요, 재발 방지)**: "명시적 apex 히스테리시스(target_curv
+  기억, 더 급해야만 재개입)" 설계가 연속 굽이길에서 영구 disengaged 고착 +
+  재개입 시 최대 244km/h 프레임간 낙차라는 훨씬 심각한 회귀를 만들어 폐기된
+  전례(FINDINGS.md 158/159차) — 이번 234차의 apex continuity 설계는 "크기
+  비교" 기반이 아닌 **물리적 거리 연속성(예측거리 매칭)** 기반으로, 158/159차와
+  다른 메커니즘을 채택하기로 함(아래 설계안 C).
+
+**설계안(사용자 승인, 조건부 — 아래 "사용자 확정 조건" 그대로 적용)**:
+- A. Severity Gate: candidates 필터를 `speeds[k] < road_limit_speed` ->
+  `speeds[k] <= road_limit_speed * ROUTE_SEVERITY_GATE_RATIO`(제안값 0.70,
+  **아직 로그 검증 전 — 확정 아님**)로 교체.
+- B. Spatial Stability: severe 인덱스 런(인접 gap<=40m)이
+  `ROUTE_CLUSTER_MIN_POINTS`개 이상인 런만 "안정적 이벤트"로 인정 — 기존
+  `distances[]`/`speeds[]` 재사용, 신규 GPS/Shapely/lookahead 없음.
+- C. Apex continuity: 크기 비교 아님. 예측거리(`prev_dist - v_ego_ms*dt`)
+  매칭으로 동일 apex 여부 판정, `miss_frames < ROUTE_APEX_MISS_TOLERANCE_FRAMES`
+  이내는 기존 apex를 예측값으로 hold, 초과 시에만 재탐색. 신규 감속보정/속도
+  smoothing 추가 금지(사용자 명시).
+- D. `positionDtSinceFix`/`dtNaviPacketAge`: 원인으로 확정하지 않음. 분석용
+  지표로만 사용(사용자 명시).
+
+**사용자 확정 조건(이번 대화 원문 그대로 보존, §24/§27 원칙)**:
+1. `ROUTE_CLUSTER_MIN_POINTS = 2`로 시작(10m 리샘플 기준 최소 약 20m 연속
+   severe 영역). 3으로 올리는 것은 실제 로그에서 false-positive 제거 효과를
+   확인한 뒤 결정.
+2. `ROUTE_APEX_MISS_TOLERANCE_FRAMES = 3`(약 150ms) 초기값 승인 — 순간적
+   candidate 소실만 흡수하는 목적. 새로운 감속 보정이나 속도 smoothing을
+   추가하지 말 것.
+3. 30% severity gate는 아직 당연한 것으로 가정하지 말 것 — 233차 로그 및
+   기존 route 로그에서 이벤트별(완만한 커브/급커브/교차로/램프 진입/램프
+   진출) target_speed/road_limit_speed 분포를 먼저 확인해 0.70 gate가 실제
+   중요 이벤트를 놓치지 않는지 검증. **(아직 미실시)**
+4. 233차 터널 구간을 4단계 A/B(기존 candidate -> +30% severity -> +spatial
+   cluster -> +apex continuity)로 candidate_count/apex_idx/apex_dist/
+   apex_speed/route_active/routeOutSpeed/src 변화를 비교. **(아직 미실시)**
+5. apex 8<->50, 7<->50, 5<->35 flicker가 어느 단계에서 사라지는지 확인.
+   **(아직 미실시)**
+6. `_active_apex` 상태는 dict를 새로 남발하기보다 현재 `carrot_man.py`의 state
+   관리 스타일과 일관되게 최소 scalar state로 구현하는 것을 우선 검토
+   (구현 단계 지침, 아직 미착수).
+7. `carrot_serv.py` arbitration은 이번 차수에서 수정하지 말 것.
+8. 223~228차의 route deceleration 계산식, 224차 clamp, 228차 `route_inert`
+   동작도 변경하지 말 것.
+9. `positionDtSinceFix`/`dtNaviPacketAge`는 이번 차수에서 원인으로 확정하지
+   말 것 — 필요하면 분석용 지표로만 사용.
+10. 검증 결과 30% gate가 교차로/램프를 놓치는 사례가 발견되면, 억지로 0.70을
+    적용하지 말고 구현을 멈추고 결과를 보고할 것.
+
+**작업 순서 확정**: ① 로그로 30% 타당성 검증 -> ② candidate spatial stability
+-> ③ apex continuity -> ④ 실제 패치. 각 단계 결과와 수치를 먼저 보고한 후
+다음 단계로 진행.
+
+**이번 세션 진행 상황**:
+- 사용자가 233차 원 실차 dashcam 로그(zip, 약 62MB) 업로드 완료:
+  `20260904_095600_0000039a--7b602ffb85--12` ~
+  `20260904_100000_0000039a--7b602ffb85--16`(5세그, 2026-09-04 09:56~10:00).
+  route id(`0000039a--7b602ffb85`)와 세그/시각이 233차 WIP 기재 내용과 일치함을
+  확인(zip 내부 파일 목록 직접 확인, 아직 `extract_log.py`로 CSV 추출은
+  하지 않음).
+- **사용자 지시로 이번 세션은 여기서 체크포인트만 남기고 종료 — ①~④ 검증과
+  구현은 다음 세션 작업으로 이월.**
+- 로그 원본(zip)은 §23 정책(대용량 산출물 Git 미커밋)에 따라 devnotes에
+  커밋하지 않음. 이번 세션 컨테이너 경로에만 존재
+  (`/mnt/user-data/uploads/dashcam_1788483859883.zip`) — **다음 세션
+  컨테이너에는 남아있지 않을 가능성이 높으므로, 다음 세션 시작 시 먼저 로그
+  존재 여부를 확인하고 없으면 사용자에게 동일 파일 재업로드를 요청할 것**
+  (요청 시 route id `0000039a--7b602ffb85`, 세그 12~16, 2026-09-04 09:56~10:00을
+  명시하면 사용자가 바로 식별 가능).
+
+**다음 작업(순서대로)**:
+1. `extract_log.py --with-navi-paths --repo <ryu 클론 경로>`로 5세그 CSV
+   추출(233차와 동일 절차, 233차는 5999행/t=1976.1~2276.0 확인한 바 있음).
+2. ①: 완만한 커브/급커브/교차로/램프 진입/램프 진출 각 이벤트의
+   target_speed/road_limit_speed ratio 실측 분포 확인 -> 0.70 gate 타당성
+   보고(조건 3, 10).
+3. ②③: 4단계 A/B(기존 -> +30% -> +spatial -> +continuity)로 t≈2194~2215
+   터널 구간을 재생, apex 8<->50 등 flicker가 어느 단계에서 해소되는지
+   확인(조건 4, 5).
+4. 위 결과를 devnotes(WIP.md/FINDINGS.md)에 먼저 기록 -> 사용자 보고 ->
+   승인 후 ④ 실제 patch 작성(§10 작업순서, §31).
+
+**검증**:
+- 정적 분석: 해당 없음(이번 세션은 ryu 코드 변경 없음, 설계/추적만 수행)
+- 로그 검증: 미실시(다음 세션 예정)
+- 시뮬레이션: 미실시(다음 세션 예정)
+- 실차 검증: 미실시
+
+**원 지시서**: 사용자가 제공한 "234차 작업지시 — Route 속도 노이즈 / Apex
+Flicker 근본 개선" 문서(전문은 대화 로그 참고, 이번 항목에 핵심만 요약).
+
+---
 ## 233차 (진행 중 -- 실차로그 원인분석 완료, ryu 코드 수정 없음, 사용자 판단/방향 결정 대기) -- 터널 구간 route<->cam(고정과속카메라) 소스 플리커로 인한 승차감 저하 실측 분석
 
 **Worker**: Claude
