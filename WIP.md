@@ -1,3 +1,41 @@
+## 239차 (체크포인트 -- 대화 중 토론/시뮬레이션/예비분석만 진행, 코드 수정 없음, 사용자 요청으로 세션 중간 저장) -- 237차 severity gate CRITICAL 재평가 + "route=사전감속/vturn=핸드오프" 신규 설계 방향
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu`(변경 없음, HEAD 여전히 `fc98eaa`=237차) / `ryujmin97/ryu-devnotes`
+
+**Branch**: `c3-ms-dev` / `main`
+
+**devnotes Base commit**: `892fcf4`(238차, 이 세션에서 로컬 검증까지 마쳤으나 사용자가 아직 원격에 push 안 한 상태로 추정 -- 아래 전달 patch는 238차 위에 쌓이는 **연속 patch**이므로 238차부터 순서대로 적용 필요)
+
+**배경**: 238차 완료 직후, 대화로 237차 patch(`ROUTE_SEVERITY_GATE_RATIO=0.70`)를 더 파고드는 과정에서 사용자가 구조적 결함을 직접 지적 -- "매 프레임 후보 재선정 시 route_active가 목표속도를 향해 감속하는 순간 자기 자신의 candidate를 반드시 제거하는 구조 아닌가?"
+
+**이번 세션에서 확정된 것(코드+시뮬레이션 근거, FINDINGS.md 239차 CRITICAL 항목 참고)**:
+1. **자기소거(self-elimination) 구조 확인** -- 게이트가 매 프레임 라이브 vEgo로 재평가되므로(`carrot_man.py` L888-891), `v_ego`가 `target/0.70` 아래로 떨어지는 순간 그 감속을 유발한 candidate 자신이 탈락 -> 즉시 RELEASE. 이건 가정이 아니라 실제 237차 HEAD 코드 그대로 재현한 결과.
+2. **재가속 반영 시 리밋사이클 진동 확인**(사용자 지적으로 시뮬레이션 보정) -- RELEASE 후 vCruise 방향 재가속 -> 재게이트통과 -> 재감속 -> 재소거를 반복하며 평형속도가 목표가 아니라 `target/0.70`(≈target×1.43) 근방에 형성됨. 한 트레이스에서 apex 도달 시점까지도 목표 대비 +32kph 초과.
+3. **238차 "POSITIVE" 결론 재해석 필요** -- active frame 82%감소(2383->430)가 노이즈 억제가 아니라 이 자기소거로 인한 정당한 개입의 조기중단을 포함할 가능성. **237차 patch 실차 적용은 보류 권고로 정정.**
+4. **사용자의 신규 설계 방향(채택 논의 중)**: 자기소거를 결함이 아니라 "route=목표속도의 N%까지 사전감속 -> 그 지점부터 vturn이 커브 실주행 담당"이라는 의도된 역할분리 트리거로 재해석. N을 임의로 정하지 않고 실차 로그의 route->vturn 핸드오프 실측 ratio 분포로 결정하기로 합의.
+5. **예비 실측(seg12-16, n=3, 결론 낼 단계 아님)** -- "만족스러운 핸드오프"(2초 내 vTurnSpeed가 apex_speed±15kph로 수렴) 3건 ratio: 0.617/0.854/1.002. 표본 부족 + 현재 device에 severity gate가 없어 전환 원인이 ratio가 아닌 다른 요인(apex_dist=0, candidate 소실 등)과 뒤섞여 있어 아직 깨끗한 신호 아님.
+6. **vturn 로직 호환 로그 기준 확정**(git log 전수 확인) -- `vturn_speed()` 핵심 물리는 82차(2026-08-26, `451a3b9`) 이후, arbitration 참여/트레일링은 `f94a7d2`(2026-08-23) 이후 변경 없음. **2026-08-26 이후 촬영 로그면 지금과 동일 vturn 로직**으로 취급 가능. route apex_speed 쪽은 naviPaths 재구성(238차 방식)으로 route 버전차 영향을 덜 받음.
+
+**완료**: 위 1~6번 분석/논의(코드 변경 없음)
+
+**미완료**:
+- `scan_route_vturn_handoff_ratio.py` toolkit 스크립트 미작성(다음 세션, 사용자가 82차 이후 로그를 추가로 주면 seg12-16 예비분석 로직을 일반화해서 작성 예정)
+- ratio 분포 확정 전까지 237차 patch의 최종 처리(폐기/latch 방식 재설계/vturn 핸드오프 방식 재설계) 미결정
+- FINDINGS.md 239차(CRITICAL)가 238차 WIP/toolkit README 결론에 정정 코멘트를 아직 못 남김(§24, 다음 세션 우선순위)
+
+**검증**: 정적분석(코드 확인) + 시뮬레이션(RouteSim223 기반, 자기소거/진동 재현) 완료. **실차 검증: 미실시**(자기소거/진동도, 예비 ratio 분석도 전부 오프라인).
+
+**전달 파일**: `FINDINGS.md`(239차 CRITICAL 2건 신규), 이 WIP.md 항목. ryu 코드/toolkit 스크립트 변경 없음(다음 세션 항목).
+
+**다음 작업**:
+1. 사용자가 2026-08-26 이후 촬영된 커브 많은 긴 로그 추가 업로드
+2. `scan_route_vturn_handoff_ratio.py` 작성 + 표본 축적
+3. ratio 분포 확정되면: (a) 자기소거 구조 자체를 latch 방식으로 고칠지, (b) 그 구조를 그대로 "route→vturn 핸드오프 트리거"로 재정의해서 쓸지 결정
+4. 238차 WIP/toolkit README의 "POSITIVE" 결론에 CRITICAL 재해석 정정 코멘트 추가
+
+---
 ## 238차 (완료 -- 237차 patch를 158/224차 방식 A/B replay로 desiredSpeed 출력 시계열까지 오프라인 검증, POSITIVE + 234차 stage1 non-nested 수치와의 차이 신규 발견) -- Route 속도 노이즈/Apex Flicker 근본개선, ryu 코드 변경 없음(devnotes toolkit 신규 스크립트만)
 
 **Worker**: Claude
