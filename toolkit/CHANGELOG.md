@@ -3,6 +3,17 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+## 2026-09-04 (234차 계속3)
+- `extract_log.py` FIELDNAMES/row 생성부에 `routeCandidateCount`/
+  `routeCandidate0~2Idx/Dist/Speed` 10개 컬럼 추가. 204차에 capnp+
+  carrot_serv.py에 이미 채워지고 있던 값인데 이 스크립트에서만 누락돼
+  있었음(신규 rlog 판독 스크립트 불필요, 로직 변경 없음, 순수 계측 컬럼
+  추가). 233차 실차 로그(route `0000039a--7b602ffb85`, seg12-16)로
+  재추출 검증 -- 터널 flicker 구간(t≈2210~2215)에서 apex idx가 근거리
+  (2~9)/원거리(44~50) 후보 사이를 매 프레임 오가는 것과 동시에
+  `routeCandidateCount`가 0~2 사이로 계속 바뀌는 패턴을 실제로 확인,
+  ②spatial cluster/③apex continuity 설계 검증에 필요한 데이터 확보.
+
 ## 2026-09-04 (229차)
 - ChatGPT의 228차(5fa0254) 코드리뷰 지적사항(조기 return이 carrot_serv
   mirror를 건너뛰어 stale 값 남을 수 있음)을 Claude가 GitHub 실제 코드로

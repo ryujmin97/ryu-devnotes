@@ -88,6 +88,23 @@ cereal에 미발행이라 이 CSV로는 뽑을 수 없음)`
 python3 extract_log.py /home/claude/work/route /home/claude/work/route.csv \
     --repo /home/claude/ryu [--max-mb 400]
 ```
+**2026-09-04 추가(234차 계측)**: `routeCandidateCount`/`routeCandidate0Idx`/
+`routeCandidate0Dist`/`routeCandidate0Speed`/`routeCandidate1Idx`/
+`routeCandidate1Dist`/`routeCandidate1Speed`/`routeCandidate2Idx`/
+`routeCandidate2Dist`/`routeCandidate2Speed` 컬럼 추가 -- 이 필드들은
+`cereal/custom.capnp`(@42~@51)와 `carrot_serv.py`(L1355-1364)에 이미
+204차 때 추가되어 실제로 rlog에 채워지고 있었으나, 이 스크립트
+FIELDNAMES에는 반영되지 않아 CSV로는 뽑을 수 없었음(234차 WIP에 "candidates
+전체 배열이 CSV에 없다"고 기록된 것은 rlog 자체의 한계가 아니라 이 gap
+때문이었음 -- 234차에서 코드 확인 후 정정, 새 rlog 판독 스크립트를 따로
+만들 필요 없이 이 스크립트만 확장하면 됨을 확인). `routeCandidateCount`가
+0이면 해당 프레임은 candidates 리스트가 비어 apex 계산 자체가 스킵된 것
+(179차 폴백 경로와 동일 의미), 1~3이면 근접 후보 개수. `routeCandidate1/2`는
+없으면 idx=-1/dist=0.0/speed=0.0. 204차 이전 로그에는 이 10컬럼이 전부
+capnp 기본값(0/-1/0.0)으로만 나옴. spatial cluster(②)/apex continuity(③)
+설계 검증(234차)에 필요한 "매 프레임 근접 후보 목록"을 이 컬럼으로 직접
+확인 가능해짐.
+
 **2026-08-31 추가(169차 계측)**: `vpPosPointLatNavi`/`vpPosPointLonNavi`/
 `dtNaviPacketAge`/`positionDtSinceFix` 컬럼 추가 -- carrot_serv.py
 `_update_gps()`에 있던 "내부GPS 폴백" 타임아웃 판정이 "패킷 도착" 기준

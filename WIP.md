@@ -1,3 +1,72 @@
+## 234차 계속3 (진행 중 -- ②③ 착수 준비: candidate 텔레메트리가 이미 rlog에 있었음을 확인, extract_log.py 확장) -- Route 속도 노이즈/Apex Flicker 근본개선, ryu 코드 변경 없음
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu`
+
+**Branch**: `c3-ms-dev`
+
+**Base commit (ryu)**: `73a8cb3a823869576e4672c4611ac219b99a49b7`(232차, 여전히 코드 변경 없음, dirty=False 재확인)
+
+**devnotes Base commit(이번 세션 확인 시점)**: `9a3d4cf45f31b054d5e2f2e2d91d1e4a9ef36879`(직전 체크포인트)
+
+**입력 로그**: 사용자가 233/234차와 동일 로그(route id `0000039a--7b602ffb85`,
+seg 12~16, 2026-09-04 09:56~10:00)를 zip으로 재업로드(컨테이너 초기화로
+이전 세션 zip 소실 -- 234차 WIP에 미리 남겨둔 재업로드 안내대로 정상 진행).
+
+**핵심 발견 (이전 체크포인트의 "candidates 전체 배열이 CSV에 없다"는 기록 정정)**:
+- `cereal/custom.capnp` 실제 확인 결과, `routeCandidateCount@42`/
+  `routeCandidate0~2Idx/Dist/Speed@43~51` 필드가 **204차 때 이미 추가되어
+  있었고**, `carrot_serv.py` L1355-1364에서 실제로 채워지고 있음(근접 3개
+  후보의 idx/dist/speed). 즉 ②③ 검증에 candidates 리스트가 필요하다는
+  문제 자체는 **새 rlog 판독 스크립트 없이도** 해결 가능 -- 지금까지
+  "CSV에 없다"고 했던 건 rlog 자체가 아니라 `extract_log.py`의
+  FIELDNAMES 누락이었음(§21/§33 절차, 혼동 정정 목적으로 명시 기록).
+- `extract_log.py`에 위 10개 필드를 컬럼으로 추가(로직/제어 변경 전혀 없음,
+  순수 계측 컬럼 추가). `toolkit/README.md`/`CHANGELOG.md` 동기화 완료(§22).
+
+**재추출 검증**: 위 확장된 스크립트로 233/234차와 동일 로그 재추출 --
+5999행(233/234차 기록과 완전히 일치, 동일 로그 재확인). 터널 flicker
+구간(t≈2210~2215)을 신규 컬럼으로 직접 관찰한 결과:
+- 이 구간에서 apex idx가 근거리 후보(2~9, dist 20~90m)와 원거리 후보
+  (44~50, dist 440~500m) 사이를 프레임마다(50ms 간격) 왕복하며, 동시에
+  `routeCandidateCount`도 0~2(드물게 3~4) 사이로 계속 바뀜 -- "근거리
+  candidate가 이번 프레임엔 리스트에 없다가 다음 프레임엔 다시 나타나는"
+  패턴이 실측으로 확인됨. `routeCandidate1Idx`가 종종 원거리 후보(예:
+  idx=42,44,49 등)를 물고 있다가, apex(candidate0)가 그 원거리 후보로
+  건너뛰는 프레임도 다수 관측 -- ②spatial cluster(연속 run 길이)와
+  ③apex continuity(예측거리 매칭)가 잡아야 할 정확한 패턴이 이 구간에
+  그대로 들어있음을 확인.
+
+**아직 미실시**:
+- ②spatial cluster/③apex continuity 실제 A/B 시뮬레이션 스크립트 작성
+  (`ROUTE_CLUSTER_MIN_POINTS=2`, `ROUTE_APEX_MISS_TOLERANCE_FRAMES=3`
+  초기값, 234차 사용자 확정 조건 1/2 그대로 적용) -- 다음 세션(또는 이번
+  세션 사용자 지시 시) 착수.
+- 4단계 A/B(기존 -> +30% -> +spatial -> +continuity) 비교, t≈2194~2215
+  구간 flicker 해소 여부 확인(234차 조건 4/5).
+
+**검증**:
+- 정적 분석: 해당 없음(ryu 코드 변경 없음)
+- 로그 검증: `extract_log.py` 확장 후 재추출 CSV로 위 패턴 관찰(offline
+  pandas 분석)
+- 시뮬레이션: 미실시(②③ 스크립트 작성 전)
+- 실차 검증: 미실시
+
+**다음 작업(순서대로)**:
+1. ②spatial cluster + ③apex continuity 시뮬레이션/검증 스크립트 작성
+   (신규 candidate 컬럼 활용, 기존 `sim_route_apex_redesign.py`/
+   `sim_route_apex_hysteresis.py` 등 재사용 가능성 우선 검토, §21).
+2. 4단계 A/B로 t≈2194~2215 터널 구간 flicker 해소 여부 정량 확인.
+3. devnotes 기록 -> 사용자 보고 -> 승인 후 ④ 실제 patch(§10, §31).
+
+**원본 zip 로그**: 이번 세션 컨테이너 경로
+`/mnt/user-data/uploads/20260904_095600_0000039a--7b602ffb85_seg12-16.zip`
+-- 다음 세션 컨테이너 초기화 시 사라질 수 있으므로 필요 시 사용자에게
+동일 파일 재업로드 요청(route id `0000039a--7b602ffb85`, seg 12~16 명시하면
+식별 가능).
+
+---
 ## 234차 계속2 (진행 중 -- ①단계 최종 확정: ROUTE_SEVERITY_GATE_RATIO=0.70 사용자 승인, dashcam 대조 완료) -- Route 속도 노이즈/Apex Flicker 근본개선, ryu 코드 변경 없음
 
 **Worker**: Claude

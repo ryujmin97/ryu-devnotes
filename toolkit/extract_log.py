@@ -67,7 +67,21 @@ FIELDNAMES = [
     "vpPosPointLatNavi", "vpPosPointLonNavi", "dtNaviPacketAge", "positionDtSinceFix",
     "naviPointsActive", "navdActive", "dtRouteInactive", "routeSource",
     "routeApexIdx", "routeApexDist", "routeApexSpeed", "routeOutSpeed",
+    "routeCandidateCount",
+    "routeCandidate0Idx", "routeCandidate0Dist", "routeCandidate0Speed",
+    "routeCandidate1Idx", "routeCandidate1Dist", "routeCandidate1Speed",
+    "routeCandidate2Idx", "routeCandidate2Dist", "routeCandidate2Speed",
 ]
+# 2026-09-04 추가(234차): carrotMan.routeCandidateCount/routeCandidate0~2
+# Idx/Dist/Speed -- 204차 계측(cereal/custom.capnp @42~@51, carrot_serv.py
+# L1355-1364)으로 이미 rlog에 실제로 채워지고 있었으나, 이 CSV 추출기
+# FIELDNAMES에서 누락되어 있었음(234차 WIP "candidates 전체 배열이
+# CSV에 없다"는 이전 기록은 rlog 자체가 아니라 이 CSV 추출기의 gap이었음
+# -- 234차에서 코드 확인으로 정정). apex 1개 idx/dist/speed만으로는
+# spatial cluster(②)/apex continuity(③) 설계 검증에 필요한 "근접 3개
+# 후보"를 볼 수 없어 이번에 추가. 신규 rlog 판독 스크립트 없이 기존
+# decode_rlog.iter_events()가 이미 열어보는 carrotMan 메시지에서 속성만
+# 추가로 읽는 것 -- 로직 변경 없음, 순수 계측 컬럼 추가.
 # 2026-09-02 추가(194차): carrotMan.routeApexIdx/routeApexDist/
 # routeApexSpeed/routeOutSpeed -- 193차에서 추가했던 route apex 진단값이
 # 실제로는 cereal(carrotMan)이 아니라 동반앱용 UDP JSON에만 채워지고
@@ -388,6 +402,16 @@ def process_segment(rlog_path, seg_name, repo_dir, max_mb, commit_short="",
                 "routeApexDist": cm.routeApexDist,
                 "routeApexSpeed": cm.routeApexSpeed,
                 "routeOutSpeed": cm.routeOutSpeed,
+                "routeCandidateCount": cm.routeCandidateCount,
+                "routeCandidate0Idx": cm.routeCandidate0Idx,
+                "routeCandidate0Dist": cm.routeCandidate0Dist,
+                "routeCandidate0Speed": cm.routeCandidate0Speed,
+                "routeCandidate1Idx": cm.routeCandidate1Idx,
+                "routeCandidate1Dist": cm.routeCandidate1Dist,
+                "routeCandidate1Speed": cm.routeCandidate1Speed,
+                "routeCandidate2Idx": cm.routeCandidate2Idx,
+                "routeCandidate2Dist": cm.routeCandidate2Dist,
+                "routeCandidate2Speed": cm.routeCandidate2Speed,
             })
     return rows, last_cs, last_ctrl, last_lead, last_lat, last_model, last_pose
 
