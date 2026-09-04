@@ -3080,12 +3080,13 @@ python3 sim_route_228_edge_cases_AJ.py
 +continuity) A/B 재현. candidates 전체 배열은 `analysis_helpers.
 recompute_route_curvature_speed()`로 naviPaths에서 재구성(신규 rlog 판독
 불필요, 148차 방식 재사용).
-**미확정 가정 2건(사용자 확인 필요)**: (a) severity gate 기준값 —
-`road_limit_speed` CSV 미가용으로 `vEgo_kph`로 근사(234차 계속과 동일
-근사, sanity check 결과 실측 published apex와 정합률 24.4%에 그침 —
-baseline 단계의 절대적 신뢰도는 낮음, 참고용으로만 사용할 것). (b) apex
-continuity 매칭 허용오차 `CONTINUITY_MATCH_TOLERANCE_M=15.0`은 지시서에
-수치가 없어 이 세션에서 임의 설정.
+**가정 2건 -- (a)는 계속9/10에서 확정, (b)는 미확정(사용자 확인 필요)**:
+(a) [계속9/10에서 확정] severity gate(stage1) 기준은 **항상 v_ego_kph**
+(road_limit_speed 아님) -- 아래 "계속9→10" 항목 참고, 최신 결과표도
+그쪽에 있음. stage0(기존 배포 코드 후보 필터)만 road_limit_speed 기준
+유지. (b) apex continuity 매칭 허용오차
+`CONTINUITY_MATCH_TOLERANCE_M=15.0`은 지시서에 수치가 없어 이 세션에서
+임의 설정(10m 잠정 채택, 아래 계속5 항목 참고).
 **결과(2026-09-04, route `0000039a--7b602ffb85` seg12-16)**: 터널 구간
 (t=2190~2225)은 +30%gate 단계에서 이미 후보가 전부 걸러짐(0 active,
 234차 계속2의 dashcam 결론과 일치) — ②③이 이 특정 구간에서 추가로
@@ -3138,3 +3139,29 @@ ambiguous 사례가 나올 만한 로그).
 (t=2190~2225, 0.70 gate로 이미 0건)이 아니라 **새로운 구간
 (t≈2108~2116)에 집중**됨 -- 이전 세션 미조사 구간, 다음 세션에서
 dashcam 대조 권장(234차 계속2와 동일 방식).
+
+**2026-09-04 추가(234차 계속9→10, severity gate 기준 재정정 -- road_limit_speed
+아니라 vEgo가 원래 의도)**: 계속6에서 "가정(a) 해소"로 기록했던
+"기준=실측 nRoadLimitSpeed"가 오류였음이 계속9에서 확인됨(사용자 직접
+정정 + 계속2 원 승인 근거 dashcam ratio 예시 재대조 — 전부 apexSpeed/vEgo
+계산과 일치, road_limit_speed 아님). **계속10에서 정식 반영**:
+`gate_base_kph()`는 stage0(기존 배포 코드 후보 필터, road_limit_speed
+기준 그대로 유지) 용도로만 남기고, stage1(0.70 severity gate)은
+`v_ego_kph * ROUTE_SEVERITY_GATE_RATIO`로 직접 계산하도록 수정.
+route(seg12-16)를 `nRoadLimitSpeed` 컬럼 포함 버전으로 재추출
+(`route_v3.csv`, 5999행)해 정식 반영 스크립트로 재실행한 결과가 계속9의
+즉석 ad-hoc 스크립트 수치와 완전 일치 — 재현성 확인됨:
+
+| 구간 | stage0 | stage1(vEgo기준) | stage2 | stage3 |
+|---|---|---|---|---|
+| 전체(5999행) | 172 | 60 | 16 | 3 |
+| 터널(t2190~2225) | 81 | 0 | 0 | 0 |
+| IC gore(t2108~2112) | 31 | 22 | 4 | 0 |
+| S커브(t2116~2122.2) | 0 | 6 | 9 | 3 |
+
+**S커브 잔여 3건 위치 확인(계속10 신규)**: t=2120.20/2120.46/2120.75,
+전부 continuity `held`->`new` 전환(예측 위치로 hold 중 miss_frames
+tolerance(3프레임) 초과, lock 해제 후 그 시점 최근접 클러스터로 재진입).
+전환 직전/직후 dist가 80/140/150m 대에서 번갈아 나타남 -- 동일 물리
+지점의 노이즈(터널 패턴과 다름)라기보다 **짧은 간격으로 연속된 여러
+개의 실제 커브**일 가능성. dashcam 대조로 확정 필요(미완).

@@ -1,3 +1,82 @@
+## 234차 계속10 (진행 중 -- vEgo 기준 정정을 toolkit에 정식 반영 + 신규 실차 로그(seg12-16)로 재추출/재검증 완료, S커브 잔여 3건 위치 확인, dashcam 대조/ryu patch는 다음 세션) -- Route 속도 노이즈/Apex Flicker 근본개선, ryu 코드 변경 없음
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu`
+
+**Branch**: `c3-ms-dev`
+
+**Base commit (ryu)**: `73a8cb3a823869576e4672c4611ac219b99a49b7`(232차, 여전히 코드 변경 없음, 재클론으로 재확인)
+
+**devnotes Base commit(이번 세션 확인 시점)**: `a968df626c3d10600a8f7c9dbbe60abe31fb7790`(234차 계속9, 재클론으로 재확인 -- 드리프트 없음)
+
+**작업**: 계속9가 발견한 "severity gate 기준은 road_limit_speed가 아니라
+vEgo(현재속도)" 정정을 (1) 신규 실차 로그(사용자 업로드,
+`20260904_095600_0000039a--7b602ffb85` seg12~16, 5개 세그먼트)로
+재추출하고 (2) `sim_route_234_spatial_apex_continuity.py`(정식 toolkit
+스크립트)에 반영해 재검증했다.
+
+**1) 재추출**: `extract_log.py`(계속5에서 `nRoadLimitSpeed` 컬럼 추가된
+버전, --with-navi-paths)로 업로드된 route를 재추출 -> `route_v3.csv`,
+5999행(계속6/8/9가 쓰던 `route_v2.csv`와 행수 일치 -- 동일 route 재확인).
+`nRoadLimitSpeed` 컬럼 전 행 값 채워짐 확인(gate_source 전부
+`road_limit`, `vego_fallback`/`n/a` 없음 -- naviPaths 있는 구간 전부).
+
+**2) toolkit 정식 반영**: `sim_route_234_spatial_apex_continuity.py`의
+stage1 계산을 `gate_base_kph()`(road_limit 우선, vEgo 폴백) 결과가 아니라
+`v_ego_kph`를 직접 곱하도록 수정(`c1 = gate_candidates(speeds, v_ego_kph *
+ROUTE_SEVERITY_GATE_RATIO)`). stage0(기존 배포 코드 후보 필터,
+road_limit_speed 기준)은 이 정정과 무관하므로 `gate_base_kph()` 결과
+그대로 유지 -- §27 최소변경.
+
+**3) 재검증 결과(정식 반영 스크립트 + 신규 재추출 CSV)**: 계속9의 즉석
+ad-hoc 스크립트 수치와 **완전 일치** -- 재현성 확인.
+
+| 구간 | stage0 | stage1(vEgo기준) | stage2 | stage3 |
+|---|---|---|---|---|
+| 전체(5999행) | 172 | 60 | 16 | **3** |
+| 터널(t2190~2225) | 81 | 0 | 0 | **0** |
+| IC gore(t2108~2112) | 31 | 22 | 4 | **0** |
+| S커브(t2116~2122.2) | 0 | 6 | 9 | **3** |
+
+**4) S커브 잔여 3건 위치/패턴 확인(신규)**: 잔여 stage3 점프는
+t=2120.20 / 2120.46 / 2120.75 세 지점. 셋 다 continuity 상태전환이
+`held`(예측 위치로 유지) -> `new`(miss_frames가 tolerance=3프레임을
+초과해 lock 해제 후 그 시점 최근접 클러스터로 재진입)인 패턴으로 동일.
+전환 전후 거리값이 80m/140m/150m 대에서 번갈아 나타남 -- 계속8이
+확정한 터널 구간의 "GPS 노이즈로 인한 단일 지점 흔들림"과는 패턴이
+달라 보임(터널은 stage1 게이트만으로 0건 해소, 이 구간은 stage1 통과
+후에도 남음). **가설(미확정)**: 이 구간은 노이즈가 아니라 짧은 간격으로
+연속된 여러 개의 실제 커브(진짜 S자 도로 형상)이며, 각 커브를 순차
+통과하며 후보가 바뀌는 것이 물리적으로 타당한 동작일 가능성 -- 다만
+`continuity`의 miss_frames=3(~150ms) tolerance가 이런 연속 커브
+사이에서는 너무 짧아 hold가 끊기고 새 진입으로 처리되는 것일 수도
+있음(두 가설 모두 미확정, dashcam 대조 필요).
+
+**아직 미실시(다음 세션)**:
+- S커브 잔여 3건 원인을 dashcam 대조로 확정(노이즈 vs 실제 연속 커브 —
+  후자라면 잔여 3건은 "결함"이 아니라 정상 거동일 수 있음, §28 절차대로
+  증상->재현조건->...(생략)->원인 순으로 진행할 것).
+- 계속6/8의 이전 결론(road_limit 기준 위에서 낸 것들 — sanity 98.2%는
+  stage0에 대한 것이라 불변/유효, 그러나 ②③ 효과 크기 추정/"S커브에서
+  gate가 신규 jump를 만든다"는 계속8 핵심발견은 재해석 필요, FINDINGS.md
+  정식 등재 여부 포함) 정리 -- 아직 FINDINGS.md 미등재.
+- 위 전체 확정 후 ④ 실제 ryu patch(§10/§31, 아직 코드 변경 없음).
+
+**검증**:
+- 정적 분석: `py_compile sim_route_234_spatial_apex_continuity.py` 통과
+- 로그 검증: 신규 재추출 CSV(route_v3.csv, 5999행)로 재실행, 계속9
+  ad-hoc 수치와 완전 일치 재현
+- 시뮬레이션: 상동
+- 실차 검증: 미실시
+
+**전달 파일**: `toolkit/sim_route_234_spatial_apex_continuity.py`(수정),
+`toolkit/README.md`(계속10 섹션 추가 + 상단 가정(a) 상태 갱신),
+`toolkit/CHANGELOG.md`(계속10 섹션 추가). `route_v3.csv`는 대용량 산출물
+(§23)이라 devnotes에 커밋하지 않음 -- 재사용 필요 시 Google Drive 연결
+없으면 컨테이너 work/에만 있고 세션 종료 시 소실됨(사용자에게 안내).
+
+---
 ## 234차 계속9 (체크포인트만 -- severity gate 기준 오류 정정 발견: road_limit_speed 아니라 vEgo(현재속도)가 원래 의도였음, 사용자 확인 완료. 재검증/패치는 다음 세션) -- Route 속도 노이즈/Apex Flicker 근본개선, ryu 코드 변경 없음
 
 **Worker**: Claude

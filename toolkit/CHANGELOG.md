@@ -3,6 +3,24 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+## 2026-09-04 (234차 계속10)
+- `sim_route_234_spatial_apex_continuity.py`: 계속9 정정(severity gate
+  기준은 road_limit_speed가 아니라 v_ego_kph)을 정식 반영 -- stage1 계산을
+  `gate_base * RATIO`에서 `v_ego_kph * RATIO`로 수정. stage0은 기존 배포
+  코드 후보 필터(road_limit_speed 기준)로 무관하게 유지.
+- route(seg12-16)를 `extract_log.py`(계속5에서 `nRoadLimitSpeed` 컬럼
+  추가된 버전)로 재추출(`route_v3.csv`, 5999행, gate_source 전부
+  `road_limit`) -- 정식 반영 스크립트로 재실행한 결과가 계속9의 즉석
+  ad-hoc 스크립트 수치와 완전 일치(전체 172/60/16/3, 터널 81/0/0/0,
+  IC gore 31/22/4/0, S커브 0/6/9/3) -- 재현성 확인.
+- S커브 구간 잔여 stage3 점프 3건(t=2120.20/2120.46/2120.75) 위치 확인 --
+  전부 continuity `held`->`new` 전환(miss_frames 초과로 lock 해제 후 원거리
+  클러스터로 재진입) 패턴. 해당 구간 80/140/150m 대의 서로 다른 클러스터가
+  수백ms 간격으로 번갈아 나타나는 것으로 보아, 단일 커브의 노이즈(터널
+  패턴)라기보다 **여러 개의 실제 커브가 짧은 간격으로 연속된 진짜 S자
+  도로 형상**일 가능성 -- dashcam 대조로 확정 필요(미완, 다음 세션).
+  상세는 WIP.md 234차 계속10 참고.
+
 ## 2026-09-04 (234차 계속6)
 - `sim_route_234_spatial_apex_continuity.py`: `gate_base_kph()` 신설,
   severity gate 기준을 vEgo 근사 대신 실측 `nRoadLimitSpeed`로 교체.

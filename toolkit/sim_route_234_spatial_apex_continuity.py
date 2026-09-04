@@ -17,14 +17,19 @@ naviPaths만으로 매 프레임 전체 후보를 재구성할 수 있으므로 
 routeCandidate0~2 텔레메트리 컬럼은 이 재구성이 실제 232차 코드와 정합하는지
 sanity-check하는 데만 사용).
 
-**중요 -- 미확정 가정 2건(사용자 확인 필요, 아래 결과에 그대로 영향)**:
-  (a) severity gate 기준값: 원래 설계(234차 지시서 §3 원문)는
-      `speeds[k] <= road_limit_speed * RATIO`였으나 road_limit_speed
-      (`nRoadLimitSpeed`, 맵 제한속도)가 CSV에 없어 234차 계속에서 이미
-      `vEgo_kph` 기준으로 근사 검증했다(WIP.md 234차 계속 §160줄).
-      이 스크립트도 동일 근사(`speeds[k] <= vEgo_kph * ratio`)를 그대로
-      이어받는다 -- road_limit_speed 실측 컬럼이 추가되기 전까지는 정식
-      A항목(target/road_limit 비율) 자체를 재현할 수 없다는 한계가 여전함.
+**중요 -- 가정 (a)는 234차 계속9에서 확정 해소됨(사용자 직접 확인), 가정
+(b)는 여전히 미확정**:
+  (a) [계속9에서 확정, 더 이상 "가정" 아님] severity gate(stage1,
+      ROUTE_SEVERITY_GATE_RATIO=0.70)의 기준은 **항상 v_ego_kph(현재속도)**
+      이다. 계속6~8은 "원 설계가 road_limit_speed 기준"이라고 잘못
+      정정했었으나(234차 최초 지시서 문구의 기록/전사 오류), 계속2 원 승인
+      근거(dashcam 대조 ratio 예시 전부 apexSpeed/vEgo와 일치)를 재대조해
+      vEgo 기준이 처음부터 맞았음을 계속9에서 확정. stage0(기존 배포 코드의
+      candidate 필터, `speeds[k] < road_limit_speed`)는 이 정정과 무관한
+      별개 로직이므로 road_limit_speed(`nRoadLimitSpeed`) 기준 그대로 유지.
+      **234차 seg12-16 재추출(nRoadLimitSpeed 컬럼 신규 포함)로 stage0/1/2/3
+      = 172/60/16/3(전체), 81/0/0/0(터널), 31/22/4/0(IC gore), 0/6/9/3(S커브)
+      확정 재현 -- ad-hoc 검증(계속9)과 완전 일치.**
   (b) apex continuity 매칭 허용오차(예측거리와 실측 후보 거리 차이 허용폭)는
       234차 지시서 §3 원문에 수치가 명시되지 않아 CONTINUITY_MATCH_TOLERANCE_M
       =15.0(리샘플 10m 간격의 1.5배)으로 **이 세션에서 자체 설정**했다.
@@ -207,8 +212,11 @@ def replay(rows):
         c0 = gate_candidates(speeds, gate_base)
         i0 = c0[0] if c0 else None
 
-        # stage1: +30% gate
-        c1 = gate_candidates(speeds, gate_base * ROUTE_SEVERITY_GATE_RATIO)
+        # stage1: +30% gate -- 234차 계속9 정정: 기준은 gate_base(road_limit)가
+        # 아니라 v_ego_kph(현재속도)여야 함(사용자 확인, WIP.md 234차 계속9
+        # 참고). stage0(road_limit 기준, 기존 배포 코드 후보 필터)은 이
+        # 정정과 무관하므로 그대로 gate_base 유지.
+        c1 = gate_candidates(speeds, v_ego_kph * ROUTE_SEVERITY_GATE_RATIO)
         i1 = c1[0] if c1 else None
 
         # stage2: +spatial cluster
