@@ -21,6 +21,50 @@ CHANGELOG.md를 같이 갱신**한다 (세션 종료 체크리스트에 포함�
 
 ---
 
+## scan_route_vturn_handoff_ratio.py (240차 신규)
+**목적**: route가 실제로 vturn에게 커브 감속을 넘기는(handoff) 시점의
+`apex_speed/vEgo` 비율 분포를 실측한다(2026-09-05 사용자 검증지시 1~2번).
+**의존성**: `analysis_helpers.py`(`parse_navi_paths`/`recompute_route_curvature_speed`),
+`extract_log.py --with-navi-paths` 출력 CSV.
+**방법**: naviPaths를 stage0(게이트 없음, `nRoadLimitSpeed` 기준 후보 필터,
+현재 device 코드와 동일 방식)로 재구성 -> `src=='route'`가
+`--min-episode-frames`(기본 3) 이상 연속된 "route episode" 탐지 -> episode
+종료 직후 `src=='vturn'`으로 직접 전환되고 `--confirm-window`(기본 2.0s)
+이내 실측 `vTurnSpeed`가 핸드오프 시점 apex_speed와
+`--confirm-tol`(기본 15kph) 이내로 수렴하는 경우만 "confirmed handoff"로
+채택 -- 단순 src 라벨 한 프레임만 보고 판단하지 않는다(지시서 원칙).
+`apex_dist`도 함께 기록해 `--near-apex-m`(기본 15m) 이내면 "apex 도달 후
+정상 릴리즈"로 별도 표시(순수 사전감속 핸드오프와 구분).
+**사용**:
+```bash
+python3 scan_route_vturn_handoff_ratio.py route1.csv route2.csv ... \
+    [--confirm-window 2.0] [--confirm-tol 15.0] [--near-apex-m 15.0] \
+    [--json out.json]
+```
+**출력**: 파일별 route episode/전환/confirmed 건수, 전체·confirmed·
+confirmed&far-from-apex 세 그룹의 min/median/mean/max/P10/P25/P50/P75/P90.
+**주의(매우 중요, 사용 전 필독)**: 240차 실측에서 `check_device_build.py`로
+확인한 결과, 이 스크립트를 처음 돌린 11개 실차 로그는 **전부 223차
+(`ee1f5f8`, ROUTE_RELEASE_HOLD_S 2초 hold 신설 커밋) 이전 빌드**(179차
+후속2~221차, 전부 dirty=True)에서 채록됐다. 이 스크립트 자체는 코드
+버전과 무관하게 동작하지만(naviPaths 재구성은 항상 "현재" 곡률 로직
+기준), **결과 해석은 로그를 채록한 실제 device 빌드에 따라 완전히
+달라진다**:
+- 223차 이전 빌드: 2초 hold도 severity gate(234~237차)도 없는 코드 -- 이
+  스크립트가 관측하는 "route->vturn 전환"은 gate로 인한 조기소거가 섞이지
+  않은 순수 자연 전환(주로 apex 도달 릴리즈로 추정, near_apex 비율로
+  확인). 234~239차가 논의해온 self-elimination/handoff 설계와는 다른
+  현상을 보고 있는 것 -- ratio 수치를 그 논의의 검증 근거로 바로 쓰지
+  말 것.
+- 223차 이후(현재 HEAD, fc98eaa=237차 포함) 빌드: 이 스크립트가 원래
+  의도한 "severity gate/자기소거 구조 하에서의 자연 handoff 지점" 실측이
+  성립한다. 이 경우에도 device gitCommit을 `check_device_build.py`로 먼저
+  재확인할 것(§33).
+**한계**: stage0만 사용(gate/cluster/continuity 미적용, 목적상 불필요).
+`--min-episode-frames`/`--confirm-window`/`--confirm-tol`/`--near-apex-m`
+전부 240차에서 자체 설정한 값(PARAMS_REGISTRY 미등록, 표본 확정 후 등록
+검토).
+
 ## decode_rlog.py
 **목적**: `rlog.zst` / `qlog.zst` → capnp Event 이터레이터. 다른 모든
 로그 처리 스크립트(`extract_log.py`, `extract_dashcam_frames.py`)의

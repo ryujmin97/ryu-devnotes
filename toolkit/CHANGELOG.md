@@ -3,6 +3,20 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+## 2026-09-05 (240차)
+- `scan_route_vturn_handoff_ratio.py`: 신규 -- route→vturn 실제 핸드오프
+  시점의 apex_speed/vEgo 비율(handoff ratio) 실측 지시서(2026-09-05
+  사용자 검증지시) 1~2번 대응. `build_speeds_distances()`(234/238차
+  방식 재사용)로 naviPaths를 현재 곡률 로직으로 재구성(stage0, gate 없음)
+  하고, 실측 src/vTurnSpeed로 route episode 종료 직후 vturn 전환 및
+  2초 내 vTurnSpeed 수렴 여부를 확인해 "확인된 handoff"만 채택.
+  **중요**: 이번 세션 업로드 11개 로그 전부가 223차(`ee1f5f8`, 2초 hold
+  신설 커밋) **이전** 빌드(179차 후속2~221차, 전부 dirty=True)에서
+  채록됨을 `check_device_build.py`로 확인 -- 지시서 4/5번(2초 hold 검증)은
+  이 로그들로 원천적으로 검증 불가, 1~2번(ratio)도 severity gate가 아예
+  없는 빌드의 "gate 없는 자연 전환" 데이터라 234~239차가 논의해온 것과는
+  다른 성격의 표본. 상세는 FINDINGS.md 240차(CRITICAL) 참고.
+
 ## 2026-09-04 (234차 계속10)
 - `sim_route_234_spatial_apex_continuity.py`: 계속9 정정(severity gate
   기준은 road_limit_speed가 아니라 v_ego_kph)을 정식 반영 -- stage1 계산을

@@ -1,3 +1,43 @@
+## 240차 (체크포인트 -- 사용자 신규 지시서 착수했으나 device build mismatch 발견으로 원안 검증 불가, toolkit 신규 스크립트 + FINDINGS CRITICAL 기록 후 사용자 확인 대기, ryu 코드 변경 없음) -- Route→Vturn Handoff Ratio + Route Release 2초 Hold 재검토
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu`(변경 없음, HEAD `fc98eaa`=237차) / `ryujmin97/ryu-devnotes`
+
+**Branch**: `c3-ms-dev` / `main`
+
+**devnotes Base commit**: `6aebecd`(239차 체크포인트, 재클론으로 재확인 -- 드리프트 없음)
+
+**배경**: 사용자가 새 지시서(2026-09-05, "Route→Vturn Handoff Ratio + Route Release 2초 Hold 재검토")와 함께 실차 로그 11건(2026-09-01~09-03 채록, dashcam qcamera+rlog 포함)을 업로드. 지시서는 (1) 실측 handoff ratio 분포로 `ROUTE_SEVERITY_GATE_RATIO` 적정값 재산정, (2) route release 후 2초 hold의 실효성(같은 apex 재진입 억제 vs 다음 apex pre-decel 방해) 검증을 요구. **production code 수정/커밋 금지, 검증만 먼저 수행**하라는 명시적 지시.
+
+**작업**:
+1. §3 원칙대로 `ryu`(HEAD `fc98eaa`, 변경 없음)/`ryu-devnotes`(`6aebecd`, 변경 없음) 재클론 확인 후 착수.
+2. 업로드된 11개 zip 전부 압축 해제 -- 각 route 전 세그먼트에 `rlog.zst` 존재 확인(qlog만 있는 세그먼트 없음, 총 11개 route/약 15만 행).
+3. `extract_log.py --with-navi-paths`로 11개 route 전부 재추출(라우트당 402~22799행).
+4. **`check_device_build.py`로 11개 로그 전부의 실제 device 빌드 확인(신규 필수 단계로 추가 실시)** -- 결과: 전부 223차(`ee1f5f8`, 2초 hold 신설) **이전** 빌드(179차 후속2~221차), 전부 `dirty=True`. 상세는 FINDINGS.md 240차(CRITICAL) 표 참고.
+5. 신규 toolkit `scan_route_vturn_handoff_ratio.py` 작성(234/238차 `build_speeds_distances()` 재사용, §21) -- route episode 탐지 + src route→vturn 직접전환 + confirm window 내 vTurnSpeed 수렴 확인 로직. 11개 로그 전체 스캔: 후보 145건, confirmed 44건, apex_dist>15m(사전감속 추정) 14건, ratio 분포 median=0.960이나 P10~P90=0.31~2.46(분산 매우 큼).
+
+**중요 발견(CRITICAL, FINDINGS.md 240차 참고)**: 4번에서 확인된 device build mismatch로 인해:
+- 지시서 §4/§5(2초 hold 검증)는 **원천적으로 검증 불가** -- `ROUTE_RELEASE_HOLD_S`가 코드에 존재하지 않는 빌드들이므로 "hold 중 재검출" 질문 자체가 성립하지 않음.
+- 지시서 §1~§3(handoff ratio)도 234~239차 논의(severity gate 하에서의 self-elimination/handoff)와는 다른 성격의 표본 -- gate 자체가 없는 구코드의 자연 전환 데이터임. 5번 결과의 ratio 분포(분산 0.29~10.0)를 gate 적정값 제안 근거로 쓸 수 없음.
+- 82차 이후 불변인 `vturn_speed()` 물리 자체(239차 확정)는 이번 로그(전부 82차 이후 채록)에도 유효 -- vTurnSpeed 실측치 자체는 신뢰 가능, 문제는 route 아키텍처(상태기계/gate 유무) 세대차이.
+
+**완료**: 위 1~5번(로그 추출/device build 확인/toolkit 작성/예비 스캔), FINDINGS.md 240차 CRITICAL 기록.
+
+**미완료**:
+- 지시서 원안(§1~§8 전체) 완결 -- device build mismatch로 사용자 확인 없이는 진행 불가로 판단, 중단.
+- 도로 유형별 분포(§7-5), 2초 hold same-curve/next-curve 분류(§7-6/7) -- 애초에 hold 로직이 없는 로그라 해당 없음.
+
+**검증**: 정적분석(`py_compile` 통과) + 로그 검증(11개 route, 재추출) + `check_device_build.py`로 device 빌드 실측 확인. **실차 검증: 미실시**(이번 세션 자체가 "기존 계획대로 검증 불가"임을 확인하는 세션).
+
+**전달 파일**: `scan_route_vturn_handoff_ratio.py`(신규, toolkit), `toolkit/README.md`/`toolkit/CHANGELOG.md`(신규 섹션), `FINDINGS.md`(240차 CRITICAL), 이 WIP.md 항목. ryu 코드 변경 없음(지시서 명시대로 검증만 수행, 수정 없음).
+
+**다음 작업**:
+1. 사용자 확인 필요(§33): (a) 223차 이후(가급적 `fc98eaa`=237차, dirty=False) 빌드로 재플래시 후 새 로그로 재분석 vs (b) 이번 구코드 로그를 "gate 없는 자연 전환 베이스라인" 참고자료로만 남기고 지시서 결론은 보류 vs (c) 이미 존재하는 다른 최신 빌드 로그가 있는지 확인.
+2. (a)로 결정 시: 동일 지시서 §1~§8을 신규 로그로 재수행 -- `scan_route_vturn_handoff_ratio.py`는 재사용 가능(코드 버전 무관하게 동작), 2초 hold 검증(§4/§5)을 위한 신규 toolkit(hold 구간 same-curve/next-curve 분류)은 이 세션에서 아직 작성 안 함, 필요 시 다음 세션.
+3. `PROJECT_INSTRUCTIONS.md` 원칙(§3/§33)에 "새 로그 분석 전 `check_device_build.py`로 device 빌드까지 확인"을 명시적으로 추가할지 여부는 사용자 판단(현재는 §3에 rlog/qlog 존재만 확인하도록 되어 있고 device 빌드 확인은 암묵적 관례였음 -- 이번처럼 반드시 필요한 경우가 재발했으므로 명문화 제안 가능).
+
+---
 ## 239차 (체크포인트 -- 대화 중 토론/시뮬레이션/예비분석만 진행, 코드 수정 없음, 사용자 요청으로 세션 중간 저장) -- 237차 severity gate CRITICAL 재평가 + "route=사전감속/vturn=핸드오프" 신규 설계 방향
 
 **Worker**: Claude
