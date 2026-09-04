@@ -105,6 +105,18 @@ capnp 기본값(0/-1/0.0)으로만 나옴. spatial cluster(②)/apex continuity(
 설계 검증(234차)에 필요한 "매 프레임 근접 후보 목록"을 이 컬럼으로 직접
 확인 가능해짐.
 
+**2026-09-04 추가(234차 계속5)**: `nRoadLimitSpeed` 컬럼 추가 -- `cereal/
+custom.capnp`(`CarrotMan.nRoadLimitSpeed@1 : Int32`)에 이미 존재하고
+`carrot_serv.py`에서 실제로 채워지는 맵 제한속도 값인데, 이 스크립트
+FIELDNAMES에 지금까지 반영되지 않았음(routeCandidate류와 동일 성격의
+gap, 새 rlog 판독 로직 불필요). 234차 계속4에서 severity gate 기준값을
+`road_limit_speed` 대신 `vEgo_kph`로 근사했더니 실측 published apex와의
+정합률이 24.4%(569/2335)에 그친 문제(WIP 234차 계속4)를 근본적으로
+해소하기 위한 계측 컬럼 추가 — 로직/제어 변경 없음(§27). **이 컬럼은
+이 패치 적용 이후 새로 채록되는 로그에만 값이 채워진다 — 기존에 이미
+추출된 CSV(예: 234차 seg12-16)에는 소급 적용되지 않으므로, severity
+gate 근사 재검증을 위해서는 동일 구간을 반드시 재추출해야 한다.**
+
 **2026-08-31 추가(169차 계측)**: `vpPosPointLatNavi`/`vpPosPointLonNavi`/
 `dtNaviPacketAge`/`positionDtSinceFix` 컬럼 추가 -- carrot_serv.py
 `_update_gps()`에 있던 "내부GPS 폴백" 타임아웃 판정이 "패킷 도착" 기준
@@ -3052,5 +3064,27 @@ gate 통과 후 남는 잔여 불안정 구간에서 spatial cluster/continuity�
 **의존성**: `analysis_helpers.py`(parse_navi_paths, recompute_route_curvature_speed).
 **사용**:
 ```bash
-python3 sim_route_234_spatial_apex_continuity.py <route.csv> --window 2190 2225
+python3 sim_route_234_spatial_apex_continuity.py <route.csv> --window 2190 2225 \
+    --continuity-tolerance 15
 ```
+
+**2026-09-04 추가(234차 계속5)**: `--continuity-tolerance <m>` 옵션 추가
+(가정 (b) 확정을 위한 사용자 지시: 10/15/20m A/B/C 비교). 매칭 시 tolerance
+안에 클러스터(물리적으로 다른 지점)가 2개 이상 동시에 들어오면 "ambiguous
+matched"로 집계해 오판 위험을 정량화(`stage3 continuity tolerance=Nm:
+ambiguous matched frames=X/Y` 출력줄).
+**10/15/20m 비교 결과(동일 route `0000039a--7b602ffb85` seg12-16, 5999행)**:
+| tolerance | 전체 >40m 점프(stage3) | matched frames | ambiguous matched |
+|---|---|---|---|
+| 10m | 3건 | 181 | 0/181 (0.0%) |
+| 15m | 3건 | 200 | 0/200 (0.0%) |
+| 20m | 3건 | 213 | 0/213 (0.0%) |
+
+이 route에서는 10~20m 전 구간에서 ambiguous 0건, flicker 억제 효과(점프
+3건)도 동일 — 즉 이 특정 로그만 놓고 보면 20m까지 넓혀도 측정 가능한
+오판 위험 증가는 없었음. 다만 tolerance를 넓혀도 이 데이터셋에서는 이득이
+전혀 늘지 않았으므로(matched frame 수만 늘고 점프/ambiguous는 불변),
+**더 넓힐 이유가 없고 더 보수적인 10m을 잠정 채택**하는 편이 안전 마진이
+크다고 판단됨(단일 route 결과이므로 §26 PARAMS_REGISTRY 확정 전 추가
+route로 재검증 권장 — 특히 근접한 두 커브가 실제로 연속되는 구간처럼
+ambiguous 사례가 나올 만한 로그).

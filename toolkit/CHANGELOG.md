@@ -3,6 +3,17 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+## 2026-09-04 (234차 계속5)
+- `extract_log.py`: `nRoadLimitSpeed` 컬럼 추가(순수 계측, 로직 변경 없음).
+  234차 계속4의 가정(a)(road_limit_speed를 vEgo로 근사, 정합률 24.4%)를
+  근본 해소하기 위한 사용자 지시 -- **재추출 필요, 기존 CSV엔 소급 안 됨**.
+- `sim_route_234_spatial_apex_continuity.py`: `--continuity-tolerance <m>`
+  옵션 추가 + ambiguous-match 계측(가정 (b) 검증용, 사용자 지시).
+  동일 route(seg12-16)로 10/15/20m A/B/C 실행 -- 3건 모두 ambiguous 0%,
+  flicker 억제(점프 3건)도 동일 -- 넓힐 이득 없어 보수적인 10m 잠정 채택
+  권장(단일 route 결과, §26 확정 전 추가 검증 필요). 상세는 README.md/
+  WIP.md 234차 계속5 참고.
+
 ## 2026-09-04 (234차 계속4)
 - `sim_route_234_spatial_apex_continuity.py` 신규 -- ②spatial cluster/
   ③apex continuity 4단계(baseline/+30%gate/+spatial/+continuity) A/B.

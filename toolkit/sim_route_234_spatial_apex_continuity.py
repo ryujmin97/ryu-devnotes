@@ -49,7 +49,7 @@ ROUTE_SEVERITY_GATE_RATIO = 0.70          # 234차 계속2 확정
 ROUTE_CLUSTER_MIN_POINTS = 2              # 234차 사용자 확정 조건 1
 ROUTE_CLUSTER_MAX_GAP_M = 40.0            # 설계안 B 원문
 ROUTE_APEX_MISS_TOLERANCE_FRAMES = 3      # 234차 사용자 확정 조건 2 (~150ms)
-CONTINUITY_MATCH_TOLERANCE_M = 15.0       # (b) 가정 -- 사용자 확인 필요
+CONTINUITY_MATCH_TOLERANCE_M = 15.0       # (b) 가정 -- 234차 계속5, --continuity-tolerance로 재설정 가능
 
 
 def load_csv(path):
@@ -99,22 +99,33 @@ class ContinuityState:
         self.locked_dist = None
         self.locked_speed = None
         self.miss_frames = 0
+        self.last_ambiguous = False
 
     def step(self, clusters, dists, speeds, v_ego_ms, dt):
         predicted = (self.locked_dist - v_ego_ms * dt) if self.locked_dist is not None else None
 
         # 이번 프레임 클러스터들 중 predicted와 가장 가까운 후보 탐색
         matched = None
+        ambiguous = False
         if predicted is not None and predicted > 0 and clusters:
             best = None
             best_err = None
+            within_tol = 0
             for c in clusters:
                 idx = c[0]
                 err = abs(dists[idx] - predicted)
+                if err <= CONTINUITY_MATCH_TOLERANCE_M:
+                    within_tol += 1
                 if best_err is None or err < best_err:
                     best, best_err = idx, err
             if best_err is not None and best_err <= CONTINUITY_MATCH_TOLERANCE_M:
                 matched = best
+                # (b) 허용오차 자체 위험도 계측: 서로 다른 물리적 지점(cluster)이
+                # 둘 이상 동시에 tolerance 안에 들어오면, 이 tolerance가 서로
+                # 다른 지점을 같은 apex로 오판할 수 있다는 뜻(폭이 넓을수록 증가
+                # 예상) -- 234차 계속5, 사용자 지시 10/15/20m A/B/C 비교용.
+                ambiguous = within_tol >= 2
+        self.last_ambiguous = ambiguous
 
         if matched is not None:
             self.locked_dist = dists[matched]
@@ -166,9 +177,11 @@ def replay(rows):
                 rec[f"{stage}_idx"] = None
                 rec[f"{stage}_dist"] = None
                 rec[f"{stage}_speed"] = None
+            rec["s3_ambiguous"] = False
             cont.locked_dist = None
             cont.locked_speed = None
             cont.miss_frames = 0
+            cont.last_ambiguous = False
             out.append(rec)
             continue
 
@@ -186,6 +199,7 @@ def replay(rows):
 
         # stage3: +apex continuity (stage2 클러스터 기반)
         i3, d3, sp3, mode3 = cont.step(clusters2, dists, speeds, v_ego_ms, dt)
+        rec["s3_ambiguous"] = cont.last_ambiguous
 
         rec["s0_idx"], rec["s0_dist"], rec["s0_speed"] = i0, (dists[i0] if i0 is not None else None), (speeds[i0] if i0 is not None else None)
         rec["s1_idx"], rec["s1_dist"], rec["s1_speed"] = i1, (dists[i1] if i1 is not None else None), (speeds[i1] if i1 is not None else None)
@@ -251,6 +265,13 @@ def summarize(result, window=None):
         print(f"  stage{stage}: active={active}/{len(w)} frames, "
               f">40m 프레임간 점프={jumps}건")
 
+    ambiguous_count = sum(1 for r in w if r.get("s3_ambiguous"))
+    matched_count = sum(1 for r in w if r.get("s3_mode") == "matched")
+    rate = (100 * ambiguous_count / matched_count) if matched_count else 0.0
+    print(f"  stage3 continuity tolerance={CONTINUITY_MATCH_TOLERANCE_M:.0f}m: "
+          f"ambiguous matched frames={ambiguous_count}/{matched_count} "
+          f"({rate:.1f}%) -- tolerance 안에 후보 2개 이상 동시 존재(오판 위험)")
+
     if window:
         s3_modes = {}
         for r in w:
@@ -263,7 +284,13 @@ def main():
     ap.add_argument("csv_path")
     ap.add_argument("--window", type=float, nargs=2, default=[2190.0, 2225.0],
                      help="터널 flicker 구간(233/234차 재현 대상)")
+    ap.add_argument("--continuity-tolerance", type=float, default=15.0,
+                     help="234차 계속5: apex continuity 매칭 허용오차(m). "
+                          "10/15/20 A/B/C 비교용으로 추가(사용자 지시)")
     args = ap.parse_args()
+
+    global CONTINUITY_MATCH_TOLERANCE_M
+    CONTINUITY_MATCH_TOLERANCE_M = args.continuity_tolerance
 
     rows = load_csv(args.csv_path)
     if not rows:

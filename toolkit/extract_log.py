@@ -71,7 +71,20 @@ FIELDNAMES = [
     "routeCandidate0Idx", "routeCandidate0Dist", "routeCandidate0Speed",
     "routeCandidate1Idx", "routeCandidate1Dist", "routeCandidate1Speed",
     "routeCandidate2Idx", "routeCandidate2Dist", "routeCandidate2Speed",
+    "nRoadLimitSpeed",
 ]
+# 2026-09-04 추가(234차 계속5): carrotMan.nRoadLimitSpeed -- cereal/custom.capnp
+# 확인 결과 CarrotMan 구조체에 nRoadLimitSpeed@1 : Int32로 이미 존재하고
+# carrot_serv.py에서 실제로 채워지는 값(맵 제한속도)인데, 이 CSV 추출기
+# FIELDNAMES에서 지금까지 누락되어 있었음(routeCandidate류와 동일 성격의
+# gap). 234차 계속4에서 severity gate 기준값(가정 a)을 road_limit_speed
+# 대신 vEgo_kph로 근사했더니 실측 published apex와의 정합률이 24.4%에
+# 그친 문제를 근본적으로 해소하기 위해 추가 -- 새 rlog 판독 로직 없이
+# 기존 decode_rlog.iter_events()가 이미 열어보는 carrotMan 메시지에서
+# 속성 하나만 추가로 읽는 것. 로직/제어 변경 전혀 없음, 순수 계측 컬럼
+# 추가(§27). **이 컬럼은 이 패치 적용 이후 새로 채록되는 로그에만 값이
+# 채워진다 -- 기존에 이미 추출된 CSV(예: 234차 seg12-16)에는 소급 적용되지
+# 않으므로, 가정(a) 재검증을 위해서는 동일 구간을 반드시 재추출해야 한다.**
 # 2026-09-04 추가(234차): carrotMan.routeCandidateCount/routeCandidate0~2
 # Idx/Dist/Speed -- 204차 계측(cereal/custom.capnp @42~@51, carrot_serv.py
 # L1355-1364)으로 이미 rlog에 실제로 채워지고 있었으나, 이 CSV 추출기
@@ -412,6 +425,7 @@ def process_segment(rlog_path, seg_name, repo_dir, max_mb, commit_short="",
                 "routeCandidate2Idx": cm.routeCandidate2Idx,
                 "routeCandidate2Dist": cm.routeCandidate2Dist,
                 "routeCandidate2Speed": cm.routeCandidate2Speed,
+                "nRoadLimitSpeed": cm.nRoadLimitSpeed,
             })
     return rows, last_cs, last_ctrl, last_lead, last_lat, last_model, last_pose
 

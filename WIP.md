@@ -1,3 +1,78 @@
+## 234차 계속5 (진행 중 -- 미확정 가정 2건에 대한 사용자 결정 반영: nRoadLimitSpeed 계측 컬럼 추가 + continuity tolerance 10/15/20m A/B/C 완료) -- Route 속도 노이즈/Apex Flicker 근본개선, ryu 코드 변경 없음
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu`
+
+**Branch**: `c3-ms-dev`
+
+**Base commit (ryu)**: `73a8cb3a823869576e4672c4611ac219b99a49b7`(232차, 여전히 코드 변경 없음)
+
+**devnotes Base commit(이번 세션 확인 시점)**: `0ca874a1655e0f1a8a210cb7d36b22709e0a5f45`(234차 계속4, 직전 체크포인트)
+
+**사용자 결정(234차 계속4의 미확정 가정 2건에 대한 답변)**:
+1. 가정(a) road_limit_speed 근사 문제 -> **"nRoadLimitSpeed 계측 컬럼 추가 후 재검증"** 선택
+2. 가정(b) continuity tolerance -> **"10m/15m/20m A/B/C 비교"** 선택
+
+**진행한 작업**:
+- GitHub 원격 상태 재확인(§3/§33): `ryu` `73a8cb3`, `ryu-devnotes` `0ca874a`
+  둘 다 234차 계속4 기록과 100% 일치 확인 -- 드리프트 없음.
+- 업로드된 234차 CSV(`0000039a--7b602ffb85` seg12-16, 5999행) 헤더 재확인:
+  `nRoadLimitSpeed` 컬럼 없음(WIP 기록과 일치, 동일 로그 재사용 확인).
+- **① nRoadLimitSpeed 계측 컬럼 추가**: `cereal/custom.capnp` 실제 확인 결과
+  `CarrotMan.nRoadLimitSpeed@1 : Int32`가 이미 존재(맵 제한속도, 새 필드
+  추가 불필요). `extract_log.py`의 FIELDNAMES + row 생성부에 `cm.
+  nRoadLimitSpeed`만 추가(§27 순수 계측, 로직 변경 없음, py_compile 통과).
+  **주의: 이 컬럼은 패치 적용 후 새로 채록되는 로그에만 채워짐 -- 기존
+  234차 CSV에는 소급 적용 안 됨, 가정(a) 실제 재검증은 재추출 후 다음
+  세션에서 진행.**
+- **② continuity tolerance A/B/C**: `sim_route_234_spatial_apex_continuity.py`에
+  `--continuity-tolerance` CLI 옵션 추가(기존 하드코딩 상수를 실행시
+  주입 가능하게 리팩터, py_compile 통과) + "ambiguous matched" 계측
+  신설(예측거리 tolerance 안에 서로 다른 클러스터가 2개 이상 동시에
+  들어오면 오판 위험으로 집계). 기존 234차 CSV(nRoadLimitSpeed 불필요,
+  naviPaths 기반 재구성이라 즉시 실행 가능)로 10/15/20m 3회 실행:
+
+  | tolerance | stage3 >40m 점프 | matched frames | ambiguous |
+  |---|---|---|---|
+  | 10m | 3건 | 181 | 0/181 (0.0%) |
+  | 15m | 3건 | 200 | 0/200 (0.0%) |
+  | 20m | 3건 | 213 | 0/213 (0.0%) |
+
+  **해석**: 이 route 기준으로는 10~20m 전 구간에서 ambiguous 0건이고
+  flicker 억제 효과(점프 3건)도 동일함 -- tolerance를 넓혀도 이 로그
+  에서는 matched frame 수만 늘 뿐 이득/위험 모두 변화 없음. 넓힐 이유가
+  없으므로 **더 보수적인 10m을 잠정 채택** 권장(단일 route 결과이므로
+  §26 PARAMS_REGISTRY 정식 등록 전 추가 route로 재검증 필요 -- 특히
+  근접한 두 커브가 실제로 이어지는 구간처럼 ambiguous가 나올 만한 로그).
+
+**아직 미실시**:
+- nRoadLimitSpeed 계측 패치 적용 후 동일 구간(또는 신규 구간) 재추출 ->
+  가정(a) sanity check(현재 24.4%) 재검증.
+- continuity tolerance 10m 최종 확정 전 추가 route(가능하면 근접 커브
+  연속 구간) 확보 후 재검증.
+- 가정 1/2 모두 최종 확정 후 4단계 결과 devnotes 최종본 정리 -> 사용자
+  보고/승인 -> ④ 실제 patch(§10, §31).
+
+**검증**:
+- 정적 분석: `py_compile extract_log.py sim_route_234_spatial_apex_continuity.py` 통과
+- 로그 검증: 기존 234차 CSV로 10/15/20m 3회 실행(위 표)
+- 시뮬레이션: 상동
+- 실차 검증: 미실시
+
+**다음 작업(순서대로)**:
+1. 사용자가 이 패치(`extract_log.py`)를 로컬에 반영 -> 동일/신규 구간
+   재추출 -> 재업로드.
+2. nRoadLimitSpeed 실측값으로 severity gate sanity check 재검증(가정 a 확정).
+3. 추가 route로 continuity tolerance 재검증(가정 b 최종 확정, §26 등록).
+4. 가정 1/2 모두 확정 후 ④ 실제 ryu patch 작성.
+
+**산출물(이번 세션)**: `toolkit/extract_log.py`(수정, `nRoadLimitSpeed`
+컬럼 추가), `toolkit/sim_route_234_spatial_apex_continuity.py`(수정,
+`--continuity-tolerance` 옵션 + ambiguous 계측), `toolkit/README.md`/
+`toolkit/CHANGELOG.md`(동기화 완료, §22).
+
+---
 ## 234차 계속4 (진행 중 -- ②spatial cluster/③apex continuity 시뮬레이션 1차 완료, 미확정 가정 2건 사용자 확인 대기) -- Route 속도 노이즈/Apex Flicker 근본개선, ryu 코드 변경 없음
 
 **Worker**: Claude
