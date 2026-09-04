@@ -1,3 +1,82 @@
+## 234차 계속9 (체크포인트만 -- severity gate 기준 오류 정정 발견: road_limit_speed 아니라 vEgo(현재속도)가 원래 의도였음, 사용자 확인 완료. 재검증/패치는 다음 세션) -- Route 속도 노이즈/Apex Flicker 근본개선, ryu 코드 변경 없음
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu`
+
+**Branch**: `c3-ms-dev`
+
+**Base commit (ryu)**: `73a8cb3a823869576e4672c4611ac219b99a49b7`(232차, 여전히 코드 변경 없음)
+
+**devnotes Base commit(이번 세션 확인 시점)**: `ab19c0db3302149590cc4835a4b926e4b0f743c9`(234차 계속8, git ls-remote로 재확인 -- 드리프트 없음)
+
+**정정 발견(중요, §24 결론 변경 -- 다음 세션은 이걸 기준으로 재출발할 것)**:
+
+- **기존 결론(계속6/8까지)**: `ROUTE_SEVERITY_GATE_RATIO=0.70`의 기준(base)은
+  `nRoadLimitSpeed`(도로제한속도)이며, 234차 최초 지시서 원문(`speeds[k] <=
+  road_limit_speed * RATIO`)도 그렇게 적혀 있었음. 계속6에서 vEgo 근사를
+  실측 road_limit_speed로 교체한 것을 "가정(a) 해소"로 기록.
+- **새로운 증거(사용자 직접 확인, 이번 세션)**: 사용자가 "내가 얘기한 건
+  현재속도보다 목표속도가 70% 이상인 경우 버리는 것"이라고 정정. 이를
+  **234차 계속2의 원 승인 기록**(0.70 확정 당시 dashcam 대조 근거)과
+  대조한 결과, 그때 제시된 모든 ratio 예시가 **apexSpeed/vEgo**로 계산돼
+  있었음이 확인됨(예: vEgo60/apexSpeed49→ratio0.81=49/60, vEgo67/apexSpeed
+  45→ratio0.67=45/67, vEgo53/apexSpeed42→ratio0.79=42/53 -- 전부
+  road_limit_speed가 아니라 vEgo로 나눈 값과 정확히 일치). 계속2의 승인
+  근거 문구("내 차 속도가 빠르면 관련 커브가 잡히겠지 -- 차속이 높은 상태로
+  진입하면 ratio가 자연히 0.70 이하로 떨어져 gate 통과")도 vEgo 기준
+  해석에서만 의미가 성립함.
+- **변경 이유**: 234차 최초 지시서에 `road_limit_speed`로 적힌 것이
+  기록/전사 단계의 오류였고, 실제 사용자 의도 및 계속2 승인 근거는 처음부터
+  vEgo(현재속도) 기준이었음. 계속6에서 "vEgo 근사를 실측 road_limit_speed로
+  고쳤다"고 한 것은 **애초에 맞았던 기준(vEgo)을 잘못된 기준(road_limit_speed)
+  으로 되돌린 것**이었음(계속4/5의 vEgo 근사가 근사가 아니라 사실상 정답에
+  가까웠던 것).
+- **새로운 결론**: `ROUTE_SEVERITY_GATE_RATIO=0.70`의 기준은
+  **v_ego_kph(현재속도)**여야 한다. 단, **stage0(기존 배포 코드의 candidate
+  필터, `speeds[k] < road_limit_speed`, 계속6에서 실측 검증한 부분)은 이
+  정정과 무관 -- 이건 234차 신규 severity gate와 별개의 기존 로직이므로
+  road_limit_speed 기준 그대로 유지가 맞음.**
+
+**즉석 재계산(ad-hoc, `/home/claude/work/replay_vego_gate_adhoc.py`, 컨테이너
+로컬, 아직 toolkit에 정식 편입 안 함)**: stage1 기준만 vEgo*0.70으로 바꿔
+동일 CSV(route_v2.csv, 5999행) 재실행 -- stage0(road_limit, 불변)/stage1(vEgo
+기준, 신규)/stage2/stage3 jump:
+
+| 구간 | stage0 | stage1(vEgo기준) | stage2 | stage3 |
+|---|---|---|---|---|
+| 전체(5999행) | 172 | 60 | 16 | **3** |
+| 터널(t2190~2225, 233/234원대상) | 81 | 0 | 0 | **0** |
+| IC gore(t2108~2112, 계속7신규발견) | 31 | 22 | 4 | **0** |
+| S커브(t2116~2122.2, 계속7신규발견) | 0 | 6 | 9 | **3**(도로제한속도기준일 땐 20 -- 크게 개선되나 완전 0은 아님) |
+
+vEgo 기준 stage1/2/3 수치(60/16/3, 전체)가 계속4/5의 "vEgo 근사" 수치(60/16/3)와
+정확히 일치 -- 계속4/5는 애초에 (근사가 아니라) 올바른 기준으로 계산하고 있었던
+것으로 재확인됨.
+
+**아직 미실시(다음 세션)**:
+- 위 정정을 `sim_route_234_spatial_apex_continuity.py`(정식 toolkit
+  스크립트)에 반영(현재는 ad-hoc 스크립트로만 확인, toolkit 미반영 -- §21/§22
+  원칙상 정식 반영 전 사용자 검토 필요할 수 있음).
+- S커브 구간 잔여 3건(0은 아님)의 원인 추가 분석 -- 완전 해결은 아니므로
+  이 부분만 별도로 더 봐야 함.
+- 계속6/8에서 이 오류 기준으로 낸 결론(sanity 98.2%는 stage0에 대한 것이라
+  불변/유효, 그러나 stage1/2/3 절대 수치와 "②③ 효과가 과대평가됐다"는
+  계속6 핵심발견2, "S커브에서 gate가 신규 jump를 만든다"는 계속8 발견은 전부
+  잘못된 기준(road_limit) 위에서 나온 것이므로 재해석 필요 -- FINDINGS.md
+  정식 등재 여부 포함) 정리.
+- 위 전체를 반영한 ②③ 재검증 -> 확정 -> ④ 실제 ryu patch(§10/§31).
+
+**검증**:
+- 정적 분석: `py_compile replay_vego_gate_adhoc.py` 통과
+- 로그 검증: 동일 CSV로 재실행, stage0(불변)/stage1(vEgo기준) 재현
+- 시뮬레이션: 상동
+- 실차 검증: 미실시
+
+**사용자 지시**: 이번 세션은 여기서 체크포인트만 남기고 종료. 재검증/toolkit
+정식 반영/패치는 다음 세션.
+
+---
 ## 234차 계속8 (진행 중 -- IC/S커브 구간별 ①②③ 개별 A/B 정량화, 새로운 근본 메커니즘 발견: ①0.70 gate가 실측 road_limit 기준에서는 완만한 저속 커브의 진짜 apex를 100% 배제함) -- Route 속도 노이즈/Apex Flicker 근본개선, ryu 코드 변경 없음
 
 **Worker**: Claude
