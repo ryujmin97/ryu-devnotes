@@ -1126,6 +1126,29 @@ discontinuity 0건). 개발 중 트리거 소스별 boost_s 미구분 버그가 
   77.3%)함을 확인. 이 결과와 별개로 t=466~467 구간 실제 device 텔레메트리
   자체(routeApexSpeed)가 5.0을 기록해, sharpest_candidate가 미리 잡아낸
   5.0kph 후보가 아티팩트가 아니라 실재하는 급커브임을 교차검증함.
+## 238차
+- `replay_route_237_vs_baseline.py`: 신규 -- 237차 patch(`ROUTE_SEVERITY_GATE_RATIO=0.70`,
+  carrot_man.py `fc98eaa`)를 실차 적용 전 158/224차 방식으로 desiredSpeed
+  출력 시계열까지 A/B 재현. `sim_route_234_spatial_apex_continuity.py`
+  (candidate 재구성)와 `replay_route_223_vs_baseline.py`의 `RouteSim223`
+  (apex->out_speed 상태기계, 무변경 재사용)을 조합해, baseline(A, stage0만)
+  vs patched(B, stage0+237차 stage1 gate) 각각 독립 인스턴스로 out_speed를
+  계산. seg12-16 로그(5999행) 실측 결과: apex_dist 점프(>40m) 172건(A)->
+  47건(B)로 감소(방향은 237차 checkpoint와 일치), out_speed 기준 vEgo+2kph
+  초과 유지 구간(overshoot)이 A는 1건(t=2245.1~2248.5, max 99.4kph, apex_speed
+  프레임간 노이즈가 route_active 상태에서 감쇠 없이 그대로 out_speed로
+  노출된 것으로 확인 -- 237차 gate 도입 동기를 실제 out_speed 레벨에서도
+  재확인) 발견된 반면 B는 0건. **중요 발견(신규)**: 실제 patch 코드는
+  stage1을 stage0 결과 위에 순차 적용(nested, `candidates = [k for k in
+  candidates if ...]`)하는데, 234차 `sim_route_234_...`의 stage1은 전체
+  speeds 배열에 독립적으로 재적용(non-nested)하고 있어 두 방식이 다르다 --
+  이 차이로 전체 stage1 건수가 234차 기록 60건과 47건(이 스크립트, nested/
+  실코드 그대로)으로 갈렸다. 구간별 대조: 터널(81/0)·S커브(0/6)는 완전
+  일치, IC gore만 22(234차, non-nested)->30건(이 스크립트, nested/실코드)
+  으로 차이 -- **234차 toolkit 수치가 실제 배포 코드(nested)보다 낙관적
+  이었을 가능성**, WIP.md 238차/FINDINGS.md 참고. 실차 검증은 여전히
+  미실시(오프라인 재계산 한정, RouteSim223 단순화 한계는 스크립트 docstring
+  한계 3번 참고).
 ## 224차
 - `replay_route_223_vs_baseline.py`: 신규 -- 223차 재설계(무상태 감속식,
   carrot_man.py L840-922) 검증용. curve 후보 선택 로직이 223차에서도

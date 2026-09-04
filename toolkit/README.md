@@ -1539,6 +1539,64 @@ python3 replay_route_223_vs_baseline.py <route.csv> \
     --decel-rate 1.00 --ctrl-end 7.0 [--json out.json]
 ```
 
+## replay_route_237_vs_baseline.py (238차, 신규 -- 실측 패치 검증, POSITIVE)
+**목적**: 237차 patch(`ROUTE_SEVERITY_GATE_RATIO=0.70` severity gate,
+`carrot_man.py` `fc98eaa`)를 실차 적용 전 158/224차 방식으로 desiredSpeed
+출력 시계열까지 A/B 재현한다. 237차 WIP.md가 미확인 사항으로 남긴
+"candidate 레벨 카운트만 검증했고 실제 desiredSpeed 시계열까지는 안 함"을
+해소하는 것이 목적.
+**구성**: (1) candidate/apex 선택은 `sim_route_234_spatial_apex_continuity.py`
+(234차계속4~10)와 동일하게 naviPaths를
+`analysis_helpers.recompute_route_curvature_speed()`로 재구성해 매 프레임
+후보 배열을 만든다 -- baseline(A)=stage0만(road_limit_speed 필터),
+patched(B)=stage0+stage1(237차 patch 그대로, `max(v_ego_kph,1.0)*0.70`).
+(2) apex->out_speed 상태기계는 `replay_route_223_vs_baseline.py`(224차)의
+`RouteSim223`을 **무변경 재사용** -- 237차가 건드리지 않은 구간(apex 도달
+이후 route_active/release_time + 감속식, carrot_man.py L947~)이므로 A/B가
+완전히 동일한 하류 로직을 공유한다.
+**의존성**: `analysis_helpers.py`(parse_navi_paths/recompute_route_curvature_speed).
+**주요 함수**:
+- `select_apex(dists, speeds, road_limit_kph, v_ego_kph, apply_severity_gate)`
+  -- carrot_man.py L879-897(237차 HEAD) candidates 구성부 그대로 재현.
+  `apply_severity_gate=False`면 stage0까지(232차 동작), `True`면 stage0+1까지
+  (237차 동작). stage1은 stage0 결과 위에 **순차(nested) 적용**(실제 patch와
+  동일 -- 아래 한계 참고).
+- `RouteSim223` -- 224차 클래스와 100% 동일, A/B 독립 인스턴스로 사용.
+- `replay(rows, decel_rate_mss, ctrl_end_s, assume_mode_on)` -- 프레임별
+  `{apex_a_*, apex_b_*, out_a_speed, out_b_speed, live_route_speed, ...}` 반환.
+- `find_overshoot_segments`/`jump_count`/`max_frame_drop` -- 223차/234차와
+  동일 지표 재사용.
+**한계**(223차 스크립트와 동일 계열): (1) turnSpeedControlMode 로그 미기록,
+`--assume-mode-on`(기본 True) 가정. (2) autoNaviSpeedDecelRate/CtrlEnd는
+CLI 가정치(기본 1.00/7.0). (3) `RouteSim223`은 205~228차의 ceiling/boost/
+route_inert 로직을 포함하지 않는 단순화 -- 절대값보다 구조적 비교(게이트
+도입 전후 out_speed 거동 변화) 우선. (4) `build_speeds_distances()`의
+`road_limit_speed=200.0`은 실제 nRoadLimitSpeed가 아니라 "negligible
+curvature=사실상 무제한" placeholder(234차 관례 재사용) -- 실제 stage0
+게이트 비교는 매 프레임 실측 nRoadLimitSpeed로 별도 수행.
+**238차 실측 검증 결과(POSITIVE, seg12-16 로그 5999행)**: apex_dist 점프
+(>40m) 172건(A)->47건(B)로 감소. out_speed 기준 vEgo+2kph 초과 유지
+구간(overshoot)이 **A는 1건**(t=2245.1~2248.5, out_a_speed max 99.4kph --
+raw apex_speed가 프레임마다 73→95→81→78kph대로 요동칠 때 `route_active`
+상태에서 감쇠 없이 그대로 out_speed에 노출됨, 237차 gate 도입 동기를
+out_speed 레벨에서 실측 재확인) 발견된 반면 **B는 0건**.
+**중요 발견(신규, 234차 수치와의 차이)**: 실제 patch 코드의 stage1은
+stage0 결과 리스트 위에 **순차(nested)** 필터를 추가하는데(`candidates =
+[k for k in candidates if ...]`), 234차 `sim_route_234_...`의 stage1은
+전체 speeds 배열에 vEgo*0.70 gate를 **독립적으로(non-nested)** 재적용하고
+있어 실제 코드와 다르다. 이 차이로 전체 stage1 점프 건수가 234차 기록
+60건과 이 스크립트(nested, 실제 코드와 동일) 47건으로 갈렸다. 구간별
+대조: 터널(81->0)·S커브(0->6)는 234차와 완전 일치하지만, **IC gore만
+22건(234차, non-nested)->30건(이 스크립트, nested/실코드)**으로 차이 --
+234차 toolkit 수치가 이 구간에 한해 실제 배포 코드(nested)보다 낙관적
+이었을 가능성 시사(WIP.md/FINDINGS.md 238차 참고).
+**실차 검증**: 미실시(오프라인 재계산 한정).
+**사용**:
+```bash
+python3 replay_route_237_vs_baseline.py <route.csv> \
+    --decel-rate 1.00 --ctrl-end 7.0 [--json out.json]
+```
+
 ## sim_route_apex_hysteresis.py (158차계속/159차, 신규 — 대안 설계 검증, NEGATIVE)
 **목적**: 157차 `carrot_navi_route_apex`(매 프레임 무상태 전역탐색)에
 대해 "apex마다 명시적 리셋을 넣으면 연속 굽이길에서 톱니 진동이 생기지

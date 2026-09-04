@@ -1,3 +1,61 @@
+## 238차 (완료 -- 237차 patch를 158/224차 방식 A/B replay로 desiredSpeed 출력 시계열까지 오프라인 검증, POSITIVE + 234차 stage1 non-nested 수치와의 차이 신규 발견) -- Route 속도 노이즈/Apex Flicker 근본개선, ryu 코드 변경 없음(devnotes toolkit 신규 스크립트만)
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu`
+
+**Branch**: `c3-ms-dev`
+
+**Base commit (ryu)**: `fc98eaa8510ed6215ae87e3d514818fd9518744a`(237차, 재클론으로 재확인 -- 드리프트 없음. 이 커밋 자체가 237차 patch이며, 실차 device에는 아직 미적용)
+
+**devnotes Base commit(이번 세션 확인 시점)**: `9cb6913`(237차, 재클론으로 재확인 -- 드리프트 없음)
+
+**배경**: 237차 checkpoint가 미확인 사항으로 남긴 항목 -- "`replay_route_XXX_vs_baseline.py`류의 A/B replay(158/224차 방식)로 실제 desiredSpeed 출력 시계열까지 대조하는 것은 이번 세션에서 안 함(toolkit은 candidate 레벨 카운트만 검증) -- §31/§29 원칙상 실차 적용 전 권장"을 이번 세션에서 수행. 사용자가 동일 route(seg12-16)를 재업로드.
+
+**작업**:
+
+1. **신규 toolkit 스크립트 작성**: `replay_route_237_vs_baseline.py`. 기존 도구 재사용 원칙(§21)에 따라 새로 작성하지 않고 두 기존 검증된 부품을 조합 -- (a) candidate/apex 재구성은 `sim_route_234_spatial_apex_continuity.py`(234차계속4~10)의 `build_speeds_distances()`/`recompute_route_curvature_speed()` 방식 그대로, (b) apex->out_speed 상태기계는 `replay_route_223_vs_baseline.py`(224차)의 `RouteSim223`을 **무변경 재사용**(237차가 이 하류 로직을 전혀 건드리지 않았음을 diff로 재확인했으므로 A/B에 동일 클래스 적용 가능).
+2. **baseline(A)/patched(B) 정의**: A=stage0만(road_limit_speed 필터, 232차/현재 device 코드와 동일), B=stage0+stage1(237차 patch 그대로, `carrot_man.py` L879-897 candidates 구성부를 그대로 옮김 -- `max(v_ego_kph,1.0)*ROUTE_SEVERITY_GATE_RATIO`, stage0 결과 위에 순차/nested 필터).
+3. **로그 재추출**: 사용자가 재업로드한 seg12-16을 `extract_log.py --with-navi-paths`로 재추출(`route_v6.csv`, 5999행 -- 234~237차와 동일 로그, 행수 일치 재확인).
+4. **실행/검증**: `python3 -m py_compile` 통과. 전체 구간(t=1976~2276) 재생 완료.
+
+**결과(POSITIVE)**:
+
+| 지표 | baseline(A, stage0) | patched(B, stage0+1) |
+|---|---|---|
+| apex 존재 프레임 | 2383/5999 | 430/5999 |
+| apex_dist 점프(>40m) | 172건 | 47건 |
+| out_speed 기준 overshoot(vEgo+2kph 초과 유지 ≥1s) | **1건**(t=2245.1~2248.5, 3.4s, out_a_speed max=99.4kph, vEgo 초과폭 최대 32.7kph) | **0건** |
+| 프레임간 최대낙차 | 18.22 km/h(이론상한 0.18 km/h/frame **초과**) | 0.53 km/h(이론상한 이내) |
+
+- overshoot 1건(A) 원인을 프레임 단위로 직접 확인: t=2244.51~2246.46 구간에서 raw apex_speed(재구성값)가 73.8→77.8→81.7→86.7→93.5→95.5→87.8→81.7→77.8→73.8→77.8...kph로 프레임마다 요동치는데, `route_active=True`(진입 완료) 상태에서는 `RouteSim223`의 진입 게이트(`v_ego_kph<=apex_speed`)를 이미 통과했으므로 이후 apex_speed 자체가 목표값으로 그대로 채택돼 감쇠 없이 out_speed에 노출됨 -- **237차 gate 도입 동기(apex 후보 flicker가 실제 출력에 영향)를 out_speed 레벨에서 처음으로 실측 재확인**(236차는 이런 사례가 이 route에서 안 보였다고 결론냈으나, 그건 원시 published telemetry만 봤기 때문 -- 이번엔 baseline만 별도로 오프라인 재계산해서 처음 드러남). B(patched)는 이 구간이 애초에 severity gate로 걸러져(apex 후보 자체가 없거나 다른 지점) overshoot 자체가 발생하지 않음.
+- 프레임간 최대낙차가 A에서 이론상한(0.18km/h)을 훨씬 초과(18.22km/h)하는 것도 같은 메커니즘 -- `RouteSim223`의 감속식은 `required_decel`을 `accel_limit`(=decel_rate_mss)로 클램프하지만, apex_speed 자체가 널뛰면 target이 바뀌면서 `out_speed = max(target_ms, ...)`가 target을 그대로 반환(요구감속<=0인 상황, 즉 target이 갑자기 더 높아지면 클램프가 무의미)하기 때문. 실제 232차 프로덕션에는 있을 것으로 추정되는 램프리미터/후보평활화가 이 오프라인 재계산엔 없어(RouteSim223 단순화, 한계 3번) 이 낙폭이 그대로 노출된 것으로 판단 -- 즉 절대 낙폭 수치 자체는 실차 거동과 다를 수 있으나, "A에서만 나타나고 B에서는 안 나타난다"는 방향성 비교는 유효.
+
+**중요 발견(신규, 234차 수치와의 차이)**: 실제 237차 patch 코드의 stage1 gate는 stage0 결과(`candidates`) 위에 **순차(nested)** 적용된다(`candidates = [k for k in candidates if speeds[k] < ...]`). 반면 234차 `sim_route_234_spatial_apex_continuity.py`의 stage1(`c1 = gate_candidates(speeds, v_ego_kph * ROUTE_SEVERITY_GATE_RATIO)`)은 stage0 결과와 무관하게 **전체 speeds 배열에 독립 재적용(non-nested)**하고 있어 실제 patch 코드와 다르다. 이번 스크립트는 실제 patch 코드 그대로(nested)를 재현했으므로, 전체 stage1 점프 건수가 234차 기록 60건 대신 47건으로 나왔다(더 적음 = 실제로는 234차 추정보다 더 좋은 결과). 구간별로 뜯어보면:
+  - 터널(t2190~2225): 81->0 -- 234차와 완전 일치
+  - S커브(t2116~2122.2): 0->6 -- 234차와 완전 일치
+  - **IC gore(t2108~2112): 22건(234차, non-nested) vs 30건(이번, nested/실코드) -- 불일치**. 이 구간에 한해 234차 toolkit 사전검증 수치가 실제 배포 코드(nested) 기준보다 다소 낙관적이었을 가능성. 237차 checkpoint의 "234차 계속10 표와 완전 일치" 재확인은 사실 234차 스크립트를 그대로 재실행한 것이라(코드 변경 없이 동일 스크립트 재사용) 이 nested/non-nested 차이 자체를 잡아내지 못했던 것으로 보임 -- **이번이 처음으로 실제 patch 코드 로직을 candidate 구성 단계에서부터 그대로 재현한 검증**.
+  - 전체(172->47 vs 234차의 172->60) 차이도 이 IC gore 구간 차이가 주 원인으로 추정(다른 두 구간은 완전 일치하므로).
+
+**검증**:
+- 정적 분석: `py_compile` 통과
+- 로그 검증: `route_v6.csv`(seg12-16, 5999행, 재추출) -- 위 표/발견 전부 이 로그 기준
+- 시뮬레이션: `replay_route_237_vs_baseline.py` 전체 구간 재생(위 표) + 3개 윈도우(터널/IC gore/S커브) 개별 재생으로 234차 표와 대조
+- 실차 검증: **미실시** -- 이 검증은 오프라인 재계산(RouteSim223 단순화 포함) 한정, 237차 patch 자체도 아직 device에 미적용
+
+**미확인 사항**:
+- IC gore 구간의 nested vs non-nested 차이(22 vs 30)가 실제 out_speed/overshoot에도 영향을 주는지는 별도 확인 안 함(이번 세션 overshoot 1건은 t=2245 부근으로 IC gore 구간 밖)
+- 234차 계속2~10의 다른 결론(예: severity gate 자체의 채택 여부)이 이 nested/non-nested 차이로 뒤집히는지는 검토 안 함 -- 방향성(게이트가 flicker를 줄인다)은 이번에도 재확인됐으므로 채택 결론 자체는 변경 없음
+- `RouteSim223` 단순화(ceiling/route_inert 미포함)로 인한 A 최대낙차 18.22km/h가 실제 232차 프로덕션 램프리미터 적용 시에도 재현되는지는 미확인(전달 파일 없음, liveRouteSpeed 실측엔 이 구간 overshoot이 4건 별도로 있으나 시각이 다름 -- t=1976~2021/2126~2148 vs 이 스크립트의 t=2245, 서로 다른 현상일 가능성, 교차분석은 다음 작업)
+
+**전달 파일**: `replay_route_237_vs_baseline.py`(신규, toolkit), `toolkit/README.md`/`toolkit/CHANGELOG.md`(신규 섹션 추가), 이 WIP.md 항목. patch(git diff) 형식으로 전달 -- 아래 대화 응답 참고.
+
+**다음 작업**:
+- 사용자 결정: IC gore nested/non-nested 차이(22 vs 30)를 234차 devnotes 기록에도 정정 코멘트로 반영할지(§24, 기존 결론 보강)
+- 237차 patch를 그대로 device에 적용해 실차 검증 진행할지, 아니면 이번 238차가 찾은 t=2245 baseline overshoot 케이스를 추가로 dashcam/원시 telemetry와 대조할지
+- liveRouteSpeed 실측 overshoot 4건(t=1976~2021/2126~2148 등)과 이번 스크립트가 재계산한 A/B out_speed 대조는 아직 안 함 -- 필요 시 다음 세션
+
+---
 ## 237차 (완료 -- 실차 patch 생성: ROUTE_SEVERITY_GATE_RATIO=0.70 vEgo severity gate를 carrot_man.py candidates 구성에 정식 반영, 정적검증+toolkit 재검증까지 완료, 실차 적용은 사용자 대기) -- Route 속도 노이즈/Apex Flicker 근본개선, ryu 코드 변경(patch, 미적용)
 
 **Worker**: Claude
