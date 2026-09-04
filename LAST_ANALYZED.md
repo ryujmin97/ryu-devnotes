@@ -1,3 +1,19 @@
+## c3-ms-dev (235차, S커브 잔여 stage3 점프 3건 dashcam+곡률배열 대조 — ryu 코드 변경 없음)
+- last_analyzed_commit: `73a8cb3`(232차, ryu — 드리프트 없음, 변경 없음)
+- devnotes base: `3db0d24`(234차 계속10)
+- date: 2026-09-04 (235차)
+- 분석 대상: `seg12-16`(20260904_095600_0000039a--7b602ffb85) 재추출
+  `route_v4.csv`(5999행, 234차와 동일 로그) t=2119.5~2122.0 구간 --
+  dashcam 프레임 24장(`verify_and_extract_frames.py`) + naviPaths 곡률
+  재구성 배열(`recompute_route_curvature_speed`, 3개 시각)
+- note: 234차가 남긴 stage3 잔여 점프 3건(t=2120.20/2120.46/2120.75)의
+  원인을 확정 -- GPS 노이즈(233차 터널 사례)와 달리, 근거리(70~90m)
+  완만커브 + 원거리(170~190m) 급커브가 동시에 severity gate 통과
+  후보로 존재하는 실제 2단 굴곡 구간. dashcam도 t=2121.5부터 우회전
+  경고 쉐브론 표지판 등장으로 뒷받침. 다중 apex 트래킹 재설계 필요
+  여부는 사용자 결정 대기, patch 미착수. 상세는 WIP.md/FINDINGS.md
+  "235차" 참고.
+
 ## c3-ms-dev (220차, rolling-max 게이트 회귀 확인 + 219차 결론 반례 발견 — ryu 코드 변경 없음, patch 미확정)
 - last_analyzed_commit: `78e76a9`(217차 계속, ryu — 드리프트 없음, 이전 세션이
   로컬에 작성해둔 carrot_man.py patch는 이 commit 기준, 아직 push 안 됨)
