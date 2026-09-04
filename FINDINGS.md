@@ -1,3 +1,50 @@
+## 233차 -- [ANALYSIS_ONLY-NEEDS_USER_DECISION] 터널 구간에서 route<->cam(고정과속카메라) 소스가 20초간 18회 플리커 -- 219/220/223/224차 미해결 apexIdx flicker의 재현 + positionDtSinceFix 톱니파와의 시간적 상관관계 신규 확인
+
+**대상**: 사용자 실차로그(2026-09-04 09:56~10:00, 5세그, 온디바이스
+`73a8cb3`=232차와 일치, dirty=True) + 대시캠 클립 2개.
+
+**관측**: t=2194.2~2214.7(약 20.5초, 세그15) 구간에서 `src`가 `route`<->`cam`
+사이를 18회 왕복 전환(1.1~2.2초 간격)하며 desiredSpeed가 매번 112<->140대
+등으로 점프. 사용자 체감상 "route가 한 번씩 작동/소멸을 반복하며 승차감이
+출렁임"으로 보고됨. dashcam 프레임 확인 결과 실제로 터널 내 완만한 우곡선 +
+`LIMIT 100` 고정과속카메라(`xSpdType=8`) 구간, `steeringAngleDeg`는
+-3.2~+1.4도 수준(조향각은 작으나 곡선 자체는 실존).
+
+**원인**:
+- `cam`: 거리기반 매끈한 감속램프(154->110kph, `xSpdDist` 700->0m).
+- `route`: 같은 커브의 apex를 추적하는데, `routeApexIdx`가 초반엔
+  51->44->37->30->23->16->9->2로 정상 카운트다운되다가 t>=2207부터는
+  8<->50, 7<->50, 5<->35 등으로 근/원거리 후보가 프레임 단위로 뒤섞임.
+  `routeApexSpeed`도 같은 apexIdx 내에서 86~99kph로 흔들림(220차가
+  "리샘플 그리드 재앵커링"으로 명명한 것과 동일 성격의 노이즈).
+- carrot_serv.py의 route 후보는 224차 ceiling-fix로 `min(v_ego_kph,
+  max(route_speed, floor))`에 클램프되어 평소엔 vEgo에 바짝 붙은 매끈한
+  값을 내지만, 이번엔 `cam` 램프가 마침 같은 대역(110~145kph)을 서서히
+  하강 통과 중이라 아주 작은 route 노이즈에도 `min()` 승자가 뒤집힘 --
+  다른 상황이었으면 route 자체 클램프에 흡수돼 안 드러났을 노이즈가
+  이번엔 arbitration 결과(=desiredSpeed 점프)로 그대로 노출됨.
+
+**신규 확인 (기존 219/220/223/224차 기록에는 없던 상관관계)**: 같은 구간
+`positionDtSinceFix`/`dtNaviPacketAge`가 0.5초->1.0초로 상승했다가 리셋되는
+톱니파를 약 1초 주기로 반복 -- 터널 내 내비 패킷 갱신 저하(~1Hz)와 apex
+후보 요동이 시간적으로 겹침. naviPaths 재앵커링과의 정확한 코드 레벨
+인과관계는 미확정(carrot_man.py 추적 필요).
+
+**219/220/223/224차와의 관계**: 이번 항목은 신규 버그가 아니라 기존에
+"미해결"로 남겨둔 apexIdx flicker(219/220차) / 그 노이즈가 무상태 설계에서
+그대로 노출되는 문제(223/224차 핵심결과3)의 실차 재현임. 다만 이번엔
+positionDtSinceFix 톱니파와의 시간적 상관관계, 그리고 "cam과의 근접 경쟁
+상황에서 체감 승차감 문제로 직결"되는 신규 시나리오가 추가로 확인됨.
+219/220/223/224차 기존 결론은 삭제/수정하지 않음(§24).
+
+**상태**: ANALYSIS_ONLY-NEEDS_USER_DECISION -- ryu 코드 변경 없음. 다음
+방향(apex_idx 디바운스/게이트 재설계 우선순위 재검토, positionDtSinceFix
+기반 route 일시 제외/hold 설계, naviPaths 재앵커링 재생 toolkit 신규 작성)
+사용자 결정 대기.
+
+**상세**: WIP.md "233차" 항목 참고.
+
+---
 ## 229차 — [PATCH_APPLIED, 실차 검증 전] carrot_navi_route() 조기 return에서 carrot_serv.route_active/route_inert mirror 누락 (ChatGPT 228차 코드리뷰 지적, Claude 실제 코드 검증 후 수정)
 
 **출처**: 사용자가 전달한 ChatGPT의 228차(5fa0254) 코드리뷰 문서.
