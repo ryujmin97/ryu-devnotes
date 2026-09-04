@@ -208,6 +208,8 @@ def main():
     ap.add_argument("--confirm-tol", type=float, default=HANDOFF_CONFIRM_TOL_KPH, dest="confirm_tol")
     ap.add_argument("--near-apex-m", type=float, default=HANDOFF_NEAR_APEX_M, dest="near_apex_m")
     ap.add_argument("--min-episode-frames", type=int, default=MIN_EPISODE_FRAMES, dest="min_episode_frames")
+    ap.add_argument("--min-vego-kph", type=float, default=0.0, dest="min_vego_kph",
+                     help="241cha 추가: confirmed&far-from-apex 그룹을 이 vEgo(kph) 이상으로도 별도 필터링해 리포트(교차로/저속 오탐 분리용, 기본 0=미적용)")
     ap.add_argument("--json", default=None)
     args = ap.parse_args()
 
@@ -222,6 +224,8 @@ def main():
     ratios_all = [h["ratio"] for h in all_handoffs]
     ratios_conf = [h["ratio"] for h in confirmed]
     ratios_conf_far = [h["ratio"] for h in confirmed if not h["near_apex"]]
+    ratios_conf_far_fast = [h["ratio"] for h in confirmed
+                             if not h["near_apex"] and h["v_ego_kph"] >= args.min_vego_kph]
 
     print(f"\n=== 전체 route->vturn 전환 후보: {len(all_handoffs)}건 ===")
     print(f"=== confirmed(2s내 vTurnSpeed 수렴): {len(confirmed)}건 ===")
@@ -239,6 +243,8 @@ def main():
     report("ratio(all candidates)", ratios_all)
     report("ratio(confirmed)", ratios_conf)
     report("ratio(confirmed, far-from-apex only)", ratios_conf_far)
+    if args.min_vego_kph > 0:
+        report(f"ratio(confirmed, far-from-apex, vEgo>={args.min_vego_kph:.0f}kph)", ratios_conf_far_fast)
 
     if args.json:
         with open(args.json, "w") as f:

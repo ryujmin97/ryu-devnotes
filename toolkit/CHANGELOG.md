@@ -3,6 +3,17 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+## 2026-09-05 (241차)
+- `scan_route_vturn_handoff_ratio.py`: `--min-vego-kph` 옵션 추가(기본 0=미적용).
+  confirmed&far-from-apex(n=14) 그룹을 vEgo 하한으로 추가 필터링해
+  별도 리포트 -- 240차가 남긴 "표본 14건 분산 매우 큼(0.285~10.0)"
+  문제를 저속(교차로/시내 회전 추정) 표본과 고속(하이웨이 커브 추정)
+  표본으로 분리하기 위함. 기존 리포트(all/confirmed/far-from-apex)는
+  옵션 미지정 시 출력 동일(하위호환).
+- 신규 실행 없이 240차와 동일 11개 로그로 재실행, 재현성 확인(전체
+  145/44/14 수치 240차와 완전 일치) 후 `--min-vego-kph 30` 추가 분석.
+  상세는 FINDINGS.md 241차 참고.
+
 ## 2026-09-05 (240차)
 - `scan_route_vturn_handoff_ratio.py`: 신규 -- route→vturn 실제 핸드오프
   시점의 apex_speed/vEgo 비율(handoff ratio) 실측 지시서(2026-09-05

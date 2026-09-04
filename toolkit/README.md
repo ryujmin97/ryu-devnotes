@@ -21,7 +21,7 @@ CHANGELOG.md를 같이 갱신**한다 (세션 종료 체크리스트에 포함�
 
 ---
 
-## scan_route_vturn_handoff_ratio.py (240차 신규)
+## scan_route_vturn_handoff_ratio.py (240차 신규, 241차 옵션 추가)
 **목적**: route가 실제로 vturn에게 커브 감속을 넘기는(handoff) 시점의
 `apex_speed/vEgo` 비율 분포를 실측한다(2026-09-05 사용자 검증지시 1~2번).
 **의존성**: `analysis_helpers.py`(`parse_navi_paths`/`recompute_route_curvature_speed`),
@@ -64,6 +64,21 @@ confirmed&far-from-apex 세 그룹의 min/median/mean/max/P10/P25/P50/P75/P90.
 `--min-episode-frames`/`--confirm-window`/`--confirm-tol`/`--near-apex-m`
 전부 240차에서 자체 설정한 값(PARAMS_REGISTRY 미등록, 표본 확정 후 등록
 검토).
+**241차 추가**: `--min-vego-kph N`(기본 0=미적용) -- confirmed &
+far-from-apex(near_apex=False) 그룹을 vEgo>=N(kph)으로 한 번 더 필터링해
+별도 리포트 줄로 출력. 목적: 240차가 남긴 14건 표본의 큰 분산(0.285~10.0)이
+저속(교차로 회전/정체 등 city 주행 추정, vEgo<20kph 다수) 표본과
+하이웨이 커브 추정 표본이 섞인 결과인지 분리 확인. 신규 로직/재구현 없음
+(§21, 기존 필터링 결과 위에 조건 추가만).
+**주의**: raw `vTurnSpeed` CSV 필드는 src가 아직 vturn으로 확정되기
+직전/직후 프레임에서 부호가 순간 반전되는 특이사항이 기존에 문서화되어
+있음(FINDINGS.md, "raw vTurnSpeed CSV 필드 특이사항" 항목, 기능 버그
+아님). 이 스크립트의 `vTurnSpeed_at_handoff` 필드는 handoff 판정
+직후(nxt) **한 프레임**의 raw 값을 그대로 기록하므로 이 반전이 그대로
+보일 수 있다(241차에서 3건 관측, 전부 confirm_t가 별도로 더 늦은
+프레임에서 수렴 조건을 만족해 confirmed 판정 자체는 그 반전과 무관함을
+확인). `vTurnSpeed_at_handoff` 필드를 단독으로 신뢰하지 말고
+`confirmed`/`confirm_t`를 기준으로 판단할 것.
 
 ## decode_rlog.py
 **목적**: `rlog.zst` / `qlog.zst` → capnp Event 이터레이터. 다른 모든

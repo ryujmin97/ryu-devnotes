@@ -1,3 +1,42 @@
+## 241차 (완료 -- 240차가 남긴 confirmed&far-from-apex n=14 표본을 vEgo로 재분리, toolkit 옵션 추가+재검증, ryu 코드 변경 없음) -- Route→Vturn Handoff Ratio, 저속/고속 표본 분리
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu`(변경 없음, HEAD `fc98eaa`=237차) / `ryujmin97/ryu-devnotes`
+
+**Branch**: `c3-ms-dev` / `main`
+
+**devnotes Base commit**: `9b03032`(240차 체크포인트, 재클론으로 재확인 -- 드리프트 없음)
+
+**배경**: 사용자가 대화에서 240차 접근을 재확인 -- "src=vturn 프레임만 보고 handoff로 판단하면 안 되고, route가 빠졌는데 vturn도 감속 못 한 사례는 성공적 handoff에서 제외해야 한다"는 원칙과, "2초 HOLD는 이번 분석에서 완전히 분리하고, 지금은 route→vturn handoff ratio만 본다"는 범위 재확인. 두 원칙 모두 240차 `scan_route_vturn_handoff_ratio.py`가 이미 구현한 `confirmed` 판정 로직과 일치함을 코드 재확인. 이번 세션은 동일 로그(업로드 zip, `route_csv_240cha_11routes.zip`, 240차와 동일 11개 route)로 재실행 + 240차가 미해결로 남긴 "표본 14건 분산 매우 큼" 문제를 vEgo 대역으로 나눠 추가 분석.
+
+**작업**:
+1. §3/§29 원칙대로 `ryu`(HEAD `fc98eaa`, 변경 없음)/`ryu-devnotes`(`9b03032`, 변경 없음) 재클론 확인.
+2. 업로드된 zip 압축 해제, `README_240cha_index.txt`로 240차와 동일 11개 route(2026-09-01~09-03, device build 전부 223차 이전, dirty=True)임을 재확인.
+3. `scan_route_vturn_handoff_ratio.py` 그대로 재실행 -- 전체 145건/confirmed 44건/confirmed&far-from-apex 14건, ratio 분포까지 240차 수치와 완전 일치(재현성 확인).
+4. 14건 상세를 ratio 오름차순으로 전수 나열, vEgo로 재분리: vEgo<30kph(n=11, ratio 0.285~10.016 넓게 분산, 시내/교차로/정체 추정)와 vEgo>=30kph(n=3, ratio 0.932~0.966, median=0.953, 범위폭 0.034로 매우 좁음).
+5. `scan_route_vturn_handoff_ratio.py`에 `--min-vego-kph` 옵션 추가(기존 필터링 결과 위에 조건 추가만, 신규 로직 없음, §21)해 위 vEgo 분리를 옵션으로 재실행 가능하게 함 -- `--min-vego-kph 30`으로 3번 재실행, 4번 수치와 일치 확인.
+6. handoff 직후 첫 프레임 raw `vTurnSpeed_at_handoff`가 음수로 표시되는 3건을 확인 -- 기존 FINDINGS의 "raw vTurnSpeed 부호 반전(기능 버그 아님)" 항목과 일치하는 패턴임을 확인, `confirm_t`는 별도의 더 늦은 프레임에서 수렴해 `confirmed` 판정 자체는 영향 없음을 확인.
+7. FINDINGS.md 241차(240차 CRITICAL 보강, §24) 기록, toolkit `README.md`/`CHANGELOG.md` 업데이트.
+
+**완료**: 위 1~7번.
+
+**미완료**:
+- 지시서 원안 §1~§8 완결 여부는 여전히 240차와 동일한 이유(device build mismatch)로 사용자 확인 대기 중 -- 이번 세션은 그 확인 대기 상태에서 "기존 14건 표본을 더 잘 이해하는" 보조 분석이며, 결론 자체(gate ratio 확정 불가)를 뒤집지 않음.
+- vEgo>=30kph 그룹 n=3은 표본 부족(§28) -- 어떤 ratio 값도 확정하지 않음. 사용자가 지시한 대로 "0.90 같은 값을 지금 정하지 않는다"는 원칙 유지.
+- 223차 이후(gate 있는) 빌드로 재플래시 후 새 로그 확보는 여전히 미해결(240차부터 이어지는 사용자 확인 대기 항목).
+
+**검증**: 정적분석(`py_compile` 통과) + 로그 검증(11개 route, 240차와 동일 로그로 재추출/재실행, 수치 재현성 확인). **실차 검증: 미실시**(240차와 동일, 오프라인 로그 재분석).
+
+**전달 파일**: `scan_route_vturn_handoff_ratio.py`(옵션 추가, patch), `toolkit/README.md`/`toolkit/CHANGELOG.md`(241차 섹션), `FINDINGS.md`(241차, 240차 보강), 이 WIP.md 항목. ryu 코드 변경 없음.
+
+**다음 작업**:
+1. (여전히 240차 다음 작업과 동일) 사용자 확인 필요: (a) 223차 이후 빌드로 재플래시 후 새 로그로 재분석 vs (b) 이번 구코드 로그를 참고자료로만 남기고 지시서 결론은 보류 vs (c) 다른 최신 빌드 로그 확인.
+2. (a)로 결정 시: 신규 로그에도 이번 세션의 vEgo 대역 분리 관점을 적용해 "고속 구간 handoff ratio가 실제로 더 안정적인가"를 재검증.
+3. `--min-vego-kph` 기본값을 0이 아닌 값(예: 30)으로 바꿀지는 표본이 더 쌓인 뒤 판단(지금 바꾸면 기존 240차 리포트와 하위호환이 깨짐).
+
+---
+
 ## 240차 (체크포인트 -- 사용자 신규 지시서 착수했으나 device build mismatch 발견으로 원안 검증 불가, toolkit 신규 스크립트 + FINDINGS CRITICAL 기록 후 사용자 확인 대기, ryu 코드 변경 없음) -- Route→Vturn Handoff Ratio + Route Release 2초 Hold 재검토
 
 **Worker**: Claude
