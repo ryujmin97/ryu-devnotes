@@ -1,3 +1,59 @@
+## 237차 (완료 -- 실차 patch 생성: ROUTE_SEVERITY_GATE_RATIO=0.70 vEgo severity gate를 carrot_man.py candidates 구성에 정식 반영, 정적검증+toolkit 재검증까지 완료, 실차 적용은 사용자 대기) -- Route 속도 노이즈/Apex Flicker 근본개선, ryu 코드 변경(patch, 미적용)
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu`
+
+**Branch**: `c3-ms-dev`
+
+**Base commit (ryu)**: `73a8cb3a823869576e4672c4611ac219b99a49b7`(232차, 재클론으로 재확인 -- 드리프트 없음)
+
+**devnotes Base commit(이번 세션 확인 시점)**: `72a2e49`(236차, 재클론으로 재확인 -- 드리프트 없음)
+
+**배경**: 236차가 확정한 설계("route의 역할은 현재 vEgo가 아직 빠른 상태에서 만나는 첫 번째 의미있는 감속 곡선만 사전감속") + 234차 계속4~10이 toolkit 시뮬레이션으로 사전검증한 0.70 severity gate(`apex_speed / max(vEgo_kph,1.0) >= 0.70`이면 후보 제외)를 실제 `carrot_man.py`에 patch로 반영. §31 절차대로 patch 전 5개 체크포인트를 코드 레벨에서 직접 확인 후 진행.
+
+**작업**:
+
+1. **코드 레벨 체크(patch 작성 전)**: `carrot_navi_route()`의 candidates 구성부(196/223차 로직) 직접 확인 -- (a) 기존 `nRoadLimitSpeed` 필터(stage0, 196차)는 `road_limit_speed = self.carrot_serv.nRoadLimitSpeed; candidates = [...]`로 그대로 유지, gate는 그 결과 위에 추가 필터(stage1)로만 삽입 가능함을 확인. (b) `v_ego_ms/v_ego_kph`가 기존에는 candidates 구성 *이후*(현재 분기 진입 후, L920 부근)에서만 계산되고 있어 gate에 쓰려면 계산 위치를 candidates 구성 *이전*으로 이동해야 함을 확인 -- 이동 후 기존 위치의 중복 계산은 제거(동일 함수 스코프, 값 불변).
+2. **패치 작성**: `ROUTE_SEVERITY_GATE_RATIO = 0.70` 상수 신설(`ROUTE_RELEASE_HOLD_S` 옆) + candidates 구성부에 stage1 필터 추가(`speeds[k] < max(v_ego_kph, 1.0) * ROUTE_SEVERITY_GATE_RATIO`). `max(v_ego_kph, 1.0)` 하한은 vEgo≈0(근정지) 시 gate 기준이 0으로 붕괴해 이상동작하는 것을 막기 위한 신규 안전장치(toolkit 시뮬레이션에는 없던 부분, 아래 4번에서 실측 데이터로 무해성 확인).
+3. **정적검증**: `python3 -m py_compile` 통과. `git format-patch` -> 완전히 새로운 clean clone(`73a8cb3` 기준)에 `git apply --check` + `git am` 적용 성공 + 적용 후 재컴파일 통과 확인(§패치워크플로우 그대로 재현).
+4. **toolkit 재검증(patch 전 필수, §31)**: 사용자가 이번 세션 재업로드한 동일 route(`seg12-16`, 5999행, 234~236차와 동일 로그)를 `extract_log.py --with-navi-paths`로 재추출(`route_v5.csv`) 후 `sim_route_234_spatial_apex_continuity.py`(234차 계속4~10 기존 스크립트, 신규 작성 없음)로 재실행 -- **234차 계속10 표와 완전 일치**(재현성 확인):
+
+| 구간 | stage0 | stage1(vEgo기준) | stage2 | stage3 |
+|---|---|---|---|---|
+| 전체(5999행) | 172 | 60 | 16 | 3 |
+| 터널(t2190~2225) | 81 | 0 | 0 | 0 |
+| IC gore(t2108~2112) | 31 | 22 | 4 | 0 |
+| S커브(t2116~2122.2) | 0 | 6 | 9 | 3 |
+
+추가로, 패치에만 있는 `max(v_ego_kph, 1.0)` 하한을 toolkit 스크립트 사본에 동일 적용해 재실행 -- 이 route는 vEgo<1.0kph 구간이 825프레임(근정지 구간) 존재함에도 위 표(stage1=60/stage2=16/stage3=3, 터널 0/0/0)가 **완전히 동일** -- 하한 추가가 이 데이터셋 기준으로는 순수 안전장치일 뿐 검증된 결과를 바꾸지 않음을 확인.
+
+**체크포인트 결과(사용자/ChatGPT 제시 5개 항목 전부 확인)**:
+1. 기존 `nRoadLimitSpeed` 필터(stage0) 안 건드림 -- 확인(diff 참고)
+2. gate는 `apex_speed / vEgo` 기준(road_limit_speed 아님) -- 확인, 234차 계속9/10 재확정 기준과 일치
+3. vEgo 비정상/0 안전성 -- `max(v_ego_kph, 1.0)` 하한 추가, 실측 데이터로 결과 불변 확인(위 4번)
+4. gate로 후보 전부 소실 시 기존 route_inert/release 동작 -- 별도 분기 신설 없이 기존 `if not candidates:`(직선 취급) 분기 그대로 재사용하므로 228차 route_inert v2 로직과 완전히 동일하게 동작(코드 경로 자체가 stage0 단독 소실과 구분 불가능하게 설계됨)
+5. 223~228차 감속식/vEgo clamp 미변경 -- 확인(diff에 해당 블록 없음, `else:` 분기 이하 전부 무변경)
+6. `carrot_serv.py` source arbitration 미변경 -- 확인(diff는 `carrot_man.py` 1개 파일만)
+
+**검증**:
+- 정적 분석: `py_compile` 통과, `git apply --check`+`git am` clean clone 재현 성공
+- 로그 검증: `route_v5.csv`(seg12-16, 5999행, 재추출) -- 기존 `sim_route_234_spatial_apex_continuity.py` 재사용, 234차 계속10 수치와 완전 일치(재현성 확인) + `max(vEgo,1.0)` 하한 추가해도 수치 불변 확인
+- 시뮬레이션: 위와 동일(toolkit 시뮬레이션 = 로그 기반 재구성, 실차 재생 아님)
+- 실차 검증: **미실시** -- 이 patch는 아직 device에 적용/재생되지 않음
+
+**미확인 사항**:
+- 이 gate가 다른 route(다른 winding road, 다른 IC/S커브 형상)에서도 동일하게 유효한지는 이번 세션 미검증(seg12-16 1건 로그 기준)
+- `replay_route_XXX_vs_baseline.py` 류의 A/B replay(158/224차 방식)로 실제 desiredSpeed 출력 시계열까지 대조하는 것은 이번 세션에서 안 함(toolkit은 candidate 레벨 카운트만 검증) -- §31/§29 원칙상 실차 적용 전 권장
+
+**전달 파일**: `0001-237cha-route-apex-candidate-severity-gate-vEgo-0.70-.patch` (Termux 반영 안내는 대화 응답 참고)
+
+**다음 작업**:
+- 사용자 결정: 이 patch를 그대로 device에 적용해 실차 검증 진행할지, 아니면 `replay_route_XXX_vs_baseline.py` 류 desiredSpeed 시계열 A/B부터 먼저 할지
+- 실차 검증 시 특히 235/236차가 확인한 1차곡선(t≈2116~2122)/2차곡선(t≈2126~) 구간 실제 거동이 이번 patch 적용 후에도 236차 결론(1차 사전감속으로 충분, 2차는 vturn)과 동일하게 유지되는지 확인 필요
+- 다른 route로 gate 일반성 추가 검증 여부
+
+---
 ## 236차 (완료 -- 사용자 설계 방향 전환: "2단 굴곡 apex 안정화" 대신 "첫 유효 곡선 사전감속 충분성" 검증으로 프레임 재설정, 235차 로그로 실제 확인 -- 결과 POSITIVE, 다중 apex 트래킹 재설계 작업 중단) -- Route 속도 노이즈/Apex Flicker 근본개선, ryu 코드 변경 없음
 
 **Worker**: Claude

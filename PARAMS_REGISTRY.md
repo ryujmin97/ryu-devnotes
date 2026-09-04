@@ -234,6 +234,25 @@
   NEEDS_VALIDATION — 실차 반응 보고 튜닝 필요(너무 짧으면 실제 리드
   일시 가림에서 조기리셋 가능, 너무 길면 팬텀 지속시간 증가).
 
+## ROUTE_SEVERITY_GATE_RATIO (237차, NEEDS_VALIDATION)
+- 위치: `selfdrive/carrot/carrot_man.py`, `carrot_navi_route()`
+- 값: 0.70 (비율). `candidates`(stage0, `nRoadLimitSpeed` 필터 통과분) 중
+  `speeds[k] < max(v_ego_kph, 1.0) * ROUTE_SEVERITY_GATE_RATIO`를
+  만족하는 것만 stage1 통과 -- apex_speed가 현재 vEgo의 70% 이상이면
+  (=이미 충분히 완만하거나 vturn 커버 가능) route 후보에서 제외.
+- 목적: 235/236차 실측(seg12-16 로그)이 확정한 설계("route는 여러 곡선을
+  전부 사전감속 대상으로 잡을 필요 없이, 현재 vEgo 대비 충분히 급한
+  첫 번째 곡선만 잡으면 됨")를 실제 후보 필터로 구현. 값 자체(0.70)는
+  234차 계속2에서 사용자 지시로 처음 설정된 값을 그대로 재사용(신규
+  튜닝 아님, 코드 반영만 237차 신규).
+- 근거: `toolkit/sim_route_234_spatial_apex_continuity.py`(234차
+  계속4~10)로 seg12-16 로그(5999행) stage0(172건)->stage1(60건) 프레임간
+  apex 점프(>40m) 감소 사전검증, 237차에서 동일 route 재추출본으로 재현성
+  재확인(수치 완전 일치) + `max(v_ego_kph,1.0)` 하한 추가해도 수치 불변
+  확인.
+- 실차 검증: 미실시(NEEDS_VALIDATION) -- 237차는 patch 생성 및 정적/toolkit
+  검증까지만 완료, device 적용 전.
+
 ## ROUTE_ENTRY_MARGIN_KPH (91차, NEEDS_VALIDATION)
 - 위치: `selfdrive/carrot/carrot_man.py`, `carrot_navi_route()`
 - 값: 25.0 (km/h)
