@@ -74,6 +74,20 @@ def gate_candidates(speeds, threshold):
     return [k for k in range(len(speeds)) if speeds[k] <= threshold]
 
 
+def gate_base_kph(row, v_ego_kph):
+    """234차 계속6: 실측 nRoadLimitSpeed(맵 제한속도)가 있으면 그것을,
+    없으면(구버전 CSV) 기존 vEgo_kph 근사(가정 a)로 폴백. 반환값:
+    (gate_base_kph, source) -- source는 'road_limit'|'vego_fallback'."""
+    raw = row.get("nRoadLimitSpeed", "")
+    try:
+        v = float(raw)
+    except (TypeError, ValueError):
+        v = 0.0
+    if v > 0:
+        return v, "road_limit"
+    return v_ego_kph, "vego_fallback"
+
+
 def find_clusters(idxs, dists, min_points, max_gap_m):
     """idxs: 오름차순(거리) 후보 인덱스. 인접 gap<=max_gap_m인 런으로 묶는다."""
     if not idxs:
@@ -178,6 +192,7 @@ def replay(rows):
                 rec[f"{stage}_dist"] = None
                 rec[f"{stage}_speed"] = None
             rec["s3_ambiguous"] = False
+            rec["gate_source"] = "n/a"
             cont.locked_dist = None
             cont.locked_speed = None
             cont.miss_frames = 0
@@ -185,12 +200,15 @@ def replay(rows):
             out.append(rec)
             continue
 
-        # stage0: baseline -- road_limit_speed 미가용, vEgo로 근사(가정 a)
-        c0 = gate_candidates(speeds, v_ego_kph)
+        # stage0: baseline -- 234차 계속6, 실측 nRoadLimitSpeed 있으면 사용(가정 a 해소),
+        # 없으면(구버전 CSV) vEgo_kph 근사로 폴백
+        gate_base, gate_src = gate_base_kph(row, v_ego_kph)
+        rec["gate_source"] = gate_src
+        c0 = gate_candidates(speeds, gate_base)
         i0 = c0[0] if c0 else None
 
         # stage1: +30% gate
-        c1 = gate_candidates(speeds, v_ego_kph * ROUTE_SEVERITY_GATE_RATIO)
+        c1 = gate_candidates(speeds, gate_base * ROUTE_SEVERITY_GATE_RATIO)
         i1 = c1[0] if c1 else None
 
         # stage2: +spatial cluster
@@ -299,10 +317,15 @@ def main():
 
     result = replay(rows)
 
+    src_counts = {}
+    for r in result:
+        src_counts[r.get("gate_source")] = src_counts.get(r.get("gate_source"), 0) + 1
+    print(f"=== gate_source 분포: {src_counts} (road_limit=실측 nRoadLimitSpeed 사용, "
+          f"vego_fallback=구버전 CSV 폴백, n/a=naviPaths 없음) ===")
+
     matches, total = sanity_check(result)
-    print(f"=== sanity check: s0(vEgo 근사) vs 실측 published apex_dist(±15m) 정합 "
-          f"{matches}/{total} ({100*matches/total:.1f}%) -- road_limit_speed 근사 한계로 "
-          f"완전정합은 기대하지 않음, 참고용 ===")
+    print(f"=== sanity check: s0 vs 실측 published apex_dist(±15m) 정합 "
+          f"{matches}/{total} ({100*matches/total:.1f}%) ===")
 
     summarize(result, window=None)
     summarize(result, window=tuple(args.window))

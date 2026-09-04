@@ -1,3 +1,91 @@
+## 234차 계속6 (진행 중 -- 실측 nRoadLimitSpeed로 severity gate 재검증 완료: sanity check 24.4%→98.2% 대폭 개선, 단 ②③ 효과 크기 재평가 필요 발견) -- Route 속도 노이즈/Apex Flicker 근본개선, ryu 코드 변경 없음
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu`
+
+**Branch**: `c3-ms-dev`
+
+**Base commit (ryu)**: `73a8cb3a823869576e4672c4611ac219b99a49b7`(232차, 여전히 코드 변경 없음)
+
+**devnotes Base commit(이번 세션 확인 시점)**: `04f71ce5c69918aebaa55011ead3d29d783c8e78`(234차 계속5, 직전 체크포인트)
+
+**입력**: 사용자가 234차 계속5의 `extract_log.py`(nRoadLimitSpeed 포함
+버전)로 재추출하기 위해, 233/234차와 동일 로그의 **원본 rlog zip**
+(route `0000039a--7b602ffb85`, seg12-16, 5개 세그먼트, 60MB)을
+재업로드. `/home/claude/ryu`(73a8cb3, decode_rlog가 참조하는 cereal
+스키마)와 `pycapnp`/`zstandard` 설치 후 `extract_log.py --repo
+/home/claude/ryu_check --with-navi-paths`로 재추출(5999행, 기존 세션과
+행수 일치).
+
+**재추출 검증**: `nRoadLimitSpeed` 컬럼이 10/30/50/70/100(kph) 실측값
+으로 정상 채록됨 확인(5999행 전부 0 아닌 값). 234차 계속4/5에서 사용한
+CSV는 이 컬럼이 아예 없던(구버전 스크립트 추출) 파일이었음이 재확인됨
+-- 소급 불가라는 계속5 기록과 일치.
+
+**핵심 발견 1(가정 a 해소, 큰 개선)**: `gate_base_kph()`(실측 있으면
+그것, 없으면 vEgo_kph 폴백) 도입 후 재실행 -- sanity check(s0 vs 실측
+published apex_dist, ±15m) 정합률이 **24.4%(vEgo 근사) -> 98.2%(실측)**로
+대폭 개선. vEgo 근사가 저정합의 주원인이었음이 확정적으로 증명됨.
+
+**핵심 발견 2(기존 234차 계속4/5 결론 재검토 필요 -- 중요, 사용자
+보고 필요)**: 정확한 gate 기준으로 재계산하니 절대 수치가 크게 다름:
+
+| 단계 | vEgo 근사(계속4/5) | 실측 nRoadLimitSpeed(계속6) |
+|---|---|---|
+| stage0 baseline | 97건 | 172건 |
+| stage1 +30%gate | 60건 | 62건 |
+| stage2 +spatial cluster | 16건 | 55건 |
+| stage3 +continuity | 3건 | 48건 |
+
+stage1(0.70 gate)의 효과는 여전히 견고(172->62, ~64%감소, 계속2의
+dashcam 대조 결론 -- 터널 t=2190~2225 active=0 -- 도 그대로 재현되어
+변화 없음). **그러나 stage2/3의 추가 감소폭이 이전에 믿었던 것
+(60->16->3, ~95% 추가 감소)보다 훨씬 작음(62->55->48, ~23% 추가 감소)
+-- ②spatial cluster/③apex continuity의 효과가 vEgo 근사 오차로
+과대평가되어 있었을 가능성이 있음.** ①(0.70 gate)만으로 이미 큰
+효과를 내고 있고, ②③가 원래 기대했던 만큼의 근본적 추가 개선을
+주는지는 이 재검증 전까지 확정할 수 없었던 것.
+
+**신규 발견**: stage3 잔여 48건의 점프 시각을 확인한 결과, 기존에
+조사된 터널 구간(t=2190~2225)이 아니라 **새로운 구간(t≈2108~2116)에
+집중**되어 있음(샘플: 2108.05, 2108.3, 2108.8, 2109.3, 2109.5, 2109.7,
+2109.96, 2110.2, ...). 이 구간은 이전 세션(233/234차)에서 전혀 조사된
+적 없음.
+
+**continuity tolerance 재검증**: 10/15/20m 재실행 결과 matched frame
+수가 세 값 모두 200으로 동일, ambiguous 0%도 동일 -- **10m 채택 결론
+자체는 변화 없음**(오히려 이번 재검증으로 더 명확해짐 -- tolerance를
+늘려도 이 route에서는 추가로 얻는 게 전혀 없음이 실측 기준으로도 확인).
+
+**아직 미실시**:
+- 신규 구간(t≈2108~2116) dashcam 대조(234차 계속2와 동일 방식) -- 이
+  구간이 실제로 어떤 도로 형상인지(근접 커브 연속 등) 확인 필요.
+- ②spatial cluster/③apex continuity 설계가 이 재검증 결과에서도 여전히
+  실제 patch로 진행할 가치가 있는지 재평가(①만으로도 172->62의 큰
+  효과가 있으므로, ②③ 도입의 비용 대비 효과를 다시 판단해야 함).
+- 위 재평가 후에만 ④ 실제 patch(§10, §31) 착수.
+
+**검증**:
+- 정적 분석: `py_compile sim_route_234_spatial_apex_continuity.py` 통과
+- 로그 검증: 재추출 CSV(nRoadLimitSpeed 포함)로 gate/tolerance 전체 재실행
+- 시뮬레이션: 상동
+- 실차 검증: 미실시
+
+**다음 작업(순서대로)**:
+1. 사용자에게 위 "핵심 발견 2"(②③ 효과 재평가 필요) 보고 -> 계속 진행
+   여부/방향 확인.
+2. 신규 구간(t≈2108~2116) dashcam 대조로 원인 파악.
+3. ②③ 설계를 재확인된 데이터 기준으로 유지/수정/철회 결정.
+4. 확정 후 ④ 실제 ryu patch 작성.
+
+**산출물(이번 세션)**: `toolkit/sim_route_234_spatial_apex_continuity.py`
+(수정, `gate_base_kph()` 신설), `toolkit/README.md`/`toolkit/CHANGELOG.md`
+(동기화 완료, §22). 재추출 CSV(`route_v2.csv`, 컨테이너 로컬)는 대용량
+산출물이라 Git 미커밋(§23) -- 재사용 필요 시 사용자에게 재업로드 요청
+또는 Google Drive 보관 안내.
+
+---
 ## 234차 계속5 (진행 중 -- 미확정 가정 2건에 대한 사용자 결정 반영: nRoadLimitSpeed 계측 컬럼 추가 + continuity tolerance 10/15/20m A/B/C 완료) -- Route 속도 노이즈/Apex Flicker 근본개선, ryu 코드 변경 없음
 
 **Worker**: Claude

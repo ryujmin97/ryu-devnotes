@@ -3,6 +3,18 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+## 2026-09-04 (234차 계속6)
+- `sim_route_234_spatial_apex_continuity.py`: `gate_base_kph()` 신설,
+  severity gate 기준을 vEgo 근사 대신 실측 `nRoadLimitSpeed`로 교체.
+  재추출 CSV로 재실행 -- sanity check 24.4%->98.2% 대폭 개선(가정 a 해소).
+  단, stage0/1 절대 점프 수 172/62건(vEgo 근사 97/60건과 다름), stage2/3
+  추가 감소폭도 이전 추정(~95%)보다 작음(~23%, 62->55->48) -- **234차
+  계속4/5의 ②③ 효과 크기 추정은 과대평가였을 가능성 있어 재검토 필요**.
+  10/15/20m tolerance 재비교는 세 값 모두 matched=200, ambiguous 0%로
+  동일 -- 10m 채택 결론은 유지. 잔여 48건 점프가 새 구간(t≈2108~2116)에
+  집중 -- 다음 세션 dashcam 조사 대상. 상세는 README.md/WIP.md 234차
+  계속6 참고.
+
 ## 2026-09-04 (234차 계속5)
 - `extract_log.py`: `nRoadLimitSpeed` 컬럼 추가(순수 계측, 로직 변경 없음).
   234차 계속4의 가정(a)(road_limit_speed를 vEgo로 근사, 정합률 24.4%)를
