@@ -1,3 +1,44 @@
+## 245차 (완료 -- 코드 패치+정적검증+diff-0 확인 완료, 로그 시뮬레이션/실차 검증 미실시, patch 전달 완료) -- Route Apex 후보소실 RELEASE debounce로 flicker 완화
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu` (코드 변경, patch 미적용) / `ryujmin97/ryu-devnotes`
+
+**Branch**: `c3-ms-dev` / `main`
+
+**Base commit (ryu)**: `a70deea`(243차, 재클론으로 재확인 -- 244차는 코드 변경 없는 체크포인트였으므로 HEAD 동일)
+
+**devnotes Base commit**: 244차 checkpoint 커밋(재클론으로 재확인)
+
+**배경**: 사용자가 대화 중 "이전 세션"에서 245차로 진행됐다는 분석 결과(naviPaths 폴리라인 직접 재구성 검증, `sim_route_apex_confirm_frames_245.py`로 flicker 18건→8건 55.6% 감소 확인)를 전달하며 패치를 요청. **단, GitHub 최신 상태(WIP.md 최신=244차 체크포인트, ryu 코드 변경 없음)에는 이 245차 세션의 흔적이 전혀 없었다** -- §2/§33 원칙대로 이전 세션 서술을 그대로 신뢰하지 않고, 재클론한 현재 GitHub 상태를 기준으로 코드를 이번 세션에서 처음부터 다시 확인/구현했다.
+
+**작업**:
+1. §3/§29 원칙대로 `ryu`/`ryu-devnotes` 재클론, base commit 재확인.
+2. `carrot_man.py`의 RELEASE 로직(`ROUTE_RELEASE_HOLD_S`, candidate 소실 시 즉시 RELEASE 분기, 940행대) 직접 재확인.
+3. `ROUTE_RELEASE_CONFIRM_FRAMES=8`(~0.4s) debounce 카운터 도입 -- candidate 소실이 연속 8프레임 확인될 때만 RELEASE 확정, 그 전까지는 마지막 apex로 감속 유지. apex 실제 도달 RELEASE는 영향 없음(§27, 최소변경).
+4. 기존 검증된 228차 감속식 본문은 건드리지 않고, debounce 대기 프레임 전용 헬퍼 `_route_compute_apex_out_speed()`로 동일 공식을 별도 분리(회귀 위험 최소화).
+5. mode 0/1 전환·navi 비활성·lookahead 부족 등 기존 모든 "즉시 해제" 지점에서 신규 카운터도 함께 리셋.
+6. §mandatory pipeline: `py_compile`+`ast.parse` PASS -> `git format-patch` -> 독립 재클론 throwaway 브랜치 `git am` 성공 -> diff-0 확인 -> throwaway 삭제.
+
+**결과**: FINDINGS.md 245차 참고. 코드 구현 및 정적검증은 완료. **사용자가 전달한 "이전 세션"의 flicker 55.6% 감소 수치 및 `sim_route_apex_confirm_frames_245.py`는 GitHub에 존재하지 않아 이번 세션에서 재현/확인하지 못했다 -- 검증된 사실로 채택하지 않음(§29/§37).**
+
+**완료**: 코드 패치 구현, 정적검증, diff-0 확인, FINDINGS.md 245차 기록.
+
+**미완료**:
+- 실측 route CSV 기반 A/B 시뮬레이션 재검증(신규 toolkit 스크립트 작성 필요, §21 확인 결과 기존 동일 목적 스크립트 없음).
+- `PARAMS_REGISTRY.md`에 `ROUTE_RELEASE_CONFIRM_FRAMES` 등록.
+- 실차 검증: 미실시.
+
+**검증**: 정적분석(`py_compile`+`ast.parse`) PASS + 독립 clone `git am` diff-0 확인. **로그 시뮬레이션 검증: 미실시. 실차 검증: 미실시.**
+
+**전달 파일**: `0001-245cha-...patch`(ryu, carrot_man.py 변경), 이 WIP.md 항목 + FINDINGS.md 245차 항목(devnotes patch).
+
+**다음 작업**:
+1. 실측 로그로 baseline vs 수정안 A/B 시뮬레이션 재검증(신규 스크립트 작성).
+2. `PARAMS_REGISTRY.md` 갱신.
+3. 실차 검증.
+
+---
 ## 244차 (체크포인트 -- routeApexIdx flicker CASE A/B/C 판정 분석 완료, ryu 코드 변경 없음, toolkit 신규 스크립트+FINDINGS CRITICAL 기록) -- Route Apex Flicker 근본원인 재판별: Position-Identity vs 실제 후보전환
 
 **Worker**: Claude

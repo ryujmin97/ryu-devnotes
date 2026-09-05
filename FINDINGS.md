@@ -13913,3 +13913,26 @@ road_limit_speed=200.0 고정가정(148/161차 기존 한계)도 그대로 남�
 기존 toolkit 스캐너(routeOutSpeed==300을 "비활성" 판별 기준으로 쓰던
 스크립트가 있다면) 회귀를 일으키는지 점검 -- 이번 세션에서는 미수행.
 
+
+## 245차 -- [코드 패치 완료, 정적검증만 수행 -- 로그/실차 검증 미실시] route apex candidate 소실 RELEASE를 즉시 확정하지 않고 연속 프레임 확인 후 확정(flicker debounce)
+
+**배경**: 대화 중 사용자가 "이전 세션"에서 진행됐다고 전달한 245차 작업 -- 244차가 지목한 severity gate 경계 근처의 프레임 단위(50ms) candidate 흔들림이, `carrot_man.py`의 "candidate가 1프레임만 사라져도 즉시 RELEASE + `ROUTE_RELEASE_HOLD_S`(2.0초) 블랙아웃" 설계(223차)와 결합해 커브에 서서히 접근하는 동안 apex가 반복적으로 뛰는 것처럼 보이는 현상을 만든다는 가설. 단, 이 245차 세션 자체는 GitHub(WIP.md 최신 = 244차 체크포인트, ryu 코드 변경 없음)에 반영되어 있지 않았다 -- §2/§33 원칙대로 이전 세션의 서술을 그대로 신뢰하지 않고, 재클론한 현재 GitHub 상태(ryu HEAD `a70deea`=243차, devnotes 357d6bb 계열)를 기준으로 이번 세션에서 코드를 다시 확인/구현했다.
+
+**구현**: `carrot_man.py`
+- 신규 상수 `ROUTE_RELEASE_CONFIRM_FRAMES = 8`(20Hz 기준 ~0.4s).
+- 신규 상태 `self._route_candidate_lost_frames`(생성자 초기화 + mode 0/1 전환·navi 비활성·lookahead 부족 등 기존 "즉시 해제" 지점 전부에서 함께 리셋).
+- `carrot_navi_route()`의 `if not candidates:` 분기: `route_active`인 상태에서 candidate가 사라지면 카운터를 증가시키고, `ROUTE_RELEASE_CONFIRM_FRAMES` 미만이면 RELEASE를 확정하지 않고 마지막으로 확인된 apex(`_route_apex_idx/dist/speed`)로 감속을 유지, 그 이상이면 기존과 동일하게 RELEASE+hold 확정.
+- **apex 실제 도달**(`apex_dist <= ROUTE_APEX_REACHED_DIST_M`)로 인한 RELEASE는 이 debounce 대상이 아니며 223차 설계 그대로 즉시 처리(변경 없음).
+- 신규 헬퍼 `_route_compute_apex_out_speed()`: 228차 route_inert v2 3분기(eff_dist<=0 / far-inert / 실감속) 공식을 debounce 대기 프레임 전용으로 별도 함수화. §27에 따라 이미 검증된 본문 블록(223/224/228차)은 건드리지 않고 새 경로만 분리 -- **트레이드오프**: 두 곳에 동일 공식이 존재하므로 향후 감속식을 바꿀 때는 반드시 두 곳을 함께 수정해야 한다(회귀 위험 명시).
+
+**검증**: `py_compile` + `ast.parse` PASS. `git format-patch` -> 독립 재클론 throwaway 브랜치에서 `git am` 성공 + diff-0 확인(§ mandatory pipeline). **로그 기반 시뮬레이션 검증: 이번 세션에서는 미실시.** 사용자가 전달한 "이전 세션" 서술에는 `sim_route_apex_confirm_frames_245.py`로 실측 route_245.csv 기준 flicker 18건→8건(55.6% 감소) 결과가 있었다고 되어 있으나, 그 스크립트/CSV/커밋이 GitHub(ryu-devnotes)에 존재하지 않아 이번 세션에서 독립적으로 재현·확인하지 못했다 -- 숫자를 검증된 사실로 채택하지 않는다. **실차 검증: 미실시.**
+
+**미확인 사항**:
+- debounce 대기 중 apex_dist를 갱신하지 않고 마지막 값을 고정 사용 -- 실제로는 그 사이 차량이 접근하며 거리가 줄어드는데 고정값을 쓰면 짧은 구간(최대 8프레임) 동안 약간 보수적(더 먼 거리로 취급)인 감속이 나온다. 실사용에 문제없는 수준인지 로그로 확인 필요.
+- `ROUTE_RELEASE_CONFIRM_FRAMES=8`(~0.4s) 값 자체가 최적인지 -- 실측 로그(`route_245.csv` 또는 동일 구간 신규 로그)로 flicker 감소량 vs 실제 apex 통과 지연 사이 트레이드오프 재검증 필요.
+- 이번 커밋에는 devnotes만 갱신, `PARAMS_REGISTRY.md`에 `ROUTE_RELEASE_CONFIRM_FRAMES` 항목 등록은 아직 안 함(다음 작업).
+
+**다음 작업**:
+1. 실측 route CSV로 `sim_route_apex_confirm_frames_245.py`(신규 작성 필요 -- 기존 toolkit에 동일 목적 스크립트 없음, §21 확인 완료) 기반 baseline vs 수정안 A/B 검증.
+2. 위 통과 후 `PARAMS_REGISTRY.md`에 `ROUTE_RELEASE_CONFIRM_FRAMES` 등록(기존값 없음/신규값 8/변경이유/영향/검증결과).
+3. 실차 검증.
