@@ -1,3 +1,143 @@
+## 255차 (완료 -- 254차 다음작업 1번(실측 dist20 vs apex_passed A/B) 실행, 실행 중 신규 크래시 버그 발견+수정, 253차 부분-corpus 결과를 전체 25세그 원본으로 재검증) -- 사용자 재업로드 `dashcam_1788583013065.zip`(route_ac 세그0-19+route_ad 세그0-4, 전체 25세그 무결) 실측 A/B
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu`(변경 없음, HEAD `3f925f5`=252차) / `ryujmin97/ryu-devnotes`
+
+**Branch**: `c3-ms-dev` / `main`
+
+**Base commit (ryu)**: `3f925f5d13bc6bf486dc5821ecab4c9f4724a73d`(252차, 드리프트 없음)
+
+**devnotes Base commit**: `5580f25`(254차, 원격 HEAD와 일치 확인, `git fetch` 후 드리프트 없음)
+
+**배경**: 254차 다음작업 1번 -- 사용자가 실측 dashcam 로그를 업로드하면
+`sim_route_254_release_dist20_6state.py`를 `--release-mode apex_passed`/
+`dist20` 두 번 실행해 A/B. 이번 세션에 사용자가 동일 파일명
+`dashcam_1788583013065.zip`을 재업로드했고, 이번엔 253차가 요청했던
+"원본과 동일한 25세그(route_ac 세그0-19+route_ad 세그0-4)"가 전부
+무결 상태(rlog.zst 전부 0바이트 아님)로 포함됨 -- 253차/253차계속이
+데이터 유실/손상으로 못 했던 완전한 재검증이 이번에 가능해짐.
+
+**한 일**:
+1. §3/§33 원칙대로 `ryu`(HEAD `3f925f5`)/`ryu-devnotes`(HEAD `5580f25`)
+   재클론, 드리프트 없음 확인. HANDOFF.md/CURRENT_STATUS.md 없음.
+2. 재업로드 zip 검증 -- 25개 세그(`000003ac--0`~`19`, `000003ad--0`~`4`)
+   전부 rlog.zst 0바이트 아님(정상) 확인.
+3. `extract_log.py --with-navi-paths --repo ryu`(HEAD `3f925f5`)로 재추출
+   -- **29126행**(route_ac 24030행 + route_ad 5096행, 253차 WIP가 추정한
+   수치와 정확히 일치 -- 원본과 동일한 corpus임을 재확인).
+4. `sim_route_254_release_dist20_6state.py route_full.csv --release-mode
+   apex_passed` 최초 실행 시 **`TypeError: unsupported operand type(s)
+   for /: 'NoneType' and 'float'`로 크래시**(L199, `target_ms = apex_speed
+   / 3.6`). §28 원칙대로 코드 추적:
+   `_continuity_step()`이 `clusters`가 빈 상태에서 `reset_reason`이
+   `PASSED`/`LOST`인 경우 `(-1, None, None, reset_reason)`을 반환(L130)하는데,
+   `step()`의 `if apex_mode == "NONE":` 가드는 이 경우를 못 걸러서
+   `route_active=False`(INERT) 상태일 때만 이 None이 그대로
+   `target_ms = apex_speed / 3.6`까지 흘러감. 254차가 이미 처리했던
+   "apex_speed=None으로 인한 TypeError"(케이스3 수정)는 `route_active=True`
+   (ACTIVE) 분기만 커버했고, INERT 분기의 동일 문제는 synthetic self-test
+   4케이스가 커버하지 못해 실측 데이터에서 처음 발견됨.
+5. §27 최소변경 원칙에 따라 `if apex_mode == "NONE":`를
+   `if apex_mode == "NONE" or apex_speed is None:`로 1줄 확장(가드
+   조건에 `apex_speed is None` 추가) -- `route_active` 상태 전이 로직
+   자체는 건드리지 않음.
+6. `py_compile`+`ast.parse` 정적 검증 통과, 기존 synthetic self-test
+   4케이스 재실행 -- 전부 그대로 통과(회귀 없음).
+7. 수정본으로 실측 A/B 재실행 -- **`--release-mode apex_passed`와
+   `dist20` 결과가 완전히 동일**: far-apex-freeze 실측 12건 -> 시뮬 0건
+   (양쪽 모드 동일), 6-state 분포도 완전히 동일(`{'NONE': 7982, 'NEW': 57,
+   'MATCHED': 8397, 'HELD': 120, 'LOST': 54, 'GATE': 2353}`) -- 이 corpus
+   구간에서는 release_mode 선택이 far-apex-freeze 지표에 아무 차이를
+   만들지 않음(§28 -- "두 모드가 이 지표에서 동일하다"까지만 확정,
+   "항상 동일하다"로 일반화하지 않음).
+8. §21 재사용 원칙에 따라 253차 `analyze_route_253_active_run_length.py`
+   그대로 재실행(전체 25세그, 부분 corpus 아님) -- **실측 96건 vs 시뮬
+   113건**(short-run<2s: 71건 vs 90건). 253차계속의 부분-corpus(세그0-15만,
+   route_ad 없음) 결과("실측 68 vs 시뮬 51", 시뮬<실측)와 **방향이 다시
+   역전**(이번엔 시뮬>실측) -- 이 지표가 corpus 구성에 매우 민감함을
+   보여주는 것으로, 253차계속이 "버그 인공물 가설을 뒷받침"이라 평가한
+   결론은 이번 전체-corpus 결과로 뒷받침되지 않는다(오히려 원래 방향
+   유사). §28 원칙상 이 run-length 수치 자체로 "새 상태머신이 과다/과소
+   분절한다"는 결론을 내리지 않음 -- run 정의 차이(실측 `src`=전체
+   arbitration 결과 vs 시뮬 `sim_src`=route 후보 유무)가 근본 원인일
+   가능성이 더 높다는 기존 스크립트 docstring의 한계 인정이 여전히 유효.
+9. `sim_route_252_active_state_full.py`(변경 없음)로 246차 freeze 재확인
+   -- 실측 12건 -> 시뮬 0건(기존 253차 결론과 일관, 9->0/1->0에서 표본
+   증가).
+10. `check_device_build.py`로 이 dashcam의 실제 device 빌드 확인 -- 커밋
+    `a70deea3`(**243차**, `dirty=True`)에서 채록됨. git show로 확인한 결과
+    이 빌드는 `ROUTE_SEVERITY_GATE_RATIO = 0.90`(242차가 239차 CRITICAL
+    완화용으로 0.70->0.90 상향한 버전)이 **여전히 존재**하는 코드 -- 즉
+    이 corpus의 실측 `src`/`routeOutSpeed`는 247/251/252차가 게이트를
+    완전히 삭제하기 **이전** 코드가 만든 결과다. 위 3개 비교(freeze/
+    run-length/handoff) 전부 "243차 실측(0.90 게이트 존재) vs 252차
+    시뮬(게이트 완전 삭제)" 구도임을 명시(기존 246차/253차 비교도 동일
+    구도였으나 이번에 처음 device 빌드를 명시적으로 확인).
+11. 239차 CRITICAL 원 재현조건(vEgo≈105/target≈70kph) 재스캔 -- 이번
+    corpus도 vEgo 최대 61.9kph로 원 조건 미포함(253차계속과 동일 결론,
+    route_ad 포함해도 변화 없음).
+12. `scan_route_vturn_handoff_ratio.py route_full.csv` 실행(239차
+    "on the horizon" N값 실측 누적 목적) -- raw 후보 4건, confirmed
+    1건(ratio=8.15). JSON 상세 확인 결과 4건 중 3건이 `v_ego_kph`
+    5.5~18.2kph(저속, 커브 고속접근 시나리오 아님)이고 confirmed 1건의
+    `vTurnSpeed_at_handoff`=44(양호)이나 나머지 2건은 vTurnSpeed
+    원시값이 **음수**(-81, -94) -- 세션~222에 플래그된 "vturn raw 값
+    불안정 스레드"와 같은 종류의 현상으로 추정. ratio 자체(0.27~8.45)도
+    기존 239차 예비분석(0.617/0.854/1.002)과 전혀 다른 분포라 **이번
+    4건은 N값 추정 표본으로 채택하지 않음**(§28 -- 표본 오염 가능성이
+    높은 데이터를 그대로 합산하지 않음).
+13. `toolkit/README.md`(254차 섹션 갱신)/`toolkit/CHANGELOG.md`에 255차
+    섹션 추가.
+
+**완료**: 위 1~13번. 254차 다음작업 1번(release_mode A/B) 완료(결론:
+이 지표에서 두 모드 무차이). 253차/253차계속의 부분-corpus 결과를 전체
+원본 25세그로 재검증 완료(freeze는 일관, run-length는 방향 재역전 --
+결론 유보 유지). 신규 크래시 버그 1건 발견+최소변경 수정+회귀 없음
+확인. handoff ratio 신규 스캔 시도했으나 표본 오염 의심으로 미채택.
+
+**미완료**:
+- **239차 원 CRITICAL 고속 재현조건은 여전히 실측 미확인**(vEgo≈105kph급
+  로그 없음) -- 다음 실차 주행 시 의도적 채록 필요, 여전히 유효한 다음
+  작업.
+- **run-length 지표의 방향 반전 원인 미확정** -- run 정의 차이(§28
+  docstring 한계) vs corpus 특성 차이 vs 실제 회귀, 셋을 분리할 별도
+  분석(예: `src`와 `sim_src`를 같은 기준으로 재정의한 스크립트) 미착수.
+- **핸드오프 ratio 신규 표본 0건 확정 채택** -- 4건 중 3건이 저속
+  구간+음수 vTurnSpeed 원시값 의심, 세션~222 raw 값 불안정 스레드와의
+  연관성 여부는 미조사(별도 세션 필요).
+- `carrot_man.py`/`carrot_serv.py` 실제 patch -- 여전히 **미착수**(design
+  doc §11 STEP4/5 미통과, 254차와 동일 사유).
+- 이번 corpus의 device 빌드(243차, 0.90 게이트)가 `sim_route_252`/
+  `sim_route_254`가 가정하는 "게이트 없는 252차 아키텍처"와 다르다는
+  점을 246차/253차 등 **과거 비교에도 소급 명시할지는 미결정**(devnotes
+  전체 일관성 문제, 사용자 판단 필요할 수 있음).
+
+**검증**: `py_compile`+`ast.parse` 통과. synthetic self-test 4케이스
+재실행 전부 통과(회귀 없음). 실측 25세그 전체(29126행) A/B 3종(release_mode,
+run-length, freeze) + handoff 스캔 1종 실행 완료(위 7~9,12번). **실차
+검증: 미실시**(§29, 전부 open-loop 재생/오프라인 분석).
+
+**전달 파일**: `toolkit/sim_route_254_release_dist20_6state.py`(버그
+수정, INERT 분기 None 가드 1줄 추가), `toolkit/README.md`/
+`toolkit/CHANGELOG.md`(255차 섹션), `FINDINGS.md`(239차 두 섹션 모두
+255차 갱신 블록 추가), 이 WIP.md 항목. `ryu` 코드 변경 없음. 대용량
+CSV(`route_full.csv`, 29126행)는 §23에 따라 git에 커밋하지 않음 --
+재사용 필요 시 사용자에게 알림(현재 Google Drive 연결 없음, 컨테이너
+work/에만 존재, 세션 종료 시 유실 -- 다음 세션에서 필요하면 재요청).
+
+**다음 작업**:
+1. vEgo≈105/target≈70kph급 고속 커브 접근 로그 채록/확보(계속 최우선
+   미해결 항목).
+2. run-length 지표 방향 반전 원인 분리 분석(위 미완료 2번).
+3. 세션~222 vturn 원시값 불안정 스레드와 이번 12번 handoff 후보의
+   음수 vTurnSpeed 현상이 동일 원인인지 별도 조사.
+4. §31 patch 파이프라인은 이번에도 toolkit 버그수정 1건 + devnotes
+   3파일 갱신뿐, `ryu` 코드 변경 없음 -- `carrot_man.py` 실제 patch는
+   여전히 STEP4/5 통과 후.
+
+---
+
 ## 254차 (진행 중 -- 지선생 재설계 지시 감사(STEP1/2) 완료, 신규 toolkit synthetic self-test 통과, 실측 corpus 확보 전이라 patch 미착수) -- release 조건 apex_dist<=20m 전환 + continuity 6-state 분리 검증
 
 **Worker**: Claude

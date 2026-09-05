@@ -154,7 +154,7 @@ class Sim254:
         apex_idx, apex_dist, apex_speed, apex_mode = self._continuity_step(
             clusters, distances, speeds, v_ego_ms)
 
-        if apex_mode == "NONE":
+        if apex_mode == "NONE" or apex_speed is None:
             if self.route_active:
                 self.route_active = False
                 self.route_release_t = self.t

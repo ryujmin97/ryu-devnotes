@@ -3,6 +3,16 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+## 2026-09-05 (255차)
+- `sim_route_254_release_dist20_6state.py`: 버그수정 -- INERT(`route_active
+  =False`) 상태에서 `apex_mode`가 PASSED/LOST이고 `apex_speed=None`일 때
+  `target_ms = apex_speed / 3.6`에서 TypeError 크래시(254차 self-test
+  미커버, 실측 dashcam 25세그 corpus로 최초 발견). `if apex_mode == "NONE":`
+  가드를 `if apex_mode == "NONE" or apex_speed is None:`로 1줄 확장(§27).
+  회귀 없음(기존 self-test 4케이스 재통과). 수정본으로 실측 A/B 완료 --
+  `apex_passed`/`dist20` 결과 동일(far-apex-freeze 12->0 양쪽, 6-state
+  분포 동일). 상세: WIP.md/FINDINGS.md 255차, toolkit/README.md 참고.
+
 ## 2026-09-05 (254차, 진행 중)
 - `sim_route_254_release_dist20_6state.py`: 신규 -- `sim_route_252_active_
   state_full.py`의 `build_candidates`/`route_find_clusters`/`load_csv`/

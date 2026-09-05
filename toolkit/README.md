@@ -21,7 +21,7 @@ CHANGELOG.md를 같이 갱신**한다 (세션 종료 체크리스트에 포함�
 
 ---
 
-## sim_route_254_release_dist20_6state.py (254차 신규, 진행 중)
+## sim_route_254_release_dist20_6state.py (254차 신규, 255차 버그수정+실측 A/B 완료)
 **목적**: `sim_route_252_active_state_full.py` 위에서 지선생(ChatGPT) 지시
 2건을 검증. (1) `_route_cluster_continuity_step()`의 continuity mode를
 4종(matched/held/new/none)에서 6종(MATCHED/HELD/PASSED/LOST/NEW/NONE)으로
@@ -47,6 +47,25 @@ python3 sim_route_254_release_dist20_6state.py route.csv --release-mode dist20
 LOST 전이/PASSED 전이) 전부 통과. **실측 dashcam CSV A/B는 corpus 부재로
 미실시** -- 158/159차 원칙(synthetic 단독 결론 금지)에 따라 다음 세션
 실측 로그 확보 전까지 "검증 완료" 아님.
+
+**255차 버그수정**: 사용자 재업로드 `dashcam_1788583013065.zip`(25세그
+전체, 29126행)으로 최초 실측 A/B 실행 시 `TypeError:
+unsupported operand type(s) for /: 'NoneType' and 'float'`(L199,
+`target_ms = apex_speed / 3.6`)로 크래시. 원인: `route_active=False`
+(INERT) 상태에서 `apex_mode`가 `PASSED`/`LOST`(clusters 없음, `apex_speed=
+None`)가 될 때 `if apex_mode == "NONE":` 가드가 이를 걸러내지 못함(254차
+self-test는 `route_active=True`(ACTIVE) 분기의 동일 문제만 커버). §27
+최소변경 원칙에 따라 가드를 `if apex_mode == "NONE" or apex_speed is None:`
+로 1줄 확장, 상태 전이 로직 자체는 무변경. 기존 synthetic self-test
+4케이스 재실행 -- 회귀 없이 전부 통과.
+**255차 실측 A/B 결과**: 수정본으로 `route_full.csv`(29126행) 기준
+`--release-mode apex_passed` vs `dist20` 실행 -- **완전히 동일한 결과**
+(far-apex-freeze 실측 12건 -> 시뮬 양쪽 모드 모두 0건, 6-state 분포도
+`{'NONE': 7982, 'NEW': 57, 'MATCHED': 8397, 'HELD': 120, 'LOST': 54,
+'GATE': 2353}`로 동일). 이 corpus(vEgo 최대 61.9kph, 243차 빌드/
+`ROUTE_SEVERITY_GATE_RATIO=0.90` 존재)에서는 release 조건 변경이
+아무 표본에도 영향을 주지 않음 -- 두 모드가 갈리는 실측 사례는 여전히
+미확보. 실차 검증: 미실시(open-loop 재생 한정, §29).
 
 ---
 
