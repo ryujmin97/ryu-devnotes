@@ -63,6 +63,99 @@ INERT=None 문언의 근거), 252차(226차 코드를 실제로 재확인하며 
 
 ---
 
+## 257차 -- [시뮬레이션 검증 완료, 코드 미적용 -- Master 확인 2건 대기] 226차 논쟁 Master 최종 결정(ceiling 폐기) + ACTIVE 진입조건 재정의(v_ego>target이 아니라 accel_limit 기준 필요감속거리) -- 246차 CRITICAL freeze를 최초로 폐루프 시뮬레이션으로 재현+해소 확인
+
+**배경**: 256차 이후 지선생(ChatGPT)이 다이어그램으로 정확한 상태머신을
+제시: INERT 동안은 `v_ego<=target`/`v_ego>target` 여부와 무관하게 항상
+`Route=None`(vCruise를 향한 자유주행), 매 프레임 `D_required=(v_ego²-
+target²)/(2*a_fixed)`를 재계산해 `apex_dist<=D_required`가 처음 참이
+되는 순간에만 `INERT->ACTIVE`. 이는 현재 코드(`carrot_man.py` L1130
+`elif v_ego_ms > target_ms: self.route_active = True`)와 명백히
+다르다 -- 현재 코드는 거리와 무관하게 `v_ego>target`이면 즉시 ACTIVE.
+Master가 이 차이를 직접 지적하며 **226차 ceiling 논쟁을 폐기**하고
+새 상태머신을 기준으로 판단하라고 최종 결정.
+
+**코드 추적 결과**: `carrot_man.py` L1121-1152(255차/HEAD `d1bba17`
+기준, 226차 이후 라인 불변)를 확인 -- Master 지적이 정확함. `elif
+v_ego_ms > target_ms:` 한 줄이 거리 조건 없이 즉시 `route_active=True`
+로 전환시키며, 그 즉시 계산되는 `required_decel_mss`가 eff_dist가 크면
+0에 가까워 `out_speed_ms ≈ v_ego_ms`(현재 vEgo에 고착)가 된다 -- 이건
+**246차 CRITICAL(원거리 apex 자유가속 억제, FINDINGS.md 246차)과 정확히
+동일한 자기참조 메커니즘**이다. 246차는 원인을 "STEP2 감속식 자체의
+구조적 부작용"으로 뭉뚱그려 기록했었는데, 이번 추적으로 **"v_ego가
+target을 미세하게 넘기만 해도 즉시 ACTIVE로 전환되는 진입 게이트
+자체"**가 근본 원인이며 STEP2 감속식(감속량 계산)은 그 결과를 그대로
+반영할 뿐임이 더 정확히 특정됨.
+
+**검증(신규 `sim_route_257_master_distance_gate.py`)**:
+1. `CurrentProd`(255차 코드 그대로 재구현)로 246차 실측 수치(vEgo=4.9
+   ->rising, apexDist=480m, target=5.0kph, vCruise=94kph, FINDINGS.md
+   246차 원문)를 폐루프로 재생 -- **6초 내내 120/120 프레임이 freeze
+   판정(|out-vEgo|<2kph), 6초 후 vEgo=5.0kph로 완전 고착** -- 246차가
+   실측한 현상을 최초로 순수 상태머신 로직만으로(후보선정/클러스터링
+   개입 없이) 재현. 253차가 "새 상태머신에서 0건"이라 보고했던 것은
+   해당 실측 로그에 이 정확한 경계조건(v_ego가 target을 미세하게
+   초과하며 eff_dist가 큰 케이스)이 마침 없었거나 후보 필터링
+   개선(234차 stage2/3)이 우연히 가려버렸을 가능성이 있음 -- **246차
+   CRITICAL은 253차의 "해소 확인"에도 불구하고 로직 자체로는 여전히
+   잠재해 있었다**(§28 원칙 -- "이 로그에서 0건"을 "메커니즘 자체가
+   없다"로 일반화한 253차 결론은 이번 추적으로 재검토 필요, FINDINGS.md
+   246차에 갱신 기록).
+2. `MasterDistGate`(신규 설계: `v_ego<=target`이면 무조건 `None`,
+   그 외엔 `required_decel_mss >= AutoNaviSpeedDecelRate`가 처음
+   참이 되는 순간에만 ACTIVE)로 동일 시나리오 재생 -- **freeze 0/120
+   프레임, 지속적으로 가속**(6초 후 26.3kph, comfort_accel=1.0 m/s^2
+   가정상 vCruise 94까지는 더 걸리지만 자유가속 자체는 전혀 막히지
+   않음) -- 246차 CRITICAL 해소 확인.
+3. 안전성 스윕(apex_dist 30~400m x vCruise 60~120kph, 18케이스)으로
+   `a_fixed=AutoNaviSpeedDecelRate`(감속 캡과 동일 상수 재사용) 가정
+   하에 진입 게이트가 항상 충분한 제동여유를 확보하는지 확인 --
+   전체 스윕에서 apex 도달 시 target 초과분 최대 0.15kph(사실상 0).
+
+**결론**: Master의 새 설계(거리/감속능력 기반 게이트)가 (a) 226차가
+막았던 정적 Stop&Go 문제는 Master가 이미 폐기 결정으로 판단 범위에서
+제외했고, (b) 246차 CRITICAL(원거리 자유가속 억제)을 구조적으로
+해소하며, (c) 자체 안전성(진입 시점에 항상 충분한 제동거리 확보)도
+스윕 범위 내에서 확인됨. **코드 patch는 아직 적용하지 않음** -- 아래
+미확정 가정 2건에 대한 Master/지선생 확인 후 적용 예정.
+
+**미확정 가정(Master 확인 필요)**:
+1. `D_required` 계산의 `a_fixed`를 `AutoNaviSpeedDecelRate`(기존
+   감속 캡 상수 재사용)로 둘지, 별도 상수를 새로 둘지. 재사용 시
+   "진입 즉시 required_decel==decel_cap"이 되어 진입-감속 시작이
+   불연속 없이 매끄럽게 이어지는 장점이 있음(이 세션의 가정).
+2. `eff_dist<=0`인데 아직 INERT(게이트 미충족)인 edge case -- 이론상
+   `a_fixed` 게이트가 정상 작동하면 도달 전에 이미 ACTIVE로 전환됐어야
+   하므로 정상 경로에서는 발생하지 않지만, apex 후보가 갑자기 근거리에
+   나타나는 불연속 상황(244차 flicker류)에서는 발생 가능. 이번 세션은
+   이 경우 "더 미룰 수 없으므로 즉시 최대감속 시작"으로 처리했는데,
+   224차 원래 의도("이 경우 새 감속 시작 자체가 무의미 -> pass through")
+   와 다른 선택이라 Master 확인 필요.
+
+**전제(한계)**: `comfort_accel`(가속 상한)은 256차와 동일하게 실측
+스펙 없는 가정값. 순수 합성 시뮬레이션, 실차 검증 미실시.
+
+**관련**: 246차(CRITICAL 원 발견), 226차(ceiling 도입, 이번 세션에서
+Master가 폐기 결정), 247차(design doc §8), 253차(246차 "해소" 보고 --
+이번 추적으로 일반화 범위 재검토 필요), 256차(226차 정적/동적 논쟁,
+Master가 이번에 최종 종결).
+
+**다음 작업**:
+1. Master/지선생에게 위 미확정 가정 2건 확인.
+2. 확인 완료 시 `carrot_man.py` L1121-1152 실제 patch 작성(이 세션이
+   시뮬레이션에서 사용한 로직을 그대로 이식) + `py_compile`/기존
+   synthetic self-test 재검증 + 가능하면 246차 원본 로그로
+   재검증.
+3. FINDINGS.md 246차 항목에 이번 갱신 내용 append(이미 이 항목에서
+   교차참조로 링크, §24).
+4. Master가 결정 대기 중이던 `carrot_serv.py::update_navi()` arbitration
+   추적은 이 게이트 재정의가 먼저 반영된 뒤 진행하는 게 순서상 맞음
+   (게이트 조건이 바뀌면 arbitration으로 넘어가는 값의 성격도 달라짐).
+
+---
+
+---
+
 ## 251차 -- [검증 완료, 오프라인 로그 재분석 -- 실차 미검증] 247차 §11 CRITICAL 항목 해소: severity gate 완전삭제 후에도 stage2(spatial cluster)+stage3(apex continuity)만으로 터널/IC gore/S커브 3구간 전부 flicker 0건 억제 확인
 
 **배경**: 247차 재설계 문서(`design/247cha_route_inert_active_redesign.md` §11)가 `ROUTE_SEVERITY_GATE_RATIO`(stage1)를 완전 삭제하기로 하면서, 234차의 터널 억제 실적(172→60→16→3건, 터널 81→0→0→0)이 전부 stage1이 이미 적용된 위에서 나온 결과라 "gate 없이 클러스터링+continuity만으로 터널급 노이즈를 억제할 수 있는가"가 검증되지 않은 채 남아있었음(247/248/249/250차에 걸쳐 미해결, 248차는 합성데이터 스모크테스트만 완료, 249차는 실차 corpus로 첫 검증했으나 터널 없는 로그였음, 250차는 대체 터널 corpus 2건 탐색했으나 전부 apex 비활성으로 판정되어 실패).
@@ -139,6 +232,20 @@ out_speed_ms = max(target_ms, v_ego_ms - applied_decel_mss * ROUTE_SPEED_LOOP_DT
 **관련**: 223/224차(STEP2 감속식 도입), 225차(`out<=vEgo` 불변식 보정 이력), 244차(원거리 노이즈 후보 CRITICAL), 149/150차·198차(vEgo/decel 공식 anti-pattern, NEGATIVE).
 
 **253차 갱신(design doc §11 검증계획 5번, 실측 로그로 해소 확인)**: 247차 설계문서 §11이 요구한 "새 INERT/ACTIVE 상태머신에서 이 CRITICAL이 해소되는가" 검증을 오늘(2026-09-05) 새로 채록한 실차 dashcam 로그(route_ac 24030행/route_ad 5096행, `ryu` HEAD `3f925f5`=252차 빌드 아님 -- 로그 자체는 252차 코드 반영 이전 빌드에서 채록된 것으로 추정되며 커밋 확인은 다음 세션 항목)로 검증. 기존 도구 `scan_route_far_apex_accel_freeze.py`로 이 로그에서 246차와 동일한 패턴이 여전히 실측 재현됨을 먼저 확인(route_ac 11건, route_ad 1건, apexDist 150~510m 구간). 이 동일 궤적(vEgo/vCruise/nRoadLimitSpeed/naviPaths)을 신규 `toolkit/sim_route_252_active_state_full.py`(252차 `carrot_man.py`의 INERT/ACTIVE 상태머신 §3~§5 전체를 1:1 이식)로 open-loop 재생한 결과 **동일 구간에서 freeze episode 0건** -- 새 감속식이 ACTIVE 진입 시에만(§3, INERT에서 감속 시작조건 통과 시) 개입하고 그 외(§3 미충족, 즉 246차가 지적한 "아직 감속할 필요 없음" 구간)에는 `out_speed=apex_speed`(ceiling만 유지, vEgo 자기참조 없음)로 arbitration에 남아 vCruise 자유가속을 막지 않기 때문으로 해석됨(design doc §8 근거와 일치). **한계(§28/§29)**: (1) open-loop 재생이라 실제 피드백 루프(새 상태머신이 실제로 차를 몰았을 때의 vEgo 궤적)를 재현한 것은 아님, (2) `autoNaviSpeedCtrlEnd`/`autoNaviSpeedDecelRate` 실측값 대신 PARAMS_REGISTRY.md 등록값(2.2s/0.70㎨) 가정 사용, (3) 실차 검증 미실시. **결론(잠정)**: 246차 CRITICAL의 재발 메커니즘(§4 STEP2 감속식의 자기참조적 ceiling)은 새 설계에서 §3(INERT 감속시작조건 미충족 시 `out=apex_speed` 유지, vEgo 미개입)로 제거된 것으로 구조/실측 양쪽에서 일관되게 확인되나, "완전 해소"를 확정하려면 실차 검증(§29)이 필요.
+
+**257차 갱신(재검토 -- 위 253차 "해소" 결론의 일반화 범위 축소)**: 253차
+결론은 "이 실측 로그에서 0건"이지 "메커니즘 자체가 사라졌다"가 아니었음이
+드러남. `sim_route_257_master_distance_gate.py`로 255차/HEAD 코드(진입조건은
+253차 검증 대상과 동일)를 246차 원 실측 수치(vEgo=4.9->rising, apexDist=
+480m, target=5.0kph, vCruise=94kph)로 순수 재생한 결과 **120/120 프레임
+freeze로 246차가 그대로 재현됨** -- 253차가 쓴 로그에는 이 정확한
+경계조건(v_ego가 target을 미세하게 넘고 eff_dist가 큰 경우)이 없었거나
+234차 stage2/3 후보 필터링이 우연히 가려버렸을 가능성이 큼. 근본 원인은
+STEP2 감속식 자체가 아니라 `elif v_ego_ms > target_ms: route_active=True`
+(거리 무관 즉시 ACTIVE 진입 게이트)로 재특정됨. Master가 이를 accel_limit
+기준 필요감속거리 게이트로 재정의하도록 지시했고, 동일 시뮬레이션에서
+해소 확인(0/120 freeze). 상세: FINDINGS.md 257차. **코드 patch는 아직
+미적용**(257차 미확정 가정 2건 Master 확인 대기).
 
 ---
 

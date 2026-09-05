@@ -21,6 +21,30 @@ CHANGELOG.md를 같이 갱신**한다 (세션 종료 체크리스트에 포함�
 
 ---
 
+## sim_route_257_master_distance_gate.py (257차 신규)
+**목적**: Master 최종 결정(226차 ceiling 폐기) 이후, INERT의 ACTIVE 진입
+조건을 `v_ego>target`(현재 코드)에서 "accel_limit(`AutoNaviSpeedDecelRate`)
+기준 필요감속거리 `D_required=(v_ego²-target²)/(2*a_fixed)`가 apex_dist
+이상이 되는 순간"으로 재정의하는 신규 설계를 검증. `CurrentProd`(255차
+코드 그대로 재구현)와 `MasterDistGate`(신규 설계) 양쪽을 동일 시나리오로
+폐루프(20Hz, 물리 가속 상한 포함) 재생해 비교.
+**의존성**: 없음(순수 합성 물리모델).
+**사용**:
+```bash
+python3 sim_route_257_master_distance_gate.py
+```
+**257차 결과**: 246차 CRITICAL 원 실측 수치(vEgo=4.9->rising, apexDist=
+480m, target=5.0kph, vCruise=94kph)를 재생 -- `CurrentProd`는 120/120
+프레임 freeze로 246차를 그대로 재현(253차 "0건" 보고는 해당 로그 한정
+결론이었음이 드러남, FINDINGS.md 246차 갱신 참고). `MasterDistGate`는
+freeze 0/120, 지속 가속 확인. 안전성 스윕(apex_dist 30~400m x vCruise
+60~120kph 18케이스)에서 `a_fixed=AutoNaviSpeedDecelRate` 가정 하 진입
+게이트가 항상 충분한 제동여유 확보(최대 초과 0.15kph). **코드 patch는
+아직 `ryu`에 미적용** -- 미확정 가정 2건(a_fixed 상수 선택, eff_dist<=0
+edge case 처리) Master 확인 대기(FINDINGS.md/WIP.md 257차 참고).
+
+---
+
 ## sim_route_256_inert_ceiling_vs_none.py (256차 신규)
 **목적**: `carrot_man.py` INERT 분기(`else: out_speed = apex_speed`, 226차
 도입)를 지선생(ChatGPT) 제안대로 `out_speed = None`으로 바꿨을 때, "매

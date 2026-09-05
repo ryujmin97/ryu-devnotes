@@ -3,6 +3,15 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+## 2026-09-05 (257차)
+- `sim_route_257_master_distance_gate.py`: 신규 -- Master 최종 결정(226차
+  ceiling 폐기)에 따른 ACTIVE 진입조건 재정의(v_ego>target -> accel_limit
+  기준 필요감속거리 게이트) 검증. 246차 CRITICAL을 최초로 폐루프 재현
+  (CurrentProd 120/120 freeze) + MasterDistGate로 해소 확인(0/120) +
+  안전성 스윕(18케이스, 최대 초과 0.15kph). 253차 "246차 해소" 보고의
+  일반화 범위 재검토 필요성 발견(FINDINGS.md 246차/257차 참고). 코드
+  patch는 미적용, Master 확인 2건 대기.
+
 ## 2026-09-05 (256차)
 - `sim_route_256_inert_ceiling_vs_none.py`: 신규 -- INERT 분기 `out_speed=
   apex_speed`(226차) vs `out_speed=None`(지선생 제안, 255차계속 대화 이어짐)

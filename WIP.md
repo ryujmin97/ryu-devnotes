@@ -1,3 +1,89 @@
+## 257차 (완료 -- 시뮬레이션 검증, 코드 미적용/Master 확인 2건 대기) -- Master 최종 결정: 226차 ceiling 논쟁 폐기 + ACTIVE 진입조건을 `v_ego>target`에서 accel_limit 기준 필요감속거리 게이트로 재정의, 246차 CRITICAL 최초 폐루프 재현+해소 확인
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu`(변경 없음, HEAD `d1bba17`=255차계속) /
+`ryujmin97/ryu-devnotes`(HEAD 로컬 256차 커밋 위, 아직 미push -- 사용자가
+patch 적용 전이라 원격은 여전히 `601791a`)
+
+**Branch**: `c3-ms-dev` / `main`
+
+**Base commit (ryu)**: `d1bba17fa620703ca84faf22c5839d4913b774d0`
+
+**배경**: 256차에서 사용자에게 전달한 patch(devnotes)를 아직 적용/push
+하기 전에, 지선생(ChatGPT)이 다이어그램으로 새 상태머신을 제시하고
+Master가 이를 최종 결정으로 승인 -- "INERT는 `v_ego<=target`/`v_ego>
+target` 여부와 무관하게 항상 Route=None(vCruise 향해 정상 가속/유지),
+매 프레임 `D_required=(v_ego²-target²)/(2*a_fixed)` 재계산, `apex_dist
+<=D_required`가 처음 참이 되는 순간에만 INERT->ACTIVE. 226차 ceiling
+(out=apex_speed) 유지 로직은 설계 대상에서 제외." 현재(255차) 코드의
+`elif v_ego_ms > target_ms: route_active=True`(거리 무관 즉시 ACTIVE)가
+이 정의를 위반한다고 Master가 직접 지적, "255차 코드 기준으로 정확히
+추적"하라고 지시.
+
+**한 일**:
+1. `carrot_man.py` L1121-1152(HEAD `d1bba17`, 226차 이후 라인 불변)를
+   재확인 -- Master 지적이 정확함을 코드로 직접 확인.
+2. **246차 CRITICAL과의 연결 발견**: `v_ego>target`이면 거리와 무관하게
+   즉시 ACTIVE로 전환되고, eff_dist가 크면 `required_decel_mss≈0`이라
+   `out_speed_ms≈v_ego_ms`(현재 vEgo 고착)가 되는 메커니즘이 246차가
+   실측한 "원거리 apex 자유가속 억제" 현상과 정확히 일치함을 확인.
+3. §28 원칙(시뮬레이션 먼저)에 따라 `toolkit/sim_route_257_master_
+   distance_gate.py` 신규 작성 -- `CurrentProd`(255차 코드 그대로)와
+   `MasterDistGate`(신규 설계) 양쪽을 246차 원 실측 수치(vEgo=4.9->
+   rising, apexDist=480m, target=5.0kph, vCruise=94kph)로 폐루프 재생.
+4. **CurrentProd가 246차 freeze를 120/120 프레임(6초 전부) 그대로
+   재현함을 확인** -- 253차가 "새 상태머신에서 0건"이라 보고했던 결론이
+   "이 특정 로그에서는 0건"으로 일반화 범위가 축소돼야 함을 발견
+   (FINDINGS.md 246차에 "257차 갱신" 추가로 교차기록).
+5. `MasterDistGate`는 동일 시나리오에서 freeze 0/120, 지속 가속 확인.
+6. 안전성 스윕(apex_dist 30~400m x vCruise 60~120kph, 18케이스)으로
+   `a_fixed=AutoNaviSpeedDecelRate`(기존 감속캡 상수 재사용 가정) 하
+   진입 게이트가 항상 충분한 제동여유를 확보함을 확인(최대 초과 0.15kph).
+7. FINDINGS.md에 257차 신규 항목 + 246차 "257차 갱신" append.
+8. **`ryu` 코드는 patch 초안만 검토, 아직 파일에 적용하지 않음** --
+   미확정 가정 2건(아래) Master 확인 후 실제 patch 작성 예정.
+
+**완료**: 위 1~7번.
+
+**미완료 / Master 확인 필요(코드 적용 전 필수)**:
+1. `D_required`의 `a_fixed`를 `AutoNaviSpeedDecelRate`(기존 감속캡
+   재사용)로 둘지, 별도 상수를 신설할지.
+2. `eff_dist<=0`인데 아직 게이트 미충족(이론상 정상 경로에서는 발생
+   안 해야 하나 apex 후보 불연속 시 발생 가능)인 edge case를 "즉시
+   최대감속 시작"으로 처리할지, 224차 원래 의도대로 "pass through"
+   유지할지.
+3. 위 확인 완료 후: `carrot_man.py` 실제 patch 작성 -> `py_compile`/
+   기존 synthetic self-test 재검증 -> 가능하면 246차 원본 dashcam
+   로그로 실측 재검증(open-loop) -> 실차 검증.
+4. 256차에서 전달한 devnotes patch(`256cha_devnotes.patch`)가 아직
+   사용자 로컬에 적용/push 안 됐다면, 이번 257차 patch와 함께(또는
+   순서대로) 적용 필요 -- 두 patch 모두 devnotes 파일에만 존재하며
+   서로 다른 파일 영역(WIP/FINDINGS/toolkit)이라 충돌 가능성은 낮으나
+   순서(256 -> 257)를 지켜 적용 권장.
+5. `carrot_serv.py::update_navi()` arbitration 추적(지선생이 원래
+   요청했던 다음 단계)은 이 게이트 재정의가 먼저 반영된 뒤 진행.
+
+**검증**: 시뮬레이션(신규 toolkit, 246차 실측 수치 재현) O / 안전성
+스윕(18케이스) O / **실차 검증: 미실시**(순수 합성). `ryu` 코드 변경
+없음(patch 미적용).
+
+**전달 파일**: `ryu-devnotes` 갱신분 -- `WIP.md`(이 항목), `FINDINGS.md`
+(257차 신규 + 246차 갱신), `toolkit/sim_route_257_master_distance_gate.py`
+(신규), `toolkit/README.md`, `toolkit/CHANGELOG.md`. `ryu` 변경 없음.
+
+**다음 작업**:
+1. Master/지선생에게 미확정 가정 2건 확인 요청.
+2. 확인 완료 시 `carrot_man.py` L1121-1152 실제 patch 작성.
+3. 246차 원본 dashcam 로그(route_ac/route_ad 25세그, devnotes에 이미
+   추출 이력 있음)로 open-loop 재검증 -- 새 게이트가 실제 로그에서도
+   freeze 0건을 내는지.
+4. `carrot_serv.py` arbitration 추적 재개.
+
+---
+
+---
+
 ## 256차 (완료 -- 시뮬레이션 검증, 코드 미수정/Master 결정 대기) -- INERT `out_speed=apex_speed`(226차) vs `out_speed=None`(지선생 제안) P0 논쟁, 동적 폐루프 시뮬레이션으로 후속 검증
 
 **Worker**: Claude
