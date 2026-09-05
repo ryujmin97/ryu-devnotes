@@ -73,6 +73,8 @@ out_speed_ms = max(target_ms, v_ego_ms - applied_decel_mss * ROUTE_SPEED_LOOP_DT
 
 **관련**: 223/224차(STEP2 감속식 도입), 225차(`out<=vEgo` 불변식 보정 이력), 244차(원거리 노이즈 후보 CRITICAL), 149/150차·198차(vEgo/decel 공식 anti-pattern, NEGATIVE).
 
+**253차 갱신(design doc §11 검증계획 5번, 실측 로그로 해소 확인)**: 247차 설계문서 §11이 요구한 "새 INERT/ACTIVE 상태머신에서 이 CRITICAL이 해소되는가" 검증을 오늘(2026-09-05) 새로 채록한 실차 dashcam 로그(route_ac 24030행/route_ad 5096행, `ryu` HEAD `3f925f5`=252차 빌드 아님 -- 로그 자체는 252차 코드 반영 이전 빌드에서 채록된 것으로 추정되며 커밋 확인은 다음 세션 항목)로 검증. 기존 도구 `scan_route_far_apex_accel_freeze.py`로 이 로그에서 246차와 동일한 패턴이 여전히 실측 재현됨을 먼저 확인(route_ac 11건, route_ad 1건, apexDist 150~510m 구간). 이 동일 궤적(vEgo/vCruise/nRoadLimitSpeed/naviPaths)을 신규 `toolkit/sim_route_252_active_state_full.py`(252차 `carrot_man.py`의 INERT/ACTIVE 상태머신 §3~§5 전체를 1:1 이식)로 open-loop 재생한 결과 **동일 구간에서 freeze episode 0건** -- 새 감속식이 ACTIVE 진입 시에만(§3, INERT에서 감속 시작조건 통과 시) 개입하고 그 외(§3 미충족, 즉 246차가 지적한 "아직 감속할 필요 없음" 구간)에는 `out_speed=apex_speed`(ceiling만 유지, vEgo 자기참조 없음)로 arbitration에 남아 vCruise 자유가속을 막지 않기 때문으로 해석됨(design doc §8 근거와 일치). **한계(§28/§29)**: (1) open-loop 재생이라 실제 피드백 루프(새 상태머신이 실제로 차를 몰았을 때의 vEgo 궤적)를 재현한 것은 아님, (2) `autoNaviSpeedCtrlEnd`/`autoNaviSpeedDecelRate` 실측값 대신 PARAMS_REGISTRY.md 등록값(2.2s/0.70㎨) 가정 사용, (3) 실차 검증 미실시. **결론(잠정)**: 246차 CRITICAL의 재발 메커니즘(§4 STEP2 감속식의 자기참조적 ceiling)은 새 설계에서 §3(INERT 감속시작조건 미충족 시 `out=apex_speed` 유지, vEgo 미개입)로 제거된 것으로 구조/실측 양쪽에서 일관되게 확인되나, "완전 해소"를 확정하려면 실차 검증(§29)이 필요.
+
 ---
 
 ## 244차 (CRITICAL) -- [체크포인트, 로그 확인 완료/코드 변경 없음] routeApexIdx flicker Position-Identity(CASE A) vs 실제 후보전환(CASE B) 판정 -- CASE B가 압도적, 터널 구간은 road_limit_speed 근접 노이즈 후보 산발 승격/탈락으로 확인. 242차 0.90 gate가 이 터널 flicker를 재유발할 위험 신규 발견
@@ -232,6 +234,8 @@ candidates = [k for k in candidates if speeds[k] < max(v_ego_kph, 1.0) * ROUTE_S
 **결론**: **237차 patch(0.70 gate, 라이브 vEgo 재평가 방식)의 실차 적용을 보류 권고**. `ROUTE_SEVERITY_GATE_RATIO`를 다른 값(예: 0.90)으로 올리는 것만으로는 이 구조적 결함(자기소거 경계 자체가 이동할 뿐 소거되지 않음) 자체가 해결되지 않음 -- 근본 수정은 (a) 게이트를 candidate 진입 시점 vEgo로 latch하거나, (b) 아래 신규 설계 방향(route=사전감속 전용, vturn 핸드오프)으로 역할 자체를 재정의하는 것.
 
 **실차 검증**: 미실시(코드 확인 + 오프라인 시뮬레이션 한정).
+
+**253차 갱신(구조적 해소, 부분 확인)**: 247차/251차/252차 INERT/ACTIVE 래치 재설계(design/247cha_route_inert_active_redesign.md §8)로 `ROUTE_SEVERITY_GATE_RATIO` 자체가 코드에서 완전히 삭제됨(253차 `carrot_man.py` 재확인 -- `grep`으로 해당 상수/게이트 조건 잔존 0건, PARAMS_REGISTRY.md에도 SUPERSEDED 표기됨, 252차 기록). 이 CRITICAL이 지목한 자기소거 메커니즘은 정확히 "매 프레임 라이브 vEgo 대비 `0.70` 비율로 candidate를 재필터링하는 stage1 게이트"에서 발생했는데, 새 설계는 stage0(road_limit_speed 필터)에서 곧바로 stage2(공간 클러스터링)+stage3(continuity 추적)로 직행하고, ACTIVE 상태에서는 continuity가 잠근 apex를 라이브 vEgo 비율로 재평가하지 않는다 -- 즉 **이 CRITICAL이 정의한 정확한 재현 조건(라이브 vEgo 비율 재필터링) 자체가 새 코드에 구조적으로 존재하지 않는다.** 이는 코드 레벨 확인(정적)이며, 253차 실측 dashcam 로그(2026-09-05 채록, route_ac/route_ad) 기반 open-loop 재생(`toolkit/sim_route_252_active_state_full.py`)에서도 이 로그 구간 내 유사 자기소거/리밋사이클 패턴은 관측되지 않음. 다만 **이 실측 로그가 239차 원 재현 조건(vEgo=105/target=70급 고속 커브 접근)과 동일한 시나리오를 포함하는지는 별도 확인 안 됨** -- "새 상태머신에서 이 특정 CRITICAL의 재현 조건 자체가 사라졌다"는 구조적 결론과 "이번 로그로 실측 재현을 직접 재현/반증했다"는 것은 별개이며, 후자는 §28 원칙상 미확정으로 남긴다(다음 세션: vEgo=105/target=70 유사 실측 구간이 있는지 확인 권장).
 
 ---
 

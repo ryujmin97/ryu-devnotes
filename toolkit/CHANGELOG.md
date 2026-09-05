@@ -3,6 +3,16 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+## 2026-09-05 (253차)
+- `sim_route_252_active_state_full.py`: 신규 -- 252차 `carrot_man.py`
+  INERT/ACTIVE 래치 상태머신(§3~§5, continuity 포함) 전체를 1:1 이식해
+  실측 dashcam 로그로 open-loop 재생, `scan_route_far_apex_accel_freeze.py`
+  탐지식으로 246차 CRITICAL 해소 여부 검증. 오늘자 실측 로그(route_ac/
+  route_ad)에서 실측 11/1건 -> 시뮬 0/0건 확인. 최초 포팅 시 2초 RELEASE
+  hold-off 누락 버그 발견/수정(README 상세 참고). 239차 self-elimination
+  항목 관련 route-active run-length 재분석은 원본 로그 유실로 다음 세션
+  이월(상세: WIP.md 253차, FINDINGS.md 239차/246차 갱신).
+
 ## 2026-09-05 (249차)
 - `sim_route_234_spatial_apex_continuity.py`: 실차 CSV 방어 버그 수정 --
   세그먼트 시작 직후 첫 carState 이벤트 도착 전 `vEgo`가 빈 문자열로

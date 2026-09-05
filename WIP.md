@@ -1,3 +1,42 @@
+## 253차 (진행 중 -- design doc §11 검증계획 5번 중 246차 항목 해소 확인 완료, 239차 항목은 구조적 해소만 확인/실측 재검증은 원본 로그 유실로 보류) -- 신규 toolkit `sim_route_252_active_state_full.py`로 새 상태머신 open-loop 재생 검증
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu`(변경 없음, HEAD `3f925f5`=252차) / `ryujmin97/ryu-devnotes`
+
+**Branch**: `c3-ms-dev` / `main`
+
+**Base commit (ryu)**: `3f925f5d13bc6bf486dc5821ecab4c9f4724a73d`(252차, `git fetch` 후 드리프트 없음 확인)
+
+**devnotes Base commit**: `b1d6063`(252차, 원격 HEAD와 일치 확인, `git fetch` 후 드리프트 없음)
+
+**배경**: 사용자가 오늘(2026-09-05) 새로 채록한 실차 dashcam 로그(`dashcam_1788583013065.zip`, 25세그, route_ac/route_ad)를 이전 컨테이너에 업로드해 "실차주행 전 이전 로그에서 문제상황 재현되는지 확인 및 전반적인 시뮬레이션 검증"을 지시. 그 컨테이너에서 design doc §11 검증계획 5번(246차 원거리 apex freeze/239차 self-elimination이 새 상태머신에서 해소되는지)을 위해 신규 toolkit `sim_route_252_active_state_full.py`(252차 상태머신 1:1 이식)를 작성, `extract_log.py`로 CSV 추출(route_ac 24030행/route_ad 5096행) 후 재생 검증(246차 freeze: 실측 11건/1건 -> 시뮬 0건/0건)까지 진행하고, 자체 검증 과정에서 스크립트의 2초 RELEASE hold 포팅 누락 버그를 발견/수정했으나, devnotes 기록(WIP/FINDINGS 갱신) 전에 세션이 종료됨(컨테이너 초기화로 CSV/원본 zip 유실). 사용자가 수정 완료본 스크립트만 재업로드해 본 세션에서 이어받음.
+
+**한 일**:
+1. §3/§33 원칙대로 `ryu`(HEAD `3f925f5`)/`ryu-devnotes`(HEAD `b1d6063`) 재클론, 이전 세션 기록(252차)과 드리프트 없음 확인. HANDOFF.md/CURRENT_STATUS.md 없음, IN PROGRESS 마커 없음.
+2. **원본 dashcam CSV(route_ac.csv/route_ad.csv)와 zip 원본이 컨테이너 초기화로 유실됐음을 확인**(`work/` 디렉토리에 무관한 파일 1건만 잔존) -- 이전 세션이 이미 도출한 결과(오프라인 재생: 246차 freeze 11건->0건, 1건->0건)는 devnotes에 아직 기록되지 않은 상태였으므로 결과 자체는 이번 세션에서 FINDINGS.md/WIP.md에 기록하되, 이전 세션이 남긴 미완료 항목 1번("수정된 스크립트로 self-elimination류 오실레이션 재검사")은 **원본 로그 재업로드 없이는 재실행 불가**함을 확인 -- 추측으로 대체하지 않고 사용자에게 보고, 재업로드 요청(§28).
+3. 업로드된 `sim_route_252_active_state_full.py`(2초 RELEASE hold 버그 수정 반영본) `py_compile`+`ast.parse` 정적 검증 통과, `toolkit/`에 배치.
+4. `carrot_man.py`(252차 HEAD) 재확인: `ROUTE_SEVERITY_GATE_RATIO`(239차 self-elimination 원인 게이트) 및 `route_inert`(228차 자기참조 고착 서브스테이트) 참조 0건(`grep` 전수 확인) -- 두 CRITICAL의 정확한 재현 조건 자체가 코드에서 구조적으로 제거됐음을 정적으로 재확인.
+5. FINDINGS.md 246차/239차 항목에 253차 갱신 블록 추가(§24 -- 기존 항목 삭제/수정 없이 새 증거만 보강): 246차는 "구조적 제거 + 오늘자 실측 로그 open-loop 재생으로 해소 확인(11->0/1->0), 단 실차검증 미실시"로 정리, 239차는 "게이트 자체가 삭제되어 원 재현조건 소멸(구조적 확인), 이번 로그가 원 CRITICAL의 재현 시나리오(vEgo=105/target=70급 고속 접근)를 포함하는지는 미확인이라 실측 반증까지는 확정 아님"으로 정리.
+
+**완료**: 위 1~5번. design doc §11 검증계획 5번 중 **246차 항목은 구조적+실측 양쪽 근거로 해소 결론(실차검증 전 잠정)**. `sim_route_252_active_state_full.py` 정적 검증 완료, toolkit 배치.
+
+**미완료**:
+- **239차 self-elimination 항목의 수치적 재검증(오실레이션 run-length 재분석) -- 원본 로그(zip 또는 CSV) 유실로 미실시.** 이전 세션이 RELEASE hold 버그 수정 "이전" 스크립트로 1차 실행했을 때 route-active run이 실측 대비 비정상적으로 짧고 잦았던 것(route_ac: 실측 61건/시뮬 163건 short-run, route_ad: 실측 20건/시뮬 119건)을 발견했으나, 이것이 실제 회귀인지 스크립트 자체의 포팅 버그(hold 누락)로 인한 인위적 결과인지는 수정본으로 재실행해야 판별 가능 -- 원본 데이터 재업로드 필요(다음 세션 1순위).
+- 실차(온보드) 검증: 미실시(§29) -- 246차/239차 모두 오프라인 검증 한정.
+- `git format-patch`->`git am` 파이프라인(§31)은 이번 세션에서 미실행 -- toolkit 스크립트 1건 추가 + devnotes 3파일 갱신뿐이라 사용자 확인 후 다음 턴에 바로 진행 가능.
+
+**검증**: `sim_route_252_active_state_full.py` `py_compile`+`ast.parse` 통과. `carrot_man.py` 정적 재확인(`grep`, `ROUTE_SEVERITY_GATE_RATIO`/`route_inert` 잔존 0건). 246차 오프라인 재생 결과(11->0/1->0)는 devnotes에 이번 세션에서 최초로 기록됨(재생 자체는 이전 세션 실행분, 이번 세션은 기록+정적 재확인만 수행 -- 재실행하지 않은 것을 재실행했다고 기재하지 않음, §27/§29). **실차 검증: 미실시.**
+
+**전달 파일**: `toolkit/sim_route_252_active_state_full.py`(신규), `toolkit/README.md`/`toolkit/CHANGELOG.md`(253차 섹션), `FINDINGS.md`(239차/246차 갱신), 이 WIP.md 항목. `ryu` 코드 변경 없음(이미 252차에 반영 완료 상태, 이번 세션은 그 반영분의 사후 검증).
+
+**다음 작업**:
+1. 사용자가 `dashcam_1788583013065.zip`(또는 `route_ac.csv`/`route_ad.csv`)을 재업로드하면, RELEASE hold 수정본으로 route-active run-length 재분석 -> 239차 self-elimination 항목 수치 결론 확정.
+2. 위 1번 통과 시 design doc §11 검증계획 5번(246차+239차) 완전 종결.
+3. `git format-patch`(toolkit 스크립트+devnotes 3파일)로 §31 파이프라인 실행 후 정식 patch 전달.
+
+---
+
 ## 252차 (완료 -- 247차 §11 검증계획 항목 3번, INERT/ACTIVE 상태머신 `carrot_man.py`/`carrot_serv.py` 코드 반영 + PARAMS_REGISTRY.md 등록) -- 사용자 승인(§31) 하에 251차가 종결한 검증계획 위에서 실제 patch 작성
 
 **Worker**: Claude

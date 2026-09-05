@@ -3407,3 +3407,60 @@ active frame 수는 gate 제거로 늘어남(stage3 기준 7030->10958, +55.9%)
 **실차 검증(§29 의미)**: 이 항목은 "로그 기반 오프라인 재계산"이며
 차량에 새 로직을 실제로 태워 거동을 본 것이 아님 -- 여전히 **실차
 검증: 미실시**로 표기.
+
+## sim_route_252_active_state_full.py (253차, 신규 -- 252차 INERT/ACTIVE 상태머신 open-loop 재생 검증)
+
+**목적**: design doc `247cha_route_inert_active_redesign.md` §11 검증계획
+5번("246차 원거리 apex freeze, 239차 self-elimination 재현 케이스도 새
+상태머신에서 해소되는지 확인")을 위해, 252차가 `carrot_man.py`/
+`carrot_serv.py`에 실제로 반영한 INERT/ACTIVE 래치 상태머신 전체(§3~§5,
+`_route_cluster_continuity_step` 포함)를 그대로 이식해 실측 dashcam
+로그(`extract_log.py --with-navi-paths` CSV) 위에서 프레임 단위로
+재생한다. `sim_route_234_spatial_apex_continuity.py`는 stage2/3(클러스터링
++continuity)의 apex identity 안정성만 검증했고 ACTIVE 진입/해제, §4/§5
+감속식/해제조건, 246차 freeze 재현 여부는 검증 범위 밖이었다 -- 이
+스크립트는 그 상위 레이어까지 포함한다.
+
+**사용**:
+```bash
+python3 sim_route_252_active_state_full.py route.csv \
+    [--safe-time 2.2] [--decel-rate 0.70] [--release-margin 1.1] \
+    [--continuity-tolerance 10.0] [--far-dist-m 150] \
+    [--cruise-gap-kph 15] [--ceiling-track-kph 2.0] [--min-duration-s 2.0]
+```
+출력: 실측 CSV(`src`/`routeOutSpeed`/`routeApexDist`) 기준
+`scan_route_far_apex_accel_freeze.py`와 동일한 탐지식으로 계산한
+far-apex-freeze episode 수 vs 이 스크립트가 새 상태머신으로 재계산한
+`sim_out_speed`/`sim_src`/`sim_apex_dist` 기준 동일 탐지식 결과를 나란히
+비교.
+
+**253차 결과(오늘자 2026-09-05 dashcam 로그, route_ac 24030행/route_ad
+5096행, naviPaths 보유율 ~89%)**:
+| 로그 | 실측(기존 코드) freeze episode | 시뮬(252차 상태머신) freeze episode |
+|---|---|---|
+| route_ac | 11건 (t=475.8~1024.4 구간) | **0건** |
+| route_ad | 1건 (t=1314.0~1317.6) | **0건** |
+
+246차 CRITICAL(원거리 apex 존재 시 desiredSpeed가 vEgo에 자기참조적으로
+고정돼 자유가속 억제)이 이번 실측 로그에서 실제로 재현됨을 먼저 확인한
+뒤, 동일 궤적을 새 상태머신으로 재생하면 전 구간에서 해소됨을 확인 --
+FINDINGS.md 246차 항목 253차 갱신 참고.
+
+**한계(§28 명시, 스크립트 docstring과 동일)**:
+1. candidate/apex는 `naviPaths`(carrotMan 발행, 20Hz)로 재구성한 근사치 --
+   실제 코드와 동일한 3점 곡률/lookup 공식을 쓰지만 실측 당시 부동소수
+   반올림/GPS 잡음까지 완전히 동일하다고 단정하지 않는다.
+2. `autoNaviSpeedCtrlEnd`/`autoNaviSpeedDecelRate`는 CSV에 없어
+   PARAMS_REGISTRY.md 등록값(safe_time=2.2s, decel=0.70㎨)을 고정 가정으로
+   사용 -- 실제 실차 파라미터와 다르면 정량값은 달라질 수 있음.
+3. open-loop 재생이다 -- 실측 위치/속도 궤적에 새 상태머신을 대입한
+   출력이지, 새 상태머신이 실제로 차를 몰았을 때의 vEgo 궤적(피드백
+   루프)이 아니다.
+4. 실차 검증 아님(§29). 오프라인 시뮬레이션 한정.
+5. **[253차 자체 발견]** 최초 포팅 버전에서 `route_release_time`(design
+   doc §6, RELEASE 후 2초 hold-off)을 빠뜨려, 이 hold가 없으면 실제
+   코드에는 없는 인위적 ENGAGE/RELEASE 진동이 시뮬레이션에서만 발생하는
+   것을 자체 검증 중 발견 -- 즉시 수정 반영(현재 버전은 수정 완료본).
+   **이 수정본으로 route-active run-length(오실레이션) 재분석은 아직
+   미실시** -- 원본 로그가 컨테이너 초기화로 유실되어 재업로드 필요
+   (WIP.md 253차, 다음 작업 1번).
