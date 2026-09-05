@@ -1,3 +1,21 @@
+## c3-ms-dev (260차, confidence 신호 3종 1차 실측 — ryu 코드 변경 없음)
+- last_analyzed_commit: `109f6816`(258차, ryu — 드리프트 없음, 변경 없음)
+- devnotes base: `09d8d0a`(259차)
+- date: 2026-09-05 (260차)
+- 분석 대상: 사용자 재업로드 `0000039a--7b602ffb85` seg12-16(234차/244차/
+  251차 known-good 터널 corpus) 재추출(5999행, 재현성 확인) — 신규
+  `sim_route_260_confidence_signals.py`로 전체 65개 track의
+  persistence/curvature_consistency/speed_drop_strength 프레임 단위 계측
+  + 터널(t2190-2225)/IC gore(t2108-2112)/S커브(t2116-2122.2) 3구간 비교.
+- note: persistence 신호가 노이즈(streak=1, 55%)와 실제 커브(streak
+  7~222, 소수) 강하게 분리 확인. curvature_consistency는 표본부족
+  아티팩트로 판별력 없음(재정의 필요). speed_drop_strength는 이 corpus에
+  stage2 통과 노이즈 대조군이 없어(터널 완전 전멸) 미검증. GPS
+  reliability는 horizontalAccuracy 컬럼 부재로 미착수. 사용자가 함께
+  재업로드한 `dashcam_1788583013065.zip`(25세그, route_ac/ad)은 이번
+  세션엔 미사용(다음 세션 speed-drop 대조군 탐색용). 상세는 WIP.md/
+  FINDINGS.md "260차" 참고.
+
 ## c3-ms-dev (235차, S커브 잔여 stage3 점프 3건 dashcam+곡률배열 대조 — ryu 코드 변경 없음)
 - last_analyzed_commit: `73a8cb3`(232차, ryu — 드리프트 없음, 변경 없음)
 - devnotes base: `3db0d24`(234차 계속10)

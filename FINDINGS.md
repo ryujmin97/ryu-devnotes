@@ -1,3 +1,47 @@
+## 260차 -- [1차 실측 완료, 진행 중] confidence 신호 3종(persistence/curvature consistency/speed-drop strength) 프레임 단위 실측 -- persistence 신호 강한 판별력, curvature consistency는 판별력 없음(재정의 필요), speed-drop은 corpus 한계로 미검증
+
+**배경**: 259차가 확정한 apex 후보 선정 "최근접 -> confidence 기반"
+재설계를 위해, Master가 제시한 4개 신호(persistence/curvature
+consistency/speed-drop strength/GPS positional reliability) 중 기존
+CSV로 계측 가능한 3개를 `0000039a--7b602ffb85` seg12-16(234차/244차/
+251차 known-good 터널 corpus)로 검증.
+
+**방법**: 신규 toolkit `sim_route_260_confidence_signals.py` --
+단일 locked apex만 추적하던 기존 `ContinuityState`를 모든 raw cluster를
+동시추적하는 `MultiTrackContinuity`로 확장, track별 streak(persistence)/
+곡률부호 일관성/순간 speed_drop을 프레임 단위로 기록.
+
+**결과**:
+1. **persistence -- 강한 판별력 확인**: 전체 65개 track 중 36개(55%)가
+   streak=1(1프레임만 존재 후 소멸)에서 끝나는 반면, 6개만 streak
+   7~222까지 지속. 노이즈성 단발 후보와 실제 지속 커브가 뚜렷이
+   분리됨 -- 259차 재설계 방향을 지지하는 최초 정량 증거.
+2. **curvature consistency -- 판별력 없음(현재 정의 기준)**: 거의 전부
+   1.000. streak가 1~3인 track은 표본 자체가 적어 부호 일관성이 자명하게
+   1.0이 되는 통계적 아티팩트 -- 최소 streak 조건과 결합하거나 곡률
+   크기 안정성 등 다른 정의로 재검토 필요.
+3. **speed-drop strength -- corpus 한계로 미검증**: IC gore(mean 0.357)
+   vs S커브(mean 0.346) 차이 거의 없음. 원인은 이 corpus의 터널 구간이
+   stage2(spatial cluster, min_points=2) 단계에서 이미 0건으로 완전
+   전멸해(251차 표와 일치) 이 신호가 필요로 하는 "stage2는 통과하지만
+   실제로는 약한 후보" 유형의 대조군이 애초에 이 corpus엔 없었음.
+   **중요**: 이는 이 신호의 실패가 아니라 corpus 선택의 한계 -- 별도
+   corpus(예: 179차가 언급한 "멀지만 급한 커브가 가깝지만 완만한 커브를
+   밀어내는" 유형) 필요.
+4. GPS positional reliability는 `extract_log.py` CSV에
+   `horizontalAccuracy` 컬럼이 없어 이번 세션 계측 불가.
+
+**결론**: 4개 신호를 "한 번에 합치지 않고 개별 검증 후 조합"하기로 한
+259차 결정(158/159차 전례 근거)이 유효했음을 이번 결과가 뒷받침 --
+신호마다 판별력이 크게 다름(persistence 강함/curvature consistency
+현재 정의로는 무용/speed-drop 미검증)이 1차 실측만으로 이미 드러남.
+persistence 신호 하나만으로 성급히 조합을 확정하지 않음.
+
+**다음**: `extract_log.py`에 horizontalAccuracy 컬럼 추가 -> GPS
+reliability 계측. curvature consistency 재정의. speed-drop 판별력
+검증용 별도 corpus 확보(`dashcam_1788583013065.zip` 우선 시도).
+상세는 WIP.md 260차 참고.
+
 ## 256차 -- [시뮬레이션 검증 완료, P0 논쟁 미해결 -- Master 결정 대기] INERT `out_speed=apex_speed`(226차) vs `out_speed=None`(지선생 제안) 동적 재진입 안전성 -- 물리모델 스윕 범위 내에서 지선생 반론 지지, 단 226차 정적 케이스와는 별개 축
 
 **배경**: 255차계속 세션 말미, 지선생(ChatGPT)이 247차 design doc §8

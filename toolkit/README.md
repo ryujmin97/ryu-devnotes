@@ -21,6 +21,49 @@ CHANGELOG.md를 같이 갱신**한다 (세션 종료 체크리스트에 포함�
 
 ---
 
+## sim_route_260_confidence_signals.py (260차 신규)
+**목적**: 259차가 확정한 "apex 후보 선정을 최근접(clusters[0])에서
+confidence 기반으로 재설계"하는 방향(WIP.md 259차)을 위해, Master가 제시한
+4개 confidence 신호 중 코드 변경 없이 기존 CSV(+naviPaths)만으로 계측
+가능한 3개(persistence/curvature consistency/speed-drop strength)를
+프레임 단위로 실측. GPS positional reliability(4번째 신호)는
+`horizontalAccuracy`가 `extract_log.py` CSV에 없어 계측 불가(별도 확장
+필요).
+**입력**: `extract_log.py --with-navi-paths`로 뽑은 route CSV.
+**재사용**: `sim_route_234_spatial_apex_continuity.py`의
+build_speeds_distances/gate_candidates/find_clusters와 동일 로직 재사용
+(§21). 신규 부분은 curvature 배열도 함께 반환하도록 확장한 것과, 단일
+locked apex만 추적하던 `ContinuityState`를 "현재 살아있는 모든 클러스터"를
+동시에 추적하는 `MultiTrackContinuity`(신규 클래스)로 확장한 것.
+**스테이지 구성**: 247~251차 실측으로 severity gate(stage1)는 완전 삭제
+확정(WIP 259차)되어 있으므로, 이 스크립트는 항상 stage0(road_limit_speed
+필터) 후보를 그대로 stage2(spatial cluster) 입력으로 사용 -- 현재 실제
+배포 코드 구조 그대로 반영(기존 스크립트의 `--skip-gate`와 동일 경로).
+**신호 정의**(프레임 단위, look-ahead 없음 -- 그 프레임까지 알 수 있는
+값만 사용):
+  - `persistence`: 그 프레임까지 track이 연속 매칭된 프레임 수(streak)
+  - `curv_consistency`: 그 프레임까지 track 내 곡률 부호 최빈값 비율
+  - `speed_drop`: 그 프레임의 순간값 `(v_ego_kph - candidate_speed)/v_ego_kph`
+**사용**:
+```bash
+python3 sim_route_260_confidence_signals.py <route.csv>   # 기본 3구간(터널/IC gore/S커브)
+python3 sim_route_260_confidence_signals.py <route.csv> --window 2190 2225 --label tunnel
+```
+**260차 1차 실측 결과** (`0000039a--7b602ffb85` seg12-16, 234차/244차/251차
+known-good 터널 corpus): (1) 터널윈도우(t2190-2225)는 stage2 클러스터링
+자체에서 0건 생존 -- 251차 표(stage2 skip-gate=0)와 정확히 일치, 스크립트
+정합성 확인. (2) 전체 65개 track 중 36개(55%)가 streak=1(한 프레임만
+존재 후 소멸)에서 끝나는 반면 소수(6개)만 streak 7~222까지 지속 --
+persistence 신호가 노이즈/실제커브를 강하게 분리함을 실측 확인. (3)
+curvature_consistency는 거의 전부 1.000으로 계측 -- 짧은 streak(1~3)에서는
+표본 부족으로 자명하게 1.0이 나와 단독으로는 판별력 없음(streak 최소치
+조건과 결합 필요). (4) speed_drop_strength는 IC gore(mean 0.357)/
+S커브(mean 0.346) 간 뚜렷한 차이 없음 -- 이 corpus엔 stage2를 통과하는
+노이즈 대조군이 없어(터널이 이미 전멸) 판별력 검증 불가. 상세: WIP.md
+260차/FINDINGS.md 260차.
+
+---
+
 ## sim_route_258_carrot_man_patch_validate.py (258차 신규)
 **목적**: `carrot_man.py::carrot_navi_route()` INERT 분기에 실제
 반영한 patch(257차 Master 설계 + Master 확정 2건 -- ①=A: a_fixed는

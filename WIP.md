@@ -1,3 +1,110 @@
+## 260차 (진행 중 -- corpus 재확보+신규 toolkit 작성+3개 신호 1차 실측 완료, 4번째 신호 미착수) -- confidence 신호 3종(persistence/curvature consistency/speed-drop) 프레임 단위 실측, persistence 신호 강한 판별력 확인
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu`(HEAD `109f6816`=258차, 변경 없음) /
+`ryu-devnotes`(HEAD `09d8d0a`=259차, 이 항목 추가 전)
+
+**Branch**: `c3-ms-dev` / `main`
+
+**Base commit (ryu)**: `109f68160bad1a3514627fdc3d9a84f9ed8ac83e`
+
+**devnotes Base commit**: `09d8d0a75886f1501d7d95dbdf9618f188b11f5f`
+
+**배경**: 259차가 남긴 다음 작업 1순위(`0000039a--7b602ffb85` seg12-16
+재업로드) + 2순위(`dashcam_1788583013065.zip` 재업로드)를 사용자가 이번
+세션에 모두 재업로드. §33 원칙에 따라 devnotes 기억보다 GitHub 실제
+상태를 우선 확인 -- ryu HEAD `109f6816`(258차)로 259차 WIP 기록과 일치
+확인, HANDOFF.md/CURRENT_STATUS.md 없음(동시작업 없음 확인).
+
+**한 일**:
+1. `0000039a--7b602ffb85` seg12-16 zip 압축해제 -- 5개 세그(12~16) 정상
+   확인, `extract_log.py --with-navi-paths --repo /home/claude/ryu`로
+   재추출(5999행, 234차/244차/251차와 동일 행수 -- 재현성 확인).
+2. 터널윈도우(t2190-2225) `routeCandidateCount`(stage0 raw 후보 개수,
+   0이 아님 240/700건, 34%) 재확인 -- 250차/251차 결론과 일치, 이 corpus가
+   여전히 유효한 known-good 터널 corpus임을 재검증.
+3. `dashcam_1788583013065.zip` 압축해제 -- route_ac(20세그)+route_ad
+   (5세그), t 13:12~13:36 연속(2026-09-05 오늘 채록) 확인. WIP.md 907번째
+   줄(249차) 기록과 세그 구성/route id 완전 일치 -- 알려진 25세그 baseline
+   그대로임을 devnotes 대조로 확인(추가 검증 절차 불필요). 이번 세션에서는
+   아직 CSV 추출/사용 안 함(4번째 신호 컬럼 확보 후 사용 예정, 미완료 참고).
+4. 신규 toolkit `sim_route_260_confidence_signals.py` 작성(§21 확인 --
+   기존 도구 중 프레임 단위 confidence 신호 계측 도구 없음, 신규 필요).
+   `sim_route_234_spatial_apex_continuity.py`의 build_speeds_distances/
+   gate_candidates/find_clusters 재사용, curvature 배열 반환 추가 + 단일
+   locked apex만 추적하던 `ContinuityState`를 "현재 살아있는 모든
+   클러스터"를 동시추적하는 `MultiTrackContinuity`(신규)로 확장.
+   py_compile 통과.
+5. 터널/IC gore/S커브 3구간(251차가 확정한 t2190-2225/t2108-2112/
+   t2116-2122.2)에 대해 실행 -- 터널윈도우 클러스터 매칭 0건(251차
+   stage2 skip-gate=0과 정확히 일치, 스크립트 정합성 확인).
+6. 전체 로그(65개 고유 track)로 확장 실행 -- track별 max_streak 분포
+   확인: **36개(55%)가 streak=1(1프레임만 존재 후 소멸)에서 종료, 소수
+   6개만 streak 7~222까지 지속**(20/29/32/6/33/55번 track). persistence
+   신호가 노이즈성 단발 후보와 실제 지속되는 커브를 뚜렷이 분리함을
+   실측 확인 -- 259차가 제안한 confidence 기반 재설계 방향을 지지하는
+   최초 정량 증거.
+7. curvature_consistency(부호 일관성) 계측 -- 거의 전부 1.000으로 나옴.
+   원인: streak 1~3인 track은 표본 자체가 너무 적어(1~3개 부호값) 자명하게
+   consistency=1.0이 됨 -- **이 신호는 단독으로는 판별력이 없고, 최소
+   streak 조건과 결합하거나 다른 정의(예: 곡률 크기 안정성)로 재검토
+   필요**.
+8. speed_drop_strength 계측 -- IC gore(mean 0.357)/S커브(mean 0.346) 두
+   실제 커브 구간 간 뚜렷한 차이 없음. 다만 이 corpus엔 stage2를 통과하는
+   노이즈 대조군이 없음(터널이 이미 0건으로 전멸) -- 판별력 검증에는
+   부적합한 corpus였음을 확인(중요 발견, 아래 미완료 3번 참고).
+9. toolkit/README.md, toolkit/CHANGELOG.md 갱신(§21/22).
+
+**완료**: corpus 2건(1/2순위) 재확보+검증(1~3번), 신규 toolkit
+작성(4번), 3개 신호(persistence/curvature consistency/speed-drop
+strength) 1차 실측(5~8번), devnotes toolkit 문서 갱신(9번).
+
+**미완료**:
+1. GPS positional reliability(4번째 신호) -- `extract_log.py` CSV에
+   `horizontalAccuracy` 컬럼 없음, cereal에는 존재 확인됨(WIP 259차
+   5번 참고) -- `extract_log.py` FIELDNAMES 확장 필요(toolkit 우선
+   확인 규칙상 신규 컬럼 추가는 기존 스크립트 확장으로 처리, §21).
+2. curvature_consistency 신호 재정의 -- streak 최소 조건(예: streak>=3만
+   유효 신호로 취급) 추가하거나 부호 대신 곡률 크기 변동계수(CV) 등
+   대안 지표 검토 필요.
+3. speed_drop_strength 판별력 검증용 corpus 필요 -- 이 corpus는 stage2를
+   통과하는 노이즈가 없어(터널 완전 전멸) 부적합, **"멀지만 완만한 후보가
+   stage2는 통과하지만 실제로는 약한 후보인" 사례**가 있는 corpus 필요
+   -- 259차가 언급한 179차 "멀지만 급한 커브 vs 가깝지만 완만한 커브"
+   유형이 여기 해당할 가능성, FINDINGS.md에서 관련 route 재검토 또는
+   dashcam corpus(25세그, 비터널 실도로) 활용 검토.
+4. persistence 신호가 유망하다고 확인됐으나, 이것만으로 confidence
+   조합을 확정하지 않음(258차/259차가 이미 강조한 158/159차 전례 -- 신호
+   1개만으로 성급히 결론내지 않기).
+5. `_route_cluster_continuity_step()` L712-717 실제 patch는 여전히
+   보류(259차 미완료 4번과 동일 -- 신호 검증 전까지 patch 착수 금지,
+   §28).
+
+**검증**: 정적분석(py_compile 통과) + 로그검증(seg12-16 5999행, 251차
+표와 stage2=0 일치로 스크립트 자체 정합성 확인) / 시뮬레이션(신규
+toolkit, 3구간+전체 실행) / **실차 검증: 미실시**.
+
+**전달 파일**: `WIP.md`(이 항목), `FINDINGS.md`(260차 항목),
+`toolkit/README.md`, `toolkit/CHANGELOG.md`, `toolkit/sim_route_260_
+confidence_signals.py`(신규). `ryu` 코드 변경 없음.
+
+**다음 작업**:
+1. `extract_log.py`에 `horizontalAccuracy`(및 필요시 관련 GPS 필드)
+   컬럼 추가 -- cereal/log.capnp에 이미 존재(WIP 259차 5번 확인)하므로
+   FIELDNAMES 확장만 필요(신규 rlog 판독 로직 불필요, 기존 routeCandidate*/
+   nRoadLimitSpeed 추가와 동일 패턴).
+2. 컬럼 추가 후 `0000039a` corpus 재추출(§주의: 234차 계속5 사례처럼
+   기존 CSV엔 소급 적용 안 됨) -> GPS reliability 신호 계측.
+3. speed_drop_strength 판별력 검증용 corpus 확보(미완료 3번) --
+   `dashcam_1788583013065.zip`(2순위, 이미 재업로드 완료) CSV 추출부터
+   시작해 stage2 통과 클러스터 중 실제로 flicker/오탐인 사례 탐색.
+4. curvature_consistency 재정의(미완료 2번) 후 재계측.
+5. 4개 신호 전부(또는 재정의된 신호 세트) 확보되면 조합 설계 ->
+   Master 승인 -> `_route_cluster_continuity_step()` L712-717 실제 patch.
+
+---
+
 ## 259차 (체크포인트 -- 설계 방향 확정, 코드/시뮬레이션 착수 전, 원본 corpus 재업로드 대기) -- Apex 후보 선정을 "최근접"에서 "confidence 기반"으로 재설계하는 방향 확정
 
 **Worker**: Claude
