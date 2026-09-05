@@ -1,3 +1,43 @@
+## 252차 (완료 -- 247차 §11 검증계획 항목 3번, INERT/ACTIVE 상태머신 `carrot_man.py`/`carrot_serv.py` 코드 반영 + PARAMS_REGISTRY.md 등록) -- 사용자 승인(§31) 하에 251차가 종결한 검증계획 위에서 실제 patch 작성
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu`(변경, HEAD 기준 `2cfbcf4`=245차) / `ryujmin97/ryu-devnotes`
+
+**Branch**: `c3-ms-dev` / `main`
+
+**Base commit (ryu)**: `2cfbcf4f9a1e3a0697c033be53ade0e084214ca3`(245차)
+
+**devnotes Base commit**: `6f3513a`(251차, 원격 HEAD와 일치 확인, `git fetch` 후 드리프트 없음)
+
+**배경**: 251차가 완료한 247차 §11 검증계획 2번("gate 없이 stage2/3만으로 터널급 노이즈 억제 가능한가")이 통과로 확정되면서, 사용자가 이전 세션(본 대화 이전 컨테이너)에서 다음 세 항목 중 처리 방향을 지시함: (1) S커브 개선 원인 프레임별 분석 -- 보류(사용자 지시로 스킵), (2) INERT/ACTIVE 상태머신 정식 코드 반영 -- 즉시 진행 승인(§31 사전승인 충족), (3) `CONTINUITY_MATCH_TOLERANCE_M` PARAMS_REGISTRY.md 등록 -- 진행 승인. 이전 컨테이너에서 `carrot_man.py` patch 작성이 진행되던 중 세션이 끊겨(컨테이너 파일시스템 초기화), 사용자가 그 결과물(수정된 `carrot_man.py`)을 재업로드해 본 세션에서 이어받음.
+
+**한 일**:
+1. `git fetch`로 `ryu`(HEAD `2cfbcf4`, 245차와 드리프트 없음 확인) / `ryu-devnotes`(HEAD `6f3513a`, 251차와 일치 확인) 최신 상태 검증(§3/§29).
+2. 사용자가 재업로드한 `carrot_man.py`(design/247cha_route_inert_active_redesign.md §2~§10 구현 완료본, 컨테이너 초기화 전 세션 산출물)를 `2cfbcf4` 베이스와 diff -- ROUTE_SEVERITY_GATE_RATIO/ROUTE_APEX_REACHED_DIST_M/ROUTE_RELEASE_CONFIRM_FRAMES/`_route_candidate_lost_frames`/`route_inert` 전량 삭제, `route_find_clusters()`(stage2)+`_route_cluster_continuity_step()`(stage3) 신규 추가, ACTIVE 진입/해제/RELEASE 로직을 design doc §3/§5/§8/§9 그대로 재작성한 것을 확인 -- `self.route_inert`/`_route_candidate_lost_frames` 잔존 참조 0건, `py_compile` 통과.
+3. **`carrot_serv.py`는 이전 세션에서 미착수 상태였음을 확인** -- design doc §8이 요구하는 clamp 단순화("`carrot_serv.py::update_navi()`의 `route_active and not route_inert` 분기 클램프 → 단순화")를 본 세션에서 신규 작성: `__init__`의 `self.route_inert = False` 제거, `update_navi()`의 `if self.route_active and not self.route_inert:` → `if self.route_active:`(227차 원형 복귀)로 단순화. 근거: 새 ACTIVE 감속식이 eff_dist<=0/v_ego<=target 두 경우 모두 out=vEgo로 통합되어 route_speed가 항상 vEgo 이하이므로, 이 클램프가 그 값을 다시 vEgo로 눌러도 무변화 -- route_inert가 막던 자기참조적 고착(228차 FINDING) 자체가 재발할 경로가 없음.
+4. `git format-patch` → 클린 임시 클론에 `git am` → `py_compile` → `git diff --stat`(carrot_man.py 253+/carrot_serv.py 40줄, diff 범위 두 파일로 한정 확인) 검증 파이프라인(§31) 전체 실행, 정상 통과.
+5. `route_find_clusters()`를 격리 실행해 클러스터링 로직 자체를 유닛테스트(인접 3점 클러스터/40m 초과 시 분리 클러스터/단발성 후보 필터링 3가지 케이스) -- 전부 PASS.
+6. `PARAMS_REGISTRY.md` 갱신: `ROUTE_SEVERITY_GATE_RATIO`/`ROUTE_APEX_REACHED_DIST_M` 기존 행에 `[252차 SUPERSEDED — 코드에서 삭제됨]` 표기 추가(행 자체는 삭제하지 않음, §24/26), 신규 파라미터 4건(`ROUTE_ACTIVE_RELEASE_MARGIN_RATIO`/`ROUTE_CLUSTER_MIN_POINTS`+`ROUTE_CLUSTER_MAX_GAP_M`/`ROUTE_APEX_MISS_TOLERANCE_FRAMES`/`CONTINUITY_MATCH_TOLERANCE_M`) NEEDS_VALIDATION으로 신규 등록(사용자 지시 3번 반영).
+
+**완료**: `carrot_man.py` patch 검증(2번, 코드 작성 자체는 이전 세션 산출물), `carrot_serv.py` patch 신규 작성+검증(3번, design doc §8 항목 중 이전 세션이 놓친 부분), §31 검증 파이프라인 전체 실행(4번), 클러스터링 유닛테스트(5번), PARAMS_REGISTRY.md 등록(6번, 사용자 지시 3번).
+
+**미완료**:
+- **실차(온보드) 검증: 미실시**(§29) -- 이번 세션은 정적분석(`py_compile`)+`git am` diff 검증+오프라인 유닛테스트까지만 완료. 두 파일 모두 아직 `ryu` origin에 push되지 않음(§10, push는 사용자 수행).
+- design doc §11이 원래 요구했던 5번 항목("246차 원거리 apex freeze, 239차 self-elimination 재현 케이스도 새 상태머신에서 해소되는지 확인")은 여전히 미착수 -- 이번 세션은 상태머신 코드 반영 자체에 집중, 이 두 회귀 케이스의 새 코드 기준 재현 시뮬레이션은 다음 세션 항목.
+- `CONTINUITY_MATCH_TOLERANCE_M` 값(10m) 자체의 다른 corpus 재검증(design doc §12 미해결 항목)은 이번 세션에서도 수행하지 않음 -- 등록만 완료(사용자 지시 3번은 "등록"이었지 "재검증"이 아니었음).
+- 이번 세션 "S커브 개선(3→0) 원인 프레임별 분석"(사용자 지시 1번)은 스킵 확정.
+
+**검증**: 정적분석(`py_compile` 통과, 두 파일) + `git format-patch`→클린 클론→`git am`→재컴파일 파이프라인(§31) 통과, diff 범위 `carrot_man.py`/`carrot_serv.py` 두 파일로 한정 확인 + `route_find_clusters()` 격리 유닛테스트 3케이스 PASS. **오프라인 로그 재시뮬레이션(전체 파이프라인 통합 기준)은 미실시** -- 이전 세션(251차)의 검증은 설계 문서 수준 알고리즘에 대한 것이었지, 이번에 작성된 실제 `carrot_man.py`/`carrot_serv.py` 코드 자체를 시뮬레이션 corpus로 재실행한 것은 아님(다음 세션 우선순위로 이월). **실차 검증: 미실시.**
+
+**전달 파일**: `0001-252cha-inert-active-latch.patch`(`ryu`, `carrot_man.py`+`carrot_serv.py`, `git am` 적용용), 이 WIP.md 항목(devnotes patch), `PARAMS_REGISTRY.md` 갱신(devnotes patch).
+
+**다음 작업**:
+1. (권장, 실제 코드 반영 전 필수) 이번에 작성된 `carrot_man.py`/`carrot_serv.py`를 251차와 동일한 실차 corpus(`0000039a--7b602ffb85` seg12-16)로 전체 파이프라인 통합 재시뮬레이션 -- 지금까지의 251차 검증은 알고리즘 수준이었지 이 정확한 코드 diff에 대한 것이 아니었음(§28 원칙, 코드↔알고리즘 등가성은 정적 리뷰로만 확인, 실행 재현 아직 없음).
+2. 246차/239차 재현 케이스를 새 상태머신 코드 기준으로 재확인(design doc §11 5번).
+3. 사용자 patch 적용(`git am`) 후 실차 반영 -- 반영 시 §29에 따라 이 항목의 "실차 검증: 미실시"를 실측 결과로 갱신 필요.
+4. `CONTINUITY_MATCH_TOLERANCE_M` 10/15/20m 재비교용 "두 커브가 인접한" corpus 확보(design doc §12).
+
 ## 251차 (완료 -- 247차 §11 검증계획 항목 2번 실측 완료, 터널 corpus 확보+검증 종결) -- 사용자 재업로드한 `0000039a--7b602ffb85` seg12-16 원본으로 `--skip-gate` vs 기본모드 3구간(터널/IC gore/S커브) 비교 완료
 
 **Worker**: Claude

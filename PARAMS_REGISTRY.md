@@ -96,7 +96,7 @@
 | `route_ceiling_kph` [`carrot_man.py carrot_navi_route()`, 205차 vEgo 기반 도입 -> 207차 상수화 -> 217차 vCruise 기준 -> 221차 vEgo 기준 재교체, **223차 전량 삭제(코드에서 제거됨)**] **[223차 SUPERSEDED]** 새 감속식(`out=max(target, vEgo-decel*dt)`)이 `out<=vEgo`를 수식 구조 자체로 보장해 ceiling 항이 구조적으로 불필요해짐 — 이 행은 205~221차 이력 보존 목적으로만 유지, 현재 코드에는 이 변수/계산 자체가 존재하지 않음(§27 최소변경과 별개로 완전 재설계이므로 코드 삭제, 이 표는 삭제하지 않음, §24/26). **[225차 정정, §26]** 기존값(223차 결론): 위 "out<=vEgo가 수식 구조 자체로 항상 보장됨"은 부분적으로 틀림 -- v_ego_ms<=target_ms(또는 eff_dist<=0) 분기에서는 out=max(target_ms, v_ego_ms)=target_ms로 확정되어 target이 vEgo보다 높으면 보장이 깨짐(224차 실차로그: apex 40m 앞 80.8초 정지 중 out_speed가 vEgo=0 대신 target 45~47kph 유지, liveRouteSpeed<=vEgo 안전 불변식 위반 실측). 새 증거: 224차 오프라인 재생 검증(발견2) + toolkit/sim_route_224_ceiling_fix.py 6/6 PASS. 변경 이유: "정상 감속 경로(vEgo>target)"에서만 성립하던 보장을 "항상 성립"으로 잘못 일반화했던 223차 증명 누락. 새 결론: 해당 분기를 out_speed_ms=v_ego_ms(inert 통과)로 수정해 모든 경로에서 out<=vEgo가 성립하도록 225차에서 코드 수정(patch: 0001-225cha-carrot_man.py-carrot_navi_route-route-ceiling.patch). 정상 감속 경로(vEgo>target)는 변경 없음. 실차 검증: 미실시. | `min(vEgo_kph, 150.0) if vEgo_kph > 0 else 150.0`(221차, 기존 `min(vCruise_kph, 150.0) if vCruise_kph > 0 else 150.0`) | `out_speed = min(raw, max(vEgo_kph, sharpest_candidate_speed), route_ceiling_kph)`의 세 번째(ceiling) 항. | NEEDS_VALIDATION (2026-09-03, 221차 신규, 사용자 설계문서 "Route 감속 다음 설계 방향(2026-09 개정)" 1번) -- 217차의 vCruise 기준은 "운전자가 설정한 목표속도"일 뿐 "차량이 지금 실제로 내는 속도"가 아니어서, 예를 들어 설정속도 70/실제 vEgo 50(선행차 추종 등)이면 감속거리 계산 시작점이 실제보다 20km/h 높게 잡히는 오차가 있었음. vEgo 기준으로 바꾸면 `out_speed <= vEgo`가 min() 구조 자체로 항상 보장됨(증명: `max(vEgo,sharpest) >= vEgo`이므로 세 번째 항이 항상 지배) -- "route가 차량보다 높은 속도를 요구하면 안 된다"는 사용자 안전조건이 별도 분기 없이 성립. **부작용**: `max(vEgo, sharpest_candidate_speed)` 항이 이 변경 이후 ceiling(=vEgo, 정상범위) 이하로 항상 눌려 사실상 죽은 항이 됨(207/214차가 도입한 "sharpest_candidate_speed로 ceiling을 관대하게 풀어주는" 효과가 vEgo 상한 아래에서 발동 불가) -- §27에 따라 변수/계산 자체는 삭제하지 않고 보존(향후 되돌릴 경우 diff 최소화). vEgo<=0 폴백은 기존과 동일(150 그대로). 검증: `toolkit/sim_route_ceiling_vego_221.py`(신규) 합성 시나리오 5/5 PASS(핵심: vCruise=70/vEgo=50/원거리 완만후보=65 시 OLD=65(위반) vs NEW=50(안전조건 성립)). 정적검증(`py_compile`+`git am` diff-0)도 완료. **실차 검증: 미실시**. |
 | `ROUTE_APEX_SPEED_DISCONTINUITY_THRESH_KPH` [199차 신규, `carrot_man.py`] | **15.0 km/h** | `carrot_navi_route()` 내 불연속 감지 게이트 임계값 — 직전 프레임 대비 apex_speed 하락폭이 이 값을 넘으면 "뒤늦게 발견된 급커브"로 간주해 아래 `ROUTE_VEGO_BOOST_MAX_MSS`까지 램프 하강 상한을 동적 부스트한다. 149/150차(`ROUTE_ACCEL_LIMIT_BOOST_MAX_MSS`, NEGATIVE)의 실수 패턴(out_speed 자체를 올림)과 달리, 199차는 out_speed는 절대 건드리지 않고 램프의 하강 상한(accel_limit_kmh)만 조정한다 — 149/150차식 "목표 완화" 부작용이 구조적으로 불가능. | NEEDS_VALIDATION (2026-09-02, 199차 신규) — devnotes `toolkit/sim_route_vego_required_decel_v3.py` 실측: winding road 600m 전체(20Hz 및 0.5m fine sweep 둘 다)에서 apex_speed 프레임당 최대 자연 변동이 ~2.6km/h(fine sweep 기준 ~1.4km/h)를 넘지 않음을 확인, 그 ~6배 안전마진으로 15.0 설정. 유닛테스트 9/9 PASS(winding road diff-0 + 급커브 인위주입 시 즉시 감지). 198차 v2가 남긴 FAIL2(apex_dist가 연속곡선에서 구조적으로 항상 10m 고정되어 apex_dist만으로는 late-discovery와 정상 갱신을 구분 불가)를 **부분** 해결 — 한 프레임 급락형 불연속만 잡으며, 여러 프레임에 걸쳐 threshold 미만씩 점진적으로 나타나는 급커브는 여전히 못 잡음(구조적 한계, WIP.md 199차 참고). 실차 검증 미실시, threshold 자체는 실차 튜닝 여지 있음. |
 | `ROUTE_VEGO_BOOST_MAX_MSS` [199차 신규, `carrot_man.py`, **223차 전량 삭제(코드에서 제거됨)**] **[223차 SUPERSEDED]** | **3.0 m/s²** | 위 게이트가 무장됐을 때 vEgo 기반 required_decel이 올라갈 수 있는 상한(`min(required_decel, ROUTE_VEGO_BOOST_MAX_MSS)`). devnotes 시뮬레이션(198/199차 `MAXD`)과 동일 값으로 맞춤 — 일반 편안한 감속(0.7~1.2대)보다는 높지만 비상제동 수준은 아닌 보수적 상한. 149/150차가 근사값으로 재사용했던 `vturn_decel_rate`(1.2)를 그대로 쓰면 사용자가 `AutoNaviSpeedDecelRate`를 기본값(120=1.2)으로 쓰는 한 부스트가 사실상 항상 0이 되어 무의미하므로 별도 값 채택. | NEEDS_VALIDATION (2026-09-02, 199차 신규) — 유닛테스트로 저크 없음(프레임당 낙차가 이 값×dt 이론상한 초과 없음) 확인. 실차 검증 미실시, 실제 편안함/충분성은 실차 튜닝 필요. **223차에서 새 무상태 감속식(`autoNaviSpeedDecelRate`로 직접 clamp)으로 대체되며 이 부스트 메커니즘 자체(불연속 감지 무장/`ROUTE_APEX_SPEED_DISCONTINUITY_THRESH_KPH` 포함) 전량 삭제됨. 배경/실측 근거는 이 행에 그대로 보존.** |
-| `ROUTE_APEX_REACHED_DIST_M` [223차 신규, `carrot_man.py`] | **10.0 m** | Route ACTIVE 상태에서 apex까지 남은 거리가 이 값 이하로 줄면 "도달"로 간주해 즉시 RELEASE(+2초 hold 시작). `distance_interval`(리샘플 간격, 10.0)과 동일값 — 그리드 해상도 한계상 이보다 촘촘한 판정 불가. | NEEDS_VALIDATION (2026-09-03, 223차 신규) — 합성 시뮬레이션(`sim_route_223_state_machine_step5.py` CASE8/9)으로 도달 판정 자체는 확인, 실제 주행에서 이 거리가 "너무 이르다/늦다"로 체감되는지는 실차 튜닝 필요. **실차 검증: 미실시.** |
+| `ROUTE_APEX_REACHED_DIST_M` [223차 신규, `carrot_man.py`] **[252차 SUPERSEDED — 코드에서 삭제됨]** | **10.0 m** | Route ACTIVE 상태에서 apex까지 남은 거리가 이 값 이하로 줄면 "도달"로 간주해 즉시 RELEASE(+2초 hold 시작). `distance_interval`(리샘플 간격, 10.0)과 동일값 — 그리드 해상도 한계상 이보다 촘촘한 판정 불가. | NEEDS_VALIDATION (2026-09-03, 223차 신규) — 합성 시뮬레이션(`sim_route_223_state_machine_step5.py` CASE8/9)으로 도달 판정 자체는 확인, 실제 주행에서 이 거리가 "너무 이르다/늦다"로 체감되는지는 실차 튜닝 필요. **실차 검증: 미실시.** **[252차, design doc §5/§10] "Apex 통과" 판정이 고정거리 조기해제에서 apex continuity의 `predicted_dist<=0`(locked apex를 vEgo×dt로 예측이동시켜 지나쳤다고 판정)으로 대체되며 이 상수/분기 자체가 코드에서 삭제됨. 이 행은 이력 보존 목적으로 유지(§24/26).** |
 | `ROUTE_RELEASE_HOLD_S` [223차 신규, `carrot_man.py`] | **2.0 s** | apex RELEASE 직후 이 시간 동안 route curve 검색/apex 선정/감속 계산을 완전히 스킵(§11 — curve A apex 직후 curve B가 즉시 감지돼 route가 바로 재부착되는 현상 방지). 사용자 설계문서(곡선_가감속_코딩.txt) 지시값 그대로 채택, 별도 튜닝 근거 없음. | NEEDS_VALIDATION (2026-09-03, 223차 신규) — 합성검증(CASE11: hold 중 새 급커브 후보가 있어도 재부착 안 됨, CASE10: hold 만료 후 정상 재검색)만 완료. 2.0초가 실제 연속 곡선(사용자 설계문서 5번, 1차 apex 직후 2차 apex 즉시 반응 필요) 시나리오와 상충하는지는 실차에서 반드시 확인 필요 — **연속곡선 간격이 2초 미만이면 2차 곡선 반응이 hold에 의해 지연될 수 있음(설계상 잠재 리스크, NEEDS_VALIDATION 사유).** 실차 검증: 미실시. |
 | `MapTurnSpeedFactor` [사용자 UI 설정값, 201차 최초 실측 확정, **210차 곱셈 제거로 사실상 dead**] | 사용자 실측 130(=1.30) — 값 자체는 그대로지만 210차 이후 어디에도 곱해지지 않음 | (210차 이전) `carrot_serv.py::update_navi()`에서 `route_speed = max(route_speed * mapTurnSpeedFactor, autoCurveSpeedLowerLimit)`. (210차 이후) 이 줄에서 `* mapTurnSpeedFactor`를 제거(`route_speed = max(route_speed, autoCurveSpeedLowerLimit)`만 남음) — repo 내 이 곱셈이 유일한 사용처였으므로 파라미터 자체는 이제 route 감속에 관여하지 않는다. Params 읽기(`self.mapTurnSpeedFactor` 대입, L308)와 UI 슬라이더("경로턴속도반영비율")는 최소변경 원칙상 그대로 남겨둠. | [201차 ROOT_CAUSE_CONFIRMED → 210차 REMOVED] 201차가 "route를 상시 30% 불리하게 만듦"으로 확정한 뒤, 210차에서 사용자 실차 스크린샷(vEgo=53, route=62.7)으로 **반대 방향 부작용**을 추가 확인: 205/207차가 `carrot_navi_route()`에서 만든 vEgo 상한(`out_speed=min(out_speed, max(v_ego_kph, sharpest_candidate_speed), 150)`)이 이 곱셈에 의해 상한 적용 *이후* 다시 30% 부풀려져, "route는 현재속도보다 빠른 속도를 권하지 않는다"(205차 설계 의도)는 불변식이 최종 출력 단계에서 깨지고 있었다(62.7/1.30=48.2로 vEgo 상한 적용 전 raw 값과 일치). 사용자 판단(210차)으로 곱셈 자체를 제거. 12세그 실차로그 재시뮬레이션(t=197.0~198.4, vEgo 50.2~51.2)으로 OLD(62~64, vEgo 초과)→NEW(42~50, 전 프레임 vEgo 이하) 확인. **실차 검증 미실시**(패치만 작성, NEEDS_VALIDATION). |
 
@@ -234,7 +234,19 @@
   NEEDS_VALIDATION — 실차 반응 보고 튜닝 필요(너무 짧으면 실제 리드
   일시 가림에서 조기리셋 가능, 너무 길면 팬텀 지속시간 증가).
 
-## ROUTE_SEVERITY_GATE_RATIO (237차, NEEDS_VALIDATION)
+## ROUTE_SEVERITY_GATE_RATIO (237차, NEEDS_VALIDATION) **[252차 SUPERSEDED — 코드에서 삭제됨]**
+- **[252차]** design/247cha_route_inert_active_redesign.md §8 확정에 따라
+  이 상수와 stage1(severity gate) 자체가 `carrot_man.py`에서 완전히
+  삭제됐다. 대체: stage2 공간 클러스터링(`ROUTE_CLUSTER_MIN_POINTS`/
+  `ROUTE_CLUSTER_MAX_GAP_M`)+stage3 apex continuity
+  (`CONTINUITY_MATCH_TOLERANCE_M`/`ROUTE_APEX_MISS_TOLERANCE_FRAMES`, 아래
+  신규 섹션 참고)가 동일 역할(단발성/불안정 후보 억제)을 대신한다. 근거:
+  251차 실차 corpus(`0000039a--7b602ffb85` seg12-16) 재실측 — gate 완전
+  삭제 후에도 stage2/3만으로 터널/IC gore/S커브 3구간 전부 flicker 0건
+  확인(devnotes WIP.md 251차). 이 행 자체는 이력 보존 목적으로 삭제하지
+  않는다(§24/26). **실차(온보드) 검증은 이 삭제 결정 자체에 대해서도
+  미실시** — 252차는 코드 반영(patch)까지만 완료.
+
 - 위치: `selfdrive/carrot/carrot_man.py`, `carrot_navi_route()`
 - 값: 0.70 (비율). `candidates`(stage0, `nRoadLimitSpeed` 필터 통과분) 중
   `speeds[k] < max(v_ego_kph, 1.0) * ROUTE_SEVERITY_GATE_RATIO`를
@@ -296,3 +308,66 @@
 - 실차 검증: 미실시(NEEDS_VALIDATION) — 이번 패치가 적용된 코드로
   실주행 재현 및, 특히 다른 route(고속도로/GPS노이즈 큰 구간)에서
   fine sample의 오탐률 확인이 다음 세션 우선순위.
+
+## ROUTE_ACTIVE_RELEASE_MARGIN_RATIO (252차 신규, NEEDS_VALIDATION)
+- 위치: `selfdrive/carrot/carrot_man.py`, `carrot_navi_route()`
+- 값: 1.1 (비율). ACTIVE 상태에서 `v_ego_kph <= apex_speed * 1.1`이면
+  즉시 RELEASE(+2초 hold). design/247cha_route_inert_active_redesign.md
+  §5가 정의하는 ACTIVE 해제 조건 두 가지(vEgo 목표속도 도달 OR Apex 통과)
+  중 첫 번째. 223차 `ROUTE_APEX_REACHED_DIST_M`(고정거리 조기해제)를
+  대체하지 않고 병행하던 기존 로직과 달리, 252차부터는 이 비율 조건과
+  아래 continuity `predicted_dist<=0`(Apex 통과) 두 조건의 OR로 완전히
+  대체됐다.
+- 근거: 사용자 설계문서(design doc §5) 원문 값(1.1) 그대로 채택 — 별도
+  A/B 비교 없음(신규 파라미터, 234차식 값 재사용이 아님).
+- 실차 검증: 미실시(NEEDS_VALIDATION) — 252차는 patch 생성 및 정적 검증
+  (py_compile, `git am` diff-scoped)까지만 완료, device 미적용.
+
+## ROUTE_CLUSTER_MIN_POINTS / ROUTE_CLUSTER_MAX_GAP_M (234차 계속4 설계, 252차 코드 반영 — NEEDS_VALIDATION)
+- 위치: `selfdrive/carrot/carrot_man.py`, `route_find_clusters()`
+  (신규 모듈레벨 함수, `carrot_navi_route()`에서 stage2로 호출)
+- 값: `ROUTE_CLUSTER_MIN_POINTS=2` / `ROUTE_CLUSTER_MAX_GAP_M=40.0` (m)
+- 목적: apex 후보를 거리 오름차순으로 훑어 인접 gap이 `MAX_GAP_M` 이하인
+  후보끼리 하나의 클러스터로 묶고, `MIN_POINTS` 미만인(=단발성) 클러스터는
+  버린다 — 노이즈 후보 1개만으로 apex가 성립하지 않도록 하는 stage2
+  필터(design doc §10). 234차 계속4~10이 설계·`toolkit/
+  sim_route_234_spatial_apex_continuity.py`로 부분검증했으나 실제
+  `carrot_man.py` 코드에는 이번 252차에서 처음 반영됨(그 전까지는
+  toolkit 시뮬레이션 전용).
+- 근거: 234차 계속4~10 원안 그대로 채택(코드 반영 시 값 변경 없음). 251차
+  실차 corpus(`0000039a--7b602ffb85` seg12-16) 재검증 — severity gate
+  삭제 후에도 이 값 그대로 터널/IC gore/S커브 3구간 flicker 0건(devnotes
+  WIP.md 251차). 다른 corpus(두 커브가 실제로 인접한 구간 등)로 추가 A/B는
+  아직 없음(design doc §12에 명시된 미해결 항목).
+- 실차 검증: 미실시(NEEDS_VALIDATION) — 오프라인 로그 시뮬레이션만 완료.
+
+## ROUTE_APEX_MISS_TOLERANCE_FRAMES (234차 확정값, 252차 코드 반영 — NEEDS_VALIDATION)
+- 위치: `selfdrive/carrot/carrot_man.py`,
+  `CarrotMan._route_cluster_continuity_step()`
+- 값: 3 (프레임, 20Hz 기준 ~150ms)
+- 목적: stage3 apex continuity 추적 중 이번 프레임에 예측위치
+  (`locked_dist - vEgo*dt`) 근방에서 매칭되는 클러스터가 없어도, 이
+  프레임 수까지는 예측값으로 lock을 유지(hold)한다. 초과 시에만 lock을
+  해제하고 재탐색(`mode='new'`) — 이 재탐색 전이가 design doc §5의
+  "Apex 통과" RELEASE 조건 판정에 직접 쓰인다.
+- 근거: 234차 사용자 확정값(변경 없이 재사용). 251차 실차 corpus로
+  gate-삭제 조건에서도 유효함 재검증(위 항목과 동일 근거).
+- 실차 검증: 미실시(NEEDS_VALIDATION).
+
+## CONTINUITY_MATCH_TOLERANCE_M (234차 계속5 잠정값, 252차 코드 반영 — NEEDS_VALIDATION)
+- 위치: `selfdrive/carrot/carrot_man.py`,
+  `CarrotMan._route_cluster_continuity_step()`
+- 값: 10.0 (m)
+- 목적: stage3에서 locked apex의 예측위치(`locked_dist - vEgo*dt`)와
+  이번 프레임 클러스터 대표 후보(클러스터 내 최근접점) 거리 오차가 이
+  값 이내면 "동일 물리적 지점"으로 보고 계속 추적한다(design doc §10,
+  247차가 지목한 "apex anchor 문제" Q1의 해법 핵심 파라미터).
+- 근거: 234차 계속5에서 10/15/20m 비교 — 단일 route(seg12-16) 기준으로는
+  세 값 간 결과 차이 없어 "10m 잠정 채택"으로 남았던 값. **[247차 §12,
+  252차 등록 시점까지도 유효] 다른 corpus(특히 두 커브가 실제로 인접해
+  ambiguous 매칭이 나올 만한 로그)로 추가 검증은 아직 없음** — 이 값이
+  다른 도로 형상에서도 안전한지는 여전히 미해결 질문으로 남는다(§28,
+  추측만으로 확정 안 함). 251차 실차 corpus 재검증도 10m 고정값으로만
+  수행됨(대안값 재비교 없음).
+- 실차 검증: 미실시(NEEDS_VALIDATION). **다음 세션 우선 검토 항목**: 두
+  커브가 인접한 실차 로그 확보 시 10/15/20m 재비교.
