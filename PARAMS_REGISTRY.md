@@ -429,8 +429,18 @@
   근거이며, 실제 도로에서 "몇 프레임까지가 노이즈고 몇 프레임부터가
   진짜 커브인가"에 대한 직접 검증은 없음(§28).
 - 알려진 상호 영향: `CONTINUITY_MATCH_TOLERANCE_M`(10m/15m 불일치,
-  265차 발견, 재검증 보류 확정) — streak 계산 자체가 이 매칭 허용오차에
-  의존하므로, tolerance 값이 바뀌면 동일 로그에서도 streak 분포/따라서
-  confidence 값이 달라질 수 있다. 두 파라미터는 함께 재검증 필요.
-- 실차 검증: 미실시(NEEDS_VALIDATION). 실 corpus 재검증도 미실시
-  (WIP.md 266차 다음 작업 1번 참고).
+  265차 발견, 267차 실측 재검증 완료 -- streak 분포 자체는 10m/15m
+  차이가 거의 없으나, 10m에서 지속 커브 track이 분리되며 순간
+  streak=1 리셋이 발생하는 사례 확인) -- streak 계산 자체가 이 매칭
+  허용오차에 의존하므로, tolerance 값이 바뀌면 동일 로그에서도 streak
+  분포/따라서 confidence 값이 달라질 수 있다.
+- **[268차 추가]** 실 corpus(`0000039a--7b602ffb85` seg12-16) A/B
+  재검증(baseline vs confidence-blend) 완료 -- 전체 corpus 기준
+  out_speed 차이 최대 0.18kph, flicker 후보 0건. 267차가 발견한 실제
+  streak 리셋 지점(t≈2042.61)을 직접 재현했으나, 그 지점에서
+  route_step 자체가 애초에 개입 중이 아니어서(baseline도 out=None)
+  실질적 영향 없음을 확인. **단, corpus 1개·이 TAU=6.3 값 한정 결과이며
+  다른 corpus/다른 TAU 값에서도 동일한지는 미확인(§28)** -- TAU 자체의
+  최적값 탐색(예: 5.0/6.3/8.0 등 스윕)은 여전히 미실시.
+- 실차 검증: 미실시(NEEDS_VALIDATION). 실 corpus A/B 재검증은 268차에
+  완료(위 항목), 실차 검증만 남음.

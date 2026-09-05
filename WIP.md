@@ -94,6 +94,82 @@ corpus 재생에서 함께 확인할 수 있도록 flicker 탐지 지표도 같�
 
 ---
 
+## 268차 계속 (완료 -- corpus A/B 재검증 실측 완료, 267차 flicker 우려 이 corpus에서는 미관측) -- 사용자 재업로드 `20260904_095600_0000039a--7b602ffb85_seg12-16.zip`으로 corpus 모드 첫 실측
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu`(HEAD `8964413`=266차, 변경 없음) /
+`ryu-devnotes`(HEAD 위 268차 항목까지 반영된 상태)
+
+**Branch**: `c3-ms-dev` / `main`
+
+**배경**: 위 268차가 구현한 corpus 모드를, 사용자가 known-good
+corpus(`0000039a--7b602ffb85` seg12-16, zip)를 재업로드해 바로 이어서
+실측했다.
+
+**한 일**:
+1. `extract_log.py --with-navi-paths --repo /home/claude/ryu`(HEAD
+   `8964413`=266차)로 재추출 -- **5999행, 251/260/267차와 정확히 동일**
+   (재현성 재확인, repo commit도 meta.json에 `8964413`로 정상 기록).
+2. `sim_route_265_confidence_target_blend.py`를 인자 없이(기본
+   터널/IC gore/S커브 3구간) + 전체 corpus(t1976-2276) 범위로 실행.
+3. 267차가 발견한 정확한 split 시각(t≈2041~2045)을 `--window 2035 2050`
+   으로 별도 실행 + raw record(streak/mode/out_base/out_conf) 직접
+   출력으로 그 구간의 프레임별 거동을 눈으로 확인.
+4. 비교용으로 `sim_route_260_confidence_signals.py`(원본, --tolerance
+   10.0)도 동일 corpus/동일 윈도우로 재실행해 우리 corpus 모드의
+   클러스터링/streak 계산이 기존 검증된 스크립트와 일치하는지 교차검증
+   (터널 고유 track 0개, IC gore max streak 47, split_zone max streak
+   59 -- 전부 정확히 일치).
+
+**결과**: FINDINGS.md 265차 항목에 "[268차 추가 실측]" 섹션으로 상세
+기록(§24). 요약:
+- 기본 3구간+전체 corpus 스캔: baseline vs confidence-blend out_speed
+  차이 최대 0.18kph, flicker 후보 0건.
+- 터널/IC gore 구간은 이 corpus에서 route_step이 애초에 한 번도
+  개입하지 않음(양쪽 다 out=None) -- 267차가 우려한 flicker 자체가
+  발생할 여지가 없는 구간이었음.
+- **267차가 발견한 실제 split 지점(t≈2042.61, streak 19→1 리셋)을
+  single-lock 프로덕션 포트로 직접 재현 확인** -- 리셋 자체는 실재하나,
+  그 프레임을 포함한 앞뒤 구간 전체에서 route_step의 out_base/out_conf가
+  이미 시종 `None`(감속 미개입 상태)이었기 때문에, confidence가 0으로
+  튀어도 실제로 풀릴 감속 명령 자체가 없었다 -- **이 corpus의 이 사례에
+  한해 267차 우려(flicker)는 실측상 무해함으로 확인**.
+
+**검증**:
+- 정적 분석: 해당 없음(코드 변경 없음, 268차에서 이미 완료).
+- 로그 검증: **실측 완료**(위 결과, 5999행 전체 + 4개 윈도우, 260차
+  스크립트와 교차검증으로 클러스터링 로직 일치 확인).
+- 시뮬레이션: 해당 없음(로그 재생 자체가 시뮬레이션).
+- **실차 검증: 미실시.**
+
+**Devnotes**: FINDINGS.md 265차 항목에 "[268차 추가 실측]" 보강, Status
+갱신(`NEEDS_VALIDATION` 유지, 실차 검증만 남음으로 명시).
+
+**미확인/미해결**:
+- 이번 결과는 corpus 1개(seg12-16)·tau=6.3(기본값) 조건 한정(§28,
+  FINDINGS.md에 명시) -- `dashcam_1788583013065.zip`(2순위 corpus) 등
+  다른 route에서도 동일하게 flicker 미관측인지는 미확인.
+- t=2042.61 split이 왜 발생했는지(어떤 실제 도로 형상 변화 때문에 단일
+  lock이 순간 놓쳤다가 바로 재획득했는지) 원인 자체는 분석 안 함 -- 이번
+  세션은 "발생 여부 + 실제 개입 여부"만 확인.
+- route_step이 터널/IC gore 구간에서 왜 전혀 개입하지 않는지(게이트
+  조건 중 어느 것이 항상 불충족인지) 원인 미분석 -- 필요시 별도 조사.
+
+**다음 작업**:
+1. (사용자 결정 시) 결과가 충분히 긍정적이라 판단되면 266차 patch
+   (`8964413`) 실차 검증 일정 논의 재개.
+2. 더 보수적으로 가려면 `dashcam_1788583013065.zip`(2순위 corpus, 25
+   세그)도 동일하게 재검증해 두 번째 corpus에서도 flicker 미관측인지
+   교차확인 -- 착수 전.
+3. `CONTINUITY_MATCH_TOLERANCE_M` 10/15/20m 적정성 재비교(기존 미해결
+   항목, 그대로 유지).
+
+**패치**: `0002-268cha-gyesok-FINDINGS.md-corpus-AB-jaegeomjeung.patch`
+(`/mnt/user-data/outputs/`)
+
+---
+
 ## 267차 (완료 -- CONTINUITY_MATCH_TOLERANCE_M 10m/15m 불일치 실측 재검증) -- 265차가 보류했던 재검증을 사용자 재업로드로 완료, confidence blend에 새로운 주의사항 발견
 
 **Worker**: Claude

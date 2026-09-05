@@ -91,9 +91,54 @@
   (신규 플래그, 267차). corpus: `drive_csv: (해당 없음 -- §23, 레포/Drive
   미보관, 매 세션 재업로드)`.
 
-**Status**: `NEEDS_VALIDATION` (구조 self-test + tolerance 10m/15m 실측
-재검증 완료. confidence blend 자체의 실 corpus A/B 재검증·실차 검증은
-여전히 미실시 -- 위 267차 발견(중간 리셋 프레임)을 포함해서 확인 필요)
+**[268차 추가 실측 -- confidence blend corpus A/B 재검증(WIP 266차 다음
+작업 1번) + 267차 flicker 후보 재현 검증]**
+`sim_route_265_confidence_target_blend.py`에 corpus 모드 신규 구현 후,
+사용자가 `0000039a--7b602ffb85` seg12-16 원본을 재업로드해 실측.
+`extract_log.py --with-navi-paths --repo ryu(HEAD 8964413=266차)`로
+재추출(5999행, 251/260/267차와 정확히 동일 -- 재현성 재확인).
+
+- 기본 3구간(터널 t2190-2225/IC gore t2108-2112/S커브 t2116-2122.2) +
+  전체 corpus(t1976-2276, 5999행 전체) 스캔 결과: **baseline과
+  confidence-blend의 out_speed 차이는 전체 corpus 기준 mean=+0.00,
+  max_abs=+0.18kph, flicker 후보(직전 streak>=2 → 리셋 + 같은 프레임
+  baseline 여전히 개입 중) 0건.** 터널/IC gore 구간은 이 corpus에서
+  route_step(INERT/ACTIVE 상태기계) 자체가 애초에 한 번도 개입하지
+  않음(baseline도 out_speed=None 전 구간, `sim_route_260_confidence_
+  signals.py` 재실행으로도 터널 구간 고유 track 0개 확인 -- 클러스터
+  후보 자체가 없음). S커브 구간만 실제 개입 발생(122~123프레임),
+  거기서도 차이 사실상 0.
+- **267차가 발견한 정확한 split 지점(t≈2041.46~2045.41 부근, 10m
+  tolerance에서 streak 19→1 리셋)을 single-lock 프로덕션 포트로 직접
+  재생**(`route_step` raw record 출력으로 프레임 단위 확인): t=2042.61에
+  실제로 streak가 19→1로 리셋되는 것을 재현 확인(267차가 `MultiTrack
+  Continuity`로 발견한 것과 동일 현상이 단일 lock 구조에서도 발생함을
+  최초로 직접 확인). **그러나 이 구간 전체(t=2039~2045.55)에서
+  `route_step`의 out_base/out_conf가 baseline·confidence-blend 양쪽 모두
+  시종 `None`** -- 즉 confidence가 순간 0으로 떨어지는 바로 그 프레임에
+  route가 애초에 어떤 감속도 명령하고 있지 않았다(INERT/ACTIVE 게이트
+  조건 자체가 이 구간에서 성립하지 않음, 원인은 `required_decel <
+  AutoNaviSpeedDecelRate` 등 게이트 미충족으로 추정 -- 정확한 게이트
+  분기는 미분석). 따라서 **이 corpus의 이 split 사례에 한해서는,
+  267차가 우려했던 "감속 중 순간 해제(flicker)"가 실제로는 발생하지
+  않음**을 실측으로 확인했다 -- confidence blend 공식 자체의 결함이
+  아니라, "streak가 리셋되는 시점"과 "route가 실제로 개입 중인 시점"이
+  이 corpus에서는 겹치지 않았다는 뜻.
+- **한계(§28, 확대 해석 금지)**: 이 결과는 corpus 1개(seg12-16), 기본
+  3구간+전체 스캔, tau=6.3(기본값) 조건에서만 확인됐다. (1) 다른
+  corpus(예: `dashcam_1788583013065.zip`)에서는 streak 리셋과 실제
+  개입이 겹치는 사례가 있을 수 있고, (2) tau 값을 바꾸면 confidence
+  포화 속도가 달라져 결과가 달라질 수 있다. "flicker가 전혀 없다"는
+  결론이 아니라 "이 corpus·이 조건에서는 관측되지 않았다"로 한정한다.
+- 스크립트: `sim_route_265_confidence_target_blend.py`(corpus 모드,
+  268차 신규). corpus: `drive_csv: (해당 없음 -- §23, 레포/Drive 미보관,
+  268차 세션에 재업로드된 파일로 실측, 컨테이너 초기화 시 유실)`.
+
+**Status**: `NEEDS_VALIDATION` (구조 self-test + tolerance 10m/15m
+실측 + confidence blend corpus A/B 재검증(268차) 완료, 이 corpus에서는
+flicker 미관측. **실차 검증은 여전히 미실시** -- 다른 corpus/tau 조건
+추가 확인 여부는 사용자 판단 대기, 긍정적이면 266차 patch 실차 검증
+논의 재개 가능)
 
 ---
 
