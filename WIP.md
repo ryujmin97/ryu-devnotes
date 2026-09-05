@@ -1,3 +1,99 @@
+## 268차 (완료 -- toolkit corpus 모드 구현, 실 corpus 재검증 전) -- 266차 다음 작업 1번(`sim_route_265_confidence_target_blend.py` corpus 모드) 구현
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu`(HEAD `8964413`=266차, 이번 세션 코드 변경
+없음) / `ryu-devnotes`(HEAD `acab56a`=267차, 이 항목 추가 전)
+
+**Branch**: `c3-ms-dev` / `main`
+
+**devnotes Base commit**: `acab56a`(267차)
+
+**배경**: 266차 "다음 작업 1번"(`carrot_man.py` confidence blend 실
+corpus 재검증 -- `sim_route_265_confidence_target_blend.py`에 corpus
+모드 구현 필요, 당시는 self-test만 지원)을 사용자 지시로 착수. 267차가
+이미 발견한 "지속 접근 중 순간 streak=1 리셋(flicker)" 가능성을 이
+corpus 재생에서 함께 확인할 수 있도록 flicker 탐지 지표도 같이
+설계했다.
+
+**한 일**:
+1. `sim_route_265_confidence_target_blend.py`에 corpus 모드 신규
+   구현(§21 -- 새 스크립트 작성 대신 260차
+   `sim_route_260_confidence_signals.py`의 CSV 로딩/`nRoadLimitSpeed`
+   게이트/클러스터링 로직 그대로 재사용):
+   - `load_csv`/`build_dist_speed`(`analysis_helpers.parse_navi_paths`
+     + `recompute_route_curvature_speed`, MACRO_SAMPLE=4/FINE_SAMPLE=1/
+     FLOOR_THRESHOLD=0.001 -- 260차와 동일값)/`gate_base_kph`/
+     `gate_candidates`/`find_clusters` 추가.
+   - `replay_corpus()`: baseline(use_confidence=False)과
+     confidence-blend(use_confidence=True) 두 개의 **완전히 독립된**
+     `SingleLockContinuity` 인스턴스로 같은 입력을 동시 재생(look-ahead
+     없음, 258차/260차와 동일 원칙).
+   - `summarize_corpus_window()`: 윈도우 구간별 (1) out_speed 차이(개입
+     강도 비교, baseline보다 0.5kph 이상 약하게 개입한 프레임 비율)
+     (2) **267차 발견 flicker 탐지**: 직전 프레임 streak>=2였다가 이번
+     프레임 confidence 트랙만 new/passed/lost로 streak=1 리셋되고,
+     같은 프레임 baseline은 여전히 능동 개입 중(`out_base is not
+     None`)인 경우를 후보로 카운트(§28 -- "가능성 있는 후보"로만 명시,
+     실제 체감 flicker 여부는 별도 검증 필요).
+2. `route_step()` 반환값에 `apex_mode`를 5번째 원소로 추가(flicker
+   탐지에 필요). 코드베이스 전체에서 이 함수의 유일한 소비부(`self_test`
+   내부 `run_scenario` 2개 호출)를 grep으로 확인 후 함께 5-tuple로 수정
+   -- 4-tuple로 남아있는 소비부 없음 확인.
+3. `DEFAULT_WINDOWS`(터널/IC gore/S커브 3구간, 260차와 동일)를 추가해
+   인자 없이 실행 시 기존 관례대로 3구간 기본 실행되게 함.
+
+**검증**:
+- 정적 분석: `ast.parse` + `py_compile` 통과.
+- self-test 회귀 확인: `route_step` 5-tuple 변경 후 `--self-test`
+  재실행, 기존 265차 결과(noise_spike 완전 억제/genuine_curve 수렴)와
+  **출력 100% 동일** 확인(5번째 반환값 추가가 기존 동작에 영향 없음).
+- 합성 CSV(직접 생성, 실 corpus 아님) 왕복 테스트: naviPaths 파싱 →
+  게이트 → 클러스터링 → replay → 윈도우 요약까지 예외 없이 전체 경로
+  실행 확인, `streak`/`confidence`/`mode_conf` 필드가 new→matched→held
+  전이에 따라 기대대로 채워짐을 raw record 출력으로 직접 확인. **이
+  합성 데이터는 실제 물리/도로 형상을 반영하지 않으므로 배관(plumbing)
+  무오류 확인 용도로만 사용 -- corpus 모드 자체의 실측 검증으로 취급하지
+  않음(§28)**.
+- 로그 검증: **미실시** -- 실 corpus(`0000039a--7b602ffb85` seg12-16,
+  터널/IC gore/S커브 3구간) 재업로드 필요(§23, 레포/Drive 미보관).
+- 시뮬레이션: 해당 없음(로그 재생 분석 자체가 시뮬레이션).
+- **실차 검증: 미실시.**
+
+**Devnotes**:
+- `toolkit/README.md` `sim_route_265_confidence_target_blend.py` 항목
+  갱신(corpus 모드 사용법/의존성 추가).
+- `toolkit/CHANGELOG.md` 268차 항목 추가.
+
+**미확인/미해결**:
+- **실 corpus A/B 재검증 자체는 아직 미실시** -- 이번 세션은 corpus
+  모드 "구현"까지이고, 실제 known-good corpus(seg12-16 dashcam) 재업로드
+  후 `--window` 3구간 실행 + flicker 후보 프레임 확인이 남음.
+- flicker 지표는 설계상 "후보"만 세는 것으로, 실제 몇 건이 나오는지/
+  체감 가능한 감속 flicker로 이어지는지는 실 corpus 실행 전까지 알 수
+  없음.
+- `CONTINUITY_MATCH_TOLERANCE_M` 10/15/20m 적정성 재비교(기존 미해결
+  항목, 이번 세션과 무관하게 그대로 유지).
+
+**다음 작업**:
+1. 사용자가 known-good corpus(`0000039a--7b602ffb85` seg12-16 dashcam
+   zip, 또는 동급 corpus) 재업로드 → `extract_log.py --with-navi-paths`로
+   CSV 재추출 → `sim_route_265_confidence_target_blend.py <csv>
+   --window 2190 2225 --label tunnel --window 2108 2112 --label ic_gore
+   --window 2116 2122.2 --label s_curve` 실행, out_speed 차이 및
+   flicker 후보 건수 실측.
+2. 위 결과가 긍정적(flicker 후보 거의 없음/감속 성능 baseline과 동등)
+   이면 266차 patch(`8964413`) 실차 검증 일정 논의 재개.
+3. flicker 후보가 유의미하게 나오면, held 상태 유지 범위 확장(예: 짧은
+   재탐색 갭에서도 streak를 즉시 1로 리셋하지 않고 일부 이월) 등 설계
+   보완 필요 여부를 논의(§27 최소변경 원칙 하에서 검토, 아직 코드 변경
+   착수 전).
+
+**패치**: `0001-268cha-toolkit-corpus-mode.patch`
+(`/mnt/user-data/outputs/`)
+
+---
+
 ## 267차 (완료 -- CONTINUITY_MATCH_TOLERANCE_M 10m/15m 불일치 실측 재검증) -- 265차가 보류했던 재검증을 사용자 재업로드로 완료, confidence blend에 새로운 주의사항 발견
 
 **Worker**: Claude

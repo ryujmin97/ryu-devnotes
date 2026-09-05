@@ -3,6 +3,17 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+## 2026-09-06 (268차)
+- `sim_route_265_confidence_target_blend.py`: corpus 모드 신규 구현
+  (266차 다음 작업 1번, §21 재사용 -- 260차 CSV 로딩/게이트/클러스터링
+  로직 그대로 사용). baseline vs confidence-blend 두 독립 트래커로 실
+  corpus를 동시 재생, 윈도우별 out_speed 차이 + 267차가 발견한 flicker
+  (직전 streak>=2 -> 리셋 + baseline은 여전히 개입 중) 후보 프레임 수를
+  출력. `route_step()` 반환값에 `apex_mode` 5번째 원소 추가(flicker
+  탐지에 필요, self_test 호출부도 함께 수정해 4-tuple 소비 코드 없음
+  확인). 합성 CSV로 플러그인 배관 자체의 무오류 실행만 확인, **실
+  corpus 재검증은 아직 미실시**(파일 재업로드 필요). 상세: WIP.md 268차.
+
 ## 2026-09-06 (267차)
 - `sim_route_260_confidence_signals.py`: `--tolerance` CLI 플래그 추가
   (§27 최소변경, 하드코딩된 `CONTINUITY_MATCH_TOLERANCE_M=15.0` 오버라이드

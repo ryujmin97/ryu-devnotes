@@ -42,8 +42,19 @@ streak 정의는 260차와 동일: matched 프레임만 카운트(+1), held 프�
 **중요**: 아래는 프로덕션 carrot_navi_route()의 관련 분기를 최대한 충실히
 이식한 것이나, 실차 코드 자체를 실행하는 것이 아니라 재구현(port)이다.
 이 스크립트만으로 "검증 완료"라 부르지 않는다(§28/§29) -- 구조적
-self-test(synthetic)까지가 이 세션의 범위이며, 실제 corpus(seg12-16/
+self-test(synthetic)까지가 265차의 범위였고, 실제 corpus(seg12-16/
 dashcam) 재검증은 파일 재업로드 후 별도로 수행한다.
+
+[268차 추가] corpus 모드 구현 완료(266차 다음 작업 1번). 260차
+sim_route_260_confidence_signals.py의 CSV 로딩/게이트(nRoadLimitSpeed)/
+클러스터링 로직을 §21에 따라 그대로 재사용했다. baseline과
+confidence-blend 두 트래커를 완전히 독립적으로(서로 영향 없이) 같은
+입력으로 재생해 윈도우 구간별 out_speed 차이 + 267차가 발견한 "지속
+접근 중 순간 streak=1 리셋(flicker)" 후보 프레임 수를 출력한다.
+아래 self-test(synthetic)만으로는 이 corpus 모드 자체의 정합성이
+검증되지 않으므로, 실 corpus 재업로드 후 반드시 별도 실행/확인이
+필요하다(§28 -- 아직 실측 미실시, 아래 함수 자체는 정적 분석/합성
+CSV 자체검증만 완료).
 
 사용법:
     # synthetic self-test만 실행(corpus 없이 구조 검증)
@@ -59,6 +70,7 @@ import math
 import sys
 
 sys.path.insert(0, ".")
+from analysis_helpers import parse_navi_paths, recompute_route_curvature_speed
 
 # ---- carrot_man.py 실제 상수 그대로(258차 HEAD 대조, 265차) ----
 ROUTE_SPEED_LOOP_DT = 0.05
@@ -68,6 +80,21 @@ ROUTE_CLUSTER_MIN_POINTS = 2
 ROUTE_CLUSTER_MAX_GAP_M = 40.0
 ROUTE_APEX_MISS_TOLERANCE_FRAMES = 3
 CONTINUITY_MATCH_TOLERANCE_M = 10.0  # [265차] 260차 스크립트는 15.0 사용 -- 불일치, 프로덕션값 채택
+
+# [268차 신규] corpus 모드 전용 -- naviPaths -> (dist, curv, speed) 재계산
+# 파라미터. 260차 스크립트와 동일값(§21 재사용, 동일 corpus 비교 목적상
+# 반드시 일치해야 함).
+MACRO_SAMPLE = 4
+FINE_SAMPLE = 1
+FLOOR_THRESHOLD = 0.001  # 157차 패치(ROUTE_CURVE_NEGLIGIBLE_THRESHOLD) 재현
+
+# [268차 신규] 260/267차가 써온 known-good corpus(0000039a--7b602ffb85
+# seg12-16)의 3구간 기본 윈도우 -- 260차 DEFAULT_WINDOWS와 동일(§21).
+DEFAULT_WINDOWS = [
+    (2190.0, 2225.0, "tunnel"),
+    (2108.0, 2112.0, "ic_gore"),
+    (2116.0, 2122.2, "s_curve"),
+]
 
 # PARAMS_REGISTRY 등록값(사용자 실측 기본값, FINDINGS.md 256차 인용)
 AUTO_NAVI_SPEED_DECEL_RATE = 1.0      # m/s^2
@@ -149,12 +176,16 @@ def route_step(tracker, clusters, distances, speeds, v_ego_ms, v_ego_kph,
                 route_active_state, use_confidence, tau=CONFIDENCE_TAU_DEFAULT):
     """carrot_navi_route()의 INERT/ACTIVE 분기를 이식(265차). out_speed와
     갱신된 route_active를 반환. use_confidence=False면 264차 이전(현재
-    프로덕션) 동작과 동일(confidence=1.0 고정) -- baseline."""
+    프로덕션) 동작과 동일(confidence=1.0 고정) -- baseline.
+    [268차] 반환값에 apex_mode를 5번째 원소로 추가(corpus 모드의 267차
+    flicker 탐지에 필요 -- 이 프레임에서 tracker가 new/passed/lost로
+    리셋됐는지 상위에서 알아야 함). 기존 4-tuple 소비 코드(self_test)도
+    함께 수정."""
     apex_idx, apex_dist, apex_speed, apex_mode, streak = tracker.step(
         clusters, distances, speeds, v_ego_ms)
 
     if apex_mode == "none" or apex_speed is None:
-        return None, False, streak, None
+        return None, False, streak, None, apex_mode
 
     confidence = confidence_from_streak(streak, tau) if use_confidence else 1.0
     eff_apex_speed = confidence * apex_speed + (1.0 - confidence) * v_ego_kph
@@ -169,7 +200,7 @@ def route_step(tracker, clusters, distances, speeds, v_ego_ms, v_ego_kph,
         speed_reached = v_ego_kph <= apex_speed * ROUTE_ACTIVE_RELEASE_MARGIN_RATIO
         dist_reached = apex_dist is not None and apex_dist <= ROUTE_RELEASE_DIST_M
         if apex_passed_or_lost or speed_reached or dist_reached:
-            return None, False, streak, confidence
+            return None, False, streak, confidence, apex_mode
         eff_dist = max(0.0, apex_dist - target_ms * AUTO_NAVI_SPEED_CTRL_END)
         if eff_dist <= 0 or v_ego_ms <= target_ms:
             out_speed_ms = v_ego_ms
@@ -177,19 +208,19 @@ def route_step(tracker, clusters, distances, speeds, v_ego_ms, v_ego_kph,
             required_decel = (v_ego_ms ** 2 - target_ms ** 2) / (2.0 * eff_dist)
             applied_decel = min(max(required_decel, 0.0), AUTO_NAVI_SPEED_DECEL_RATE)
             out_speed_ms = max(target_ms, v_ego_ms - applied_decel * ROUTE_SPEED_LOOP_DT)
-        return out_speed_ms * 3.6, True, streak, confidence
+        return out_speed_ms * 3.6, True, streak, confidence, apex_mode
 
     eff_dist = max(0.0, apex_dist - target_ms * AUTO_NAVI_SPEED_CTRL_END)
     if v_ego_ms <= target_ms:
-        return None, False, streak, confidence
+        return None, False, streak, confidence, apex_mode
     if eff_dist <= 0:
-        return v_ego_kph, False, streak, confidence
+        return v_ego_kph, False, streak, confidence, apex_mode
     required_decel = (v_ego_ms ** 2 - target_ms ** 2) / (2.0 * eff_dist)
     if required_decel >= AUTO_NAVI_SPEED_DECEL_RATE:
         applied_decel = min(max(required_decel, 0.0), AUTO_NAVI_SPEED_DECEL_RATE)
         out_speed_ms = max(target_ms, v_ego_ms - applied_decel * ROUTE_SPEED_LOOP_DT)
-        return out_speed_ms * 3.6, True, streak, confidence
-    return None, False, streak, confidence
+        return out_speed_ms * 3.6, True, streak, confidence, apex_mode
+    return None, False, streak, confidence, apex_mode
 
 
 def find_clusters(idxs, dists, min_points, max_gap_m):
@@ -226,10 +257,10 @@ def run_scenario(frames, tau=CONFIDENCE_TAU_DEFAULT, label=""):
         candidates = list(range(len(speeds)))
         clusters = find_clusters(candidates, dists, ROUTE_CLUSTER_MIN_POINTS, ROUTE_CLUSTER_MAX_GAP_M)
 
-        out_base, active_base, _, _ = route_step(
+        out_base, active_base, _, _, _ = route_step(
             tracker_base, clusters, dists, speeds, v_ego_ms, v_ego_kph,
             active_base, use_confidence=False)
-        out_conf, active_conf, streak, conf = route_step(
+        out_conf, active_conf, streak, conf, _ = route_step(
             tracker_conf, clusters, dists, speeds, v_ego_ms, v_ego_kph,
             active_conf, use_confidence=True, tau=tau)
 
@@ -281,21 +312,190 @@ def self_test(tau=CONFIDENCE_TAU_DEFAULT):
     run_scenario(scenario_genuine_curve(), tau, label="genuine_curve(지속 접근 커브)")
 
 
+# ============================================================
+# [268차 신규] 실 corpus 재생 모드 -- 266차 다음 작업 1번 구현
+# (extract_log.py --with-navi-paths CSV로 baseline vs confidence-blend
+# A/B 재검증. 260차 sim_route_260_confidence_signals.py의 CSV 로딩/게이트/
+# 클러스터링 로직을 §21에 따라 그대로 재사용한다.)
+# ============================================================
+
+def load_csv(path):
+    with open(path, newline="") as f:
+        return list(csv.DictReader(f))
+
+
+def build_dist_speed(navi_paths_str):
+    """260차 build_dist_curv_speed()와 동일 계산이나, 265차 route_step은
+    curvature를 쓰지 않으므로(§27 최소변경 -- 필요한 두 배열만 반환)
+    (distances, speeds)만 돌려준다."""
+    points, distances = parse_navi_paths(navi_paths_str)
+    if len(points) < FINE_SAMPLE * 2 + 1:
+        return [], []
+    merged = recompute_route_curvature_speed(
+        points, distances, sample=MACRO_SAMPLE, sample_fine=FINE_SAMPLE,
+        road_limit_speed=200.0, floor_threshold=FLOOR_THRESHOLD,
+    )
+    if not merged:
+        return [], []
+    return [m[0] for m in merged], [m[2] for m in merged]
+
+
+def gate_base_kph(row, v_ego_kph):
+    raw = row.get("nRoadLimitSpeed", "")
+    try:
+        v = float(raw)
+    except (TypeError, ValueError):
+        v = 0.0
+    return v if v > 0 else v_ego_kph
+
+
+def gate_candidates(speeds, threshold):
+    return [k for k in range(len(speeds)) if speeds[k] <= threshold]
+
+
+def find_clusters(idxs, dists, min_points, max_gap_m):
+    if not idxs:
+        return []
+    clusters, cur = [], [idxs[0]]
+    for i in idxs[1:]:
+        if dists[i] - dists[cur[-1]] <= max_gap_m:
+            cur.append(i)
+        else:
+            clusters.append(cur)
+            cur = [i]
+    clusters.append(cur)
+    return [c for c in clusters if len(c) >= min_points]
+
+
+def replay_corpus(rows, tau=CONFIDENCE_TAU_DEFAULT):
+    """실 corpus CSV를 baseline(use_confidence=False, 264차 이전/현재
+    프로덕션과 동일)과 confidence-blend(266차 patch, use_confidence=True)
+    두 개의 완전히 독립된 SingleLockContinuity 트래커로 동시 재생한다.
+    두 트래커는 서로의 streak/lock 상태에 영향을 주지 않는다(같은
+    입력을 각자 별도로 재현) -- look-ahead 없이 그 프레임까지의 정보만
+    사용(258차/260차와 동일 원칙)."""
+    tracker_base = SingleLockContinuity()
+    tracker_conf = SingleLockContinuity()
+    active_base = False
+    active_conf = False
+    records = []
+    for row in rows:
+        if not row.get("vEgo"):
+            continue
+        t = float(row["t"])
+        v_ego_ms = float(row["vEgo"])
+        v_ego_kph = v_ego_ms * 3.6
+
+        dists, speeds = build_dist_speed(row.get("naviPaths", ""))
+        if speeds:
+            threshold = gate_base_kph(row, v_ego_kph)
+            c0 = gate_candidates(speeds, threshold)
+            clusters = find_clusters(c0, dists, ROUTE_CLUSTER_MIN_POINTS, ROUTE_CLUSTER_MAX_GAP_M)
+        else:
+            clusters = []
+
+        out_base, active_base, streak_b, conf_b, mode_b = route_step(
+            tracker_base, clusters, dists, speeds, v_ego_ms, v_ego_kph,
+            active_base, use_confidence=False)
+        out_conf, active_conf, streak_c, conf_c, mode_c = route_step(
+            tracker_conf, clusters, dists, speeds, v_ego_ms, v_ego_kph,
+            active_conf, use_confidence=True, tau=tau)
+
+        records.append({
+            "t": t,
+            "v_ego_kph": v_ego_kph,
+            "out_base": out_base,
+            "active_base": active_base,
+            "out_conf": out_conf,
+            "active_conf": active_conf,
+            "streak": streak_c,
+            "confidence": conf_c,
+            "mode_conf": mode_c,
+        })
+    return records
+
+
+def summarize_corpus_window(records, lo, hi, label):
+    w = [r for r in records if lo <= r["t"] <= hi]
+    print(f"\n=== corpus {label} (t={lo}~{hi}, {len(w)}프레임) ===")
+    if not w:
+        print("  (해당 구간 프레임 없음)")
+        return
+
+    # 1) baseline vs confidence-blend out_speed 차이(개입 강도 비교).
+    #    개입 없음(out=None)인 프레임은 v_ego_kph(=개입 없음을 속도차 0으로
+    #    표현)로 취급 -- "두 버전이 서로 다른 세기로 감속을 걸었는가"만 본다.
+    diffs = []
+    for r in w:
+        if r["out_base"] is None and r["out_conf"] is None:
+            continue
+        ob = r["out_base"] if r["out_base"] is not None else r["v_ego_kph"]
+        oc = r["out_conf"] if r["out_conf"] is not None else r["v_ego_kph"]
+        diffs.append(oc - ob)
+    if diffs:
+        mean_diff = sum(diffs) / len(diffs)
+        max_diff = max(diffs, key=abs)
+        weaker = sum(1 for d in diffs if d > 0.5)
+        print(f"  out_speed 차이(confidence-baseline, kph): "
+              f"mean={mean_diff:+.2f} max_abs={max_diff:+.2f} (n={len(diffs)})")
+        print(f"  confidence 버전이 baseline보다 0.5kph 이상 약하게 개입한 "
+              f"프레임: {weaker}/{len(diffs)} ({weaker/len(diffs)*100:.1f}%)")
+    else:
+        print("  (양쪽 모두 개입 없음 -- 비교 대상 프레임 없음)")
+
+    # 2) [267차 발견 항목] 지속 접근 중 순간 streak=1 리셋(flicker) 탐지:
+    #    직전 프레임까지 streak>=2(=이미 어느 정도 신뢰가 쌓인 track)였는데
+    #    이번 프레임에 confidence 트랙만 new/passed/lost로 streak=1 리셋되고,
+    #    같은 프레임 baseline은 여전히 능동 개입 중(out_base is not None)인
+    #    경우 -- baseline 기준으로는 감속이 계속 필요한 상황인데
+    #    confidence=0으로 이 프레임만 개입이 순간 풀리는 사례.
+    #    (§28 -- 이 지표는 "가능성 있는 후보"를 세는 것이며, 실제 체감
+    #    가능한 flicker인지는 실차/영상 대조가 별도로 필요하다.)
+    flicker_events = []
+    prev_streak = None
+    for r in w:
+        if (r["mode_conf"] in ("new", "passed", "lost")
+                and prev_streak is not None and prev_streak >= 2
+                and r["out_base"] is not None):
+            flicker_events.append(r["t"])
+        prev_streak = r["streak"]
+    preview = flicker_events[:5]
+    suffix = "..." if len(flicker_events) > 5 else ""
+    print(f"  [267차 flicker 후보] 직전 streak>=2 -> 이번 프레임 리셋 "
+          f"(mode=new/passed/lost) 되면서 baseline은 여전히 개입 중인 "
+          f"프레임: {len(flicker_events)}건"
+          + (f" (t={preview}{suffix})" if flicker_events else ""))
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("csv_path", nargs="?", default=None)
     ap.add_argument("--self-test", action="store_true")
     ap.add_argument("--tau", type=float, default=CONFIDENCE_TAU_DEFAULT)
+    ap.add_argument("--window", type=float, nargs=2, action="append", default=None)
+    ap.add_argument("--label", action="append", default=None)
     args = ap.parse_args()
 
     if args.self_test or not args.csv_path:
         self_test(args.tau)
         return
 
-    print("실제 corpus 재생 모드는 265차 후속 작업(analysis_helpers.recompute_"
-          "route_curvature_speed 연동)에서 구현 예정 -- 이번 세션은 구조 "
-          "self-test까지.", file=sys.stderr)
-    sys.exit(1)
+    rows = load_csv(args.csv_path)
+    if not rows:
+        print("no rows", file=sys.stderr)
+        sys.exit(1)
+
+    records = replay_corpus(rows, args.tau)
+    print(f"=== 전체 {len(rows)}행 처리, 유효 프레임 {len(records)}건 "
+          f"(tau={args.tau}) ===")
+
+    if args.window:
+        labels = args.label or [f"win{i}" for i in range(len(args.window))]
+        for (lo, hi), label in zip(args.window, labels):
+            summarize_corpus_window(records, lo, hi, label)
+    else:
+        for lo, hi, label in DEFAULT_WINDOWS:
+            summarize_corpus_window(records, lo, hi, label)
 
 
 if __name__ == "__main__":

@@ -21,27 +21,45 @@ CHANGELOG.md를 같이 갱신**한다 (세션 종료 체크리스트에 포함�
 
 ---
 
-## sim_route_265_confidence_target_blend.py (265차 신규, 설계검증용, NEEDS_VALIDATION)
+## sim_route_265_confidence_target_blend.py (265차 신규, 268차 corpus 모드 추가, NEEDS_VALIDATION)
 **목적**: 264차가 확정한 persistence(streak) 단독 confidence 공식을
 `carrot_man.py`의 실제 apex 처리 구조(단일 lock 추적, `_route_cluster_
 continuity_step()`)에 맞춰 이식하고, `apex_speed`의 유일한 소비지점
 (`target_ms = apex_speed/3.6`)에서 confidence로 vEgo와 blend하는 설계를
-synthetic self-test로 구조 검증한다. `SingleLockContinuity`(streak
-카운터 신규 추가) + `route_step()`(INERT/ACTIVE 분기 이식, `use_confidence`
-플래그로 baseline/blend 전환) + `confidence_from_streak()`
-(`1-exp(-(streak-1)/TAU)`).
+검증한다. `SingleLockContinuity`(streak 카운터 신규 추가) + `route_step()`
+(INERT/ACTIVE 분기 이식, `use_confidence` 플래그로 baseline/blend 전환,
+268차부터 `apex_mode`도 5번째 반환값으로 함께 노출) +
+`confidence_from_streak()`(`1-exp(-(streak-1)/TAU)`).
 
-**결과 요약**: 1프레임 단발 노이즈 후보는 confidence=0으로 완전 억제,
-지속 접근하는 실제 커브는 첫 1프레임만 지연되고 baseline과 거의 동일하게
-수렴(제동력 유지) -- 노이즈 억제/실커브 유지가 동시에 성립함을 구조적으로
-확인. `CONTINUITY_MATCH_TOLERANCE_M`을 프로덕션값(10.0m)으로 채택했는데
-260차 스크립트(15.0m)와 불일치 발견(FINDINGS.md 265차, 미해결). 실제
-corpus(seg12-16/dashcam) 재검증은 미실시(파일 재업로드 필요).
+**결과 요약(265차 synthetic self-test)**: 1프레임 단발 노이즈 후보는
+confidence=0으로 완전 억제, 지속 접근하는 실제 커브는 첫 1프레임만
+지연되고 baseline과 거의 동일하게 수렴(제동력 유지) -- 노이즈 억제/실커브
+유지가 동시에 성립함을 구조적으로 확인. `CONTINUITY_MATCH_TOLERANCE_M`을
+프로덕션값(10.0m)으로 채택했는데 260차 스크립트(15.0m)와 불일치 발견
+(FINDINGS.md 265차/267차, 267차가 실측 재검증 완료 -- streak 분포
+비율에는 영향 거의 없으나 track 분리 시점의 순간 streak=1 리셋(flicker)
+현상을 새로 발견).
 
-**사용**: `python3 sim_route_265_confidence_target_blend.py --self-test`
-(corpus 불필요). 실제 corpus 재생 모드는 미구현(후속 세션 예정).
+**[268차 추가] corpus 모드**: 260차
+`sim_route_260_confidence_signals.py`의 CSV 로딩/게이트(nRoadLimitSpeed)/
+클러스터링 로직을 그대로 재사용해 실 corpus(extract_log.py
+`--with-navi-paths` CSV)를 baseline vs confidence-blend 두 독립 트래커로
+동시 재생, 윈도우 구간별 (1) out_speed 차이(개입 강도 비교) (2) 267차가
+발견한 "직전 streak>=2 -> 이번 프레임 new/passed/lost 리셋 + 같은 프레임
+baseline은 여전히 개입 중"인 flicker 후보 프레임 수를 출력한다.
+**아직 실 corpus로 실행하지 않음(§28) -- 합성 CSV로 플러그인 배관 자체의
+무오류 실행만 확인, 266차 다음 작업 1번(corpus A/B 재검증)은 실 corpus
+재업로드 후 별도 실행 필요.**
 
-**의존성**: 없음(순수 재구현, `carrot_man.py` 상수/로직 이식).
+**사용**:
+- 구조 self-test(corpus 불필요): `python3 sim_route_265_confidence_target_blend.py --self-test`
+- corpus A/B 재검증: `python3 sim_route_265_confidence_target_blend.py <route.csv> --window 2190 2225 --label tunnel --window 2108 2112 --label ic_gore --window 2116 2122.2 --label s_curve --tau 6.3`
+  (인자 없이 실행하면 251차가 확정한 터널/IC gore/S커브 3구간 기본 실행)
+
+**의존성**: `analysis_helpers.parse_navi_paths`,
+`analysis_helpers.recompute_route_curvature_speed`(268차 corpus 모드부터,
+260차와 동일 방식 재사용). self-test 경로는 여전히 의존성 없음(순수
+재구현).
 
 ## sim_route_262_speed_drop_persistence_correlation.py (262차 신규, 재검증용)
 **목적**: 260차가 "corpus 한계로 미검증"이라 남긴 speed_drop_strength를
