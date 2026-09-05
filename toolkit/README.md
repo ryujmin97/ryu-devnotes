@@ -21,6 +21,28 @@ CHANGELOG.md를 같이 갱신**한다 (세션 종료 체크리스트에 포함�
 
 ---
 
+## sim_route_265_confidence_target_blend.py (265차 신규, 설계검증용, NEEDS_VALIDATION)
+**목적**: 264차가 확정한 persistence(streak) 단독 confidence 공식을
+`carrot_man.py`의 실제 apex 처리 구조(단일 lock 추적, `_route_cluster_
+continuity_step()`)에 맞춰 이식하고, `apex_speed`의 유일한 소비지점
+(`target_ms = apex_speed/3.6`)에서 confidence로 vEgo와 blend하는 설계를
+synthetic self-test로 구조 검증한다. `SingleLockContinuity`(streak
+카운터 신규 추가) + `route_step()`(INERT/ACTIVE 분기 이식, `use_confidence`
+플래그로 baseline/blend 전환) + `confidence_from_streak()`
+(`1-exp(-(streak-1)/TAU)`).
+
+**결과 요약**: 1프레임 단발 노이즈 후보는 confidence=0으로 완전 억제,
+지속 접근하는 실제 커브는 첫 1프레임만 지연되고 baseline과 거의 동일하게
+수렴(제동력 유지) -- 노이즈 억제/실커브 유지가 동시에 성립함을 구조적으로
+확인. `CONTINUITY_MATCH_TOLERANCE_M`을 프로덕션값(10.0m)으로 채택했는데
+260차 스크립트(15.0m)와 불일치 발견(FINDINGS.md 265차, 미해결). 실제
+corpus(seg12-16/dashcam) 재검증은 미실시(파일 재업로드 필요).
+
+**사용**: `python3 sim_route_265_confidence_target_blend.py --self-test`
+(corpus 불필요). 실제 corpus 재생 모드는 미구현(후속 세션 예정).
+
+**의존성**: 없음(순수 재구현, `carrot_man.py` 상수/로직 이식).
+
 ## sim_route_262_speed_drop_persistence_correlation.py (262차 신규, 재검증용)
 **목적**: 260차가 "corpus 한계로 미검증"이라 남긴 speed_drop_strength를
 터널 외 corpus(dashcam)로 재검증. `sim_route_260_confidence_signals.py`의

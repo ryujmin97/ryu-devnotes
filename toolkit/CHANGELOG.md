@@ -3,6 +3,17 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+## 2026-09-06 (265차)
+- `sim_route_265_confidence_target_blend.py`: 신규 -- 264차가 확정한
+  persistence 단독 confidence 공식을 `carrot_man.py` 실제 구조(단일
+  lock 추적, apex_speed 소비지점 단일화)에 맞춰 구현. `confidence(streak)
+  = 1-exp(-(streak-1)/6.3)`로 target_ms 계산 직전 apex_speed를 vEgo와
+  blend. synthetic self-test(noise_spike/genuine_curve, corpus 불필요)로
+  구조 검증 완료(노이즈 단발 후보 억제 + 실제 커브 제동력 유지 확인).
+  프로덕션 `CONTINUITY_MATCH_TOLERANCE_M=10.0m`을 채택했는데 260차
+  스크립트(15.0m)와 불일치 발견(FINDINGS.md 265차 참고, 미해결). 실제
+  corpus 재검증 아직 -- NEEDS_VALIDATION.
+
 ## 2026-09-06 (262차)
 - `sim_route_262_speed_drop_persistence_correlation.py`: 신규 --
   speed_drop_strength를 터널 외 corpus(dashcam)로 재검증. 정지 근접

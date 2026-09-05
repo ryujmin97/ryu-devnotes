@@ -1,3 +1,112 @@
+## 265차 (진행 중 -- confidence blend 설계/구조 self-test 완료, 최종 확정 전) -- persistence 단독 confidence 공식 설계 + apex_speed blend 삽입지점 확정, 임의판단 2건 사용자 확인 대기
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu`(HEAD `109f6816`=258차, 변경 없음) /
+`ryu-devnotes`(HEAD `ba89124`=264차, 이 항목 추가 전)
+
+**Branch**: `c3-ms-dev` / `main`
+
+**Base commit (ryu)**: `109f68160bad1a3514627fdc3d9a84f9ed8ac83e`
+
+**devnotes Base commit**: `ba891248`(264차)
+
+**배경**: 264차가 남긴 다음 작업 1번("persistence 단독 기준 confidence
+스코어링 공식 설계 착수")을 진행. 공식 설계에 앞서 confidence를 어떻게
+소비할지(threshold 게이트 vs 연속 가중치 vs 미정) 사용자에게 질의,
+**"연속 가중치(blend)" 채택 확정** -- 근거: 157차가 확인한 "히스테리시스
+상태기계(engaged/disengaged)가 프레임 간 급격한 속도 급락을 유발"하는
+문제와 동일 성격의 위험을 threshold 게이트 방식이 재현할 수 있다고 판단.
+
+**한 일**:
+1. **아키텍처 확인**(`carrot_man.py` 실제 코드 대조, 258차 HEAD):
+   - `_route_cluster_continuity_step()`은 **단일 lock만 추적**함(260차
+     분석스크립트의 `MultiTrackContinuity`는 분석 전용 확장이고 실제
+     프로덕션 구조와 다름) -- confidence 설계 시 "여러 후보 중 blend
+     기준 선택" 문제 자체가 해당 없음으로 확인, 애초에 질문했던 3가지
+     설계 이슈(블렌딩 대상/cold start/멀티트랙 선택기준) 중 3번은
+     이걸로 자동 해소.
+   - `apex_speed`는 `target_ms = apex_speed / 3.6` **단 한 지점**(INERT
+     게이트/ACTIVE STEP2 공통)에서만 소비됨 -- confidence blend 삽입
+     지점을 여기 하나로 확정(§27 최소변경에 부합):
+     `eff_apex_speed_kph = confidence*apex_speed + (1-confidence)*v_ego_kph`,
+     이후 `target_ms = eff_apex_speed_kph / 3.6`. ACTIVE/INERT
+     상태기계(257차 확정 설계) 자체는 완전히 그대로 유지, "이전 프레임
+     출력 의존 없음"(223차 무상태 원칙)도 유지(blend 대상이 "현재
+     vEgo"라 cold start 문제 자체가 없음 -- 1/2번 질문도 이걸로 해소).
+   - **불일치 발견**: `CONTINUITY_MATCH_TOLERANCE_M`이 프로덕션은
+     **10.0m**인데 260차 분석스크립트(`sim_route_260_confidence_
+     signals.py`)는 **15.0m**을 사용 -- 260차가 실측한 persistence
+     streak 분포(65개 track 중 55%가 streak=1 등)가 이 5m 차이로 얼마나
+     달라지는지 미확인(FINDINGS.md 265차 신규 항목 참고).
+2. **confidence 공식 확정(가설 단계)**:
+   `confidence(streak) = 1 - exp(-(streak-1)/TAU)`, `TAU=6.3` 기본값 --
+   streak=1에서 정확히 0.0(신규 미검증 후보는 개입 0), streak=6에서
+   ~0.55, streak=20에서 ~0.95로 260~264차가 써온 버킷 경계(1/2-5/6-20/
+   20+)와 근사 캘리브레이션. streak 정의는 260차와 동일(matched만
+   카운트, held 유지, new/passed/lost 시 1로 리셋).
+3. 신규 toolkit `sim_route_265_confidence_target_blend.py` 작성 --
+   `SingleLockContinuity`(`_route_cluster_continuity_step()` 이식 +
+   streak 카운터 신규 추가) + `route_step()`(INERT/ACTIVE 분기를
+   carrot_man.py에서 그대로 이식, confidence blend 지점 반영,
+   `use_confidence=False`면 현재 프로덕션과 동일=baseline) + synthetic
+   self-test 2케이스(corpus 불필요, 254차 선례 방식 계승).
+4. **self-test 결과**:
+   - `noise_spike`(1프레임만 존재하다 소멸하는 단발 후보, streak=1로
+     끝남): baseline은 즉시 개입(matched 1프레임+held 유지 프레임까지
+     총 3프레임 out_speed 하락) → **confidence 버전은 streak=1
+     (confidence=0)이라 전 구간 `out_speed=None`(개입 없음)** -- 의도한
+     노이즈 억제 효과 확인.
+   - `genuine_curve`(지속 접근하는 실제 커브): confidence 버전은 첫
+     1프레임(streak=1)만 지연되고, streak=2부터는 **baseline과 사실상
+     동일한 out_speed로 즉시 수렴**. 원인: 이 거리 조건에서
+     `required_decel`이 애초에 `AutoNaviSpeedDecelRate`(1.0 m/s²) 상한을
+     크게 초과해, confidence로 target을 낮춰도 실제 인가 감속량은 상한에
+     그대로 clamp됨 -- **confidence는 "이 프레임에 ACTIVE 게이트를 열지
+     여부"에만 영향을 주고, 일단 열리면 실제 제동 강도는 거의 그대로
+     유지**되는 성질을 구조적으로 확인. 노이즈는 걸러내되 진짜 커브의
+     제동력을 약화시키지 않음.
+
+**Claude 임의 판단 2건 (미확인, 사용자 확인 대기)**:
+1. RELEASE 판정(`speed_reached = v_ego_kph <= apex_speed *
+   ROUTE_ACTIVE_RELEASE_MARGIN_RATIO`)은 confidence로 낮춘
+   `eff_apex_speed`가 아니라 **원래 `apex_speed`를 그대로 기준으로
+   유지**했음 -- confidence로 낮춘 값을 쓰면 "confidence가 낮을수록 더
+   쉽게 RELEASE된다"는, 원래 의도(노이즈 억제)와 무관한 부작용이 생길 수
+   있다고 판단해서. 이 판단이 맞는지 확인 필요.
+2. `CONTINUITY_MATCH_TOLERANCE_M` 10m/15m 불일치를 이번엔 FINDINGS
+   신규 항목으로만 남기고, 265차 스크립트는 프로덕션값(10.0)을 그대로
+   채택 -- 260차 실측치(streak 분포 등) 자체를 10m로 재검증할지는
+   미결정.
+
+**검증**: 정적 분석(`py_compile`) + synthetic self-test(구조 검증)만.
+실제 corpus(seg12-16/dashcam) 재검증: **미실시**(파일 재업로드 필요,
+§23 대용량 미보관 정책).
+**실차 검증**: 미실시.
+
+**미확인/미해결**:
+- 위 임의 판단 2건 사용자 확인 대기(다음 세션/후속 메시지에서 확정
+  필요, 확정 전까지 프로덕션 patch 작성 보류).
+- `CONTINUITY_MATCH_TOLERANCE_M` 10m/15m 불일치가 260차 streak 분포
+  실측치에 미치는 영향 -- 미확인.
+- `carrot_man.py` 실제 patch는 아직 작성 안 함(위 2건 확인 후 진행).
+- `CONFIDENCE_TAU`(=6.3) `PARAMS_REGISTRY.md` 등록 아직 안 함(확정 전,
+  임시 가설값 상태).
+
+**다음 작업**:
+1. 위 임의 판단 2건에 대한 사용자 확인/결정.
+2. (필요 시) `sim_route_260_confidence_signals.py`를
+   `CONTINUITY_MATCH_TOLERANCE_M=10.0`으로 재실행해 streak 분포
+   재확인 → 달라지면 FINDINGS.md 갱신.
+3. `_route_cluster_continuity_step()`에 streak 필드 추가 + confidence
+   blend 반영하는 실제 patch(`carrot_man.py`) 작성 -- 위 1/2번 확인 후.
+4. `CONFIDENCE_TAU`를 `PARAMS_REGISTRY.md`에 신규 등록(NEEDS_VALIDATION).
+5. 실제 corpus(seg12-16 tunnel/S커브, dashcam) 파일 재업로드 요청 →
+   baseline vs confidence-blend 비교 재검증(현재는 synthetic self-test만
+   완료).
+
+---
+
 ## 264차 (완료 -- GPS positional reliability 폐기 확정, 사용자 결정) -- confidence 신호 4종 전부 결론, persistence만 최종 채택
 
 **Worker**: Claude

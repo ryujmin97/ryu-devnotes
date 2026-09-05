@@ -1,3 +1,62 @@
+## 265차 -- [구조검증 완료, NEEDS_VALIDATION] carrot_man.py 실제 코드 대조 -- apex_speed 소비지점 단일화 확인, confidence blend 삽입지점 확정, CONTINUITY_MATCH_TOLERANCE_M 10m(프로덕션)/15m(260차 스크립트) 불일치 발견
+
+**배경**: 264차가 확정한 "persistence(streak) 단독 confidence 공식"을
+실제로 적용하기 위해, 사용자가 승인한 "연속 가중치(blend)" 소비 방식을
+`carrot_man.py`의 실제 apex 후보 처리 경로에 대조.
+
+**결과**:
+1. `_route_cluster_continuity_step()`은 **단일 lock만 추적**한다(`new`
+   상태에서 `clusters[0]` 즉시 lock). 260차 `MultiTrackContinuity`(여러
+   후보 동시추적)는 분석 전용 확장이며 실제 프로덕션 구조와 다르다 --
+   confidence 설계 시 "여러 후보 중 blend 기준 선택" 문제는 프로덕션
+   구조상 해당 없음.
+2. `apex_speed`는 `target_ms = apex_speed / 3.6` **단 한 지점**(INERT
+   게이트/ACTIVE STEP2 공통)에서만 소비된다 -- confidence blend를
+   넣기에 최소변경(§27)으로 적합한 유일한 지점으로 확정:
+   `eff_apex_speed_kph = confidence*apex_speed + (1-confidence)*v_ego_kph`.
+3. **불일치**: `CONTINUITY_MATCH_TOLERANCE_M`이 프로덕션(`carrot_man.py`,
+   258차 HEAD, L178)은 **10.0m**인데, 260차 분석스크립트
+   (`sim_route_260_confidence_signals.py`, L63)는 **15.0m**을 사용한다
+   -- 서로 다른 값. 260차가 이 상수로 실측한 persistence streak 분포
+   (65개 track 중 36개(55%)가 streak=1, 6개만 streak 7~222까지 지속)가
+   실제 프로덕션 값(10m)으로 재실행하면 얼마나 달라지는지 **미확인**.
+   불일치 발생 시점(260차 스크립트 작성 당시 프로덕션 값이 15m였다가
+   이후 변경됐는지, 아니면 애초에 분석 스크립트가 다른 값을 임의
+   채택했는지)도 미확인.
+
+**265차 synthetic self-test(구조 검증, corpus 불필요)**: 신규
+`sim_route_265_confidence_target_blend.py` -- `confidence(streak) =
+1-exp(-(streak-1)/6.3)` 가설 공식으로 baseline(confidence 없음, 현재
+프로덕션과 동일) vs blend 버전을 비교.
+- 1프레임 단발 노이즈 후보(streak=1로 종료): baseline은 즉시 개입,
+  blend 버전은 confidence=0이라 전 구간 개입 없음(`out_speed=None`)
+  -- 노이즈 억제 효과 구조적으로 확인.
+- 지속 접근하는 실제 커브: blend 버전은 streak=1인 첫 프레임만 지연되고
+  이후 baseline과 사실상 동일한 out_speed로 수렴 -- 이유는
+  `required_decel`이 이미 `AutoNaviSpeedDecelRate`(1.0 m/s²) 상한을
+  크게 초과하는 조건이라 confidence로 target을 낮춰도 실제 인가
+  감속량은 상한에 그대로 clamp되기 때문. 즉 confidence는 "ACTIVE 게이트
+  진입 여부"에만 영향을 주고 일단 진입하면 제동 강도 자체는 거의 그대로
+  유지됨 -- 노이즈 억제와 실제 커브 제동력 유지가 동시에 성립하는
+  구조로 확인.
+
+**미해결(Claude 임의 판단, 사용자 확인 대기)**:
+- RELEASE 판정(`speed_reached`)을 confidence-blend된 값이 아니라 원래
+  `apex_speed` 기준으로 유지한 판단(blend 값을 쓰면 "confidence
+  낮을수록 쉽게 RELEASE"라는 원 의도와 무관한 부작용 우려)이 맞는지.
+- `CONTINUITY_MATCH_TOLERANCE_M` 10m/15m 불일치를 어떻게 처리할지(260차
+  실측 재검증 여부).
+
+**결론**: apex_speed blend 삽입지점 및 confidence 공식 형태는 구조적으로
+확정됐으나, 최종 채택 전에 위 2건의 사용자 확인이 필요하다. 확인 후
+`_route_cluster_continuity_step()` streak 필드 추가 + 실제
+`carrot_man.py` patch 작성으로 진행 예정.
+
+**Status**: `NEEDS_VALIDATION` (구조 self-test만 완료, 실제 corpus
+재검증 미실시, 실차 검증 미실시)
+
+---
+
 ## 264차 -- [결정 확정] GPS positional reliability 폐기 -- confidence 신호 4종 검증 완료, persistence 단독 최종 확정
 
 **배경**: 263차가 "미착수"(horizontalAccuracy 컬럼 부재)로 남긴 GPS
