@@ -21,6 +21,29 @@ CHANGELOG.md를 같이 갱신**한다 (세션 종료 체크리스트에 포함�
 
 ---
 
+## scan_route_far_apex_accel_freeze.py (246차 신규)
+**목적**: route apex가 원거리(150m 초과)에 있는데도 `desiredSpeed`가 `vEgo`에
+거의 고정돼(min() 승자=route, ceiling이 vEgo를 그대로 따라감) vCruise까지
+자유가속을 못 하는 "가속 억제(freeze)" 구간을 자동 탐지한다. 223/224차
+STEP2 감속식의 구조적 부작용(FINDINGS.md 246차 CRITICAL) 실측 확인용.
+**의존성**: `extract_log.py` 출력 CSV(`src`/`vEgo`/`vCruise`/`routeApexDist`/
+`routeApexSpeed`/`routeOutSpeed` 컬럼 필요, `--with-navi-paths` 불필요).
+**방법**: `src=='route' & apexDist>far_dist_m & (vCruise-vEgo_kph)>cruise_gap_kph
+& |routeOutSpeed-vEgo_kph|<ceiling_track_kph` 조건을 만족하는 연속 구간이
+`min_duration_s`(기본 2.0초) 이상이면 episode로 보고.
+**사용**:
+```bash
+python3 scan_route_far_apex_accel_freeze.py route.csv \
+    [--far-dist-m 150] [--cruise-gap-kph 15] \
+    [--ceiling-track-kph 2.0] [--min-duration-s 2.0]
+```
+**246차 실측 결과**: 사용자 업로드 dashcam 로그(11029행, device build=243차)에서
+6건 탐지(지속 2.25~5.06초, apexDist 210~500m) -- 가장 뚜렷한 사례는
+5.06초간 vEgo 5.6->20.0kph로 오르는 동안 desiredSpeed가 그대로 따라가며
+vCruise=70 대비 자유가속을 완전히 차단.
+
+---
+
 ## analyze_apex_identity_244.py (244차 신규)
 **목적**: `routeApexIdx` flicker가 "동일 물리적 apex의 index 표현만
 흔들리는 것"(Position-Identity 문제, CASE A)인지 "실제 후보(물리적

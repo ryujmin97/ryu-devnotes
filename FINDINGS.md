@@ -1,3 +1,51 @@
+## 246차 (CRITICAL) -- [체크포인트, 로그 확인 완료/코드 변경 없음] 원거리(150~500m) route apex 존재 시 desiredSpeed가 vEgo에 자기참조적으로 고정되어 vCruise까지 자유가속을 못 하는 "가속 억제(freeze)" 실측 확인 -- 223/224차 STEP2 감속식(`out=max(target, vEgo-decel*dt)`)의 구조적 부작용
+
+**배경**: 사용자가 실차 주행 중 "apex까지 거리가 멀리 남았는데도(HUD route= 표시가 10 이하) 차가 가속이 안 된다"고 보고. 직전 대화에서 Claude가 "eff_dist가 크면 required_decel도 작아 실제 감속량은 미미할 것"이라 추정했으나(§28 위반, 코드 미확인 상태의 추측) -- 사용자가 실제 드라이브 로그(dashcam zip, 10세그먼트, 2026-09-05 10:19~10:27)를 업로드해 재확인 요청.
+
+**검증 절차**: `check_device_build.py`로 device build 확인 -- `a70deea`(243차, dirty=True, 즉 242차 `ROUTE_SEVERITY_GATE_RATIO=0.90` patch 포함 상태로 추정) 확인. `extract_log.py --with-navi-paths`로 전체 10세그먼트(11029행) CSV 추출.
+
+**핵심 실측 근거 (t=1564.78~1569.84, seg 1 부근)**:
+```
+t=1564.238  vEgo=4.9kph   src=cam    desiredSpeed=94   routeCandidateCount=0   (자유가속 중)
+t=1564.783  vEgo=5.6kph   src=route  desiredSpeed=5    apexDist=480m  apexSpeed=5.0kph  <- 여기서 급락
+t=1566.235  vEgo=7.2kph   src=route  desiredSpeed=7    apexDist=480m  apexSpeed=5.0kph
+t=1568.087  vEgo=7.5kph   src=route  desiredSpeed=7    apexDist=480m  apexSpeed=5.0kph  gasPressed=True(운전자가 가속페달 밟는 중)
+t=1569.838  vEgo=20.0kph  src=route  desiredSpeed=19   apexDist=470m  apexSpeed=5.0kph
+```
+vCruise=70km/h(운전자 설정 목표)인데, **apex까지 470~480m나 남아있고 목표속도도 5km/h(=lookup 테이블 최저값, 실제 급커브 여부는 별도 확인 필요)인 채로 5.1초 동안 desiredSpeed가 vEgo를 거의 그대로 따라가며(5.6→7.5→20.0kph) 93~94kph로의 자유가속을 완전히 막았다.** 같은 로그에서 총 6건의 유사 episode(자동 탐지, 아래 참고)가 확인됨 -- 최대 지속시간 5.06초, apex_dist는 전부 210~500m 구간.
+
+**근본 원인 (코드 확인, `carrot_man.py` L1112-1120 `carrot_navi_route()`)**:
+```python
+required_decel_mss = (v_ego_ms ** 2 - target_ms ** 2) / (2.0 * eff_dist)
+applied_decel_mss = min(max(required_decel_mss, 0.0), autoNaviSpeedDecelRate)
+out_speed_ms = max(target_ms, v_ego_ms - applied_decel_mss * ROUTE_SPEED_LOOP_DT)
+```
+이 STEP2 감속식(223차 도입, 224차 보정)은 **매 프레임 "현재 실측 vEgo에서 이번 프레임분 감속량만 뺀 값"을 ceiling으로 계산**한다. `PARAMS_REGISTRY.md`의 `route_ceiling_kph` 행(223차 SUPERSEDED)에 이미 "새 감속식이 `out<=vEgo`를 수식 구조 자체로 보장한다"고 명시돼 있는데, 이 설계 의도(안전 불변식) 자체가 부작용의 원인이다 -- eff_dist가 아무리 커서 required_decel이 사실상 0에 가까워도 `out_speed_ms`는 **"vEgo보다 살짝 낮거나 같은 값"으로만 계산되지, "이 거리에서 안전하게 낼 수 있는 최대 속도"로는 계산되지 않는다.** 그 결과:
+1. vCruise/cam이 원하는 desiredSpeed(예: 93kph)가 min() arbitration에서 route ceiling(≈vEgo)에 막혀 절대 반영되지 않는다.
+2. vEgo가 오르는 유일한 경로는 gas/모델 등 다른 소스가 미세하게 밀어올리는 것뿐이고, route ceiling은 그 오른 vEgo를 다음 프레임에 그대로 다시 따라가며 재차 낮게 묶는다 -- **자기참조적 고착(ratchet)**.
+3. 이 패턴은 apex가 실제로 급커브든(정상 동작) 노이즈/오탐(244차 CRITICAL 참고)이든 **거리와 무관하게** 발생한다 -- "얼마나 멀리 있는 커브인가"를 반영하는 것은 `required_decel`(감속 "속도")뿐이고, "지금 당장 얼마나 빨리 가도 되는가"(즉 위치 기반 독립적 상한)라는 개념 자체가 현재 식에 없다.
+
+**설계 이력과의 연결**: `carrot_man.py` L905-910 주석에 160차(223차 이전) 구버전 설계가 "v_ego는 카메라 공식과 마찬가지로 아예 쓰지 않는다(거리만으로 결정)"고 명시돼 있었음 -- 즉 구버전은 거리 기반 독립적 안전속도(`calculate_current_speed`류)를 썼으나, 223차 STEP2가 이를 vEgo-참조 감속식으로 교체하면서 이번에 확인된 자기참조 고착이 새로 생겼을 가능성이 높다. 또한 `PARAMS_REGISTRY.md`에 기록된 149/150차·198차 "vEgo/decel 공식 anti-pattern"(vEgo나 필요감속도를 target²+2×a×d류 공식에 직접 대입하지 말 것 -- NEGATIVE로 기록됨) 경고와 본질적으로 동일한 패턴이 223차 STEP2 재설계에 다시 들어간 것으로 보인다.
+
+**자동 탐지 (신규 toolkit `scan_route_far_apex_accel_freeze.py`, 246차)**: src=='route' & apexDist>150m & (vCruise-vEgo)>15kph & |routeOutSpeed-vEgo|<2kph 조건을 min 2초 이상 연속 만족하는 구간을 탐지. 업로드 로그 전체(11029행)에서 6건 확인 (t=1547.0/1564.8/1570.3/1576.8/1693.2/1702.1, 지속 2.25~5.06초, apexDist 210~500m).
+
+**미해결(다음 세션 코드수정 전 결정 필요)**:
+1. `apexSpeed=5.0`(lookup 최저값)으로 찍힌 지점들이 실제 도로 지오메트리상 진짜 급커브인지, 아니면 244차가 확인한 것과 유사한 원거리 노이즈/오탐인지 -- naviPaths 폴리라인 직접 대조 필요(직전 대화에서 다른 로그로 시도했던 방식과 동일).
+2. 수정 방향 결정 필요 -- (a) 160차류 거리 기반 독립 안전속도 공식으로 회귀, (b) 현재 vEgo-참조 식은 유지하되 eff_dist가 충분히 클 때는 route가 min() 후보에서 사실상 열리도록(예: `required_decel`이 임계 이하면 out_speed=vCruise/road_limit 등 상위 소스를 그대로 통과) 별도 분기 추가, (c) 그 외 대안. 사용자 결정 대기 -- 코드 수정 전 시뮬레이션 검증(§simulate before patch) 필수.
+
+**검증**: 실측 로그 직접 대조(11029행) + 신규 toolkit 스크립트(`py_compile` PASS, 동일 로그 재실행으로 6건 자동탐지 일치 확인). **ryu 코드 변경 없음(분석 전용). 실차 검증: 해당 없음(이미 실제 주행에서 발생한 현상을 사후 로그로 확인한 것).**
+
+**전달 파일**: `scan_route_far_apex_accel_freeze.py`(신규, toolkit, patch), `toolkit/README.md`/`toolkit/CHANGELOG.md`(246차 섹션, patch), 이 FINDINGS.md 항목(patch), WIP.md 246차 항목(patch).
+
+**다음 작업**:
+1. naviPaths 폴리라인 대조로 위 6개 episode의 apex_speed=5.0 지점이 실제 급커브인지 노이즈인지 판정.
+2. 위 수정 방향 (a)/(b)/(c) 중 사용자 결정.
+3. 결정된 방향으로 `toolkit/`에 시뮬레이션 스크립트 작성 -> 합성 케이스 PASS 확인 -> `ryu` patch 생성 -> 실차 검증.
+
+**관련**: 223/224차(STEP2 감속식 도입), 225차(`out<=vEgo` 불변식 보정 이력), 244차(원거리 노이즈 후보 CRITICAL), 149/150차·198차(vEgo/decel 공식 anti-pattern, NEGATIVE).
+
+---
+
 ## 244차 (CRITICAL) -- [체크포인트, 로그 확인 완료/코드 변경 없음] routeApexIdx flicker Position-Identity(CASE A) vs 실제 후보전환(CASE B) 판정 -- CASE B가 압도적, 터널 구간은 road_limit_speed 근접 노이즈 후보 산발 승격/탈락으로 확인. 242차 0.90 gate가 이 터널 flicker를 재유발할 위험 신규 발견
 
 **배경**: Claude/ChatGPT(지선생) 교대 설계 논의(2026-09-05)에서 "route apex flicker가 index 표현만 흔들리는 것(position-identity 문제)인지, 실제 물리적 후보가 바뀌는 것인지"를 기존 로그로 먼저 판별하기로 합의. `analyze_apex_identity_244.py`(신규, toolkit) 작성 -- `routeApexIdx/Dist/Speed` + `routeCandidate0~2` 텔레메트리로 프레임간 CASE A(idx만 변화)/CASE B(idx·dist·speed 모두 변화)/CASE C(idx 안정, dist만 이상) 자동 분류.

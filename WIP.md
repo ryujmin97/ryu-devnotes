@@ -1,3 +1,44 @@
+## 246차 (진행 중 -- 원인 분석 완료, 코드 수정 전, 사용자 결정 대기) -- 원거리 route apex로 인한 가속억제(freeze) 실측 확인
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu`(변경 없음, HEAD `2cfbcf4`=245차 patch 미적용 상태) / `ryujmin97/ryu-devnotes`
+
+**Branch**: `c3-ms-dev` / `main`
+
+**Base commit (ryu)**: `2cfbcf4f9a1e3a0697c033be53ade0e084214ca3`(245차, 재클론으로 재확인)
+
+**devnotes Base commit**: `7c81fe6`(245차, 재클론으로 재확인)
+
+**배경**: 사용자가 실차 주행 중 "apex까지 거리가 멀리 남았는데도 라우트가 10 이하로 뜨고 차가 가속이 안 된다"고 보고. 사용자가 실제 드라이브 dashcam zip(10세그먼트, 2026-09-05 10:19~10:27, device build=`a70deea`/243차 dirty=True)을 업로드.
+
+**작업**:
+1. §3/§29 원칙대로 `ryu`/`ryu-devnotes` 재클론, base commit 재확인.
+2. `check_device_build.py`로 업로드 로그의 device build 확인(243차, dirty=True).
+3. `extract_log.py --with-navi-paths`로 전체 세그먼트 CSV 추출(11029행).
+4. `carrot_man.py::carrot_navi_route()` STEP2 감속식(L1112-1120) 코드 직접 확인 + 실측 로그 프레임별 대조.
+5. **신규 toolkit `scan_route_far_apex_accel_freeze.py` 작성** -- src=='route' & apexDist>150m & (vCruise-vEgo)>15kph & ceiling이 vEgo에 근접(<2kph) 고정된 구간을 2초 이상 연속 조건으로 자동 탐지.
+6. 자동 탐지 6건 모두 수동 프레임 대조로 재확인(가장 뚜렷한 사례: t=1564.78~1569.84, apexDist 480→470m 고정된 채 vCruise=70인데 desiredSpeed가 vEgo(5.6→20.0kph)를 그대로 따라가며 5.06초간 자유가속 차단).
+
+**결과**: FINDINGS.md 246차(CRITICAL) 참고. 핵심: 223/224차 STEP2 감속식(`out=max(target, vEgo-decel*dt)`)이 "출력<=vEgo 항상 보장"을 목적으로 설계됐으나(225차/PARAMS_REGISTRY `route_ceiling_kph` 참고), 그 부작용으로 eff_dist가 커서 required_decel이 사실상 0이어도 ceiling이 vEgo에 자기참조적으로 묶여(ratchet) vCruise/cam이 원하는 자유가속을 막는다. 149/150차·198차 "vEgo/decel 공식 anti-pattern"(NEGATIVE 기록)과 본질적으로 동일한 패턴이 223차 재설계에 재도입된 것으로 추정.
+
+**완료**: 위 1~6번 + FINDINGS.md 246차(CRITICAL) 기록 + toolkit README/CHANGELOG 갱신.
+
+**미완료**:
+- apex_speed=5.0으로 찍힌 지점들이 실제 급커브 지오메트리인지 원거리 노이즈/오탐(244차류)인지 naviPaths 폴리라인 대조로 미확인.
+- 수정 방향 결정 안 됨: (a) 160차류 거리기반 독립 안전속도 공식으로 회귀 vs (b) 현재 식 유지하되 required_decel이 임계 이하일 때 route를 사실상 개방하는 분기 추가 vs (c) 기타. **사용자 결정 필요, 코드 수정 착수 전 필수(§simulate before patch).**
+- ryu 코드 변경 없음(이번 세션은 분석 전용).
+
+**검증**: 실측 로그 직접 대조(11029행) + 신규 스크립트 `py_compile` PASS + 동일 로그 재실행 일치 확인. **실차 검증: 해당 없음(이미 발생한 실차 현상의 사후 로그 확인).**
+
+**전달 파일**: `scan_route_far_apex_accel_freeze.py`(신규, toolkit, patch), `toolkit/README.md`/`toolkit/CHANGELOG.md`(246차 섹션, patch), `FINDINGS.md`(246차 CRITICAL, patch), 이 WIP.md 항목(patch). ryu 코드 변경 없음.
+
+**다음 작업**:
+1. naviPaths 폴리라인 대조로 apex_speed=5.0 지점들의 실제 급커브 여부 판정.
+2. 수정 방향 (a)/(b)/(c) 사용자 결정.
+3. 결정된 방향 시뮬레이션 검증 -> `ryu` patch -> 실차 검증.
+
+---
 ## 245차 (완료 -- 코드 패치+정적검증+diff-0 확인 완료, 로그 시뮬레이션/실차 검증 미실시, patch 전달 완료) -- Route Apex 후보소실 RELEASE debounce로 flicker 완화
 
 **Worker**: Claude

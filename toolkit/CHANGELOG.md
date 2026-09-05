@@ -3,6 +3,15 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+## 2026-09-05 (246차, 체크포인트)
+- `scan_route_far_apex_accel_freeze.py`: 신규 -- 원거리(150m 초과)
+  route apex로 인해 desiredSpeed가 vEgo에 자기참조적으로 고정돼
+  vCruise까지 자유가속을 못 하는 "가속 억제" 구간 자동 탐지. 사용자
+  업로드 실차 로그(11029행)에서 6건 확인(최대 5.06초 지속). 근본원인은
+  223/224차 STEP2 감속식(`out=max(target, vEgo-decel*dt)`)의 구조적
+  부작용으로 FINDINGS.md 246차(CRITICAL)에 기록. ryu 코드 변경 없음,
+  수정 방향은 사용자 결정 대기.
+
 ## 2026-09-05 (244차, 체크포인트)
 - `analyze_apex_identity_244.py`: 신규 -- `routeApexIdx` flicker의
   Position-Identity(CASE A) vs 실제 후보전환(CASE B) vs 거리이상(CASE C)
