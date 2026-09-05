@@ -1,3 +1,106 @@
+## 271차 (완료 -- A_CHANGE_COST 실측 오픈루프 A/B 완료, POSITIVE) -- 269차 다음 작업 3번(MPC A_CHANGE_COST 완화 로직 실측 검증) 착수, 신규 corpus로 177차 결론 실측 재확인
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu`(HEAD `0c03f7d0e`, 코드 변경 없음 -- 이번
+세션은 시뮬레이션/분석만 수행) / `ryu-devnotes`(HEAD `0164ced`=270차
+계속, 이 항목 추가 전)
+
+**Branch**: `c3-ms-dev` / `main`
+
+**Base commit**: `0c03f7d0e`(§3/§7에 따라 세션 시작 시 재확인 -- 컨테이너가
+리셋된 채로 이어받아 재클론, 이전 (중단된) 세션과 동일 commit임을 확인)
+
+**배경**: 이전 세션이 도구 호출 한도로 중단됐던 두 작업을 이어받음.
+(1) `perf_route_269_curvature_batch_optimize.py`(269차/270차 Phase1
+route 곡률 최적화 패치)의 실 corpus 검증, (2) 269차가 발굴한 A_CHANGE_COST
+완화 게이트(177차 도입)의 실측 A/B. **컨테이너 리셋으로 이전 세션의
+클론/빌드/추출 CSV가 전부 사라져 재구성 후 진행**. §33에 따라 재클론 시
+GitHub 현재 HEAD를 먼저 확인 -- `ryu` HEAD가 이전 중단 세션 때와 동일한
+`0c03f7d0e`(270차 2번, carrot.cc HUD 캐싱, 이미 push 완료된 상태)임을
+확인해 다른 작업자와의 충돌 없음을 확인 후 진행.
+
+**한 일**:
+1. `0000039a--7b602ffb85` seg12-16 zip 재추출(`extract_log.py
+   --with-navi-paths`, 5999행) -- repo commit `0c03f7d0ece6` 일치 확인.
+2. **(1) 269차 Phase1 route 곡률 최적화 실 corpus 검증**: naviPaths가
+   있는 실측 3649프레임 전부에서 `baseline_curvature_calc()`(원본)와
+   `optimized_curvature_calc()`(269/270차 패치)의 distances/curvatures/
+   speeds를 프레임별로 직접 대조 -- **mismatch 0건, 전체 일치**.
+   270차 WIP가 "실 corpus 기준 검증 미실시"로 남긴 공백을 해소.
+3. **(2) A_CHANGE_COST 완화 게이트 실측 A/B**: 178차/177차가 요구했던
+   "리드 없는 우회전 구간" 로그를 이 corpus에서 신규 발굴 -- t=2117.0
+   ~2127.0, leadStatus 전구간 False, src가 route→vturn→route로 이어지는
+   실제 연속 감속(vEgo 21kph→12kph, S자 우회전 구간, steeringAngleDeg
+   -0.6°→-34°). 이 구간은 176차/177차가 실측 재검증에 썼던 route
+   `6310bba9b8`(직진 cruise 감속)와 다른 새 corpus·다른 상황(곡선
+   감속)이라는 점에서 177차 패치의 일반화 여부를 보여주는 독립적 근거.
+4. `sim_acados_causeB_270_real_replay.py` 신규 작성(176차
+   `sim_acados_causeB_real_replay.py` 기반, 3가지 수정 -- ①
+   `V_CRUISE_COL`을 `liveRouteSpeed`(route 전용) 대신 `desiredSpeed`
+   (carrotMan 최종 arbitrated target, route/vturn 공통)로 변경. 이
+   구간은 route와 vturn이 번갈아 타겟을 arbitrate하므로 liveRouteSpeed
+   단독으로는 vturn 구간 실제 바인딩 타겟과 어긋남을 실측으로 확인.
+   ② 177차 이후 `longitudinal_planner.py`가 매 프레임
+   `set_weights()->update()` 순으로 호출하도록 바뀐 현재 구조를
+   반영(176차 스크립트는 구조 변경 이전 버전, `set_weights()`를 루프
+   밖에서 1회만 호출). ③ 오픈루프(매 프레임 실측 vEgo/aEgo 강제 리셋)
+   모드 신규 추가 -- 폐루프(자기 적분)는 176차가 이미 문서화한 대로
+   FakeCarrot 근사(상수 t_follow/jerk_factor 등) 누적오차로 절대치가
+   실측과 크게 벌어짐(이번 실행에서도 재확인: t=2126.8s baseline sim
+   최종 vEgo 52.3kph vs 실측 44.8kph -- 7.5kph 괴리)을 보완.
+5. acados 실솔버 빌드(`build_acados_long_mpc.sh`) 후 baseline(200 고정,
+   177차 이전 재현) vs 현재 프로덕션(완화 게이트 활성) 오픈루프 A/B 실행.
+
+**결과(POSITIVE, 신규 corpus 실측)**:
+- **오픈루프 solver 예측(a_pred_next) vs 실측(a_actual_next) 오차**:
+  baseline(200 고정) 평균오차 **+0.1122 m/s², RMSE 0.1588** / 현재
+  프로덕션(완화 게이트) 평균오차 **+0.0619 m/s², RMSE 0.1369**.
+  **현재 프로덕션이 실측 감속 궤적에 더 가깝게 예측**(평균오차 약
+  45% 감소, RMSE 약 14% 감소) -- 177차 패치가 176차 검증 corpus(직진
+  cruise)와 다른 신규 corpus(곡선 route→vturn 감속)에서도 일관되게
+  실측 근접도를 개선함을 확인.
+- baseline과 현재 프로덕션 간 `a_pred_next` 차이가 200프레임 중
+  186프레임(93%)에서 발생(평균 차이 +0.0504 m/s², 최대 0.1856 m/s²)
+  -- 이 구간 전반에서 완화 게이트가 실제로 발동해 지속적으로 다른
+  (더 빠른) 감속 명령을 냈다는 뜻.
+- 폐루프 결과도 방향성은 동일(현재 프로덕션이 baseline보다 구간 끝
+  vEgo-target gap이 4.43kph vs 5.29kph로 더 작음)하나, 위 한계로
+  절대치 신뢰도는 오픈루프보다 낮음 -- 참고용.
+
+**검증**:
+- 정적 분석: 해당 없음(기존 코드 무변경, 시뮬레이션/분석만 수행).
+- 로그 검증: 실측 corpus(5999행) 기준 오픈루프 프레임별 대조 완료(위
+  참고).
+- 시뮬레이션: acados 실솔버(합성 아님, 실제 배포 솔버) 사용.
+- **실차 검증: 미실시**(이번 세션은 코드 변경이 없어 실차 적용 대상
+  자체가 없음 -- 177차 패치는 이미 배포된 상태로, 이 세션은 그 배포된
+  로직의 실측 재검증만 수행).
+
+**Devnotes**: `toolkit/sim_acados_causeB_270_real_replay.py` 신규
+등록(`README.md`/`CHANGELOG.md` 갱신), FINDINGS.md 177차 항목에 이번
+실측 근거 보강(신규 결론 항목 아님 -- 기존 결론 재확인+corpus 다양화).
+
+**미확인/미해결**:
+- 이 route(`0000039a--7b602ffb85`)와 176차 route(`6310bba9b8`) 외
+  3번째 독립 corpus로 재확인하면 더 견고하겠으나 현재 미보관(§23) --
+  필요 시 재업로드.
+- 폐루프 절대치 괴리(FakeCarrot 근사 누적오차) 원인은 176차 이후
+  계속 미해결로 남아있음(오픈루프로 우회했을 뿐, 폐루프 자체의 근본
+  개선은 이번 세션 범위 밖).
+
+**다음 작업**:
+1. 234차 work plan ②③단계(공간 안정성, apex 연속성) — 여전히 미착수로
+   남아있음(235차부터 이월).
+2. 필요 시 3번째 독립 corpus로 A_CHANGE_COST 검증 추가.
+3. 269차가 남긴 나머지 후보(routeCandidate 배열 CSV화 등) 우선순위
+   사용자 확인.
+
+**패치**: 코드 패치 없음(devnotes 전용 갱신) -- `ryu-devnotes` 변경분
+patch 파일로 전달.
+
+---
+
 ## 270차 계속 (완료 -- carrot.cc wrap_name_lines 캐싱 패치 작성, 컴파일/실차 검증 전) -- 269차 다음 작업 2번 착수
 
 **Worker**: Claude

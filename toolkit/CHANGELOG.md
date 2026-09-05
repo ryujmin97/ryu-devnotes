@@ -3,6 +3,18 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+## 2026-09-06 (271차)
+- `sim_acados_causeB_270_real_replay.py` 신규: 176차/177차 A_CHANGE_COST
+  route_decel_rate 완화 게이트를 신규 corpus(`0000039a--7b602ffb85`
+  seg12-16, 곡선 route→vturn 감속, t=2117~2127)로 실측 A/B. 오픈루프
+  모드 신규 추가(폐루프 FakeCarrot 누적오차 한계 보완). 결과:
+  baseline(200고정) 평균오차 +0.1122 m/s² vs 현재프로덕션 +0.0619
+  m/s²(약 45% 개선) -- 176차(직진 corpus)에 이어 곡선 corpus에서도
+  패치 효과 재확인(POSITIVE). 상세: WIP.md/FINDINGS.md 271차.
+- `perf_route_269_curvature_batch_optimize.py`: 269차가 "실 corpus
+  미검증"으로 남긴 공백을 271차가 해소 -- 실측 3649프레임 전부 mismatch
+  0건. 상세: README.md 해당 섹션, WIP.md 271차.
+
 ## 2026-09-06 (269차)
 - `perf_route_269_curvature_batch_optimize.py` 신규: `carrot_man.py::
   carrot_navi_route()`의 macro/fine 곡률 이중루프(269차 체크포인트가

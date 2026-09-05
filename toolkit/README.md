@@ -21,7 +21,53 @@ CHANGELOG.md를 같이 갱신**한다 (세션 종료 체크리스트에 포함�
 
 ---
 
-## perf_route_269_curvature_batch_optimize.py (269차 신규, 패치 적용 완료 -- 실 corpus/실차 검증 전)
+## sim_acados_causeB_270_real_replay.py (271차 신규, 실측 오픈루프 A/B 완료 -- POSITIVE)
+**목적**: 176차/177차가 확정한 A_CHANGE_COST route_decel_rate 완화 게이트를
+176차 검증 corpus(`6310bba9b8`, 직진 cruise 감속)와 다른 신규 corpus
+(`0000039a--7b602ffb85` seg12-16, 곡선 route→vturn 연속 감속)로
+재검증한다. `sim_acados_causeB_real_replay.py`(176차) 대비 3가지 수정:
+① `V_CRUISE_COL`을 `desiredSpeed`(carrotMan 최종 arbitrated target,
+route/vturn 공통)로 변경 -- 이 구간은 route/vturn이 번갈아 타겟을
+arbitrate해 `liveRouteSpeed`(route 전용) 단독으로는 vturn 구간 실제
+타겟과 어긋남. ② 177차 이후 `longitudinal_planner.py`의 매 프레임
+`set_weights()->update()` 호출순서를 반영(176차 스크립트는 구조 변경
+이전 버전). ③ 오픈루프(매 프레임 실측 vEgo/aEgo 강제 리셋) 모드 신규
+추가 -- 폐루프(자기 적분)의 FakeCarrot 근사 누적오차 한계(176차가 이미
+문서화, 이번 세션도 재확인: 구간 끝 vEgo sim-실측 괴리 7.5kph)를 보완.
+
+**주요 함수**: `run_openloop(rows, v_cruise_col, force_baseline, label)`
+-- 매 프레임 `mpc.set_cur_state(실측 vEgo, 실측 aEgo)`로 리셋 후
+`update()` 1회 -> `a_solution[1]`을 실측 다음 프레임 aEgo와 비교.
+`run_closedloop(...)` -- 176차와 동일 철학(참고용, 절대치 신뢰 낮음).
+`force_baseline=True`면 매 프레임 `set_weights()` 직전 `a_change_cost`를
+200으로 강제(177차 이전 재현, production 코드는 무변경).
+
+**결과(271차, 실측 corpus t=2117~2127, 200프레임)**: 오픈루프
+solver 예측 vs 실측 오차 -- baseline(200 고정) 평균 +0.1122 m/s²
+(RMSE 0.1588) vs 현재 프로덕션(완화 게이트) 평균 +0.0619 m/s²
+(RMSE 0.1369), 약 45%/14% 개선. 200프레임 중 186프레임(93%)에서
+baseline과 다른 a_pred_next 발생. 176차(직진 감속)에 이어 곡선 감속
+corpus에서도 177차 패치가 실측에 더 가깝게 개선됨을 재확인
+(FINDINGS.md 271차 참고).
+
+**한계**: 폐루프 절대치는 여전히 신뢰 낮음(FakeCarrot 근사, 176차와
+동일 한계). 실차 검증 없음(오프라인 재계산 한정). corpus 2건(직진/
+곡선)으로만 확인 -- 3번째 독립 corpus 재검증 권장.
+
+**의존성**: `acados_stub_prelude.py` + `build_acados_long_mpc.sh`로 빌드된
+실 acados 솔버(합성 아님). `extract_log.py` 기본 컬럼(leadStatus/
+leadDRel 등)+`desiredSpeed`. naviPaths 불필요.
+
+**사용**:
+```bash
+bash build_acados_long_mpc.sh
+export LD_LIBRARY_PATH=<ryu>/third_party/acados/x86_64/lib
+export PYTHONPATH=<ryu>
+python3 sim_acados_causeB_270_real_replay.py <route.csv> \
+    --t-start 2117.0 --t-end 2127.0 [--mode openloop|closedloop|both]
+```
+
+## perf_route_269_curvature_batch_optimize.py (269차 신규, 패치 적용 완료, 271차 실 corpus 검증 PASS)
 **목적**: `carrot_man.py::carrot_navi_route()`의 macro(sample=4)/fine
 (`ROUTE_CURVATURE_FINE_SAMPLE=1`) 곡률 이중루프에 269차 체크포인트가
 코드추적으로 확정한 3개 CPU 최적화 후보(np.interp 스칼라 호출
@@ -51,6 +97,14 @@ apex_idx/apex_dist/apex_speed/apex_mode/apex_streak/out_speed까지의
 세션 컨테이너에 route CSV 없어 미실시, §23 -- 대용량 CSV는 Git 미커밋).
 타이밍 수치는 클라우드 컨테이너 CPU 기준 상대 비교이며 C3 임베디드
 디바이스 절대 절감치가 아니다. **실차 검증: 미실시.**
+
+**[271차 추가] 실 corpus 검증 완료**: `0000039a--7b602ffb85` seg12-16
+(`--with-navi-paths` 5999행, naviPaths 있는 3649프레임)으로
+`baseline_curvature_calc()`와 `optimized_curvature_calc()`를 프레임별
+직접 대조 -- **distances/curvatures/speeds 완전 일치, mismatch 0건**.
+위 한계로 남아있던 "실 corpus 미검증" 공백 해소(apex_idx 등 다운스트림
+동일성까지는 여전히 미실시, `replay_route_237_vs_baseline.py` 방식
+A/B는 별도 필요).
 
 **사용**:
 ```

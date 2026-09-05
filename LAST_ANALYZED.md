@@ -1,3 +1,20 @@
+## c3-ms-dev (271차, A_CHANGE_COST 완화 게이트 실측 오픈루프 A/B + 269차 route 곡률 패치 실 corpus 검증)
+- last_analyzed_commit: `0c03f7d0e`(270차 2번=carrot.cc HUD 캐싱, ryu -- 코드 변경 없음, 분석/시뮬레이션만 수행)
+- devnotes base: `0164ced`(270차 계속, 이 항목 추가 전)
+- date: 2026-09-06 (271차)
+- 분석 대상: `0000039a--7b602ffb85` seg12-16(5999행, `--with-navi-paths`).
+  (1) `perf_route_269_curvature_batch_optimize.py`의 baseline/optimized
+  곡률 계산을 실측 naviPaths 3649프레임 전부 대조. (2) t=2117~2127
+  구간(leadStatus 전구간 False, route→vturn→route 연속 곡선 감속)으로
+  `long_mpc.py` A_CHANGE_COST route_decel_rate 완화 게이트를 acados
+  실솔버 오픈루프 A/B.
+- note: (1) mismatch 0건, 269차 Phase1 패치의 실 corpus 등가성 확인.
+  (2) 완화 게이트가 baseline(200고정) 대비 실측 감속 궤적에 더 가깝게
+  예측(평균오차 45%/RMSE 14% 개선) -- 176차(직진 corpus)와 다른 곡선
+  corpus에서도 POSITIVE 재확인. 상세: WIP.md/FINDINGS.md 271차.
+- next: 234차 work plan ②③단계(공간 안정성/apex 연속성) 착수 여부 결정,
+  또는 269차가 남긴 나머지 CPU 최적화 후보 우선순위 결정.
+
 ## c3-ms-dev (264차, GPS positional reliability 폐기 확정 -- 사용자 결정, 코드/toolkit 변경 없음)
 - last_analyzed_commit: `109f6816`(258차, ryu — 드리프트 없음, 변경 없음)
 - devnotes base: `9627548`(263차)
