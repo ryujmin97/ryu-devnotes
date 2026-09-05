@@ -1,3 +1,109 @@
+## 259차 (체크포인트 -- 설계 방향 확정, 코드/시뮬레이션 착수 전, 원본 corpus 재업로드 대기) -- Apex 후보 선정을 "최근접"에서 "confidence 기반"으로 재설계하는 방향 확정
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu`(HEAD `109f6816`=258차, 변경 없음) /
+`ryujmin97/ryu-devnotes`(HEAD `0df532b`=258차, 이 항목 추가 전)
+
+**Branch**: `c3-ms-dev` / `main`
+
+**Base commit (ryu)**: `109f68160bad1a3514627fdc3d9a84f9ed8ac83e`
+
+**devnotes Base commit**: `0df532b78aa663a839ec00439a9baec40c34f19d`
+
+**배경**: Master가 여러 apex 후보 중 최초 anchor를 "가장 가까운 것"이 아니라
+"실제 커브일 확률(confidence)이 가장 높은 것"으로 선정하자는 방향을 제시.
+이번 세션은 코드 변경 없이 (1) 기존 apex 선정/추적 구조를 실제 코드로
+재확인하고, (2) Master가 제시한 INERT/ANCHOR확정/ACTIVE/RELEASE 상태머신
+설계가 기존 구조와 얼마나 일치하는지 대조하고, (3) 변경이 필요한 지점을
+최소범위로 좁히는 데 집중.
+
+**한 일**:
+1. `carrot_man.py` 재확인(HEAD `109f6816`) -- §33 원칙에 따라 GitHub
+   실제 상태 우선 확인 중, **devnotes 드리프트 발견**: 258차 WIP 항목은
+   "`ryu` patch 로컬 commit만, 사용자 push 전"이라 기록했으나 실제
+   GitHub HEAD는 이미 `109f6816`(258차 커밋 메시지)로 push되어 있음.
+   258차 patch가 건드린 범위(L1121-1152, INERT/ACTIVE 분기)는 이번
+   세션 논의(apex 후보 선정, stage0-3)와 겹치지 않아 이번 결론에는
+   영향 없음 -- 드리프트 자체는 보고만 하고 별도 정리는 보류.
+2. apex 후보 선정 파이프라인을 라인 단위로 재확인:
+   - Stage0(거리필터, L1010): `speeds[k] < road_limit_speed`, 거리
+     오름차순.
+   - Stage2(공간클러스터링, `route_find_clusters` L377-389):
+     gap<=`ROUTE_CLUSTER_MAX_GAP_M`(40m), 최소
+     `ROUTE_CLUSTER_MIN_POINTS`(2)점 이상만 유효 클러스터.
+   - Stage3(`_route_cluster_continuity_step`, L654-719): locked apex
+     있으면 예측매칭(`matched`)/미스 3프레임까지 hold(`held`,
+     `ROUTE_APEX_MISS_TOLERANCE_FRAMES=3`)/lock 없으면 `clusters[0]`
+     (최근접)을 그대로 선택(`new`, L712-717) -- **이 최근접 선택 로직이
+     이번 재설계의 유일한 변경 대상**.
+3. Master가 제시한 INERT/ANCHOR/ACTIVE/RELEASE 상태머신을 기존 코드와
+   1:1 대조 -- ACTIVE 진입(257/258차 거리기반 게이트, L1157~)이 anchor를
+   재선정하지 않고 continuity_step이 이미 반환한 apex를 그대로 쓰는 점,
+   RELEASE 조건(`vEgo<=target*1.1` OR `apex_dist<=20m`,
+   `ROUTE_ACTIVE_RELEASE_MARGIN_RATIO=1.1`/`ROUTE_RELEASE_DIST_M=20.0`,
+   L1086-1093)과 2초 hold(`ROUTE_RELEASE_HOLD_S=2.0`, RELEASE 후 이전
+   anchor 이어서 추적 안 함, L793-796) 전부 Master 설계와 상수값까지
+   정확히 일치함을 확인. 즉 상태머신 골격 자체는 이미 구현되어 있고,
+   Stage3의 `new` 분기(L712-717) confidence화 하나만 필요.
+4. Master가 추가로 명확화: (a) Stage2 클러스터링(40m/2점 게이트)은 그대로
+   유지, confidence는 Stage3에서만 적용. (b) "600m 전체에서 confidence
+   최고" 전역탐색이 아니라, 거리(어느 구간을 먼저 처리할지)와 confidence
+   (그 후보가 진짜 apex일 가능성)의 역할을 분리 -- 179차가 고쳤던
+   "멀지만 급한 커브가 가깝지만 완만한 커브를 밀어내는 문제" 재발 방지.
+   (c) ACTIVE 진입 후에는 confidence를 재계산해도 anchor를 갈아타지
+   않음(다른 후보가 더 높은 confidence를 얻어도 RELEASE 전까지 무시) --
+   이미 3번에서 확인한 기존 구조(ACTIVE는 continuity 결과만 소비)와
+   일치.
+5. confidence 신호 후보 4가지를 Master가 확정: cluster persistence(프레임
+   지속성), curvature consistency(곡률 부호 일관성), speed-drop
+   strength(감속 심각도), GPS positional reliability. 기존 코드에서
+   `curvatures[]`/`speeds[]`(L906-908)는 이미 계산 중이고,
+   `horizontalAccuracy`(cereal/log.capnp L426)는 존재하나 apex 로직에서
+   미사용 확인. `radard.py`의 `VisionTrack` tentative/confirmed
+   cnt+prob 승격 구조(L425-441, L591, 58/60/87차)를 프레임 지속성 신호
+   설계의 기존 참고 아키텍처로 지목(§21).
+6. 158/159차(명시적 히스테리시스 다상태 설계, 실측 악화로 폐기) 전례를
+   근거로, 4개 신호를 한 번에 합치지 않고 **개별로 먼저 검증** 후
+   조합하는 순서를 제안, Master 동의.
+7. 검증용 corpus 우선순위 결정: 1순위 `0000039a--7b602ffb85`(seg12-16,
+   234차/244차 원본 -- 250차가 실측 확인한 `routeCandidateCount>=2`
+   프레임 다수 존재하는 유일한 known-good 터널 corpus, WIP.md 250차
+   L713 참고), 2순위 `dashcam_1788583013065.zip`(246/251/255차가 써온
+   25세그, 후보 동시발생 여부 미확인이나 GPS reliability 신호 baseline
+   용). §23 대용량 미보관 정책상 컨테이너에 파일 없음(재확인:
+   `/mnt/user-data/uploads/` 비어있음) -- 사용자에게 재업로드 요청.
+
+**완료**: 위 1~7번(전부 분석/설계 확정, 코드·시뮬레이션 없음).
+
+**미완료**:
+1. corpus 재업로드 대기 -- 없이는 4개 신호(persistence/curvature
+   consistency/speed-drop strength/GPS reliability) 개별 검증 불가.
+2. confidence 신호별 개별 효과 검증(신규 toolkit, 기존
+   `sim_route_234_spatial_apex_continuity.py` 확장 예정).
+3. 신호 조합 방식/가중치 설계 -- 임의 설정 대신 실측 corpus에서 "진짜
+   apex를 놓친 경우"/"노이즈를 apex로 오인한 경우" 역산 방식 제안,
+   미착수.
+4. `_route_cluster_continuity_step()` L712-717 실제 patch -- 신호 검증
+   전까지 보류(§28 순서: 증상/재현조건 확인 전 수정안 확정 금지).
+
+**검증**: 정적 분석 X(코드 변경 없음) / 시뮬레이션 X(corpus 없음) /
+로그 검증 X / **실차 검증: 미실시**.
+
+**전달 파일**: `WIP.md`(이 항목)만. 코드/patch/신규 toolkit 없음.
+
+**다음 작업**:
+1. 사용자가 `0000039a--7b602ffb85`(seg12-16 zip, 1순위) 및 가능하면
+   `dashcam_1788583013065.zip`(2순위) 재업로드.
+2. `toolkit/extract_log.py`로 CSV 추출 -> `routeCandidateCount>=2`
+   프레임 필터링.
+3. 4개 신호 독립 검증(신규 toolkit, `sim_route_234_spatial_apex_
+   continuity.py` 확장) -> 결과 FINDINGS.md 기록.
+4. confidence 조합 설계 -> 시뮬레이션 -> Master 승인 후 L712-717 실제
+   patch.
+
+---
+
 ## 258차 (완료 -- carrot_man.py 실제 patch 작성, Master 확인 2건 반영) -- INERT ACTIVE 진입조건을 257차 거리기반 게이트로 실제 코드에 반영
 
 **Worker**: Claude
