@@ -1,3 +1,21 @@
+## c3-ms-dev (260차 계속2, curvature_consistency 재정의 -- ryu 코드 변경 없음)
+- last_analyzed_commit: `109f6816`(258차, ryu — 드리프트 없음, 변경 없음)
+- devnotes base: `fb4df3d`(260차)
+- date: 2026-09-06 (260차 계속2)
+- 분석 대상: 사용자 재업로드 `0000039a--7b602ffb85` seg12-16(재추출,
+  5999행) + `dashcam_1788583013065.zip`(route_ac/ad, 재추출 29126행,
+  249차/253차 known-good) — 신규 `sim_route_260_gyesok_spatial_curvature_consistency.py`
+  (폐기)와 `sim_route_260_gyesok2_crossscale_curvature_consistency.py`
+  (채택)로 curvature_consistency 재정의 2회 시도.
+- note: 공간축 sign-consistency(1차)는 S자형 정상 도로에서 오판 위험
+  확인되어 폐기. macro/fine cross-scale magnitude_ratio(2차)는
+  0.13~2.0 분산 확인 + persistence(streak)와 방향성 있는 상관관계
+  확인(streak20+ 평균 0.665 vs streak=1 평균 0.481) — 채택 후보로
+  devnotes 등록, threshold/최종 채택은 사용자 확인 대기.
+- next: speed-drop strength 터널 외 재검증, `horizontalAccuracy` 컬럼
+  추가(GPS reliability 착수 전제), 4개 신호 확보 후 confidence 스코어링
+  공식 설계.
+
 ## c3-ms-dev (260차, confidence 신호 3종 1차 실측 — ryu 코드 변경 없음)
 - last_analyzed_commit: `109f6816`(258차, ryu — 드리프트 없음, 변경 없음)
 - devnotes base: `09d8d0a`(259차)

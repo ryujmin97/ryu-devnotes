@@ -1,3 +1,95 @@
+## 260차 계속2 (완료 -- curvature_consistency 재정의 2회 시도, 1차 폐기+2차 채택, persistence와 상관관계 확인) -- macro/fine cross-scale magnitude_ratio로 curvature_consistency 재정의
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu`(HEAD `109f6816`=258차, 변경 없음) /
+`ryu-devnotes`(HEAD `fb4df3d`=260차, 이 항목 추가 전)
+
+**Branch**: `c3-ms-dev` / `main`
+
+**Base commit (ryu)**: `109f68160bad1a3514627fdc3d9a84f9ed8ac83e`
+
+**devnotes Base commit**: `fb4df3d9d9015a26a87aa3e0dd4cae95616e148a`
+
+**배경**: 260차가 남긴 다음 작업 1순위(curvature_consistency 재정의 --
+기존 정의는 시간축 track 부호이력 최빈값이라 streak가 짧은 절대다수
+track에서 표본부족으로 자명하게 1.0이 나와 판별력이 없었음)를 이번
+세션에서 진행. 사용자가 `0000039a--7b602ffb85` seg12-16 zip과
+`dashcam_1788583013065.zip`을 재업로드(컨테이너 초기화로 260차 corpus
+유실, §11), 양쪽 다 재추출 완료(seg12-16 5999행, dashcam route_ac/ad
+29126행 -- 249차/253차 기록과 행수 일치 재확인).
+
+**한 일**:
+1. **1차 시도(공간축 sign-consistency, 폐기)**: 신규 toolkit
+   `sim_route_260_gyesok_spatial_curvature_consistency.py` 작성 --
+   기존 정의가 "시간축"이 문제였다고 보고, 후보 지점 기준 ±40m 이웃
+   포인트 중 유의미 곡률(FLOOR_THRESHOLD=0.001 초과)의 부호 일치율로
+   재정의(프레임 1개만으로 즉시 계산 가능, persistence와 축이 분리됨).
+   seg12-16 IC gore/S커브로 실행한 결과 양쪽 다 100% 고신뢰(1.000)로
+   나와 폐기 판단 -- naviPaths 원시 곡률 배열을 직접 열어 확인한 결과
+   t=2109.9 부근(IC gore) dist 60~90m 구간에서 부호가 자연스럽게
+   -,-,+,+로 반전하는 **정상적인 S자형 도로 형상**이 존재함을 확인.
+   이번 corpus에서는 후보 윈도우가 우연히 반전 경계를 피해가 100%가
+   나왔을 뿐, "정상적인 방향 전환"과 "노이즈로 인한 부호 뒤집힘"을
+   구분 못 하는 근본적 결함 -- 재현성 보장 안 되어 채택하지 않음.
+2. **2차 시도(macro/fine cross-scale, 채택)**: 신규 toolkit
+   `sim_route_260_gyesok2_crossscale_curvature_consistency.py` 작성 --
+   기존 프로덕션 merge 로직(147/158차, macro=40m chord/fine=10m chord
+   두 스케일을 각각 계산해 더 급한 쪽을 채택)에 착안, **같은 지점을
+   두 스케일로 각각 계산했을 때 부호가 일치하는지(agree)와 크기가
+   얼마나 유지되는지(magnitude_ratio=|macro_curv|/|fine_curv|)**를
+   신호로 재정의. 실제 도로 형상(연속된 커브)은 chord를 넓혀도 방향이
+   유지되는 반면, GPS 노이즈로 인한 국소 스파이크는 chord를 넓히면
+   상쇄되어 사라지거나 부호가 바뀔 것이라는 가설.
+3. seg12-16(IC gore/S커브) + dashcam(route_ac/ad 전체)로 실행 --
+   **agree 비율은 98.8~100%로 또 다른 포화 신호임을 확인**(이미
+   severity+cluster gate를 통과한 후보들이라 대부분 실제 커브이기
+   때문으로 추정, agree 단독으로는 판별력 낮음). 반면
+   **magnitude_ratio는 0.13~2.0으로 뚜렷한 분산 확인**(포화되지 않음) --
+   agree보다 ratio 쪽이 유의미한 신호임을 실측으로 확인.
+4. dashcam corpus로 magnitude_ratio와 기존 검증된 persistence(track
+   streak) 신호의 상관관계 확인(같은 t/근접 dist로 조인, 오차 5m
+   이내만 채택) -- **streak=1(신규/단발 track) 평균 ratio=0.481,
+   streak2-5 평균=0.468, streak6-20 평균=0.435, streak20+(장기 지속,
+   확실히 실제 커브) 평균=0.665**로 streak가 길수록 ratio 평균이
+   뚜렷이 높아지는 경향 확인 -- 완벽한 분리는 아니나(streak=1에도
+   0.977까지, streak20+에도 0.133까지 존재) **방향성 있는 보조 신호로는
+   유효**, 특히 persistence가 아직 쌓이지 않은 신규 후보(streak=1)의
+   즉시(1프레임) 신뢰도 추정에 의미 있음.
+
+**검증**: 정적분석(양쪽 toolkit `py_compile` 통과) + 실측(seg12-16 IC
+gore/S커브, dashcam route_ac/ad 전체 29126행) + persistence와의
+교차상관 확인(dashcam). **실차 검증: 미실시**(오프라인 재계산 전용
+세션, ryu 코드 변경 없음).
+
+**미확인/미해결**:
+- magnitude_ratio 최종 채택 여부와 임계값(threshold)은 사용자 확인 후
+  PARAMS_REGISTRY.md 등록 필요 -- 이번 세션은 신호 자체의 판별력만 확인,
+  실제 confidence 스코어링 공식(persistence/ratio/speed-drop을 어떻게
+  합성할지)은 미착수.
+- streak=1에도 ratio 0.977(고신뢰로 오판 가능)이 존재하는 이유(실제
+  급커브인데 방금 생성된 track인 경우와, 우연히 ratio가 높게 나온
+  노이즈를 구분 못 함) 원인 미분석.
+- 4번째 신호(GPS positional reliability, `horizontalAccuracy`)는
+  여전히 미착수 -- `extract_log.py` 컬럼 추가 필요(259차/260차부터
+  이어지는 미완료 항목).
+- speed-drop strength 재검증은 이번 세션에서 미진행(1순위가
+  curvature_consistency 재정의였음, 260차가 남긴 2순위 항목).
+
+**다음 작업**:
+1. (1순위, 사용자 결정 필요) magnitude_ratio 채택 여부 확정 + threshold
+   후보값 논의 -- 확정되면 PARAMS_REGISTRY.md 등록.
+2. speed-drop strength를 터널 외 corpus(IC gore/S커브/dashcam)로
+   재검증(260차가 남긴 미해결 항목, 터널은 stage2에서 후보 전멸이라
+   대조군 없음).
+3. `extract_log.py`에 `horizontalAccuracy` 컬럼 추가 -- GPS reliability
+   신호 착수 전제조건.
+4. 4개 신호(persistence/curvature_consistency=ratio/speed-drop/GPS
+   reliability) 전부 확보되면 confidence 스코어링 공식 설계 착수(259차
+   원 목표).
+
+---
+
 ## 260차 (진행 중 -- corpus 재확보+신규 toolkit 작성+3개 신호 1차 실측 완료, 4번째 신호 미착수) -- confidence 신호 3종(persistence/curvature consistency/speed-drop) 프레임 단위 실측, persistence 신호 강한 판별력 확인
 
 **Worker**: Claude

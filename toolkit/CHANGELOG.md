@@ -3,6 +3,18 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+## 2026-09-06 (260차 계속2)
+- `sim_route_260_gyesok2_crossscale_curvature_consistency.py`: 신규,
+  **채택** -- curvature_consistency를 macro(40m chord)/fine(10m chord)
+  cross-scale magnitude_ratio로 재정의. agree(부호일치)는 98.8~100%
+  포화, magnitude_ratio는 0.13~2.0 분산 확인 + persistence(streak)와
+  방향성 있는 상관관계(streak20+ 평균 0.665 vs streak=1 평균 0.481).
+  threshold 미확정, 사용자 확인 후 PARAMS_REGISTRY.md 등록 필요.
+- `sim_route_260_gyesok_spatial_curvature_consistency.py`: 신규, **폐기** --
+  curvature_consistency 재정의 1차 시도(공간축 ±40m 이웃 부호일치율).
+  실측 결과 재차 포화(100%) + S자형 정상 도로 구간에서 오판 위험 확인되어
+  폐기, 실패 사례로 코드만 보존.
+
 ## 2026-09-05 (260차)
 - `sim_route_260_confidence_signals.py`: 신규 -- 259차가 확정한 "apex 후보
   선정을 최근접(clusters[0])에서 confidence 기반으로 재설계"하는 방향을 위해

@@ -21,6 +21,55 @@ CHANGELOG.md를 같이 갱신**한다 (세션 종료 체크리스트에 포함�
 
 ---
 
+## sim_route_260_gyesok2_crossscale_curvature_consistency.py (260차 계속2 신규, 채택)
+**목적**: `sim_route_260_confidence_signals.py`(260차)의
+curvature_consistency(시간축 track 부호이력 최빈값) 정의가 판별력
+없음이 밝혀져 재정의. 기존 프로덕션 merge 로직(147/158차,
+macro=40m chord/fine=10m chord)에 착안, 같은 지점을 두 스케일로 각각
+계산해 부호 일치(agree)와 크기 유지 비율(magnitude_ratio=|macro_curv|/
+|fine_curv|)을 신호로 계측.
+
+**결과 요약**: agree는 98.8~100%로 포화(판별력 낮음). magnitude_ratio는
+0.13~2.0 분산 확인 + persistence(track streak)와 방향성 있는
+상관관계(streak20+ 평균 0.665 vs streak=1 평균 0.481) — 채택 후보로
+devnotes 등록(WIP/FINDINGS 260차 계속2). threshold/최종 채택은 사용자
+확인 대기.
+
+**의존성**: `extract_log.py --with-navi-paths` 출력 CSV.
+`analysis_helpers.recompute_route_curvature_speed()`를 macro/fine
+각각 독립 호출(merge 안 함).
+
+**사용**:
+```
+python3 sim_route_260_gyesok2_crossscale_curvature_consistency.py <route.csv> \
+    --window 2108 2112 --label ic_gore --window 2116 2122.2 --label s_curve
+```
+
+**한계**: threshold 미확정(등록 전). 4개 신호(persistence/ratio/
+speed-drop/GPS reliability) 통합 confidence 공식은 별도 설계 필요.
+실차 검증 미실시.
+
+---
+
+## sim_route_260_gyesok_spatial_curvature_consistency.py (260차 계속 신규, 폐기)
+**목적**: curvature_consistency 재정의 1차 시도 -- 후보 지점 ±40m
+이웃 포인트 중 유의미 곡률(FLOOR_THRESHOLD 초과)의 부호 일치율로 정의
+(시간축 대신 공간축, 프레임 1개로 즉시 계산).
+
+**폐기 사유**: seg12-16 IC gore/S커브에서 100%(1.000)로 재차 포화됨을
+확인, naviPaths 원시 곡률 배열 확인 결과 t=2109.9 부근 dist 60~90m
+구간에서 부호가 -,-,+,+로 자연 반전하는 **정상적인 S자형 도로 형상**이
+실존함을 발견 -- "정상적인 방향 전환"과 "노이즈로 인한 부호 뒤집힘"을
+구분 못 하는 근본 결함으로 판단, 채택하지 않음. 후속 시도(위
+`_gyesok2_` 버전)로 대체됨. 코드는 실패 사례 기록으로 보존.
+
+**사용**: (참고용, 재사용 비권장)
+```
+python3 sim_route_260_gyesok_spatial_curvature_consistency.py <route.csv>
+```
+
+---
+
 ## sim_route_260_confidence_signals.py (260차 신규)
 **목적**: 259차가 확정한 "apex 후보 선정을 최근접(clusters[0])에서
 confidence 기반으로 재설계"하는 방향(WIP.md 259차)을 위해, Master가 제시한

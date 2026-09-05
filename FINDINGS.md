@@ -1,3 +1,48 @@
+## 260차 계속2 -- [1차 실측 완료] curvature_consistency 재정의 2회 시도 -- 1차(공간축 sign-consistency) 폐기, 2차(macro/fine cross-scale magnitude_ratio) 채택 -- persistence와 방향성 있는 상관관계 확인
+
+**배경**: 260차가 발견한 "curvature_consistency(시간축 track 부호이력
+최빈값)는 streak 짧은 절대다수 track에서 표본부족으로 자명하게 1.0이
+나와 판별력이 없다"는 문제(아래 260차 항목 참고)를 재정의로 해소.
+
+**1차 시도(공간축 sign-consistency) -- 폐기**: 후보 지점 ±40m 이웃
+포인트 중 유의미 곡률(FLOOR_THRESHOLD=0.001 초과)의 부호 일치율로
+재정의(시간축 대신 공간축, 프레임 1개로 즉시 계산 가능). seg12-16
+IC gore/S커브 실측 결과 양쪽 다 100%(1.000)로 재차 포화됨을 확인했으나,
+naviPaths 원시 곡률 배열을 직접 열람한 결과 t=2109.9(IC gore) dist
+60~90m 구간에서 부호가 -,-,+,+로 자연 반전하는 **정상적인 S자형 도로
+형상**이 실존함을 확인 -- 이 정의는 "정상적인 방향 전환"과 "노이즈로
+인한 부호 뒤집힘"을 구분하지 못하는 근본적 결함이 있고, 이번 corpus의
+100% 결과는 후보 윈도우가 우연히 반전 경계를 피해간 것일 뿐 재현성이
+보장되지 않아 폐기.
+
+**2차 시도(macro/fine cross-scale) -- 채택**: 기존 프로덕션 merge
+로직(147/158차, macro=40m chord/fine=10m chord 각각 계산 후 더 급한
+쪽 채택)에 착안 -- 같은 지점을 두 chord 길이로 각각 계산해 (a) 부호
+일치 여부(agree), (b) 크기 유지 비율(magnitude_ratio=|macro_curv|/
+|fine_curv|)을 신호로 재정의. 실측(seg12-16 IC gore/S커브 + dashcam
+route_ac/ad 29126행 전체):
+- **agree 비율 98.8~100%** -- 이 역시 포화 신호(이미 severity+cluster
+  gate를 통과한 후보 대부분이 실제 커브라서 추정), 단독 판별력 낮음.
+- **magnitude_ratio는 0.13~2.0으로 뚜렷한 분산** -- 포화되지 않음.
+- persistence(track streak, 260차 검증됨)와 교차상관 확인(dashcam,
+  같은 t/근접 dist 5m 이내 조인): streak=1 평균 ratio=0.481,
+  streak2-5=0.468, streak6-20=0.435, **streak20+(장기 지속, 확실한
+  실제 커브)=0.665**로 streak가 길수록 평균 ratio가 높아지는 경향
+  확인. 완전한 분리는 아님(streak=1에도 0.977 존재, streak20+에도
+  0.133 존재)이나 방향성 있는 보조 신호로는 유효 -- 특히 persistence가
+  아직 쌓이지 않은 신규 후보(streak=1)의 즉시(1프레임) confidence
+  추정에 의미 있음(persistence와 다른 축의 정보를 담고 있다는 근거).
+
+**결론**: curvature_consistency는 "agree(부호 일치, 0/1)"가 아니라
+"magnitude_ratio(크기 유지 비율, 연속값)"로 재정의해야 판별력이 생김.
+최종 채택/threshold는 사용자 확인 후 PARAMS_REGISTRY.md 등록 필요
+(NEEDS_VALIDATION -- 실차 미검증, 신호 자체의 판별력만 확인된 단계).
+
+**Status**: `PARTIALLY_VALIDATED` (합성 재현 아님, 실측 confirm이지만
+confidence 공식에 실제 반영 전 -- ryu 코드 변경 없음)
+
+---
+
 ## 260차 -- [1차 실측 완료, 진행 중] confidence 신호 3종(persistence/curvature consistency/speed-drop strength) 프레임 단위 실측 -- persistence 신호 강한 판별력, curvature consistency는 판별력 없음(재정의 필요), speed-drop은 corpus 한계로 미검증
 
 **배경**: 259차가 확정한 apex 후보 선정 "최근접 -> confidence 기반"
