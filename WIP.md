@@ -1,3 +1,49 @@
+## 247차 (체크포인트 -- 설계 확정 완료, 코드 변경 없음, 다음 세션 시뮬레이션 검증 착수 예정) -- Route 감속 로직 INERT/ACTIVE 래치 상태머신 전면 재설계 지침 확정
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu`(변경 없음, HEAD `2cfbcf4`=245차) / `ryujmin97/ryu-devnotes`
+
+**Branch**: `c3-ms-dev` / `main`
+
+**Base commit (ryu)**: `2cfbcf4f9a1e3a0697c033be53ade0e084214ca3`(245차, 재클론으로 재확인, 변경 없음)
+
+**devnotes Base commit**: `b083e6f4578ebd45df07c77558325262730e6ef6`(246차, 재클론으로 재확인)
+
+**배경**: 지선생이 대화 중 "Route 감속 로직 재설계 지침"(전면 재설계 — Apex 발견과 Route 개입 분리, INERT/ACTIVE 상태머신, 고정 감속률)을 제시. 246차가 확인한 CRITICAL(원거리 apex 가속억제 freeze, 사용자 결정 대기 중이던 문제)과는 별개 트랙으로 시작됐으나, 대화를 진행하며 이 재설계가 246차 CRITICAL의 근본원인(228차 v2 `route_inert` 서브스테이트의 target 고정 출력 자기참조 구조)을 구조적으로 제거할 가능성이 높다는 것이 확인됨.
+
+**작업**:
+1. §3/§29 원칙대로 `ryu`/`ryu-devnotes` 재클론, base commit 재확인 -- 기억(234차 기준)과 실제 GitHub(246차까지 진행) 사이 18개 세션 드리프트 확인, GitHub 기준으로 재정렬(§2/§33).
+2. 지선생 제시안을 놓고 §3(진입조건)/§5(해제조건) 검사를 상태별로 완전히 분리하는 래치 구조(INERT는 §3만, ACTIVE는 §5만 검사)로 확정 -- 239차 self-elimination 리밋사이클(매 프레임 진입조건을 vEgo로 재평가하는 게이트가 진동을 만드는 구조)과 동일 메커니즘 재발을 원천 차단.
+3. §4 ACTIVE 감속 계산의 vEgo 사용 방식을 (A)매 프레임 실측 vEgo 재계산 vs (B)ACTIVE 진입시점 vEgo 캡처 후 결정론적 램프다운 중 (A)로 확정(사용자 명시).
+4. §5 해제조건을 `vEgo≤target×1.1` 단일조건에서 `vEgo≤target×1.1 OR Apex 통과`의 OR 조건으로 확정(사용자 정리).
+5. `ROUTE_SEVERITY_GATE_RATIO`(237/239/242차) 즉시 삭제를 사용자가 시뮬레이션 결과와 무관하게 확정 -- 239차 CRITICAL의 직접 원인이었던 상수.
+6. **신규 발견(Q1, apex anchor 문제)**: §5 "Apex 통과" 판정 및 §9 "ACTIVE는 같은 apex를 계속 추적한다"는 전제가 성립하려면 apex_dist/speed가 매 프레임 `candidates[0]` 무상태 재선택이 아니라 동일 물리적 지점을 가리키는 안정된 값이어야 함을 확인. 244차 실측(idx 변화 CASE_A 9.8% vs CASE_B 90.2%, 즉 대부분 실제 후보전환)이 이를 뒷받침.
+7. **기존 toolkit 재발견(§21)**: 이 anchor 문제를 이미 234차 계속4~10 `sim_route_234_spatial_apex_continuity.py`(공간 클러스터링 stage2 + 예측거리 매칭 apex continuity stage3, 미스 3프레임 허용)가 설계·부분검증해뒀음을 확인. 이 메커니즘을 새 상태머신의 apex 추적 레이어로 재사용하기로 결정 -- 신규 알고리즘 발명 없이 기존 검증자산 재사용.
+8. **검증 공백 발견(CRITICAL, 다음 세션 1순위)**: 234차의 172→60→16→3건(터널 81→0→0→0) 결과는 전부 stage1(severity gate)이 이미 적용된 위에서 stage2/3를 쌓은 수치. 이번 재설계는 gate를 완전삭제하므로 "gate 없이 클러스터링+continuity만으로 터널급 노이즈를 억제 가능한가"는 **한 번도 검증된 적 없음** -- 재설계 전체 성패를 가르는 핵심 미검증 항목.
+9. `design/247cha_route_inert_active_redesign.md` 작성 -- 위 확정사항 + Q1 해법 + §11 검증계획 + §12 미확정 파라미터 전부 정리.
+
+**결과**: 설계 확정 완료, 코드 변경 없음. 246차 CRITICAL(원거리 apex freeze)은 이 재설계가 구조적으로 해소할 가능성이 높다고 추정되나, 시뮬레이션 검증 전까지는 확정 아님(§28, 추측만으로 안전 확정 안 함) -- 246차 WIP 항목의 "사용자 결정 대기" 상태는 그대로 유지, 별도 종결 처리하지 않음.
+
+**완료**: 설계 문서 작성(1~9번).
+
+**미완료**:
+- 시뮬레이션 검증 전혀 미실시(design/247cha 문서 §11 계획만 존재).
+- `ROUTE_CLUSTER_MIN_POINTS`/`MAX_GAP_M`/`CONTINUITY_MATCH_TOLERANCE_M`/`ROUTE_APEX_MISS_TOLERANCE_FRAMES` 재검증 및 PARAMS_REGISTRY 등록 안 됨.
+- `carrot_man.py`/`carrot_serv.py` 코드 변경 전혀 없음(§28 원칙 -- 시뮬레이션 검증 전 패치 금지).
+- 246차 CRITICAL(원거리 apex freeze) 자체는 여전히 미해결 상태로 남아있음 -- 이번 재설계가 해소할 것으로 기대되나 별도 확인 필요.
+
+**검증**: 설계 검토 및 기존 toolkit 재조사만 수행(코드/로그 실행 없음). **로그 시뮬레이션: 미실시. 실차 검증: 미실시.**
+
+**전달 파일**: `design/247cha_route_inert_active_redesign.md`(신규, patch), 이 WIP.md 항목(patch). ryu 코드 변경 없음.
+
+**다음 작업**:
+1. (1순위) `sim_route_234_spatial_apex_continuity.py`에 stage1(gate) 건너뛰는 옵션 추가 후, 터널/IC gore/S커브 corpus(seg12-16)로 "gate 없는 stage2/3" 재검증.
+2. 통과 시 246차/239차 재현 케이스도 같은 틀로 시뮬레이션해 새 상태머신이 실제로 두 문제를 해소하는지 확인.
+3. 전부 통과하면 `carrot_man.py`/`carrot_serv.py` patch 작성 착수(§8의 삭제 대상 코드 포함).
+4. 미확정 파라미터(§12) 재검증 및 PARAMS_REGISTRY 등록.
+
+---
 ## 246차 (진행 중 -- 원인 분석 완료, 코드 수정 전, 사용자 결정 대기) -- 원거리 route apex로 인한 가속억제(freeze) 실측 확인
 
 **Worker**: Claude
