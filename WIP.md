@@ -1,3 +1,97 @@
+## 266차 (완료 -- carrot_man.py 실 patch 작성+독립검증 완료, 실차/실 corpus 검증 전) -- 265차 confidence blend 설계를 프로덕션 코드에 반영
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu`(HEAD `109f6816`=258차, 이 patch 적용 전) /
+`ryu-devnotes`(HEAD `0c777cc`=265차, 이 항목 추가 전)
+
+**Branch**: `c3-ms-dev` / `main`
+
+**Base commit (ryu)**: `109f68160bad1a3514627fdc3d9a84f9ed8ac83e`
+
+**devnotes Base commit**: `0c777cc`(265차)
+
+**배경**: 265차가 사용자 확인 대기로 남긴 임의 판단 2건에 대해 사용자가
+**"1. 그대로 유지, 2. 보류"**로 확정. 이에 따라 265차 다음 작업 3번
+("`carrot_man.py` 실 patch 작성")을 진행.
+
+**확정된 사용자 결정(265차 임의 판단 2건)**:
+1. RELEASE 판정(`speed_reached`)은 confidence로 낮춘 `eff_apex_speed`가
+   아니라 **원래 `apex_speed`를 그대로 기준으로 유지** -- 채택.
+2. `CONTINUITY_MATCH_TOLERANCE_M` 10m/15m 불일치 재검증은 **보류**
+   (FINDINGS.md 265차 기록만 유지, 260차 streak 분포 10m 재실행은
+   미실시 상태로 남김).
+
+**한 일 -- `ryu` 실 코드 patch (`selfdrive/carrot/carrot_man.py`)**:
+1. `CONFIDENCE_TAU = 6.3` 상수 + `_route_confidence_from_streak(streak,
+   tau)` 모듈함수 신규 추가(`CONTINUITY_MATCH_TOLERANCE_M` 선언부 바로
+   아래) -- `sim_route_265_confidence_target_blend.py::
+   confidence_from_streak()`와 동일 공식, streak<=1이면 정확히 0.0.
+2. `_route_cluster_continuity_step()`에 `self._route_cluster_streak`
+   카운터 신규 추가:
+   - `__init__`에서 `_route_cluster_locked_dist` 등과 함께 0으로 초기화.
+   - matched 분기: `+= 1`.
+   - held 분기: 유지(증가/리셋 없음).
+   - new/passed/lost 분기(재탐색 성공): `= 1`.
+   - none(추적 대상 전무): `= 0`.
+   - 반환값을 4-tuple에서 **5-tuple**로 확장(`..., streak`). 코드베이스
+     전체에서 이 메서드의 유일한 호출부(`carrot_navi_route()`)만 존재함을
+     `grep`으로 확인 후 함께 수정(다른 호출자 없음).
+3. **streak 필드도 기존 `locked_dist`/`locked_speed`/`miss_frames`와
+   동일한 모든 mirror 지점에서 함께 초기화**(229차 학습 -- "조기 return
+   경로는 mirror 누락 위험" 그대로 적용, 총 4곳 + `__init__` 1곳):
+   - `__init__`
+   - mode 0/1 전환 조기 return
+   - navi 비활성 조기 return
+   - 리샘플 포인트 부족(ACTIVE였던 경우) 즉시 해제
+   - lookahead 포인트 부족(ACTIVE였던 경우) 즉시 해제
+4. **confidence blend 삽입 -- ACTIVE/INERT 두 분기 공통, `target_ms =
+   apex_speed / 3.6` 단 한 표현식이 있던 자리 2곳**(STEP2 감속식/INERT
+   게이트, 265차가 확인한 "apex_speed 소비 지점은 이 둘뿐"과 일치):
+   ```python
+   apex_confidence = _route_confidence_from_streak(apex_streak)
+   eff_apex_speed = apex_confidence * apex_speed + (1.0 - apex_confidence) * v_ego_kph
+   target_ms = eff_apex_speed / 3.6
+   ```
+   ACTIVE/INERT 상태기계, 게이트 판정식(D_required 등)은 완전히 그대로
+   유지(§27 최소변경) -- 265차 설계 그대로.
+5. **RELEASE 판정(`speed_reached = v_ego_kph <= apex_speed *
+   ROUTE_ACTIVE_RELEASE_MARGIN_RATIO`)은 사용자 확정(위 1번)에 따라
+   수정하지 않음** -- 이 코드는 confidence blend 삽입 지점(target_ms
+   계산)보다 앞에서 이미 원래 `apex_speed`로 계산되므로 자동으로 요구사항
+   충족(코드 순서상 원래부터 그랬음, 별도 수정 불필요했음을 재확인).
+
+**검증(§31 독립 throwaway clone 재검증 완료)**:
+- 정적 분석: `ast.parse` + `py_compile` 통과(작업 클론).
+- 독립 throwaway clone(`/home/claude/verify_clone`)에서 base commit
+  `109f6816` 확인 → `git apply --check` 통과 → `git am` 적용 성공 →
+  `py_compile` 재통과 → 작업 클론 결과물과 **byte-identical diff-0
+  확인**(md5 일치).
+- 로그 검증: 미실시(실 corpus 재업로드 필요, §23).
+- 시뮬레이션: 265차 synthetic self-test(구조 검증)까지만 완료, 이번
+  266차 코드 자체에 대한 재시뮬레이션은 미실시.
+- **실차 검증: 미실시.**
+
+**미확인/미해결**:
+- 실 corpus(seg12-16 등) 재검증 미실시 -- 파일 재업로드 필요(§23).
+- `CONFIDENCE_TAU=6.3`을 아직 `PARAMS_REGISTRY.md`에 정식 등록 안 함
+  (이번 266차에서 함께 등록, NEEDS_VALIDATION 상태로).
+- `CONTINUITY_MATCH_TOLERANCE_M` 10m/15m 불일치 재검증: 보류(사용자
+  결정, 위 2번).
+
+**다음 작업**:
+1. 실 corpus(seg12-16 tunnel/S커브, dashcam) 재업로드 → baseline vs
+   confidence-blend 비교 재검증(`sim_route_265_confidence_target_blend.py`
+   corpus 모드 구현 필요, 현재는 self-test만 지원).
+2. 위 재검증 결과가 긍정적이면 실차 검증 일정 논의.
+3. (사용자 결정 시) `CONTINUITY_MATCH_TOLERANCE_M` 10m 기준 260차 streak
+   분포 재실행.
+
+**패치**: `0001-266cha-carrot_man.py-apex_speed-streak-confidence-bl.patch`
+(`/mnt/user-data/outputs/`)
+
+---
+
 ## 265차 (진행 중 -- confidence blend 설계/구조 self-test 완료, 최종 확정 전) -- persistence 단독 confidence 공식 설계 + apex_speed blend 삽입지점 확정, 임의판단 2건 사용자 확인 대기
 
 **Worker**: Claude

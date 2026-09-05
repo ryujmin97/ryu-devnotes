@@ -395,3 +395,29 @@
   수행됨(대안값 재비교 없음).
 - 실차 검증: 미실시(NEEDS_VALIDATION). **다음 세션 우선 검토 항목**: 두
   커브가 인접한 실차 로그 확보 시 10/15/20m 재비교.
+
+## CONFIDENCE_TAU (265차 가설값, 266차 코드 반영 — NEEDS_VALIDATION)
+- 위치: `selfdrive/carrot/carrot_man.py`,
+  `_route_confidence_from_streak()` (모듈레벨 함수, 266차 신규)
+- 값: 6.3
+- 목적: `confidence(streak) = 1 - exp(-(streak-1)/TAU)` 포화 지수함수의
+  시상수. streak=1(신규/미검증 apex 후보)에서 정확히 confidence=0(개입
+  없음), streak가 쌓일수록 1.0에 근접 — apex_speed 소비 지점
+  (`target_ms` 계산, ACTIVE STEP2/INERT 게이트 공통)에서
+  `eff_apex_speed = confidence*apex_speed + (1-confidence)*v_ego_kph`로
+  블렌드해 단발성 노이즈 후보(streak=1로 끝남)의 즉각 개입을 억제한다.
+- 근거: 260차가 실측한 persistence streak 분포(65개 track 중 55%가
+  streak=1 등)의 버킷 경계(1/2-5/6-20/20+)를 캘리브레이션 앵커로 잡은
+  값 — streak=6에서 confidence≈0.55, streak=20에서 ≈0.95가 되도록 역산.
+  265차 synthetic self-test 2케이스(`noise_spike`/`genuine_curve`)로
+  구조적 동작만 확인(노이즈 억제 + 진짜 커브 제동력 유지). **실측
+  corpus로 이 TAU 값 자체의 적정성(너무 느슨/타이트한지)은 아직 검증된
+  바 없다** — 임의 판단이 아니라 260차 분포 통계에서 역산했다는 점만
+  근거이며, 실제 도로에서 "몇 프레임까지가 노이즈고 몇 프레임부터가
+  진짜 커브인가"에 대한 직접 검증은 없음(§28).
+- 알려진 상호 영향: `CONTINUITY_MATCH_TOLERANCE_M`(10m/15m 불일치,
+  265차 발견, 재검증 보류 확정) — streak 계산 자체가 이 매칭 허용오차에
+  의존하므로, tolerance 값이 바뀌면 동일 로그에서도 streak 분포/따라서
+  confidence 값이 달라질 수 있다. 두 파라미터는 함께 재검증 필요.
+- 실차 검증: 미실시(NEEDS_VALIDATION). 실 corpus 재검증도 미실시
+  (WIP.md 266차 다음 작업 1번 참고).
