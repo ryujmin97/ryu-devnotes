@@ -1,3 +1,77 @@
+## 258차 (완료 -- carrot_man.py 실제 patch 작성, Master 확인 2건 반영) -- INERT ACTIVE 진입조건을 257차 거리기반 게이트로 실제 코드에 반영
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu`(HEAD `d1bba17`=255차계속 -> 이번 세션 patch,
+로컬 commit만 -- 사용자 push 전) / `ryujmin97/ryu-devnotes`(HEAD `2e21330`
+=257차)
+
+**Branch**: `c3-ms-dev` / `main`
+
+**Base commit (ryu)**: `d1bba17fa620703ca84faf22c5839d4913b774d0`
+
+**devnotes Base commit**: `2e21330`
+
+**배경**: 257차가 Master에게 확인을 요청했던 미확정 가정 2건을 이번
+세션에 사용자(Master)가 직접 확정: ①=A(`D_required`의 `a_fixed`는
+별도 상수 신설 없이 기존 `AutoNaviSpeedDecelRate` 재사용), ②=B
+(`eff_dist<=0`인데 게이트 미충족인 edge case는 224차 원래 의도대로
+"무의미하니 통과", 강제 즉시 ACTIVE 진입 안 함). 이 2건이 확정되어
+`carrot_man.py` L1121-1152 실제 patch를 작성.
+
+**한 일**:
+1. `ryu`(HEAD `d1bba17`)/`ryu-devnotes`(HEAD `2e21330`) 상태 재확인 --
+   드리프트 없음(§2/§3).
+2. `carrot_man.py::carrot_navi_route()`의 INERT 분기(L1121-1152)를
+   257차 설계대로 재작성:
+   - `v_ego_ms <= target_ms` -> `out_speed = None`(226차 ceiling
+     폐기, Master 결정).
+   - `eff_dist <= 0`(v_ego>target인데 apex가 이미 너무 가까움) ->
+     `out_speed = v_ego_kph`(224차 원 의도 그대로, ②=B, 강제 ACTIVE
+     없음).
+   - 그 외 -> `required_decel_mss = (v_ego^2-target^2)/(2*eff_dist)`
+     계산, `required_decel_mss >= autoNaviSpeedDecelRate`(①=A, 별도
+     상수 없이 재사용)가 처음 참이 되는 프레임에만 `route_active=True`
+     전환 + 그 자리에서 §4 감속식 적용(기존 ACTIVE 분기 공식 무변경).
+     게이트 미충족이면 `out_speed = None`(INERT 유지, vCruise 자유가속
+     허용 -- 246차 CRITICAL 해소의 핵심).
+   ACTIVE 분기(L1097-1120, §4 감속식 자체)는 이번 patch에서 손대지
+   않음(§27 최소 변경 원칙).
+3. 신규 `sim_route_258_carrot_man_patch_validate.py`로 실제 patch
+   코드를 1:1 재구현해 4가지 검증: (a) 246차 CRITICAL freeze 회귀
+   확인 -- 여전히 해소(0/120 frozen), (b) 안전성 스윕(257차와 동일
+   18케이스) -- 최대 초과 0.15kph 재확인, (c) [신규] eff_dist<=0 edge
+   case -- 강제 ACTIVE 진입 없이 pass-through(out=v_ego) 실제 반영
+   확인(②=B), (d) ACTIVE 분기 §4 감속식 공식 무변경 확인(§27).
+   4가지 전부 PASS.
+4. `py_compile`로 patch 적용된 `carrot_man.py` 문법 검증 PASS.
+5. `git format-patch`로 patch 파일 생성, 깨끗한 클론에 `git apply
+   --check` 통과 확인(§18/§31 반영 전 검증).
+
+**검증**: 정적 분석(py_compile) O / 시뮬레이션(신규 258차 4항목) O /
+로그 검증 X(246차 원 실측 수치는 257차에서 이미 재생, 이번엔 실제 patch
+코드 자체를 1:1 재구현해 재확인) / **실차 검증: 미실시**.
+
+**전달 파일**: `0001-258cha-carrot_man.py-INERT-ACTIVE-Master-246cha-CRIT.patch`
+(`ryu` 코드 patch), `sim_route_258_carrot_man_patch_validate.py`(신규,
+devnotes patch), WIP.md(이 항목), FINDINGS.md(258차 신규 + 246차/257차
+교차 갱신), toolkit/README.md, toolkit/CHANGELOG.md.
+
+**미확인 사항**: 실측 246차 원본 dashcam 로그(route_ac/route_ad)로
+open-loop 재검증은 아직 안 함(257차가 다음 작업으로 남겼던 항목,
+이번 세션은 실제 code patch 작성에 집중). 실차 검증 전혀 없음(순수
+합성 시뮬레이션 + 코드 1:1 재구현 검증까지만).
+
+**다음 작업**:
+1. 사용자가 `ryu` patch 적용(`git am`) + push.
+2. 246차 원본 dashcam 로그(route_ac 24030행/route_ad 5096행)로
+   open-loop 재검증 -- patch된 로직이 실측 궤적에서도 freeze 0건인지.
+3. `carrot_serv.py::update_navi()` arbitration 추적 재개(256/257차부터
+   보류돼 온 항목, 게이트 조건이 이제 확정됐으므로 재개 가능).
+4. 실차 검증(§29) -- 코드만으로는 "완전 해소"를 확정할 수 없음.
+
+---
+
 ## 257차 (완료 -- 시뮬레이션 검증, 코드 미적용/Master 확인 2건 대기) -- Master 최종 결정: 226차 ceiling 논쟁 폐기 + ACTIVE 진입조건을 `v_ego>target`에서 accel_limit 기준 필요감속거리 게이트로 재정의, 246차 CRITICAL 최초 폐루프 재현+해소 확인
 
 **Worker**: Claude

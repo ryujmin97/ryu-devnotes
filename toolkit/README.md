@@ -21,6 +21,28 @@ CHANGELOG.md를 같이 갱신**한다 (세션 종료 체크리스트에 포함�
 
 ---
 
+## sim_route_258_carrot_man_patch_validate.py (258차 신규)
+**목적**: `carrot_man.py::carrot_navi_route()` INERT 분기에 실제
+반영한 patch(257차 Master 설계 + Master 확정 2건 -- ①=A: a_fixed는
+`AutoNaviSpeedDecelRate` 재사용, ②=B: `eff_dist<=0` edge case는 224차
+원 의도대로 강제 ACTIVE 없이 pass-through)를 1:1 재구현해 검증.
+**의존성**: 없음(순수 합성 물리모델).
+**사용**:
+```bash
+python3 sim_route_258_carrot_man_patch_validate.py
+```
+**258차 결과**: (1) 246차 CRITICAL freeze 회귀 확인 -- 0/120 frozen,
+257차와 동일하게 해소 유지. (2) 안전성 스윕(18케이스) -- 최대 초과
+0.15kph, 257차와 동일. (3) `eff_dist<=0` edge case를 직접 입력해
+`route_active`가 강제로 True가 되지 않고 pass-through(out=v_ego)로
+나오는지 확인 -- ②=B가 실제 코드에 정확히 반영됐음을 검증. (4) 이미
+ACTIVE인 상태의 §4 감속식 출력이 공식과 정확히 일치(무변경 확인,
+§27). 4항목 전부 PASS. `ryu` 코드 patch 실제 작성 완료(파일:
+`0001-258cha-carrot_man.py-INERT-ACTIVE-Master-246cha-CRIT.patch`),
+깨끗한 클론에 `git apply --check` 통과 확인. **실차 검증: 미실시.**
+
+---
+
 ## sim_route_257_master_distance_gate.py (257차 신규)
 **목적**: Master 최종 결정(226차 ceiling 폐기) 이후, INERT의 ACTIVE 진입
 조건을 `v_ego>target`(현재 코드)에서 "accel_limit(`AutoNaviSpeedDecelRate`)

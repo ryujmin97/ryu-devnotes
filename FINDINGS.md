@@ -152,7 +152,71 @@ Master가 이번에 최종 종결).
    추적은 이 게이트 재정의가 먼저 반영된 뒤 진행하는 게 순서상 맞음
    (게이트 조건이 바뀌면 arbitration으로 넘어가는 값의 성격도 달라짐).
 
+**258차 갱신(Master 확인 2건 확정, 실제 patch 작성 완료)**: 위 미확정
+가정 2건이 확정됨 -- ①=A(`a_fixed`는 별도 상수 신설 없이 기존
+`AutoNaviSpeedDecelRate` 재사용), ②=B(`eff_dist<=0` edge case는 224차
+원 의도대로 강제 ACTIVE 없이 pass-through). `carrot_man.py` L1121-1152
+실제 patch 작성 완료(`ryu` 로컬 commit, 사용자 push 대기). 신규
+`sim_route_258_carrot_man_patch_validate.py`로 patch 코드를 1:1
+재구현해 246차 freeze 회귀 확인(해소 유지)+안전성 스윕(0.15kph
+초과 유지)+eff_dist<=0 edge case 자체 검증(②=B 실제 반영 확인)+ACTIVE
+분기 무변경 확인, 4항목 전부 PASS. 상세: FINDINGS.md 258차, WIP.md
+258차. **실차 검증은 여전히 미실시.**
+
 ---
+
+## 258차 -- [코드 patch 작성 완료, 시뮬레이션 재검증 PASS -- 실차 미검증] 257차 Master 설계를 `carrot_man.py`에 실제 반영 -- a_fixed=AutoNaviSpeedDecelRate 재사용(①=A), eff_dist<=0 edge case는 224차 원 의도 계승(②=B)
+
+**배경**: 257차가 Master 확인을 요청했던 미확정 가정 2건(FINDINGS.md
+257차 "미확정 가정" 참고)이 이번 세션에 확정됨 -- ①=A, ②=B(위 246차
+"258차 갱신" 참고). 이에 따라 `carrot_man.py::carrot_navi_route()`의
+INERT 분기(L1121-1152, 226차 이후 유지되던 `v_ego_ms > target_ms`
+즉시 ACTIVE 조건)를 257차가 시뮬레이션으로 검증한 거리기반 게이트로
+실제 교체.
+
+**코드 변경**: INERT 분기를 3-way 조건으로 재구성.
+1. `v_ego_ms <= target_ms` -> `out_speed = None`. 226차가 도입했던
+   `out_speed = apex_speed` ceiling은 Master 결정으로 완전히 폐기(256/
+   257차 논쟁 종결, "새 게이트가 매 프레임 재평가되므로 None으로 둬도
+   안전"이 최종 채택).
+2. `eff_dist <= 0`(v_ego>target인데 apex가 이미 매우 가까움) ->
+   `out_speed = v_ego_kph`(224차 원 코드와 동일, 무변경 -- ②=B는
+   기존 동작을 그대로 유지하는 결정이었음).
+3. 그 외 -> `required_decel_mss = (v_ego_ms²-target_ms²)/(2*eff_dist)`
+   계산, `required_decel_mss >= autoNaviSpeedDecelRate`(①=A, 감속 캡과
+   동일 상수 재사용)가 처음 참이 되는 순간에만 `route_active=True` +
+   §4 감속식 적용(공식 자체는 ACTIVE 분기와 동일, 무변경). 미충족이면
+   `out_speed = None`(INERT 유지).
+
+ACTIVE 분기(§4 감속식, L1097-1120)는 이번 patch에서 전혀 손대지
+않음(§27).
+
+**검증**: 신규 `sim_route_258_carrot_man_patch_validate.py`(실제 patch
+코드 1:1 재구현)로 4가지 확인 -- (1) 246차 CRITICAL freeze 회귀 확인
+(0/120 frozen, 6초 후 26.3kph, 257차와 동일 결과), (2) 안전성 스윕
+(apex_dist 30~400m x vCruise 60~120kph 18케이스, 최대 초과 0.15kph,
+257차와 동일), (3) [신규] `eff_dist<=0` edge case를 직접 입력해
+`route_active`가 강제로 True가 되지 않고 `out=v_ego`(pass-through)로
+나오는지 확인 -- ②=B가 실제 코드에 반영됐음을 직접 검증, (4) 이미
+ACTIVE인 상태에서 §4 감속식 출력이 공식과 정확히 일치하는지 검산(무변경
+확인). 4항목 전부 PASS. `py_compile` 문법 검증 PASS. `git format-patch`
+생성 후 깨끗한 클론에 `git apply --check` 통과 확인.
+
+**한계**: 순수 코드 1:1 재구현 기반 검증 -- 246차 원본 dashcam 로그로의
+open-loop 재검증은 아직 안 함(257차가 남긴 다음 작업 항목, 이번 세션은
+patch 작성 자체에 집중). **실차 검증: 전혀 미실시.**
+
+**관련**: 246차(CRITICAL 원 발견), 226차(ceiling 도입, 이번 세션에서
+코드까지 완전히 폐기), 224차(eff_dist<=0 pass-through 원 설계, 이번
+세션에서 그대로 계승 확정), 247차(design doc §3/§8), 253차(246차
+"해소" 보고 -- 257차가 일반화 범위 재검토 필요성 제기), 256/257차
+(226차 논쟁 종결 + 거리기반 게이트 설계/시뮬레이션).
+
+**다음 작업**:
+1. 사용자가 `ryu` patch(`0001-258cha-...patch`) 적용 + push.
+2. 246차 원본 dashcam 로그(route_ac/route_ad)로 open-loop 재검증.
+3. `carrot_serv.py::update_navi()` arbitration 추적 재개.
+4. 실차 검증(§29) -- 반드시 필요, 아직 전혀 진행 안 됨.
 
 ---
 

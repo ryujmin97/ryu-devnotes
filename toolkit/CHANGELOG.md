@@ -3,6 +3,16 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+## 2026-09-05 (258차)
+- `sim_route_258_carrot_man_patch_validate.py`: 신규 -- 257차 Master
+  설계 + Master 확정 2건(①=A: a_fixed=AutoNaviSpeedDecelRate 재사용,
+  ②=B: eff_dist<=0 edge case는 224차 원 의도 계승)을 반영한
+  `carrot_man.py` 실제 patch 코드를 1:1 재구현해 검증. 246차 freeze
+  회귀 확인(해소 유지)+안전성 스윕(0.15kph 초과 유지)+eff_dist<=0
+  edge case 자체 검증(②=B 실반영 확인)+ACTIVE 분기 무변경 확인,
+  4항목 PASS. `ryu` 코드 patch(`0001-258cha-...patch`) 실제 작성/
+  git apply --check 통과 확인. 상세: WIP.md/FINDINGS.md 258차.
+
 ## 2026-09-05 (257차)
 - `sim_route_257_master_distance_gate.py`: 신규 -- Master 최종 결정(226차
   ceiling 폐기)에 따른 ACTIVE 진입조건 재정의(v_ego>target -> accel_limit
