@@ -1,3 +1,106 @@
+## 269차 (진행 중 -- 코드 전반 분석 + CPU 최적화 크로스리뷰, 코드 수정 전) -- 사용자 지시로 설계의도 정합성/충돌/불필요코드/CPU 부하 전반 점검, ChatGPT 최적화 제안 교차검증
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu`(HEAD `8964413`=266차, 이번 세션 코드 변경
+없음) / `ryu-devnotes`(HEAD `55890f7`=268차 계속2, 이 항목 추가 전)
+
+**Branch**: `c3-ms-dev` / `main`
+
+**배경**: 사용자가 "최신 코드를 읽고 내 의도대로 설계되었는지, 충돌은
+없는지, 불필요한 코드는 없는지, CPU에 과부하는 없는지 전반적인 분석과
+최적화 진행"을 지시. 이어서 ChatGPT가 별도 세션에서 작성한 route 계산부
+CPU 최적화 분석 문서를 공유하여 교차검증 요청.
+
+**한 일**:
+1. 금지 패턴 grep(132/172/173/199/205/221차 보호 대상) 선실시 -- `vturn_speed()`의
+   `sqrt(...)` 패턴 등 보호 대상 확인, 읽기만 하고 수정 없음.
+2. `carrot_man.py`(`carrot_navi_route`, `_route_cluster_continuity_step`)와
+   `carrot.cc`(TBT HUD, 230/231차 변경분), `long_mpc.py`(A_CHANGE_COST 관련)를
+   코드 레벨로 재확인.
+3. **[재확인] 222차가 발견한 "정지→재출발 ceiling 무력화" 이슈가 223차
+   전면 재설계로 이미 구조적으로 해소되어 있음을 확인** -- `_route_speed_prev`
+   변수 자체가 삭제되었고(L526 주석), ceiling/램프리미터/불연속부스트를
+   전량 삭제한 뒤 매 프레임 `out_speed_ms = max(target_ms, v_ego_ms -
+   applied_decel*dt)` 형태로 재계산하는 구조로 교체되어 `out<=vEgo`가
+   상태에 의존하지 않고 매 프레임 재보장됨. 이후 257/258차 INERT/ACTIVE
+   게이트 재정의도 동일 원칙 유지. (FINDINGS.md 222차 항목에 addendum으로
+   기록, 원 항목은 삭제/수정하지 않음 -- §24.)
+4. **[확인] MPC 감속지연(174차 Cause B) 세 후보 중 하나가 이미 반영**됨을
+   코드로 확인 -- `long_mpc.py` L1362-1372, route_decel_rate가 안정/상승
+   중이면 `A_CHANGE_COST`(200)를 `CRUISE_DECEL_RELAX_A_CHANGE_COST`(20)까지
+   완화하는 조건부 로직 존재. 몇 차 세션 결과물인지/실차검증 상태는 이번
+   세션에서 추적하지 않음(다음 작업 후보).
+5. `carrot.cc::wrap_name_lines`(230차)가 UI 그리기 함수 안에서 매 프레임
+   (`szPosRoadName` 불변 시에도) 폰트크기 축소 루프+텍스트 측정을 반복
+   재계산하는 것을 CPU 최적화 후보로 식별 -- 문자열 불변 시 캐시 재사용
+   제안(코드 변경은 아직 안 함).
+6. ChatGPT의 route 계산부 CPU 분석 문서를 코드로 교차검증:
+   - macro(53회)/fine(59회) `calculate_curvature()` 호출 수 실측 확인
+     (600m/10m+1=61 point, `sample=4`->offset i+8, `sample_fine=1`->offset i+2).
+   - **[신규 발견] fine 루프가 macro보다 6개 지점 더 계산하는데, 뒷단
+     보정 루프(`for j in range(len(distances))`)는 macro 길이(53)만
+     소비 -- fine 후반 6개 지점의 곡률 계산은 매 프레임 계산되지만 전혀
+     쓰이지 않는 완전한 낭비**(ChatGPT 분석보다 구체적/확정적).
+   - fine의 "nearest search"(`fine_idx` 순차탐색)는 `fine_idx`가 j루프
+     밖에서 유지되어 이미 O(n)이며(O(n²) 아님), macro/fine의 distance
+     그리드가 둘 다 -10.0에서 시작해 10.0씩 증가하므로 겹치는 구간에서
+     `distances[j]==fine_points[j][0]`가 항상 정확히 성립 -- 즉 그
+     탐색 자체가 불필요한 간접참조(개선폭은 작음).
+   - **[의견 차이] np.interp 개별 스칼라 호출(~112회/프레임)이 곡률
+     계산 자체보다 더 큰 최적화 후보일 수 있음**을 제기 -- numpy 호출
+     오버헤드가 스칼라 입력 대비 불균형하게 크므로, macro/fine 곡률을
+     배열로 모아 각각 1회 배치 `np.interp` 호출로 대체하는 편이 위험
+     대비 효과가 더 좋을 가능성.
+   - geometry cache(ChatGPT 7번, 보류 의견)에 대해 **220차 미해결
+     apexIdx flicker 근본원인("리샘플 그리드가 매 프레임 현재위치
+     기준으로 재앵커링")과 정면으로 얽힌다는 근거를 추가** -- 그 조사가
+     끝나기 전에는 착수하지 않는 것으로 의견 일치.
+
+**결과(현재까지 결론, 코드 변경 없음)**:
+- 설계의도 정합성: 확인한 범위 내 심각한 이탈 없음, 오히려 기억에 남아있던
+  두 개의 "미해결 과제"가 이미 후속 세션들에서 해소/부분해소되어 있었음.
+- 충돌: 확인한 범위(`carrot_man.py`/`carrot.cc`/`long_mpc.py` 관련 부분)에서
+  다른 AI 작업과의 충돌 흔적 없음.
+- 불필요한 코드: `carrot_man.py`의 `haversine_cache`/`curvature_cache`
+  주석처리 dead code(L201-215, L372-390, L844-845) -- 실행 영향 없음,
+  정리 후보(우선순위 낮음).
+- CPU: (1) UI측 `wrap_name_lines` 캐싱 미실시, (2) route측 fine 루프
+  불필요 6개 지점 계산, (3) np.interp 개별 호출 다수 -- 3건 모두
+  "무위험 최적화" 등급으로 판단, 아직 패치 작성 전.
+
+**검증**:
+- 정적 분석: grep/코드 추적으로 위 확인 완료.
+- 로그 검증: 미실시(코드 변경이 없으므로 해당 없음).
+- 시뮬레이션: 미실시.
+- **실차 검증: 미실시.**
+
+**Devnotes**: FINDINGS.md 222차 항목에 "[269차 재확인]" addendum 추가
+(원 항목 삭제/수정 없음, §24).
+
+**미확인/미해결**:
+- MPC A_CHANGE_COST 완화 패치가 정확히 몇 차 세션 결과물이고 실차검증
+  상태가 어떤지 미추적.
+- ChatGPT 제안 Phase 1(무위험 최적화 3종: fine 루프 범위 제한, np.interp
+  배치화, fine_points tuple 제거)의 실제 patch 작성 및 corpus replay
+  bit-level 동일성 검증은 아직 착수 전.
+- `wrap_name_lines` 캐싱도 patch 작성 전.
+- 227~257차 재설계가 `vturn_speed()`(보호 대상, 읽기만 가능)의 1차
+  저역필터 램프에도 동일한 종류의 vEgo-미참조 리스크가 있는지는 미조사.
+
+**다음 작업**:
+1. 사용자 승인 시 route 계산부 Phase 0(구간별 소요시간 계측) +
+   Phase 1(fine 루프 범위 제한/np.interp 배치화/tuple 제거) patch 작성,
+   corpus replay로 apex_idx/apex_dist/apex_speed/apex_mode/apex_streak/
+   out_speed 동일성 검증.
+2. 사용자 승인 시 `carrot.cc::wrap_name_lines` 캐싱 patch 작성.
+3. MPC A_CHANGE_COST 완화 로직의 출처 세션/실차검증 상태 WIP/FINDINGS에서
+   추적.
+
+**패치**: `0001-269cha-checkpoint-devnotes.patch` (`/mnt/user-data/outputs/`)
+
+---
+
 ## 268차 (완료 -- toolkit corpus 모드 구현, 실 corpus 재검증 전) -- 266차 다음 작업 1번(`sim_route_265_confidence_target_blend.py` corpus 모드) 구현
 
 **Worker**: Claude

@@ -1591,6 +1591,24 @@ raw/pre-ceiling 값일 수 있음에 주의).
 
 **전달 파일**: `WIP.md`, `FINDINGS.md`(이 항목), `LAST_ANALYZED.md`.
 
+**[269차 재확인, 코드로 확인, 원 항목 수정 없음 -- §24]**: 위 "상태:
+ANALYSIS_ONLY, 패치 방향 후보 1/2/3" 시점 이후, 223차가 이 문제의 원인
+자체(`_route_speed_prev` 기반 132/172/173차 램프리미터 + ceiling 이중
+클램프 구조)를 전면 재설계로 제거했다. 현재(HEAD `8964413`=266차)
+`carrot_man.py`에는 `_route_speed_prev`가 존재하지 않으며(§ 삭제 확인,
+L526 주석 "132차 프레임간 램프리미터(_route_speed_prev)와 ... 전면
+재설계"), route 출력은 매 프레임 `out_speed_ms = max(target_ms, v_ego_ms
+- applied_decel_mss*dt)`(`applied_decel_mss>=0`)로 재계산되어 이전
+프레임 상태에 의존하지 않고 `out<=vEgo`가 구조적으로 보장된다. 이후
+257/258차 INERT/ACTIVE 게이트 재정의도 동일 원칙(`eff_dist<=0` 또는
+`v_ego<=target`이면 즉시 안전값 반환)을 유지한다. **패치 방향 후보
+1/2/3은 그 사이 별도로 채택되지 않았으나, 문제 자체가 223차의 더 넓은
+재설계로 해소된 것으로 보인다.** 단, 이번 재확인은 코드 정적 추적만
+수행했고, 정지→재출발 시나리오에 대한 재실측(로그/시뮬레이션)은 하지
+않았다 -- 완전한 재검증이 필요하면 별도 세션으로 진행. VTurn(보호
+대상)의 1차 저역필터 램프(`vturn_decel_rc`/`vturn_accel_rc`)에 유사한
+종류의 리스크가 있는지는 미조사.
+
 ---
 
 ## 220차 — [ANALYSIS_ONLY-NEEDS_USER_DECISION] 219차 결론에 대한 실차데이터 기반 반례 + rolling-max 게이트 재설계안의 회귀 확인
