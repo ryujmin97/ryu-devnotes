@@ -21,6 +21,37 @@ CHANGELOG.md를 같이 갱신**한다 (세션 종료 체크리스트에 포함�
 
 ---
 
+## sim_route_261_ratio_threshold_tradeoff.py (261차 신규, 재검증용)
+**목적**: `sim_route_260_gyesok2_...`가 보고한 magnitude_ratio-persistence
+상관관계(조인 방식, 5m tolerance)를 조인 없이 재검증 -- streak(persistence,
+merged sample=4/fine=1 게이팅 기준)와 magnitude_ratio(순수 fine/macro
+독립 재구성)를 **한 pass에서 동시 계산**. 클램프 전 raw ratio도 함께
+출력하며, 후보 threshold별 "streak=1 오탐율 vs streak20+ recall"
+트레이드오프 표도 낸다.
+
+**결과 요약(재검증)**: 260차계속2와 방향은 같으나 크기가 크게 다름
+(streak=1 평균 0.763 vs streak20+ 평균 1.458, streak20+ 56.7%가 클램프
+상한 도달). raw(클램프 전) ratio는 streak20+ median 6.98/max 31.47까지
+나와 "스케일 불변(비율≈1)" 가설과 어긋남 -- fine/macro 배열의 샘플링
+간격 차이로 인한 `nearest_point()` 정렬 아티팩트로 추정(정황적, 미확정).
+**사용자 결정으로 magnitude_ratio는 confidence 스코어링에서 제외**
+(FINDINGS.md/WIP.md 261차 참고).
+
+**의존성**: `extract_log.py --with-navi-paths` 출력 CSV.
+`analysis_helpers.parse_navi_paths`/`recompute_route_curvature_speed`.
+
+**사용**:
+```
+python3 sim_route_261_ratio_threshold_tradeoff.py <route1.csv> [<route2.csv> ...] \
+    --thresholds 0.40 0.45 0.50 0.55 0.60 0.65 0.70
+```
+
+**한계**: fine/macro 정렬 아티팩트 가설은 원시 배열 직접 대조로 확정하지
+않음(재조사 시 공통 격자 재샘플링 방식 권장). curvature_consistency
+신호는 이 스크립트를 포함해 시도한 4개 정의 모두 채택되지 않은 상태.
+
+---
+
 ## sim_route_260_gyesok2_crossscale_curvature_consistency.py (260차 계속2 신규, 채택)
 **목적**: `sim_route_260_confidence_signals.py`(260차)의
 curvature_consistency(시간축 track 부호이력 최빈값) 정의가 판별력
@@ -48,6 +79,13 @@ python3 sim_route_260_gyesok2_crossscale_curvature_consistency.py <route.csv> \
 **한계**: threshold 미확정(등록 전). 4개 신호(persistence/ratio/
 speed-drop/GPS reliability) 통합 confidence 공식은 별도 설계 필요.
 실차 검증 미실시.
+
+**[261차 갱신]** 위 결과는 streak/ratio를 서로 다른 스크립트로 계산 후
+5m tolerance로 조인해서 얻은 값이었음이 재검증에서 드러남 -- 조인 없이
+재계산하면 방향은 같지만 크기가 크게 다르고 raw ratio에 극단치(최대
+31x)가 다수 확인됨(`sim_route_261_ratio_threshold_tradeoff.py` 참고).
+**"채택" 결론은 재검토 대상이며, 사용자 결정으로 magnitude_ratio는
+현재 confidence 스코어링에서 제외됨**(FINDINGS.md 261차 참고).
 
 ---
 

@@ -1,3 +1,50 @@
+## 261차 -- [재검증 완료] 260차 계속2 magnitude_ratio "채택" 결론 재검토 -- 조인(join) 방식 의존성 발견, 사용자 결정으로 confidence 스코어링에서 제외
+
+**기존 결론** (260차 계속2): magnitude_ratio(macro/fine cross-scale)는
+0.13~2.0으로 분산되고 persistence(streak)와 방향성 있는 상관관계
+(streak=1 평균 0.481 vs streak20+ 평균 0.665)를 보여 curvature_consistency
+재정의 신호로 "채택 후보"로 devnotes 등록됨.
+
+**새로운 증거**: 260차 계속2의 상관관계 수치는 streak와 ratio를 **서로
+다른 두 스크립트(서로 다른 게이팅 방식)로 각각 계산한 뒤 5m tolerance로
+근사 조인**해서 얻은 값이었음. 조인을 없애고 한 pass에서 동시 계산하는
+신규 toolkit(`sim_route_261_ratio_threshold_tradeoff.py`)으로
+seg12-16+dashcam(29126행) 전체를 재실행한 결과:
+- streak=1 평균 0.763, streak20+ 평균 **1.458**(크기 자체가 크게 다름,
+  방향성만 일치)
+- streak20+ 후보의 **56.7%가 클램프 상한(2.0)에 그대로 도달**
+- 클램프를 풀면 streak20+ raw ratio median=**6.98**, max=**31.47** --
+  "실제 커브는 scale을 넓혀도 크기가 거의 안 줄어든다(비율≈1)"는 신호
+  설계 당시 가설과 명백히 어긋나는 극단값 다수 존재.
+- 원인으로 fine(sample=1)/macro(sample=4) 두 배열의 샘플링 간격이 달라
+  `nearest_point()`가 각각 독립적으로 최근접점을 찾을 때 물리적 위치가
+  어긋나고, fine 쪽 최근접점 곡률이 FLOOR_THRESHOLD(0.001) 근처로 작을 때
+  분모가 거의 0이 되어 비율이 폭발하는 것으로 추정(정황적 근거, 원시
+  배열 직접 대조로 확정하지는 않음).
+
+**변경 이유**: 신호값이 조인 방식/게이팅 소스 선택에 따라 방향은
+같지만 크기가 크게 흔들리고, raw 값에 물리적으로 설명이 안 되는 극단치가
+다수 존재 -- 이대로 threshold를 확정해 confidence 스코어링에 반영하면
+잘못된 근거로 점수를 매기게 될 위험이 있음. 사용자에게 재검토 방향을
+질의한 결과, **"부정확한 근거로 점수를 주는 건 패스, 점수계산에서 뺌,
+확실하게 나오는 것에 점수를 많이 주자"**는 명확한 결정을 받음.
+
+**새로운 결론**: magnitude_ratio(현재 정의)는 confidence 스코어링
+공식에서 **제외**한다. curvature_consistency 신호는 (부호일치=agree,
+공간축 sign-consistency, 시간축 최빈값, magnitude_ratio) 네 가지
+정의를 모두 시도했으나 전부 판별력 없음/포화/아티팩트 의심으로
+현재까지 유효한 정의를 찾지 못한 상태로 남는다. 대신 이미 강한
+판별력이 실측 확인된 **persistence(track streak)**에 스코어링
+가중치를 집중하는 방향으로 원칙을 확정(구체적 가중치 수치는 미정,
+WIP.md 261차 다음 작업 참고). fine/macro 정렬 방식을 고쳐서
+magnitude_ratio를 재도전할지는 낮은 우선순위 미결 항목으로 남김.
+
+**Status**: `REJECTED_FOR_SCORING` (신호 자체가 틀렸다고 확정된 것은
+아니나, 현재 정의/계측 방식으로는 스코어링에 반영하지 않기로 사용자
+결정 -- 재조사는 낮은 우선순위 옵션으로 보존)
+
+---
+
 ## 260차 계속2 -- [1차 실측 완료] curvature_consistency 재정의 2회 시도 -- 1차(공간축 sign-consistency) 폐기, 2차(macro/fine cross-scale magnitude_ratio) 채택 -- persistence와 방향성 있는 상관관계 확인
 
 **배경**: 260차가 발견한 "curvature_consistency(시간축 track 부호이력

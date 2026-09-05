@@ -3,6 +3,14 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+## 2026-09-06 (261차)
+- `sim_route_261_ratio_threshold_tradeoff.py`: 신규 -- 260차계속2의
+  streak/magnitude_ratio 상관관계(조인 방식)를 조인 없이 단일 pass로
+  재검증. 방향은 같으나 크기가 크게 다르고(streak20+ 평균 0.665->1.458),
+  raw ratio에 최대 31x 극단치 확인 -- fine/macro 정렬 아티팩트 의심.
+  **사용자 결정: magnitude_ratio를 confidence 스코어링에서 제외**,
+  persistence 등 확실한 신호에 가중치 집중 원칙 확정(FINDINGS.md 261차).
+
 ## 2026-09-06 (260차 계속2)
 - `sim_route_260_gyesok2_crossscale_curvature_consistency.py`: 신규,
   **채택** -- curvature_consistency를 macro(40m chord)/fine(10m chord)

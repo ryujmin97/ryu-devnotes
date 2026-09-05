@@ -1,3 +1,98 @@
+## 261차 (완료 -- magnitude_ratio 재검증, 조인 방식의 문제 확인, 사용자 결정으로 스코어링 제외 확정) -- confidence 스코어링 설계 원칙 확정(불확실 신호 배제 + 확실한 신호 가중)
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu`(HEAD `109f6816`=258차, 변경 없음) /
+`ryu-devnotes`(HEAD `47ce088`=260차 계속2, 이 항목 추가 전)
+
+**Branch**: `c3-ms-dev` / `main`
+
+**Base commit (ryu)**: `109f68160bad1a3514627fdc3d9a84f9ed8ac83e`
+
+**devnotes Base commit**: `47ce0886fbbb887addf5d5311f33aabc7f043f5e`
+
+**배경**: 260차 계속2가 "채택 후보"로 남긴 magnitude_ratio의 threshold
+확정(다음 작업 1순위)을 진행하려던 중, 260차 계속2의 실측 방법론
+자체에 의문이 생겨 재검증을 먼저 수행. 사용자가 `0000039a--7b602ffb85`
+seg12-16 zip과 `dashcam_1788583013065.zip`을 재업로드(컨테이너 초기화로
+corpus 재유실 -- 260차 계속2와 동일 상황 반복), 양쪽 다 재추출 완료
+(seg12-16 5999행, dashcam 29126행 -- 기존 기록과 행수 일치 재확인, drift
+없음).
+
+**한 일**:
+1. 260차 계속2의 streak(persistence) vs magnitude_ratio 상관관계는
+   **서로 다른 두 스크립트**(`sim_route_260_confidence_signals.py`=merged
+   sample=4/fine=1 게이팅, `sim_route_260_gyesok2_...`=fine-only sample=1
+   게이팅)를 각각 실행한 뒤 "같은 t/근접 dist 5m 이내"로 조인해서 얻은
+   값임을 FINDINGS.md 재확인으로 파악 -- 서로 다른 후보 집합 간 근사
+   매칭이라 오차 가능성 있음.
+2. 조인 오차를 없애기 위해 신규 toolkit `sim_route_261_ratio_threshold_
+   tradeoff.py` 작성 -- streak(persistence)와 magnitude_ratio를 **한
+   pass에서 동시에** 계산(게이팅은 confidence_signals.py와 동일한 merged
+   방식 사용, ratio는 gyesok2와 동일하게 순수 fine/macro 독립 재구성에서
+   계산). py_compile 통과.
+3. seg12-16 + dashcam(29126행) 전체로 실행 -- **결과가 260차 계속2 보고치와
+   방향은 같지만(streak 길수록 ratio 높음) 크기가 크게 다름**:
+   - 260차 계속2(조인): streak=1 평균 0.481, streak20+ 평균 0.665
+   - 이번(조인 없음): streak=1 평균 0.763, streak20+ 평균 **1.458**
+     (median이 클램프 상한 2.000, streak20+의 56.7%가 클램프에 걸림)
+4. 클램프를 풀고 raw ratio(min() 클램프 전 실제 값)를 확인한 결과
+   **streak20+ raw ratio median=6.98, p90=12.16, max=31.47** -- "실제
+   커브는 scale을 넓혀도 크기가 거의 안 줄어든다(비율≈1)"는 애초 가설과
+   맞지 않는 극단값이 다수 존재.
+5. threshold 후보(0.40~0.70)별 오탐/recall 트레이드오프도 계측했으나(예:
+   threshold=0.5일 때 streak=1 오탐율 69.4%, streak20+ recall 82.8%),
+   위 4번 문제로 이 표 자체의 신뢰도가 낮다고 판단 -- **참고용으로만
+   devnotes에 남기고 확정 threshold 근거로 사용하지 않음**.
+6. 원인으로 fine 배열(sample=1)과 macro 배열(sample=4)이 샘플링 간격이
+   달라 `nearest_point()`가 각각 독립적으로 최근접점을 찾을 때 두 배열의
+   실제 물리적 위치가 어긋날 수 있고, fine 쪽 최근접점의 곡률이
+   FLOOR_THRESHOLD(0.001) 근처로 작을 때 분모가 거의 0이 되어 비율이
+   폭발하는 것으로 추정(정황적 -- 원시 배열 직접 대조로 확정하지는 않음,
+   아래 미확인 참고).
+7. 사용자에게 재검토 방향(원인 규명/보류/기록만)을 질의 -- **사용자 결정:
+   "부정확한 근거로 점수를 주는 건 패스, 점수계산에서 뺌, 확실하게
+   나오는 것에 점수를 많이 주자"** -- magnitude_ratio를 confidence
+   스코어링 공식에서 **제외**하고, 판별력이 이미 강하게 확인된 신호
+   (persistence -- 260차: 65개 track 중 36개(55%)가 streak=1에서 종료,
+   소수만 장기 지속)에 **가중치를 집중**하는 방향으로 스코어링 설계
+   원칙 확정.
+
+**검증**: 정적분석(신규 toolkit `py_compile` 통과) + 실측(seg12-16+dashcam
+전체 29126+5999행, 조인 없는 단일 pass 재계산) + 260차 계속2 조인 방식
+결과와의 직접 비교(불일치 확인). **원인(정렬 아티팩트 가설)은 실측
+확정이 아닌 정황적 추정**. **실차 검증: 미실시**(오프라인 재계산 전용
+세션, ryu 코드 변경 없음).
+
+**미확인/미해결**:
+- fine/macro 정렬 아티팩트 가설은 원시 배열 직접 대조로 확정하지
+  않음(사용자가 원인 규명보다 스코어링 정책 결정을 우선 선택) --
+  향후 재조사 시 `nearest_point()`를 dist 기준 최근접이 아니라 공통
+  격자로 재샘플링하는 방식으로 바꿔서 재검증 권장.
+- magnitude_ratio/curvature_consistency 신호 자체를 완전히 폐기할지,
+  아니면 정렬 방식만 고쳐서 재도전할지는 미정(이번 세션은 "현재 정의로는
+  스코어링에 쓰지 않는다"까지만 확정).
+- speed-drop strength 재검증(260차/260차계속2가 남긴 미해결 항목,
+  터널 외 corpus로)은 이번 세션에서도 미진행.
+- `extract_log.py`에 `horizontalAccuracy` 컬럼 추가(GPS reliability
+  신호 착수 전제조건)도 미진행.
+- confidence 스코어링 최종 공식(가중치 수치, persistence를 어떤 함수로
+  스코어로 변환할지)은 이번 세션에서 설계 원칙만 확정, 구체적 공식/수치는
+  미착수.
+
+**다음 작업**:
+1. speed-drop strength를 터널 외 corpus(IC gore/S커브/dashcam)로
+   재검증(2순위, 260차가 남긴 미해결 항목).
+2. `extract_log.py`에 `horizontalAccuracy` 컬럼 추가 -- GPS reliability
+   신호 착수 전제조건.
+3. 위 두 신호까지 정리되면, 이번 세션에서 확정한 원칙(불확실한 신호
+   제외 + 확실한 신호 가중)을 적용해 confidence 스코어링 공식 설계
+   착수(persistence를 주 신호로, 검증 완료된 나머지 신호를 보조로).
+4. (낮은 우선순위, 원인 규명 원하면) fine/macro 정렬 아티팩트 가설을
+   원시 배열 직접 대조로 확정 -- 공통 격자 재샘플링 방식 재검증.
+
+---
+
 ## 260차 계속2 (완료 -- curvature_consistency 재정의 2회 시도, 1차 폐기+2차 채택, persistence와 상관관계 확인) -- macro/fine cross-scale magnitude_ratio로 curvature_consistency 재정의
 
 **Worker**: Claude
