@@ -1,3 +1,61 @@
+## 263차 (완료 -- speed_drop_strength 폐기 확정, 사용자 결정) -- confidence 스코어링 신호 목록 확정(persistence만 채택, magnitude_ratio/speed_drop_strength 폐기)
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu`(HEAD `109f6816`=258차, 변경 없음) /
+`ryu-devnotes`(HEAD `da80515`=262차, 이 항목 추가 전)
+
+**Branch**: `c3-ms-dev` / `main`
+
+**Base commit (ryu)**: `109f68160bad1a3514627fdc3d9a84f9ed8ac83e`
+
+**devnotes Base commit**: `da805152b6ca456f4e9c0390ffa32c821e4284c7`
+
+**배경**: 262차가 "confidence 스코어링에서 제외 판단"(사용자 확인 대기)으로
+남긴 speed_drop_strength에 대해, 사용자가 명시적으로 **"speed_drop_strength
+폐기"** 지시. 259차/261차/262차가 이어온 "4개 신호 개별 검증 후 조합" 방침에
+따라 이번 결정으로 신호 검증 단계가 마무리됨.
+
+**한 일**: 코드/toolkit 변경 없음, 사용자 결정을 devnotes에 확정 기록.
+
+**결론 -- confidence 신호 4종 최종 상태**:
+- **persistence(track streak)**: 채택 확정(260차, 강한 판별력 실측 확인).
+- **curvature_consistency**: 4개 정의 모두 판별력 없음/재정의 실패로
+  사실상 폐기 상태(260차 원 정의/260차 1차 공간축/260차계속2
+  cross-scale/261차 재검증 -- 마지막 형태인 magnitude_ratio도 아래
+  항목으로 폐기).
+- **magnitude_ratio(curvature_consistency 2차 재정의)**: 폐기 확정(261차,
+  조인 오차 재검증 후 사용자 결정).
+- **speed_drop_strength**: **폐기 확정(이번 263차)** -- 262차가 발견한
+  분모 발산 버그 + 필터 후에도 판별력 부재를 근거로 사용자 확정.
+- GPS positional reliability: 미착수(horizontalAccuracy 컬럼 부재,
+  260차부터 이월).
+
+**즉, 4개 후보 신호 중 실측으로 판별력이 확인되어 채택된 것은
+persistence 1개뿐**이며, GPS reliability는 아직 계측조차 안 된 상태.
+confidence 스코어링 공식은 사실상 "persistence 단독 사용"이 유력한
+기본안이 되었고, GPS reliability 계측이 완료되면 2종 조합 여부를 재검토.
+
+**검증**: 해당 없음(코드/toolkit 변경 없음, 의사결정 기록 전용).
+**실차 검증**: 미실시(이번 항목과 무관).
+
+**미확인/미해결**:
+- speed_drop_strength를 다른 정규화(절대 속도차, target_speed 기준
+  등)로 재도전할지는 이번 결정으로 완전히 닫힘(더 이상 진행하지 않음).
+- persistence 단독 confidence 공식의 구체적 형태(streak를 어떤 함수로
+  0~1 스코어로 변환할지 등)는 아직 설계 전.
+
+**다음 작업**:
+1. `extract_log.py`에 `horizontalAccuracy` 컬럼 추가 -- GPS reliability
+   계측 착수 전제조건(260차부터 이월, 남은 유일한 미검증 신호).
+2. GPS reliability 계측 완료 후, persistence(단독 또는 GPS reliability와
+   조합) 기준 confidence 스코어링 공식 설계 착수.
+3. (낮은 우선순위) fine/macro 정렬 아티팩트 가설 원시 배열 직접 대조
+   확정(260차계속2/261차부터 이월, magnitude_ratio 자체가 폐기됐으므로
+   우선순위 더 낮아짐).
+
+---
+
 ## 262차 (완료 -- speed-drop strength 터널 외 corpus 재검증, 분모 발산 버그 발견 + 필터 후에도 판별력 부재 확인, 스코어링 제외 판단) -- speed_drop_strength 신호 신뢰불가 확정
 
 **Worker**: Claude

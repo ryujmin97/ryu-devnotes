@@ -1,3 +1,25 @@
+## 263차 -- [결정 확정] speed_drop_strength 폐기 -- confidence 신호 4종 중 persistence만 채택 확정
+
+**배경**: 262차가 실측(분모 발산 버그 + 필터 후 판별력 부재)을 근거로
+"confidence 스코어링에서 제외 판단"(사용자 확인 대기)으로 남긴
+speed_drop_strength에 대해, 사용자가 명시적으로 **폐기**를 지시.
+
+**최종 상태**: confidence 신호 후보 4종(persistence/curvature
+consistency/speed-drop strength/GPS positional reliability) 중
+- persistence: 채택 확정(260차)
+- curvature_consistency(최종형=magnitude_ratio): 폐기 확정(261차)
+- speed_drop_strength: **폐기 확정(263차, 이번)**
+- GPS positional reliability: 미착수(계측 전제조건인 `horizontalAccuracy`
+  컬럼이 `extract_log.py`에 없음, 260차부터 이월)
+
+**결론**: 4개 후보 중 실측으로 판별력이 검증되어 채택된 신호는
+persistence 1개뿐. confidence 스코어링 공식은 persistence 단독을
+기본안으로 하고, GPS reliability 계측이 완료되면 조합 여부를 재검토한다.
+
+**Status**: `DECIDED` (사용자 결정, 코드/toolkit 변경 없음)
+
+---
+
 ## 262차 -- [재검증 완료] speed_drop_strength 터널 외 corpus(dashcam) 검증 -- 저vEgo 분모 발산 버그 + 필터 후에도 판별력 부재, confidence 스코어링에서 제외
 
 **기존 결론** (260차): speed_drop_strength는 IC gore(mean 0.357) vs

@@ -1,3 +1,18 @@
+## c3-ms-dev (263차, speed_drop_strength 폐기 확정 -- 사용자 결정, 코드/toolkit 변경 없음)
+- last_analyzed_commit: `109f6816`(258차, ryu — 드리프트 없음, 변경 없음)
+- devnotes base: `da80515`(262차)
+- date: 2026-09-06 (263차)
+- 분석 대상: 없음(신규 분석 아님, 262차 실측 결과에 대한 사용자 의사결정
+  기록).
+- note: speed_drop_strength 폐기 확정 -- confidence 신호 4종
+  (persistence/curvature consistency/speed-drop strength/GPS positional
+  reliability) 중 persistence만 유일하게 채택 확정 상태. 남은 미착수
+  신호는 GPS reliability(horizontalAccuracy 컬럼 부재로 계측 전제조건
+  미충족)뿐.
+- next: `extract_log.py`에 horizontalAccuracy 컬럼 추가 -- GPS
+  reliability 계측 착수(남은 유일한 미검증 신호). 이후 persistence
+  단독(또는 GPS reliability 조합) 기준 confidence 스코어링 공식 설계.
+
 ## c3-ms-dev (262차, speed_drop_strength 터널 외 corpus 재검증 -- ryu 코드 변경 없음)
 - last_analyzed_commit: `109f6816`(258차, ryu — 드리프트 없음, 변경 없음)
 - devnotes base: `76518b3`(261차)
