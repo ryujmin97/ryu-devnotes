@@ -1,3 +1,17 @@
+## c3-ms-dev (264차, GPS positional reliability 폐기 확정 -- 사용자 결정, 코드/toolkit 변경 없음)
+- last_analyzed_commit: `109f6816`(258차, ryu — 드리프트 없음, 변경 없음)
+- devnotes base: `9627548`(263차)
+- date: 2026-09-06 (264차)
+- 분석 대상: 없음(신규 분석 아님, 사용자 의사결정 기록).
+- note: GPS positional reliability 폐기 확정(사유: horizontalAccuracy
+  계측 실익 없음 + 이미 부족한 신호 다수로 persistence 단독으로 충분).
+  confidence 신호 4종(persistence/curvature consistency/speed-drop
+  strength/GPS positional reliability) 검증 트랙 완전 종료 -- persistence
+  단독 채택 확정. `extract_log.py` horizontalAccuracy 컬럼 추가 작업
+  더 이상 진행하지 않음(이월 종료).
+- next: persistence(streak) 단독 기준 confidence 스코어링 공식 설계
+  착수 -- streak를 0~1 스코어로 변환하는 구체적 함수/threshold 결정.
+
 ## c3-ms-dev (263차, speed_drop_strength 폐기 확정 -- 사용자 결정, 코드/toolkit 변경 없음)
 - last_analyzed_commit: `109f6816`(258차, ryu — 드리프트 없음, 변경 없음)
 - devnotes base: `da80515`(262차)

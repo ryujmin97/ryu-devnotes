@@ -1,3 +1,23 @@
+## 264차 -- [결정 확정] GPS positional reliability 폐기 -- confidence 신호 4종 검증 완료, persistence 단독 최종 확정
+
+**배경**: 263차가 "미착수"(horizontalAccuracy 컬럼 부재)로 남긴 GPS
+positional reliability에 대해, 사용자가 "미착수가 아니라 폐기"로 정정.
+사유: (1) horizontalAccuracy 계측 자체가 실익이 없다고 판단, (2) 4개
+신호 중 이미 부족한 것이 많아 persistence 단독으로 충분하다고 판단.
+
+**최종 상태**: confidence 신호 후보 4종 전부 결론남 -- persistence만
+채택(260차), 나머지 3종(curvature_consistency/magnitude_ratio/
+speed_drop_strength/GPS positional reliability) 전부 폐기(261~264차).
+`extract_log.py`에 `horizontalAccuracy` 컬럼을 추가하는 작업은 더 이상
+진행하지 않음.
+
+**결론**: confidence 스코어링 공식은 persistence(streak) 단독을
+기반으로 설계한다. 4개 후보 신호 검증 트랙 종료.
+
+**Status**: `DECIDED` (사용자 결정, 코드/toolkit 변경 없음)
+
+---
+
 ## 263차 -- [결정 확정] speed_drop_strength 폐기 -- confidence 신호 4종 중 persistence만 채택 확정
 
 **배경**: 262차가 실측(분모 발산 버그 + 필터 후 판별력 부재)을 근거로

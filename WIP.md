@@ -1,3 +1,60 @@
+## 264차 (완료 -- GPS positional reliability 폐기 확정, 사용자 결정) -- confidence 신호 4종 전부 결론, persistence만 최종 채택
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu`(HEAD `109f6816`=258차, 변경 없음) /
+`ryu-devnotes`(HEAD `9627548`=263차, 이 항목 추가 전)
+
+**Branch**: `c3-ms-dev` / `main`
+
+**Base commit (ryu)**: `109f68160bad1a3514627fdc3d9a84f9ed8ac83e`
+
+**devnotes Base commit**: `9627548`(263차)
+
+**배경**: 263차가 "미착수"(계측 전제조건인 `horizontalAccuracy` 컬럼
+부재)로 남긴 GPS positional reliability에 대해, 사용자가 "미착수가
+아니라 폐기"로 정정 지시. 사유 확인 결과 다음 두 가지:
+1. `horizontalAccuracy` 계측 자체가 실익이 없다고 판단.
+2. 4개 신호 중 이미 부족한 것(curvature_consistency/magnitude_ratio/
+   speed_drop_strength 3종 전부 폐기)이 많아, persistence 단독으로
+   충분하다고 판단.
+
+**한 일**: 코드/toolkit 변경 없음, 사용자 결정을 devnotes에 확정 기록.
+`extract_log.py`에 `horizontalAccuracy` 컬럼을 추가하는 작업 자체를
+더 이상 진행하지 않음(260차~263차에 걸쳐 이월되던 "다음 작업" 항목에서
+제거).
+
+**결론 -- confidence 신호 4종 최종 상태(전부 결론)**:
+- **persistence(track streak)**: 채택 확정(260차) -- **유일하게 채택된
+  신호이자 최종 confidence 스코어링의 사실상 전체 근거**.
+- curvature_consistency(원 정의/공간축/cross-scale=magnitude_ratio 3개
+  정의 전부): 폐기 확정(261차).
+- speed_drop_strength: 폐기 확정(262차 실측 근거, 263차 확정).
+- GPS positional reliability: **폐기 확정(이번 264차, 계측 자체를
+  하지 않기로 결정)**.
+
+**즉, confidence 스코어링 공식은 persistence(streak) 단독을 기반으로
+설계한다** -- 4개 후보 신호 검증 트랙이 이번 264차로 완전히 종료됨.
+
+**검증**: 해당 없음(코드/toolkit 변경 없음, 의사결정 기록 전용).
+**실차 검증**: 미실시(이번 항목과 무관).
+
+**미확인/미해결**:
+- 없음(신호 선정 단계 자체가 이번 항목으로 종료).
+
+**다음 작업**:
+1. persistence(streak) 단독 기준 confidence 스코어링 공식 설계 착수
+   (streak를 0~1 스코어로 변환하는 구체적 함수/threshold 결정 -- 259차가
+   확정한 "최근접 -> confidence 기반" 재설계의 실제 구현 단계).
+2. 위 공식을 `carrot_man.py`의 apex 후보 선정 로직에 반영할지, 반영
+   범위/patch는 공식 설계 완료 후 별도 세션에서 진행(§27 최소변경 원칙 --
+   현재는 설계 단계, 코드 변경 아직 없음).
+3. (낮은 우선순위) fine/macro 정렬 아티팩트 가설 원시 배열 직접 대조
+   확정(260차계속2/261차부터 이월, magnitude_ratio 자체가 폐기됐으므로
+   실익 낮음 -- 필요 시에만 재검토).
+
+---
+
 ## 263차 (완료 -- speed_drop_strength 폐기 확정, 사용자 결정) -- confidence 스코어링 신호 목록 확정(persistence만 채택, magnitude_ratio/speed_drop_strength 폐기)
 
 **Worker**: Claude
