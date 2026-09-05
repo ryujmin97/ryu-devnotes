@@ -21,6 +21,41 @@ CHANGELOG.md를 같이 갱신**한다 (세션 종료 체크리스트에 포함�
 
 ---
 
+## sim_route_256_inert_ceiling_vs_none.py (256차 신규)
+**목적**: `carrot_man.py` INERT 분기(`else: out_speed = apex_speed`, 226차
+도입)를 지선생(ChatGPT) 제안대로 `out_speed = None`으로 바꿨을 때, "매
+프레임 재평가되는 동적 시스템이라 v_ego가 target을 넘는 순간 즉시 ACTIVE로
+재진입해 위험하지 않다"는 반론이 실제로 성립하는지 **동적(폐루프) 시뮬레이션**
+으로 검증. `sim_route_226_active_gate_ceiling.py`(정적 단발 프레임 기준,
+None의 vCruise 개방 버그를 이미 증명)를 대체하지 않고, 그와 다른 축(근거리
++가속 중 crossing 시 감속 여유(eff_dist)가 부족해 target 초과 통과가
+발생하는가)을 검증하는 별개 도구.
+**의존성**: 없음(순수 합성 물리모델, CSV/외부 데이터 불필요).
+**방법**: 차량이 20Hz 루프(`ROUTE_SPEED_LOOP_DT`)로 매 프레임 `comfort_accel`
+상한 이내로 setpoint 쪽으로 가속(감속은 route의 out_speed를 그대로 추종)
+한다고 가정하고, apex_dist(8종: 15~500m) x vCruise-target 갭(5종) x
+comfort_accel(5종: 1.5~3.5 m/s^2, 근거리 스트레스 테스트) 스윕으로
+A_CEILING(현재 production)과 B_NONE(제안안) 각각에 대해 apex 도달 시점
+target 초과분/감속 포화 프레임 수를 기록.
+**사용**:
+```bash
+python3 sim_route_256_inert_ceiling_vs_none.py   # 기본 스윕(8x5=40케이스) + 대표 트레이스
+```
+**256차 결과**: 기본 스윕(40케이스, comfort_accel=1.2 고정) 전부 A/B 동일
+(초과 0건). 스트레스 스윕(apex_dist 15~50m x accel 1.5~3.5 x 갭 3종, 90케이스)
+에서 B_NONE이 `required_decel`을 순간적으로 포화(decel_cap 1.0 초과, 최대
+1.67 m/s^2 관측)시키는 프레임이 극히 일부(예: apex_dist=25m/accel=2.0)
+발생했지만, 매 프레임 재계산 구조 덕에 다음 프레임에서 즉시 재수렴해
+**apex 도달 시점 실제 초과분은 이 스윕 전체에서 0.5kph 미만**(사실상 0)으로
+유지됨 -- 지선생의 "동적 재평가라 안전하다" 반론이 이 물리모델/파라미터
+범위 내에서는 지지됨. 단 226차가 증명한 정적 케이스(Stop&Go 중 vCruise까지
+완전 개방)의 문제 자체는 이 스크립트가 다루는 축이 아니므로 별개로 여전히
+유효 -- **P0 논쟁은 미해결, Master 결정 대기**(WIP.md 256차 참고).
+**전제(명시)**: `comfort_accel` 값은 실측 스펙 없는 가정값(1.2~3.5 m/s^2
+스윕)이다. 실제 Genesis DH의 가속 응답 특성으로 재검증 필요.
+
+---
+
 ## sim_route_254_release_dist20_6state.py (254차 신규, 255차 버그수정+실측 A/B 완료)
 **목적**: `sim_route_252_active_state_full.py` 위에서 지선생(ChatGPT) 지시
 2건을 검증. (1) `_route_cluster_continuity_step()`의 continuity mode를

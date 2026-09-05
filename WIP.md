@@ -1,3 +1,96 @@
+## 256차 (완료 -- 시뮬레이션 검증, 코드 미수정/Master 결정 대기) -- INERT `out_speed=apex_speed`(226차) vs `out_speed=None`(지선생 제안) P0 논쟁, 동적 폐루프 시뮬레이션으로 후속 검증
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu`(변경 없음, HEAD `d1bba17`=255차계속) /
+`ryujmin97/ryu-devnotes`(HEAD `601791a`=255차계속, 재클론 확인, 드리프트
+없음)
+
+**Branch**: `c3-ms-dev` / `main`
+
+**Base commit (ryu)**: `d1bba17fa620703ca84faf22c5839d4913b774d0`
+
+**devnotes Base commit**: `601791a`
+
+**배경**: 255차계속 세션 종료 시점에 진행 중이던 Claude<->ChatGPT(지선생)
+대화가 이번 세션 시작 시 사용자에 의해 그대로 전달됨(devnotes에는
+미반영 상태였음). 논쟁 요약: 지선생이 247차 design doc §8("INERT=
+미개입/None")을 근거로 `carrot_man.py` L1140-1152의
+`out_speed=apex_speed`(226차 도입)를 P0 버그로 지목 -> Claude가 git
+blame/226차 커밋 이력(Master의 명시적 작업지시였음)으로 반박 ->
+지선생이 "매 프레임 재평가되는 동적 구조이므로 None으로 둬도 v_ego가
+target을 넘는 순간 즉시 ACTIVE 재진입해 안전할 수 있다"는 새 반론
+제기 -> Claude가 "코드로 판단할 사안이 아니라 시뮬레이션 근거가
+필요"라 결론짓고 "devnotes 클론해서 시작할까요?"로 세션 종료. 이번
+세션은 그 제안을 그대로 실행.
+
+**한 일**:
+1. §3/§33 원칙대로 `ryu`(HEAD `d1bba17`)/`ryu-devnotes`(HEAD `601791a`)
+   재클론 -- 이전 세션이 언급한 `3f925f5`(252차) 이후 `d1bba17`(255차계속,
+   dist20+6-state 실제 patch)까지 이미 진행되어 있음을 확인(§2 GitHub가
+   Source of Truth 원칙대로 최신 상태 기준으로 재개, 이전 대화 기억의
+   "3f925f5 기준" 언급은 갱신).
+2. 논쟁 대상 코드(`carrot_navi_route()` L1121-1152, INERT 분기)를 현재
+   HEAD 기준으로 재확인 -- 라인 번호/로직 불변, 논쟁 자체는 여전히
+   유효한 대상.
+3. §21 원칙대로 기존 `toolkit/sim_route_226_active_gate_ceiling.py`
+   확인 -- 이건 "정적 단발 프레임" 기준 GATE_OLD(None)/GATE_NEW
+   (apex_speed) 비교로, 지선생이 이번에 제기한 "동적 재평가" 축은
+   다루지 않음(스크립트 자체가 그 사실을 docstring에 명시). 동일
+   목적의 도구가 없으므로 신규 작성 결정.
+4. `toolkit/sim_route_256_inert_ceiling_vs_none.py` 신규 작성 -- 20Hz
+   폐루프(차량이 매 프레임 `comfort_accel` 상한 이내로 setpoint를 향해
+   가속, 감속은 route out_speed 그대로 추종) 물리모델로 A_CEILING/
+   B_NONE 양쪽을 동일 시나리오에 돌려 apex 도달 시점 target 초과분과
+   `required_decel`의 `AutoNaviSpeedDecelRate`(1.0, 등록값) 포화 여부
+   관측.
+5. 기본 스윕(apex_dist 8종 x 갭 5종=40케이스, comfort_accel=1.2 고정)
+   실행 -- A/B 완전 동일, 초과 0건.
+6. 스트레스 스윕(apex_dist 15~50m x accel 1.5~3.5 x 갭 3종=90케이스,
+   근거리+공격가속 조합) 추가 실행 -- B_NONE에서 `required_decel`
+   순간 포화(최대 1.67, cap 1.0) 프레임이 드물게 발생하나, 재계산
+   구조로 다음 프레임 즉시 재수렴 -- 전체 130케이스에서 apex 도달 시점
+   실제 초과분 0.5kph 미만(사실상 0).
+7. FINDINGS.md/toolkit/README.md/toolkit/CHANGELOG.md 갱신(§24/§21/§22).
+
+**완료**: 위 1~7번.
+
+**미완료 / 다음 세션 확인 필요**:
+- **P0 논쟁 미해결.** 이번 시뮬레이션은 지선생의 "동적 재평가" 반론을
+  이 물리모델/파라미터 범위 내에서 지지하지만, 226차가 원래 증명한
+  "정적 축"(Stop&Go 중 route_active=False 장기 지속 시 vCruice까지
+  완전 개방)은 이 스크립트가 다루지 않아 여전히 유효한 반박 근거로
+  남는다 -- 즉 (A) 유지/(B) 채택 중 어느 쪽도 시뮬레이션만으로
+  완전히 결정되지 않음. **Master 결정 필요**(FINDINGS.md 256차 "다음
+  작업" 1번).
+- `comfort_accel` 가정값(1.2~3.5 m/s^2)은 실측 스펙 없음 -- 실제
+  Genesis DH 가속 응답 특성으로 재검증 필요.
+- `carrot_serv.py::update_navi()` arbitration line-by-line 추적(지선생이
+  원래 요청한 다음 단계)은 이번 세션에서 착수하지 않음 -- P0 결정을
+  기다리는 게 순서상 맞다고 판단(그 추적 결과가 P0 결정에 따라
+  달라질 수 있는 코드 영역이므로).
+- **`ryu` 코드는 이번 세션에서 전혀 수정하지 않음**(순수 시뮬레이션
+  세션, 코드 변경 없음).
+
+**검증**: 시뮬레이션(신규 toolkit, 합성 물리모델) O / 실측 로그 검증:
+해당 없음(정적 파라미터 논쟁이라 로그 대상 아님) / **실차 검증:
+미실시**(순수 합성).
+
+**전달 파일**: `ryu-devnotes` 갱신분 -- `WIP.md`(이 항목),
+`FINDINGS.md`(256차 신규 항목), `toolkit/sim_route_256_inert_ceiling_vs_none.py`
+(신규), `toolkit/README.md`, `toolkit/CHANGELOG.md`. `ryu` 변경 없음
+(패치 없음).
+
+**다음 작업**:
+1. Master 결정: (A) `out_speed=apex_speed` 유지 / (B) `out_speed=None`
+   채택(채택 시 226차 정적 케이스에 대한 별도 대책 병행 설계 필요).
+2. 지선생에게 이번 세션 결과(동적 축 지지, 정적 축은 별개로 여전히
+   유효) 전달, 두 AI가 동일 근거를 공유한 상태에서 Master 결정 요청.
+3. 결정 이후: (B)라면 코드 patch+226차 정적 케이스 대책 설계, (A)라면
+   현행 유지 기록 후 `carrot_serv.py` arbitration 추적 재개.
+
+---
+
 ## 255차 계속 (완료 -- carrot_man.py 실제 patch 작성, 사용자 지시로 실측 corpus 확보 전 진행) -- route ACTIVE release 조건에 apex_dist<=20m(dist20) 추가 + continuity 6-state 분리를 실제 코드에 반영
 
 **Worker**: Claude

@@ -1,3 +1,68 @@
+## 256차 -- [시뮬레이션 검증 완료, P0 논쟁 미해결 -- Master 결정 대기] INERT `out_speed=apex_speed`(226차) vs `out_speed=None`(지선생 제안) 동적 재진입 안전성 -- 물리모델 스윕 범위 내에서 지선생 반론 지지, 단 226차 정적 케이스와는 별개 축
+
+**배경**: 255차계속 세션 말미, 지선생(ChatGPT)이 247차 design doc §8
+("INERT=미개입(None)")을 근거로 `carrot_man.py` L1140-1152의
+`out_speed=apex_speed`(226차 도입, ceiling 유지)가 P0급 버그라고 주장.
+Claude는 이 줄이 226차에 Master 작업지시로 의도 도입됐고
+`sim_route_226_active_gate_ceiling.py`로 이미 검증된 안전장치임을
+git blame+커밋 이력으로 반박. 지선생은 재반론: "매 프레임 재평가되는
+구조라 v_ego가 target을 넘는 순간 즉시 ACTIVE 재진입 + STEP2가 그
+시점 기준으로 재계산되므로, None으로 둬도 실제로는 위험하지 않을 수
+있다"(vEgo=80/apex=30/vCruise=100 예시). 이건 226차가 검증한 축(정적
+단발 프레임, Stop&Go 중 무한정 개방)과 다른 축이라 새로운 검증이
+필요했음.
+
+**검증 방법**: `sim_route_256_inert_ceiling_vs_none.py`(신규, 순수
+합성 물리모델) -- 차량이 20Hz 루프에서 매 프레임 `comfort_accel`
+상한 이내로 setpoint를 향해 가속(감속은 route out_speed를 그대로
+추종)한다고 가정, apex_dist(15~500m) x vCruise-target 갭(10~60kph)
+x comfort_accel(1.2~3.5 m/s^2, 근거리 스트레스 테스트 포함) 스윕으로
+A_CEILING(현재 production)/B_NONE(제안안) 각각 apex 도달 시점 target
+초과분과 `required_decel`의 `AutoNaviSpeedDecelRate`(1.0 m/s^2,
+PARAMS_REGISTRY 등록값) 포화 여부를 관측.
+
+**결과**: 기본 스윕(40케이스, comfort_accel=1.2 고정) -- A/B 완전
+동일, 초과 0건. 스트레스 스윕(90케이스, apex_dist 15~50m x accel
+1.5~3.5) -- B_NONE에서 `required_decel`이 순간적으로 decel_cap을
+포화(최대 1.67 m/s^2 관측, apex_dist=25m/accel=2.0 부근)시키는
+프레임이 드물게 발생했으나, 매 프레임 무상태 재계산 구조 덕에 다음
+프레임에서 즉시 재수렴 -- **apex 도달 시점 실제 target 초과분은 이
+스윕 전체(130케이스)에서 0.5kph 미만(사실상 0)**으로 유지됨.
+
+**결론**: 이 물리모델/파라미터 범위 내에서는 지선생의 "동적
+재평가라 안전하다" 반론이 지지된다 -- B_NONE으로 바꿔도 근거리+
+공격적 가속 조합에서 apex를 target보다 유의미하게 빠른 속도로
+통과하는 실패 모드는 관측되지 않았다. **단, 226차가 원래 증명한
+축(Stop&Go 중 route_active=False 상태가 오래 지속되며 vCruise까지
+완전히 개방되는 정적 케이스, `sim_route_226...` CASE3)은 이 스크립트가
+다루지 않으며 여전히 유효한 반박 근거로 남는다.** 즉 P0는 "어느 한쪽이
+전면적으로 옳다"가 아니라, 226차 정적 축(B_NONE의 약점)과 256차 동적
+축(A_CEILING이 정상적으로 이 축에서 열세는 아님, 대신 B_NONE도 이
+축에서 새 문제를 일으키지 않음을 재확인)이 서로 다른 질문에 답하는
+상태 -- 두 근거를 함께 Master에게 제시해 (A) 유지 / (B) 채택 여부
+결정 필요. AI 단독 판단으로 코드 수정하지 않음(§27/§33).
+
+**전제(명시, 한계)**: `comfort_accel`은 실측 스펙 없는 가정값이다.
+실제 Genesis DH 롱컨트롤 응답 특성(가속 램프율)으로 재검증되지
+않았음 -- 이 결론은 "가정된 물리모델 범위 내"로 한정된다. 실차
+검증: 미실시(순수 합성 시뮬레이션).
+
+**관련**: 226차(정적 케이스 최초 발견+수정), 247차(design doc §8,
+INERT=None 문언의 근거), 252차(226차 코드를 실제로 재확인하며 유지한
+리팩터링 커밋 `3f925f5`).
+
+**다음 작업**:
+1. Master 결정: (A) 현재 유지 / (B) None 채택(이 경우 226차 정적
+   케이스에 대한 별도 대책 필요, 예: route_active=False 상태에서도
+   RELEASE hold와 유사한 최소 ceiling 유지 시간 도입 등).
+2. (B) 채택 시: 실측 Genesis DH 가속 응답 특성으로 `comfort_accel`
+   가정값 재검증.
+3. `carrot_serv.py::update_navi()` route_speed→min() arbitration
+   line-by-line 추적(지선생이 원래 요청한 다음 단계, 이번 세션에서
+   보류).
+
+---
+
 ## 251차 -- [검증 완료, 오프라인 로그 재분석 -- 실차 미검증] 247차 §11 CRITICAL 항목 해소: severity gate 완전삭제 후에도 stage2(spatial cluster)+stage3(apex continuity)만으로 터널/IC gore/S커브 3구간 전부 flicker 0건 억제 확인
 
 **배경**: 247차 재설계 문서(`design/247cha_route_inert_active_redesign.md` §11)가 `ROUTE_SEVERITY_GATE_RATIO`(stage1)를 완전 삭제하기로 하면서, 234차의 터널 억제 실적(172→60→16→3건, 터널 81→0→0→0)이 전부 stage1이 이미 적용된 위에서 나온 결과라 "gate 없이 클러스터링+continuity만으로 터널급 노이즈를 억제할 수 있는가"가 검증되지 않은 채 남아있었음(247/248/249/250차에 걸쳐 미해결, 248차는 합성데이터 스모크테스트만 완료, 249차는 실차 corpus로 첫 검증했으나 터널 없는 로그였음, 250차는 대체 터널 corpus 2건 탐색했으나 전부 apex 비활성으로 판정되어 실패).

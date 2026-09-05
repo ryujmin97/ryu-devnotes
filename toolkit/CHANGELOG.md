@@ -3,6 +3,14 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+## 2026-09-05 (256차)
+- `sim_route_256_inert_ceiling_vs_none.py`: 신규 -- INERT 분기 `out_speed=
+  apex_speed`(226차) vs `out_speed=None`(지선생 제안, 255차계속 대화 이어짐)
+  동적 폐루프 스윕. 기본 스윕(40케이스) 회귀 없음, 스트레스 스윕(90케이스,
+  근거리+공격가속)에서도 apex 도달 시점 실질 초과 0 -- 지선생 반론이 이
+  파라미터 범위에서 지지됨. 226차 정적 케이스 문제는 별개로 유효, P0
+  최종 결정은 Master 대기. 상세: WIP.md/FINDINGS.md 256차.
+
 ## 2026-09-05 (255차)
 - `sim_route_254_release_dist20_6state.py`: 버그수정 -- INERT(`route_active
   =False`) 상태에서 `apex_mode`가 PASSED/LOST이고 `apex_speed=None`일 때
