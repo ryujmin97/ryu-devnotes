@@ -3,6 +3,16 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+## 2026-09-05 (249차)
+- `sim_route_234_spatial_apex_continuity.py`: 실차 CSV 방어 버그 수정 --
+  세그먼트 시작 직후 첫 carState 이벤트 도착 전 `vEgo`가 빈 문자열로
+  찍히는 케이스(234차 corpus에는 없었음, 실차 로그 116/29126행에서
+  확인)에서 `float("")`로 크래시하던 것을 naviPaths 없음과 동일하게
+  "이번 프레임 후보 없음"으로 처리하도록 수정. 사용자가 오늘 새로
+  채록한 실차 로그(000003ac--fb4b38b538 x20seg + 000003ad--be5457810e
+  x5seg, t 연속이라 단일 주행으로 병합, 29126행)로 `--skip-gate` 첫
+  실제 corpus 검증 수행 -- 상세는 README 249차 항목 참고.
+
 ## 2026-09-05 (248차)
 - `sim_route_234_spatial_apex_continuity.py`: `--skip-gate` 옵션 추가 --
   247차 재설계(§11 검증계획 1번)를 위해 stage1(severity gate)을 건너뛰고

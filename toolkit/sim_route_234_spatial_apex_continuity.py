@@ -191,6 +191,28 @@ def replay(rows, skip_gate=False):
         dt = (t - prev_t) if prev_t is not None else 0.05
         dt = max(0.001, min(dt, 0.5))
         prev_t = t
+        # 실차 CSV 방어(248차 신규 발견): 세그먼트 시작 직후 첫 carState
+        # 이벤트 도착 전에는 vEgo가 빈 문자열로 찍힌다(234차 corpus에는
+        # 없었던 케이스, 000003ac--fb4b38b538 실차 로그에서 116/29126행
+        # 확인). naviPaths 없음과 동일하게 "이번 프레임 후보 없음"으로 처리.
+        if not row.get("vEgo"):
+            rec = {"t": t, "v_ego_kph": None,
+                   "published_apex_idx": row.get("routeApexIdx", ""),
+                   "published_apex_dist": row.get("routeApexDist", ""),
+                   "published_apex_speed": row.get("routeApexSpeed", ""),
+                   "published_candidate_count": row.get("routeCandidateCount", "")}
+            for stage in ("s0", "s1", "s2", "s3"):
+                rec[f"{stage}_idx"] = None
+                rec[f"{stage}_dist"] = None
+                rec[f"{stage}_speed"] = None
+            rec["s3_ambiguous"] = False
+            rec["gate_source"] = "n/a"
+            cont.locked_dist = None
+            cont.locked_speed = None
+            cont.miss_frames = 0
+            cont.last_ambiguous = False
+            out.append(rec)
+            continue
         v_ego_ms = float(row["vEgo"])
         v_ego_kph = v_ego_ms * 3.6
 

@@ -1,3 +1,54 @@
+## 249차 (체크포인트 -- --skip-gate 실차 corpus 첫 검증 완료, 터널 케이스 미포함) -- 실차 로그로 severity gate 삭제 방향 첫 실측 지지 증거 확보
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu`(변경 없음, HEAD `2cfbcf4`=245차) / `ryujmin97/ryu-devnotes`
+
+**Branch**: `c3-ms-dev` / `main`
+
+**Base commit (ryu)**: `2cfbcf4f9a1e3a0697c033be53ade0e084214ca3`(245차, 변경 없음)
+
+**devnotes Base commit**: 로컬 248차 커밋 위(아직 사용자 push 전) -- 원격은 여전히 247차(`1557d83`)
+
+**배경**: 248차가 추가한 `--skip-gate` 옵션(247차 §11 검증계획 1번)을 실제 corpus로 검증하기 위해, 사용자가 234차/244차가 쓰던 기존 로그(`0000039a--7b602ffb85` seg12-16, 레포/Drive 미보관) 대신 오늘 새로 채록한 실차 로그를 업로드(`dashcam_1788583013065.zip`).
+
+**작업**:
+1. 업로드 zip 확인: 두 route(`000003ac--fb4b38b538` x20세그, `000003ad--be5457810e` x5세그)가 t(logMonoTime)로 끊김없이 이어짐(13:12~13:36) -- device route 전환 지점일 뿐 하나의 연속 주행으로 판단, 병합(144차 combined 패턴과 동일 근거).
+2. `extract_log.py --with-navi-paths --repo /home/claude/ryu-repo`(HEAD `2cfbcf4`=245차 스키마)로 두 route 각각 추출(24030행 + 5096행) 후 병합(29126행). 스키마 파싱 에러 없음(245차 cereal 스키마와 호환 확인).
+3. 병합 CSV로 `sim_route_234_spatial_apex_continuity.py` 기본 모드(회귀 확인용) 실행 중 **신규 크래시 발견**: 세그먼트 시작 직후 첫 carState 도착 전 `vEgo`가 빈 문자열인 행(116/29126) 처리 누락(`float("")` 예외). 234차 corpus에는 없던 케이스. naviPaths 없음과 동일하게 "후보 없음"으로 처리하는 최소 방어 로직 추가(§27).
+4. 수정 후 기본 모드 재실행 -- 정상 완료, 회귀 없음 확인.
+5. `--skip-gate` 모드 실행, 기본 모드와 비교(아래 결과 참고).
+6. naviPaths 공백 구간 전수 조사 -- 이 로그에 터널(장시간 GPS/navi 유실)이 없음을 확인(초반 GPS lock 전 55초 1건 제외 전부 2초짜리 일상 갱신갭). **247차 §11이 요구한 "터널 구간 재검증"은 이번에 증명되지 않음** -- 별도 로그 필요.
+7. `toolkit/README.md`(249차 섹션), `toolkit/CHANGELOG.md`(249차 항목) 갱신.
+
+**결과(전체 29126행, >40m 프레임간 점프 건수)**:
+
+| 모드 | stage0 | stage1 | stage2 | stage3 |
+|---|---|---|---|---|
+| 기본(gate 포함) | 48 | 2 | 3 | 2 |
+| `--skip-gate` | 48 | 48(=stage0) | 21 | **2** |
+
+gate를 완전히 삭제해도 stage2+stage3만으로 최종 점프가 기존 gate-포함 파이프라인과 동일한 2건까지 감소 -- 이 비(非)터널 실차 로그 범위에서는 247차가 제안한 gate 완전삭제 방향을 지지하는 첫 실측 증거. 단, active frame 수는 gate 제거로 55.9% 증가(7030->10958) -- 늘어난 개입이 전부 정상 감속인지 일부 미필터링 노이즈가 남은 것인지는 점프 지표만으로 구분 안 됨(다음 세션 항목).
+
+**완료**: `--skip-gate` 실차 corpus 첫 검증(5,6번), vEgo 방어 버그 발견 및 수정(3,4번), devnotes 문서 갱신(7번).
+
+**미완료**:
+- 터널 구간 포함 corpus 재검증 -- 이번 로그에는 터널 없음, 234차/244차 corpus(`0000039a--7b602ffb85` seg12-16, 미보관) 또는 터널 포함 신규 로그 필요.
+- 246차(원거리 apex freeze)/239차(self-elimination) 재현 케이스 이번 로그 내 해당 여부 미확인.
+- 늘어난 active frame(gate 제거분)이 노이즈인지 정상 개입인지 dashcam 대조 등으로 구분 미실시.
+- `carrot_man.py`/`carrot_serv.py` 코드 변경 없음(§28 원칙 유지).
+- 248차 로컬 커밋이 아직 사용자 push 전 -- 이번 249차 커밋도 그 위에 쌓임, 두 patch를 순서대로 적용해야 함.
+
+**검증**: 실차 로그(오프라인 재계산) 시뮬레이션 수행. **실차(온보드) 검증: 미실시** -- 로그 재계산이지 차량에 새 로직을 태워본 것이 아님(§29).
+
+**전달 파일**: `toolkit/sim_route_234_spatial_apex_continuity.py`(수정, patch), `toolkit/README.md`(수정, patch), `toolkit/CHANGELOG.md`(수정, patch), 이 WIP.md 항목(patch). 대용량 CSV(route_combined.csv 등)는 §23 원칙에 따라 레포에 커밋하지 않음(work/에만 임시 보관, Drive 미연결).
+
+**다음 작업**:
+1. (1순위) 터널 구간 포함 로그 확보 후 동일 `--skip-gate` 비교 재실행 -- 247차 §11 검증계획의 핵심 미해결 항목.
+2. 늘어난 active frame(gate 제거로 +3928건)의 성격(정상 개입 vs 잔여 노이즈) dashcam 표본 대조로 확인.
+3. 위 2건 통과 시 246차/239차 재현 케이스 검증, 이후 `carrot_man.py`/`carrot_serv.py` patch 착수(247차 §8).
+
+---
 ## 248차 (체크포인트 -- toolkit 확장 완료, 실제 corpus 검증 전) -- sim_route_234_spatial_apex_continuity.py --skip-gate 옵션 추가
 
 **Worker**: Claude
