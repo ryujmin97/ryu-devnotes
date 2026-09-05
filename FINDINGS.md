@@ -1,3 +1,47 @@
+## 244차 (CRITICAL) -- [체크포인트, 로그 확인 완료/코드 변경 없음] routeApexIdx flicker Position-Identity(CASE A) vs 실제 후보전환(CASE B) 판정 -- CASE B가 압도적, 터널 구간은 road_limit_speed 근접 노이즈 후보 산발 승격/탈락으로 확인. 242차 0.90 gate가 이 터널 flicker를 재유발할 위험 신규 발견
+
+**배경**: Claude/ChatGPT(지선생) 교대 설계 논의(2026-09-05)에서 "route apex flicker가 index 표현만 흔들리는 것(position-identity 문제)인지, 실제 물리적 후보가 바뀌는 것인지"를 기존 로그로 먼저 판별하기로 합의. `analyze_apex_identity_244.py`(신규, toolkit) 작성 -- `routeApexIdx/Dist/Speed` + `routeCandidate0~2` 텔레메트리로 프레임간 CASE A(idx만 변화)/CASE B(idx·dist·speed 모두 변화)/CASE C(idx 안정, dist만 이상) 자동 분류.
+
+**중요 -- 242차 gate(0.90)와 완전 분리된 분석**: 사용에 사용한 로그(`0000039a--7b602ffb85` seg12-16, 2026-09-04 재업로드분)의 device build를 `check_device_build.py`로 확인한 결과 **232차 커밋(dirty=True), 237차 severity gate(stage1) 도입 이전 빌드**임을 확인 -- 즉 이 로그는 stage0(road_limit_speed 필터)만 있고 vEgo 기준 severity gate 자체가 없어, gate self-elimination(239차 CRITICAL)과 완전히 분리된 순수 candidate identity 신호를 담고 있다.
+
+**결과 1 -- 전체 통계(2334건 프레임 전이, 활성 apex 2335프레임)**:
+```
+SAME_IDX      : 2048 (87.7%)
+CASE_A        :   28 ( 1.2%)
+CASE_B        :  258 (11.1%)
+CASE_C        :    0 ( 0.0%)
+```
+idx가 바뀐 286프레임(12.3%) 중 **90.2%가 CASE_B**(실제 후보전환), 9.8%만 CASE_A. **Position-identity 가설은 이 로그 기준 소수 현상**으로 확인됨 -- 애초 가설(idx 튐 대부분이 동일 apex의 index 표현 문제)과 반대 결과.
+
+candidate0~2 재식별(직전 프레임의 candidate1/2 중 하나가 현재 candidate0과 거리상 가까운지 확인, `--match-dist 15m`)로 CASE_B/미분류 258건을 재검토한 결과 104건(40%)만 "candidates[] 내부 순위 교체"로 설명 가능 -- 나머지 60%(154건)는 진짜 새 지점.
+
+**결과 2 -- 터널 구간(t=2200~2230) 심층 확인**: 이 구간 276건 전이 중 CASE_B 97건(35%), CASE_A 0건. 프레임별 상세 확인 결과:
+```
+t=2212.257  idx  2->36   dist  20->360   speed  93.6->97.1
+t=2212.315  idx 36-> 8   dist 360-> 80   speed  97.1->91.8
+t=2212.351  idx  8->50   dist  80->500   speed  91.8->81.1
+```
+`nRoadLimitSpeed=100`, `vEgo≈100~102kph` 구간에서 후보 speed 값이 전부 **79~99.8kph**(도로제한 100kph에 근접) -- 즉 600m lookahead 전역(20m~510m)에 도로제한 바로 아래의 미약한 곡률 후보가 다수 산재하며, GPS/곡률 계산 노이즈가 프레임마다 "어느 지점이 threshold(100kph) 아래로 떨어지는가"를 사실상 무작위로 바꾸는 패턴. 235차가 확인한 "물리적으로 뚜렷한 두 개 커브가 교대로 후보가 되는" 패턴(S커브)과는 성격이 다름 -- 여기는 뚜렷한 진짜 커브 하나가 아니라 threshold 부근의 다수 미약 후보 노이즈. 233차의 "GPS 노이즈" 결론과 방향은 같으나 메커니즘이 더 구체화됨(단일 지점 흔들림이 아니라 전역 산발 노이즈).
+
+**결과 3 (신규 발견, CRITICAL) -- 242차 0.90 gate와의 상호작용**: 이 시점 `vEgo≈100~102kph` 기준:
+- 0.70 gate threshold ≈ 71kph → 위 노이즈 후보(79~99.8kph)를 **거의 전부 제거** (237차 WIP 표의 "터널 stage1: 81→0"과 정확히 일치, 재확인됨)
+- **현재 라이브 코드의 0.90 gate threshold ≈ 92kph** → 79~92kph대 후보는 **통과** -- 즉 **242차의 0.70→0.90 변경(239차 자기소거/리밋사이클 완화 목적, 이 터널 flicker와는 무관한 이유로 결정됨)이 부작용으로 이 터널 노이즈 flicker를 재유발할 가능성**이 있다. 242차 WIP/checkpoint 어디에도 이 상호작용은 검토되지 않았음(신규 발견).
+
+**결론**: (1) Position-identity 추적(candidate 위치 기반 시간축 추적) 설계는 이 로그 기준 우선순위 낮음 -- 채택 보류. (2) 터널 flicker는 "road_limit_speed 근접 다수 미약 후보의 노이즈성 산발 승격"으로 재규정. (3) 242차 0.90 patch의 실차검증 시 터널 구간(도로제한속도 근접 고속 순항 중 완만 커브 다발 구간)을 반드시 포함해 확인 필요 -- 자기소거 완화와 터널 flicker 억제가 서로 상충하는 trade-off 관계일 수 있음.
+
+**검증**: 정적 분석(신규 스크립트 `py_compile` 통과) + 로그 검증(seg12-16, 5999행, `check_device_build.py`로 device build=232차/gate 없음 확인) + 텔레메트리 직접 대조(터널 구간 프레임별 수동 확인). **실차 검증: 미실시**(이번 세션 전부 오프라인 로그 재분석, `ryu` 코드 변경 없음).
+
+**전달 파일**: `analyze_apex_identity_244.py`(신규, toolkit), `toolkit/README.md`/`toolkit/CHANGELOG.md`(244차 섹션), 이 FINDINGS.md 항목.
+
+**다음 작업**:
+1. IC gore 구간도 동일 스크립트로 CASE 분류해 3개 구간(터널/IC gore/S커브) 성격 차이를 완성할지 결정
+2. 0.90 gate가 터널 노이즈를 얼마나 되살리는지 오프라인 정량 재검증(238차 `replay_route_237_vs_baseline.py` 방식을 0.90 기준으로 재실행) -- 사용자가 이전 대화에서 제시한 옵션 중 하나
+3. 242차 실차주행 결과 확인 시 터널 구간(도로제한속도 근접 고속 구간) 거동을 별도로 확인 요청
+
+**관련**: 233차(터널 GPS 노이즈 최초 확인), 234~238차(severity gate 0.70 도입/검증), 235차(S커브 2단 굴곡 확인), 239차(gate self-elimination CRITICAL), 242차(gate 0.70→0.90 patch, 실차 검증 대기 중).
+
+---
+
 ## 241차 -- [보강, 정적+로그 확인] 240차 confirmed&far-from-apex(n=14) 표본을 vEgo로 분리 -- 저속(city/교차로 추정) vs 고속(하이웨이 커브 추정) 표본이 섞여 있었음, 고속 부분집합(n=3)만 분산이 매우 작음
 
 **배경**: 240차가 "지시서 §1~§3(handoff ratio) 결론 근거로 쓸 수 없음"이라 판단한 근거 중 하나가 confirmed&far-from-apex(n=14) 표본의 큰 분산(0.285~10.0)이었다. 사용자가 "route가 빠졌는데 vturn도 감속하지 못한 사례는 제외해야 한다"는 원칙(2026-09-05 대화)을 재확인 -- 이는 이미 `scan_route_vturn_handoff_ratio.py`의 `confirmed` 판정(2초 내 vTurnSpeed 수렴)이 구현하고 있는 조건과 동일함을 코드로 재확인(신규 로직 아님, 240차에서 이미 구현됨). 다만 240차는 이 14건을 하나의 그룹으로만 봤고, vEgo 대역별로 쪼개보지는 않았다.

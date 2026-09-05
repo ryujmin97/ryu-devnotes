@@ -1,3 +1,46 @@
+## 244차 (체크포인트 -- routeApexIdx flicker CASE A/B/C 판정 분석 완료, ryu 코드 변경 없음, toolkit 신규 스크립트+FINDINGS CRITICAL 기록) -- Route Apex Flicker 근본원인 재판별: Position-Identity vs 실제 후보전환
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu`(변경 없음, HEAD `a70deea`=243차) / `ryujmin97/ryu-devnotes`
+
+**Branch**: `c3-ms-dev` / `main`
+
+**Base commit (ryu)**: `a70deea39f75abc435b93eaba64a55f0efed8512`(243차, 재클론으로 재확인 -- 드리프트 없음)
+
+**devnotes Base commit**: `357d6bb`(243차, 재클론으로 재확인 -- 드리프트 없음)
+
+**배경**: 사용자가 대화 중 "라우트 apex가 순간적으로 여러 번 튈 때 명확한 apex로 규정할 수 있는 아이디어"를 질의. Claude가 5가지 방향(position-identity 추적/score-margin 히스테리시스/sliding window median/상태머신화/독립 geometry 검증)을 제시했고, ChatGPT(지선생)가 "코드 패치 전에 기존 로그로 position-identity 가설(idx만 흔들리는지 vs 실제 후보가 바뀌는지)부터 판별하자"는 방향을 제안 -- CASE A(idx만 변화, dist/speed 안정)/CASE B(idx·dist·speed 모두 변화)/CASE C(idx 안정, dist만 이상) 판정 기준까지 구체화. 사용자가 이 방향을 승인, "242차 0.90 gate 효과와는 반드시 분리해서 봐야 한다"는 조건 추가.
+
+**작업**:
+1. §3/§29 원칙대로 `ryu`(`a70deea`)/`ryu-devnotes`(`357d6bb`) 재클론으로 재확인, 드리프트 없음.
+2. 사용자가 재업로드한 seg12-16 zip(`20260904_095600_..._seg12-16.zip`)을 `check_device_build.py`로 확인 -- device build=232차 커밋(dirty=True), **237차 severity gate(stage1) 도입 이전** 빌드임을 확인. 이 로그가 gate 자체가 없는 순수 stage0(road_limit_speed 필터만) 상태라, 사용자가 요구한 "gate 효과와 분리" 조건을 로그 선택만으로 자동 충족함을 확인.
+3. `extract_log.py --with-navi-paths`로 재추출(`route_244.csv`, 5999행 -- 234~238차와 동일 route/segment 구성).
+4. §21 원칙대로 기존 toolkit 확인 -- `verify_apex_transition_215.py`의 `apex_idx_flicker_stats()`가 idx변화-routeOutSpeed 점프폭만 보고, dist/speed 상관관계로 CASE 분류하는 로직은 없음을 확인 -- 신규 스크립트 필요 판단.
+5. **신규 toolkit 작성**: `analyze_apex_identity_244.py` -- `routeApexIdx/Dist/Speed` + `routeCandidate0~2Idx/Dist/Speed` 텔레메트리로 프레임간 Δidx/Δdist/Δspeed 계산 -> CASE A/B/C 자동분류 + candidate 재식별(리스트 내부 순위교체 여부 별도 검출) 기능 포함.
+6. 전체 로그 실행 + 터널 구간(t=2200~2230) 프레임별 수동 대조 + `vEgo`/`nRoadLimitSpeed` 컬럼으로 0.70/0.90 gate threshold 재계산 대조.
+
+**결과**: FINDINGS.md 244차(CRITICAL) 참고. 핵심 요약:
+- 전체 idx변화 286건 중 CASE_A(position-identity) 9.8%, CASE_B(실제 후보전환) 90.2% -- **position-identity 가설은 소수 현상으로 확인**, 애초 가설과 반대.
+- 터널 구간(276건 전이 중 CASE_B 97건, CASE_A 0건)은 road_limit_speed(100kph) 근접 다수 미약 후보가 600m 전역에서 노이즈로 산발 승격/탈락하는 패턴 -- 233차 "GPS 노이즈" 결론을 구체화.
+- **신규 발견(CRITICAL)**: 이 노이즈 후보(79~99.8kph)는 0.70 gate(threshold≈71kph, vEgo≈100kph 기준)에서는 거의 전부 제거되나(237차 "터널 81→0"과 일치), 현재 라이브 0.90 gate(threshold≈92kph)에서는 79~92kph대가 통과 -- **242차의 0.70→0.90 변경이 이 터널 flicker를 재유발할 가능성**. 242차 WIP에는 이 상호작용이 검토되지 않았음.
+
+**완료**: 위 1~6번 + FINDINGS.md 244차(CRITICAL) 기록 + toolkit README/CHANGELOG 갱신.
+
+**미완료**:
+- IC gore 구간은 아직 동일 방식으로 CASE 분류 안 함 (터널만 심층 확인, S커브는 235/236차가 이미 다른 방식으로 결론냄).
+- 0.90 gate가 터널 노이즈를 실제로 얼마나 되살리는지 정량 재검증(238차 replay 방식 0.90 기준 재실행)은 아직 안 함 -- 이번 세션은 텔레메트리 임계값 계산까지만 수행.
+- ryu 코드 변경 없음(이번 세션은 분석 전용, §31 코드수정 전 검증 원칙 그대로 유지).
+
+**검증**: 정적분석(`analyze_apex_identity_244.py` py_compile 통과) + 로그 검증(seg12-16 5999행, `check_device_build.py`로 device build 확인 완료) + 텔레메트리 직접 대조(터널 구간 프레임별). **실차 검증: 미실시**(오프라인 로그 재분석 전용 세션).
+
+**전달 파일**: `analyze_apex_identity_244.py`(신규, toolkit, patch), `toolkit/README.md`/`toolkit/CHANGELOG.md`(244차 섹션, patch), `FINDINGS.md`(244차 CRITICAL, patch), 이 WIP.md 항목(patch). ryu 코드 변경 없음.
+
+**다음 작업**:
+1. 사용자 결정: (a) IC gore 구간도 CASE 분류 추가 진행, (b) 0.90 gate 터널 노이즈 재유발 여부 오프라인 정량 재검증(238차 replay 방식), (c) 242차 실차주행 결과부터 우선 대기 -- 이번 발견(터널 구간 별도 확인 필요)을 실차검증 체크리스트에 반영해달라고 요청.
+2. Position-identity 추적 설계는 이번 결과로 우선순위 하향 -- 폐기 여부는 IC gore 결과까지 보고 최종 판단.
+
+---
 ## 243차 (완료 -- carrot.cc TBT HUD 우측하단 정보박스 레이아웃 변경, ryu 코드 변경(patch, 미적용), 실차 검증 미실시) -- 도착/거리 순서변경(잘림 해소) + vturn= 신규 표시
 
 **Worker**: Claude

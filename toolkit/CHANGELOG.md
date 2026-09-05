@@ -3,6 +3,21 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+## 2026-09-05 (244차, 체크포인트)
+- `analyze_apex_identity_244.py`: 신규 -- `routeApexIdx` flicker의
+  Position-Identity(CASE A) vs 실제 후보전환(CASE B) vs 거리이상(CASE C)
+  판정. seg12-16(device build 232차, gate 없음)으로 실측: 전체 idx
+  변화 286건 중 CASE_A 28건(9.8%)/CASE_B 258건(90.2%) -- position-identity
+  가설은 소수 현상으로 확인. candidate 재식별(list 내부 순위교체)까지
+  적용해도 CASE_B/미분류 258건 중 104건(40%)만 순위교체로 설명됨.
+  터널 구간(t=2200~2230) 심층 확인 결과 road_limit_speed(100kph)
+  바로 아래(79~99.8kph)의 다수 미약 후보가 600m 전역에 흩어져
+  노이즈로 산발 승격/탈락하는 패턴 확인(FINDINGS.md 244차 CRITICAL).
+  이 노이즈는 0.70 gate에서는 거의 전부 걸러지나(vEgo~100kph 기준
+  0.70 threshold≈71kph) 현재 라이브 0.90 gate(threshold≈92kph)에서는
+  일부(79~92kph대) 통과 -- 242차 0.70->0.90 변경이 이 터널 flicker를
+  재유발할 가능성 신규 발견, 실차검증 우선순위에 반영 필요.
+
 ## 2026-09-05 (241차)
 - `scan_route_vturn_handoff_ratio.py`: `--min-vego-kph` 옵션 추가(기본 0=미적용).
   confirmed&far-from-apex(n=14) 그룹을 vEgo 하한으로 추가 필터링해

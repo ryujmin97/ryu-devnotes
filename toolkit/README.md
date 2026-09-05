@@ -21,6 +21,38 @@ CHANGELOG.md를 같이 갱신**한다 (세션 종료 체크리스트에 포함�
 
 ---
 
+## analyze_apex_identity_244.py (244차 신규)
+**목적**: `routeApexIdx` flicker가 "동일 물리적 apex의 index 표현만
+흔들리는 것"(Position-Identity 문제, CASE A)인지 "실제 후보(물리적
+위치) 자체가 바뀌는 것"(CASE B)인지, 그 중간(CASE C, idx는 거의
+동일한데 dist만 비정상 변화)인지를 `routeApexIdx/Dist/Speed` +
+`routeCandidate0~2Idx/Dist/Speed` 텔레메트리만으로 프레임 단위 판정한다.
+Claude/ChatGPT 교대 설계(지선생 CASE 정의)를 그대로 구현.
+**의존성**: `extract_log.py`(candidate0~2 컬럼 포함, `--with-navi-paths`
+불필요 -- 텔레메트리만 사용) 출력 CSV.
+**방법**: `routeApexIdx!=-1`인 프레임만 필터 후 프레임간 `Δidx/Δdist/Δspeed`
+계산 -- `Δidx`가 임계(기본 1) 이상이면서 `Δdist`(기본 15m)/`Δspeed`(기본
+3kph)가 안정적이면 CASE_A, `Δidx` 변화와 함께 dist/speed도 크게
+바뀌면 CASE_B, `Δidx`는 거의 없는데 `Δdist`(기본 40m)만 튀면 CASE_C.
+추가로 CASE_B/미분류 프레임에 대해 "직전 프레임의 candidate1/2 중
+하나가 현재 candidate0과 거리상 가까운가"(재식별, 기본 15m)를 확인해
+"candidates[] 내부 순위만 바뀐 경우"를 별도 집계 -- 이건 idx 정의만
+보는 것보다 candidate list 구조까지 활용한 더 강한 identity 판정.
+**사용**:
+```bash
+python3 analyze_apex_identity_244.py route.csv \
+    [--idx-jump 1] [--dist-stable 15] [--speed-stable 3] \
+    [--dist-jump 40] [--match-dist 15]
+```
+**244차 실측 결과(seg12-16, device build 232차=gate 없는 순수 stage0,
+`check_device_build.py`로 확인 -- 0.70/0.90 severity gate와 완전 분리된
+분석)**: 전체 2334건 프레임 전이 중 SAME_IDX 87.7%, **CASE_A 1.2%(28건)**,
+**CASE_B 11.1%(258건)**, CASE_C 0건 -- idx가 바뀐 프레임(286건, 12.3%)
+중 90.2%가 CASE_B. **Position-identity 가설(CASE A)은 이 로그 기준
+소수 현상**으로 확인됨(FINDINGS.md 244차 참고, 터널 구간 심층 분석 포함).
+
+---
+
 ## scan_route_vturn_handoff_ratio.py (240차 신규, 241차 옵션 추가)
 **목적**: route가 실제로 vturn에게 커브 감속을 넘기는(handoff) 시점의
 `apex_speed/vEgo` 비율 분포를 실측한다(2026-09-05 사용자 검증지시 1~2번).
