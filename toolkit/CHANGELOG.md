@@ -3,6 +3,25 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+## 2026-09-05 (254차, 진행 중)
+- `sim_route_254_release_dist20_6state.py`: 신규 -- `sim_route_252_active_
+  state_full.py`의 `build_candidates`/`route_find_clusters`/`load_csv`/
+  `scan_freeze`를 재사용(§21). 지선생(ChatGPT) 지시 2건을 검증하기 위한
+  도구: (1) continuity mode를 4종(matched/held/new/none)에서 6종
+  (MATCHED/HELD/PASSED/LOST/NEW/NONE)으로 분리 -- 현재 252차 코드의
+  `apex_mode == "new"`가 "진짜 통과"와 "신호 소실"을 구분 못 하는 문제
+  해결. (2) ACTIVE release 조건을 `--release-mode dist20`으로 선택 시
+  "Apex 통과(predicted<=0)" 대신 "apex_dist<=20m"로 변경 -- 사용자 확정
+  근거: "20m 지점부터는 vturn이 관여하므로 apex 도달 여부가 아니라 그
+  지점까지 충분히 감속했는지가 중요". `--release-mode apex_passed`로
+  기존 252차 동작도 그대로 재현 가능(회귀 비교용).
+  synthetic self-test(`--self-test`) 4케이스 전부 통과(정상접근+release
+  지점 검증 양쪽 모드, HELD 흡수, LOST 전이, PASSED 전이) -- 단 실측
+  dashcam CSV A/B는 이번 세션에 corpus가 없어 미실시(§28, 스크립트
+  docstring 한계 5번). 다음 세션에서 실측 로그 확보 시
+  `python3 sim_route_254_release_dist20_6state.py route.csv
+  --release-mode [apex_passed|dist20]`로 246/239차 corpus 재실행 필요.
+
 ## 2026-09-05 (253차 계속)
 - `analyze_route_253_active_run_length.py`: 신규 -- `sim_route_252_active_
   state_full.py`의 `replay()`/`Sim252`를 재사용(§21, 로직 중복 작성 없음)해

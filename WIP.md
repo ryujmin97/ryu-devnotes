@@ -1,3 +1,100 @@
+## 254차 (진행 중 -- 지선생 재설계 지시 감사(STEP1/2) 완료, 신규 toolkit synthetic self-test 통과, 실측 corpus 확보 전이라 patch 미착수) -- release 조건 apex_dist<=20m 전환 + continuity 6-state 분리 검증
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu`(변경 없음, HEAD `3f925f5`=252차) / `ryujmin97/ryu-devnotes`
+
+**Branch**: `c3-ms-dev` / `main`
+
+**Base commit (ryu)**: `3f925f5d13bc6bf486dc5821ecab4c9f4724a73d`(252차, 드리프트 없음)
+
+**devnotes Base commit**: `f66ea37`(253차 계속, 원격 HEAD와 일치 확인, `git fetch` 후 드리프트 없음)
+
+**배경**: 지선생(ChatGPT)이 "Route 감속 로직 재설계" 지침을 새로 전달 -- 표면상
+"설계부터 다시" 요청이었으나, §3/§33 원칙대로 GitHub 최신 상태(252차/253차)를
+먼저 확인한 결과 `design/247cha_route_inert_active_redesign.md`에 이미 거의
+동일한 설계(INERT/ACTIVE 래치, ACTIVE apex anchor 고정, severity gate 완전
+삭제, 2초 gate)가 252차에 코드로 반영돼 있음을 확인. 지침 문서와 현재
+구현 사이 실질적 차이 2곳만 발견해 사용자에게 보고:
+① release 조건 -- 현재(252차): `vEgo<=target*1.1 OR Apex 통과(predicted_
+dist<=0)`. 지침 문서: `vEgo<=target*1.1 OR apex_dist<=20m`.
+② continuity mode -- 현재 `carrot_man.py` L1043 `apex_passed_or_lost =
+apex_mode == "new"`가 "진짜 통과"와 "신호 소실(miss_frames 초과)"을
+구분 못 함(지침 문서가 지적한 6-state 분리 요구가 실제로 유효한 지적).
+①에 대해 사용자 확정: **"20m 전이면 vturn이 관여한 시점일테고, apex까지
+20m가 중요한게 아니고, 그 지점까지 충분히 감속을 했느냐가 중요한 것"** --
+route는 원거리 pre-decel 담당, 20m 지점부터는 vturn(비전 기반 근거리
+커브 제어)에게 인계하면 되고 그 시점 target 부근 감속 완료 여부가
+안전성의 핵심이라는 설계 판단. `apex_dist<=20m`로 진행 확정.
+
+**한 일**:
+1. §3/§33 원칙대로 `ryu`(HEAD `3f925f5`)/`ryu-devnotes`(HEAD `f66ea37`)
+   재클론, 기록과 드리프트 없음 확인. HANDOFF.md/CURRENT_STATUS.md 없음.
+2. `carrot_man.py` route 관련 코드(L363-1152, `route_find_clusters`/
+   `_route_cluster_continuity_step`/`carrot_navi_route` 상태머신) 재확인
+   -- design doc §11 STEP1(코드 재감사)에 해당.
+3. 지침 문서 vs 현재 구현 diff 2건(위 배경 ①②) 정리, 사용자에게 보고 +
+   ①번 확정 지시 수령(§33 -- 판단 불가한 설계 변경은 임의진행 금지, 확인
+   후 진행).
+4. §21 원칙(기존 toolkit 재사용) 준수 -- `sim_route_252_active_state_
+   full.py`의 `build_candidates`/`route_find_clusters`/`load_csv`/
+   `scan_freeze`를 그대로 import해 재사용, 신규 클래스 `Sim254`만 작성.
+5. `Sim254._continuity_step()`: lock 리셋 원인을 PASSED(predicted<=0)/
+   LOST(miss_frames 초과)로 분리 반환(6-state: MATCHED/HELD/PASSED/LOST/
+   NEW/NONE).
+6. `Sim254.step()`: `--release-mode apex_passed`(기존 재현)/`dist20`(신규)
+   두 옵션 구현. tracking_lost(PASSED/LOST/NEW)이면 apex_speed/dist 값과
+   무관하게 즉시 release(원 설계 단락평가 의도 유지, apex_speed=None으로
+   인한 TypeError를 self-test 케이스3에서 직접 발견하고 수정).
+7. `py_compile`+`ast.parse` 정적 검증 통과.
+8. synthetic self-test(`--self-test`) 4케이스 작성/실행 -- 전부 통과:
+   케이스1(정상접근, 양쪽 release 모드 각각 기대 지점에서 release 확인),
+   케이스2(2프레임 순간미스 -> HELD로 흡수, ACTIVE 유지), 케이스3(apex
+   150m 지점 이후 candidate 완전소실 -> LOST 전이), 케이스4(끝까지 접근
+   -> predicted<=0에서 PASSED 전이).
+9. `toolkit/README.md`/`toolkit/CHANGELOG.md`에 254차 섹션 추가.
+
+**완료**: 위 1~9번. 지침 문서의 STEP1(코드 재감사)/STEP2(충돌 목록화)에
+해당하는 작업 완료, ①번 설계 결정 사용자 확정, 6-state+release-mode 로직
+구현 및 synthetic self-test 통과.
+
+**미완료**:
+- **실측 dashcam CSV A/B 미실시** -- 253차가 쓰던 corpus는 컨테이너
+  초기화로 유실, §23에 따라 devnotes git에도 원본 CSV는 커밋되지 않아
+  이번 세션에 재현 데이터가 없음. 158/159차 원칙(synthetic 단독으로
+  결론 내리지 않음)에 따라 실측 로그 확보 전까지 "release_mode=dist20
+  전환이 안전하다"는 결론을 확정하지 않음.
+- design doc §11 STEP4가 요구하는 246차 far-apex-freeze/239차
+  self-elimination/터널 flicker 재현 corpus로의 재실행 -- 미실시(위와
+  동일 사유).
+- `carrot_man.py`/`carrot_serv.py` 실제 patch -- **미착수**(§10 검증우선
+  원칙, design doc §11 STEP6 순서상 STEP4/5 통과 전에는 착수하지 않음).
+- continuity 6-state 분리는 진단/release 판정 로직에는 반영했으나, 이
+  세분화된 mode를 텔레메트리(cereal, `carrot_serv.route_apex_mode` 등)로
+  실제 발행할지 여부는 아직 미결정 -- 다음 세션에 사용자 확인 필요.
+
+**검증**: `py_compile`+`ast.parse` 통과. synthetic self-test 4케이스 전부
+통과(스크립트 자체 내장, `--self-test`). **실측 로그 검증: 미실시.**
+**실차 검증: 미실시**(§29).
+
+**전달 파일**: `toolkit/sim_route_254_release_dist20_6state.py`(신규),
+`toolkit/README.md`/`toolkit/CHANGELOG.md`(254차 섹션), 이 WIP.md 항목.
+`ryu` 코드 변경 없음.
+
+**다음 작업**:
+1. 사용자가 실측 dashcam 로그(zip 또는 `route.csv`, `--with-navi-paths`
+   추출본)를 업로드하면 `sim_route_254_release_dist20_6state.py route.csv
+   --release-mode apex_passed`와 `--release-mode dist20` 두 번 실행해
+   far-apex-freeze episode 수 + 6-state 분포를 A/B 비교.
+2. 위 비교에서 dist20 모드가 246/239차급 회귀를 일으키지 않음을 확인하면
+   design doc §11 STEP5(설계 재검증)/STEP6(실제 patch) 진행.
+3. 6-state 텔레메트리 발행 여부 결정(위 미완료 항목 4번).
+4. 통과 시 `carrot_man.py`(`_route_cluster_continuity_step`/
+   `carrot_navi_route` release 분기)/`carrot_serv.py` patch 작성 ->
+   `git format-patch`(§31) -> 사용자 확인 -> `git am` -> push.
+
+---
+
 ## 253차 계속 (진행 중 -- 239차 항목 run-length 수치 재검증 부분 완료, 원 CRITICAL 고속 시나리오는 이번 corpus로 확인 불가) -- 사용자 재업로드 dashcam으로 RELEASE-hold 수정본 재실행
 
 **Worker**: Claude

@@ -21,6 +21,35 @@ CHANGELOG.md를 같이 갱신**한다 (세션 종료 체크리스트에 포함�
 
 ---
 
+## sim_route_254_release_dist20_6state.py (254차 신규, 진행 중)
+**목적**: `sim_route_252_active_state_full.py` 위에서 지선생(ChatGPT) 지시
+2건을 검증. (1) `_route_cluster_continuity_step()`의 continuity mode를
+4종(matched/held/new/none)에서 6종(MATCHED/HELD/PASSED/LOST/NEW/NONE)으로
+분리 -- lock 리셋 원인이 "predicted<=0(진짜 통과)"인지 "miss_frames 초과
+(신호 소실)"인지 구분. (2) ACTIVE release 조건에 `--release-mode dist20`
+옵션 추가 -- 기존 "Apex 통과"(predicted<=0) 대신 "apex_dist<=
+ROUTE_RELEASE_DIST_M(20.0)"로 release, vturn(비전 기반 근거리 커브 제어)
+인계 시점을 앞당김. `--release-mode apex_passed`로 252차 기존 동작도
+그대로 재현(회귀 비교용 기본 비교축).
+**의존성**: `sim_route_252_active_state_full.py`(`build_candidates`/
+`route_find_clusters`/`load_csv`/`scan_freeze` 재사용, §21) + `analysis_
+helpers.py`.
+**사용**:
+```bash
+# 실측 CSV 없이 6-state 전이/release 로직만 우선 검증
+python3 sim_route_254_release_dist20_6state.py --self-test
+
+# 실측 CSV 확보 후 A/B
+python3 sim_route_254_release_dist20_6state.py route.csv --release-mode apex_passed
+python3 sim_route_254_release_dist20_6state.py route.csv --release-mode dist20
+```
+**254차 self-test 결과**: synthetic 4케이스(정상접근 양쪽 모드/HELD 흡수/
+LOST 전이/PASSED 전이) 전부 통과. **실측 dashcam CSV A/B는 corpus 부재로
+미실시** -- 158/159차 원칙(synthetic 단독 결론 금지)에 따라 다음 세션
+실측 로그 확보 전까지 "검증 완료" 아님.
+
+---
+
 ## scan_route_far_apex_accel_freeze.py (246차 신규)
 **목적**: route apex가 원거리(150m 초과)에 있는데도 `desiredSpeed`가 `vEgo`에
 거의 고정돼(min() 승자=route, ceiling이 vEgo를 그대로 따라감) vCruise까지
