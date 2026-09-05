@@ -1,3 +1,75 @@
+## 270차 계속 (완료 -- carrot.cc wrap_name_lines 캐싱 패치 작성, 컴파일/실차 검증 전) -- 269차 다음 작업 2번 착수
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu`(HEAD `659e04c`=270차 1번 push 완료, 이번
+patch는 로컬 `9c18d43`으로 그 위에 쌓음, 원격 미push) / `ryu-devnotes`
+(HEAD `0164ced`=270차 1번, 이 항목 추가 전)
+
+**Branch**: `c3-ms-dev` / `main`
+
+**Base commit**: `659e04c`(270차 1번, push 완료 후 `git fetch`로 원격
+반영 확인 -- §3/§7)
+
+**배경**: 269차가 식별한 CPU 최적화 후보 2번(`carrot.cc::
+drawTurnInfoHud()`의 `wrap_name_lines` 람다가 `szPosRoadName` 불변
+시에도 매 프레임 폰트크기 축소 루프+`nvgTextBounds`/
+`nvgTextBreakLines` 텍스트 측정을 반복)을 사용자 승인으로 착수.
+
+**한 일**:
+1. `carrot.cc`에서 `wrap_name_lines`/`drawTurnInfoHud`/`TurnInfoDrawer`
+   전체를 코드로 재확인 -- `TurnInfoDrawer drawTurnInfo;`(L2999)가
+   **단일 전역 인스턴스**임을 확인해, member 변수로 캐시해도 프레임
+   간 상태가 정상 유지됨(재생성되는 지역 객체가 아님)을 검증.
+2. `avail_w` 인자가 항상 `TBT_BOX_W - 40`(constexpr, 값 불변)이므로
+   캐시 키를 `name_line1` 문자열 하나만으로 잡아도 충분함을 확인.
+3. `TurnInfoDrawer` private 멤버에 `cached_name_line1`/
+   `cached_name_valid`/`cached_name_fs`/`cached_name_wrapped` 4개 추가.
+4. `name_line1.length() > 0` 분기 안에서, 캐시된 `name_line1`과 이번
+   프레임 값이 같으면 `wrap_name_lines()` 호출 없이 캐시된
+   `(fs, wrapped)`를 재사용, 다르면 기존대로 계산 후 캐시 갱신하도록
+   수정. `wrap_name_lines` 람다 본체는 무변경(§27).
+5. commit(`9c18d43`) 후 `git format-patch`로 패치 생성, 독립 fresh
+   clone(실제 원격 HEAD `659e04c` 기준)에서 `git apply --check` +
+   `git am` 성공 확인.
+
+**결과**: `carrot.cc` 1개 파일, 25 insertions / 3 deletions. 로직상
+`name_line1`이 이전 프레임과 동일한 절대다수의 프레임에서
+`nvgTextBounds`/`nvgTextBreakLines` 호출(최대 (30-20)/3+1≈4회) 자체를
+건너뛰게 됨 -- `szPosRoadName`은 도로명이 바뀔 때만 값이 달라지므로
+같은 도로 주행 중에는 사실상 매 프레임 캐시 히트로 예상(실측은 다음
+작업).
+
+**검증**:
+- 정적 분석: **211차와 동일한 한계** -- 이 컨테이너에 Qt/nanovg/
+  cereal 등 openpilot C++ 전체 빌드환경이 없어 실제 컴파일은
+  불가능했음. 육안 diff 검토(중괄호/타입/기존 멤버와의 명명 충돌
+  없음)만 수행. **실제 컴파일 검증 미실시 -- 사용자 로컬 빌드에서
+  1차 확인 필요.**
+- 로그 검증: 해당 없음(UI 코드, 회귀 재현용 로그 없음).
+- 시뮬레이션: 미실시(캐시 로직이 단순 문자열 비교라 별도 합성검증
+  스크립트 작성하지 않음 -- 필요 시 사용자 지시로 추가 가능).
+- **실차 검증: 미실시.**
+
+**미확인/미해결**:
+- 실제 빌드 통과 여부 미확인 -- 오타/타입 문제가 있어도 이 세션에서는
+  잡을 수 없음.
+- 캐시 히트율(실제로 매 프레임 재계산을 얼마나 줄이는지) 실측 없음.
+- `name_line2`(2번째 줄, route= 아래)는 이번 캐싱 대상이 아님(원래도
+  `wrap_name_lines`를 거치지 않음, 확인 완료).
+
+**다음 작업**:
+1. 사용자 로컬(C3 빌드체인)에서 컴파일 확인 -- 실패 시 보고.
+2. 컴파일 통과 시 실차/시뮬레이터에서 도로명 표시 레이아웃(줄바꿈/
+   폰트크기)이 패치 전과 동일하게 보이는지 육안 확인.
+3. 269차 다음 작업 3번(MPC `A_CHANGE_COST` 완화 로직 출처 세션 추적)
+   또는 269차 1번의 실 corpus A/B 검증(route CSV 필요) 중 택1 진행.
+
+**패치**: `0001-270cha-2beon-carrot.cc-drawTurnInfoHud-wrap_name_lin.patch`
+(`/mnt/user-data/outputs/`)
+
+---
+
 ## 270차 (완료 -- Phase1 패치 작성+합성검증 완료, 실 corpus/실차 검증 전) -- 269차 다음 작업 1번(route 계산부 CPU 최적화) 착수
 
 **Worker**: Claude
