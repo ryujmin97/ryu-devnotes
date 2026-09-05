@@ -3,6 +3,14 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+## 2026-09-05 (248차)
+- `sim_route_234_spatial_apex_continuity.py`: `--skip-gate` 옵션 추가 --
+  247차 재설계(§11 검증계획 1번)를 위해 stage1(severity gate)을 건너뛰고
+  stage0 후보를 그대로 stage2 클러스터링에 투입하는 경로 신설. 합성
+  naviPaths 데이터로 로직(s1==s0 시 정확 일치, 하위 stage 무크래시)만
+  검증, 실제 corpus(seg12-16) 재검증은 로그 재업로드 필요(미실시).
+  `--skip-gate` 미지정 시 기존 동작과 동일(회귀 없음).
+
 ## 2026-09-05 (246차, 체크포인트)
 - `scan_route_far_apex_accel_freeze.py`: 신규 -- 원거리(150m 초과)
   route apex로 인해 desiredSpeed가 vEgo에 자기참조적으로 고정돼

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-sim_route_234_spatial_apex_continuity.py (234차 계속4, 신규)
+sim_route_234_spatial_apex_continuity.py (234차 계속4, 신규 / 247차 --skip-gate 옵션 추가)
 
 목적: 234차 설계안 B(spatial cluster stability)/C(apex continuity)를
 233/234차 실측 CSV(`extract_log.py --with-navi-paths`)로 4단계 A/B 재현한다.
@@ -8,6 +8,15 @@ sim_route_234_spatial_apex_continuity.py (234차 계속4, 신규)
   1=+30% severity gate(234차 계속2 확정, ROUTE_SEVERITY_GATE_RATIO=0.70)
   2=+spatial cluster(설계안 B, ROUTE_CLUSTER_MIN_POINTS=2, gap<=40m)
   3=+apex continuity(설계안 C, 예측거리 매칭, ROUTE_APEX_MISS_TOLERANCE_FRAMES=3)
+
+**247차 추가(design/247cha_route_inert_active_redesign.md §11 검증계획 1번)**:
+`--skip-gate` 옵션 추가. 247차 재설계가 `ROUTE_SEVERITY_GATE_RATIO`(stage1)를
+완전 삭제하기로 확정했으므로, "gate 없이 stage2(클러스터링)+stage3(continuity)
+만으로 터널급 노이즈를 억제할 수 있는가"를 검증해야 한다. 이 옵션을 켜면
+stage1(c1, vEgo*0.70 게이트)을 건너뛰고 stage0의 후보(c0, 기존 배포 코드의
+road_limit_speed 필터만 적용된 원본 후보)를 그대로 stage2 클러스터링
+입력으로 사용한다(stage0→stage2→stage3 직행). 기존 4단계 비교 로직은
+--skip-gate 없이 호출하면 234차 당시와 완전히 동일하게 동작한다(회귀 없음).
 
 재사용: candidates 전체 배열은 `analysis_helpers.recompute_route_curvature_speed()`
 (148차, 이미 replay_route_apex_hysteresis_ab.py 등에서 프로덕션 재현 신뢰도
@@ -173,7 +182,7 @@ class ContinuityState:
         return None, None, None, "none"
 
 
-def replay(rows):
+def replay(rows, skip_gate=False):
     cont = ContinuityState()
     out = []
     prev_t = None
@@ -216,8 +225,14 @@ def replay(rows):
         # 아니라 v_ego_kph(현재속도)여야 함(사용자 확인, WIP.md 234차 계속9
         # 참고). stage0(road_limit 기준, 기존 배포 코드 후보 필터)은 이
         # 정정과 무관하므로 그대로 gate_base 유지.
-        c1 = gate_candidates(speeds, v_ego_kph * ROUTE_SEVERITY_GATE_RATIO)
-        i1 = c1[0] if c1 else None
+        # 247차 --skip-gate: 설계 재검증용, stage1을 건너뛰고 c0을 그대로
+        # stage2 클러스터링 입력으로 사용(design/247cha... §11 검증계획 1번).
+        if skip_gate:
+            c1 = c0
+            i1 = i0
+        else:
+            c1 = gate_candidates(speeds, v_ego_kph * ROUTE_SEVERITY_GATE_RATIO)
+            i1 = c1[0] if c1 else None
 
         # stage2: +spatial cluster
         clusters2 = find_clusters(c1, dists, ROUTE_CLUSTER_MIN_POINTS, ROUTE_CLUSTER_MAX_GAP_M)
@@ -272,7 +287,7 @@ def sanity_check(result):
     return matches, total
 
 
-def summarize(result, window=None):
+def summarize(result, window=None, skip_gate=False):
     if window:
         lo, hi = window
         w = [r for r in result if lo <= r["t"] <= hi]
@@ -282,8 +297,9 @@ def summarize(result, window=None):
         label = f"전체 ({len(w)} rows)"
 
     print(f"\n=== {label} ===")
+    stage1_label = "1 SKIPPED(gate 없음, 247차)" if skip_gate else "1 +30%gate"
     for stage, key in (("0 baseline(vEgo 근사)", "s0_dist"),
-                        ("1 +30%gate", "s1_dist"),
+                        (stage1_label, "s1_dist"),
                         ("2 +spatial cluster", "s2_dist"),
                         ("3 +continuity", "s3_dist")):
         active = active_frames(w, key)
@@ -313,6 +329,11 @@ def main():
     ap.add_argument("--continuity-tolerance", type=float, default=15.0,
                      help="234차 계속5: apex continuity 매칭 허용오차(m). "
                           "10/15/20 A/B/C 비교용으로 추가(사용자 지시)")
+    ap.add_argument("--skip-gate", action="store_true",
+                     help="247차: stage1(ROUTE_SEVERITY_GATE_RATIO) 건너뛰고 "
+                          "stage0 후보를 그대로 stage2 클러스터링에 사용 "
+                          "(design/247cha... §11 검증계획 1번). 기본값 False면 "
+                          "234차 당시와 동일하게 4단계 전부 적용.")
     args = ap.parse_args()
 
     global CONTINUITY_MATCH_TOLERANCE_M
@@ -323,7 +344,11 @@ def main():
         print("no rows", file=sys.stderr)
         sys.exit(1)
 
-    result = replay(rows)
+    if args.skip_gate:
+        print("=== --skip-gate 활성 -- stage1(severity gate) 건너뜀, "
+              "stage0 후보를 그대로 stage2 클러스터링 입력으로 사용 ===")
+
+    result = replay(rows, skip_gate=args.skip_gate)
 
     src_counts = {}
     for r in result:
@@ -335,8 +360,8 @@ def main():
     print(f"=== sanity check: s0 vs 실측 published apex_dist(±15m) 정합 "
           f"{matches}/{total} ({100*matches/total:.1f}%) ===")
 
-    summarize(result, window=None)
-    summarize(result, window=tuple(args.window))
+    summarize(result, window=None, skip_gate=args.skip_gate)
+    summarize(result, window=tuple(args.window), skip_gate=args.skip_gate)
 
 
 if __name__ == "__main__":

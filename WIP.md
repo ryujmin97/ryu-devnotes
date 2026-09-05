@@ -1,3 +1,46 @@
+## 248차 (체크포인트 -- toolkit 확장 완료, 실제 corpus 검증 전) -- sim_route_234_spatial_apex_continuity.py --skip-gate 옵션 추가
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu`(변경 없음, HEAD `2cfbcf4`=245차) / `ryujmin97/ryu-devnotes`
+
+**Branch**: `c3-ms-dev` / `main`
+
+**Base commit (ryu)**: `2cfbcf4f9a1e3a0697c033be53ade0e084214ca3`(245차, 재클론으로 재확인, 변경 없음)
+
+**devnotes Base commit**: `1557d83abd5975ccfb9e0bee77836442bf905edd`(247차, 재클론으로 재확인)
+
+**배경**: 247차가 확정한 INERT/ACTIVE 래치 재설계(`design/247cha_route_inert_active_redesign.md`)는 `ROUTE_SEVERITY_GATE_RATIO`(stage1)를 완전 삭제하기로 했다. 247차 §11이 남긴 검증 공백("gate 없이 stage2 클러스터링+stage3 continuity만으로 터널급 노이즈를 억제할 수 있는가, 한 번도 검증된 적 없음")의 1순위 대응으로, 기존 toolkit(§21 원칙 -- 새로 만들기 전 기존 도구 확인)인 `sim_route_234_spatial_apex_continuity.py`를 확장했다.
+
+**작업**:
+1. §3/§29 원칙대로 `ryu`/`ryu-devnotes` 재클론, base commit 재확인 -- 기억(227차 기준)과 실제 GitHub(247차까지 진행) 사이 세션 드리프트 확인, GitHub 기준으로 재정렬(§2/§33). ryu HEAD는 245차(`2cfbcf4`)에서 변경 없음 확인.
+2. `sim_route_234_spatial_apex_continuity.py`에 `--skip-gate` 옵션 추가. 활성화 시 stage1(severity gate, `v_ego_kph * ROUTE_SEVERITY_GATE_RATIO`)을 건너뛰고 stage0 후보(c0, road_limit_speed 필터만 적용된 기존 배포 코드 후보)를 그대로 stage2 클러스터링 입력으로 사용(stage0->stage2->stage3 직행). `--skip-gate` 미지정 시 234차 당시와 완전히 동일하게 동작(코드는 조건 분기 추가뿐, 회귀 없음).
+3. 검증(§28/§29 원칙 -- 실제로 한 것만 보고):
+   - 합성(synthetic) naviPaths 데이터(반지름 15m 급커브)로 `--skip-gate` 활성 시 stage1 출력(s1)이 stage0 출력(s0)과 정확히 일치함을 코드 레벨에서 assert로 확인.
+   - `--skip-gate` 유무 관계없이 replay()/summarize() 전체가 예외 없이 끝까지 실행됨을 확인(60행 합성 데이터).
+   - `--skip-gate` 미지정 시 기존 코드 경로가 그대로 실행되는지(회귀 없음) 확인.
+4. **실제 corpus 재검증 시도했으나 데이터 없음 확인**: 234차/244차가 사용한 route `0000039a--7b602ffb85`(seg12-16, 터널 구간 t=2190~2225 포함)는 `data/routes/` 레지스트리에 등록되어 있지 않고, `drive_csv:` 참조도 없음(§23 대용량 미보관 정책) -- 과거 WIP 기록을 보면 매 세션 사용자가 원본 zip을 재업로드해왔음. 이번 세션은 재업로드 없이 진행되어 실제 재검증은 미실시.
+5. `toolkit/README.md`(248차 섹션 추가), `toolkit/CHANGELOG.md`(248차 항목 추가) 갱신(§22 원칙).
+
+**결과**: `--skip-gate` 옵션 구현 및 합성 데이터 스모크 테스트 완료. 실제 corpus(터널 구간 포함) 재검증은 미실시.
+
+**완료**: 옵션 구현(2번), 합성 데이터 로직 검증(3번), devnotes 문서 갱신(5번).
+
+**미완료**:
+- 실제 corpus(route `0000039a--7b602ffb85` seg12-16) 재실행 -- 로그 재업로드 필요.
+- 247차 §11 검증계획 2/3/4/5번(246차/239차 재현 케이스 포함) 전부 미착수.
+- `carrot_man.py`/`carrot_serv.py` 코드 변경 없음(§28 원칙 -- 시뮬레이션 검증 전 패치 금지, 247차와 동일 상태 유지).
+
+**검증**: 코드 정적 검토 + 합성 데이터 스모크 테스트만 수행. **로그(corpus) 시뮬레이션: 미실시. 실차 검증: 미실시.**
+
+**전달 파일**: `toolkit/sim_route_234_spatial_apex_continuity.py`(수정, patch), `toolkit/README.md`(수정, patch), `toolkit/CHANGELOG.md`(수정, patch), 이 WIP.md 항목(patch).
+
+**다음 작업**:
+1. (1순위) 사용자에게 route `0000039a--7b602ffb85` seg12-16 원본 로그(zip, qcamera+rlog.zst+qlog.zst) 재업로드 요청 -- `extract_log.py --with-navi-paths`로 재추출 후 `--skip-gate` 옵션으로 재실행, 터널 구간(t=2190~2225) flicker 억제 여부 확인.
+2. 통과 시 246차/239차 재현 케이스도 동일 틀로 검증(247차 §11 검증계획 5번).
+3. 전부 통과하면 `carrot_man.py`/`carrot_serv.py` patch 작성 착수(247차 §8 삭제 대상 코드 포함).
+
+---
 ## 247차 (체크포인트 -- 설계 확정 완료, 코드 변경 없음, 다음 세션 시뮬레이션 검증 착수 예정) -- Route 감속 로직 INERT/ACTIVE 래치 상태머신 전면 재설계 지침 확정
 
 **Worker**: Claude

@@ -3337,3 +3337,29 @@ tolerance(3프레임) 초과, lock 해제 후 그 시점 최근접 클러스터�
 전환 직전/직후 dist가 80/140/150m 대에서 번갈아 나타남 -- 동일 물리
 지점의 노이즈(터널 패턴과 다름)라기보다 **짧은 간격으로 연속된 여러
 개의 실제 커브**일 가능성. dashcam 대조로 확정 필요(미완).
+
+**2026-09-05 추가(248차, `--skip-gate` 옵션 -- 247차 재설계 §11 검증계획
+1번)**: 247차가 확정한 INERT/ACTIVE 래치 재설계(`design/
+247cha_route_inert_active_redesign.md`)는 `ROUTE_SEVERITY_GATE_RATIO`
+(stage1)를 완전 삭제하기로 했다. 기존 234차 수치(172/60/16/3, 터널
+81/0/0/0)는 전부 stage1이 이미 적용된 위에서 stage2/3를 쌓은 결과라
+"gate 없이 stage2(클러스터링)+stage3(continuity)만으로 노이즈를 억제할
+수 있는가"는 한 번도 검증되지 않았음(247차 §11). `--skip-gate` 플래그를
+추가해 stage1을 건너뛰고 stage0 후보(c0, road_limit_speed 필터만 적용된
+원본)를 그대로 stage2 클러스터링 입력으로 사용하도록 했다(stage0→stage2→
+stage3 직행). `--skip-gate` 없이 호출하면 234차 당시와 완전히 동일하게
+동작(회귀 없음, 코드 diff는 조건 분기 추가뿐).
+**검증 범위(248차, 이 세션에서 실제로 한 것)**: 합성(synthetic) naviPaths
+데이터(반지름 15m 급커브 합성 곡선)로 (1) `--skip-gate` 시 s1(stage1
+출력)이 s0(stage0 출력)과 정확히 일치함을 코드 레벨에서 확인, (2)
+`--skip-gate` 유무 관계없이 stage2/3까지 예외 없이 끝까지 실행됨을 확인.
+**아직 안 한 것(다음 세션 1순위)**: 234차/244차와 동일한 실제 corpus
+(route `0000039a--7b602ffb85` seg12-16, 특히 터널 구간 t=2190~2225)로
+`--skip-gate` 재실행 -- 이 로그는 devnotes 레포/Drive에 보관되어 있지
+않아(§23) 사용자 재업로드 필요. **실차 검증: 미실시. 로그 기반(corpus)
+시뮬레이션 검증: 미실시(합성 데이터 스모크 테스트만 완료).**
+**사용**:
+```bash
+python3 sim_route_234_spatial_apex_continuity.py <route.csv> \
+    --window 2190 2225 --skip-gate
+```
