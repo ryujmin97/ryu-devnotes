@@ -3,6 +3,20 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+## 2026-09-06 (269차)
+- `perf_route_269_curvature_batch_optimize.py` 신규: `carrot_man.py::
+  carrot_navi_route()`의 macro/fine 곡률 이중루프(269차 체크포인트가
+  코드추적으로 확정한 CPU 최적화 후보 3개)를 실제 소스 수정 전에
+  검증하는 스크립트. baseline(원본 1:1 재현)과 optimized(np.interp
+  배치화+fine 범위제한+tuple 제거)를 합성 폴리라인 10종(경계값 포함)
+  으로 self-test, 전부 PASS(출력 완전 동일) 확인 + 타이밍 벤치마크
+  (이 컨테이너 기준 4~5x, 상대비교용). 이 검증을 근거로 같은 세션에서
+  `carrot_man.py` L928-993 구간에 patch 적용, 독립 fresh clone에서
+  `git apply --check`+`git am`+`py_compile` 통과 확인. **실 corpus
+  A/B(apex_idx/apex_dist/apex_speed/apex_mode/apex_streak/out_speed
+  동일성) 및 실차 CPU 부하 검증은 미실시** -- 다음 작업. 상세: WIP.md
+  269차.
+
 ## 2026-09-06 (268차)
 - `sim_route_265_confidence_target_blend.py`: corpus 모드 신규 구현
   (266차 다음 작업 1번, §21 재사용 -- 260차 CSV 로딩/게이트/클러스터링

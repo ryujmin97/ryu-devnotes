@@ -1,3 +1,96 @@
+## 270차 (완료 -- Phase1 패치 작성+합성검증 완료, 실 corpus/실차 검증 전) -- 269차 다음 작업 1번(route 계산부 CPU 최적화) 착수
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu`(HEAD `8964413`=266차, patch 적용해 로컬
+`4271f73`으로 진행, 원격 미push) / `ryu-devnotes`(HEAD `6985c64`=269차,
+이 항목 추가 전)
+
+**Branch**: `c3-ms-dev` / `main`
+
+**Base commit**: `8964413`(266차, ryu-devnotes 269차 기록과 일치 확인 후
+착수 -- §3/§7)
+
+**배경**: 269차가 코드 추적으로 확정한 route 계산부 CPU 최적화 후보
+3종(fine 루프 초과계산 삭제, np.interp 배치화, fine tuple 제거) 중
+"다음 작업 1번"을 사용자 승인으로 착수.
+
+**한 일**:
+1. §21에 따라 toolkit/README.md 전체 확인 -- 이 목적(곡률 루프
+   타이밍+정합성 검증)에 맞는 기존 도구 없음 확인, 신규 작성.
+2. `carrot_man.py::carrot_navi_route()` L919-977(HEAD `8964413`)을
+   직접 코드로 재확인(269차가 이미 확정한 내용을 재검증) -- macro
+   `range(len(resampled_points)-8)` vs fine
+   `range(len(resampled_points)-2)`, 병합 루프는
+   `range(len(distances))`(=macro 길이)만 소비.
+3. **[신규 확인, 269차보다 한 단계 더]** macro/fine 거리그리드가 둘 다
+   `distance=-10.0`에서 시작해 매 반복 `distance_interval`(10.0)씩
+   증가하는 lock-step 구조이므로, `fine_points[j][0] == distances[j]`가
+   **모든 j에서 항상 정확히 성립**함을 확인 -- 즉 원본의 "가장 가까운
+   fine 포인트 순차탐색(`while` 루프)"은 매번 정확히 `fine_idx=j`
+   그 자체를 고르는 것과 100% 동일한 결과였다(탐색이 실제로 분기하는
+   경우가 존재하지 않음). 이 발견으로 탐색 로직 자체를 완전히 제거
+   가능함을 확정.
+4. `devnotes/toolkit/perf_route_269_curvature_batch_optimize.py` 신규
+   작성 -- `baseline_curvature_calc()`(원본 1:1 재현)와
+   `optimized_curvature_calc()`(3종 최적화 적용) 두 구현을 합성
+   폴리라인 10개 시나리오(직선/단일급코너 R≈27m/S커브/랜덤 지그재그
+   2종/macro 하한 미만/macro 정확히 1개/fine 하한 미만 등 경계값
+   포함)로 self-test.
+5. self-test 10/10 PASS(출력 완전 동일, 부동소수점 오차 0) 확인 후
+   같은 스크립트로 타이밍 벤치마크 실행(이 컨테이너 CPU, 상대비교
+   전용) -- 61-point 기준 4~5x speedup 확인.
+6. 합성검증 통과를 근거로 실제 `carrot_man.py` L928-993 구간에 patch
+   적용 -- macro `np.interp` 스칼라 112회/프레임(macro 53+fine 59,
+   61-point 기준) 호출을 macro 1회+fine 1회 배치 호출로 대체, fine
+   계산량을 `min(len(distances), len(resampled_points)-2)`로 제한(3번
+   발견으로 탐색 로직 자체 삭제, curvature만 담은 리스트로 인덱스
+   정렬 병합).
+7. §31에 따라 독립 fresh clone에서 3단계 검증: `git apply --check`
+   통과 → `git am` 통과 → `python3 -m py_compile
+   selfdrive/carrot/carrot_man.py` 통과.
+
+**결과**:
+- 합성 검증(10개 시나리오, 경계값 포함): baseline과 optimized의
+  `distances`/`curvatures`/`speeds` 완전 동일 -- 알고리즘적으로
+  결과가 달라질 수 없는 재배열(배치 interp, 계산량 제한, 자료구조
+  변경)임을 확인.
+- 이 컨테이너 CPU 기준 벤치마크: straight_61 4.21x / single_turn_61
+  3.96x / s_curve_61 4.82x / long_route_121 4.50x speedup(상대비교
+  전용, C3 디바이스 절대치 아님).
+- patch: `carrot_man.py` 1개 파일, 44 insertions / 27 deletions.
+
+**검증**:
+- 정적 분석: py_compile 통과(fresh clone 기준).
+- 로그 검증: 미실시.
+- 시뮬레이션: 합성 폴리라인 self-test 10/10 PASS(위 참고) -- 실
+  naviPaths corpus 아님.
+- **실차 검증: 미실시.**
+
+**Devnotes**: `toolkit/perf_route_269_curvature_batch_optimize.py`
+신규 등록(`README.md`/`CHANGELOG.md` 갱신 완료).
+
+**미확인/미해결**:
+- 실 corpus 기준 apex_idx/apex_dist/apex_speed/apex_mode/apex_streak/
+  out_speed 동일성 A/B(`replay_route_237_vs_baseline.py` 방식) 미실시
+  -- corpus CSV가 이번 세션 컨테이너에 없음(§23, 대용량 CSV Git 미커밋
+  원칙). 다음 세션에 route CSV 준비 후 진행 필요.
+- 타이밍 벤치마크는 클라우드 컨테이너 CPU 기준 -- 실제 C3 디바이스
+  CPU 부하 절감량(초 단위)은 별도 실측 필요.
+- 269차 다음 작업 2번(`carrot.cc::wrap_name_lines` 캐싱), 3번(MPC
+  `A_CHANGE_COST` 완화 로직 출처 세션 추적)은 미착수.
+
+**다음 작업**:
+1. route CSV 확보 후 `replay_route_237_vs_baseline.py` 방식으로 실
+   corpus A/B(이번 patch 전/후 apex/out_speed 시계열 동일성) 검증.
+2. 사용자 승인 시 실차 적용 후 CPU 부하 실측.
+3. 269차 다음 작업 2번(`wrap_name_lines` 캐싱) 착수.
+
+**패치**: `0001-269cha-Phase1-carrot_navi_route-route-gogseul-lupeu-.patch`
+(`/mnt/user-data/outputs/`)
+
+---
+
 ## 269차 (진행 중 -- 코드 전반 분석 + CPU 최적화 크로스리뷰, 코드 수정 전) -- 사용자 지시로 설계의도 정합성/충돌/불필요코드/CPU 부하 전반 점검, ChatGPT 최적화 제안 교차검증
 
 **Worker**: Claude

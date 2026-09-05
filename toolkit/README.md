@@ -21,6 +21,48 @@ CHANGELOG.md를 같이 갱신**한다 (세션 종료 체크리스트에 포함�
 
 ---
 
+## perf_route_269_curvature_batch_optimize.py (269차 신규, 패치 적용 완료 -- 실 corpus/실차 검증 전)
+**목적**: `carrot_man.py::carrot_navi_route()`의 macro(sample=4)/fine
+(`ROUTE_CURVATURE_FINE_SAMPLE=1`) 곡률 이중루프에 269차 체크포인트가
+코드추적으로 확정한 3개 CPU 최적화 후보(np.interp 스칼라 호출
+112회/프레임→배치 2회, fine 루프가 macro보다 더 계산하는데 뒷단에서
+안 쓰는 초과분 삭제, 탐색용 tuple 리스트 제거)를 실제 소스에 적용하기
+**전에** 합성 데이터로 출력 동일성 + 시간 절감폭을 먼저 검증한다.
+
+**구성**: `baseline_curvature_calc()`는 `carrot_man.py` L919-977(HEAD
+`8964413`=266차) 원본을 1:1 재현. `optimized_curvature_calc()`는 3개
+최적화를 모두 적용한 버전. `self_test()`가 직선/단일급코너(R≈27m)/
+S커브/랜덤 지그재그(seed 2종)/경계값(macro 하한 미만, macro 정확히
+1개, fine 하한 미만 등) 총 10개 시나리오에서 두 구현의
+`(distances, curvatures, speeds)`를 완전 동일성(부동소수점 재배열
+없음 -- np.interp가 원소별 독립 연산이라 이론상으로도 오차 없음)으로
+비교. `benchmark()`는 61-point(600m/10m, 실 corpus 기준)/121-point
+폴리라인에서 `time.perf_counter` 기반 반복 측정.
+
+**결과(269차, 합성검증)**: self-test 10/10 PASS(경계값 포함 완전
+동일). 벤치마크(이 컨테이너 CPU, 상대비교 전용): straight_61 4.21x,
+single_turn_61 3.96x, s_curve_61 4.82x, long_route_121 4.50x speedup.
+이 근거로 같은 세션에서 `carrot_man.py`에 patch 적용(base `8964413`,
+독립 fresh clone `git apply --check`+`git am`+`py_compile` 통과).
+
+**한계**: 합성 폴리라인만 사용 -- 실 naviPaths corpus 기준
+apex_idx/apex_dist/apex_speed/apex_mode/apex_streak/out_speed까지의
+동일성은 `replay_route_237_vs_baseline.py` 방식 A/B가 별도로 필요(이번
+세션 컨테이너에 route CSV 없어 미실시, §23 -- 대용량 CSV는 Git 미커밋).
+타이밍 수치는 클라우드 컨테이너 CPU 기준 상대 비교이며 C3 임베디드
+디바이스 절대 절감치가 아니다. **실차 검증: 미실시.**
+
+**사용**:
+```
+python3 perf_route_269_curvature_batch_optimize.py --self-test
+python3 perf_route_269_curvature_batch_optimize.py --benchmark --iters 3000
+```
+(인자 없이 실행하면 둘 다 수행)
+
+**의존성**: numpy만 사용, `carrot_man.py`를 import하지 않음(런타임
+의존성 때문에 이 컨테이너에서 단독 실행 불가 -- 관련 함수를 docstring에
+명시된 라인 대조와 함께 재현).
+
 ## sim_route_265_confidence_target_blend.py (265차 신규, 268차 corpus 모드 추가, NEEDS_VALIDATION)
 **목적**: 264차가 확정한 persistence(streak) 단독 confidence 공식을
 `carrot_man.py`의 실제 apex 처리 구조(단일 lock 추적, `_route_cluster_
