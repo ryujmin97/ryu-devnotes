@@ -1,3 +1,86 @@
+## 255차 계속 (완료 -- carrot_man.py 실제 patch 작성, 사용자 지시로 실측 corpus 확보 전 진행) -- route ACTIVE release 조건에 apex_dist<=20m(dist20) 추가 + continuity 6-state 분리를 실제 코드에 반영
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu`(HEAD `3f925f5`=252차 위에 신규 커밋) / `ryujmin97/ryu-devnotes`(로컬 커밋만, 원격 미반영)
+
+**Branch**: `c3-ms-dev` / `main`
+
+**Base commit (ryu)**: `3f925f5d13bc6bf486dc5821ecab4c9f4724a73d`(252차)
+
+**devnotes Base commit**: `5580f25`(254차) + 이번 세션 로컬 255차 커밋(`2fbe85f`, 아직 미push) 위
+
+**배경**: 255차(위 항목)에서 dist20 vs apex_passed A/B가 25세그 실측
+corpus(29126행)로 완전히 동일한 결과(회귀 없음)임을 확인 -- 254차 WIP
+"다음 작업" 2번 조건("dist20 모드가 246/239차급 회귀를 일으키지 않음을
+확인하면 STEP5/6(실제 patch) 진행")이 충족됨. 이어서 사용자가 "두 모드가
+실제로 갈리는 실측 사례/handoff 표본/고속 재현조건" 확보용 로그가 당장
+없으니, 그런 로그를 기다리지 않고 지금 바로 patch를 작성하고 실차로그는
+그 이후에 받는 순서로 진행하라고 지시(§33 -- 판단 불가한 사항이 아니라
+순서에 대한 사용자 명시적 지시이므로 그대로 따름).
+
+**한 일**:
+1. `ryu` 재클론(`3f925f5`, 드리프트 없음), `carrot_man.py`에서
+   `_route_cluster_continuity_step()`/`carrot_navi_route()` 실제 코드
+   재확인.
+2. **protected 커밋(132/172/173/199/205/221차, VTurn/ramp limiter/
+   sqrt(target...) 패턴) 영향범위 사전 확인** -- 5개 커밋 전부
+   `carrot_man.py`를 건드렸으나(같은 파일), 실제 diff 내용은 `route_`
+   접두 감속 로직(현재는 247/251/252차로 재설계되어 옛 ramp limiter
+   코드 자체가 이미 삭제된 상태)이고, 이번 세션이 건드리는
+   `vturn_speed()`/`carrot_curve_speed()`(VTurn/sqrt 패턴)와는 완전히
+   분리된 함수임을 diff hunk 위치 + 함수명 대조로 확인.
+3. `ROUTE_RELEASE_DIST_M=20.0` 신규 상수 추가.
+4. `_route_cluster_continuity_step()`: lock 리셋 사유를 passed
+   (predicted<=0)/lost(miss_frames 초과)로 구분 반환하도록 수정
+   (toolkit `Sim254._continuity_step()`을 실제 코드에 이식, §21 역방향
+   -- 이번엔 toolkit이 먼저 검증된 참조 구현).
+5. `carrot_navi_route()`: ①`apex_mode=="none"` 가드에 `apex_speed is
+   None` 조건 추가(255차 toolkit 크래시와 동일 패턴의 사전 방지),
+   ②`apex_passed_or_lost`가 passed/lost/new 셋을 동일하게 취급하도록
+   확장(release 판정 동작 자체는 무변경, §27), ③ACTIVE release 조건에
+   `dist_reached = apex_dist<=ROUTE_RELEASE_DIST_M` OR 추가.
+6. **grep/함수단위 검증**: `git diff`가 정확히 5개 hunk(상수 선언부,
+   continuity 함수, carrot_navi_route 2곳)에만 존재함을 확인.
+   `vturn_speed()`/`carrot_curve_speed()`를 함수명 기준으로 추출해
+   patch 전후 **byte-identical** 확인(고정폭 line-offset 비교가 아니라
+   `def` 탐색 기반 추출 -- 이번 패치로 함수 앞쪽 줄 수가 바뀌어 고정
+   라인번호 비교는 오탐 위험이 있었음, 실제로 1차 시도에서 오탐 발생 후
+   재검증 절차 수정).
+7. `py_compile`+`ast.parse` 정적 검증 통과.
+8. devnotes `PARAMS_REGISTRY.md`에 `ROUTE_RELEASE_DIST_M` 신규 등록.
+
+**완료**: 위 1~8번.
+
+**미완료 / 실차 검증 필요**:
+- **실차 검증: 미실시.** 이번 patch는 (a) 254차 synthetic self-test 4케이스
+  + (b) 255차 실측 25세그 corpus A/B(toolkit 포팅본 기준, 회귀 없음
+  확인)까지만 근거로 하며, 실제 device 빌드/실주행 검증은 전혀 거치지
+  않았다. 사용자 지시에 따라 이 순서(patch 먼저, 실차로그는 이후)로
+  진행했음을 명확히 기록.
+- dist20 vs apex_passed가 실제로 갈리는 실측 사례, handoff ratio 표본
+  오염 원인, 239차 원 CRITICAL 고속 재현조건(vEgo≈105kph)은 여전히
+  전부 미확보 -- 다음 실차 로그로 사후 검증 필요(255차 항목의 "다음
+  작업"과 동일, 순서만 patch 이후로 이동).
+- `carrot_serv.py` 쪽은 이번 patch 범위에 포함하지 않음(247차 design doc
+  §8이 언급한 클램프 단순화 후보는 이번에 건드리지 않음, 최소변경 원칙).
+
+**검증**: 정적 분석(py_compile/ast.parse) O / toolkit 포팅본 self-test+
+실측 A/B(255차, 사전검증) O / **실차 검증: 미실시** / protected 함수
+byte-identical 확인 O
+
+**전달 파일**: `ryu` patch(`carrot_man.py` 단일 파일), 이 WIP.md 항목,
+`PARAMS_REGISTRY.md` 갱신.
+
+**다음 작업**:
+1. 실차 로그 확보 시 이 patch가 적용된 빌드인지 `check_device_build.py`로
+   먼저 확인.
+2. dist20/passed 두 조건이 실제로 갈리는 프레임 유무 확인, dist_reached로
+   인한 조기 RELEASE가 246/239차급 부작용을 재현하지 않는지 재검증.
+3. handoff ratio/고속 재현조건 로그 확보 및 재스캔(255차 항목과 동일).
+
+---
+
 ## 255차 (완료 -- 254차 다음작업 1번(실측 dist20 vs apex_passed A/B) 실행, 실행 중 신규 크래시 버그 발견+수정, 253차 부분-corpus 결과를 전체 25세그 원본으로 재검증) -- 사용자 재업로드 `dashcam_1788583013065.zip`(route_ac 세그0-19+route_ad 세그0-4, 전체 25세그 무결) 실측 A/B
 
 **Worker**: Claude

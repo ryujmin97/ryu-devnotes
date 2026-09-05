@@ -323,6 +323,30 @@
 - 실차 검증: 미실시(NEEDS_VALIDATION) — 252차는 patch 생성 및 정적 검증
   (py_compile, `git am` diff-scoped)까지만 완료, device 미적용.
 
+## ROUTE_RELEASE_DIST_M (254차 설계+사용자 확정, 255차 계속 코드 반영 — NEEDS_VALIDATION)
+- 위치: `selfdrive/carrot/carrot_man.py`, `carrot_navi_route()`
+- 값: 20.0 (m). ACTIVE 상태에서 apex까지 남은 거리가 이 값 이하가 되면,
+  `ROUTE_ACTIVE_RELEASE_MARGIN_RATIO` 조건(목표속도 도달)과 무관하게
+  RELEASE(+2초 hold). 기존 "Apex 통과"(continuity `predicted_dist<=0`)
+  조건에 OR로 추가된 세 번째 해제 조건.
+- 근거: 254차가 발견한 지침 문서와 252차 코드 간 실질적 차이 1건에 대해
+  사용자 확정 — "20m 지점부터는 vturn(비전 기반 근거리 커브 제어)이
+  관여하므로, apex 자체 도달 여부가 아니라 그 지점까지 충분히 감속을
+  했는가가 중요하다". route=원거리 사전감속 전용, vturn=근거리 실주행
+  역할 분리 설계.
+- 검증: `toolkit/sim_route_254_release_dist20_6state.py`로 synthetic
+  self-test 4케이스 + 실측 dashcam 25세그(29126행, `dashcam_1788583013065.
+  zip`) A/B 완료(255차) — 기존 apex_passed 방식과 결과 완전 동일
+  (far-apex-freeze 12->0 양쪽, 6-state 분포 동일, 회귀 없음). 이 corpus에는
+  두 방식이 실제로 갈리는 사례가 없어 "무해함"만 확인, "이득"은 실측
+  미확인.
+- 실차 검증: 미실시(NEEDS_VALIDATION) — 255차 계속은 patch 생성 및 정적
+  검증(py_compile/ast.parse, `vturn_speed()`/`carrot_curve_speed()` 함수
+  byte-identical 확인)까지만 완료, device 미적용. 다음 실차 로그에서
+  두 release 조건(속도/거리)이 실제로 갈리는 프레임이 있는지, 그리고
+  dist20 방식이 far-apex-freeze/self-elimination류 회귀를 일으키지
+  않는지 확인 필요.
+
 ## ROUTE_CLUSTER_MIN_POINTS / ROUTE_CLUSTER_MAX_GAP_M (234차 계속4 설계, 252차 코드 반영 — NEEDS_VALIDATION)
 - 위치: `selfdrive/carrot/carrot_man.py`, `route_find_clusters()`
   (신규 모듈레벨 함수, `carrot_navi_route()`에서 stage2로 호출)
