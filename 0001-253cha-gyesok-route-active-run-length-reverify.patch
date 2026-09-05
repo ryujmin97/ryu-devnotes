@@ -1,0 +1,233 @@
+diff --git a/FINDINGS.md b/FINDINGS.md
+index e5d0987..2401bc9 100644
+--- a/FINDINGS.md
++++ b/FINDINGS.md
+@@ -237,6 +237,8 @@ candidates = [k for k in candidates if speeds[k] < max(v_ego_kph, 1.0) * ROUTE_S
+ 
+ **253차 갱신(구조적 해소, 부분 확인)**: 247차/251차/252차 INERT/ACTIVE 래치 재설계(design/247cha_route_inert_active_redesign.md §8)로 `ROUTE_SEVERITY_GATE_RATIO` 자체가 코드에서 완전히 삭제됨(253차 `carrot_man.py` 재확인 -- `grep`으로 해당 상수/게이트 조건 잔존 0건, PARAMS_REGISTRY.md에도 SUPERSEDED 표기됨, 252차 기록). 이 CRITICAL이 지목한 자기소거 메커니즘은 정확히 "매 프레임 라이브 vEgo 대비 `0.70` 비율로 candidate를 재필터링하는 stage1 게이트"에서 발생했는데, 새 설계는 stage0(road_limit_speed 필터)에서 곧바로 stage2(공간 클러스터링)+stage3(continuity 추적)로 직행하고, ACTIVE 상태에서는 continuity가 잠근 apex를 라이브 vEgo 비율로 재평가하지 않는다 -- 즉 **이 CRITICAL이 정의한 정확한 재현 조건(라이브 vEgo 비율 재필터링) 자체가 새 코드에 구조적으로 존재하지 않는다.** 이는 코드 레벨 확인(정적)이며, 253차 실측 dashcam 로그(2026-09-05 채록, route_ac/route_ad) 기반 open-loop 재생(`toolkit/sim_route_252_active_state_full.py`)에서도 이 로그 구간 내 유사 자기소거/리밋사이클 패턴은 관측되지 않음. 다만 **이 실측 로그가 239차 원 재현 조건(vEgo=105/target=70급 고속 커브 접근)과 동일한 시나리오를 포함하는지는 별도 확인 안 됨** -- "새 상태머신에서 이 특정 CRITICAL의 재현 조건 자체가 사라졌다"는 구조적 결론과 "이번 로그로 실측 재현을 직접 재현/반증했다"는 것은 별개이며, 후자는 §28 원칙상 미확정으로 남긴다(다음 세션: vEgo=105/target=70 유사 실측 구간이 있는지 확인 권장).
+ 
++**253차 계속 갱신(run-length 수치 재검증, 부분)**: 253차 세션 전반부(컨테이너 초기화로 유실)에서 발견됐던 route-active run 개수 이상치("실측 61건 vs 시뮬 163건", 당시 스크립트는 RELEASE-hold 버그가 있던 판)를, 사용자가 재업로드한 `dashcam_1788583013065.zip`(route_ac 세그0-15만 유효 -- 세그16 rlog.zst 0바이트 손상, route_ad는 이번 업로드에 미포함, 최초 유실분과 완전히 동일한 데이터는 아님)로 재추출한 CSV(19229행) 위에서, RELEASE-hold 수정본(`sim_route_252_active_state_full.py`)을 재사용하는 신규 스크립트 `analyze_route_253_active_run_length.py`로 재실행. 결과: **실측 68건 vs 시뮬 51건**(short-run<2s: 49건 vs 35건) -- 수정 전 관측됐던 "시뮬이 실측의 약 2.7배" 과다분절 현상이, 수정 후에는 재현되지 않고 오히려 방향이 역전(시뮬이 실측보다 적게 분절)됐다. 이는 최초 관측된 이상 분절이 새 상태머신 자체의 잔존 결함이 아니라 RELEASE-hold 누락이라는 스크립트 버그의 인공물이었다는 가설을 뒷받침하는 정황 증거다. **단, 다음 두 가지로 이 결론을 "239차 완전 종결"로 승격하지 않는다(§28)**: (1) 이번 corpus는 세그 구성이 원본 유실분과 다르고 route_ad가 빠져 있어 동일 데이터 기준 A/B 비교가 아니다 -- 재추출된 실측 68건 자체가 이전 61건과 다른 이유가 스크립트 수정 때문인지 데이터가 달라졌기 때문인지 완전히 분리되지 않는다. (2) 이 corpus는 vEgo 최대 61.9kph로, 239차 원 CRITICAL의 실제 재현 조건(vEgo≈105kph/target≈70kph급 고속 커브 접근, 위 시뮬레이션 절 참고)을 한 프레임도 포함하지 않는다 -- 즉 이번 재검증은 "일반적인 저~중속 주행에서 새 상태머신이 인위적으로 과다분절하지 않는다"는 것만 확인했지, 원 CRITICAL이 지목한 고속 시나리오 자체의 실측 반증은 여전히 미실시다. run 정의 자체의 한계(실측 `src`는 전체 arbitration 승자 소스, 시뮬 `sim_src`는 route 후보 유무만 반영 -- 완전히 동일한 신호가 아님)는 스크립트 docstring에 명시. 실차 검증: 미실시.
++
+ ---
+ 
+ ## 239차 -- [설계 방향 합의, 실측 근거 아직 불충분] "route=사전감속 전용, vturn=커브 실주행" 역할 분리 설계안 -- ratio는 실측 route→vturn 핸드오프 사례로 결정하기로 함
+diff --git a/WIP.md b/WIP.md
+index 6651a90..80435bf 100644
+--- a/WIP.md
++++ b/WIP.md
+@@ -1,3 +1,47 @@
++## 253차 계속 (진행 중 -- 239차 항목 run-length 수치 재검증 부분 완료, 원 CRITICAL 고속 시나리오는 이번 corpus로 확인 불가) -- 사용자 재업로드 dashcam으로 RELEASE-hold 수정본 재실행
++
++**Worker**: Claude
++
++**Repository**: `ryujmin97/ryu`(변경 없음, HEAD `3f925f5`=252차) / `ryujmin97/ryu-devnotes`
++
++**Branch**: `c3-ms-dev` / `main`
++
++**Base commit (ryu)**: `3f925f5d13bc6bf486dc5821ecab4c9f4724a73d`(252차, 드리프트 없음)
++
++**devnotes Base commit**: `4905fe5`(253차, 원격 HEAD와 일치 확인, `git fetch` 후 드리프트 없음)
++
++**배경**: 253차(위 항목)가 남긴 다음 작업 1순위 -- 사용자가 `dashcam_1788583013065.zip`을 재업로드하면 RELEASE-hold 수정본으로 route-active run-length 재분석, 239차 self-elimination 항목 수치 결론 확정. 본 세션에서 사용자가 동일 파일명으로 재업로드.
++
++**한 일**:
++1. §3/§33 원칙대로 `ryu`(HEAD `3f925f5`)/`ryu-devnotes`(HEAD `4905fe5`) 재클론, 253차 기록과 드리프트 없음 확인. HANDOFF.md/CURRENT_STATUS.md 없음.
++2. 재업로드된 `dashcam_1788583013065.zip` 압축 해제 -- **17개 세그 디렉토리 전부 `000003ac` prefix(route_ac만, route_ad 없음)**, 그중 세그16(`--16`)의 `rlog.zst`가 0바이트(손상, 채록 중 세션 종료로 추정) 확인. §33 원칙에 따라 임의로 진행하지 않고 이 차이(원본 유실분은 route_ac+route_ad 25세그였는데 이번 재업로드는 route_ac 17세그 중 16개만 유효)를 사용자에게 보고 필요 -- 완전한 재현 데이터가 아님.
++3. 유효한 16개 세그(세그0-15)만으로 `extract_log.py --with-navi-paths --repo ryu`(HEAD `3f925f5`) 재추출 -- 19229행, 크래시 없음.
++4. §21 원칙(기존 toolkit 수정 금지)에 따라, 253차가 작성한 `sim_route_252_active_state_full.py`에는 없는 run-length 비교 기능을 신규 스크립트 `analyze_route_253_active_run_length.py`로 작성 -- 기존 스크립트의 `replay()`/`Sim252`를 그대로 import해 재사용(로직 중복 작성 금지, §27). `py_compile`+`ast.parse` 정적 검증 통과.
++5. 신규 스크립트로 route-active run 개수 비교 실행: **실측 68건 vs 시뮬(RELEASE-hold 수정본) 51건**(short-run<2s: 49건 vs 35건). 253차 전반부(유실)가 관측했던 "실측 61건 vs 시뮬 163건"과 달리 과다분절이 재현되지 않고 방향이 역전됨 -- 버그 인공물 가설을 뒷받침하는 정황 증거로 판단.
++6. 246차 freeze 항목도 동일 신규 corpus로 재확인(`sim_route_252_active_state_full.py` 그대로 재사용) -- 실측 9건 -> 시뮬 0건, 기존 결론(11->0, 1->0)과 일관.
++7. 이 corpus의 vEgo 최대치(61.9kph) 확인 -- 239차 원 CRITICAL 재현조건(vEgo≈105/target≈70kph)을 프레임 단위로 스캔했으나 0건, 즉 이 데이터로는 원 고속 시나리오 자체의 실측 확인이 불가능함을 확인(추측으로 "확인됐다"고 기재하지 않음, §28).
++8. FINDINGS.md 239차 항목에 253차 계속 갱신 블록 추가(§24 -- 기존 항목 삭제/수정 없이 새 증거만 보강), toolkit/README.md·CHANGELOG.md 253차 섹션에 이어 신규 항목 추가.
++
++**완료**: 위 1~8번. 239차 항목의 run-length 수치 재검증은 **부분 완료**(스크립트 버그 인공물 가설을 뒷받침하는 정황 확보) -- "완전 종결"은 아님(미완료 항목 참고).
++
++**미완료**:
++- **이번 corpus와 253차 전반부가 쓴 원본(유실) corpus가 데이터 자체가 다름**(세그 구성 상이, route_ad 부재) -- 완전한 동일 데이터 A/B 비교가 아니므로, 실측 68건이 관측된 이유가 "스크립트 수정 때문"인지 "데이터가 바뀌었기 때문"인지 100% 분리되지 않음. 완전한 재검증을 원하면 원본과 동일한 25세그(route_ac+route_ad) 전체 재업로드 필요.
++- **239차 원 CRITICAL의 고속 재현 조건(vEgo≈105/target≈70kph) 자체는 이번 corpus에 없어 여전히 실측 미확인** -- 이 조건을 포함하는 로그가 확보되기 전까지 "새 상태머신에서 이 CRITICAL이 실측으로도 완전히 해소됐다"는 결론은 내릴 수 없음(구조적 해소는 253차에서 이미 확인, §33/§28 구분 유지).
++- 세그16 손상분(`rlog.zst` 0바이트) 원인은 미조사 -- 채록 앱/디바이스 쪽 문제로 추정되나 확정 아님.
++- `git format-patch`->`git am` 파이프라인(§31)은 이번 세션에서도 미실행 -- toolkit 스크립트 1건 추가 + devnotes 3파일(WIP/FINDINGS/toolkit README+CHANGELOG) 갱신뿐, `ryu` 코드 변경 없음.
++
++**검증**: `analyze_route_253_active_run_length.py` `py_compile`+`ast.parse` 통과. 기존 `sim_route_252_active_state_full.py`(변경 없음, 그대로 재사용) 기반 재실행 2건(run-length 신규, freeze 재확인) 모두 실행 완료, 결과 위 5/6번. **실차 검증: 미실시**(§29).
++
++**전달 파일**: `toolkit/analyze_route_253_active_run_length.py`(신규), `toolkit/README.md`/`toolkit/CHANGELOG.md`(253차 계속 섹션), `FINDINGS.md`(239차 갱신), 이 WIP.md 항목. `ryu` 코드 변경 없음.
++
++**다음 작업**:
++1. (선택, 완전한 A/B 재검증을 원할 경우) 원본과 동일한 route_ac 전체(세그0-19 추정, 24030행)+route_ad(5096행) 25세그 재업로드.
++2. 239차 원 CRITICAL 고속 재현조건(vEgo≈105/target≈70kph)을 포함하는 로그 확보 -- 기존 corpus 중 해당 구간이 있는지 스캔하거나 다음 실차 주행 시 의도적으로 그런 상황(고속 주행 중 급격한 커브 접근)을 채록.
++3. 위 두 항목 중 하나라도 통과하면 design doc §11 검증계획 5번(246차+239차) 완전 종결 가능.
++4. `git format-patch`(toolkit 신규 스크립트+devnotes 3파일)로 §31 파이프라인 실행 후 정식 patch 전달 -- 사용자 확인 시 바로 진행 가능.
++
++---
++
+ ## 253차 (진행 중 -- design doc §11 검증계획 5번 중 246차 항목 해소 확인 완료, 239차 항목은 구조적 해소만 확인/실측 재검증은 원본 로그 유실로 보류) -- 신규 toolkit `sim_route_252_active_state_full.py`로 새 상태머신 open-loop 재생 검증
+ 
+ **Worker**: Claude
+diff --git a/toolkit/CHANGELOG.md b/toolkit/CHANGELOG.md
+index f903a44..f597e44 100644
+--- a/toolkit/CHANGELOG.md
++++ b/toolkit/CHANGELOG.md
+@@ -3,6 +3,22 @@
+ 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
+ 남긴다. `README.md`도 같이 갱신할 것.
+ 
++## 2026-09-05 (253차 계속)
++- `analyze_route_253_active_run_length.py`: 신규 -- `sim_route_252_active_
++  state_full.py`의 `replay()`/`Sim252`를 재사용(§21, 로직 중복 작성 없음)해
++  route-active "run"(연속 구간) 개수를 실측(`src`=="route")과 시뮬
++  (`sim_src`=="route")로 비교. 239차 self-elimination 항목의 최초 관측치
++  ("실측 61건 vs 시뮬 163건", RELEASE-hold 버그 있던 판)를 RELEASE-hold
++  수정본으로 재실행하는 데 사용. 사용자가 재업로드한 `dashcam_1788583013065.zip`
++  (route_ac 세그0-15만 유효, 세그16 손상+route_ad 미포함 -- 최초 유실분과
++  완전 동일하지 않음)로 재추출한 19229행 CSV 기준 **실측 68건 vs 시뮬 51건**
++  (short-run<2s: 49건 vs 35건) -- 수정 전 "시뮬이 실측의 3배" 과다분절이
++  버그 인공물이었다는 정황 확인, 수정 후에는 오히려 시뮬이 실측보다 적게
++  분절(run 정의 차이 때문일 수 있음, 스크립트 docstring 한계 1번 참고).
++  이 corpus는 vEgo 최대 61.9kph로 239차 원 CRITICAL 재현조건(vEgo≈105/
++  target≈70kph)을 포함하지 않아 그 시나리오 자체의 실측 확인은 아님.
++  상세: FINDINGS.md 239차 갱신, WIP.md 253차 계속.
++
+ ## 2026-09-05 (253차)
+ - `sim_route_252_active_state_full.py`: 신규 -- 252차 `carrot_man.py`
+   INERT/ACTIVE 래치 상태머신(§3~§5, continuity 포함) 전체를 1:1 이식해
+diff --git a/toolkit/README.md b/toolkit/README.md
+index c1c98b5..54d384b 100644
+--- a/toolkit/README.md
++++ b/toolkit/README.md
+@@ -3461,6 +3461,19 @@ FINDINGS.md 246차 항목 253차 갱신 참고.
+    doc §6, RELEASE 후 2초 hold-off)을 빠뜨려, 이 hold가 없으면 실제
+    코드에는 없는 인위적 ENGAGE/RELEASE 진동이 시뮬레이션에서만 발생하는
+    것을 자체 검증 중 발견 -- 즉시 수정 반영(현재 버전은 수정 완료본).
+-   **이 수정본으로 route-active run-length(오실레이션) 재분석은 아직
+-   미실시** -- 원본 로그가 컨테이너 초기화로 유실되어 재업로드 필요
+-   (WIP.md 253차, 다음 작업 1번).
++   **[253차 후속 갱신]** 사용자가 `dashcam_1788583013065.zip`을 재업로드
++   (단, 이번 업로드는 route_ac 세그 0~16 중 15개만 유효 -- 세그16 rlog.zst가
++   0바이트로 손상, route_ad는 이번 업로드에 포함되지 않음. 최초 유실분과
++   완전히 동일한 데이터가 아니라 부분 재현임에 주의). `extract_log.py
++   --with-navi-paths`로 route_ac 재추출(19229행, 세그0-15). 신규 스크립트
++   `analyze_route_253_active_run_length.py`(아래 참고, 이 스크립트의
++   `replay()`/`Sim252`를 재사용)로 route-active run 개수를 재계산한 결과
++   **실측 68건 vs 시뮬(수정본) 51건**(최초 버그판 관측치였던 "실측 61건 vs
++   시뮬 163건"과 달리, 수정 후에는 시뮬이 실측보다 적은 방향으로 역전) --
++   이는 최초 관측된 3배 가까운 과다분절이 RELEASE-hold 누락 버그의 인공물
++   이었음을 뒷받침하는 정황 증거. 다만 이 재추출본은 세그 구성이 달라
++   (0-15만, 원래 유실분은 route_ac 24030행+route_ad 5096행 전체) 완전한
++   1:1 재현은 아니며, 이 corpus는 vEgo 최대 61.9kph로 239차 원 CRITICAL의
++   재현조건(vEgo≈105/target≈70kph 고속 커브 접근)을 포함하지 않아 그
++   시나리오 자체의 실측 반증/재현은 여전히 미확정(WIP.md 253차/FINDINGS.md
++   239차 참고).
+diff --git a/toolkit/analyze_route_253_active_run_length.py b/toolkit/analyze_route_253_active_run_length.py
+new file mode 100644
+index 0000000..2658b81
+--- /dev/null
++++ b/toolkit/analyze_route_253_active_run_length.py
+@@ -0,0 +1,108 @@
++#!/usr/bin/env python3
++"""
++analyze_route_253_active_run_length.py (253차 세션, 신규 -- NEEDS_VALIDATION)
++
++목적: 239차 CRITICAL(self-elimination 진동)이 새 INERT/ACTIVE 상태머신에서
++수치적으로도 해소됐는지 확인하기 위한 route-active "run"(연속 구간) 개수
++비교. 253차 세션 전반부(컨테이너 초기화로 유실)에서 RELEASE-hold 버그가
++있던 초기 버전 스크립트로 1차 실행했을 때, route_ac 로그에서 실측 61건
++대비 시뮬 163건의 짧은 run이 관측됐다(WIP.md 253차 항목 "미완료" 참고).
++이 스크립트는 그 관측을 sim_route_252_active_state_full.py의 수정본
++(2초 RELEASE hold 포함)으로 재실행해, 비정상적 run 분절이 버그였는지
++실제 상태머신 특성이었는지 판별한다.
++
++이 스크립트는 기존 toolkit(§21)을 수정하지 않고, sim_route_252_active_state_
++full.py의 replay()/Sim252를 그대로 import해 재사용한다(§21/§27 -- 로직
++중복 작성 금지).
++
++**한계(§28)**:
++1. "run"은 실측은 CSV `src`=="route" 연속 구간, 시뮬은 replay() 출력의
++   `sim_src`=="route" 연속 구간으로 정의한다. 실측 `src`는 desiredSpeed
++   arbitration의 최종 승자 소스라 route 외 다른 승자(vturn/cruise 등)로
++   전환되면 run이 끊긴다 -- 시뮬은 route 후보 유무/ACTIVE 상태만 반영하고
++   다른 소스와의 arbitration은 재현하지 않으므로, 두 run 정의는 완전히
++   동일한 신호가 아니다(정성적/거시적 비교 목적, §28 명시).
++2. open-loop 재생 한계는 sim_route_252_active_state_full.py와 동일.
++3. 실차 검증 아님(§29).
++
++사용:
++    python3 analyze_route_253_active_run_length.py route.csv \
++        [--safe-time 2.2] [--decel-rate 0.70] [--release-margin 1.1] \
++        [--continuity-tolerance 10.0] [--short-run-s 2.0]
++
++출력: 실측/시뮬 각각의 run 개수, run별 길이(초) 분포, --short-run-s 미만
++"short run" 개수 비교.
++"""
++import argparse
++import csv
++import statistics
++import sys
++
++from sim_route_252_active_state_full import replay, load_csv
++
++
++def find_runs(rows, key, t_key="t"):
++    runs = []
++    cur_start = None
++    prev_t = None
++    for row in rows:
++        active = row.get(key) == "route"
++        try:
++            t = float(row[t_key])
++        except (TypeError, ValueError):
++            continue
++        if active:
++            if cur_start is None:
++                cur_start = t
++            prev_t = t
++        else:
++            if cur_start is not None:
++                runs.append((cur_start, prev_t))
++                cur_start = None
++    if cur_start is not None:
++        runs.append((cur_start, prev_t))
++    return runs
++
++
++def summarize(name, runs, short_run_s):
++    durations = [end - start for start, end in runs if end is not None]
++    short = [d for d in durations if d < short_run_s]
++    print(f"\n=== {name}: {len(runs)}건 ===")
++    if durations:
++        print(f"  길이(초) min={min(durations):.2f} median={statistics.median(durations):.2f} "
++              f"max={max(durations):.2f}")
++    print(f"  {short_run_s}s 미만 short-run: {len(short)}건")
++    return len(runs), len(short)
++
++
++def main():
++    ap = argparse.ArgumentParser()
++    ap.add_argument("csv_path")
++    ap.add_argument("--safe-time", type=float, default=2.2)
++    ap.add_argument("--decel-rate", type=float, default=0.70)
++    ap.add_argument("--release-margin", type=float, default=1.1)
++    ap.add_argument("--continuity-tolerance", type=float, default=10.0)
++    ap.add_argument("--short-run-s", type=float, default=2.0)
++    args = ap.parse_args()
++
++    rows = load_csv(args.csv_path)
++    print(f"loaded {len(rows)} rows from {args.csv_path}")
++
++    sim_rows = replay(rows, args.safe_time, args.decel_rate, args.release_margin,
++                       args.continuity_tolerance)
++
++    real_runs = find_runs(rows, "src")
++    sim_runs = find_runs(sim_rows, "sim_src")
++
++    real_n, real_short = summarize("실측(CSV src==route)", real_runs, args.short_run_s)
++    sim_n, sim_short = summarize("시뮬레이션(252차 상태머신, RELEASE-hold 수정본)", sim_runs,
++                                  args.short_run_s)
++
++    print(f"\n요약: run 개수 실측 {real_n}건 -> 시뮬 {sim_n}건 "
++          f"(short-run<{args.short_run_s}s 기준 실측 {real_short}건 -> 시뮬 {sim_short}건)")
++    print("주의: run 정의 차이(한계 1번, docstring 참고) 및 open-loop 재생 한계로 "
++          "완전 동일 신호 비교가 아님 -- 자릿수 단위의 비정상적 분절 여부 판별 목적.")
++
++
++if __name__ == "__main__":
++    main()

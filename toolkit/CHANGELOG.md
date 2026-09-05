@@ -3,6 +3,22 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+## 2026-09-05 (253차 계속)
+- `analyze_route_253_active_run_length.py`: 신규 -- `sim_route_252_active_
+  state_full.py`의 `replay()`/`Sim252`를 재사용(§21, 로직 중복 작성 없음)해
+  route-active "run"(연속 구간) 개수를 실측(`src`=="route")과 시뮬
+  (`sim_src`=="route")로 비교. 239차 self-elimination 항목의 최초 관측치
+  ("실측 61건 vs 시뮬 163건", RELEASE-hold 버그 있던 판)를 RELEASE-hold
+  수정본으로 재실행하는 데 사용. 사용자가 재업로드한 `dashcam_1788583013065.zip`
+  (route_ac 세그0-15만 유효, 세그16 손상+route_ad 미포함 -- 최초 유실분과
+  완전 동일하지 않음)로 재추출한 19229행 CSV 기준 **실측 68건 vs 시뮬 51건**
+  (short-run<2s: 49건 vs 35건) -- 수정 전 "시뮬이 실측의 3배" 과다분절이
+  버그 인공물이었다는 정황 확인, 수정 후에는 오히려 시뮬이 실측보다 적게
+  분절(run 정의 차이 때문일 수 있음, 스크립트 docstring 한계 1번 참고).
+  이 corpus는 vEgo 최대 61.9kph로 239차 원 CRITICAL 재현조건(vEgo≈105/
+  target≈70kph)을 포함하지 않아 그 시나리오 자체의 실측 확인은 아님.
+  상세: FINDINGS.md 239차 갱신, WIP.md 253차 계속.
+
 ## 2026-09-05 (253차)
 - `sim_route_252_active_state_full.py`: 신규 -- 252차 `carrot_man.py`
   INERT/ACTIVE 래치 상태머신(§3~§5, continuity 포함) 전체를 1:1 이식해

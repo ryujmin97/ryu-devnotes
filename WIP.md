@@ -1,3 +1,47 @@
+## 253차 계속 (진행 중 -- 239차 항목 run-length 수치 재검증 부분 완료, 원 CRITICAL 고속 시나리오는 이번 corpus로 확인 불가) -- 사용자 재업로드 dashcam으로 RELEASE-hold 수정본 재실행
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu`(변경 없음, HEAD `3f925f5`=252차) / `ryujmin97/ryu-devnotes`
+
+**Branch**: `c3-ms-dev` / `main`
+
+**Base commit (ryu)**: `3f925f5d13bc6bf486dc5821ecab4c9f4724a73d`(252차, 드리프트 없음)
+
+**devnotes Base commit**: `4905fe5`(253차, 원격 HEAD와 일치 확인, `git fetch` 후 드리프트 없음)
+
+**배경**: 253차(위 항목)가 남긴 다음 작업 1순위 -- 사용자가 `dashcam_1788583013065.zip`을 재업로드하면 RELEASE-hold 수정본으로 route-active run-length 재분석, 239차 self-elimination 항목 수치 결론 확정. 본 세션에서 사용자가 동일 파일명으로 재업로드.
+
+**한 일**:
+1. §3/§33 원칙대로 `ryu`(HEAD `3f925f5`)/`ryu-devnotes`(HEAD `4905fe5`) 재클론, 253차 기록과 드리프트 없음 확인. HANDOFF.md/CURRENT_STATUS.md 없음.
+2. 재업로드된 `dashcam_1788583013065.zip` 압축 해제 -- **17개 세그 디렉토리 전부 `000003ac` prefix(route_ac만, route_ad 없음)**, 그중 세그16(`--16`)의 `rlog.zst`가 0바이트(손상, 채록 중 세션 종료로 추정) 확인. §33 원칙에 따라 임의로 진행하지 않고 이 차이(원본 유실분은 route_ac+route_ad 25세그였는데 이번 재업로드는 route_ac 17세그 중 16개만 유효)를 사용자에게 보고 필요 -- 완전한 재현 데이터가 아님.
+3. 유효한 16개 세그(세그0-15)만으로 `extract_log.py --with-navi-paths --repo ryu`(HEAD `3f925f5`) 재추출 -- 19229행, 크래시 없음.
+4. §21 원칙(기존 toolkit 수정 금지)에 따라, 253차가 작성한 `sim_route_252_active_state_full.py`에는 없는 run-length 비교 기능을 신규 스크립트 `analyze_route_253_active_run_length.py`로 작성 -- 기존 스크립트의 `replay()`/`Sim252`를 그대로 import해 재사용(로직 중복 작성 금지, §27). `py_compile`+`ast.parse` 정적 검증 통과.
+5. 신규 스크립트로 route-active run 개수 비교 실행: **실측 68건 vs 시뮬(RELEASE-hold 수정본) 51건**(short-run<2s: 49건 vs 35건). 253차 전반부(유실)가 관측했던 "실측 61건 vs 시뮬 163건"과 달리 과다분절이 재현되지 않고 방향이 역전됨 -- 버그 인공물 가설을 뒷받침하는 정황 증거로 판단.
+6. 246차 freeze 항목도 동일 신규 corpus로 재확인(`sim_route_252_active_state_full.py` 그대로 재사용) -- 실측 9건 -> 시뮬 0건, 기존 결론(11->0, 1->0)과 일관.
+7. 이 corpus의 vEgo 최대치(61.9kph) 확인 -- 239차 원 CRITICAL 재현조건(vEgo≈105/target≈70kph)을 프레임 단위로 스캔했으나 0건, 즉 이 데이터로는 원 고속 시나리오 자체의 실측 확인이 불가능함을 확인(추측으로 "확인됐다"고 기재하지 않음, §28).
+8. FINDINGS.md 239차 항목에 253차 계속 갱신 블록 추가(§24 -- 기존 항목 삭제/수정 없이 새 증거만 보강), toolkit/README.md·CHANGELOG.md 253차 섹션에 이어 신규 항목 추가.
+
+**완료**: 위 1~8번. 239차 항목의 run-length 수치 재검증은 **부분 완료**(스크립트 버그 인공물 가설을 뒷받침하는 정황 확보) -- "완전 종결"은 아님(미완료 항목 참고).
+
+**미완료**:
+- **이번 corpus와 253차 전반부가 쓴 원본(유실) corpus가 데이터 자체가 다름**(세그 구성 상이, route_ad 부재) -- 완전한 동일 데이터 A/B 비교가 아니므로, 실측 68건이 관측된 이유가 "스크립트 수정 때문"인지 "데이터가 바뀌었기 때문"인지 100% 분리되지 않음. 완전한 재검증을 원하면 원본과 동일한 25세그(route_ac+route_ad) 전체 재업로드 필요.
+- **239차 원 CRITICAL의 고속 재현 조건(vEgo≈105/target≈70kph) 자체는 이번 corpus에 없어 여전히 실측 미확인** -- 이 조건을 포함하는 로그가 확보되기 전까지 "새 상태머신에서 이 CRITICAL이 실측으로도 완전히 해소됐다"는 결론은 내릴 수 없음(구조적 해소는 253차에서 이미 확인, §33/§28 구분 유지).
+- 세그16 손상분(`rlog.zst` 0바이트) 원인은 미조사 -- 채록 앱/디바이스 쪽 문제로 추정되나 확정 아님.
+- `git format-patch`->`git am` 파이프라인(§31)은 이번 세션에서도 미실행 -- toolkit 스크립트 1건 추가 + devnotes 3파일(WIP/FINDINGS/toolkit README+CHANGELOG) 갱신뿐, `ryu` 코드 변경 없음.
+
+**검증**: `analyze_route_253_active_run_length.py` `py_compile`+`ast.parse` 통과. 기존 `sim_route_252_active_state_full.py`(변경 없음, 그대로 재사용) 기반 재실행 2건(run-length 신규, freeze 재확인) 모두 실행 완료, 결과 위 5/6번. **실차 검증: 미실시**(§29).
+
+**전달 파일**: `toolkit/analyze_route_253_active_run_length.py`(신규), `toolkit/README.md`/`toolkit/CHANGELOG.md`(253차 계속 섹션), `FINDINGS.md`(239차 갱신), 이 WIP.md 항목. `ryu` 코드 변경 없음.
+
+**다음 작업**:
+1. (선택, 완전한 A/B 재검증을 원할 경우) 원본과 동일한 route_ac 전체(세그0-19 추정, 24030행)+route_ad(5096행) 25세그 재업로드.
+2. 239차 원 CRITICAL 고속 재현조건(vEgo≈105/target≈70kph)을 포함하는 로그 확보 -- 기존 corpus 중 해당 구간이 있는지 스캔하거나 다음 실차 주행 시 의도적으로 그런 상황(고속 주행 중 급격한 커브 접근)을 채록.
+3. 위 두 항목 중 하나라도 통과하면 design doc §11 검증계획 5번(246차+239차) 완전 종결 가능.
+4. `git format-patch`(toolkit 신규 스크립트+devnotes 3파일)로 §31 파이프라인 실행 후 정식 patch 전달 -- 사용자 확인 시 바로 진행 가능.
+
+---
+
 ## 253차 (진행 중 -- design doc §11 검증계획 5번 중 246차 항목 해소 확인 완료, 239차 항목은 구조적 해소만 확인/실측 재검증은 원본 로그 유실로 보류) -- 신규 toolkit `sim_route_252_active_state_full.py`로 새 상태머신 open-loop 재생 검증
 
 **Worker**: Claude
