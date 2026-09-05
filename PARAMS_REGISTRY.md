@@ -395,6 +395,19 @@
   수행됨(대안값 재비교 없음).
 - 실차 검증: 미실시(NEEDS_VALIDATION). **다음 세션 우선 검토 항목**: 두
   커브가 인접한 실차 로그 확보 시 10/15/20m 재비교.
+- **[267차 추가]** 265차가 발견한 "프로덕션 10m vs `sim_route_260_
+  confidence_signals.py` 15m" 불일치를 동일 corpus(`0000039a--7b602ffb85`
+  seg12-16)로 재검증(스크립트에 `--tolerance` 플래그 추가, §27
+  최소변경). streak *분포*(버킷 비율)는 10m/15m 간 거의 차이 없음
+  (streak=1: 55.4%→54.5%)이나, track 단위로는 15m에서 하나였던 지속
+  접근 구간(streak=80)이 10m에서 두 track(streak=21+59)으로 분리되는
+  사례를 실측 확인 — 이 분리 시점에 streak가 1로 리셋되므로, 266차
+  confidence blend를 10m 그대로 적용하면 실제로는 지속되는 커브 중간에
+  confidence가 순간적으로 0으로 떨어지는 프레임이 생길 수 있음(상세:
+  FINDINGS.md 265차 항목 267차 추가 실측). 이 파라미터 자체의 10/15/20m
+  적정성 재비교(위 항목)와는 별개로, **266차 confidence blend corpus
+  A/B 재검증 시 이런 중간 리셋 프레임의 실측 빈도/체감 영향을 반드시
+  함께 확인 필요**로 다음 작업에 추가됨.
 
 ## CONFIDENCE_TAU (265차 가설값, 266차 코드 반영 — NEEDS_VALIDATION)
 - 위치: `selfdrive/carrot/carrot_man.py`,

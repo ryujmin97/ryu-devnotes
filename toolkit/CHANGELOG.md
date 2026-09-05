@@ -3,6 +3,15 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+## 2026-09-06 (267차)
+- `sim_route_260_confidence_signals.py`: `--tolerance` CLI 플래그 추가
+  (§27 최소변경, 하드코딩된 `CONTINUITY_MATCH_TOLERANCE_M=15.0` 오버라이드
+  가능, 미지정 시 기존 동작 100% 동일). 실 corpus(`0000039a--7b602ffb85`
+  seg12-16)로 10m/15m 재검증 -- streak 분포는 거의 동일하나 track 분리
+  사례(streak=80 → 21+59) 발견, 중간 streak=1 리셋 확인. 상세: WIP.md
+  267차/FINDINGS.md 265차 항목 추가분/PARAMS_REGISTRY.md
+  `CONTINUITY_MATCH_TOLERANCE_M` 추가분.
+
 ## 2026-09-06 (265차)
 - `sim_route_265_confidence_target_blend.py`: 신규 -- 264차가 확정한
   persistence 단독 confidence 공식을 `carrot_man.py` 실제 구조(단일

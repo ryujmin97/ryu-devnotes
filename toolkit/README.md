@@ -161,7 +161,7 @@ python3 sim_route_260_gyesok_spatial_curvature_consistency.py <route.csv>
 
 ---
 
-## sim_route_260_confidence_signals.py (260차 신규)
+## sim_route_260_confidence_signals.py (260차 신규, 267차 `--tolerance` 플래그 추가)
 **목적**: 259차가 확정한 "apex 후보 선정을 최근접(clusters[0])에서
 confidence 기반으로 재설계"하는 방향(WIP.md 259차)을 위해, Master가 제시한
 4개 confidence 신호 중 코드 변경 없이 기존 CSV(+naviPaths)만으로 계측
@@ -188,6 +188,7 @@ locked apex만 추적하던 `ContinuityState`를 "현재 살아있는 모든 클
 ```bash
 python3 sim_route_260_confidence_signals.py <route.csv>   # 기본 3구간(터널/IC gore/S커브)
 python3 sim_route_260_confidence_signals.py <route.csv> --window 2190 2225 --label tunnel
+python3 sim_route_260_confidence_signals.py <route.csv> --tolerance 10.0   # 267차: 프로덕션 값으로 재실행 (미지정 시 기존 15.0 그대로)
 ```
 **260차 1차 실측 결과** (`0000039a--7b602ffb85` seg12-16, 234차/244차/251차
 known-good 터널 corpus): (1) 터널윈도우(t2190-2225)는 stage2 클러스터링
@@ -201,6 +202,12 @@ curvature_consistency는 거의 전부 1.000으로 계측 -- 짧은 streak(1~3)�
 S커브(mean 0.346) 간 뚜렷한 차이 없음 -- 이 corpus엔 stage2를 통과하는
 노이즈 대조군이 없어(터널이 이미 전멸) 판별력 검증 불가. 상세: WIP.md
 260차/FINDINGS.md 260차.
+**267차 재검증(`--tolerance 10.0` vs 기존 15.0, 동일 corpus)**: streak
+분포(버킷 비율)는 거의 차이 없음(streak=1 55.4%→54.5%)이나, 15.0m에서
+하나였던 지속 접근 track(streak=80)이 10.0m에서 두 track(streak=21+59)
+으로 분리되는 사례 확인 -- 분리 시점에 streak=1 리셋 발생. 상세:
+FINDINGS.md 265차 항목 "[267차 추가 실측]", PARAMS_REGISTRY.md
+`CONTINUITY_MATCH_TOLERANCE_M` "[267차 추가]".
 
 ---
 

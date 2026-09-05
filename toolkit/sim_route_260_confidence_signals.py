@@ -282,7 +282,17 @@ def main():
     ap.add_argument("csv_path")
     ap.add_argument("--window", type=float, nargs=2, action="append", default=None)
     ap.add_argument("--label", action="append", default=None)
+    ap.add_argument("--tolerance", type=float, default=None,
+                     help="266차: CONTINUITY_MATCH_TOLERANCE_M(기본 15.0, "
+                          "260차 원본값)을 오버라이드. 프로덕션 값(10.0)으로 "
+                          "재실행해 265차가 발견한 15.0/10.0 불일치를 재검증할 "
+                          "때 사용. 미지정 시 기존 260차와 100% 동일 동작.")
     args = ap.parse_args()
+
+    if args.tolerance is not None:
+        global CONTINUITY_MATCH_TOLERANCE_M
+        CONTINUITY_MATCH_TOLERANCE_M = args.tolerance
+    print(f"CONTINUITY_MATCH_TOLERANCE_M = {CONTINUITY_MATCH_TOLERANCE_M}")
 
     rows = load_csv(args.csv_path)
     if not rows:

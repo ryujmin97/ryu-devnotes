@@ -1,3 +1,85 @@
+## 267차 (완료 -- CONTINUITY_MATCH_TOLERANCE_M 10m/15m 불일치 실측 재검증) -- 265차가 보류했던 재검증을 사용자 재업로드로 완료, confidence blend에 새로운 주의사항 발견
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu`(HEAD `8964413`=266차) / `ryu-devnotes`
+(HEAD `64d1c2a`=266차, 이 항목 추가 전)
+
+**Branch**: `c3-ms-dev` / `main`
+
+**배경**: 265차가 "임의 판단 2건" 중 하나로 "`CONTINUITY_MATCH_TOLERANCE_M`
+10m/15m 불일치 재검증은 보류"로 남겼던 항목을, 266차 patch 적용/push 완료
+후 사용자가 재검증을 요청. 234차/244차/251차/260차가 써온 known-good
+corpus(`0000039a--7b602ffb85` seg12-16, 터널/IC gore/S커브 3구간 포함,
+레포/Drive 미보관·§23)를 사용자가 재업로드.
+
+**한 일**:
+1. `extract_log.py --with-navi-paths`로 route CSV 재추출(5999행, repo
+   commit `8964413`=266차 기준 -- schema 변경 없어 추출 자체엔 영향 없음).
+2. `sim_route_260_confidence_signals.py`에 `--tolerance` CLI 플래그
+   신규 추가(§21 기존 toolkit 재사용, §27 최소변경 -- 하드코딩된
+   `CONTINUITY_MATCH_TOLERANCE_M=15.0`을 오버라이드 가능하게만 확장,
+   미지정 시 기존 260차와 100% 동일 동작 보장).
+3. 동일 corpus를 `--tolerance 15.0`(260차 원본 재현)과
+   `--tolerance 10.0`(프로덕션 값) 양쪽으로 실행, 결과 비교.
+
+**결과**:
+- 15.0m 재현: 65개 track, streak=1 36개(55.4%) -- 260차 원 기록(WIP/
+  toolkit README "65개 track 중 36개(55%)")과 정확히 일치, 스크립트
+  정합성 재확인.
+- 10.0m: 66개 track, streak=1 36개(54.5%) -- **streak *분포* 관점에서는
+  10m/15m 차이가 거의 없음**, 260차의 "persistence가 노이즈/실커브를
+  강하게 분리한다" 결론은 10m로 바꿔도 유지.
+- 그러나 track 단위 추적: 15.0m에서 하나였던 지속 접근 구간
+  (t=2041.46~2045.41, streak=80)이 10.0m에서는 두 track으로 분리됨
+  (streak=21 + streak=59, 분리 시점 t≈2042.45~2042.50). **이 분리
+  프레임에서 streak가 1로 리셋** -- 266차 confidence blend를 그대로
+  적용하면 실제로는 하나로 이어지는 커브 접근 중간에 confidence가
+  순간적으로 0으로 떨어져 `eff_apex_speed`가 잠깐 `v_ego_kph` 쪽으로
+  튀는(=감속 명령이 순간 풀리는) 프레임이 생길 수 있음을 이번에 처음
+  실측 확인. 15.0m 분석 스크립트만으로는 이 현상이 보이지 않았음(분포
+  비율에는 거의 영향 없이 숨어 있었음).
+
+**의의**: 266차 patch 자체는 이미 프로덕션 값(10m)을 그대로 쓰므로 patch
+수정은 불필요하지만, 다음 corpus A/B 재검증(WIP 266차 다음 작업 1번) 때
+이런 "지속 커브 중 순간적 streak=1 리셋" 프레임이 실제로 몇 건 있고
+체감 가능한 flicker로 이어지는지 반드시 함께 확인해야 하는 새 체크리스트
+항목이 생김.
+
+**검증**:
+- 정적 분석: `py_compile` 통과.
+- 로그 검증: 실측 완료(위 결과, 동일 corpus 10m/15m 비교).
+- 시뮬레이션: 해당 없음(로그 재생 분석 자체가 시뮬레이션).
+- **실차 검증: 미실시.**
+
+**Devnotes**:
+- FINDINGS.md 265차 항목에 "[267차 추가 실측]" 섹션 보강(§24, 신규
+  항목 만들지 않고 기존 항목에 증거 추가), Status 갱신.
+- PARAMS_REGISTRY.md `CONTINUITY_MATCH_TOLERANCE_M` 항목에 "[267차
+  추가]" 보강.
+- toolkit: `sim_route_260_confidence_signals.py`에 `--tolerance` 플래그
+  추가(toolkit/README.md 업데이트 필요 -- 이번 커밋에 함께 반영).
+
+**미확인/미해결**:
+- `CONTINUITY_MATCH_TOLERANCE_M` 자체의 10/15/20m 적정성 재비교(두
+  커브가 실제로 인접한 로그 필요, 기존 미해결 항목 그대로 유지).
+- confidence blend corpus A/B 재검증(WIP 266차 다음 작업 1번) -- 이번에
+  발견한 중간 리셋 프레임 체크리스트 포함해서 아직 미실시.
+- 실차 검증: 미실시.
+
+**다음 작업**:
+1. (최우선, 신규) confidence blend corpus A/B 재검증 시 이번에 발견한
+   "지속 커브 중 streak=1 순간 리셋" 프레임(t≈2042.45~2042.50 부근
+   재현 여부 포함)이 실제 `eff_apex_speed`/`target_ms`에 체감 가능한
+   flicker를 일으키는지 확인.
+2. 위 결과가 문제로 확인되면 대응 설계(예: streak 리셋 시 confidence를
+   완전히 0으로 떨어뜨리지 않고 이전 값에서 서서히 감쇠하는 방식 등)
+   논의 -- 아직 임의 판단 아님, 문제 확인 후 논의.
+3. (기존 미해결 유지) `CONTINUITY_MATCH_TOLERANCE_M` 10/15/20m 적정성
+   재비교는 두 커브 인접 로그 확보 시.
+
+---
+
 ## 266차 (완료 -- carrot_man.py 실 patch 작성+독립검증 완료, 실차/실 corpus 검증 전) -- 265차 confidence blend 설계를 프로덕션 코드에 반영
 
 **Worker**: Claude
