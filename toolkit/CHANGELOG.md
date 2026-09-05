@@ -3,6 +3,13 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+## 2026-09-06 (262차)
+- `sim_route_262_speed_drop_persistence_correlation.py`: 신규 --
+  speed_drop_strength를 터널 외 corpus(dashcam)로 재검증. 정지 근접
+  vEgo 분모 발산 버그(최대 -1.4e46) 발견 + `--min-vego-kph` 진단 필터
+  추가 + 필터 후에도 streak 구간별 판별력 부재 확인 -- confidence
+  스코어링에서 제외 판단.
+
 ## 2026-09-06 (261차)
 - `sim_route_261_ratio_threshold_tradeoff.py`: 신규 -- 260차계속2의
   streak/magnitude_ratio 상관관계(조인 방식)를 조인 없이 단일 pass로

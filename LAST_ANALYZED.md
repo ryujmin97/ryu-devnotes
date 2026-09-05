@@ -1,3 +1,22 @@
+## c3-ms-dev (262차, speed_drop_strength 터널 외 corpus 재검증 -- ryu 코드 변경 없음)
+- last_analyzed_commit: `109f6816`(258차, ryu — 드리프트 없음, 변경 없음)
+- devnotes base: `76518b3`(261차)
+- date: 2026-09-06 (262차)
+- 분석 대상: 사용자 재업로드 `0000039a--7b602ffb85` seg12-16(재추출,
+  5999행) + `dashcam_1788583013065.zip`(route_ac/ad, 재추출 29126행,
+  기존 기록과 행수 일치 재확인) — 신규 `sim_route_262_speed_drop_
+  persistence_correlation.py`로 speed_drop_strength를 streak
+  구간별(전체 corpus, 단일 pass)로 재검증.
+- note: 정지 근접 상태의 vEgo 분모 발산(5e-45kph 수준, 15841건 중 16.9%)
+  으로 speed_drop이 최대 -1.4e46까지 발산하는 버그 발견(261차
+  magnitude_ratio 분모 발산과 동일 성격). `--min-vego-kph` 필터로
+  걸러낸 뒤에도 streak 구간별 평균이 단조적이지 않아 판별력 부재 확인 --
+  260차의 "corpus 한계" 판단과 달리 신호 자체의 근본 결함으로 결론,
+  confidence 스코어링에서 제외 판단(magnitude_ratio에 이은 2번째 제외).
+- next: `horizontalAccuracy` 컬럼 추가(GPS reliability 착수 전제),
+  persistence 단독(+GPS reliability 확보 시 조합) 기준 confidence
+  스코어링 공식 설계 착수.
+
 ## c3-ms-dev (260차 계속2, curvature_consistency 재정의 -- ryu 코드 변경 없음)
 - last_analyzed_commit: `109f6816`(258차, ryu — 드리프트 없음, 변경 없음)
 - devnotes base: `fb4df3d`(260차)

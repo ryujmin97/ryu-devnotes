@@ -1,3 +1,107 @@
+## 262차 (완료 -- speed-drop strength 터널 외 corpus 재검증, 분모 발산 버그 발견 + 필터 후에도 판별력 부재 확인, 스코어링 제외 판단) -- speed_drop_strength 신호 신뢰불가 확정
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu`(HEAD `109f6816`=258차, 변경 없음) /
+`ryu-devnotes`(HEAD `76518b3`=261차, 이 항목 추가 전)
+
+**Branch**: `c3-ms-dev` / `main`
+
+**Base commit (ryu)**: `109f68160bad1a3514627fdc3d9a84f9ed8ac83e`
+
+**devnotes Base commit**: `76518b356f72dabc72aa80ec06344dbd19e291ab`
+
+**배경**: 261차가 남긴 다음 작업 1순위(speed-drop strength를 터널 외
+corpus로 재검증 -- 260차가 "corpus 한계로 미검증"으로 남긴 항목, IC
+gore/S커브 대비군 부재가 원인으로 추정됨)를 진행. 사용자가
+`0000039a--7b602ffb85` seg12-16 zip과 `dashcam_1788583013065.zip`을
+재업로드(컨테이너 초기화로 corpus 재유실, 261차와 동일 상황 반복),
+`extract_log.py --with-navi-paths`로 양쪽 재추출 -- seg12-16 5999행,
+dashcam route_ac 24030행+route_ad 5096행=29126행으로 기존 기록과 행수
+정확히 일치 재확인(drift 없음).
+
+**한 일**:
+1. 신규 toolkit `sim_route_262_speed_drop_persistence_correlation.py`
+   작성 -- `sim_route_260_confidence_signals.py`의 `MultiTrackContinuity`/
+   `replay()`를 그대로 재사용(§21). 260차가 좁은 3구간 window로만
+   speed_drop을 봤던 것과 달리, corpus 전체를 사용해 각 track이 최종
+   도달한 persistence(streak) 구간(streak=1/2-5/6-20/20+, 260차/261차와
+   동일 경계)별로 그 track에 속한 모든 프레임의 speed_drop_strength
+   분포를 집계(261차와 달리 이번엔 애초에 단일 pass라 조인 자체가
+   불필요 -- persistence와 speed_drop이 같은 레코드에 이미 함께 있음).
+2. dashcam corpus(도심/정차 포함) 필터 없이 실행한 결과 **speed_drop
+   값이 최대 -1.4e46 등 극단적으로 발산**하는 사례 다수 확인. 원인 진단
+   스크립트로 `v_ego_kph` 분포를 직접 확인한 결과 **정지 상태에서
+   float 잔차로 추정되는 5e-45kph 수준의 사실상 0에 가까운 양수
+   vEgo**가 다수 존재(15841건 매칭 레코드 중 vEgo<1kph 2675건, 16.9%) --
+   `speed_drop=(v_ego_kph-candidate_speed)/v_ego_kph`의 분모가 이 값일 때
+   그대로 나뉘어 발산. 261차가 발견한 magnitude_ratio의 FLOOR_THRESHOLD
+   근접 분모 발산과 정확히 동일한 성격의 아티팩트.
+3. 진단/재현 목적으로 스크립트에 `--min-vego-kph` 필터 옵션 추가(track
+   추적 자체는 그대로 두고 신호 기록만 제외, 기본값 0.0=필터 없음 --
+   260차 스크립트와 100% 동일 동작 유지).
+4. `--min-vego-kph 2.0`으로 발산을 걸러낸 뒤에도 **streak 구간별
+   speed_drop 평균이 단조적 경향을 보이지 않음** 확인:
+   - seg12-16(하이웨이, 발산 없음 -- 필터 무관): streak=1 mean=0.142,
+     streak2-5 mean=**-0.072**, streak6-20 mean=0.328(n=7뿐), streak20+
+     mean=0.076
+   - dashcam(도심, 필터 후): streak=1 mean=-1.365, streak2-5
+     mean=-0.177, streak6-20 mean=**0.220**, streak20+ mean=**-1.386**
+   - 프레임 단위가 아니라 **track별 평균**(track 생애 전체 speed_drop의
+     평균)으로 재집계해도 동일하게 비단조(예: dashcam streak20+
+     track평균=-0.897로 streak=1의 -1.365보다는 높지만 streak6-20의
+     0.078보다 훨씬 낮음) -- persistence처럼 노이즈/실커브를 뚜렷이
+     가르는 패턴이 나타나지 않음.
+5. min_vego_kph=2.0으로도 dashcam streak20+ 최솟값이 여전히 -23.483
+   등 큰 값으로 남음 -- 근본 원인은 "분모가 정확히 0에 가까운" 특이
+   케이스뿐 아니라, **저속(수 kph)에서는 분모 자체가 작아 비율 정의가
+   구조적으로 스케일에 민감**한 것으로 추정(정황적, 원시값 개별 확인
+   기반 확정은 아님).
+
+**결론**: speed_drop_strength(현재 정의 = 순간 비율값)는 (1) 정지 근접
+상태에서 분모 발산으로 데이터 무결성 문제가 있고, (2) 그 문제를 걸러낸
+뒤에도 persistence 대비 판별력 있는 단조적 상관관계가 확인되지 않음.
+260차의 "corpus 한계로 미검증"이라는 잠정 결론과 달리, **corpus를
+바꿔도(비고속도로/도심 혼합) 신호 자체가 신뢰할 만한 판별력을 보이지
+않음**을 이번 세션에서 확인 -- 259차/261차가 확정한 원칙("불확실한 신호는
+스코어링에서 제외, 확실한 신호에 가중")에 따라 **speed_drop_strength도
+현재 정의로는 confidence 스코어링에서 제외** 대상으로 판단.
+magnitude_ratio(260차계속2/261차, 사용자 결정으로 이미 제외)에 이어
+**두 번째로 제외되는 신호** -- persistence만 유일하게 강한 판별력이
+검증된 상태.
+
+**검증**: 정적분석(신규 toolkit `py_compile`+`ast.parse` 통과) +
+실측(seg12-16 5999행 + dashcam 29126행 전체, 필터 유/무 양쪽 실행,
+per-frame/per-track 두 집계 방식 모두 확인) + 원인 진단(vEgo 분포 직접
+스캔으로 분모 발산 근거 확인). **저속 스케일 민감성 가설은 정황적
+추정(4번 참고)이며 원시 배열 직접 대조로 확정하지는 않음**. **실차
+검증: 미실시**(오프라인 재계산 전용 세션, ryu 코드 변경 없음).
+
+**미확인/미해결**:
+- 저속 스케일 민감성 가설(4번)을 원시 배열 개별 케이스 대조로 확정하지
+  않음 -- 필요 시 dashcam corpus에서 speed_drop 극단값 상위 케이스를
+  개별 프레임 단위로 열어 v_ego_kph/candidate_speed 원시값 대조 권장.
+- speed_drop_strength를 다른 정규화(예: 절대 속도차 km/h 단위 그대로
+  쓰거나, target_speed 기준으로 나누는 234차계속9식 정의)로 재정의하면
+  판별력이 생길지는 이번 세션에서 시도하지 않음(현재 정의만 검증).
+- `extract_log.py`에 `horizontalAccuracy` 컬럼 추가(GPS reliability
+  신호 착수 전제조건)는 이번 세션에서도 미진행.
+- confidence 스코어링 최종 공식은 이번 세션 결과로 "persistence만
+  단독 사용" 방향이 더 유력해졌으나, 사용자 확인 전 확정하지 않음.
+
+**다음 작업**:
+1. (사용자 결정 필요) speed_drop_strength를 이대로 폐기할지, 다른
+   정규화로 재도전할지 결정.
+2. `extract_log.py`에 `horizontalAccuracy` 컬럼 추가 -- GPS reliability
+   신호 착수 전제조건(260차/261차부터 이월).
+3. 남은 신호(persistence 확정 + speed-drop/magnitude_ratio 제외 확정)로
+   confidence 스코어링 공식 설계 착수 -- 사실상 persistence 단독 또는
+   GPS reliability 추가 확보 후 2종 조합.
+4. (낮은 우선순위) fine/macro 정렬 아티팩트 가설 원시 배열 직접 대조
+   확정(260차계속2/261차부터 이월).
+
+---
+
 ## 261차 (완료 -- magnitude_ratio 재검증, 조인 방식의 문제 확인, 사용자 결정으로 스코어링 제외 확정) -- confidence 스코어링 설계 원칙 확정(불확실 신호 배제 + 확실한 신호 가중)
 
 **Worker**: Claude

@@ -21,6 +21,37 @@ CHANGELOG.md를 같이 갱신**한다 (세션 종료 체크리스트에 포함�
 
 ---
 
+## sim_route_262_speed_drop_persistence_correlation.py (262차 신규, 재검증용)
+**목적**: 260차가 "corpus 한계로 미검증"이라 남긴 speed_drop_strength를
+터널 외 corpus(dashcam)로 재검증. `sim_route_260_confidence_signals.py`의
+`MultiTrackContinuity`/`replay()`를 그대로 재사용, 좁은 window 대신
+corpus 전체를 사용해 track의 최종 도달 streak 구간(1/2-5/6-20/20+)별로
+speed_drop_strength 분포를 집계(같은 pass라 조인 자체가 불필요).
+
+**결과 요약**: dashcam corpus에서 정지 근접 vEgo(5e-45kph 수준) 분모
+발산으로 speed_drop이 -1.4e46까지 발산하는 버그 발견(261차
+magnitude_ratio 분모 발산과 동일 성격). 진단용 `--min-vego-kph` 필터로
+걸러도 streak 구간별 평균이 단조적이지 않아 판별력 부재 확인 -- corpus를
+바꿔도 신호 자체의 근본 결함으로 판단, **confidence 스코어링에서 제외**
+(FINDINGS.md/WIP.md 262차 참고).
+
+**의존성**: `extract_log.py --with-navi-paths` 출력 CSV.
+`sim_route_260_confidence_signals.py`(동일 폴더, import로 재사용).
+
+**사용**:
+```
+python3 sim_route_262_speed_drop_persistence_correlation.py <route1.csv> [<route2.csv> ...] \
+    --min-vego-kph 2.0
+```
+(`--min-vego-kph` 생략 시 0.0=필터 없음, 260차 원본과 100% 동일 동작 --
+분모 발산 재현용)
+
+**한계**: 저속 스케일 민감성 원인(3번, 필터 후에도 큰 값 잔존)은
+정황적 추정이며 원시 케이스 개별 대조로 확정하지 않음. 다른 정규화로
+재정의 시 판별력이 생길지는 미시도.
+
+---
+
 ## sim_route_261_ratio_threshold_tradeoff.py (261차 신규, 재검증용)
 **목적**: `sim_route_260_gyesok2_...`가 보고한 magnitude_ratio-persistence
 상관관계(조인 방식, 5m tolerance)를 조인 없이 재검증 -- streak(persistence,

@@ -1,3 +1,46 @@
+## 262차 -- [재검증 완료] speed_drop_strength 터널 외 corpus(dashcam) 검증 -- 저vEgo 분모 발산 버그 + 필터 후에도 판별력 부재, confidence 스코어링에서 제외
+
+**기존 결론** (260차): speed_drop_strength는 IC gore(mean 0.357) vs
+S커브(mean 0.346) 차이가 거의 없어 판별력 검증 실패했으나, 원인을
+"corpus 한계"(터널 구간이 stage2에서 완전 전멸해 노이즈 대조군 부재)로
+지목하고 별도 corpus(`dashcam_1788583013065.zip`)로 재검증 필요라고 남김.
+
+**새로운 증거**: 신규 toolkit `sim_route_262_speed_drop_persistence_
+correlation.py`(260차 confidence_signals.py의 replay 재사용, 단일 pass)로
+dashcam corpus(29126행) 전체를 실행한 결과:
+1. **분모 발산 버그 발견**: `speed_drop=(v_ego_kph-candidate_speed)/
+   v_ego_kph`의 분모 `v_ego_kph`가 정지 상태에서 5e-45kph 수준(부동소수점
+   잔차로 추정, 실제 저속 아님)까지 내려가는 경우가 다수(매칭 15841건 중
+   vEgo<1kph 2675건, 16.9%) -- speed_drop 값이 최대 -1.4e46까지 발산.
+   261차가 발견한 magnitude_ratio의 FLOOR_THRESHOLD 근접 분모 발산과
+   동일한 성격의 아티팩트.
+2. 진단용 `--min-vego-kph` 필터를 추가해 2.0kph 미만을 제외하고 재실행한
+   결과에도 **streak(persistence) 구간별 speed_drop 평균이 단조적
+   경향을 보이지 않음**:
+   - seg12-16(발산 없는 corpus): streak=1 mean=0.142, streak2-5
+     mean=-0.072, streak6-20 mean=0.328(n=7), streak20+ mean=0.076
+   - dashcam(필터 후): streak=1 mean=-1.365, streak2-5 mean=-0.177,
+     streak6-20 mean=0.220, streak20+ mean=-1.386
+   - track별 평균(생애 전체 평균)으로 재집계해도 동일하게 비단조.
+3. 필터를 2.0kph로 걸어도 dashcam streak20+ 최솟값이 여전히 -23.483 등
+   큰 값으로 남아, 근본 원인이 "분모가 정확히 0에 가까운" 특이 케이스뿐
+   아니라 저속 전반에서 비율 정의 자체가 스케일에 민감한 것으로
+   추정됨(정황적, 원시 케이스 개별 대조 기반 확정 아님).
+
+**결론**: speed_drop_strength(현재 정의=순간 비율값)는 (1) 데이터
+무결성 문제(분모 발산)와 (2) 그 문제를 걸러내도 판별력 없음이라는 두 가지
+문제를 모두 가짐. "corpus 한계"라는 260차의 잠정 판단과 달리, corpus를
+바꿔도 신호 자체의 근본 결함이 확인됨. 259차/261차가 확정한 원칙에 따라
+**confidence 스코어링에서 제외** -- magnitude_ratio(260차계속2/261차,
+이미 제외)에 이은 두 번째 제외 신호. persistence만 유일하게 강한 판별력
+검증됨.
+
+**Status**: `PARTIALLY_VALIDATED` (실측 확인이나 저속 스케일 민감성 원인은
+정황적 추정, 재정의 재도전 여부는 미결정 -- ryu 코드 변경 없음, 실차
+검증 미실시)
+
+---
+
 ## 261차 -- [재검증 완료] 260차 계속2 magnitude_ratio "채택" 결론 재검토 -- 조인(join) 방식 의존성 발견, 사용자 결정으로 confidence 스코어링에서 제외
 
 **기존 결론** (260차 계속2): magnitude_ratio(macro/fine cross-scale)는
