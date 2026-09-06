@@ -1,3 +1,75 @@
+## 280차 (완료 -- 코드 수정+정적 검증(py_compile)+독립 검증(git apply --check + git am) 완료, 실차 검증 아님) -- ROUTE_APEX_MISS_TOLERANCE_FRAMES 3->6: confidence blend(266차) 도입 후에도 잔존하는 목표속도 flicker 대응
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu`(Base commit `08d6380`=279차 반영분, fresh
+clone으로 확인) / `ryu-devnotes`(HEAD `4f60ab2`, 이 항목 추가 전)
+
+**Branch**: `c3-ms-dev` / `main`
+
+**세션 시작 경위(중요, §33 관련)**: 이전 대화(다른 Claude 세션 또는 동일
+세션 초반)가 자신의 기억을 235차 시점(severity gate 미해결, S커브 3건
+원인 미확정)으로 착각한 채 `ROUTE_APEX_MISS_TOLERANCE_FRAMES` 조정을
+논의/패치 시도했음. 이번 세션에서 GitHub 최신 상태(279차)를 확인하는
+과정에서 235차 이후 44개 세션(236~279차)이 이미 진행됐고, 특히
+236차에서 다중 apex 트래킹 재설계 자체가 중단됐으며(235차가 S커브 3건을
+"실제 2단 굴곡"으로 확정), 237/247~258/259~267/274/279차를 거치며
+severity gate 정식 반영, INERT/ACTIVE 상태머신, confidence(persistence)
+기반 apex 선정, continuity tolerance 20m 확대, MapTurnSpeedFactor
+부활까지 완전히 다른 구조로 여러 번 재설계됐음을 확인. 이전 논의를
+전량 폐기하고, 사용자에게 "266차 confidence blend 적용 이후에도 flicker가
+남아있는지" 재확인 후 이번 작업 착수.
+
+**분석**: 266차 confidence blend 코드를 직접 읽어 원인 경로 확인.
+`_route_cluster_continuity_step()`의 `held`(순간 미스)는 streak를
+유지하지만, `ROUTE_APEX_MISS_TOLERANCE_FRAMES`(기존 3프레임=150ms)를
+초과해 `lost`로 전환되면 streak가 1로 리셋된다. streak=1이면
+`_route_confidence_from_streak()`가 정확히 0.0을 반환하므로, apex_speed
+소비 지점의 `eff_apex_speed = confidence*apex_speed + (1-confidence)*
+v_ego_kph`가 즉시 `v_ego_kph`(=route 개입 없음)로 튄다. 이후 재탐색이
+성공해도 streak가 다시 쌓여 confidence가 회복되는 데 여러 프레임
+걸림(streak=6→confidence≈0.55). 즉 "짧은 candidate 소실 하나가 전체
+리셋→confidence 0→서서히 재개입"으로 증폭되는 것이 flicker의 실제
+경로 — 267차가 `CONTINUITY_MATCH_TOLERANCE_M` 항목에서 이미 지목한
+"지속 커브 중간에 confidence가 순간 0으로 떨어지는 프레임" 문제와 동일
+계열이나 유발 파라미터가 다름(267차는 매칭 반경, 이번은 미스 허용
+프레임 수).
+
+**한 일**:
+1. `carrot_man.py`의 `ROUTE_APEX_MISS_TOLERANCE_FRAMES`를 3(150ms)에서
+   6(300ms)으로 변경. 상수값만 교체, `_route_cluster_continuity_step()`
+   구조 자체는 무변경(§27).
+2. 값 근거/트레이드오프를 코드 주석 및 PARAMS_REGISTRY.md에 상세 기록.
+
+**주의사항(미해소, 명시적 트레이드오프)**: 235차가 확정한 S커브 구간
+(t=2116~2122.2)은 실제 2단 굴곡(노이즈 아님)이라 그 구간의 held→new
+전환 자체는 정상 동작(§28/236차 결론, 재설계 대상 아님)이다. 다만 해당
+전환 간격(약 250~290ms, 254/255차 실측)이 이번 tolerance값(300ms)과
+겹쳐, 두 번째 실제 커브로의 전환이 이론상 최대 150ms 추가 지연될 수
+있다. 이는 "오인 병합" 위험이 아니라 "정당한 전환의 반응 지연"
+트레이드오프이며, 아직 실측/체감 확인 안 됨.
+
+**검증**:
+- 정적 분석: `python3 -m py_compile selfdrive/carrot/carrot_man.py` 통과.
+- 패치 독립 검증: origin/c3-ms-dev(HEAD `08d6380`) 기준 fresh clone에서
+  `git apply --check` 통과, `git am` 적용 성공, 적용된 상태에서 재차
+  `py_compile` 통과 확인.
+- **실차 검증: 미실시.**
+
+**미확인 사항**:
+- S커브 구간(t=2116~2122.2) 포함 재현으로 "두 번째 커브 전환 지연"이
+  실제로 체감/유의미한 수준인지 미확인.
+- 266차 confidence blend와의 결합 효과(streak 리셋 빈도 자체가 얼마나
+  줄어드는지)는 실측 corpus 없이는 추정치일 뿐 — 267차가 요청한
+  "confidence blend corpus A/B 재검증"과 함께 이번 변경도 재검증 필요.
+
+**다음 작업**:
+- 사용자 실차 반영 후 flicker 체감 변화 확인.
+- (267차 이월) `CONTINUITY_MATCH_TOLERANCE_M` 10/15/20m 재비교 + 이번
+  `ROUTE_APEX_MISS_TOLERANCE_FRAMES` 변경을 함께 포함한 confidence
+  blend corpus A/B 재검증 — 아직 미실시.
+- S커브 구간 dashcam 재대조로 전환 지연 체감 여부 확인.
+
 ## 279차 (완료 -- 코드 수정+정적 검증(isolated 계산 재현)+독립 검증(git am) 완료, 실차 검증 아님) -- MapTurnSpeedFactor 부활: route apex 목표속도에 재연결
 
 **Worker**: Claude

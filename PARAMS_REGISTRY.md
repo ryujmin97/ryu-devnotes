@@ -372,18 +372,35 @@
   아직 없음(design doc §12에 명시된 미해결 항목).
 - 실차 검증: 미실시(NEEDS_VALIDATION) — 오프라인 로그 시뮬레이션만 완료.
 
-## ROUTE_APEX_MISS_TOLERANCE_FRAMES (234차 확정값, 252차 코드 반영 — NEEDS_VALIDATION)
+## ROUTE_APEX_MISS_TOLERANCE_FRAMES (234차 확정값 → 280차 사용자 확정 재변경 — NEEDS_VALIDATION)
+- **[280차 변경]** 값: 3 → **6** (프레임, 20Hz 기준 150ms → 300ms).
+  배경: 266차 confidence blend 적용 이후에도 사용자가 목표속도 flicker
+  잔존을 확인. 원인: `held`는 streak를 유지하지만 tolerance 초과로
+  `lost`가 되면 streak가 1로 리셋되고 즉시 confidence=0.0이 돼
+  `eff_apex_speed`가 `v_ego_kph`로 튐(=route 개입 순간 해제) — 짧은
+  candidate 소실 하나가 "전체 리셋 → confidence 0 → 서서히 재개입"으로
+  증폭되는 경로. **267차가 `CONTINUITY_MATCH_TOLERANCE_M` 항목에서 이미
+  동일 계열 문제("지속 커브 중간에 confidence가 순간 0으로 떨어지는
+  프레임")를 지적한 바 있음 — 이번 변경은 그 문제의 또 다른 유발 경로를
+  다룸.** tolerance 확대는 이 전체 리셋 발생 빈도 자체를 줄이는 방향.
+  주의(미해소): 235차가 확정한 대로 t=2116~2122.2 S커브 구간은 실제
+  2단 굴곡(노이즈 아님, §28/236차 결론)이므로 그 구간의 held→new 전환
+  자체는 정상 동작이나, 전환 간격(약 250~290ms)이 이번 tolerance(300ms)와
+  겹쳐 두 번째 실제 커브로의 전환이 최대 150ms 추가 지연될 수 있음 —
+  "오인 병합" 위험은 아니고 "정당한 전환의 반응 지연" 트레이드오프.
 - 위치: `selfdrive/carrot/carrot_man.py`,
   `CarrotMan._route_cluster_continuity_step()`
-- 값: 3 (프레임, 20Hz 기준 ~150ms)
 - 목적: stage3 apex continuity 추적 중 이번 프레임에 예측위치
   (`locked_dist - vEgo*dt`) 근방에서 매칭되는 클러스터가 없어도, 이
   프레임 수까지는 예측값으로 lock을 유지(hold)한다. 초과 시에만 lock을
   해제하고 재탐색(`mode='new'`) — 이 재탐색 전이가 design doc §5의
-  "Apex 통과" RELEASE 조건 판정에 직접 쓰인다.
-- 근거: 234차 사용자 확정값(변경 없이 재사용). 251차 실차 corpus로
-  gate-삭제 조건에서도 유효함 재검증(위 항목과 동일 근거).
-- 실차 검증: 미실시(NEEDS_VALIDATION).
+  "Apex 통과" RELEASE 조건 판정 및 266차 confidence streak 리셋 조건에
+  직접 쓰인다.
+- 이전값(234차 확정, 252차 코드 반영): 3 (~150ms). 251차 실차 corpus로
+  gate-삭제 조건에서도 유효함 재검증됐던 값.
+- 실차 검증: 미실시(NEEDS_VALIDATION). **다음 세션 우선 검토**: S커브
+  구간(t=2116~2122.2) 포함 재현으로 두 번째 커브 전환 지연 체감/실측
+  확인, 266차 confidence blend corpus A/B와 함께 재검증.
 
 ## CONTINUITY_MATCH_TOLERANCE_M (234차 계속5 잠정값, 252차 코드 반영 → 274차 사용자 확정 재변경 — NEEDS_VALIDATION)
 - **[274차 추가]** 값 변경: 10.0 → **20.0** (m). 근거: 273차 감도분석이
