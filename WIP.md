@@ -1,3 +1,86 @@
+## 279차 (완료 -- 코드 수정+정적 검증(isolated 계산 재현)+독립 검증(git am) 완료, 실차 검증 아님) -- MapTurnSpeedFactor 부활: route apex 목표속도에 재연결
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu`(Base commit `1f06525`=278차 반영분, §3
+fresh clone으로 확인) / `ryu-devnotes`(HEAD `4185116`=278차 devnotes,
+이 항목 추가 전)
+
+**Branch**: `c3-ms-dev` / `main`
+
+**배경**: 사용자가 "route 감속시작시간을 조정하고 싶다"고 문의 →
+`MapTurnSpeedFactor`(경로턴속도반영비율)가 210차에 곱셈이 제거돼 사실상
+dead 파라미터임을 발견, 대신 이미 살아있는 `AutoNaviSpeedDecelRate`/
+`AutoNaviSpeedCtrlEnd`가 정확히 그 역할을 하고 있음을 확인해 안내.
+이어서 사용자가 진짜 원하는 것은 "Apex의 목표속도를 높이고 싶다"는
+것으로 구체화 -- 감속 시작 시점이 아니라 apex에서 계산되는 목표속도
+자체를 조정하고 싶다는 요청.
+
+**분석**: `MapTurnSpeedFactor`를 210차 삭제 지점 그대로 부활시키는 건
+불가능/무의미함을 확인 -- 그 지점(`carrot_serv.py` 구
+`calculate_current_speed(dist, speed*factor, 0, 1.2)` 호출)이 참조하던
+계산 경로 자체가 223차 전면 재설계 이후 완전히 폐기됐고, 지금의 route
+로직(258/266차)은 `carrot_man.py`에서 `V_CURVE_LOOKUP_BP`/
+`V_CRUVE_LOOKUP_VALS`(곡률→속도 테이블) 보간으로 apex 목표속도를
+산출하는 완전히 다른 구조. 사용자가 원하는 "apex 목표속도 상향"은
+정확히 이 보간 결과에 배율을 곱하는 것과 의미상 일치 -- MapTurnSpeedFactor
+UI 설명("작을수록 경로에 따라 속도가 많이 줄어듦")과도 정합.
+
+**한 일**:
+1. `carrot_man.py`의 route 곡률→속도 lookup 결과(`macro_speeds_arr`,
+   `fine_speeds_arr` 둘 다, np.interp 직후)에
+   `self.carrot_serv.mapTurnSpeedFactor`를 곱하도록 신규 연결. lookup
+   본체(V_CURVE_LOOKUP_BP/VALS, calculate_curvature 등)는 무변경(§27).
+   fine 쪽도 macro와 동일 배율을 적용해 "더 급한 지점 채택"
+   비교(`f_speed < speeds[j]`)가 배율 적용 전/후 값이 섞이지 않도록 함.
+2. vEgo 상한 불변식(§4, 210차가 지켰던 원칙)과의 관계 재확인: 이번
+   곱셈 지점은 apex 목표속도 산출 단계로, 그 뒤에 있는 224/227차
+   ACTIVE/INERT 게이트의 vEgo 클램프(`out_speed_ms<=v_ego_ms` 보장
+   구조)보다 훨씬 앞이다. 목표속도가 vEgo를 넘어서면 그 지점은
+   애초에 candidates에서 제외되거나(road_limit_speed 비교) INERT
+   `v_ego_ms<=target_ms` 분기로 빠지므로, 210차가 겪었던 "곱셈이
+   vEgo 상한 적용 *이후*에 걸려 route가 vEgo 초과 명령"하는 구조적
+   회귀와는 근본적으로 다른 지점 -- 재발 여지 없음.
+3. **부수 발견 및 수정**: `common/params_keys.h`의 `MapTurnSpeedFactor`
+   default가 90(=0.9배)으로 남아있었음(dead 시절 값이 방치된 것으로
+   추정). 이 로직을 그대로 되살리면 이 슬라이더를 한 번도 안 만진
+   사용자/신규 설치가 갑자기 커브에서 10% 더 세게 감속하는 회귀가
+   생김을 정적 검증(아래)으로 확인 -- `carrot_settings.json`에 명시된
+   원래 default(100, no-op)에 맞춰 90→100으로 함께 수정. 이미 값을
+   조정해둔 기존 사용자(예: 이번 요청자의 150)는 persistent 값이
+   default보다 우선이므로 영향 없음.
+
+**검증**:
+- 정적 분석: lookup 로직을 Python으로 격리 재현(`~/tmp`에서 임시
+  스크립트, 샘플 곡률 배열로 factor=1.0/1.5/0.9 비교) -- factor=1.0은
+  기존 값과 완전 동일(회귀 없음), factor=1.5는 목표속도 상승 + 일부
+  지점이 road_limit_speed 후보에서 제외(=route 개입 약화, 의도한 동작),
+  factor=0.9(기존 dead default)는 반대로 후보가 늘어남(개입 강화)을
+  확인 -- 이 결과로 위 부수 발견(default 90→100 수정 필요)을 도출.
+- `python3 -m py_compile selfdrive/carrot/carrot_man.py` 통과.
+- 패치 독립 검증: `ryujmin97/ryu` origin/c3-ms-dev(HEAD `1f06525`) 기준
+  fresh clone에서 `git apply --check` 통과, `git am` 적용 성공 +
+  적용된 상태에서 재차 `py_compile` 통과 확인.
+- **실차 검증: 미실시.** 실제 주행에서 커브 진입 시 목표속도/감속
+  강도 변화 체감은 사용자가 직접 확인 필요.
+
+**미확인 사항**:
+- factor를 크게(예: 300%) 설정했을 때 target_ms가 매우 커져 INERT
+  게이트(`v_ego_ms<=target_ms`)로 자주 빠지면서 route가 사실상 거의
+  개입하지 않는 상태가 되는 것이 사용자 기대와 일치하는지는 실차/실측
+  없이는 확정 불가 -- 이 부분은 설계상 당연한 결과(목표속도를 매우
+  높게 잡으면 감속 자체가 거의 필요 없어짐)이나 체감 확인 필요.
+- fine chord 보정(좁은 코너)에도 동일 배율을 적용했는데, macro와
+  fine이 서로 다른 배율이 필요한 상황(예: 급커브만 별도로 다르게
+  조정하고 싶은 경우)은 이번 범위 밖 -- 필요하면 후속 요청으로 별도
+  파라미터 신설 검토.
+
+**다음 작업**:
+- 사용자 실차 반영 후 커브 진입 시 목표속도/개입 강도가 기대대로
+  바뀌었는지 확인 (현재 기기 설정값 150 기준 -- 목표속도 1.5배 상향
+  기대).
+- 필요 시 factor 값 미세조정.
+
 ## 278차 (완료 -- 코드 수정+독립 검증(git am) 완료, 실차/기기 반영 검증 아님) -- carrot.cc fit_bottom_text_size(szSdiDescr) 폰트축소 결과 캐싱 (270차 wrap_name_lines 패턴 동일 적용)
 
 **Worker**: Claude
