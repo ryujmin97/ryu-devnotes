@@ -3,6 +3,12 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+## 2026-09-06 (291차)
+- `analyze_route_vturn_gap_291.py`: **신규**. `src=='route'` 프레임의
+  route/vturn 후보 gap 정량화 + `--vturn-active-thresh`로 "vturn 미인지
+  구간(설계대로 동작)"과 "vturn도 인지 중인데 불일치" 부분집합 분리.
+  route1~4 corpus 결과는 README.md/WIP.md/FINDINGS.md 291차 참고.
+
 ## 2026-09-06 (289차)
 - `analyze_route_release_trigger_288.py`: **버그 수정**(§21 재사용 중
   발견). (1) RELEASE 판정 프레임을 에피소드 안쪽 마지막 프레임(`e-1`)이

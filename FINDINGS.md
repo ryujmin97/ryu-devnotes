@@ -1,3 +1,74 @@
+## 291차 -- [ANALYSIS_ONLY -- 코드/파라미터 변경 없음] "route가 vturn보다 작아 이긴 경우" gap 정량화 -- 대부분 vturn 미인지 구간(설계대로), 근접구간(<=30m) 817건은 원인 미규명
+
+**질문(사용자)**: "라우트가 vturn 보다 값이 작아 이긴경우를 분석하고,
+라우트를 vturn 속도와 비슷하게 하려면 파라미터 설정값을 어떻게 조정하면
+비슷해질까."
+
+**분석 대상**: route1~4(283차부터 쓰던 corpus 재업로드, `a3b3373495`/
+`bf794c0073`/`01742d6c1c`/`c8d2619479`, 재추출 22801/10546/22799/23999행).
+ryu HEAD `d2f47d1`(290차 반영, 변경 없음). 파라미터는 사용자 업로드
+`params_backup-6.json` 실측값 기준(`AutoCurveSpeedLowerLimit=20`,
+`MapTurnSpeedFactor=110%`, `AutoNaviSpeedDecelRate=70`(0.70m/s²),
+`AutoCurveSpeedFactor=80%`, `AutoCurveSpeedAggressiveness=100%`,
+`TurnSpeedControlMode=2`).
+
+**신규 도구**: `analyze_route_vturn_gap_291.py` -- `src=='route'`
+프레임의 `desiredSpeed`(route 후보)와 `max(abs(vTurnSpeed),
+AutoCurveSpeedLowerLimit)`(vturn 후보) gap을 계산, 연속구간(에피소드)
+묶음 + `--vturn-active-thresh`로 "vturn도 그 순간 뭔가 인지 중(raw가
+saturation ceiling ±250 근처가 아님)"인 부분집합을 분리 집계.
+
+**결과**:
+- 전체집계: route1~4 전부 `src=='route'` 프레임의 99.8~100%가
+  vturn 후보를 gap>=1kph로 이김. 평균 gap 52~116kph, p90 129~202kph,
+  최대 178~212kph.
+- `--vturn-active-thresh 200` 부분집합(vturn도 saturation 아닌 상태):
+  route1 934/1085건, route2 167/401건, route3 835/909건, route4
+  318/459건 남음 -- 평균 gap이 21.6~60.2kph로 줄어들지만(route2는
+  116.0->21.6kph, 5배+ 축소) 완전히 사라지진 않음.
+- 프레임 직접 대조(route4 t=3173.06~3174.01, apex_dist 110->100m):
+  이 시점 route `desiredSpeed`는 아직 `v_ego_kph`를 그대로 통과 중(감속
+  시작 전 -- `AutoNaviSpeedDecelRate`=0.70m/s² 물리공식상 감속 개시
+  거리 ≈59m보다 apex가 아직 멀어서 대기), `vTurnSpeed` raw는 150~226
+  (=`vturn_lookahead_horizon_s`=8.0s*11.4m/s≈91m로 100m는 vturn horizon
+  경계 밖이라 아직 이 커브를 거의 못 봄). gap≈200은 "route가 이 커브를
+  vturn보다 가혹하게 계산해서"가 아니라 "이 순간 vturn이 이 커브에
+  아무 의견이 없어서"임을 원본 텔레메트리로 확정.
+- apex_dist<=30m(vturn 입장에서도 충분히 근접)로 좁혀도 817개 프레임이
+  남음(예: route2 t=3962.6~3964.2, apex_dist 10~30m, route desired
+  53~55kph(≈vEgo, 거의 감속 안 함) vs vTurnSpeed raw -215~-249(여전히
+  saturation 근처, 부호도 반대)) -- **이 817건은 이번 세션에서 원인
+  미규명**(navi map 곡률 오탐 가능성 vs 실제로 vturn 기준 안전한
+  완만한 굽이 가능성 둘 다 배제 못함, dashcam/qcamera 대조 필요).
+
+**결론**:
+1. gap의 절대다수는 버그가 아니라 **234~236차가 이미 확정한 설계
+   의도(route=vturn 시야 밖 원거리 사전감속 전담)의 재확인** -- 이
+   부분을 "줄이는" 파라미터 조정은 route 핵심 기능을 약화시키므로
+   권장하지 않음.
+2. route를 vturn에 가깝게 만들 파라미터 후보(코드 추적, 실측 미검증):
+   - `MapTurnSpeedFactor`(현재 110%, 279차부터 route 전용 곱셈 -- vturn
+     비영향, `carrot_man.py` L1004-1066): 올리면 route apex 목표속도
+     자체가 비례 상승 -- side effect가 route 국한, 가장 외과적인 knob.
+   - `AutoNaviSpeedDecelRate`(현재 70=0.70m/s², route 접근 감속
+     스케줄만 결정, apex 목표속도는 불변): 올리면 route가 더
+     늦게/급하게 개입해 "장시간 낮게 유지" 구간은 줄지만 apex 근접
+     최종 차이는 그대로.
+   - `AutoCurveSpeedLowerLimit`(현재 20, route/vturn 공용 하한): 두
+     소스에 동일 적용이라 비율 자체는 거의 안 바뀜, 최저속 구간에서만
+     제한적.
+   - (반대방향) `AutoCurveSpeedFactor`/`AutoCurveSpeedAggressiveness`
+     하향으로 vturn을 route 쪽에 맞추는 것도 가능하나 side effect가
+     모든 일반 커브의 vturn 반응 전체로 확대돼 범위가 훨씬 큼.
+3. **파라미터 변경 자체는 이번 세션에서 하지 않음** -- (a)
+   `MapTurnSpeedFactor` what-if 시뮬레이션(오프라인 재계산, ryu 코드
+   불변), (b) apex_dist<=30m 817건 대표사례 qcamera 대조가 우선 필요,
+   둘 다 사용자 결정 대기.
+
+**검증**: 정적분석 완료(스크립트 4개 CSV 정상처리), 로그검증 완료(원본
+텔레메트리 프레임 직접대조), 시뮬레이션 미실시, 실차검증 해당없음(변경
+없음).
+
 ## 289차 -- [ANALYSIS_ONLY, NEEDS_USER_DECISION -- 코드 변경 없음] `ROUTE_ACTIVE_RELEASE_MARGIN_RATIO` 1.1→1.05 what-if: flicker train 4→1건이나, 연장 케이스의 93%(28/30)는 margin 완화가 아니라 continuity 소실로 재분류되는 것으로 확인 -- "짧게 작동하다 꺼짐" 체감 개선 여부 불확실
 
 **질문(사용자)**: "라우트를 좀더 작용하게 하고싶은데(너무 짧게 작동하다

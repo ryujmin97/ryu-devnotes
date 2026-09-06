@@ -21,6 +21,29 @@ CHANGELOG.md를 같이 갱신**한다 (세션 종료 체크리스트에 포함�
 
 ---
 
+## analyze_route_vturn_gap_291.py (291차 신규, route<vturn 승리 gap 정량화)
+**목적**: 사용자 질문("route가 vturn보다 작아서 이긴 경우 분석 + route를
+vturn과 비슷하게 만들 파라미터")에 답하기 위해, `src=='route'` 프레임의
+`desiredSpeed`(route 후보)와 `max(abs(vTurnSpeed), AutoCurveSpeedLowerLimit)`
+(vturn 후보) 격차(gap)를 계산한다. `--vturn-active-thresh`로 "vturn도
+그 순간 뭔가 인지 중(raw가 saturation ceiling ±250 근처가 아님)"인
+부분집합을 따로 걸러낼 수 있다 -- 단순 전체집계는 "vturn이 아직 그
+커브를 못 본 상태"(=route 사전감속이 설계대로 작동 중인 정상 상황)까지
+섞여 해석을 오도하므로 반드시 이 옵션도 함께 봐야 한다(291차 FINDINGS
+참고).
+
+**사용**: `python3 analyze_route_vturn_gap_291.py route1.csv route2.csv
+... [--lower-limit 20.0] [--min-gap 1.0] [--vturn-active-thresh 200.0]
+[--json out.json] [--top 15]`
+
+**291차 결과**: route1~4(283차 corpus, 재추출 22801/10546/22799/23999행)
+전체집계로는 route 프레임의 99.8~100%가 gap>=1kph로 vturn을 이기지만,
+`--vturn-active-thresh 200` 부분집합만 봐도 여전히 167~934건(평균 gap
+21.6~60.2kph)이 남음 -- apex_dist<=30m 근접구간 817건은 이번 세션에서
+원인 미규명(dashcam 대조 필요). 상세: WIP.md/FINDINGS.md 291차.
+
+---
+
 ## sim_route_289_margin_ab_real_log.py (289차 신규, ROUTE_ACTIVE_RELEASE_MARGIN_RATIO what-if 시뮬레이션)
 **목적**: 사용자 요청("route가 너무 짧게 작동하다 릴리즈된다 -- 릴리즈
 마진을 1.1에서 낮추면 어떻게 되는지 보고 싶다")에 답하기 위해, ryu 코드는
