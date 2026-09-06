@@ -54,6 +54,18 @@ naviPaths 매칭이 별도 필요 -- 이번 세션엔 하지 않음(과제 (a) "
 번째 커브 반응성" 항목은 이번 corpus에서 해당 위치를 특정하지 못해
 미검증으로 남음). **qcamera 육안 재확인: 미실시.**
 
+**[285차 갱신] qcamera 육안 재확인 완료**: 283차가 남긴 pump 후보 2건을
+`extract_dashcam_frames.py`로 각 전후 6프레임씩 추출해 육안 확인.
+후보1(t≈772.213, aEgo range 1.17 m/s²)은 고가도로 하부 Y자 분기 구간의
+도로 형상에 따른 정상 감속. 후보2(t≈3179.559, aEgo range 1.79 m/s²,
+2건 중 최대)는 완전한 직선 시가지 도로에서 선행 SUV의 차로 cut-in +
+전방 적색신호 감속으로, 커브/apex 요소와 전혀 무관함을 직접 확인. 두
+건 모두 `ROUTE_RELEASE_HOLD_S` 변경과 무관 -- 253차가 우려했던
+"hold 제거로 인한 인위적 ENGAGE/RELEASE 진동(pump)"은 이 corpus에서
+**재현 안 됨으로 최종 확정**. 235차 S커브 위치 재식별(과제 (a))은
+corpus(`0000039a--7b602ffb85`) 미보관으로 여전히 미검증. 상세: WIP.md
+285차.
+
 **사용**: `python3 verify_route_release_hold_283_real_log.py route1.csv
 route2.csv ... [--merge-tol 1.0] [--hold-s 2.0]`
 

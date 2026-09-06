@@ -1,3 +1,85 @@
+## 285차 (완료 -- 283차 "다음 작업" 1번 qcamera 육안 재확인 완료, pump 후보 2건 모두 hold 무관으로 확정, ryu 코드 변경 없음) -- ROUTE_RELEASE_HOLD_S=0.0 pump 후보 t≈772.2/t≈3179.6 qcamera 검증
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu`(변경 없음, HEAD `4d20122`=282차, fresh clone
+으로 드리프트 없음 확인) / `ryu-devnotes`(HEAD `054b8ca`, 이 항목 추가 전)
+
+**Branch**: `c3-ms-dev` / `main`
+
+**세션 시작 확인(§3)**: `ryu-devnotes` HEAD `054b8ca`(284차), `ryu` HEAD
+`4d20122`(282차, 변경 없음). HANDOFF.md/CURRENT_STATUS.md 없음, 동시작업
+없음 확인. 사용자가 "7b602ffb85 로그는 없음"이라고 확인 -- WIP.md 검색
+결과 이는 284차 "다음 작업" 2번(235차 S커브 corpus, `0000039a--7b602ffb85`
+seg12-16)이 여전히 미보관 상태라는 뜻으로, 284차가 재업로드한 4개 route
+원본(a3b3373495/01742d6c1c/c8d2619479/bf794c0073)은 이것과 무관하게
+283차 "다음 작업" 1번(pump 후보 2건 qcamera 육안 재확인)에 필요한 바로 그
+자료임을 확인 -- 이번 세션은 1번 항목을 진행.
+
+**한 일**:
+1. 4개 route 원본 zip 압축 해제 후 `extract_log.py --with-navi-paths`로
+   개별 CSV 재추출(route1=22801/route2=22799/route3=23999/route4=10546행,
+   283차 기록과 완전히 일치 -- 동일 corpus 확인).
+2. `check_device_build.py`로 4개 route 전부 재확인 -- 283차와 동일하게
+   gitCommit=`7571e63`(280차)+dirty=True, 동일 빌드시각(16:45:52) 재확인.
+3. `verify_route_release_hold_283_real_log.py`를 4개 CSV에 재실행 --
+   283차와 완전히 동일한 결과 재현(raw runs 231 -> merged episodes 110,
+   gap<2.0s 11건, pump 후보 2건: `ep29` t≈772.213/`ep100` t≈3179.559).
+4. `extract_dashcam_frames.py`로 두 pump 후보 구간 qcamera 프레임 추출
+   (각 후보 전후 약 1초씩 총 6프레임, `--context 0`):
+   - 후보1(t=771.2~773.7, route1 seg`--11`, apex_dist_start=10.0m,
+     vEgo_start=36.3kph, aEgo range=1.17 m/s²): 고가도로 하부를 통과하는
+     완만한 커브+분기 구간(우측에 방향표지판, Y자형 갈림길) 육안 확인.
+     급가속/급제동 등 이상 거동 없이 도로 형상에 맞는 정상 감속으로 보임.
+   - 후보2(t=3178.6~3181.1, route3 seg`--11`, apex_dist_start=40.0m,
+     vEgo_start=34.1kph, aEgo range=1.79 m/s², **가장 큰 후보**): **직선
+     시가지 도로**에서 선행 차량(흰색 SUV)이 우측 차로에서 전방 좌측
+     차로(자차 차로)로 **cut-in** 하는 장면을 직접 확인(t=3179.1: SUV가
+     우측 차로 자차 옆, t=3180.6: SUV가 자차 정면으로 진입 완료+양쪽
+     브레이크등 점등, t=3181.1: 전방 신호등 적색 확인). 도로 형상은
+     완전한 직선이고 커브/apex 요소 전혀 없음 -- aEgo 스파이크는 **선행차
+     cut-in + 전방 적색신호 감속**으로 완전히 설명되며 route/커브 로직과
+     무관.
+
+**결론**:
+- **283차/284차 미확인 사항("qcamera 육안 재확인") 해소**: pump 후보
+  2건 모두 `ROUTE_RELEASE_HOLD_S` 변경과 무관한 정상 주행 상황으로 확정
+  (후보1=도로 형상에 따른 정상 감속, 후보2=선행차 cut-in+신호 감속 --
+  route 로직과 아예 무관한 별개 이벤트). 253차가 우려했던 "hold 제거로
+  인한 인위적 ENGAGE/RELEASE 진동(pump)"은 이번 corpus(4개 route,
+  16:56~18:03)에서 **재현되지 않음**으로 최종 확정.
+- 단, 후보2가 `src=='route'` 프록시로 잡힌 이유(직선 도로에서 왜 route가
+  arbitration에서 이겼는지)는 이번 세션에서 추적하지 않음 -- 별도 이슈일
+  가능성 있으나 이번 검증 목적(pump 여부)과는 무관하므로 범위 밖으로 둠.
+  필요 시 후속 세션에서 `nRoadLimitSpeed`/`routeOutSpeed` 컬럼으로 추적
+  가능.
+
+**검증**:
+- 정적 분석: 해당 없음(코드 변경 없음).
+- 로그 검증: 실측 로그(4개 route, 283차와 동일 corpus) CSV 재추출+통계
+  재현 완료.
+- qcamera 육안 확인: **완료**(후보 2건 모두, 각 6프레임).
+- 실차 검증: 이 항목 자체가 283차의 실차 로그 기반 사후 검증 -- 새로운
+  실차 주행은 없음.
+
+**미확인 사항**:
+- `autoNaviSpeedCtrlEnd` 실제 device 파라미터값 (281차부터 계속 미확인).
+- 235차 S커브 위치를 이번 corpus 계열에서 재식별하는 작업 (284차 "다음
+  작업" 2번, corpus `0000039a--7b602ffb85` 미보관으로 여전히 보류).
+- device dirty=True 원인 (283차부터 계속 미확인, §33 성격).
+- 후보2의 `src=='route'` arbitration 승리 원인 (범위 밖으로 이번엔 보류).
+
+**다음 작업**:
+1. `PARAMS_REGISTRY.md`의 `ROUTE_RELEASE_HOLD_S` 항목을 "qcamera 육안
+   재확인 완료, pump 미재현 확정"으로 갱신(이번 세션에서 함께 진행).
+2. `toolkit/README.md`의 `verify_route_release_hold_283_real_log.py`
+   섹션에 이번 qcamera 확인 결과 추가(이번 세션에서 함께 진행).
+3. 235차 S커브 위치 재식별은 여전히 `0000039a--7b602ffb85` seg12-16
+   재업로드가 필요 -- 사용자 편할 때 요청.
+4. (선택) 후보2의 `src=='route'` 승리 원인 추적 -- 우선순위 낮음, 필요
+   시 착수.
+
+---
 ## 284차 (완료 -- devnotes 문서 갱신만, ryu/toolkit 코드 변경 없음) -- 로그 CSV 로컬 보관 경로 변경: `C:\dev\devnotes\works\` -> `C:\dev\logs\`
 
 **Worker**: Claude
