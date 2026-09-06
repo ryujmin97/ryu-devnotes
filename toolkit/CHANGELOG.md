@@ -3,6 +3,19 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+## 2026-09-06 (286차)
+- `scan_consecutive_curve_pairs.py`: 신규 -- 235차 원 S커브 corpus
+  (`0000039a--7b602ffb85`) 미보관 상태에서, 다른 route CSV에서 "S커브와
+  유사한 패턴"(steeringAngleDeg 부호가 반대인 커브 두 개가 짧은 간격으로
+  연속)을 범용으로 탐색. route1~4(283/285차 corpus)에서 실행해 후보
+  다수 발견, 그중 2건(route2 t=2149~2154, route1 t=1055~1062)을
+  qcamera로 실제 굽이길(가드레일+커브표지판)임을 확인. 두 곳 모두
+  `ROUTE_RELEASE_HOLD_S=0.0` 하에서 두 번째 커브 접근 중 route/vturn
+  arbitration이 정상적으로 개입, 뚜렷한 pump/지연 시그니처 없음(단,
+  route<->vturn 프레임 단위 flicker는 283차가 이미 알려진 이슈로 확인한
+  것과 동일 패턴 재관측). 235차의 정확한 물리적 위치 재식별을 대체하는
+  것은 아님. 상세: WIP.md 286차.
+
 ## 2026-09-06 (283차)
 - `verify_route_release_hold_283_real_log.py`: 신규 -- 282차
   (`ROUTE_RELEASE_HOLD_S` 2.0->0.0) 실차 검증용. `extract_log.py` CSV를

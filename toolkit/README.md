@@ -21,6 +21,48 @@ CHANGELOG.md를 같이 갱신**한다 (세션 종료 체크리스트에 포함�
 
 ---
 
+## scan_consecutive_curve_pairs.py (286차 신규, S커브 유사 패턴 범용 탐색)
+**목적**: 235차가 확정한 실제 S커브 corpus(`0000039a--7b602ffb85`
+seg12-16)가 레포/Drive에 미보관(§23)이라, 283/285차가 쓰던 다른 corpus
+(route1~4)에서 "방향이 반대인 커브 두 개가 짧은 간격으로 연속"되는
+패턴을 대신 찾기 위한 범용 스캐너. 특정 route에 종속되지 않음.
+
+**방법**: `curve_apex_vs_gap_delta()`(analysis_helpers.py, 46차)와 동일한
+`steeringAngleDeg` entry/exit 임계값(기본 5.0/3.0deg)으로 커브 이벤트를
+분리 -> 연속된 두 이벤트의 gap(커브1 exit ~ 커브2 entry)과 apex 부호
+반전 여부를 확인 -> `--max-gap`(기본 2.0s) 이하+부호반전인 쌍을 S커브
+후보로 보고 -> 후보별로 커브2 구간의 src 분포/route_frac/
+(vEgo_kph-desiredSpeed) 최대 초과폭/aEgo range를 함께 계산(283차와 동일
+관례로 pump 정성 판단용 부가지표).
+
+**286차 결과**: route1~4(283/285차와 동일 corpus)에 실행 -- 커브 이벤트
+181개, S커브 후보(gap<=2.0s+부호반전) 62건. 대부분은 steer 크기가
+100~460deg로 교차로 좌우회전/급선회이며 route_frac=0(route 미개입).
+route_frac>0.1인 후보 중 2건을 qcamera로 확인:
+- route2(01742d6c1c) t=2149.16(steer=+12.4)~t=2154.16(steer=-15.8):
+  가드레일+커브표지판이 보이는 실제 굽이길(고가/산길 성격), steer가
+  0을 관통하며 연속적으로 반전 -- 진짜 단일 S자 커브임을 확인. 커브2
+  접근 중 route/vturn이 프레임 단위로 번갈아 승리하는 flicker
+  재관측(283차가 이미 확인한 "min() arbitration 히스테리시스 없음"
+  이슈와 동일 패턴), desiredSpeed는 매끄럽게 감소, aEgo도 정상 범위 --
+  `ROUTE_RELEASE_HOLD_S=0.0`으로 인한 뚜렷한 pump/지연 시그니처 없음.
+- route1(a3b3373495) t=1055.8(steer=+24.5)~t=1061.9(steer=-20.8):
+  전원주택/농로 성격의 실제 시골 2차선 굽이길로 확인. 동일하게 부호
+  연속 반전, route/vturn flicker는 있으나 desiredSpeed/aEgo 이상 없음.
+
+**한계**: 235차가 확정한 실제 물리적 위치(GPS 기준)를 재식별하는 것이
+아니라 "성격이 비슷한 대체 corpus"를 찾는 것 -- 위치 재식별 작업의
+대체가 아니라 보완. entry_thresh 미만의 완만한 곡선은 탐지 안 됨.
+route_frac=0인 대다수 후보(교차로 회전)는 이번 목적과 무관해 상세
+분석하지 않음.
+
+**사용**: `python3 scan_consecutive_curve_pairs.py route1.csv route2.csv
+... [--entry-thresh 5.0] [--exit-thresh 3.0] [--max-gap 2.0] [--top 10]`
+
+**상세**: WIP.md 286차.
+
+---
+
 ## verify_route_release_hold_283_real_log.py (283차 신규, 실차 로그 검증 -- 오프라인 통계, qcamera 육안 재확인 전)
 **목적**: 282차(`ROUTE_RELEASE_HOLD_S` 2.0->0.0) 반영 후 실차 로그로
 "RELEASE 직후 즉시 재-ACTIVE로 인한 가감속 반복(pump)" 발생 여부(253차
