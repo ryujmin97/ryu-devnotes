@@ -99,8 +99,15 @@ def merge_runs(runs, t, merge_tol):
 
 
 def classify_cause(v_ego_kph, apex_speed, apex_dist, candidate_count):
-    if apex_speed == 0.0 or (not np.isnan(candidate_count) and candidate_count == 0):
-        return "apex_lost_or_new(continuity)", np.nan
+    # 주의(버그 수정, 289차): apex_speed==0 또는 candidateCount==0을
+    # continuity_lost로 조기 확정하지 않는다. apex_speed=0/apex_dist=0으로
+    # "꺼진" 프레임도 dist_ok(apex_dist<=10)가 그대로 성립하면
+    # dist_reached로 분류되는 것이 실측 원 분류(288차 WIP/FINDINGS 기록
+    # 52/27/21/10)와 일치한다 -- apex_dist=0은 "candidate가 apex 지점을
+    # 이미 통과/도달"을 의미하는 정상적인 거리조건 충족이지, continuity
+    # 소실과는 별개다. margin_ok/dist_ok 어느 쪽도 성립하지 않는 경우에만
+    # apex_lost_or_new로 판정한다(원 RELEASE 3-way OR 조건의 남은
+    # 유일한 후보).
     ratio = v_ego_kph / apex_speed if apex_speed else np.nan
     margin_ok = v_ego_kph <= apex_speed * ROUTE_ACTIVE_RELEASE_MARGIN_RATIO
     dist_ok = apex_dist <= ROUTE_RELEASE_DIST_M
@@ -172,10 +179,21 @@ def main():
     n_truncated = 0
     for i, (s, e) in enumerate(episodes):
         gap_before = (t[s] - t[episodes[i - 1][1] - 1]) if i > 0 else None
-        last = e - 1
-        if last == len(df) - 1 and i == len(episodes) - 1:
-            # 로그 끝에서 절단된 마지막 에피소드는 실제 RELEASE 사유를
-            # 판별할 수 없다(다음 프레임이 로그에 없음) -- 분류 제외.
+        # RELEASE 판정 프레임은 에피소드 "마지막 route 프레임"(e-1)이
+        # 아니라 그 "바로 다음 프레임"(e)이다 -- src=min() arbitration이
+        # route에서 다른 소스로 넘어가는 바로 그 프레임에 이미 새
+        # apex_speed/apex_dist(다음 후보 or 갱신값)가 찍히고, 그 값
+        # 기준으로 margin/dist 조건이 성립했기 때문에 route가 그 프레임에
+        # arbitration에서 진 것이다. e-1(에피소드 안쪽 마지막 프레임)을
+        # 쓰면 아직 RELEASE 조건이 성립하지 않은 시점의 값을 보게 되어
+        # 오분류가 발생한다(실측 확인: t=313.86 route 프레임은
+        # apex_speed=65.8/apex_dist=400로 margin 미충족이나, 바로 다음
+        # 프레임 t=313.91에서 apex_speed=99.8/apex_dist=380로 갱신되며
+        # ratio=0.992로 margin 충족 -- 이 프레임이 실제 RELEASE 프레임).
+        last = e
+        if last >= len(df):
+            # 로그 끝에서 절단된 마지막 에피소드는 다음 프레임이 없어
+            # 실제 RELEASE 사유를 판별할 수 없다 -- 분류 제외.
             n_truncated += 1
             continue
         v_ego_kph = vEgo[last] * 3.6

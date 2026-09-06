@@ -21,7 +21,33 @@ CHANGELOG.md를 같이 갱신**한다 (세션 종료 체크리스트에 포함�
 
 ---
 
-## analyze_route_release_trigger_288.py (288차 신규, RELEASE 트리거 원인 분류 + margin flicker train 탐지)
+## sim_route_289_margin_ab_real_log.py (289차 신규, ROUTE_ACTIVE_RELEASE_MARGIN_RATIO what-if 시뮬레이션)
+**목적**: 사용자 요청("route가 너무 짧게 작동하다 릴리즈된다 -- 릴리즈
+마진을 1.1에서 낮추면 어떻게 되는지 보고 싶다")에 답하기 위해, ryu 코드는
+바꾸지 않고 `analyze_route_release_trigger_288.py`가 병합한 에피소드에
+새 margin ratio(`--new-ratio`, 기본 1.05)를 프레임 단위로 재적용해
+RELEASE 시점이 어떻게 바뀔지 시뮬레이션한다.
+
+**재사용**: run-찾기/에피소드 병합 로직은 `analyze_route_release_trigger_288.py`
+(288차)와 동일(§21). margin이 원인에 관여한 에피소드만 재계산하고, 거리
+단독/continuity 소실로 끝난 에피소드는 원본 그대로 둔다.
+
+**사용**: `python3 sim_route_289_margin_ab_real_log.py route1.csv route2.csv route3.csv route4.csv --new-ratio 1.05 --out-prefix sim289`
+(`--new-ratio 1.10`으로 실행하면 0건 변경이 나와야 함 -- 무변경 sanity check)
+
+**289차 결과 (route1~4, 80145행)**: margin=1.05 적용 시 30/110건 연장
+(평균 0.34s, 합계 10.1s), flicker train 4건→1건. **주의**: 연장된 30건 중
+28건은 실제로는 "연장"이 아니라 그 사이 apex candidate 값이
+사라져(`apex_lost_or_new` 재분류) 어차피 continuity 소실로 끝났을
+가능성 있음 -- 순수 margin 완화 효과(2건)와 섞여 있어 해석 시 주의
+필요. 상세: WIP.md/FINDINGS.md 289차.
+
+## analyze_route_release_trigger_288.py (288차 신규, RELEASE 트리거 원인 분류 + margin flicker train 탐지, 289차 버그 수정)
+**[289차 수정]** RELEASE 판정 프레임 인덱스(`e-1`→`e`)와 `apex_speed==0`
+조기 분류 버그 2건 수정. 아래 설명은 수정 반영 기준(재실행 결과
+51/27/21/11 -- 288차 원 기록 52/27/21/10과 카테고리 1건씩 미세 차이,
+원인 미규명이나 결론 불변, 상세: toolkit/CHANGELOG.md 289차).
+
 **목적**: 사용자 질문("route가 릴리즈되는 원인이 마진 1.1 때문인가")에
 답하기 위해 `src=='route'` 에피소드가 끝나는 프레임마다
 `carrot_navi_route()` RELEASE 3-way OR 트리거(speed_reached=margin1.1 /

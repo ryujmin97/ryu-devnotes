@@ -1,3 +1,79 @@
+## 289차 -- [ANALYSIS_ONLY, NEEDS_USER_DECISION -- 코드 변경 없음] `ROUTE_ACTIVE_RELEASE_MARGIN_RATIO` 1.1→1.05 what-if: flicker train 4→1건이나, 연장 케이스의 93%(28/30)는 margin 완화가 아니라 continuity 소실로 재분류되는 것으로 확인 -- "짧게 작동하다 꺼짐" 체감 개선 여부 불확실
+
+**질문(사용자)**: "라우트를 좀더 작용하게 하고싶은데(너무 짧게 작동하다
+릴리즈 됨) 릴리즈 마진을 1.05로 하면 어떤 결과가 나오는지 봐줘."
+
+**분석 대상**: route1~4(283~288차와 동일 corpus, route
+`000003bd`/`be`/`bf`/`c0`, 2026-09-06 16:56~18:03, 80145행). ryu HEAD
+`4d20122`(282차, 변경 없음).
+
+**전제 작업 -- 288차 스크립트 버그 발견/수정**: 이전 세션이 컨테이너
+초기화로 중단되어 원본 스크립트/로그가 소실된 상태에서 세션 대화 기록만
+보고 재구현한 스크립트가 288차 기록(52/27/21/10)과 크게 다른 결과
+(32/16/12/50)를 내 재검토 -- `analyze_route_release_trigger_288.py`에서
+두 가지 버그 확인:
+1. RELEASE 판정 프레임 인덱스 오류 -- 에피소드 안쪽 마지막 프레임(`e-1`)이
+   아니라 그 다음 프레임(`e`)에서 실제 RELEASE 조건이 성립함(실측:
+   t=313.86 margin 미충족 프레임 → t=313.91 margin 충족 프레임이 진짜
+   RELEASE 프레임).
+2. `apex_speed==0`을 continuity 소실로 조기 확정 -- `apex_dist<=10m`이
+   그대로 성립하는 경우(candidate가 apex 지점을 이미 통과)는
+   dist_reached 우선 분류가 맞음.
+수정 후 재실행 결과 **51/27/21/11** -- 288차 원 기록(52/27/21/10)과
+카테고리별 1건씩 차이(경계 에피소드 1건, 원인 미규명 -- 이번 세션
+범위 밖으로 보류). flicker train 4건 위치도 정확히 재현. 이 결과로
+288차 결론 자체는 그대로 유효함을 재확인.
+
+**방법(사용자 질문에 대한 본 분석)**: 신규 toolkit
+`sim_route_289_margin_ab_real_log.py` -- margin이 RELEASE 원인에 관여한
+72개 에피소드(speed_reached 51 + speed+dist_both 21)만 골라, 에피소드
+시작 프레임부터 새 ratio(1.05) 기준으로 매 프레임 재판정(margin 미관여
+에피소드는 원본 그대로 둠). `--new-ratio 1.10`(무변경) sanity check로
+0건 변경 확인 후 `--new-ratio 1.05` 실행.
+
+**결과**:
+- 110건 중 30건에서 RELEASE 시점이 늦어짐(평균 0.34s, 최대 0.36s, 합계
+  10.1s 연장). 전체 평균 ACTIVE 지속시간은 1.67s→1.65s로 큰 변화 없음
+  (연장이 일부 에피소드에 집중돼 평균을 크게 못 움직임).
+- flicker train **4건→1건**(t=313.9~325.6s 구간만 잔존, 나머지
+  576.0~583.3s/742.5~749.1s/864.9~869.2s 3개 구간은 margin 완화만으로
+  해소).
+
+**핵심 발견(연장 30건의 재분류 특성)**: 30건 중 **28건은 실제로는 margin
+완화 덕에 "계속 유지"된 게 아니라**, 원래 시점에 margin이 미충족되자
+계속 진행하는 동안 apex candidate 자체가 사라져(`apex_lost_or_new`로
+재분류) RELEASE된 것으로 확인됨. 순수하게 "margin 완화 덕분에 그 시점에
+실제로 계속 ACTIVE" 였던 케이스는 **2건뿐**. 즉 margin=1.05의 실측
+효과는 "route가 더 오래 작동한다"가 아니라 **"RELEASE 트리거 원인이
+margin에서 continuity 소실로 바뀐다"**에 훨씬 가깝다.
+
+**해석/한계**: continuity 소실로 인한 RELEASE도 사용자 입장에서는
+margin RELEASE와 마찬가지로 "route가 꺼짐"으로 체감된다 -- 따라서
+flicker train이 4→1건으로 줄어드는 것은 명확한 이득이지만, 사용자가
+호소한 "너무 짧게 작동하다 릴리즈 됨" 현상 자체가 margin 값 문제라기
+보다는 apex candidate continuity 자체의 불안정성(234차계속9 open
+track과 연결 가능성)에 더 크게 기인할 수 있음을 시사한다. 이 시뮬레이션
+단독으로는 두 원인의 기여도를 완전히 분리하지 못한다(한계, §28).
+
+**288차와의 관계**: 288차가 발견한 "INERT 재진입 게이트-RELEASE margin
+불일치" flicker 경로(margin 자체는 정상 설계, 65% 관여)와, 이번에 드러난
+"margin 완화가 continuity 소실 재분류로 흡수되는" 특성은 별개 현상이나
+같은 근본 배경(apex candidate 추적 안정성)을 공유하는 것으로 보임 --
+234차계속9의 vEgo 기반 severity gate 교정(아직 미착수)이 두 현상 모두에
+영향을 줄 가능성 있음.
+
+**결론/판정**: NEEDS_USER_DECISION. flicker train 감소(4→1건) 자체는
+margin=1.05 변경의 명확한 이득이나, 사용자가 원하는 "더 길게 작동"
+효과의 93%(28/30)가 실제로는 margin이 아닌 continuity 소실에 의한
+것으로 재분류되므로, margin 값만 바꾸는 것이 사용자 체감을 실제로
+개선할지는 불확실. 코드 변경 없음(§27/§28 시뮬레이션 선행 원칙) --
+사용자 방향 확인(margin 변경 진행 / continuity 안정성 우선 개선 / 병행)
+후 다음 세션에서 결정.
+
+**실차 검증**: 미실시(순수 시뮬레이션, margin 값을 실제로 바꾼 적 없음).
+
+---
+
 ## 288차 -- [ANALYSIS_ONLY, NEEDS_USER_DECISION -- 코드 변경 없음] `ROUTE_ACTIVE_RELEASE_MARGIN_RATIO`(1.1) 실차 최초 검증: RELEASE 전이의 66%가 margin 관여, 그 중 4개 구간에서 "margin-INERT재진입게이트 blend 불일치" flicker 신규 발견
 
 **질문(사용자)**: "route가 작동하다가 릴리즈되는 순간의 로그를 분석해서

@@ -1,3 +1,104 @@
+## 289차 (완료 -- ANALYSIS_ONLY/NEEDS_USER_DECISION, ryu 코드 변경 없음) -- 사용자 요청("route가 너무 짧게 작동하다 릴리즈됨, 릴리즈 마진 1.1→1.05로 낮추면 어떤 결과가 나오는지") what-if 시뮬레이션 + 그 과정에서 288차 분석 스크립트의 프레임 인덱싱/조기분류 버그 2건 발견·수정
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu`(HEAD `4d20122`=282차, 변경 없음, fresh
+clone으로 드리프트 없음 확인) / `ryu-devnotes`(HEAD `69a0bbc`=288차, 이
+항목 추가 전)
+
+**Branch**: `c3-ms-dev` / `main`
+
+**세션 시작 확인(§3)**: 이전 세션이 컨테이너 초기화로 중단됨(§11 -- 사용자
+push 전이라 289차 작업 전체가 미반영 상태였음). 새 세션에서 GitHub
+fresh clone으로 재확인: `ryu-devnotes` HEAD `69a0bbc`(288차, 드리프트
+없음), `ryu` HEAD `4d20122`(282차, 드리프트 없음). HANDOFF.md/
+CURRENT_STATUS.md 없음. §2/§33 원칙에 따라 이전 세션 대화 로그에 적힌
+숫자를 그대로 신뢰하지 않고, route1~4 zip을 재업로드받아 처음부터
+재실행하여 아래 결과를 검증 완료함(재구성이 아니라 재실행 확인).
+
+**배경**: 사용자가 route1~4 zip을 재업로드하며 "라우트를 좀더 작용하게
+하고싶은데(너무 짧게 작동하다 릴리즈 됨) 릴리즈 마진을 1.05로 하면 어떤
+결과가 나오는지 봐줘"로 질문. 288차가 확인한 것처럼
+`ROUTE_ACTIVE_RELEASE_MARGIN_RATIO`(1.1)가 RELEASE의 66%에 관여하므로,
+이 값을 낮추면 route ACTIVE 지속시간이 늘어나는지 실측 로그
+what-if 시뮬레이션으로 확인.
+
+**한 일**:
+1. route1~4 재추출(`extract_log.py`, ryu HEAD `4d20122` 그대로) --
+   22801+22799+23999(주: 원본 헤더 포함 24000행이나 실데이터 23999행)
+   +10546=80145행, route ID(`000003bd`/`be`/`bf`/`c0`,
+   16:56~18:03)·행수 모두 283~288차 corpus와 일치 확인.
+2. **버그 발견 및 수정** (`toolkit/analyze_route_release_trigger_288.py`):
+   컨테이너 리셋 후 원본 스크립트 없이 세션 대화 기록만으로 재구현한
+   버전이 288차 기록(52/27/21/10)과 크게 다른 32/16/12/50을 냄 -- 신뢰
+   불가로 판단(§28), 원인 추적 결과 두 가지 버그 확인:
+   - RELEASE 판정 프레임을 에피소드 안쪽 마지막 프레임(`e-1`)으로 잘못
+     사용 -- 실제로는 그 다음 프레임(`e`)에서 조건이 성립해 RELEASE된 것
+     (실측 확인: t=313.86 margin 미충족 → t=313.91 margin 충족, 이
+     프레임이 실제 RELEASE 프레임).
+   - `apex_speed==0`을 continuity 소실로 조기 확정 -- `apex_dist<=10m`이
+     그대로 성립하는 경우(candidate가 apex를 이미 통과)는
+     dist_reached로 분류해야 288차 원 기록과 일치.
+   두 버그 모두 수정 후 route1~4로 재실행 -- **51/27/21/11**
+   (speed_reached/dist_reached/speed+dist_both/apex_lost_or_new), 4개
+   flicker train 위치도 288차와 정확히 동일(t=313.9~325.6s 등). 288차
+   원 기록(52/27/21/10)과 카테고리별 1건씩 미세 차이 있으나(원인
+   미규명 -- 경계 에피소드 1건의 병합/분류 판정 차이로 추정, 이번
+   세션에서 추가 조사는 하지 않음, 전체 결론에는 영향 없음) 전반적으로
+   일치 확인. 수정본을 `toolkit/analyze_route_release_trigger_288.py`에
+   그대로 반영(구버전은 288차 커밋에 git history로 보존).
+3. 신규 toolkit `sim_route_289_margin_ab_real_log.py` 작성 -- margin이
+   RELEASE 원인에 관여한 에피소드(72건)만 골라, `new-ratio` 기준으로
+   프레임 단위 재시뮬레이션(`ROUTE_APEX_MISS_TOLERANCE_FRAMES=6`
+   forward-fill 재사용). `--new-ratio 1.10`(무변경) sanity check로 0건
+   변경 확인 후 `--new-ratio 1.05` 실행.
+4. **margin=1.05 결과**: 110건 중 30건에서 RELEASE가 늦어짐(평균
+   0.34s, 최대 0.36s, 합계 10.1s 연장). 평균 ACTIVE 지속시간 1.67s→
+   1.65s(전체 평균으로는 큰 변화 없음 -- 연장이 일부 에피소드에
+   집중). flicker train 4건→**1건**(t=313.9~325.6s 구간만 잔존,
+   나머지 3개 구간은 margin 완화만으로 해소).
+5. **연장 30건의 재분류 특성 확인(중요, 결정 필요 사유)**: 30건 중
+   28건이 실제로는 "같은 이유(margin)로 더 늦게까지 유지"된 게
+   아니라, margin 조건이 그 프레임에 충족되지 않게 되자 계속 진행하는
+   동안 apex candidate 값 자체가 사라져(`apex_lost_or_new`로 재분류)
+   RELEASE된 것. 순수하게 "margin만 완화됐다면 이 시점에 실제로 계속
+   ACTIVE였을" 케이스는 2건뿐. 즉 margin=1.05의 실측 효과는 "route가
+   더 오래 작동한다"보다는 "margin 트리거가 continuity 소실 트리거로
+   대체된다"에 더 가까움 -- 사용자 체감상 "짧게 작동하다 꺼짐"이
+   개선될지는 이 시뮬레이션만으로 단정 불가(continuity 소실 시점의
+   RELEASE도 사용자에게는 똑같이 "꺼짐"으로 보임).
+
+**검증**: 정적 분석(재실행 결과 재현) 완료. 로그 시뮬레이션(what-if)
+완료. 실차 검증: 미실시(margin 값 자체를 변경한 적 없음 -- 순수 시뮬레이션).
+
+**결론/판정**: NEEDS_USER_DECISION. margin을 1.05로 낮추면 flicker
+train은 4→1건으로 줄어드는 명확한 개선이 확인되나, "짧게 작동하다
+꺼짐"에 대한 근본 해법은 아닐 수 있음(위 4번 특성) -- 대다수 연장
+케이스가 margin 완화가 아니라 continuity 소실로 재분류되기 때문. 다음
+중 사용자 판단 필요:
+  (a) 그래도 margin=1.05로 코드 변경 진행(flicker train 감소 자체는
+      명확한 이득이므로).
+  (b) margin 값 변경보다 apex candidate continuity 자체의 안정성
+      (234차계속9 vEgo 기반 severity gate 등 기존 open track)을 먼저
+      개선.
+  (c) 두 가지 병행.
+코드 변경 없음(§27/§28, 시뮬레이션 선행 원칙).
+
+**미확인 사항**:
+- 51/27/21/11 vs 288차 기록 52/27/21/10의 1건 미세 차이 원인
+- 위 4개 flicker train 구간의 qcamera 육안 확인(288차부터 미실시로
+  이어짐)
+- margin=1.05 실제 device 적용 시 체감 변화(실차 검증 전혀 없음)
+
+**다음 작업**:
+- 사용자 결정: (a)/(b)/(c) 중 방향 확정
+- (a) 선택 시: `ROUTE_ACTIVE_RELEASE_MARGIN_RATIO` 1.1→1.05 패치 작성
+  (§27 최소변경 원칙에 따라 상수 값만 교체)
+- 234차계속9 vEgo 기반 severity gate 교정 (기존 open track, 미착수)
+- 228차 route_inert far-inert 실차 로그 검증 (기존 open track)
+
+---
+
 ## 288차 (완료 -- ANALYSIS_ONLY/NEEDS_USER_DECISION, ryu 코드 변경 없음) -- 사용자 질문("route가 작동하다 릴리즈되는 원인이 마진 1.1 때문인가") 실측 검증: RELEASE 전이 110건 중 66%가 `ROUTE_ACTIVE_RELEASE_MARGIN_RATIO`(1.1) 단독/결합 트리거, 그 중 최소 4개 구간에서 "margin-INERT재진입게이트 상호작용 flicker" 신규 확인
 
 **Worker**: Claude

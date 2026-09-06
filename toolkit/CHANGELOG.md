@@ -3,6 +3,34 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+## 2026-09-06 (289차)
+- `analyze_route_release_trigger_288.py`: **버그 수정**(§21 재사용 중
+  발견). (1) RELEASE 판정 프레임을 에피소드 안쪽 마지막 프레임(`e-1`)이
+  아니라 그 바로 다음 프레임(`e`)으로 수정 -- `e-1`은 아직 RELEASE
+  조건이 성립하지 않은 시점의 값이라 오분류 발생(실측: t=313.86 route
+  프레임 margin 미충족, 바로 다음 t=313.91 프레임에서 충족 -- 이 프레임이
+  실제 RELEASE 프레임). (2) `apex_speed==0`/`candidateCount==0`을
+  continuity 소실로 조기 확정하지 않도록 수정 -- `apex_dist<=10m`이 그대로
+  성립하면 dist_reached로 우선 분류. 수정 전(재구현 스크립트, 컨테이너
+  리셋 후 원본 대조 없이 작성)은 32/16/12/50 분포로 288차 기록
+  (52/27/21/10)과 크게 어긋났고, 수정 후 route1~4 재실행 결과
+  51/27/21/11 -- 288차 기록과 카테고리 1건씩 미세 차이(원인 미규명, 아래
+  참고) 있으나 전체 결론(margin 66% 관여, flicker train 4건, 위치 전부
+  동일)은 정확히 재현됨. **[289차 수정본을 이번 파일에 그대로 반영,
+  구버전은 git history(288차 커밋)에 보존]**
+- `sim_route_289_margin_ab_real_log.py`: 신규 -- 사용자 요청("route가
+  너무 짧게 작동하다 릴리즈된다, 마진 1.1→1.05로 낮추면?")에 답하기 위한
+  what-if 시뮬레이션. margin 관여 에피소드만 새 ratio로 프레임 단위
+  재계산(`ROUTE_APEX_MISS_TOLERANCE_FRAMES=6` forward-fill 재사용).
+  ryu 코드는 변경하지 않음(§27/§28 -- 시뮬레이션 선행). route1~4 결과:
+  margin=1.05 적용 시 30/110건 연장(평균 0.34s, 합계 10.1s), flicker
+  train 4건→1건. 단, 연장분 30건 중 28건이 "연장된 게 아니라
+  continuity 소실(apex_lost_or_new)로 재분류"되는 시뮬레이션 특성 발견 --
+  실제 ratio를 낮췄을 때 RELEASE가 진짜로 늦어지는지, 아니면 그 사이
+  candidate가 이미 바뀌어 다른 이유로 어차피 RELEASE됐을지 이 스크립트
+  단독으로는 구분 못함(한계, 아래 NEEDS_DECISION 참고). 상세:
+  WIP.md/FINDINGS.md 289차.
+
 ## 2026-09-06 (288차)
 - `analyze_route_release_trigger_288.py`: 신규 -- `src=='route'` 에피소드
   RELEASE 전이 프레임마다 carrot_navi_route() RELEASE 3-way OR 트리거
