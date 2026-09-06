@@ -1,3 +1,55 @@
+## 290차 (완료 -- 코드 패치 작성+검증 완료, 실차 검증 전) -- ROUTE_ACTIVE_RELEASE_MARGIN_RATIO 1.1->1.05 적용 (289차 옵션(a) 사용자 확정)
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu`(HEAD `4d20122`=282차, fresh clone으로 드리프트
+없음 확인) / `ryu-devnotes`(HEAD `36efb1e`=289차, 이 항목 추가 전)
+
+**Branch**: `c3-ms-dev` / `main`
+
+**세션 시작 확인(§3)**: `ryu`/`ryu-devnotes` 양쪽 fresh clone, HEAD가 각각
+289차 WIP 기록(`4d20122`/direct parent)과 일치함을 확인. HANDOFF.md/
+CURRENT_STATUS.md 없음. 드리프트 없음.
+
+**배경**: 289차가 실측 what-if 시뮬레이션(`sim_route_289_margin_ab_real_log.py`)으로
+margin=1.05 적용 시 flicker train이 4건->1건으로 감소함을 확인했으나,
+"RELEASE 지연"의 실질 효과는 제한적(30건 중 28건이 margin이 아니라
+continuity 소실로 재분류)이라는 트레이드오프를 함께 보고, 사용자에게
+(a) 그래도 진행 / (b) candidate continuity 안정성 우선 개선 / (c) 병행
+3가지 옵션을 제시했음. 이번 세션에서 사용자가 "1.05로 패치 진행"으로
+옵션(a)를 확정.
+
+**한 일**:
+1. `selfdrive/carrot/carrot_man.py` L159 `ROUTE_ACTIVE_RELEASE_MARGIN_RATIO`
+   1.1 -> 1.05로 변경(§27 최소변경 -- 상수 값만 교체, 6-state 판정 구조
+   자체는 무변경). 변경 근거를 289차 what-if 결과 및 남은 트레이드오프와
+   함께 코드 주석에 기록.
+2. 정적 검증: `py_compile` + `ast.parse` 통과.
+3. 패치 생성(§31): `git format-patch -1`로
+   `0001-290cha-ROUTE_ACTIVE_RELEASE_MARGIN_RATIO-1.1-1.05-28.patch` 작성.
+4. 패치 검증(§31): 별도 throwaway clone(base `4d20122`)에 `git am`으로
+   적용 -- 적용 성공, 적용 결과와 작업 카피 간 `diff` 결과 0(diff-0
+   confirmed).
+
+**검증**:
+- 정적 분석: 완료(py_compile/ast.parse)
+- 로그 검증: 289차 what-if 시뮬레이션으로 기존에 완료(이번 세션은 값
+  자체를 코드에 반영만 함, 신규 시뮬레이션 없음)
+- 시뮬레이션: 289차 결과 재사용(신규 실행 없음)
+- 실차 검증: **미실시**
+
+**미확인 사항**: 289차가 지적한 대로, 이번 변경이 "route가 더 오래
+작동한다"는 사용자 체감 개선을 실제로 만족시키는지는 불명확 -- flicker
+train 감소는 확인되었으나 근본 원인(apex candidate continuity 소실)은
+그대로 남아 있음. 회귀 발견 시 1.1로 즉시 복원 가능(주석에 명시).
+
+**다음 작업**:
+- 실차 검증(이번 변경 우선)
+- 289차 옵션(b): apex candidate continuity 안정성 개선(234차계속9 vEgo
+  기반 severity gate 등 기존 open track)은 여전히 별도 과제로 남음
+- 사용자가 패치 적용 후 push 완료 시 이 항목의 상태를 "실차검증 대기"로
+  갱신 필요
+
 ## 289차 (완료 -- ANALYSIS_ONLY/NEEDS_USER_DECISION, ryu 코드 변경 없음) -- 사용자 요청("route가 너무 짧게 작동하다 릴리즈됨, 릴리즈 마진 1.1→1.05로 낮추면 어떤 결과가 나오는지") what-if 시뮬레이션 + 그 과정에서 288차 분석 스크립트의 프레임 인덱싱/조기분류 버그 2건 발견·수정
 
 **Worker**: Claude

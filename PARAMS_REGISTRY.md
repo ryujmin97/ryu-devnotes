@@ -351,6 +351,14 @@
   불안정성(234차계속9 open track)일 가능성 시사. **값 변경 여부는
   사용자 결정 대기** -- 결정되면 §27 원칙에 따라 상수 값만 교체하는
   최소 패치로 반영 예정. 상세: WIP.md/FINDINGS.md 289차.
+- **[290차 갱신] 값 변경 반영 -- 1.1 → 1.05 (사용자 289차 옵션(a) 확정).**
+  `selfdrive/carrot/carrot_man.py` L159 상수 값만 교체(§27, 6-state 판정
+  구조 무변경). 근거는 289차 what-if 결과(flicker train 4→1건 감소) 그대로
+  -- 단 289차가 지적한 트레이드오프(연장 30건 중 28건이 margin이 아니라
+  continuity 소실 재분류)는 해소되지 않은 채 남음. 정적 검증(py_compile/
+  ast.parse/git am diff-0)만 완료. **NEEDS_VALIDATION 유지** -- 실차 검증
+  전혀 미실시. 회귀 발견 시 1.1로 즉시 복원 가능(코드 주석에 명시). 상세:
+  WIP.md 290차, 패치 `0001-290cha-ROUTE_ACTIVE_RELEASE_MARGIN_RATIO-1.1-1.05-28.patch`.
 
 ## ROUTE_RELEASE_DIST_M (254차 설계+사용자 확정, 255차 계속 코드 반영 → 274차 사용자 확정 재변경 — NEEDS_VALIDATION)
 - **[274차 추가]** 값 변경: 20.0 → **10.0** (m). 근거: "더 많은 구간에서
