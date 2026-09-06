@@ -1,3 +1,71 @@
+## 278차 (완료 -- 코드 수정+독립 검증(git am) 완료, 실차/기기 반영 검증 아님) -- carrot.cc fit_bottom_text_size(szSdiDescr) 폰트축소 결과 캐싱 (270차 wrap_name_lines 패턴 동일 적용)
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu`(Base commit `d409725`=277차 반영분, §3
+fresh clone으로 확인) / `ryu-devnotes`(HEAD `d64aec2`=277차 devnotes,
+이 항목 추가 전)
+
+**Branch**: `c3-ms-dev` / `main`
+
+**배경**: 사용자가 "경로안내창 내부 글자크기가 글자길이에 따라 자동으로
+변하는 로직이 CPU 부하를 줄 수 있다고 들었다"고 문의. 조사 결과
+`selfdrive/ui/carrot.cc`의 `TurnInfoDrawer`에 이런 로직이 두 곳 있었음:
+1. `wrap_name_lines()` (도로명 자동 줄바꿈/폰트축소, 230차 도입) --
+   270차에서 이미 `cached_name_line1`/`cached_name_fs`/`cached_name_wrapped`로
+   캐싱 완료(devnotes WIP 269차 CPU 최적화 후보 2번).
+2. `fit_bottom_text_size()` (szSdiDescr, 과속/구간단속 문구 폰트축소,
+   231차 도입) -- **캐싱이 없어 문구가 몇 초간 고정 표시되는 동안에도
+   매 프레임 최대 4회 `nvgTextBounds` 반복 축소 루프를 실행하고 있었음.**
+   270차 최적화가 두 곳 중 한 곳에만 적용되고 나머지 한 곳은 누락된
+   상태였음(사용자 문의로 뒤늦게 발견 -- §24 관점에서 FINDINGS 신규
+   기록 대상은 아니고, 270차 작업의 미완결 부분 보완).
+
+**한 일**:
+- `fit_bottom_text_size()` 호출부에 270차 `wrap_name_lines` 캐싱과 동일한
+  패턴 적용. `cached_sdi_text`/`cached_sdi_valid`/`cached_sdi_fs` 멤버
+  변수 3개 추가. `szSdiDescr` 문자열이 직전 프레임과 동일하면 캐시된
+  `fs`를 재사용, 다르면 기존 `fit_bottom_text_size()` 그대로 호출 후
+  캐시 갱신.
+- `fit_bottom_text_size()` 함수 본체(반복 축소 로직 자체)는 무변경(§27
+  최소변경 -- 270차 때와 동일한 원칙).
+- 부수적으로 `szSdiDescr.toStdString()` 중복 호출(기존 3회)을 1회
+  (`sdi_text` 지역 변수)로 정리.
+- **주의**: 캐시는 `nvgTextBounds`를 이용한 폰트크기 탐색 루프만
+  건너뛴다. 사각형 배경(`ui_fill_rect`) 크기 계산용 `nvgTextBounds`
+  1회 호출은 위치(`tbt_x`/`tbt_y`)가 프레임마다 미세하게 흔들릴 가능성을
+  배제하기 위해 매 프레임 그대로 유지(캐싱 대상에서 제외, wrap_name_lines
+  때와 달리 도로명은 좌표 고정이라 완전 캐싱 가능했지만 이 함수는 최종
+  bounds 자체는 캐싱하지 않음 -- 최소변경 범위를 반복 축소 루프로만
+  한정).
+
+**검증**:
+- 정적 분석: 수정 전/후 중괄호 개수 비교 -- 277차 기준 503/502(기존
+  불일치 1개, 270차 이전부터 있던 것과 동일 패턴)에서 if/else 블록
+  추가로 505/504로 변동, 추가분(+2/+2) 외 불일치 개수 변화 없음(기존
+  불일치가 이번 변경으로 인한 것이 아님을 재확인).
+- Qt/nanovg/capnp 빌드 환경이 세션 컨테이너에 없어 실제 컴파일은
+  미실시(§29에 따라 명시).
+- 패치 독립 검증: `ryujmin97/ryu` origin/c3-ms-dev(HEAD `d409725`) 기준
+  fresh clone에서 `git apply --check` 통과, `git am` 적용 성공 확인.
+- **실차 검증: 미실시.** 기기 반영 후 (1) 과속/구간단속 문구 표시가
+  이전과 동일하게 보이는지(회귀 없음), (2) 실제 CPU 사용률 변화는
+  사용자가 직접 확인 필요 -- 이 세션 환경에는 실차 프로파일링 도구가
+  없음.
+
+**미확인 사항**:
+- 이번 변경으로 인한 실측 CPU 절감량은 미측정(정성적으로 "문구 고정
+  구간에서 반복 축소 루프 생략"이라는 것만 확인).
+- `carrot.cc` 안에 이 두 곳(`wrap_name_lines`, `fit_bottom_text_size`)
+  외에 유사한 매 프레임 폰트 탐색/줄바꿈 로직이 더 있는지는 전체
+  파일을 대상으로 한 전수 조사는 하지 않음(§30 원칙 -- 필요 범위부터
+  단계적 확장, 사용자가 특정 UI 영역에서 추가로 부하를 느끼면 그때
+  확장 조사).
+
+**다음 작업**:
+- 사용자 실차/기기 반영 후 문구 표시 회귀 여부 확인.
+- 필요 시 실제 CPU 사용률(top/perf 등) 측정으로 정량 효과 확인.
+
 ## 277차 (완료 -- 코드 수정+독립 검증(git am) 완료, 실차/기기 반영 검증 아님) -- 276차 road_block_shift 회귀 되돌림: 과속 문구 뜨면 도로명/route=/vturn=이 ETA 시각과 겹치던 문제
 
 **Worker**: Claude
