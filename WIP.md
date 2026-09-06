@@ -1,3 +1,142 @@
+## 288차 (완료 -- ANALYSIS_ONLY/NEEDS_USER_DECISION, ryu 코드 변경 없음) -- 사용자 질문("route가 작동하다 릴리즈되는 원인이 마진 1.1 때문인가") 실측 검증: RELEASE 전이 110건 중 66%가 `ROUTE_ACTIVE_RELEASE_MARGIN_RATIO`(1.1) 단독/결합 트리거, 그 중 최소 4개 구간에서 "margin-INERT재진입게이트 상호작용 flicker" 신규 확인
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu`(HEAD `4d20122`=282차, 변경 없음, fresh
+clone으로 드리프트 없음 확인) / `ryu-devnotes`(HEAD `c9d8a52`=287차, 이
+항목 추가 전)
+
+**Branch**: `c3-ms-dev` / `main`
+
+**세션 시작 확인(§3)**: `ryu-devnotes` HEAD `c9d8a52`(287차), `ryu` HEAD
+`4d20122`(282차, 변경 없음). HANDOFF.md/CURRENT_STATUS.md 없음, 동시작업
+없음 확인.
+
+**배경**: 사용자가 route1~4 실차 로그 zip 4개(283~287차가 이미 분석해온
+바로 그 corpus, route `000003bd`/`be`/`bf`/`c0`, 2026-09-06
+16:56~18:03, 파일명/route ID 대조로 완전 동일 확인)를 재업로드하며 "route가
+작동하다가 릴리즈되는 순간의 로그를 분석해 원인을 파악해달라. 릴리즈
+마진 1.1 때문인가?"로 질문. `ROUTE_ACTIVE_RELEASE_MARGIN_RATIO`(252차
+신규, PARAMS_REGISTRY.md, 값 1.1)는 등록 이후 지금까지 **실차 검증
+미실시** 상태였음 -- 이번이 사실상 최초의 실측 검증 시도.
+
+**한 일**:
+1. `extract_log.py`로 route1~4를 재추출(코드 변경 없는 재확인용, 287차가
+   확인한 HEAD `4d20122` 그대로) -- 80145행, 283차 실측치와 행수 일치
+   확인.
+2. 신규 toolkit `analyze_route_release_trigger_288.py` 작성 -- 283차
+   `verify_route_release_hold_283_real_log.py`와 동일하게 `src=='route'`
+   를 ACTIVE 프록시로 쓰되(§21 재사용 우선 원칙에 따라 merge 로직은
+   그대로 재사용), RELEASE 전이 프레임마다 `carrot_navi_route()`의 3가지
+   OR 트리거(speed_reached=margin1.1 / dist_reached=10m /
+   apex_lost_or_new=continuity)를 실측 텔레메트리로 역산 분류하는 기능을
+   신규 추가.
+3. 병합 에피소드(gap<1.0s 병합, 283차와 동일 기준) 110건 전수 분류:
+   - `speed_reached(margin1.1)` 단독 52건(47%) + `speed+dist_both`
+     (margin·거리 동시 충족, 대부분 apex_dist<=10m 근접 구간이라 margin이
+     "추가로" 충족된 경우) 21건(19%) = **margin 1.1 관여 73건(66%)**
+   - `dist_reached(10m)` 단독 27건(25%)
+   - `apex_lost_or_new(continuity)` 10건(9%)
+4. margin 관여 비율이 예상보다 훨씬 높아 원인 메커니즘을 프레임 단위로
+   직접 추적(t=313~340s 구간, route1 CSV) -- 아래 결론 참고.
+5. `--trains` 옵션으로 "gap<3.0s인 margin 트리거 에피소드가 3회 이상
+   연속"되는 구간을 자동 탐지 -- 4건 발견(t=313.9~325.6s 6회,
+   t=576.0~583.3s 4회, t=742.5~749.1s 4회, t=864.9~869.2s 3회).
+
+**결론**:
+- **margin 1.1은 RELEASE의 지배적 트리거가 맞다(66%)** -- 사용자 가설
+  확인. 다만 그 자체가 항상 "문제"는 아니다(예: apex_dist<=10m에서
+  margin도 같이 충족되는 21건은 정상적인 근접 해제).
+- 문제로 볼 수 있는 것은 위 4개 flicker train 구간에서 관측된 아래
+  메커니즘이다(t=313.9~325.6s로 대표 확인, route1 CSV 프레임 단위 직접
+  추적):
+  1. INERT 상태에서 continuity streak가 매 프레임 누적돼 confidence가
+     서서히 상승(266차 blend)한다.
+  2. INERT->ACTIVE 재진입 게이트(257차 D_required)는 confidence로
+     블렌드된 `eff_apex_speed`를 쓰므로, confidence가 낮은 동안은
+     `eff_apex_speed≈v_ego`가 돼 `required_decel_mss`가 매우 작아
+     게이트가 열리지 않는다 -- confidence가 threshold를 넘는 데 약
+     2~3초가 걸리는 것으로 관측됨(관측된 gap_before가 대부분 2.0~2.9s로
+     수렴).
+  3. confidence가 충분히 올라 게이트가 열려 ACTIVE에 진입하는 바로 그
+     순간, RELEASE 판정(margin)은 **블렌드 전 raw apex_speed**를
+     쓰므로(265차 사용자 확정 설계, ACTIVE 분기 주석 참고) 이미
+     `v_ego<=apex_speed*1.1` 조건이 충족돼 있어 진입 직후(0.00~0.30초
+     내, 관측된 `dur_active_s`) 즉시 다시 RELEASE된다.
+  4. 1~3이 apex_dist가 400m->60m로 좁혀지는 동안 반복돼, 한 번의 완만한
+     고속도로 커브 접근(약 12초)에서 route ACTIVE/RELEASE가 6회
+     반복되는 "flicker train"으로 나타난다. 나머지 3개 train도 동일
+     패턴(큰 apex_dist, v_ego가 apex_speed 대비 5~10% 이내로 이미 근접한
+     완만한 감속 요구 구간).
+  5. 이 flicker는 실측 aEgo 변화폭이 크지 않다(target≈v_ego라 STEP2
+     감속식 자체가 거의 개입하지 않음) -- **283/285차가 이미 확정한
+     "aEgo pump 없음" 결론과 모순되지 않는다.** 즉 283/285차의 aEgo 기반
+     탐지 방법으로는 애초에 잡히지 않는 종류의 flicker였다(방법론적
+     사각지대, 신규 확인).
+  6. 280차 WIP가 기록한 "266차 confidence blend 도입 이후에도 사용자가
+     확인한 목표속도 flicker 잔존"의 유력한 추가 원인 후보로 판단된다
+     -- 280차는 이를 continuity `held->lost` 리셋 경로(→
+     `ROUTE_APEX_MISS_TOLERANCE_FRAMES` 3->6 확대로 대응)로만 다뤘는데,
+     이번에 확인한 경로는 continuity lock 자체는 유지되는 상태에서
+     margin 판정과 INERT 재진입 게이트가 서로 다른 신뢰도(raw vs
+     blended)를 참조해서 생기는 **별개의** flicker 경로다.
+- **NEEDS_USER_DECISION**: RELEASE margin 판정에도 confidence blend를
+  적용할지(현재는 265차에서 "원래 apex_speed 그대로 사용"으로 이미
+  확정된 설계 -- 근거는 "블렌드 전 raw apex_speed 사용은 이 삽입지점보다
+  앞서 이미 계산이 끝나 영향 없음"이라는 코드 주석이나, 이번 발견은 그
+  전제가 이 특정 시나리오(confidence 낮은 상태로 막 ACTIVE 진입한 프레임)
+  에서는 성립하지 않음을 보여준다)는 설계 변경 사안이라 이번 세션에서
+  코드를 임의 수정하지 않음(§27/§34). 대안 후보(다음 세션 논의용,
+  코드화 안 함):
+  - (a) margin 판정에도 동일 confidence blend 적용(단순하지만 265차
+    원 결정 번복)
+  - (b) RELEASE 3조건 중 margin 조건에 한해 최소 ACTIVE 유지시간(예:
+    0.5~1.0s) 또는 최소 `required_decel_mss` 하한을 추가해 "진입 즉시
+    해제"를 방지
+  - (c) INERT 재진입 게이트의 confidence 임계값 자체를 낮춰 재진입을
+    더 이르게(더 raw에 가깝게) 만들어 진입 시점의 blend-raw 괴리를 줄임
+- 목표속도 표시(HUD)나 UDP 텔레메트리 소비 측에서 "route 개입"
+  여부(예: 아이콘 on/off)가 이 주기로 깜빡였을 가능성이 있으나, 이번
+  세션은 carrot_man.py 내부 텔레메트리(rlog)만 분석했고 실제 HUD
+  렌더링/사용자 체감(운전자가 실제로 이 flicker를 인지했는지)은 확인하지
+  않음.
+
+**검증**:
+- 정적 분석: 해당 없음(코드 변경 없음, `carrot_man.py` 로직 읽기만
+  수행).
+- 로그 검증: 완료(실측 route1~4, 80145행, RELEASE 전이 110건 전수
+  분류 + flicker train 4건 프레임 단위 직접 확인).
+- 시뮬레이션: 미실시(합성 시나리오 없이 실측 로그만으로 진행).
+- 실차 검증: 이 항목 자체가 `ROUTE_ACTIVE_RELEASE_MARGIN_RATIO`(252차,
+  NEEDS_VALIDATION)의 **최초 실차 로그 검증**이다. 다만 "운전자 체감"
+  (HUD flicker를 실제로 인지했는지, qcamera로 flicker 구간 도로 형상
+  확인)은 미실시.
+
+**미확인 사항**:
+- flicker train 4건의 qcamera 육안 확인 미실시(§28/§29, 도로 형상 자체가
+  "완만한 고속도로 커브"라는 추정을 rlog 수치만으로 내렸음 -- 시각적
+  교차검증 필요).
+- margin-blend 상호작용 flicker가 4건 외에 gap>=3.0s(train 탐지
+  임계값 밖)로 덜 뚜렷하게 반복되는 사례가 더 있는지(`--trains` 임계값을
+  조정한 재스캔 필요).
+- HUD/UDP 소비 측 실제 체감 영향 여부(위 결론 마지막 항목).
+- 235차 원본 S커브 corpus 재업로드 시 정확한 위치 재검증(284~287차부터
+  이월, 이번 세션과 무관하게 계속 이월).
+
+**다음 작업**:
+1. 사용자에게 위 3가지 대안(a/b/c) 중 방향 확인 -- 방향이 정해지면
+   design 문서화 후 코드 반영.
+2. flicker train 4건 qcamera 육안 확인(다음 세션 또는 사용자 직접 확인).
+3. `--trains` gap 임계값을 넓혀(예: 5.0s) 추가 flicker train 존재 여부
+   재스캔.
+
+**패치**: `0001-288cha-route-release-trigger-classification.patch`
+(ryu-devnotes, `WIP.md`/`FINDINGS.md`/`PARAMS_REGISTRY.md`/
+`toolkit/analyze_route_release_trigger_288.py`/`toolkit/README.md`/
+`toolkit/CHANGELOG.md`).
+
+---
+
 ## 287차 (완료 -- device Params 실측 확인 및 PARAMS_REGISTRY.md 갱신, ryu 코드 변경 없음) -- `params_backup-6.json` 확인: `AutoNaviSpeedCtrlEnd` 신규 등록(8초), `AutoNaviSpeedDecelRate` 실측(70) vs 등록값(100)/274차 기록값(90) 불일치 발견 및 사용자 확인
 
 **Worker**: Claude

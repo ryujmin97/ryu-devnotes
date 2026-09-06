@@ -21,6 +21,32 @@ CHANGELOG.md를 같이 갱신**한다 (세션 종료 체크리스트에 포함�
 
 ---
 
+## analyze_route_release_trigger_288.py (288차 신규, RELEASE 트리거 원인 분류 + margin flicker train 탐지)
+**목적**: 사용자 질문("route가 릴리즈되는 원인이 마진 1.1 때문인가")에
+답하기 위해 `src=='route'` 에피소드가 끝나는 프레임마다
+`carrot_navi_route()` RELEASE 3-way OR 트리거(speed_reached=margin1.1 /
+dist_reached=10m / apex_lost_or_new=continuity) 중 실제로 어느 조건이
+충족돼 있었는지 실측 텔레메트리로 역산 분류한다. `--trains` 옵션으로
+margin 트리거 에피소드가 gap<3.0s로 3회 이상 연속되는 "flicker train"도
+자동 탐지.
+
+**재사용**: run-찾기/`--merge-tol` 기반 에피소드 병합 로직은
+`verify_route_release_hold_283_real_log.py`(283차)와 완전히 동일 -- 새로
+작성하지 않고 재사용(§21). 분류/trains 탐지 기능만 신규.
+
+**288차 결과**: route1~4(283/285/286차와 동일 corpus, 80145행) 실행 --
+RELEASE 전이 110건 중 margin(1.1) 단독 47%+margin·거리 동시 19%=66%가
+margin 관여, 거리(10m) 단독 25%, continuity 소실 9%. flicker train 4건
+발견(t=313.9~325.6s 등) -- "INERT 재진입 게이트(confidence blend)는
+막히는데 RELEASE margin 판정(raw apex_speed)은 이미 충족돼 진입 직후
+즉시 재해제"되는 상호작용 패턴으로 확인(상세: FINDINGS.md/WIP.md 288차).
+
+**사용**: `python3 analyze_route_release_trigger_288.py route1.csv
+route2.csv ... [--merge-tol 1.0] [--trains] [--train-gap 3.0]
+[--train-min 3]`
+
+---
+
 ## scan_consecutive_curve_pairs.py (286차 신규, S커브 유사 패턴 범용 탐색)
 **목적**: 235차가 확정한 실제 S커브 corpus(`0000039a--7b602ffb85`
 seg12-16)가 레포/Drive에 미보관(§23)이라, 283/285차가 쓰던 다른 corpus

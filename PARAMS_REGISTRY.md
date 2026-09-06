@@ -323,6 +323,23 @@
   A/B 비교 없음(신규 파라미터, 234차식 값 재사용이 아님).
 - 실차 검증: 미실시(NEEDS_VALIDATION) — 252차는 patch 생성 및 정적 검증
   (py_compile, `git am` diff-scoped)까지만 완료, device 미적용.
+- **[288차 갱신] 최초 실차 로그 검증 완료(여전히 NEEDS_VALIDATION 유지,
+  이유는 아래).** 사용자 질문("릴리즈가 마진 1.1 때문인가")에 답하기
+  위해 283~287차와 동일 corpus(route1~4, 80145행)로 RELEASE 전이 110건
+  전수를 트리거별 분류 — margin 1.1 단독/결합 관여 73건(66%,
+  `dist_reached` 27건/25%, `apex_lost_or_new` 10건/9%). 이 중 4개 구간
+  (t=313.9~325.6/576.0~583.3/742.5~749.1/864.9~869.2)에서 "INERT
+  재진입 게이트(confidence-blended eff_apex_speed 사용)가 열리는 순간,
+  margin 판정(raw apex_speed 사용, 265차 확정 설계)이 이미 충족돼 있어
+  진입 직후(0.0~0.3s) 즉시 재해제"되는 flicker가 3~6회 연속 반복되는
+  패턴을 신규 확인(상세 메커니즘: FINDINGS.md/WIP.md 288차). 실측
+  aEgo 변화폭은 작아(target≈v_ego) 283/285차 "pump 없음" 결론과
+  모순되지 않음 — 그 aEgo 기반 탐지로는 애초에 안 잡히는 종류의 flicker.
+  **NEEDS_VALIDATION을 유지하는 이유**: 값(1.1) 자체가 부적절하다는
+  근거는 아직 없고(margin이 아니라 raw/blended 신뢰도 불일치가 원인),
+  RELEASE margin 판정에 confidence blend를 적용할지는 265차 확정 설계를
+  뒤집는 사안이라 사용자 결정 없이 코드 미변경. qcamera 육안 확인(4개
+  구간 실제 도로 형상)도 미실시.
 
 ## ROUTE_RELEASE_DIST_M (254차 설계+사용자 확정, 255차 계속 코드 반영 → 274차 사용자 확정 재변경 — NEEDS_VALIDATION)
 - **[274차 추가]** 값 변경: 20.0 → **10.0** (m). 근거: "더 많은 구간에서

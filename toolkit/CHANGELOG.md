@@ -3,6 +3,18 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+## 2026-09-06 (288차)
+- `analyze_route_release_trigger_288.py`: 신규 -- `src=='route'` 에피소드
+  RELEASE 전이 프레임마다 carrot_navi_route() RELEASE 3-way OR 트리거
+  (speed_reached=margin1.1/dist_reached=10m/apex_lost_or_new=continuity)를
+  실측 텔레메트리로 역산 분류. 에피소드 병합 로직은
+  `verify_route_release_hold_283_real_log.py`(283차) 재사용(§21).
+  `--trains` 옵션으로 margin 트리거 flicker train(gap<3.0s, 3회 이상
+  연속) 자동 탐지 추가. route1~4(80145행) 실행 결과: RELEASE 전이 110건
+  중 66%가 margin 관여, flicker train 4건 발견 -- "INERT 재진입 게이트
+  (confidence blend)-RELEASE margin 판정(raw) 불일치"라는 신규 flicker
+  경로 확인. 상세: WIP.md/FINDINGS.md 288차.
+
 ## 2026-09-06 (286차)
 - `scan_consecutive_curve_pairs.py`: 신규 -- 235차 원 S커브 corpus
   (`0000039a--7b602ffb85`) 미보관 상태에서, 다른 route CSV에서 "S커브와

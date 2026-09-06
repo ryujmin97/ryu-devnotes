@@ -1,3 +1,91 @@
+## 288차 -- [ANALYSIS_ONLY, NEEDS_USER_DECISION -- 코드 변경 없음] `ROUTE_ACTIVE_RELEASE_MARGIN_RATIO`(1.1) 실차 최초 검증: RELEASE 전이의 66%가 margin 관여, 그 중 4개 구간에서 "margin-INERT재진입게이트 blend 불일치" flicker 신규 발견
+
+**질문(사용자)**: "route가 작동하다가 릴리즈되는 순간의 로그를 분석해서
+원인을 파악해달라. 릴리즈 마진 1.1 때문인가?"
+
+**분석 대상**: route1~4(283~287차와 동일 corpus, route
+`000003bd`/`be`/`bf`/`c0`, 2026-09-06 16:56~18:03, 80145행). ryu HEAD
+`4d20122`(282차, 변경 없음).
+
+**방법**: 신규 toolkit `analyze_route_release_trigger_288.py` --
+`src=='route'`(283차 방식과 동일한 ACTIVE 프록시, gap<1.0s 병합)로
+에피소드 110건을 추출하고, 각 RELEASE 전이 프레임의
+routeApexDist/routeApexSpeed/vEgo/routeCandidateCount로
+`carrot_navi_route()`의 3가지 OR 트리거(speed_reached=margin1.1 /
+dist_reached=10m / apex_lost_or_new=continuity) 중 실제 원인을 역산
+분류.
+
+**결과**:
+- `speed_reached(margin1.1)` 단독 52건(47%) + `speed+dist_both` 21건
+  (19%) = **margin 1.1 관여 73/110건(66%)** — RELEASE의 지배적 트리거.
+- `dist_reached(10m)` 단독 27건(25%), `apex_lost_or_new(continuity)`
+  10건(9%).
+- `--trains` 옵션(gap<3.0s인 margin 트리거 에피소드 3회 이상 연속)으로
+  4개 구간 발견: t=313.9~325.6s(6회)/576.0~583.3s(4회)/
+  742.5~749.1s(4회)/864.9~869.2s(3회) — 전부 apex_dist 150~400m대의
+  완만한 고속도로 커브 접근 구간.
+
+**메커니즘(t=313.9~325.6s 구간 프레임 단위 직접 추적으로 확인)**:
+1. INERT 상태에서 continuity streak가 매 프레임 누적돼 confidence(266차
+   blend)가 서서히 상승.
+2. INERT→ACTIVE 재진입 게이트(257차 D_required)는 confidence로 블렌드된
+   `eff_apex_speed`를 쓰므로, confidence가 낮은 동안은
+   `eff_apex_speed≈v_ego`가 돼 `required_decel_mss`가 매우 작아 게이트가
+   열리지 않는다 — confidence가 임계값을 넘는 데 약 2~3초 소요(관측된
+   `gap_before`가 대부분 2.0~2.9s로 수렴).
+3. confidence가 충분히 올라 게이트가 열려 ACTIVE에 진입하는 바로 그
+   순간, RELEASE margin 판정은 **블렌드 전 raw apex_speed**를 쓰므로
+   (265차 사용자 확정 설계) 이미 `v_ego<=apex_speed*1.1` 조건이 충족돼
+   있어 진입 직후(0.00~0.30초 내, 관측된 `dur_active_s`) 즉시 다시
+   RELEASE된다.
+4. 1~3이 apex_dist가 좁혀지는 동안 반복돼, 한 번의 완만한 커브 접근
+   (약 12초)에서 route ACTIVE/RELEASE가 최대 6회 반복되는 "flicker
+   train"으로 나타난다.
+
+**기존 flicker 조사와의 관계**: 244/251/267/280차 등 기존 flicker
+조사는 모두 apex 후보 identity 불안정(position-identity) 또는
+continuity `held→lost` 리셋 경로(280차, `ROUTE_APEX_MISS_TOLERANCE_FRAMES`
+3→6으로 대응)에 초점을 맞췄다. 이번에 확인한 경로는 **continuity lock
+자체는 유지되는 상태**에서 margin 판정(raw apex_speed)과 INERT 재진입
+게이트(blended eff_apex_speed)가 서로 다른 신뢰도 기준을 참조해서 생기는
+**별개의** flicker 경로로 판단된다 — 280차 WIP가 기록한 "confidence
+blend 도입 이후에도 잔존한다던 목표속도 flicker"의 유력한 추가 원인
+후보.
+
+**283/285차 결론과 모순 없음**: 이 flicker는 confidence 낮은 상태로 막
+진입한 프레임의 target이 `eff_apex_speed≈v_ego`에 가까워 STEP2 감속식이
+거의 개입하지 않으므로 실측 aEgo 변화폭이 크지 않다 — 283/285차가
+확정한 "aEgo pump 없음"과 모순되지 않으며, 오히려 그 aEgo 기반 탐지
+방법으로는 애초에 잡히지 않는 종류의 flicker였음을 보여준다(방법론적
+사각지대, 신규 확인).
+
+**결론/판정**: NEEDS_USER_DECISION. margin 1.1이 RELEASE의 지배적
+원인이라는 사용자 가설은 실측으로 확인됐으나, margin 조건 자체가 항상
+"문제"는 아니다(예: apex_dist<=10m 근접 구간에서 margin도 같이 충족되는
+21건은 정상 해제). 문제로 볼 것은 위 4개 flicker train 구간에서 반복되는
+"진입 직후 즉시 재해제" 패턴이다. RELEASE margin 판정에 confidence
+blend를 적용할지는 265차에서 이미 "원래 apex_speed 그대로 사용"으로
+확정된 설계 결정이므로, 이번 발견만으로 코드를 임의 수정하지 않는다
+(§27/§34) — 사용자 방향 확인 후 다음 세션에서 설계 변경 여부 결정.
+
+**대안 후보(코드화 안 함, 논의용)**:
+- (a) margin 판정에도 동일 confidence blend 적용(단순하지만 265차 원
+  결정 번복)
+- (b) margin 조건에 한해 최소 ACTIVE 유지시간(예: 0.5~1.0s) 또는 최소
+  `required_decel_mss` 하한 추가 — "진입 즉시 해제" 방지
+- (c) INERT 재진입 게이트의 confidence 임계값을 낮춰 재진입을 더 이르게
+  (더 raw에 가깝게) 만들어 진입 시점의 blend-raw 괴리를 줄임
+
+**실차 검증**: 이 항목 자체가 `ROUTE_ACTIVE_RELEASE_MARGIN_RATIO`(252차,
+등록 이후 NEEDS_VALIDATION)의 최초 실차 로그 검증이다. 단, 4개 flicker
+train 구간의 qcamera 육안 확인(도로 형상, 실제 "완만한 고속도로 커브"인지
+교차검증)과 HUD/UDP 소비 측 실제 체감 영향 여부는 미실시 — 다음 작업으로
+이월.
+
+**상세**: WIP.md 288차, toolkit `analyze_route_release_trigger_288.py`.
+
+---
+
 ## 272차 -- [실차 검증 완료, NORMAL] route A "route 거의 off" 현상은 버그 아님 -- 목적지 미설정으로 navd가 경로 자체를 계산하지 않았던 정상 상태(navInstruction/navRouteNavd raw 이벤트 직접 확인)
 
 **증상(사용자 보고)**: 최신 커밋(`0c03f7d0e`) 적용 디바이스의 실주행
