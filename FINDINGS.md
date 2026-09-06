@@ -1,3 +1,76 @@
+## 272차 -- [실차 검증 완료, NORMAL] route A "route 거의 off" 현상은 버그 아님 -- 목적지 미설정으로 navd가 경로 자체를 계산하지 않았던 정상 상태(navInstruction/navRouteNavd raw 이벤트 직접 확인)
+
+**증상(사용자 보고)**: 최신 커밋(`0c03f7d0e`) 적용 디바이스의 실주행
+로그에서 route(경로 기반 커브 감속) 로직이 "거의 off 상태"로 보임.
+
+**분석 대상**: `dashcam_1788655064102.zip` -- route A(`000003af--
+1732874496`, 09:05~09:11, 5996행)/route B(`000003b0--794e227a32`,
+09:24~09:34, 13176행), device build `0c03f7d0e`(dirty=False, 258/266차
+반영 후 최신) 일치 확인.
+
+**원인**: route A는 버그가 아니라 **이 온로드 세션에서 내비게이션
+목적지가 설정된 적이 없었던 상태**. 근거(CSV 파생치가 아닌 원본 rlog
+이벤트 스트림 직접 파싱으로 확인):
+- `navInstruction`(`navd.py::send_instruction()`) 발행 1140건 **전부
+  `valid=False`** -- `self.step_idx is None`(=`self.route`가 없음)
+  분기에서 나온 것으로, `navd.py::recompute_route()`가 `NavDestination`
+  파라미터 없음으로 `calculate_route()`를 한 번도 호출하지 않았다는 뜻.
+- `navRouteNavd`(경로 폴리라인, `carrot_man.py::navi_points_active`를
+  True로 만드는 유일한 트리거) 이벤트 **0건**(raw 스트림 기준).
+- 그럼에도 `xTurnInfo`/`xDistToTurn`/`activeCarrot`이 정상적으로 값을
+  갖고 변하는 이유: 이 필드들은 `navInstruction`이 아니라 완전히
+  별도의 JSON 피드(`carrot_serv.py::update_navi()` L1538-1541,
+  `nTBTDist`/`nTBTTurnType`/`nRoadLimitSpeed`/`nSdiType` 등 -- 목적지
+  설정과 무관하게 항상 동작하는 과속카메라/도로제한속도/회전 안내점
+  피드)에서 채워짐. `navi_points`(route 폴리라인)와는 물리적으로
+  다른 채널.
+- 대조군(route B)도 원본 rlog 기준 `navRouteNavd` 이벤트 0건이지만
+  `naviPointsActive`는 첫 프레임부터 True -- 이 1회성 이벤트가 "녹화
+  시작 전"에 이미 발생했고, 코드상 한 번 True가 되면 별도 리셋 조건
+  전까지 유지되는 구조(sticky flag)임을 확인. `managerState`의
+  `navd`/`carrot_man` pid가 두 route 각각 구간 내내 동일 -- 프로세스
+  재시작으로 이벤트를 놓친 것도 아님.
+
+**결론**: route A는 "route가 꺼진 버그"가 아니라 **목적지 기반 경로
+자체가 없어 route 커브감속 로직이 설계대로 개입하지 않은 정상 상태**.
+과속카메라/도로제한속도/회전 안내(src=cam/vturn/bump)는 목적지 유무와
+무관하게 정상 동작 중이었음(실제로 route A의 `src` 분포가 cam/vturn/
+bump 위주).
+
+**부가 발견(NEEDS_VALIDATION, 재현 미확인 이론적 위험)**: `navRouteNavd`
+는 route 최초 계산 완료 시 또는 UI 프로세스 재시작 감지 시에만
+1회성 재발행되는 구조(`navd.py` L82, L220)이며, **carrotMan(만) 단독
+재시작** 상황에 대한 재발행 트리거는 코드상 없음 -- 만약 목적지가
+이미 설정된 상태에서 carrotMan 프로세스만 재시작되면(navd는 그대로)
+`navi_points_active`가 영영 False로 고착될 이론적 여지가 있음. 이번
+두 route 로그 모두 이 상황(둘 다 각 구간 내 재시작 없음)이 아니라
+재현/실증되지는 않았음 -- 향후 실제 재현 로그 발견 시 이 항목을
+갱신할 것.
+
+**함께 확인한 route B(정상 온로드) 안전성 스윕**: `harsh_brake_events`/
+`turn_speed_violations`/`ttc_danger_events`(기존 toolkit, §21 재사용)
+전수 스캔 -- TTC 위험 0건, `cruiseEnabled=True` 상태 harsh_brake 2건은
+프레임 전개 대조 결과 둘 다 route가 아닌 route→vturn 전환 후 vturn
+단독 감속 구간에서 발생(route 관여 구간의 `aEgo`는 -1대의 완만한
+감속이었고 급감속(-3~-4)은 그 이후 vturn 단독 구간). 246차 CRITICAL/
+228차 정지 데드락 재현 없음(단 "route ACTIVE 중 완전정지" 조건 자체가
+이 로그에 없어 표본 부족, 검증 완료 아님). apex 후보 발견 22.9%, 실제
+ACTIVE 개입 6.7%, 최종 arbitration 승리 1.8% -- 258차(거리기반 게이트)
+설계 의도("대부분 INERT")가 실측으로 그대로 재현됨.
+
+**검증**: 정적 분석(`navd.py`/`carrot_man.py`/`carrot_serv.py` 코드
+추적) + 로그 검증(원본 rlog 이벤트 직접 파싱, CSV 2건 전수 스캔) +
+기존 toolkit 재사용. **실차 검증: 이번 세션이 곧 실차 로그 기반 사후
+검증**(258차/266차가 실주행에서 설계대로 동작함을 최초로 실증) --
+단 "route ACTIVE+완전정지"/246차급 원거리 고속 freeze 재현 조건은
+여전히 미확보.
+
+**관련**: 258차(거리기반 게이트 설계), 266차(confidence blend 실
+patch), 246차(원거리 freeze CRITICAL, 아직 이 실차 로그로는 미재현),
+182차(navi_points_active 드롭아웃 최초 계측 인프라).
+
+---
+
 ## 271차 -- [실측 재확인, POSITIVE] 177차 A_CHANGE_COST route_decel_rate 완화 게이트, 신규 독립 corpus(곡선 route→vturn 감속)에서도 실측 근접도 개선 확인
 
 **기존 결론(177차)**: 리드 없는 cruise 모드에서 route_decel_rate(v_cruise

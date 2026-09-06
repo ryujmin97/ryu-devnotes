@@ -1,3 +1,22 @@
+## c3-ms-dev (272차, 실차 dashcam 2건 실측 검증 -- route B 258/266차 설계의도 재현 확인, route A "route off" 원인 완전 규명)
+- last_analyzed_commit: `0c03f7d0e`(270차 2번, ryu -- 코드 변경 없음,
+  업로드된 실차 로그의 device build와 일치 확인).
+- devnotes base: `e2c1b77`(271차, 이 항목 추가 전)
+- date: 2026-09-06 (272차)
+- 분석 대상: 사용자 업로드 `dashcam_1788655064102.zip` -- route A
+  (`000003af--1732874496` seg1-5, 5996행)/route B(`000003b0--
+  794e227a32` 11세그, 13176행), `extract_log.py --with-navi-paths`로
+  CSV화 + 원본 rlog 이벤트 스트림(`navInstruction`/`navRouteNavd`/
+  `managerState`) 직접 파싱.
+- note: route B는 258차 거리기반 게이트/266차 confidence blend가
+  실측에서 설계 의도대로 동작함을 확인(apex 발견 22.9%, ACTIVE 개입
+  6.7%, 최종 승리 1.8%, TTC danger 0건, 246차/228차 재현 없음). route A
+  는 목적지 미설정으로 navd가 경로를 계산한 적이 없었던 정상 상태임을
+  raw rlog로 확정(navInstruction 1140/1140 invalid, navRouteNavd 0건).
+  상세: WIP.md/FINDINGS.md 272차.
+- next: "route ACTIVE+완전정지"/246차급 원거리 freeze 재현 조건 포함
+  실차 로그 확보(258차 게이트 최우선 잔여 검증 항목).
+
 ## c3-ms-dev (271차, A_CHANGE_COST 완화 게이트 실측 오픈루프 A/B + 269차 route 곡률 패치 실 corpus 검증)
 - last_analyzed_commit: `0c03f7d0e`(270차 2번=carrot.cc HUD 캐싱, ryu -- 코드 변경 없음, 분석/시뮬레이션만 수행)
 - devnotes base: `0164ced`(270차 계속, 이 항목 추가 전)

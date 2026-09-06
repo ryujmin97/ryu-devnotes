@@ -1,3 +1,161 @@
+## 272차 (완료 -- 사용자 재업로드 실차 dashcam으로 route 로직 실차 검증 + route A "route off" 현상 원인 완전 규명, ANALYSIS_ONLY) -- 최신 커밋(0c03f7d0e, 258/266차 반영 후) 실주행 2건 실측 검증
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu`(HEAD `0c03f7d0e`=270차 2번, 코드 변경 없음 --
+이번 세션은 실차 로그 분석만 수행) / `ryu-devnotes`(HEAD `e2c1b77`=271차,
+이 항목 추가 전)
+
+**Branch**: `c3-ms-dev` / `main`
+
+**Base commit**: `0c03f7d0e`(§3에 따라 재확인 -- 사용자가 업로드한
+dashcam 로그의 `meta.json` device build도 동일 commit(`dirty=False`)임을
+`extract_log.py` 실행 로그로 직접 확인, 드리프트 없음)
+
+**배경**: 사용자가 "최신 커밋 적용된 브랜치 주행 로그"(`dashcam_
+1788655064102.zip`)를 업로드, 실차 검증이 필요한 항목(258차 거리기반
+게이트, 266차 confidence blend 등) 검증 + "라우트가 거의 off 상태"인
+현상의 원인분석을 요청. 컨테이너가 세션 중간에 1회 리셋되어(§ 없음,
+신규 학습사항으로 아래 기록) 클론/추출을 재구성 후 이어감.
+
+**한 일**:
+1. 업로드 zip 압축 해제 -- 서로 다른 boot_id 2개, 총 17세그 확인:
+   - route A: `000003af--1732874496`(6세그, 09:05~09:11) -- 세그6은
+     rlog.zst 압축 프레임 손상(zstandard `ZstdError: error determining
+     content size from frame header`)으로 별도 격리, seg1-5(5996행)만
+     추출.
+   - route B: `000003b0--794e227a32`(11세그, 09:24~09:34, 13176행) --
+     정상 추출.
+   `extract_log.py --with-navi-paths`로 두 route 모두 CSV화, `--repo`
+   HEAD가 device build와 일치함을 meta.json/실행로그로 확인(§3 필수
+   체크).
+2. `toolkit/analysis_helpers.py`의 기존 스캔 함수(`harsh_brake_events`,
+   `turn_speed_violations`, `ttc_danger_events`) 재사용(§21, 신규 작성
+   없음)으로 두 route 전수 안전성 스윕.
+3. **route B(정상 온로드, naviPointsActive=100%) 실측 검증**:
+   - apex 후보 발견 22.9%(3012/13176), 그중 실제 ACTIVE 개입(`routeOutSpeed`
+     sentinel(150) 아님) 6.7%(201건), 최종 arbitration 승리(`src=='route'`)
+     1.8%(242행) -- 258차(거리기반 게이트) 이후 설계상 "대부분 INERT,
+     필요거리 이내로 좁혀질 때만 ACTIVE"가 그대로 실측 재현됨.
+   - "낙관적 게이트 통과 프레임"(streak 무시, `required_decel>=a_fixed`만
+     체크) 33건 중 실제 non-sentinel 출력은 17건 -- 266차 confidence
+     blend(streak 기반 억제)가 실측에서도 작동 중임을 간접 확인(나머지
+     16건은 streak 부족으로 blend가 억제).
+   - **246차 CRITICAL(원거리 freeze) 재현 없음, 228차 정지 데드락 재현
+     없음**(단, 이 로그엔 "route ACTIVE 상태에서 완전정지"하는 조건
+     자체가 없어 표본 부족 -- 검증 완료로 볼 수 없고 "이 로그에서는
+     미관측"으로만 기록).
+   - `cruiseEnabled=True` 상태에서 발생한 harsh_brake 2건을 프레임
+     단위로 전개 대조 -- 둘 다 route가 아닌 **route→vturn 전환 후
+     vturn 자체 감속 중 운전자 개입(cruiseEnabled False 전환) 직전
+     구간**으로, route 로직이 급제동을 유발한 사례 아님(route 관여
+     구간(`apex_dist=10~20m`)은 오히려 완만한 감속(`aEgo` -1대)이었고,
+     급감속(`aEgo` -3~-4)은 그 이후 vturn 단독 구간에서 발생).
+   - TTC 위험 이벤트: route A/B 모두 0건.
+4. **route A "route off" 현상 원인 규명(핵심 발견)**: `naviPointsActive`
+   /`navdActive`가 세그1~5 전 구간(5996행) 단 한 번도 True가 된 적
+   없음. 반면 `xTurnInfo`/`xDistToTurn`/`activeCarrot`은 정상적으로
+   값이 변하고 있어 처음엔 "TBT 채널은 살아있는데 route 폴리라인만
+   비어있는 신규 패턴"으로 가설. 코드 추적으로 완전히 규명:
+   - `carrot_man.py::navi_points_active`는 `self.sm.updated
+     ['navRouteNavd']`가 True인 프레임에서만 True로 전환되며(L613),
+     `navRouteNavd`는 `navd.py::send_route()`가 **route 최초 계산
+     완료 시 또는 UI 재시작 시에만 1회성으로 발행**(L220, L82) --
+     매 프레임 발행되는 상시 채널이 아님.
+   - `navInstruction`(TBT 텍스트/거리)은 `navd.py::send_instruction()`
+     에서 **매 프레임 무조건 발행**되나, `self.step_idx is None`(=
+     `self.route`가 없음)이면 `msg.valid=False`로 발행됨(L225-227) --
+     `carrot_serv.py::update_nav_instruction()`은 `sm.valid
+     ['navInstruction']`가 True일 때만 값을 갱신하므로, invalid
+     메시지는 애초에 `xTurnInfo` 갱신에 관여하지 않음.
+   - **원본 rlog 이벤트 스트림을 `decode_rlog.iter_events()`로 직접
+     파싱해 실측**: route A 전 구간에서 `navInstruction` 1140개 발행
+     전부 `valid=False`(0/1140), `navRouteNavd` 이벤트는 **0건**
+     (raw 스트림 기준, CSV 파생치 아님). 즉 `navd.py`의 `self.route`
+     객체 자체가 이 온로드 세션 내내 `None`이었음(=`recompute_route()`
+     에서 `NavDestination` 파라미터가 비어 있어 `calculate_route()`가
+     한 번도 호출되지 않음, L107-112) -- **navd가 경로를 계산한 적이
+     아예 없었다는 뜻**.
+   - 그렇다면 `xTurnInfo`/`activeCarrot`(2~5)/`xDistToTurn`에 찍힌
+     값은 어디서 왔는가 -- `carrot_serv.py::update_navi()`(L1500-1543)
+     확인 결과, 이 필드들은 `navInstruction`이 아니라 **완전히
+     별도의 JSON 피드**(`nTBTDist`/`nTBTTurnType`/`nRoadLimitSpeed`/
+     `nSdiType` 등, 소켓/파라미터로 수신되는 외부 앱 SDI(안전운전정보)
+     데이터)에서 채워짐(L1538-1541) -- 목적지 설정과 무관하게 계속
+     동작하는 과속카메라/도로제한속도/회전 안내점 피드로, `navi_points`
+     (경로 폴리라인)와는 완전히 다른 채널.
+   - **route B 대조 검증**: route B도 원본 rlog에서 `navRouteNavd`
+     이벤트가 0건이었으나(같은 방식으로 확인) `naviPointsActive`는
+     첫 프레임(t=1305.68)부터 이미 True -- 즉 해당 1회성 이벤트가
+     "이번 녹화 구간 시작 전"에 이미 발생해 있었고 이후 상태만
+     유지된 것(코드상 `navi_points_active`가 한 번 True가 되면 별도
+     리셋 조건 전까지 계속 유지됨을 확인). route A/B의 pid 확인
+     (`managerState`에서 `navd`/`carrot_man` pid가 각 route 전 구간
+     동일)으로 두 route 모두 그 구간 내에서 프로세스 재시작은 없었음도
+     확인 -- route A의 미발행은 "재시작으로 놓침"이 아니라 **애초에
+     이 세션에서 목적지가 설정된 적이 없었다**는 결론을 강화.
+   - **최종 결론**: route A의 "route off"는 버그가 아니라 **정상 동작**
+     -- 이 온로드 세션에서 내비게이션 목적지가 설정되지 않아 navd가
+     경로 자체를 계산하지 않았고, route 커브감속 로직은 설계상
+     목적지 기반 경로 없이는 개입할 수 없음(과속카메라/도로제한속도/
+     회전 안내(vturn/cam/road/bump)는 목적지 유무와 무관하게 정상
+     동작 중이었고, 실제로 route A의 `src` 분포도 cam/vturn/bump가
+     대부분을 차지함).
+
+**검증**:
+- 정적 분석: `navd.py`/`carrot_man.py`/`carrot_serv.py` 코드 직접
+  추적(신규 코드 변경 없음).
+- 로그 검증: 실측 corpus 2건(route A 5996행, route B 13176행) 전수
+  스캔(harsh_brake/turn_speed_violation/ttc_danger, 기존 toolkit
+  재사용) + 원본 rlog 이벤트 스트림 직접 파싱(`navInstruction`/
+  `navRouteNavd`/`managerState` pid)으로 CSV 파생치가 아닌 raw 근거
+  확보.
+- 시뮬레이션: 해당 없음(코드 변경 없는 실측 분석).
+- **실차 검증: 이번 세션 자체가 실차 로그 기반 사후검증** -- 258차
+  거리기반 게이트/266차 confidence blend가 실주행에서 설계 의도대로
+  동작함을 처음으로 실차 로그로 확인(이전까지는 246차 원본 로그
+  재생 검증뿐, 이번은 258차 이후 코드가 실제 디바이스에서 돌며 남긴
+  신규 실주행 로그). 단, "route ACTIVE 상태에서 완전정지"/"246차급
+  원거리 고속 freeze 시나리오"는 이 2개 route에 해당 조건 자체가
+  없어 표본 부족 -- 계속 확보 필요.
+
+**신규 학습사항**: 컨테이너가 세션 도중 1회 리셋되어 `/home/claude/work`
+전체가 소실됨(§3/§33 규정대로 재클론 시 두 저장소 HEAD가 리셋 전과
+동일함을 확인 후 재개, 드리프트 없었음). 대용량 dashcam zip 재추출
+포함 전체 재구성 필요했음 -- 세션이 매우 길어질 경우 중간 체크포인트
+가치가 큼(이번엔 devnotes 기록 전에 리셋되어 분석 결과 자체는 다행히
+대화 맥락에 남아있어 복구 가능했음).
+
+**미확인/미해결**:
+- "route ACTIVE 상태에서 완전정지" 및 246차급 원거리(400m+) 고속
+  freeze 재현 조건을 포함하는 실차 로그가 여전히 없음 -- 258차 게이트의
+  가장 중요한 실차 검증 항목이 아직 미완.
+- route A처럼 "목적지 미설정으로 navd route 없음" 상태 자체가 사용자
+  의도였는지(내비 앱만 켜고 목적지는 안 잡은 경우) 확인 필요 -- 만약
+  사용자가 목적지를 잡았다고 기억하는데 이 결과라면 navd/외부 앱
+  연동측 별도 문제 소지(이번 세션 범위 밖, 사용자 확인 필요).
+- `navRouteNavd`가 "1회성 발행 + 재시작시에만 재발행" 구조라는 점 자체는
+  이번에 발견한 기존 코드의 설계 특성(버그 아님, 이번 두 route 모두
+  이 특성 때문에 문제가 발생하지는 않음)이나, **향후 carrotMan만
+  단독 재시작되고 navd는 재시작되지 않는 상황이 발생하면 목적지가
+  이미 설정돼 있어도 navi_points_active가 영영 False로 고착될 수
+  있는 이론적 위험**은 이번 두 로그로는 재현되지 않았음(§28 원칙상
+  "재현조건 미확인 가설"로만 남김, FINDINGS.md에 NEEDS_VALIDATION으로
+  등록).
+
+**다음 작업**:
+1. 사용자에게 route A 세션에서 실제로 목적지를 설정했었는지 확인.
+2. "route ACTIVE + 완전정지" 조건을 포함하는 신규 실차 로그 확보(258차
+   게이트 최우선 잔여 검증 항목).
+3. 위 "carrotMan 단독 재시작 시 navRouteNavd 유실" 가설 -- 필요 시
+   재현 시나리오(합성 SubMaster 재시작 시뮬레이션) 설계 여부 사용자
+   확인.
+
+**패치**: 코드 패치 없음(ryu 무변경, 분석 전용) -- `ryu-devnotes`
+변경분(WIP.md/FINDINGS.md/LAST_ANALYZED.md) patch 파일로 전달.
+
+---
+
 ## 271차 (완료 -- A_CHANGE_COST 실측 오픈루프 A/B 완료, POSITIVE) -- 269차 다음 작업 3번(MPC A_CHANGE_COST 완화 로직 실측 검증) 착수, 신규 corpus로 177차 결론 실측 재확인
 
 **Worker**: Claude
