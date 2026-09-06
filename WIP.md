@@ -83,6 +83,100 @@ self-test 3종 포함), ryu 소스 코드는 전혀 건드리지 않음(사용�
    위 1~3 중 최소 1개 이상 완료 후 사용자 승인 받아 진행.**
 
 ---
+## 283차 (완료 -- 실차 로그 1차 통계 검증 완료, qcamera 육안 재확인/S커브 위치매칭은 미실시) -- 282차(ROUTE_RELEASE_HOLD_S=0.0) 실차 주행 로그 검증
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu`(HEAD `4d20122`=282차, fresh clone으로
+확인, 코드 변경 없음) / `ryu-devnotes`(HEAD `c44a64a`=282차, 이 항목
+추가 전)
+
+**Branch**: `c3-ms-dev` / `main`
+
+**배경**: 사용자가 282차 패치 반영 후 실차 주행 로그 4건(route
+`000003bd`/`be`/`bf`/`c0`, 2026-09-06 16:56~18:03, 총 80145행) 업로드.
+282차 WIP "다음 작업" 항목 (1) device build 확인, (2) S커브 반응성
+체감, (3) ENGAGE/RELEASE 진동 여부를 §29 절차대로 검증 착수.
+
+**세션 시작 확인(§3)**: `ryu-devnotes` HEAD `c44a64a`(282차 devnotes),
+`ryu` HEAD `4d20122`(282차, `ROUTE_RELEASE_HOLD_S=0.0` 확인). HANDOFF.md/
+CURRENT_STATUS.md 없음 -- 동시작업 없음 확인.
+
+**한 일**:
+1. `check_device_build.py`로 4개 route 전부 확인 -- **device
+   gitCommit=`7571e63`(280차), dirty=True**. 즉 282차 패치가 커밋 없이
+   워킹트리 변경 상태로 빌드된 것으로 추정됨(git am 정식 워크플로우
+   기준으로는 커밋이 생겨 `4d20122`가 나와야 함) -- **git 메타데이터
+   만으로는 "282차 코드가 실제로 실행 중"이라고 확정할 수 없음**(toolkit
+   주의사항 그대로 재확인된 사례). 4개 route 전부 동일 commit+dirty+
+   동일 빌드시각(16:45:52, 주행 시작 10분 전)이라 단일 boot 세션으로
+   판단됨.
+2. `extract_log.py --with-navi-paths --repo ryu`로 4개 route 개별 추출
+   (route1 22801행/route2 22799행/route3 23999행/route4 10546행). 4개
+   route의 `t`값이 route1->2 사이 60초 gap 외엔 전부 연속(route2 끝=
+   route3 시작=2475.6, route3 끝=route4 시작=3675.56)임을 확인 -- 동일
+   boot 내 route ID만 바뀐 연속 주행으로 판단, 4개를 이어붙여 단일
+   타임라인으로 분석.
+3. 신규 toolkit `verify_route_release_hold_283_real_log.py` 작성(목적/
+   방법/한계는 toolkit/README.md 283차 항목 참고) -- ACTIVE 프록시로
+   `routeApexIdx!=-1` 대신 `src=='route'`(실제 arbitration 승자)를 써야
+   하는 이유를 직접 비교로 확인(전자는 min() 산식의 프레임 단위 후보
+   재탐색 잡음까지 재-ACTIVE로 오검출, 동일 구간 기준 247개 "구간" vs
+   110개 실제 에피소드로 2배 이상 차이).
+
+**검증 결과**:
+- **(3) ENGAGE/RELEASE 진동**: gap<2.0s(구 hold값) 재-ACTIVE 11건 발견,
+  전부 저속(vEgo 9~11m/s) 교차로/근접 apex_dist(10~50m) 상황. 전이구간
+  aEgo range는 최대 1.79 m/s²로 일반 저속 회전 시 정상 변동 범위 --
+  뚜렷한 "재가속 후 급재감속" pump 패턴은 발견 안 됨(2건 후보는 양+음
+  스파이크가 동시 검출됐으나 둘 다 vEgo~10m/s 저속 교차로 상황이라 hold
+  변경과 무관한 정상 가감속일 가능성이 높음, **qcamera 육안 재확인은
+  미실시** -- 확정 아님).
+- 커브 접근 중 초 단위 미만으로 `src`가 route<->section/vturn/gas 사이를
+  반복 전환하는 패턴을 t=1165.8~1169.5(단일 커브 지속 접근 구간,
+  apex_dist 320m->0m 연속 감소)에서 직접 확인했으나, 이는 **기존에 이미
+  알려진 "min() arbitration에 히스테리시스 없음" 이슈**이고 desiredSpeed/
+  aEgo 자체는 이 구간 내내 매끄럽게 감소(급가속/급감속 반복 없음) --
+  ROUTE_RELEASE_HOLD_S 변경과는 별개 현상으로 판단(FINDINGS.md 기존
+  항목과 동일 성격, 신규 이슈 아님).
+- **(2) S커브 두 번째 커브 반응성**: 235차가 확정한 실제 S커브 위치를
+  이번 corpus에서 GPS/naviPaths 기반으로 재식별하는 작업을 하지 않아
+  **미검증**으로 남음(toolkit 한계 항목 참고).
+- **(1) device build**: 위 "한 일" 1번 참고 -- dirty=True로 인해 git
+  메타데이터만으로는 282차 코드 반영 여부 불확정. 이번 세션의 (3) 검증은
+  "실측 로그의 실제 거동"(gap<2.0s 재-ACTIVE가 실제로 다수 관찰됨)으로
+  간접적으로 hold=0.0(또는 매우 낮은 값)이 실제로 적용 중임을 뒷받침함
+  -- hold=2.0이 실제로 걸려 있었다면 gap<2.0s 재-ACTIVE 11건은 구조적으로
+  불가능했을 것.
+
+**산출물(원본 로그 CSV, §23 -- 대용량이라 git 커밋 안 함)**:
+`local_csv: C:\dev\devnotes\works\282cha_jilcha_route_logs_20260906\`
+(route1~4 CSV + meta.json + `active_runs.csv`/`episodes.csv`/
+`intervals.json`, 사용자 로컬 보관 확인됨). **다음 세션이 이 검증을
+이어가려면 원본 rlog 재추출 불필요 -- 사용자에게 위 폴더 zip 재업로드만
+요청하면 됨.**
+
+**미확인 사항**:
+- qcamera 육안 재확인(pump 후보 2건, t≈772.2/3179.6 부근).
+- S커브 위치 GPS 매칭 및 두 번째 커브 반응성 체감 비교.
+- device dirty=True의 정확한 원인(Termux 적용 절차가 git am 대신 다른
+  방식이었는지) -- 사용자 확인 필요(§33, "push 여부/작업자 불명확" 유사
+  케이스로 분류, production 코드 자체는 4d20122와 동일할 개연성이 높으나
+  git 이력만으로 단정 불가).
+
+**다음 작업**:
+1. 사용자가 pump 후보 2건(t≈772.2, t≈3179.6, 원본 route1/route3 CSV
+   기준 -- 정확한 seg/시각은 `active_runs.csv`/`episodes.csv` 참고)
+   구간 qcamera 영상 육안 확인.
+2. 235차 S커브 위치를 이번 corpus에서 재식별할 방법 결정(naviPaths
+   좌표 매칭 스크립트 신규 작성 필요할 수 있음, 사용자와 우선순위 협의).
+3. dirty=True 원인 확인 -- 다음 패치부터는 build 직전 `git status`로
+   워킹트리 클린 여부 사용자가 직접 확인 권장(§31 절차 보강 후보,
+   PROJECT_INSTRUCTIONS.md 변경은 §34 절차대로 사용자 승인 후 진행).
+4. `PARAMS_REGISTRY.md`의 `ROUTE_RELEASE_HOLD_S` 항목(282차에서 갱신
+   예정이었던 것)에 이번 283차 실측 결과 한 줄 추가.
+
+---
 ## 282차 (완료 -- 코드 수정+정적 검증(py_compile)+독립 검증(git apply --check + git am) 완료, 실차 검증 대기) -- ROUTE_RELEASE_HOLD_S 2.0->0.0 (사용자 확정 반영)
 
 **Worker**: Claude

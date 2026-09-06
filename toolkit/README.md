@@ -21,6 +21,51 @@ CHANGELOG.md를 같이 갱신**한다 (세션 종료 체크리스트에 포함�
 
 ---
 
+## verify_route_release_hold_283_real_log.py (283차 신규, 실차 로그 검증 -- 오프라인 통계, qcamera 육안 재확인 전)
+**목적**: 282차(`ROUTE_RELEASE_HOLD_S` 2.0->0.0) 반영 후 실차 로그로
+"RELEASE 직후 즉시 재-ACTIVE로 인한 가감속 반복(pump)" 발생 여부(253차
+우려 케이스, 282차 WIP "다음 작업" (b)) 검증. 281차 합성 시나리오의
+실측 대응.
+
+**방법**: `routeApexIdx!=-1`가 아니라 `src=='route'`(실제 arbitration
+승자)를 ACTIVE 프록시로 사용(전자는 min() 산식의 프레임 단위 후보 재탐색
+잡음까지 재-ACTIVE로 오검출 -- 283차에서 직접 비교 확인, 동일 구간에서
+`routeApexIdx` 기준 247개 "구간" vs `src=='route'` 기준 110개 에피소드로
+2배 이상 차이). gap<1.0s인 `src=='route'` run들을 하나의 에피소드로 병합,
+에피소드간 gap<`--hold-s`(기본 2.0)인 경우를 추출해 전이구간 aEgo
+min/max로 pump 후보를 표시(자동 판정 아님, qcamera 재확인 전제).
+
+**283차 결과(4개 route, 16:56~18:03 연속 주행, 80145행, device
+gitCommit=`7571e63`(280차)+dirty=True -- 282차 패치가 커밋 없이
+워킹트리 변경으로 빌드된 것으로 추정, git 메타데이터만으로는 282차 코드
+반영 확정 불가)**: gap<2.0s 재-ACTIVE 11건 전부 저속(9~11m/s)
+교차로/근접 apex_dist(10~50m) 상황, aEgo range 최대 1.79 m/s²로 정상
+변동 범위. pump 후보(양+음 스파이크 동시) 2건은 전부 저속 회전
+구간(vEgo~10m/s)이라 route hold와 무관한 정상 저속 가감속일 가능성이
+높으나 **qcamera 육안 재확인 미실시**. 커브 접근 중 나타나는 초 단위
+미만 src 전환(route<->section/vturn/gas)은 기존에 알려진 "min()
+arbitration에 히스테리시스 없음" 이슈이며 이번 hold값 변경과는 무관해
+보임(283차에서 별도 사례로 직접 추적 확인). 상세: WIP.md 283차.
+
+**한계**: `src=='route'` 프록시도 내부 `self.route_active`/
+`route_release_time` 상태와 100% 동일하지는 않음. 물리적으로 같은 위치
+(예: 235차가 확정한 실제 S커브)를 다른 주행에서 재식별하려면 GPS/
+naviPaths 매칭이 별도 필요 -- 이번 세션엔 하지 않음(과제 (a) "S커브 두
+번째 커브 반응성" 항목은 이번 corpus에서 해당 위치를 특정하지 못해
+미검증으로 남음). **qcamera 육안 재확인: 미실시.**
+
+**사용**: `python3 verify_route_release_hold_283_real_log.py route1.csv
+route2.csv ... [--merge-tol 1.0] [--hold-s 2.0]`
+
+**원본 CSV 위치(재추출 불필요, §23)**: 대용량이라 git에는 커밋하지 않음.
+사용자 로컬 `C:\dev\devnotes\works\282cha_jilcha_route_logs_20260906\`에
+`route1_a3b3373495.csv`~`route4_bf794c0073.csv`(+ 각 `.meta.json`) 및
+이번 세션 산출물(`active_runs.csv`/`episodes.csv`/`intervals.json`)
+보관됨. 다음 세션은 이 폴더 재업로드를 요청하면 되고, `extract_log.py`
+재실행(원본 rlog 재추출) 불필요.
+
+---
+
 ## sim_route_281_release_hold_ab.py (281차 신규, 체크포인트 -- 합성검증만, 실 corpus/실차 검증 전)
 **목적**: `ROUTE_RELEASE_HOLD_S=2.0`(223차 설계)이 266차 confidence blend
 도입 이후에도 필요한지 검증. `carrot_man.py` L858-865(hold 게이트)/
