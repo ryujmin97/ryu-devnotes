@@ -1,3 +1,84 @@
+## 287차 (완료 -- device Params 실측 확인 및 PARAMS_REGISTRY.md 갱신, ryu 코드 변경 없음) -- `params_backup-6.json` 확인: `AutoNaviSpeedCtrlEnd` 신규 등록(8초), `AutoNaviSpeedDecelRate` 실측(70) vs 등록값(100)/274차 기록값(90) 불일치 발견 및 사용자 확인
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu`(HEAD `4d20122`=282차, 변경 없음, fresh
+clone으로 드리프트 없음 확인) / `ryu-devnotes`(HEAD `0f22191`=286차, 이
+항목 추가 전)
+
+**Branch**: `c3-ms-dev` / `main`
+
+**세션 시작 확인(§3)**: `ryu-devnotes` HEAD `0f22191`(286차), `ryu` HEAD
+`4d20122`(282차, 변경 없음). HANDOFF.md/CURRENT_STATUS.md 없음, 동시작업
+없음 확인.
+
+**배경**: 사용자가 route1~4 실차 로그 zip(283~286차가 이미 분석 완료한
+바로 그 corpus, route `000003bd`/`be`/`bf`/`c0`, 2026-09-06 16:56~18:03)와
+`params_backup-6.json`을 함께 업로드. zip 4개는 파일명/route ID 대조 결과
+기존 corpus와 완전히 동일해 재분석 대상이 아님을 확인, 신규 자료는
+`params_backup-6.json` 하나로 판단하고 분석 범위를 이것으로 좁힘.
+
+**한 일**:
+1. `params_backup-6.json`을 PARAMS_REGISTRY.md 기존 등록값/WIP 변경기록과
+   대조. 특히 281차부터 계속 "미확인"으로 이월되던 `autoNaviSpeedCtrlEnd`
+   실제값과, `AutoNaviSpeedDecelRate`의 최신 등록값(100, 218차)/WIP
+   기록값(90, 274차 "사용자가 디바이스에서 직접 변경") 대비 실측치를 확인.
+2. 발견한 불일치를 사용자에게 보고(§33 -- GitHub/등록 상태와 실측이 다른
+   경우 임의 확정하지 않고 확인 절차)하고 응답 확인:
+   - `AutoNaviSpeedDecelRate` 실측 **70** -- 100도 90도 아님. 사용자 확인:
+     "주행당시 설정값인데 중간에 바꿨을수도 있음. 어째든 대세에 큰 영향을
+     주는건 아님".
+   - `AutoNaviSpeedCtrlEnd` 실측 **8**(초) -- 221차 이후 (a)/(b) 결정
+     미결로 PARAMS_REGISTRY.md에 등록 자체가 안 되어 있던 항목.
+3. PARAMS_REGISTRY.md 갱신(§26 형식, 기존 텍스트는 삭제하지 않고 뒤에
+   추가):
+   - `AutoNaviSpeedDecelRate` 행에 `[287차 갱신]` 블록 추가 -- 실측 70,
+     100/90/70 세 값 중 어느 것도 사용자 재확인 전까지 "현재값"으로
+     임의 확정하지 않음을 명시. 283~286차 route 분석은 이 값을 가정치로
+     쓰지 않는 방식(실제 `src` 승자 직접 관측)이라 재검증 불필요함도 기록.
+   - `AutoNaviSpeedCtrlEnd` 행 신규 등록 -- 실측 8, 소비 지점(route+카메라
+     공유, 221차 확인 근거 재인용), 222차(7.0 가정)/253차(2.2s 가정)
+     시뮬레이션이 이 실측치와 다른 가정값을 썼던 점을 주의사항으로 기록.
+
+**결론**:
+- 두 파라미터 모두 device Params 실측값을 devnotes에 처음으로 명문화.
+- `AutoNaviSpeedDecelRate`는 등록값/기록값/실측값 3중 불일치가 있었으나
+  사용자 판단(대세 영향 없음)에 따라 원인 규명(어느 시점에 왜 바뀌었는지)
+  작업은 진행하지 않고 상태만 정확히 기록.
+- `AutoNaviSpeedCtrlEnd`는 이번에 최초로 등록되어 향후 세션에서 더 이상
+  "미확인"으로 이월되지 않음.
+
+**검증**:
+- 정적 분석: 해당 없음(devnotes 문서 갱신만, ryu 코드/스크립트 변경 없음).
+- 로그 검증: 해당 없음.
+- 시뮬레이션: 해당 없음.
+- 실차 검증: 해당 없음(파라미터 실측값 확인 세션).
+
+**미확인 사항**:
+- `AutoNaviSpeedDecelRate`가 274차 기록(90)에서 실측 70으로 바뀐 정확한
+  시점/경위 -- 사용자가 "큰 영향 없음"으로 판단해 이번 세션에서는 추가
+  조사하지 않음, 필요 시에만 재확인.
+- `AutoNaviSpeedCtrlEnd`가 221차 (a)/(b) 미결 상태에서 실측 8로 어떻게
+  정해졌는지 경위 -- 마찬가지로 이번 세션 범위 밖.
+- 222차/253차 등 과거 시뮬레이션이 쓴 `AutoNaviSpeedCtrlEnd` 가정값(7.0/
+  2.2s)이 실측(8)과 다른 데서 오는 결론 재검토 필요 여부 -- 사용자 판단상
+  우선순위 낮음, 보류.
+- device dirty=True 원인(283차부터 계속 미확인) -- 이번 세션과 무관,
+  여전히 미해결.
+
+**다음 작업**:
+1. 사용자가 원하면 `AutoNaviSpeedDecelRate`/`AutoNaviSpeedCtrlEnd` 변경
+   이력을 추가로 캐물을 수 있으나, 현재는 보류 상태.
+2. 235차 원본 S커브 corpus 재업로드 시 정확한 위치 재검증(284/286차부터
+   이월).
+3. route_frac=0 대다수 후보(교차로 좌우회전) 별도 스캔 필요 여부(286차
+   이월, 보류 중).
+
+**패치**: `0001-287cha-params-registry-decelrate-ctrlend.patch`
+(ryu-devnotes, `PARAMS_REGISTRY.md` 단일 파일) + 이 WIP.md 항목.
+
+---
+
 ## 286차 (완료 -- 235차 원 S커브 corpus 미보관 상태에서 대체 S커브 위치 탐색+qcamera 확인+반응성 점검, ryu 코드 변경 없음) -- 신규 toolkit `scan_consecutive_curve_pairs.py`로 route1~4에서 S커브 유사 패턴 2건 발견/검증
 
 **Worker**: Claude
