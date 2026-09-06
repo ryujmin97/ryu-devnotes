@@ -21,6 +21,36 @@ CHANGELOG.md를 같이 갱신**한다 (세션 종료 체크리스트에 포함�
 
 ---
 
+## sim_route_292_continuity_root_cause.py (292차 신규, 289차 'continuity' 재분류 세부원인 분석)
+**목적**: 289차 what-if가 "연장 30건 중 28건은 margin이 아니라 continuity
+소실"로 뭉뚱그린 것을, production `_route_cluster_continuity_step()`의
+실제 4가지 분기(matched/held/passed/lost)에 맞춰 세분화한다. 289차가
+"raw apex_speed 6프레임 연속 0"만으로 판정한 데 비해, 이 스크립트는
+raw 값이 끊기기 직전 마지막 유효 프레임에서 `predicted =
+last_valid_dist - vEgo*elapsed`를 역산해 **"passed"(apex를 이미 물리적
+통과, 정상 완료 -- continuity 결함 아님)** / **"dist_reached_during_hold"**
+(정상) / **"lost_with_candidates_present"**(요주의 -- 클러스터링/매칭
+버그 의심) / **"lost_no_candidate"**(진짜 소실 -- qcamera 대조 필요)로
+구분한다. `select_qcamera_candidates()`로 qcamera 육안 대조 우선순위
+상위 N건을 자동 추출(lost_with_candidates_present 우선, 그 안에서는
+"소실 시점에 아직 멀리 있던" 순).
+
+**입력**: `sim_route_289_margin_ab_real_log.py`의
+`*_per_episode.csv` 출력 + 원본 route CSV(들).
+
+**self-test**: `--self-test` 플래그로 4가지 합성 시나리오(passed/
+lost_no_candidate/lost_with_candidates_present/dist_reached_during_hold)
+로직단위 검증 4/4 PASS(실 corpus 없이도 분류 함수 자체의 정확성 확인).
+**실 corpus 재실행: 미실시**(292차 세션 시점에 route1~4 CSV가 컨테이너
+리셋으로 소실 + Google Drive 커넥터 미연결 -- 재업로드 대기, WIP.md
+292차 참고).
+
+**사용**: `python3 sim_route_292_continuity_root_cause.py
+sim289_margin_per_episode.csv route1.csv ... [--dt 0.05] [--dist-m 10.0]
+[--top-n 8]`
+
+---
+
 ## analyze_route_vturn_gap_291.py (291차 신규, route<vturn 승리 gap 정량화)
 **목적**: 사용자 질문("route가 vturn보다 작아서 이긴 경우 분석 + route를
 vturn과 비슷하게 만들 파라미터")에 답하기 위해, `src=='route'` 프레임의

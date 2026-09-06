@@ -1,3 +1,88 @@
+## 292차 -- [ANALYSIS_ONLY, corpus 재확보 대기 -- 코드 변경 없음] 289차 "continuity 소실 28/30" 재분류 -- production 6-state 대조 결과 최소 4가지 서로 다른 메커니즘이 하나로 뭉뚱그려져 있었음을 코드 레벨로 확인, 실측 재실행은 corpus 부재로 미실시
+
+**질문(사용자)**: "미확인 사항(289차): 지속시간 연장 30건 중 28건이
+margin 완화가 아니라 apex candidate continuity 소실 재분류로 [발생한
+것]. 이 부분 집중 분석해줘. 필요시 qcamera 대조 포함."
+
+**분석 대상**: production `carrot_man.py` HEAD `d2f47d1`(290차 반영)의
+`_route_cluster_continuity_step()`(735~808행) + 호출부
+`carrot_navi_route()`(1174~1220행 부근) 코드 직접 대조. **실측 route
+CSV corpus는 이번 세션에서 사용 불가**(§23 정책상 CSV 미커밋 + 컨테이너
+리셋으로 work/ 소실 + Google Drive 커넥터 미연결) -- 코드 레벨 분석만
+수행, 프레임 단위 재실행은 corpus 재업로드 후로 이월.
+
+**핵심 발견(코드 대조로 확인, 데이터 재실행 없이도 확정 가능한 부분)**:
+
+289차 `sim_route_289_margin_ab_real_log.py::simulate_new_release()`는
+"raw `routeApexSpeed`가 `ROUTE_APEX_MISS_TOLERANCE_FRAMES`(6)프레임
+넘게 연속으로 0/NaN"이라는 단일 규칙만으로 `apex_lost_or_new(continuity)`를
+판정했다. 그러나 production `_route_cluster_continuity_step()`을 그대로
+읽으면 이 라벨 하나 안에 의미가 완전히 다른 최소 4가지 경로가 섞여
+있다:
+
+1. **"passed"** (781~784행): `predicted_dist = locked_dist - vEgo*dt
+   <= 0`이면 miss_frames 카운트와 무관하게 그 프레임에 즉시 lock 해제.
+   재탐색 후보가 없으면(apex_speed=None) 1177~1193행에서 margin/dist
+   조건과 완전히 무관하게 그 프레임에 바로 route_active=False. **이건
+   버그가 아니라 "커브를 이미 물리적으로 다 지나갔다"는 정상 완료
+   이벤트다.**
+2. **"lost" + 같은 프레임에 새 후보(cluster) 발견**(798~805행):
+   miss_frames 초과로 lock은 풀리지만 즉시 새 apex로 재탐색 성공 --
+   **사실상 새 에피소드가 매끄럽게 이어지는 것과 다르지 않음**, "소실"
+   이라기보다 "전환".
+3. **"lost" + 후보 없음**(807~808행, apex_speed=None): 이것만이 289차가
+   원래 의도한 "진짜 continuity 소실"에 해당 -- qcamera 대조가 실제로
+   의미 있는 유일한 케이스.
+4. **"held" 프레임도 raw 값이 0이 아니다**: `_route_apex_dist`는 held
+   중에도 predicted(=감쇠된 예측값)로 매 프레임 갱신돼 CSV에 로깅된다
+   (1196~1198행) -- 즉 held 자체는 289차 로직이 올바르게 "유효"로 잡아
+   낸다. 문제는 raw 값이 **정확히 0/None으로 찍히는 그 경계 프레임**을
+   전부 "continuity"로 뭉뚱그리면서 1(정상 완료)과 3(진짜 소실)을
+   구분하지 못한다는 것.
+
+**영향 평가(추정, 실측 미검증)**: `ROUTE_RELEASE_DIST_M`=10.0m가 이미
+매우 작은 임계값이므로, "continuity"로 분류되는 시점 대부분은 apex_dist가
+꽤 좁혀진(차량이 커브에 근접한) 상태일 가능성이 높고, 이는 경로 2(passed)
+쪽 비중이 결코 작지 않을 수 있음을 시사한다 -- 즉 289차의 "28/30건이
+continuity 소실"이라는 수치 자체가, 실제로는 상당 부분 "정상적으로 커브를
+다 지나가서 끝난 것"(2/1 항목)과 "진짜 추적 실패"(3항목)를 구분하지 못한
+채 합산된 결과일 가능성이 있다. **단, 이는 코드 구조로부터의 추론이며
+실제 비율은 실측 데이터 없이는 확정할 수 없다(§28 -- 추측만으로 원인
+확정 금지, 정직하게 가설 단계로 명시).**
+
+**신규 도구**: `toolkit/sim_route_292_continuity_root_cause.py` --
+289차 결과(`*_per_episode.csv`)의 continuity 에피소드마다, raw 값이
+끊기기 직전 마지막 유효 프레임에서 predicted 거리를 역산해 위 4가지
+경로 중 어디인지 재분류. `routeCandidateCount`(234차부터 CSV 존재)로
+2(정상 전환)와 3(진짜 소실)을 추가 구분. `--self-test`로 4가지 합성
+시나리오(passed/lost_no_candidate/lost_with_candidates_present/
+dist_reached_during_hold) 로직단위 검증 **4/4 PASS** -- 분류 함수
+자체의 정확성은 확인됨. **실 corpus 재실행: 미실시**(corpus 부재).
+
+qcamera 대조 대상 선정 함수(`select_qcamera_candidates()`)도 함께
+작성 -- `lost_with_candidates_present`(클러스터링/매칭 버그 의심, 후보가
+분명 있었는데 이어지지 못함)를 `lost_no_candidate`보다 우선하고, 그 안에서
+"소실 시점에 아직 멀리 있던"(비정상성이 클) 순으로 정렬해 상위 N건을
+qcamera 프레임 추출 후보로 제시하도록 설계.
+
+**결론/판정**: NEEDS_CORPUS(코드 레벨 분석 완료, 실측 재실행 및 qcamera
+대조는 corpus 재확보 필요). 289차의 "28/30건 continuity" 수치는
+**과대추정일 가능성이 있으나 확정 불가** -- 정확한 비율은
+`sim_route_292_continuity_root_cause.py`를 실 corpus로 재실행해야 나온다.
+사용자가 route1~4 CSV(가능하면 원본 zip -- qcamera.ts 포함)를 재업로드하면
+다음 세션(또는 이어서)에서 바로 실행 가능.
+
+**qcamera 대조 계획(corpus 확보 시)**: `sim_route_292_...`의
+`*_qcamera_candidates.csv` 출력에서 상위 `lost_with_candidates_present`
+에피소드 몇 건을 골라 `extract_dashcam_frames.py`로 cutoff_t 전후 프레임을
+추출, 육안으로 (a) 실제 커브가 그 시점에 시야에서 사라졌는지(가려짐/
+직선구간 진입 등 정상), (b) 커브는 계속 보이는데 candidate가 다른
+커브로 잘못 전환됐는지(클러스터링 tolerance 문제), (c) GPS/맵 데이터
+자체의 공백인지 구분한다.
+
+**실차 검증**: 미실시(코드 대조 + 합성 self-test만, 실측 데이터 재실행
+자체가 아직 없음).
+
 ## 291차 -- [ANALYSIS_ONLY -- 코드/파라미터 변경 없음] "route가 vturn보다 작아 이긴 경우" gap 정량화 -- 대부분 vturn 미인지 구간(설계대로), 근접구간(<=30m) 817건은 원인 미규명
 
 **질문(사용자)**: "라우트가 vturn 보다 값이 작아 이긴경우를 분석하고,

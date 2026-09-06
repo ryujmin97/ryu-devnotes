@@ -3,6 +3,16 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+## 2026-09-06 (292차)
+- `sim_route_292_continuity_root_cause.py`: **신규**. 289차가
+  `apex_lost_or_new(continuity)`로 뭉뚱그린 원인을 production
+  `_route_cluster_continuity_step()`의 실제 분기(passed/lost+재탐색/
+  lost+후보없음/held)에 맞춰 4-way 세분화. predicted kinematic distance
+  역산 + `routeCandidateCount` 대조로 "정상 완료(passed)" vs "진짜 소실
+  (qcamera 대조 필요)"을 구분. self-test 4/4 PASS(합성 시나리오만,
+  실 corpus 재실행은 corpus 재확보 후 예정). 상세: WIP.md/FINDINGS.md
+  292차.
+
 ## 2026-09-06 (291차)
 - `analyze_route_vturn_gap_291.py`: **신규**. `src=='route'` 프레임의
   route/vturn 후보 gap 정량화 + `--vturn-active-thresh`로 "vturn 미인지

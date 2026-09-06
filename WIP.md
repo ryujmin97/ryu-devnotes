@@ -1,3 +1,67 @@
+## 292차 (완료 -- ANALYSIS_ONLY/NEEDS_CORPUS, ryu 코드 변경 없음) -- 289차 "continuity 소실 28/30" 재분류 -- production 6-state 코드대조로 4가지 서로 다른 메커니즘 확인, 실측 재실행은 corpus 재확보 대기
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu`(HEAD `d2f47d1`=290차, 변경 없음) /
+`ryu-devnotes`(HEAD `47b8531`=291차, 이 항목 추가 전)
+
+**Branch**: `c3-ms-dev` / `main`
+
+**세션 시작 확인(§3)**: fresh clone 양쪽 모두. `ryu-devnotes` main이
+제가 마지막으로 확인한 290차(`eda924a`) 이후 **291차**(`47b8531`,
+route<vturn gap 정량화, ANALYSIS_ONLY, 코드 변경 없음)까지 이미
+진행되어 있음을 확인 -- 다른 작업자(계정)가 그 사이 push. 주제 무관/
+코드 변경 없어 이번 작업과 충돌 없음(§8) 확인 후 292차로 이어서 진행.
+
+**질문(사용자)**: "미확인 사항(289차): 지속시간 연장 30건 중 28건이
+margin 완화가 아니라 apex candidate continuity 소실 재분류로. 이 부분
+집중 분석해줘. 필요시 qcamera 대조 포함."
+
+**한 일**:
+1. production `carrot_man.py::_route_cluster_continuity_step()` 및
+   호출부(`carrot_navi_route()`)를 직접 재독해 289차 시뮬레이션이
+   단일 라벨(`apex_lost_or_new(continuity)`)로 뭉뚱그린 것이 실제로는
+   4가지 서로 다른 코드 경로(passed/lost+재탐색/lost+후보없음/held)임을
+   확인 -- 상세 근거는 FINDINGS.md 292차.
+2. **corpus 가용성 확인**: route1~4 CSV(288/289차가 쓰던 것)가 이번
+   세션 컨테이너에 없음을 확인 -- §23 정책상 CSV 미커밋 + 컨테이너
+   리셋으로 work/ 소실 + Google Drive 커넥터 이번 세션 미연결.
+   `/mnt/user-data/uploads`도 비어 있음(직접 확인). **실측 재실행
+   불가** -- 코드 레벨 분석 + self-test까지만 이번 세션에서 수행.
+3. 신규 toolkit `sim_route_292_continuity_root_cause.py` 작성 -- 289차
+   `*_per_episode.csv`의 continuity 에피소드마다 predicted kinematic
+   거리 역산 + `routeCandidateCount` 대조로 passed/dist_reached_during_hold
+   (정상 2종)와 lost_with_candidates_present/lost_no_candidate(요주의/
+   진짜소실 2종)를 구분. qcamera 대조 우선순위 선정 함수도 포함.
+4. `--self-test`로 4가지 합성 시나리오(각 경로 1개씩) 로직단위 검증
+   **4/4 PASS**.
+5. `py_compile`/`ast.parse` 정적 검증 통과.
+6. `toolkit/README.md`/`toolkit/CHANGELOG.md` 갱신(§22).
+
+**검증**:
+- 정적 분석: 완료(py_compile/ast.parse)
+- 로그 검증: **불가**(corpus 부재)
+- 시뮬레이션: self-test(합성 시나리오) 4/4 PASS만 완료, 실 corpus
+  재실행 미실시
+- 실차 검증: 미실시(해당 없음, 분석 도구 세션)
+
+**미확인 사항**: 289차 "28/30건 continuity" 수치 중 실제로 몇 건이
+passed(정상)이고 몇 건이 진짜 lost인지는 이번 세션에서 확정하지
+못함 -- corpus 재확보 후 `sim_route_292_continuity_root_cause.py` 실행
+필요. qcamera 대조도 corpus(가능하면 원본 zip, qcamera.ts 포함) 확보
+후에나 가능.
+
+**다음 작업**:
+- 사용자가 route1~4 CSV(또는 원본 zip, qcamera.ts 포함) 재업로드 시:
+  1. `sim_route_292_continuity_root_cause.py` 실행 -> 4-way 분류 실측
+     확정
+  2. `lost_with_candidates_present`/`lost_no_candidate` 상위 후보를
+     `extract_dashcam_frames.py`로 qcamera 프레임 추출 -> 육안 대조
+  3. 결과에 따라 289차 FINDINGS 결론 갱신(§24 -- 기존 결론 삭제 없이
+     새 증거로 보강)
+- 289차 옵션(b)(apex candidate continuity 안정성 개선)와 연결 가능성
+  높음 -- 이번 292차 결과가 그 트랙의 구체적 착수 근거가 될 수 있음.
+
 ## 291차 (완료 -- ANALYSIS_ONLY, ryu 코드/파라미터 변경 없음) -- "route가 vturn보다 값이 작아 이긴 경우" 정량화 + route를 vturn과 비슷하게 만들 파라미터 후보 검토
 
 **Worker**: Claude
