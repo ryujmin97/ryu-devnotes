@@ -1,3 +1,63 @@
+## 293차 -- [ANALYSIS_ONLY, 코드 변경 없음] 292차 continuity 재분류 39건을 실 corpus로 첫 실행 -- `lost_no_candidate` 36건 확정, qcamera 우선순위 상위 8건 육안 대조 완료, 터널 가설은 지표상 근거 부족으로 확인 불가
+
+**배경**: 292차가 corpus 부재로 self-test까지만 마쳤던
+`sim_route_292_continuity_root_cause.py`를, 사용자가 route1~4 zip을
+재업로드하면서 실 corpus(80145행)로 처음 실행.
+
+**핵심 발견**:
+
+1. **4-way 분류 실측 결과** (289차가 `apex_lost_or_new(continuity)`
+   하나로 뭉뚱그린 39건 = 원 11건 + margin=1.05 재분류 28건, 292차
+   예상 그대로):
+   - `lost_no_candidate`(진짜 소실): 36건 -- 압도적 다수
+   - `lost_with_candidates_present`(요주의, 클러스터링 의심): 1건
+   - `dist_reached_during_hold`(정상): 1건
+   - `UNRESOLVED`: 1건
+
+   292차가 우려했던 "continuity 소실 대부분이 실제로는 정상 종료였을
+   수 있다"는 가능성은 **이번 실측으로 기각**됨 -- 정상(`passed`/
+   `dist_reached_during_hold`)은 사실상 없고 거의 전부가 실제 소실.
+
+2. **qcamera 육안 대조(우선순위 상위 8건, `lost_no_candidate` 7건 +
+   `lost_with_candidates_present` 1건)**:
+   - route1 ep9(t=534.5)/ep10(t=538.0): **터널 구간**.
+   - route1 ep12~15(t=576~583): 개활 산간 고속도로, 화면상 뚜렷한
+     급커브 확인 안 됨 -- map 곡률 데이터의 노이즈이거나 실제로는
+     완만해 vturn 기준으로는 커브가 아닌 구간일 가능성.
+   - route1 ep46(t=1169.5): 개활 고속도로, 완만한 좌커브.
+   - route4 ep108(t=4017.4, `lost_with_candidates_present` 최우선):
+     주택가 좁은 도로, 교차로/속도표지판 인접 -- "후보는 있었는데
+     매칭 실패"라는 sub_cause와 맥락상 부합(밀집한 후보 중 클러스터링
+     혼선 가능성), 다만 코드 레벨 확인 전이라 가설 단계.
+
+3. **터널 가설(ep9/ep10) 검증 -- 확인 불가**: 화면상 터널이 명백함에도
+   `positionDtSinceFix`/`dtNaviPacketAge`/`naviPointsActive`/
+   `vpPosPointLatNavi,LonNavi` 프레임간 jump 4개 지표 모두 ep9/ep10과
+   ep12~15/ep46(개활지) 사이에 구분되는 차이가 없었음 -- 패킷 갱신
+   주기·activity 플래그·위치 보간폭 전부 정상 범위, 두 그룹이 통계적으로
+   구별 안 됨. 이 빌드 `extract_log.py`에 `horizontalAccuracy` 컬럼이
+   없어 GPS 정확도 자체는 직접 볼 수 없었음 -- "터널에서 실제로
+   열화가 없었다"와 "열화가 있었지만 이 지표들로는 안 보인다"를
+   구분할 방법이 이번 세션 데이터로는 없음. **결론: 터널 가설은
+   증거 불충분으로 확인도 기각도 하지 않음(§28)**, ep9/ep10은
+   잠정적으로 ep12~15/ep46과 같은 "원인 미규명 실제 소실" 버킷으로
+   유지.
+
+**결론(현재까지)**: 289차가 "margin 완화 부작용"으로 우려했던 continuity
+소실은 실측 결과 대부분(36/39) 진짜 소실이며 정상 종료가 섞인 비율은
+매우 낮음(1/39). 다만 그 36건의 근본 원인(맵 곡률 데이터 노이즈 vs
+route 후보 재계산/클러스터링 로직 결함)은 qcamera 육안 대조만으로는
+아직 규명되지 않음 -- ep108 1건만 클러스터링 결함 쪽 정황이 있고, 나머지
+(터널 포함)는 화면상 특이점이 없거나 원인 후보를 좁히지 못함.
+
+**다음 필요 작업**: (a) 나머지 28건(우선순위 대상 외) 중 추가 표본
+qcamera 대조, (b) `horizontalAccuracy` 컬럼을 `extract_log.py`에 추가해
+터널 가설 재검증(§22 절차 필요), (c) ep108을 `_route_cluster_continuity_step()`
+클러스터링 로직 코드 레벨로 직접 추적. 코드/파라미터 변경은 미착수
+(§27/§28).
+
+---
+
 ## 292차 -- [ANALYSIS_ONLY, corpus 재확보 대기 -- 코드 변경 없음] 289차 "continuity 소실 28/30" 재분류 -- production 6-state 대조 결과 최소 4가지 서로 다른 메커니즘이 하나로 뭉뚱그려져 있었음을 코드 레벨로 확인, 실측 재실행은 corpus 부재로 미실시
 
 **질문(사용자)**: "미확인 사항(289차): 지속시간 연장 30건 중 28건이

@@ -1,3 +1,106 @@
+## 293차 (완료 -- ANALYSIS_ONLY, ryu 코드 변경 없음) -- 292차 corpus 재업로드로 `sim_route_292_continuity_root_cause.py` 첫 실측 실행 + qcamera 8건 육안 대조 완료, 터널 가설은 증거 불충분으로 기각 보류
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu`(HEAD `d2f47d1`=290차, 변경 없음, fresh clone
+드리프트 없음 확인) / `ryu-devnotes`(HEAD `ab95c75`=292차, 이 항목 추가 전)
+
+**Branch**: `c3-ms-dev` / `main`
+
+**세션 시작 확인(§3)**: 양쪽 fresh clone. HANDOFF.md/CURRENT_STATUS.md
+없음. `ryu-devnotes` HEAD가 제가 이전에 확인한 292차(`ab95c75`)와 동일 --
+다른 작업자 push 없음, 드리프트 없음 확인.
+
+**배경**: 292차가 대기하던 corpus(route1~4, route ID
+`000003bd`/`be`/`bf`/`c0`, 2026-09-06 16:56~18:03)가 재업로드됨. 세션
+도중 컨테이너가 한 차례 리셋되어(§16 관련 -- work/ 결과물 전량 소실)
+전반부 결과를 그대로 재현해야 했음 -- 아래 "한 일" 1~4번은 리셋 전과
+동일한 절차/결과를 재확인한 것.
+
+**한 일**:
+1. route1~4 재추출(`extract_log.py --with-navi-paths`, ryu HEAD
+   `d2f47d1` 그대로) -- 22801+22799+23999+10546=80145행, route
+   ID·행수 모두 283차 이후 corpus와 일치 확인(리셋 전/후 두 차례 모두
+   동일 결과 재현).
+2. `sim_route_289_margin_ab_real_log.py --new-ratio 1.05` 재실행 --
+   51/27/21/11, 연장 30건, flicker train 4→1건. 289차/292차 기록과
+   정확히 일치 -- `sim289_margin_per_episode.csv` 확보.
+3. **`sim_route_292_continuity_root_cause.py`를 실 corpus로 첫 실행**
+   (292차 세션은 corpus 부재로 self-test만 가능했음). 289차가
+   `apex_lost_or_new(continuity)`로 뭉뚱그린 39건(=289차 원 11건 +
+   margin=1.05 재분류 28건, 292차 예상과 정확히 일치)을 4-way로 세분화:
+   - `lost_no_candidate`(진짜 소실 -- qcamera 대조 권장): **36건**
+   - `UNRESOLVED`(분류 실패): 1건
+   - `dist_reached_during_hold`(정상): 1건
+   - `lost_with_candidates_present`(요주의 -- 클러스터링/tolerance
+     의심): 1건
+4. `select_qcamera_candidates()`가 뽑은 우선순위 상위 8건(ep=108,9,10,
+   12,13,14,15,46)의 정확한 seg/frame 위치를 `t`↔`seg` 대조로 특정 후
+   `extract_dashcam_frames.py`로 실제 qcamera 프레임 추출(전후
+   context=2, 총 45장) + 육안 대조 완료:
+   - **ep9/ep10**(route1, t=534.5/538.0, `lost_no_candidate`): 화면상
+     **터널 구간**으로 확인. "터널에서 GPS/navi 위치 신뢰도가 떨어져
+     candidate가 끊긴다"는 가설을 세움.
+   - ep12~15(route1, t=576~583, `lost_no_candidate`): 개활 산간
+     고속도로, 화면상 뚜렷한 급커브 확인 안 됨.
+   - ep46(route1, t=1169.5, `lost_no_candidate`): 개활 고속도로, 완만한
+     좌커브 확인.
+   - **ep108**(route4, t=4017.4, `lost_with_candidates_present`,
+     우선순위 1위): 주택가 좁은 도로, 교차로/속도표지판 인접 --
+     클러스터링 혼선 가설과 부합하는 정황(후보가 여럿 있는데 매칭
+     실패).
+5. **터널 가설 검증 시도**: ep9/ep10(터널) vs ep12~15/ep46(개활지)
+   구간에서 `positionDtSinceFix`/`dtNaviPacketAge`/`naviPointsActive`/
+   `vpPosPointLatNavi`,`LonNavi` 프레임간 jump량을 대조. **결과:
+   네 지표 모두 두 그룹 사이에 구분되는 차이가 전혀 없음** --
+   `dtNaviPacketAge`는 두 구간 모두 규칙적으로 0→~1.1s 사이를 반복
+   (패킷 갱신 주기 정상), `naviPointsActive`는 전 구간 `True` 유지,
+   lat/lon 프레임간 jump도 두 그룹 모두 거의 0(패킷 갱신 시점에만
+   ~0.0001도 수준의 정상 보간값). 이 빌드의 `extract_log.py`에는
+   `horizontalAccuracy` 컬럼이 없음(코드로 직접 확인 -- 과거 WIP에
+   해당 컬럼 추가 작업 기록이 있으나 현재 HEAD에는 반영 안 되어 있음)
+   -- GPS 위치 정확도 자체를 직접 볼 수단이 이번 세션에는 없었음.
+
+**결론(터널 가설)**: **확인 불가(NOT CONFIRMED, NOT REJECTED)**.
+화면상 터널인 것은 명백하나, 현재 사용 가능한 지표로는 GPS/navi
+데이터 열화의 흔적을 전혀 찾지 못했음 -- (a) 이 정도 길이/형태의
+터널에서는 실제로 열화가 없었을 수도 있고, (b) 있었다 해도 이 4개
+지표가 그것을 반영하지 못하는 것일 수도 있음(둘을 구분할 방법이 이번
+세션 데이터로는 없음). §28 원칙에 따라 추측으로 결론 내리지 않음 --
+ep9/ep10을 별도 분류하지 않고 잠정적으로 ep12~15/ep46과 동일한
+"원인 미규명 실제 소실" 버킷으로 둠.
+
+**검증**:
+- 정적 분석: 완료(py_compile 불필요, 기존 스크립트 재사용)
+- 로그 검증: 완료(실 corpus 80145행 전체 처리, 8건 프레임 단위 직접 대조)
+- 시뮬레이션: 완료(289/292차 파이프라인 실 corpus 재실행, 이전 예상과
+  정확히 일치)
+- 실차 검증: 해당 없음(분석 세션, 코드/파라미터 변경 없음)
+
+**미확인 사항**:
+- `lost_no_candidate` 36건 중 나머지(qcamera 대조하지 않은 28건)의
+  원인 -- 이번 세션은 우선순위 상위 8건만 육안 대조
+- 터널 구간 GPS/navi 열화 여부 자체(위 참고, 현재 지표로는 판단 불가 --
+  `horizontalAccuracy` 컬럼 추가 후 재검증 필요할 수 있음)
+- ep12~15/ep46(개활지, 뚜렷한 급커브 없음)에서 candidate가 사라진
+  근본 메커니즘 -- map 곡률 데이터 자체의 노이즈인지, route 후보
+  재계산/클러스터링 로직의 실제 버그인지 qcamera만으로는 결론 불가
+- `UNRESOLVED` 1건의 원인(스크립트가 명확한 cutoff를 못 찾은 경우)
+- `dist_reached_during_hold`/`lost_with_candidates_present` 각 1건은
+  표본이 너무 적어 일반화 불가
+
+**다음 작업**:
+- 사용자 결정 대기: (a) 나머지 28건 중 추가 표본 qcamera 대조 진행할지,
+  (b) `horizontalAccuracy` 컬럼을 `extract_log.py`에 추가해 터널 가설을
+  다시 검증할지(§22 -- 신규 toolkit 변경이므로 README/CHANGELOG 동반
+  갱신 필요), (c) ep108(`lost_with_candidates_present`, 클러스터링
+  혼선 의심)을 우선 소스코드 레벨로 파고들지
+- 289차 옵션(b)(apex candidate continuity 안정성 개선) 착수 여부는
+  위 미확인 사항들이 정리된 뒤 사용자 판단 필요 -- 이번 293차까지도
+  코드/파라미터 변경 없음(§27/§28, ANALYSIS_ONLY 유지)
+
+---
+
 ## 292차 (완료 -- ANALYSIS_ONLY/NEEDS_CORPUS, ryu 코드 변경 없음) -- 289차 "continuity 소실 28/30" 재분류 -- production 6-state 코드대조로 4가지 서로 다른 메커니즘 확인, 실측 재실행은 corpus 재확보 대기
 
 **Worker**: Claude
