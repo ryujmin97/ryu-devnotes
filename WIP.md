@@ -1,3 +1,110 @@
+## 273차 (완료 -- route B apex 선정조건/ACTIVE 진입조건 완화 시 관여빈도 변화 감도분석, ANALYSIS_ONLY, 정량 결론 보류) -- 272차가 업로드한 route B(같은 로그) 재활용, 사용자 질문("라우트 관여 완화 조건은?") 대응
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu`(HEAD `0c03f7d0e`, 코드 변경 없음 -- 분석
+전용) / `ryu-devnotes`(HEAD `7722035`=272차, 이 항목 추가 전)
+
+**Branch**: `c3-ms-dev` / `main`
+
+**Base commit**: `0c03f7d0e`(§3 재확인 -- 사용자가 재업로드한 route B
+zip의 `extract_log.py` 실행 로그 meta.json으로 dirty=False, 272차와 동일
+데이터셋(13176행, `000003b0--794e227a32`)임을 확인)
+
+**배경**: 사용자가 "route B는 라우트속도가 대부분 off인데, apex 선정조건/
+ACTIVE 진입조건을 완화하면 라우트가 관여될 수 있나? 완화 조건은?"으로
+질문. 272차가 이미 이 로그로 baseline 통계(candidates/apex_valid/ACTIVE/
+arbitration 승리 비율)를 냈으므로, 이번 세션은 그 위에서 "완화하면
+얼마나 늘어나는가"를 정량화 시도.
+
+**한 일**:
+1. `carrot_man.py::carrot_navi_route()` 파이프라인을 코드로 재확인 --
+   stage0(road_limit_speed 필터) -> stage2(공간 클러스터링,
+   `ROUTE_CLUSTER_MIN_POINTS`/`MAX_GAP_M`) -> stage3(예측거리 continuity,
+   `CONTINUITY_MATCH_TOLERANCE_M`/`ROUTE_APEX_MISS_TOLERANCE_FRAMES`) ->
+   stage4(258차 거리기반 ACTIVE 게이트, `AutoNaviSpeedDecelRate`) ->
+   266차 confidence blend(`CONFIDENCE_TAU`, streak 기반) 5단계 확인.
+2. `toolkit/sim_route_273_active_gate_relax_sensitivity.py` 신규 작성 --
+   실측 `routeApexIdx/Dist/Speed`(stage0-3 실제 발행값)를 그대로 입력,
+   stage4+confidence blend만 파라미터를 바꿔가며 재생하는 감도분석
+   스크립트. streak는 CSV에 없어 "이번 프레임 apex_dist가 직전 프레임
+   예측위치(`prev_dist - vEgo*dt`) 대비 tolerance 이내"로 근사.
+3. **[핵심 실측 발견 1]** route B에서 `routeApexDist`가 동일 apex 추적
+   중에도 10m 그리드값(70.0, 60.0, 50.0...)에 고정되는 것을 직접
+   확인(t=1341.28~1341.73 구간, apexIdx=7 고정, apexDist=70.0 고정) --
+   219/220차가 지목한 "리샘플 그리드 재앵커링" apexIdx flicker와 동일
+   구조가 apexDist 자체의 양자화로도 나타남. 같은 구간에서 `apexSpeed`는
+   40.3->39.3->42.7->41.8->40.7->39.7->38.8->37.8kph로 프레임마다
+   ±3kph씩 흔들림(같은 apexDist인데도) -- naviPaths GPS 폴리라인 곡률
+   재계산 자체의 프레임간 노이즈로 판단됨.
+4. **[핵심 실측 발견 2]** `routeCandidate0`(가장 가까운 후보, 텔레메트리
+   top-3 중 1번)이 실제 continuity가 추적 중인 apex와 다른 경우를
+   발견(같은 시각 candidate0=idx0/dist0.0 vs 추적 중 apex=idx7/dist70.0)
+   -- 즉 락 걸린 apex가 "현재 가장 가까운 후보"가 아닐 수 있어, top-3
+   candidate 텔레메트리만으로는 stage2/3 재현이 불완전함(아래 미해결
+   참고).
+5. 위 스크립트로 baseline(현재 파라미터: decel_rate=1.00,
+   confidence_tau=6.3, safe_time=7.0 가정) 재생 시도 -- **ACTIVE=1건**
+   산출, 실측 ACTIVE(246건, `routeOutSpeed`!=sentinel 기준)와 큰 괴리
+   확인. 원인 미규명(발견 2의 candidate 재구성 한계가 유력 후보로
+   추정되나 §28 원칙상 확정 아님).
+6. 이 baseline 재현 실패로 "완화 시 관여빈도가 몇 % 증가하는가"에 대한
+   **정량 결론은 이번 세션에서 보류**(§29 -- 검증 안 된 수치를 검증된
+   것처럼 보고하지 않음). 사용자에게 정성적 방향/리스크만 우선 안내.
+
+**결과(정성적, 코드 직접 확인 기반 -- 이 부분은 확실함)**:
+- apex 선정조건(stage2/3)과 ACTIVE 진입조건(stage4)은 서로 다른 층이며,
+  완화 후보 4가지를 효과/리스크로 정리:
+  - `CONTINUITY_MATCH_TOLERANCE_M` 10.0->15~20m: 리스크 가장 낮음(실측
+    10m 그리드 양자화에 맞춰 여유폭만 보정하는 성격, 발견 1 근거).
+  - `CONFIDENCE_TAU` 6.3->하향: 관여 ↑ 하지만 266차가 "1프레임 노이즈
+    억제" 목적으로 도입한 값이라 과도하게 낮추면 그 문제 재발.
+  - `AutoNaviSpeedDecelRate` 하향: 가장 직접적 레버(D_required가 커져
+    더 먼 거리에서 ACTIVE)이나 카메라/TBT회전/도로제한속도와 전역
+    공유 -- route 전용 분리는 코드 변경 필요(미구현, 기존 PARAMS_REGISTRY
+    한계 재확인).
+  - `ROUTE_CLUSTER_MIN_POINTS` 2->1: 비권장 -- 247/251차가 노이즈
+    억제용으로 명시적으로 2 채택, 되돌리면 flicker 재발 위험 최대.
+- 사용자 결정: 이번 세션은 devnotes 기록까지만, 실제 패치 작성은 보류.
+
+**검증**:
+- 정적 분석: `carrot_man.py` 코드 직접 추적(무변경).
+- 로그 검증: 실측 corpus(13176행) 기준 baseline 통계 재확인(272차와
+  일치: apex_valid 3012/13176=22.86%, ACTIVE 246건=1.87%, `src=='route'`
+  242건=1.84%) + 위 발견 1/2 실측 확인.
+- 시뮬레이션: `sim_route_273_active_gate_relax_sensitivity.py` 작성했으나
+  **baseline 재현 자체가 실측과 불일치(ACTIVE 1 vs 246) -- 이 스크립트의
+  정량 출력은 NEEDS_INVESTIGATION, 신뢰 불가 상태로 다음 세션에 이월**.
+- 실차 검증: 미실시(분석 전용, 코드 변경 없음).
+
+**미확인/미해결(우선순위순)**:
+1. `sim_route_273_active_gate_relax_sensitivity.py`의 baseline
+   재현 실패 원인 규명 -- 유력 후보: (a) top-3 candidate 텔레메트리만으론
+   불완전한 stage2/3 재구성(발견 2), (b) streak 근사식(예측거리 기반)이
+   실제 continuity tracker와 괴리, (c) `autoNaviSpeedCtrlEnd` 가정치
+   (7.0s)가 실제 디바이스 값과 다를 가능성(§26, 7->10 변경 논의가
+   미확정 상태로 남아있음). 다음 세션에서 (b)/(c)부터 배제 후 (a) 확인
+   권장 -- 이게 해소돼야 "완화 시 %p 증가" 정량 수치를 신뢰 가능하게
+   제시할 수 있음.
+2. 완화 후보 4가지 중 어느 것을 실제 패치로 진행할지 사용자 결정 대기
+   (이번 세션엔 보류로 확정).
+3. `AutoNaviSpeedDecelRate` route 전용 분리(카메라/TBT회전/도로제한속도와
+   공유 문제) -- 오래전부터 이월된 별도 과제, 이번 완화 논의로 우선순위
+   재부상.
+
+**다음 작업**:
+1. 위 미확인 1번(감도분석 스크립트 재현 실패) 원인 규명 -- 가능하면
+   `naviPaths` 전체 폴리라인을 다시 파싱해 stage2 전체 클러스터 리스트를
+   재구성(top-3 한계 우회)하는 방향으로 재시도.
+2. 사용자가 완화 후보 중 하나를 정하면 그 방향으로 §28 절차(재현조건->
+   입력->상태->계산->조건분기->출력->원인->수정안->검증) 진행.
+
+**패치**: 코드 패치 없음(ryu 무변경) -- `ryu-devnotes` 변경분(`WIP.md`,
+`toolkit/sim_route_273_active_gate_relax_sensitivity.py`,
+`toolkit/README.md`, `toolkit/CHANGELOG.md`) patch 파일로 전달.
+
+---
+
 ## 272차 (완료 -- 사용자 재업로드 실차 dashcam으로 route 로직 실차 검증 + route A "route off" 현상 원인 완전 규명, ANALYSIS_ONLY) -- 최신 커밋(0c03f7d0e, 258/266차 반영 후) 실주행 2건 실측 검증
 
 **Worker**: Claude

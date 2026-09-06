@@ -3,6 +3,14 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+## 2026-09-06 (273차)
+- `sim_route_273_active_gate_relax_sensitivity.py` 신규: apex 선정조건/
+  ACTIVE 진입조건 완화 감도분석. **baseline 재현 실패(ACTIVE 1건 vs
+  실측 246건) -- NEEDS_INVESTIGATION, 정량 출력 신뢰 불가.** route B
+  실측에서 apexDist 10m그리드 고정 + apexSpeed 프레임당 ±3kph 노이즈,
+  routeCandidate0≠추적중 apex 사례 확인(정성적 근거는 유효). 상세:
+  README.md/WIP.md/FINDINGS.md 273차.
+
 ## 2026-09-06 (271차)
 - `sim_acados_causeB_270_real_replay.py` 신규: 176차/177차 A_CHANGE_COST
   route_decel_rate 완화 게이트를 신규 corpus(`0000039a--7b602ffb85`

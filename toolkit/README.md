@@ -21,6 +21,37 @@ CHANGELOG.md를 같이 갱신**한다 (세션 종료 체크리스트에 포함�
 
 ---
 
+## sim_route_273_active_gate_relax_sensitivity.py (273차 신규, NEEDS_INVESTIGATION -- baseline 재현 실패)
+**목적**: "apex 선정조건(stage2/3)/ACTIVE 진입조건(stage4)을 완화하면
+route 관여빈도가 얼마나 느는가" 감도분석. 실측 `routeApexIdx/Dist/Speed`
+(stage0-3 실제 발행값)를 그대로 입력으로 쓰고, stage4(258차 거리게이트)+
+confidence blend(266차)만 파라미터를 바꿔 재생한다. streak는 CSV에 없어
+"이번 프레임 apex_dist가 직전 프레임 예측위치(`prev_dist-vEgo*dt`) 대비
+`CONTINUITY_MATCH_TOLERANCE_M` 이내"로 근사.
+
+**사용**: `python3 sim_route_273_active_gate_relax_sensitivity.py route.csv`
+(`--with-navi-paths` CSV 아니어도 됨 -- naviPaths 안 씀, `routeApex*`
+컬럼만 사용)
+
+**273차 결과 -- 중요, 신뢰 불가 상태**: route B(13176행)에서 baseline
+파라미터(decel_rate=1.00/tau=6.3/safe_time=7.0)로 재생 시 ACTIVE=1건만
+산출됐으나, 실측 ACTIVE(`routeOutSpeed`!=sentinel 기준)는 246건 --
+15배 이상 과소추정. 원인 미규명(유력 후보: top-3 candidate 텔레메트리
+만으론 실제 락 걸린 apex가 어느 후보인지 재구성 불완전 -- 273차가 같은
+로그에서 `routeCandidate0`≠추적 중 apex인 사례를 직접 확인함). **이
+스크립트가 출력하는 decel_rate/confidence_tau/safe_time 스윕 수치는
+다음 세션이 원인 규명 전까지 인용/근거로 사용하지 말 것** -- 정성적
+방향(어느 파라미터가 어느 쪽으로 관여를 움직이는가의 부호)만 참고
+가능. 상세: WIP.md/FINDINGS.md 273차.
+
+**정성적으로 확인된 것(신뢰 가능, 코드 직접 확인+실측 patttern 근거)**:
+route B에서 `routeApexDist`가 10m 그리드에 고정되는 동안(리샘플
+재앵커링, 219/220차와 동일 구조) `routeApexSpeed`는 프레임마다 ±3kph
+흔들림 -- 이 노이즈가 stage4 게이트 계산을 불안정하게 만드는 것으로
+추정.
+
+---
+
 ## sim_acados_causeB_270_real_replay.py (271차 신규, 실측 오픈루프 A/B 완료 -- POSITIVE)
 **목적**: 176차/177차가 확정한 A_CHANGE_COST route_decel_rate 완화 게이트를
 176차 검증 corpus(`6310bba9b8`, 직진 cruise 감속)와 다른 신규 corpus
