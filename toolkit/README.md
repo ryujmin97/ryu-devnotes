@@ -21,34 +21,44 @@ CHANGELOG.md를 같이 갱신**한다 (세션 종료 체크리스트에 포함�
 
 ---
 
-## sim_route_273_active_gate_relax_sensitivity.py (273차 신규, NEEDS_INVESTIGATION -- baseline 재현 실패)
+## sim_route_273_active_gate_relax_sensitivity.py (273차 신규, 273차 계속 재구성+재검증 -- NEEDS_INVESTIGATION 유지, baseline 오차 축소)
 **목적**: "apex 선정조건(stage2/3)/ACTIVE 진입조건(stage4)을 완화하면
-route 관여빈도가 얼마나 느는가" 감도분석. 실측 `routeApexIdx/Dist/Speed`
-(stage0-3 실제 발행값)를 그대로 입력으로 쓰고, stage4(258차 거리게이트)+
-confidence blend(266차)만 파라미터를 바꿔 재생한다. streak는 CSV에 없어
-"이번 프레임 apex_dist가 직전 프레임 예측위치(`prev_dist-vEgo*dt`) 대비
-`CONTINUITY_MATCH_TOLERANCE_M` 이내"로 근사.
+route 관여빈도가 얼마나 느는가" 감도분석. `carrot_man.py`(HEAD
+`0c03f7d0e`) stage4 거리게이트(258차)+confidence blend(266차) 산식을
+그대로 이식하고, 실측 `routeApexIdx/Dist/Speed`+`routeCandidate0~2`
+(stage0-3 실제 발행값)를 입력으로 재생한다. streak는 top-3 candidate
+텔레메트리만으로 `_route_cluster_continuity_step()`을 축소 근사(파일
+docstring에 원본과의 차이점 상세 기술 -- "held" 상태 미구현이 주요 차이).
 
-**사용**: `python3 sim_route_273_active_gate_relax_sensitivity.py route.csv`
-(`--with-navi-paths` CSV 아니어도 됨 -- naviPaths 안 씀, `routeApex*`
-컬럼만 사용)
+**사용**: `python3 sim_route_273_active_gate_relax_sensitivity.py route.csv
+[--decel-rate 1.00] [--confidence-tau 6.3] [--ctrl-end 7.0]
+[--continuity-tol 10.0] [--sweep]` (`--with-navi-paths` CSV 아니어도 됨
+-- naviPaths 안 씀, `routeApex*`/`routeCandidate*` 컬럼만 사용)
 
-**273차 결과 -- 중요, 신뢰 불가 상태**: route B(13176행)에서 baseline
-파라미터(decel_rate=1.00/tau=6.3/safe_time=7.0)로 재생 시 ACTIVE=1건만
-산출됐으나, 실측 ACTIVE(`routeOutSpeed`!=sentinel 기준)는 246건 --
-15배 이상 과소추정. 원인 미규명(유력 후보: top-3 candidate 텔레메트리
-만으론 실제 락 걸린 apex가 어느 후보인지 재구성 불완전 -- 273차가 같은
-로그에서 `routeCandidate0`≠추적 중 apex인 사례를 직접 확인함). **이
-스크립트가 출력하는 decel_rate/confidence_tau/safe_time 스윕 수치는
-다음 세션이 원인 규명 전까지 인용/근거로 사용하지 말 것** -- 정성적
-방향(어느 파라미터가 어느 쪽으로 관여를 움직이는가의 부호)만 참고
-가능. 상세: WIP.md/FINDINGS.md 273차.
+**273차 계속(파일 유실 후 재구성 -- 원 스크립트 파일 자체는 세션 중단으로
+전달 전 소실, 아래는 재구성판 실행 결과로 대체)**: route B(13176행,
+`000003b0--794e227a32`, 272/273차와 동일 corpus, 이번에 `extract_log.py`로
+재추출해 `dirty=False`/행수 일치 재확인)에서 baseline 파라미터
+(decel_rate=1.00/tau=6.3/ctrl_end=7.0/continuity_tol=10.0)로 재생 시
+**ACTIVE=194건**, 실측 ACTIVE(`routeOutSpeed`!=sentinel 기준)는 246건 --
+비율 0.79(원 세션의 15배 과소추정 대비 크게 개선, 완전 일치는 아직 아님).
+**스윕 결과가 273차 원 세션의 정성적 결론과 다르게 나옴**: decel_rate를
+1.20->0.40으로, confidence_tau를 6.3->1.0으로, continuity_tol을
+10->25m로 각각 훑어도 ACTIVE는 193~196건 범위로 거의 변하지 않음(이
+재구성판/근사 한계 안에서는 세 파라미터 모두 관여빈도에 미치는 영향이
+당초 예상(273차 원 세션의 정성적 방향 판단)보다 훨씬 작다는 뜻). 잔여
+오차(194 vs 246)와 스윕 둔감성 모두 원인 미규명 -- 유력 후보는 여전히
+"held" 상태 미구현(순간 미스 시 즉시 streak=1로 리셋되어 confidence가
+과도하게 자주 0으로 꺾임) 및 top-3 한계(발견 2). **이 스크립트의
+수치(baseline 194건 포함)는 다음 세션이 위 오차 원인을 규명하기 전까지
+정량 근거로 인용하지 말 것** -- 정성적 방향/구조 이해 참고만 가능. 상세:
+WIP.md 273차/273차 계속.
 
-**정성적으로 확인된 것(신뢰 가능, 코드 직접 확인+실측 patttern 근거)**:
-route B에서 `routeApexDist`가 10m 그리드에 고정되는 동안(리샘플
-재앵커링, 219/220차와 동일 구조) `routeApexSpeed`는 프레임마다 ±3kph
-흔들림 -- 이 노이즈가 stage4 게이트 계산을 불안정하게 만드는 것으로
-추정.
+**정성적으로 확인된 것(신뢰 가능, 코드 직접 확인+실측 pattern 근거,
+273차 원 세션 발견 그대로 유지)**: route B에서 `routeApexDist`가 10m
+그리드에 고정되는 동안(리샘플 재앵커링, 219/220차와 동일 구조)
+`routeApexSpeed`는 프레임마다 ±3kph 흔들림 -- 이 노이즈가 stage4 게이트
+계산을 불안정하게 만드는 것으로 추정.
 
 ---
 

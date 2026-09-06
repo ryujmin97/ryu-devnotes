@@ -1,3 +1,88 @@
+## 273차 계속 (완료 -- 스크립트 파일 유실분 재구성 + 실측 재검증, NEEDS_INVESTIGATION 유지) -- 273차가 무료 메시지 소진으로 `toolkit/sim_route_273_active_gate_relax_sensitivity.py` 파일 전달 전 중단된 것을 이어받음
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu`(HEAD `0c03f7d0e`, 코드 변경 없음) /
+`ryu-devnotes`(HEAD `2df26de`=273차, 이 항목 추가 전)
+
+**Branch**: `c3-ms-dev` / `main`
+
+**Base commit**: `2df26de`(§3 재확인 -- `git ls-remote` 독립 검증 완료)
+
+**배경**: 273차 세션이 WIP.md/FINDINGS.md/toolkit/README.md/CHANGELOG.md
+기록까지는 완료해 push됐으나(2df26de), 세션이 무료 메시지 소진으로
+종료되면서 문서가 참조하는 `toolkit/sim_route_273_active_gate_relax_sensitivity.py`
+파일 자체를 사용자에게 전달하지 못한 채 끝남. 사용자가 "니가 해줘"로
+재구성을 요청.
+
+**한 일**:
+1. 원본 스크립트 파일이 남아있지 않아, WIP.md 273차 기록(목적/입출력/
+   streak 근사 방식 설명)과 `carrot_man.py`(HEAD `0c03f7d0e`, base
+   commit과 일치 재확인) 실제 소스를 다시 대조해 stage4 게이트+
+   confidence blend 산식을 그대로 이식한 재구성판을 작성. §27 최소변경
+   원칙에 따라 게이트 산식 자체(_route_confidence_from_streak, D_required
+   계산, RELEASE 3-OR 조건)는 원본 코드를 그대로 옮기고, 원본이 쓰는
+   전체 후보 리스트 대신 텔레메트리에 있는 top-3 candidate로 continuity
+   를 축소 근사(원본의 "held" 상태는 미구현 -- 파일 docstring에 명시).
+2. 사용자가 업로드했던 `라우트B.zip`(원본 rlog, 11세그)을 이번 세션에서
+   직접 `extract_log.py --repo ryu --with-navi-paths`로 재추출 --
+   13176행, `dirty=False`, 272/273차와 동일 corpus(`000003b0--794e227a32`)
+   임을 다시 확인(재현조건 재검증, §28).
+3. 재구성판을 이 실측 CSV로 실행해 baseline/스윕을 **실제로 재현**(원
+   세션처럼 결과만 보고하지 않고 이번엔 직접 실행 완료).
+
+**결과**:
+- baseline(decel_rate=1.00/tau=6.3/ctrl_end=7.0/continuity_tol=10.0):
+  sim ACTIVE=194건, 실측 ACTIVE(`routeOutSpeed`!=sentinel)=246건 -- 비율
+  0.79. 273차 원 세션의 "ACTIVE=1건"(15배 과소추정) 대비 크게 개선됐으나
+  완전 일치는 아님.
+- 스윕: decel_rate(1.20->0.40), confidence_tau(6.3->1.0), continuity_tol
+  (10->25m) 각각 훑어도 ACTIVE가 193~196건 범위에서 거의 안 움직임 --
+  273차 원 세션이 정성적으로 내렸던 "완화하면 관여가 유의미하게 늘어난다"
+  는 방향과 이 재구성판 결과가 배치된다. 이 재구성판/근사(top-3 continuity,
+  "held" 미구현) 한계 안에서 나온 결과이므로, 어느 쪽이 맞는지는 아직
+  결론 낼 수 없음(§28 -- 원인 미규명 상태로 다음 세션 이월).
+- toolkit/README.md·CHANGELOG.md의 273차 항목을 위 재검증 결과로 갱신
+  (기존 273차 원 세션 기록은 삭제하지 않고 "273차 계속" 결과를 그
+  옆/아래에 추가하는 방식 -- README는 도구 현재상태 문서라 해당 섹션을
+  직접 갱신, CHANGELOG/WIP는 새 날짜 항목으로 append, §14/§24 준수).
+
+**검증**:
+- 정적 분석: `carrot_man.py` 실제 stage4/confidence blend 코드와 1:1
+  대조 이식, `py_compile` 통과.
+- 로그 검증: route B 실측 CSV(13176행, 재추출로 dirty=False/행수 일치
+  재확인)로 baseline/스윕 실제 실행(위 결과 참고) -- 이번엔 "실행 예정"이
+  아니라 실행 완료.
+- 시뮬레이션: 위와 동일(재구성판 자체가 시뮬레이션 스크립트).
+- 실차 검증: 미실시(분석 전용, ryu 코드 변경 없음).
+
+**미확인/미해결(우선순위순)**:
+1. baseline 오차(194 vs 246, 비율 0.79) 잔여분 원인 -- 유력 후보: (a)
+   "held" 상태 미구현(순간 미스 시 즉시 streak=1로 리셋 -> confidence가
+   실제보다 자주 0으로 꺾여 ACTIVE 진입이 과소평가될 가능성), (b) top-3
+   candidate 한계(발견 2, 273차 원 세션). (a)가 이 재구성판에서 새로
+   식별된 후보 -- 원본처럼 miss_frames 기반 hold를 top-3 근사에도
+   추가해보는 방향이 다음 시도로 유력.
+2. 스윕 파라미터(decel_rate/tau/continuity_tol) 둔감성 원인 -- 위 (a)로
+   인해 confidence가 대부분 프레임에서 낮게 눌려 eff_apex_speed가 거의
+   항상 v_ego_kph에 가깝게 블렌드되고, 그 결과 게이트 계산 자체가 실측과
+   다른 영역에서 동작하고 있을 가능성(§28, 아직 가설).
+3. 완화 후보 4가지(273차 원 세션 정리) 중 실제 패치 방향 결정은 위 1/2가
+   해소돼 정량 신뢰도가 확보된 뒤로 재차 미룸 -- 사용자 결정 대기 계속.
+
+**다음 작업**:
+1. 위 미확인 1번 (a) 후보부터 검증 -- `ContinuityApprox`에 원본과 동일한
+   `miss_frames`/`ROUTE_APEX_MISS_TOLERANCE_FRAMES` 기반 hold 상태 추가,
+   baseline 비율이 0.79에서 개선되는지 확인.
+2. 개선되면 그 상태로 스윕을 다시 돌려 273차 원 세션의 정성적 방향과
+   비교, 개선 안 되면 top-3 한계(발견 2) 쪽으로 원인 좁히기.
+
+**패치**: `toolkit/sim_route_273_active_gate_relax_sensitivity.py`(신규
+파일, 273차 계속) + `toolkit/README.md`/`toolkit/CHANGELOG.md`(273차
+섹션 갱신) patch 파일로 전달.
+
+---
+
 ## 273차 (완료 -- route B apex 선정조건/ACTIVE 진입조건 완화 시 관여빈도 변화 감도분석, ANALYSIS_ONLY, 정량 결론 보류) -- 272차가 업로드한 route B(같은 로그) 재활용, 사용자 질문("라우트 관여 완화 조건은?") 대응
 
 **Worker**: Claude

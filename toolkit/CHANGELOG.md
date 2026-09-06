@@ -3,13 +3,24 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+## 2026-09-06 (273차 계속)
+- `sim_route_273_active_gate_relax_sensitivity.py` 파일 자체를 세션
+  중단으로 못 넘겼던 문제 해소 -- carrot_man.py(HEAD `0c03f7d0e`) stage4
+  게이트/confidence blend 산식을 다시 대조하며 재구성해 `toolkit/`에
+  저장. 재구성판 route B 실측 재검증: baseline ACTIVE=194건(실측 246건,
+  비율 0.79 -- 원 세션의 15배 과소추정에서 크게 개선). 단 decel_rate/
+  confidence_tau/continuity_tol 스윕이 193~196건 범위로 거의 안 움직여
+  273차 원 세션의 정성적 결론(완화 시 유의미 증가)과 배치 -- 여전히
+  NEEDS_INVESTIGATION, 수치 인용 금지. 상세: README.md/WIP.md 273차 계속.
+
 ## 2026-09-06 (273차)
-- `sim_route_273_active_gate_relax_sensitivity.py` 신규: apex 선정조건/
-  ACTIVE 진입조건 완화 감도분석. **baseline 재현 실패(ACTIVE 1건 vs
-  실측 246건) -- NEEDS_INVESTIGATION, 정량 출력 신뢰 불가.** route B
-  실측에서 apexDist 10m그리드 고정 + apexSpeed 프레임당 ±3kph 노이즈,
-  routeCandidate0≠추적중 apex 사례 확인(정성적 근거는 유효). 상세:
-  README.md/WIP.md/FINDINGS.md 273차.
+- `sim_route_273_active_gate_relax_sensitivity.py` 신규(설계): apex
+  선정조건/ACTIVE 진입조건 완화 감도분석. **원 세션 실행에서 baseline
+  재현 실패(ACTIVE 1건 vs 실측 246건) 보고 -- 스크립트 파일 자체는 세션
+  중단으로 전달 전 소실, 273차 계속에서 재구성+재검증(위 항목 참고).**
+  route B 실측에서 apexDist 10m그리드 고정 + apexSpeed 프레임당 ±3kph
+  노이즈, routeCandidate0≠추적중 apex 사례 확인(정성적 근거는 유효).
+  상세: README.md/WIP.md/FINDINGS.md 273차.
 
 ## 2026-09-06 (271차)
 - `sim_acados_causeB_270_real_replay.py` 신규: 176차/177차 A_CHANGE_COST
