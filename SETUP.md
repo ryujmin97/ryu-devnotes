@@ -199,6 +199,14 @@ CSV를 올렸다면 **이전 commit 기준 CSV는 `trash_file`로 정리**해도
 disableConversionToGoogleType=true) → `download_file_content` 왕복
 테스트, base64 디코딩 결과 원본과 100% 일치 확인.
 
+**[284차 갱신] 로컬 보관 경로**: Drive 커넥터를 쓰지 않는 세션에서는
+위 Drive 방식 대신 사용자가 결과 파일을 직접 다운로드해 로컬에 보관하는
+방식을 쓴다. 283차까지는 `C:\dev\devnotes\works\<이름>\`을 썼으나,
+284차부터 **`C:\dev\logs\<이름>\`**로 변경(사용자가 기존 `works` 폴더는
+삭제함). devnotes 세션 기록에는 계속 `local_csv: <경로>` 형식으로
+남긴다. Claude/ChatGPT는 로그 추출 산출물이 새로 생기면 매 세션 종료
+시 파일로 전달한다(§18) -- 사용자가 위 경로에 직접 저장한다.
+
 ## 주의사항 (toolkit 관련, 기존과 동일)
 - `decode_rlog.py`는 `cereal/log.capnp` 스키마를 `ryu` 레포에서 직접
   로드하므로 `ryu`를 먼저 clone해야 함.
