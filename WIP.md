@@ -1,3 +1,111 @@
+## 274차 (완료 -- route 관여 구간 확대 파라미터 2건 변경 + patch 전달, 실차 검증 전) -- 사용자 확정 지시("좀더 많은 구간에서 라우트가 작용될수 있도록") 대응, 273차 감도분석에서 정리된 완화 후보 중 최저리스크 항목 채택
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu`(HEAD `0c03f7d0e`, 이 세션 patch 적용 전 기준
+-- `git ls-remote` 독립 검증으로 드리프트 없음 확인) /
+`ryu-devnotes`(HEAD `0238c53`=273차 계속, 이 항목 추가 전)
+
+**Branch**: `c3-ms-dev` / `main`
+
+**Base commit**: `0c03f7d0e`(§3 세션 시작 시 fresh clone으로 재확인, WIP.md
+head/HANDOFF 부재/LAST_ANALYZED 전부 확인 후 착수 -- IN PROGRESS 마커 없음)
+
+**배경**: 사용자가 이번 세션에서 route가 더 넓은 구간에서 관여하도록 3가지
+파라미터 변경을 지시:
+1. `AutoNaviSpeedDecelRate` 1.00 -> 0.90 -- 사용자가 디바이스 파라미터
+   설정에서 직접 변경(코드 상수 아님, `carrot_serv.autoNaviSpeedDecelRate`
+   런타임 참조만 확인, 코드 변경 불필요).
+2. Apex 선정/연속성 허용거리(`CONTINUITY_MATCH_TOLERANCE_M`) 10m -> 20m.
+3. `ROUTE_RELEASE_DIST_M` 20m -> 10m.
+
+2/3번은 273차가 이미 정리해둔 route 관여 완화 후보와 직접 연결됨 --
+`CONTINUITY_MATCH_TOLERANCE_M`은 273차 세션이 "리스크 가장 낮음"으로
+평가한 항목(실측 10m 그리드 양자화 보정), `ROUTE_RELEASE_DIST_M` 축소는
+254/255차가 설계한 근거리 vturn 인계 지점을 apex에 더 가깝게 늦춰 route
+ACTIVE 구간 자체를 늘리는 방향.
+
+**한 일**:
+1. §3/§4 절차대로 `ryu`/`ryu-devnotes` fresh clone, `c3-ms-dev` 체크아웃,
+   WIP.md head(273차/273차 계속) 확인 -- 두 항목 모두 "완료" 상태, IN
+   PROGRESS 마커 없음. HANDOFF.md는 파일 자체가 존재하지 않음(정상,
+   프로젝트 지침 §15 "존재한다면"). LAST_ANALYZED.md head(272차)도 함께
+   확인.
+2. `carrot_man.py`에서 두 상수의 실제 소비 지점을 코드로 직접 확인 --
+   `CONTINUITY_MATCH_TOLERANCE_M`은 `_route_cluster_continuity_step()`의
+   stage3 예측거리 매칭 오차 허용폭(703행), `ROUTE_RELEASE_DIST_M`은
+   ACTIVE 해제 조건 중 `dist_reached` 판정(1143행) 단 한 곳씩만 참조함을
+   grep으로 재확인(다른 소스에 중복/분산 없음, §27 최소변경 대상 명확화).
+3. `AutoNaviSpeedDecelRate` 소비 지점도 함께 확인 -- 전부
+   `self.carrot_serv.autoNaviSpeedDecelRate`(carrot_serv가 device Params를
+   읽어 채우는 런타임 필드)로만 참조되어 코드 상수가 아님을 확정, 사용자
+   지시대로 이 항목은 코드 변경 대상에서 제외.
+4. §27 최소변경 원칙에 따라 두 상수 값만 교체(로직 구조/분기 무변경),
+   각 상수 정의부에 274차 근거 주석 추가(기존 주석은 삭제하지 않고 그
+   아래에 추가, §14/§24와 동일 원칙 적용).
+5. 필수 검증 파이프라인 수행: `py_compile` + `ast.parse` 통과 ->
+   `git format-patch` -> throwaway clone에서 `git am` 적용 성공 ->
+   diff(0) 확인(패치 적용 결과와 원본 수정 파일이 byte-identical) ->
+   throwaway clone 삭제. patch 적용 전후 `git ls-remote origin
+   c3-ms-dev`로 원격 HEAD가 세션 시작 시점(`0c03f7d0e`)과 동일함을 재확인
+   (base drift 없음).
+
+**결과**:
+- `CONTINUITY_MATCH_TOLERANCE_M`: 10.0 -> 20.0 (stage3 continuity 매칭
+  허용오차 확대 -- apex 후보가 더 넓은 오차범위 내에서도 계속 추적되어
+  continuity 유지/ACTIVE 진입 빈도가 늘어나는 방향).
+- `ROUTE_RELEASE_DIST_M`: 20.0 -> 10.0 (ACTIVE 해제를 apex에 더 가까울
+  때까지 늦춰 route가 vturn에 인계하는 시점을 뒤로 미루는 방향 -- ACTIVE
+  지속 구간 확대).
+- `AutoNaviSpeedDecelRate` 1.00 -> 0.90은 코드 변경 없음(사용자가 device
+  파라미터 설정에서 직접 적용).
+- 두 변경 모두 stage2/3/4 상태기계 구조, RELEASE 판정 OR 조건, confidence
+  blend 로직 자체는 전혀 건드리지 않음 -- 상수 값 교체 2줄뿐(diff 상
+  실질 변경 2라인 + 근거 주석).
+
+**검증**:
+- 정적 분석: `py_compile`/`ast.parse` 통과. throwaway clone
+  `git am` 적용 -> diff-0(patch 적용 결과가 실제 수정 파일과 완전 동일)
+  확인 완료.
+- 로그 검증: 미실시 -- 이번 세션은 단순 파라미터 값 교체이며 별도
+  시뮬레이션 스크립트를 새로 만들지 않음(§21 -- 기존 toolkit 중
+  `sim_route_234_spatial_apex_continuity.py`/
+  `sim_route_254_release_dist20_6state.py`가 관련 로직을 이미 검증한 바
+  있으나, 이번 신규 값(20m/10m) 자체에 대한 재실행은 하지 않음).
+- 시뮬레이션: 미실시(위와 동일 이유).
+- 실차 검증: **미실시**. 사용자가 이번 세션 이후 직접 실차주행으로 검증
+  예정(사용자 명시).
+
+**미확인/미해결(우선순위순)**:
+1. `CONTINUITY_MATCH_TOLERANCE_M` 20m 확대가 PARAMS_REGISTRY.md가 이미
+   지목한 "두 커브가 실제로 인접해 ambiguous 매칭이 나올 만한 로그"(247차
+   §12 미해결 질문)에서 어떻게 동작하는지는 여전히 실측 검증이 없음 -- 10m
+   -> 15m 비교(267차)까지만 실측이 있었고 20m는 이번이 처음.
+2. `ROUTE_RELEASE_DIST_M` 10m 축소가 254/255차 설계 근거("20m 지점부터는
+   vturn이 근거리 커브 제어를 담당")와 실제로 상충하는 지점(예: vturn이
+   아직 관여하지 않는데 route가 너무 늦게까지 ACTIVE 유지)이 있는지는
+   실차 로그로만 확인 가능.
+3. 두 변경이 동시에 적용된 상태에서의 상호작용(continuity 허용폭 확대 +
+   release 거리 축소가 겹쳐 ACTIVE 구간이 예상보다 과도하게 늘어날 가능성)
+   -- 실차 로그에서 route ACTIVE 비율(272차 baseline: 22.9%/6.7%/1.8% 각각
+   apex 발견/ACTIVE 개입/최종 승리)이 어떻게 변하는지 다음 세션에서
+   반드시 재계측 필요.
+
+**다음 작업**:
+1. 사용자 실차주행 완료 후 dashcam/rlog 로그로 274차 변경 A/B 검증 --
+   272차와 동일한 지표(apex 발견율/ACTIVE 개입율/최종 승리율, TTC danger
+   여부)로 baseline(272차, 20m/10m 이전) 대비 비교.
+2. 위 미확인 1/2/3번 항목을 실측 로그로 확인.
+3. `AutoNaviSpeedDecelRate` 0.90 적용 실측 결과와 두 코드 변경의 결합
+   효과를 함께 관찰(세 변경이 모두 "route 관여 확대"라는 동일 방향이므로
+   과도한 관여/오탐 증가 여부를 특히 주의).
+
+**패치**: `0001-274cha-route-active-guggan-hwakdae.patch`(ryu,
+`selfdrive/carrot/carrot_man.py` 단일 파일, 2-hunk) + 이 WIP.md 항목 +
+PARAMS_REGISTRY.md 두 항목 갱신(ryu-devnotes) patch 파일로 전달.
+
+---
+
 ## 273차 계속 (완료 -- 스크립트 파일 유실분 재구성 + 실측 재검증, NEEDS_INVESTIGATION 유지) -- 273차가 무료 메시지 소진으로 `toolkit/sim_route_273_active_gate_relax_sensitivity.py` 파일 전달 전 중단된 것을 이어받음
 
 **Worker**: Claude

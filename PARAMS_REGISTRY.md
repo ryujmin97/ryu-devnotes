@@ -323,9 +323,16 @@
 - 실차 검증: 미실시(NEEDS_VALIDATION) — 252차는 patch 생성 및 정적 검증
   (py_compile, `git am` diff-scoped)까지만 완료, device 미적용.
 
-## ROUTE_RELEASE_DIST_M (254차 설계+사용자 확정, 255차 계속 코드 반영 — NEEDS_VALIDATION)
+## ROUTE_RELEASE_DIST_M (254차 설계+사용자 확정, 255차 계속 코드 반영 → 274차 사용자 확정 재변경 — NEEDS_VALIDATION)
+- **[274차 추가]** 값 변경: 20.0 → **10.0** (m). 근거: "더 많은 구간에서
+  route가 작용하도록" 사용자 지시(2026-09-06) — route가 vturn에 인계하는
+  시점을 apex에 더 가깝게 늦춰 route ACTIVE 지속 구간을 확대하는 목적.
+  254/255차가 검증한 6-state 로직/OR 조건 구조는 무변경(§27, 상수 값만
+  교체). 정적 검증(py_compile/ast.parse/git am diff-0)만 완료, 실측
+  로그/실차 검증 전혀 없음(NEEDS_VALIDATION 유지, 아래 254/255차 근거
+  문단은 구값 20.0 기준 기록이므로 그대로 보존).
 - 위치: `selfdrive/carrot/carrot_man.py`, `carrot_navi_route()`
-- 값: 20.0 (m). ACTIVE 상태에서 apex까지 남은 거리가 이 값 이하가 되면,
+- 값(254/255차 원 채택값, 274차 이전): 20.0 (m). ACTIVE 상태에서 apex까지 남은 거리가 이 값 이하가 되면,
   `ROUTE_ACTIVE_RELEASE_MARGIN_RATIO` 조건(목표속도 도달)과 무관하게
   RELEASE(+2초 hold). 기존 "Apex 통과"(continuity `predicted_dist<=0`)
   조건에 OR로 추가된 세 번째 해제 조건.
@@ -378,10 +385,19 @@
   gate-삭제 조건에서도 유효함 재검증(위 항목과 동일 근거).
 - 실차 검증: 미실시(NEEDS_VALIDATION).
 
-## CONTINUITY_MATCH_TOLERANCE_M (234차 계속5 잠정값, 252차 코드 반영 — NEEDS_VALIDATION)
+## CONTINUITY_MATCH_TOLERANCE_M (234차 계속5 잠정값, 252차 코드 반영 → 274차 사용자 확정 재변경 — NEEDS_VALIDATION)
+- **[274차 추가]** 값 변경: 10.0 → **20.0** (m). 근거: 273차 감도분석이
+  완화 후보 4가지 중 "리스크 가장 낮음"(실측 10m 그리드 양자화 보정
+  성격)으로 평가한 항목을 사용자가 이번 세션에 확정 채택 — "더 많은
+  구간에서 route가 작용하도록" 지시의 일환. 아래 234차 계속5/267차 실측은
+  전부 10m/15m 비교까지만 수행됐고 **20m는 이번 세션이 처음** — 267차가
+  이미 지목한 "다른 도로 형상(두 커브 인접 등)에서도 안전한지" 미해결
+  질문이 20m에서는 아직 한 번도 검증되지 않은 상태로 남는다(§28, 다음
+  세션 우선 검토 항목에 추가). 정적 검증만 완료, 실측 로그/실차 검증
+  없음(NEEDS_VALIDATION 유지).
 - 위치: `selfdrive/carrot/carrot_man.py`,
   `CarrotMan._route_cluster_continuity_step()`
-- 값: 10.0 (m)
+- 값(234차 계속5/252차/267차 원 채택값, 274차 이전): 10.0 (m)
 - 목적: stage3에서 locked apex의 예측위치(`locked_dist - vEgo*dt`)와
   이번 프레임 클러스터 대표 후보(클러스터 내 최근접점) 거리 오차가 이
   값 이내면 "동일 물리적 지점"으로 보고 계속 추적한다(design doc §10,
