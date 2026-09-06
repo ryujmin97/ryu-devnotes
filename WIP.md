@@ -83,6 +83,59 @@ self-test 3종 포함), ryu 소스 코드는 전혀 건드리지 않음(사용�
    위 1~3 중 최소 1개 이상 완료 후 사용자 승인 받아 진행.**
 
 ---
+## 282차 (완료 -- 코드 수정+정적 검증(py_compile)+독립 검증(git apply --check + git am) 완료, 실차 검증 대기) -- ROUTE_RELEASE_HOLD_S 2.0->0.0 (사용자 확정 반영)
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu`(Base commit `7571e63`=280차, fresh clone으로
+확인) / `ryu-devnotes`(HEAD `6ddb7ea`=281차, 이 항목 추가 전)
+
+**Branch**: `c3-ms-dev` / `main`
+
+**배경**: 281차 체크포인트(합성 시나리오 A/B, 시나리오 B에서 hold=2.0이
+confidence 자연축적 대비 최대 약 1.6초 순수 추가지연 유발 확인) 보고 후,
+사용자가 "없애고, 실차 검증"으로 확정. Termux(Android) 환경에서 적용
+예정.
+
+**한 일**:
+1. `carrot_man.py`의 `ROUTE_RELEASE_HOLD_S`를 2.0에서 0.0으로 변경(§27
+   최소변경 -- hold 게이트 분기 구조 자체는 그대로 두고 값만 교체, 회귀
+   발견 시 2.0으로 즉시 원복 가능).
+2. 변경 근거를 코드 주석에 상세 기록(281차 분석/시나리오 결과 요약).
+
+**검증**:
+- 정적 분석: `python3 -m py_compile selfdrive/carrot/carrot_man.py` 통과.
+- 패치 독립 검증: origin/c3-ms-dev(HEAD `7571e63`) 기준 fresh clone에서
+  `git apply --check` 통과, `git am` 적용 성공, 적용된 상태에서 재차
+  `py_compile` 통과 확인.
+- 오프라인 합성 검증: 281차 참고(이번 세션 재실행 안 함).
+- **실차 검증: 미실시(다음 단계, 사용자가 Termux로 적용 후 진행 예정).**
+
+**미확인 사항(281차와 동일, 여전히 남음)**:
+- `autoNaviSpeedCtrlEnd` 실제 device 파라미터값 미확인 -- 281차 정량
+  결과(0.4~1.15s)의 절대값 신뢰도에 영향.
+- 시나리오 C(재가속 재개입) 재구현 안 됨.
+- 이번 변경으로 235차가 확정한 실제 S커브(t=2116~2122.2, 간격
+  250~290ms) 구간의 두 번째 커브 반응성이 어떻게 달라지는지, 그리고
+  253차가 발견했던 "hold 없으면 인위적 진동"이 현재(266차 confidence
+  blend 이후) 아키텍처에서도 정말 재현 안 되는지는 **실차 로그로만
+  최종 확인 가능** -- 281차는 합성 시나리오로만 이 가설을 뒷받침했음.
+
+**다음 작업**:
+1. 사용자가 Termux로 이 패치를 `~/ryu`(c3-ms-dev)에 적용 -> 콤마 기기에
+   반영 -> 실차 주행.
+2. 실차 주행 중/후 다음을 특히 확인: (a) S커브·연속 커브 구간에서 두
+   번째 커브 반응성 개선 체감 여부, (b) RELEASE 직후 candidate 재검출로
+   인한 ENGAGE/RELEASE 진동(가감속 반복) 발생 여부(253차가 우려했던
+   케이스 -- 발생하면 즉시 `ROUTE_RELEASE_HOLD_S`를 2.0으로 되돌릴 근거).
+3. 채록된 로그를 다음 세션에 업로드하면 `sim_route_281_release_hold_ab.py`
+   합성 결론과 실측 대조 + `check_device_build.py`로 이번 `214fc26`
+   빌드가 실제로 실행됐는지 우선 확인(240차가 겪은 device build mismatch
+   재발 방지).
+4. `PARAMS_REGISTRY.md`에 `ROUTE_RELEASE_HOLD_S` 항목 갱신 필요(다음
+   항목 참고).
+
+---
 ## 280차 (완료 -- 코드 수정+정적 검증(py_compile)+독립 검증(git apply --check + git am) 완료, 실차 검증 아님) -- ROUTE_APEX_MISS_TOLERANCE_FRAMES 3->6: confidence blend(266차) 도입 후에도 잔존하는 목표속도 flicker 대응
 
 **Worker**: Claude
