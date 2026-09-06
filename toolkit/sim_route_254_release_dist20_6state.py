@@ -216,8 +216,10 @@ class Sim254:
         self._miss_frames = 0
 
 
-def replay(rows, safe_time, decel_rate, release_margin, continuity_tolerance_m, release_mode):
-    sim = Sim254(safe_time, decel_rate, release_margin, continuity_tolerance_m, release_mode)
+def replay(rows, safe_time, decel_rate, release_margin, continuity_tolerance_m, release_mode,
+           release_dist_m=ROUTE_RELEASE_DIST_M):
+    sim = Sim254(safe_time, decel_rate, release_margin, continuity_tolerance_m, release_mode,
+                 release_dist_m=release_dist_m)
     out = []
     for row in rows:
         try:
@@ -363,6 +365,9 @@ def main():
     ap.add_argument("--decel-rate", type=float, default=0.70)
     ap.add_argument("--release-margin", type=float, default=1.1)
     ap.add_argument("--continuity-tolerance", type=float, default=10.0)
+    ap.add_argument("--release-dist-m", type=float, default=ROUTE_RELEASE_DIST_M,
+                     help="[274cha AB yong chugga] release_mode=dist20 il ttae sayong hal "
+                          "ROUTE_RELEASE_DIST_M gap (gibongab 20.0=254cha wonan, 10.0=274cha)")
     ap.add_argument("--far-dist-m", type=float, default=150.0)
     ap.add_argument("--cruise-gap-kph", type=float, default=15.0)
     ap.add_argument("--ceiling-track-kph", type=float, default=2.0)
@@ -374,10 +379,13 @@ def main():
         return
 
     rows = load_csv(args.csv_path)
-    print(f"loaded {len(rows)} rows from {args.csv_path} (release_mode={args.release_mode})")
+    print(f"loaded {len(rows)} rows from {args.csv_path} "
+          f"(release_mode={args.release_mode}, release_dist_m={args.release_dist_m}, "
+          f"continuity_tolerance={args.continuity_tolerance})")
 
     sim_rows = replay(rows, args.safe_time, args.decel_rate, args.release_margin,
-                       args.continuity_tolerance, args.release_mode)
+                       args.continuity_tolerance, args.release_mode,
+                       release_dist_m=args.release_dist_m)
 
     real_ep = scan_freeze(rows, "src", "routeOutSpeed", args.far_dist_m, args.cruise_gap_kph,
                            args.ceiling_track_kph, args.min_duration_s, apex_dist_key="routeApexDist")

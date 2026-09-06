@@ -1,3 +1,91 @@
+## 275차 (완료 -- 274차 패치 시뮬레이션 기반 A/B, ANALYSIS_ONLY, 실차검증 아님) -- 사용자 재업로드 라우트B.zip이 274차 패치 이전 corpus 재사용임을 확인 후 시뮬레이션 재생으로 대체 진행
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu`(HEAD `8c512cb`, 코드 변경 없음 -- 이번
+세션은 toolkit/devnotes만 변경) / `ryu-devnotes`(HEAD `bfc5fa9`=274차
+devnotes, 이 항목 추가 전)
+
+**Branch**: `c3-ms-dev` / `main`
+
+**Base commit**: `8c512cb`(§3 fresh clone으로 재확인, WIP head=274차
+"완료" 상태/IN PROGRESS 마커 없음, HANDOFF.md 파일 부재 정상 확인 후 착수)
+
+**배경**: 274차가 다음 작업으로 남긴 "사용자 실차주행 완료 후 dashcam/
+rlog 로그로 274차 변경 A/B 검증"에 대해 사용자가 `라우트B.zip`을
+재업로드하며 "최신 패치로 A/B 검증 진행"을 요청.
+
+**한 일**:
+1. §3/§4 절차대로 `ryu`/`ryu-devnotes` fresh clone, HEAD 확인(위 참고).
+2. 업로드된 `라우트B.zip`을 `extract_log.py --with-navi-paths`로 추출
+   (13176행) 후, **세그먼트 시작 시각까지 완전히 일치**하는 것을 근거로
+   이 corpus가 272/273/274차가 이미 사용해온 것과 동일한 물리적 주행
+   로그(`000003b0--794e227a32`, 09:24~09:34)임을 확인. 이 주행 시각은
+   274차 패치 commit(`8c512cb`, `2026-09-06T13:13:36`)보다 앞서므로
+   CSV의 실측 컬럼(`routeApexIdx`/`routeOutSpeed`/`src`)은 274차 이전
+   코드 결과 그대로임 -- 재추출만으로는 274차 효과를 볼 수 없음을
+   확인(§28, 추측 대신 코드/타임스탬프로 직접 확인).
+3. 이 상황을 사용자에게 보고 후 진행 방식(§33, GitHub/corpus 상태가
+   예상과 다를 때 임의 진행 금지) 확인 -- "기존 corpus로 시뮬레이션
+   기반 재생 A/B (실차검증 아님, ANALYSIS_ONLY 명시)"로 확정.
+4. `sim_route_254_release_dist20_6state.py`는 `release_dist_m`이
+   20.0으로 하드코딩돼 있어 274차 값(10.0)을 테스트할 수 없었음 --
+   `Sim254`/`replay()`가 이미 파라미터를 받게 설계된 점을 활용해
+   `--release-dist-m` CLI 옵션만 추가(§27 최소변경, 로직 무변경).
+   정적 분석(`py_compile`/`ast.parse`) 통과, self-test 4케이스 전부
+   회귀 없이 통과(기본값 20.0 유지 시 254차 원 동작과 동일 확인).
+5. route B(13176행)로 A/B 실행:
+   - `sim_route_254` (continuity=10m 고정): release_dist 20m vs 10m --
+     far-apex-freeze 0건→0건, 6-state 분포 사실상 동일(MATCHED
+     1893→1894, HELD/LOST/GATE ±1 이내).
+   - `sim_route_234`(naviPaths 전체 후보 재구성, 더 높은 정합도):
+     continuity_tolerance 10m vs 20m -- stage3 >40m 점프 1건→1건 동일,
+     matched frames 1382→1391 소폭 증가, ambiguous matched 0%→0% 동일.
+   - release_dist=10m + continuity=20m 동시 적용(274차 실제 반영값
+     조합)도 6-state 분포가 소폭만 이동(MATCHED 1894→1903, HELD
+     151→145, LOST 72→69).
+
+**결과**: 이 route B corpus 범위 안에서는 274차의 두 상수 변경
+(release_dist 20→10m, continuity_tolerance 10→20m) 모두 단독/동시
+적용 시 관측 가능한 효과가 노이즈 수준 -- far-apex-freeze/>40m 점프
+건수는 불변, 6-state 분포/matched frame 수만 한 자릿수 단위로 소폭
+이동. 274차가 우려했던 "관여 과도 확대"나 "오판 위험 증가" 징후는
+이 corpus에서는 나타나지 않았으나, 아래 한계 때문에 이것으로
+"안전하다"고 결론 내릴 수 없음.
+
+**검증**:
+- 정적 분석: `py_compile`/`ast.parse` 통과, self-test 회귀 없음.
+- 로그 검증: route B(13176행) 시뮬레이션 재생(위 참고).
+- 시뮬레이션: 상동(핵심 산출물).
+- **실차 검증: 미실시.** 274차와 동일하게 이 항목도 실차검증 아님 --
+  이번 세션은 274차 패치 이전에 기록된 로그를 두 근사 시뮬레이터로
+  재생한 것뿐(§29 명시).
+
+**미확인/미해결(우선순위순)**:
+1. 274차 WIP 최우선 다음 작업(274차 패치가 실제로 올라간 상태의 신규
+   실차 로그로 272차식 3대 지표 비교)은 여전히 미완료 -- 이번 세션으로
+   대체되지 않음, 사용자가 274차 패치 적용 후 재주행 필요.
+2. `sim_route_234`는 232차 당시 4단계 구조, `sim_route_254`는 252/254차
+   6-state 근사 구조로 각각 258/266/269차 이후 파이프라인 변경을 완전히
+   반영하지 못함 -- 두 도구 모두 CONTINUITY_MATCH_TOLERANCE_M/
+   ROUTE_RELEASE_DIST_M "단독 메커니즘" 검증용으로만 신뢰 가능.
+3. `sim_route_273`가 이미 지적한 top-3 candidate 한계/"held" 상태 근사
+   오차는 이번 `sim_route_254` 결과에도 동일하게 적용됨 -- 정량 수치는
+   참고용, 정성적 방향(둘 다 이 corpus에서 노이즈 수준)만 신뢰.
+
+**다음 작업**:
+1. 사용자가 274차 패치 적용된 빌드로 재주행 후 신규 로그 업로드 --
+   그 로그로만 274차 WIP가 요구한 실측 3대 지표(apex 발견율/ACTIVE
+   개입율/최종 승리율) 직접 비교 가능.
+2. 필요 시 `sim_route_234`/`sim_route_254`를 258/266/269차 이후 현재
+   파이프라인 기준으로 갱신(현재는 구버전 스냅샷 근사).
+
+**패치**: `0001-275cha-sim254-release-dist-m-option.patch`(devnotes,
+`toolkit/sim_route_254_release_dist20_6state.py` 단일 파일) + 이
+WIP.md 항목 + `toolkit/README.md`/`toolkit/CHANGELOG.md` 갱신.
+
+---
+
 ## 274차 (완료 -- route 관여 구간 확대 파라미터 2건 변경 + patch 전달, 실차 검증 전) -- 사용자 확정 지시("좀더 많은 구간에서 라우트가 작용될수 있도록") 대응, 273차 감도분석에서 정리된 완화 후보 중 최저리스크 항목 채택
 
 **Worker**: Claude

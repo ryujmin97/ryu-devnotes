@@ -493,6 +493,65 @@ self-test는 `route_active=True`(ACTIVE) 분기의 동일 문제만 커버). §2
 아무 표본에도 영향을 주지 않음 -- 두 모드가 갈리는 실측 사례는 여전히
 미확보. 실차 검증: 미실시(open-loop 재생 한정, §29).
 
+**275차 추가(`--release-dist-m` 옵션, 274차 패치 A/B용)**: 기존
+`--release-mode dist20`은 `ROUTE_RELEASE_DIST_M`이 20.0으로 하드코딩돼
+있어 274차가 실제 코드에 적용한 10.0m을 테스트할 수 없었다. `Sim254.
+__init__`/`replay()`가 이미 `release_dist_m` 파라미터를 받게 설계돼
+있었던 점을 활용(§27 최소변경 -- 로직 변경 없이 CLI에서 값만 통과시킴),
+`--release-dist-m <m>`(기본값 20.0, 생략 시 254차 원 동작과 완전
+동일 -- self-test 회귀 없음 확인)을 추가했다. **사용**:
+`python3 sim_route_254_release_dist20_6state.py route.csv --release-mode
+dist20 --release-dist-m 10`. 274차 실측 A/B 결과는 아래 "274차 패치
+A/B(275차)" 항목 참고.
+
+**275차: 274차 패치(`ROUTE_RELEASE_DIST_M` 20→10m, `CONTINUITY_MATCH_
+TOLERANCE_M` 10→20m) 시뮬레이션 A/B (ANALYSIS_ONLY, 실차검증 아님)**:
+사용자가 재업로드한 `라우트B.zip`이 272/273/274차와 동일 corpus
+(`000003b0--794e227a32`, 11세그, 09:24~09:34, 13176행)임을 세그 시작
+시각 단위로 확인 -- 즉 이 물리적 주행은 274차 패치(commit `8c512cb`,
+`2026-09-06T13:13:36`)보다 시간상 앞서 기록된 로그라 CSV의 실측
+`routeApexIdx`/`routeOutSpeed`/`src` 컬럼 자체는 274차 이전 코드의
+결과다(재추출해도 baseline과 동일 수치만 재현됨). 따라서 274차 두 상수
+변경의 효과는 `routeCandidate0~2`/`naviPaths` 원시 텔레메트리를 새
+상수로 재생하는 시뮬레이션으로만 관찰 가능 -- 아래는 그 결과이며
+**실차 검증이 아니다(§29)**.
+
+- `sim_route_254_release_dist20_6state.py --release-mode dist20`,
+  continuity=10m 고정, `--release-dist-m` 20 vs 10 비교: far-apex-freeze
+  episode 0건→0건(변화 없음, 255차와 동일 -- 이 corpus엔 해당 시나리오
+  자체가 없음). 6-state 분포도 사실상 동일(MATCHED 1893→1894, HELD
+  151→151, LOST 72→72, GATE 1702→1701, NEW 38→38) -- **이 corpus 안에서는
+  release_dist 20→10m 단독 변경의 관측 가능한 효과가 노이즈 수준
+  이하**(top-3 근사 한계 내에서).
+- `sim_route_234_spatial_apex_continuity.py`(더 높은 정합도 -- naviPaths
+  전체 후보 재구성, 234차에서 이미 검증된 도구)로 continuity_tolerance
+  10m vs 20m 비교: stage3 >40m 프레임간 점프 1건→1건(동일), matched
+  frames 1382→1391(소폭 증가), ambiguous matched 0%→0%(동일) --
+  234차가 다른 corpus(`0000039a--7b602ffb85`)에서 낸 결론("10~20m 전
+  구간에서 오판 위험 증가 없음, matched frame만 소폭 증가")과 이 route B
+  에서도 정성적으로 일치.
+- release_dist 10m + continuity 20m을 동시 적용(274차 실제 반영값
+  조합)한 경우도 6-state 분포가 released_dist 단독 대비 소폭만 이동
+  (MATCHED 1894→1903, HELD 151→145, LOST 72→69) -- 두 변경의 상호작용도
+  이 corpus에서는 급격하지 않음.
+
+**한계(반드시 함께 인용)**: (1) 이 corpus는 274차 패치 이전에 기록된
+로그라 실제 온보드 262차~274차 전체 파이프라인(258차 거리게이트/266차
+confidence blend/269차 lookup 최적화 등)을 그대로 반영하지 않고,
+sim_route_234는 232차 당시 4단계 구조, sim_route_254는 252/254차 6-state
+근사 구조로 각각 부분적으로만 최신 코드를 재현한다. (2) 274차 WIP가
+요청한 "272차와 동일 지표(apex 발견율/ACTIVE 개입율/최종 승리율)"는 이
+두 스크립트의 출력 형식(far-apex-freeze 건수, >40m 점프 건수, 6-state
+분포)과 다르다 -- 직접 비교 가능한 수치가 아니므로 별도로 재구성하지
+않았다(추측성 환산 금지, §28). (3) **274차 WIP가 명시한 최우선 다음
+작업("사용자 실차주행 완료 후 dashcam/rlog로 A/B 검증")은 이번 세션으로
+대체되지 않는다** -- 274차 패치가 실제로 올라간 상태에서의 신규 실차
+로그 확보는 여전히 미완료 항목으로 유지.
+
+**패치**: `0001-275cha-sim254-release-dist-m-option.patch`
+(`toolkit/sim_route_254_release_dist20_6state.py` 단일 파일, self-test
+회귀 없음).
+
 ---
 
 ## scan_route_far_apex_accel_freeze.py (246차 신규)

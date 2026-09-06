@@ -3,6 +3,17 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+## 2026-09-06 (275차)
+- `sim_route_254_release_dist20_6state.py`에 `--release-dist-m` 옵션
+  추가(기본값 20.0, 생략 시 254차 원 동작과 동일 -- self-test 회귀
+  없음). 274차 패치(`ROUTE_RELEASE_DIST_M` 10m/`CONTINUITY_MATCH_
+  TOLERANCE_M` 20m) 시뮬레이션 A/B 수행: 사용자 재업로드 route B가
+  272~274차와 동일 corpus(274차 패치보다 앞서 기록된 로그)임을 확인,
+  release_dist 20→10m 및 continuity 10→20m 각각/동시 적용 6-state
+  분포·far-apex-freeze·>40m 점프 지표 비교 -- 이 corpus에서는 두 변경
+  모두 노이즈 수준의 소폭 이동만 관측(ANALYSIS_ONLY, 실차검증 아님).
+  상세: README.md/WIP.md 275차.
+
 ## 2026-09-06 (273차 계속)
 - `sim_route_273_active_gate_relax_sensitivity.py` 파일 자체를 세션
   중단으로 못 넘겼던 문제 해소 -- carrot_man.py(HEAD `0c03f7d0e`) stage4
