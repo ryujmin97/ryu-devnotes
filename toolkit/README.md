@@ -21,6 +21,29 @@ CHANGELOG.md를 같이 갱신**한다 (세션 종료 체크리스트에 포함�
 
 ---
 
+## sim_route_281_release_hold_ab.py (281차 신규, 체크포인트 -- 합성검증만, 실 corpus/실차 검증 전)
+**목적**: `ROUTE_RELEASE_HOLD_S=2.0`(223차 설계)이 266차 confidence blend
+도입 이후에도 필요한지 검증. `carrot_man.py` L858-865(hold 게이트)/
+L1152-1300(ACTIVE/INERT RELEASE 판정) 전체를 `RouteStateSim` 클래스로
+그대로 포트.
+
+**시나리오**: A) RELEASE 직후 노이즈 즉시 재검출(streak=1) -- hold=0에서도
+재-ACTIVE 막히는지. B) 근접 2연속 커브 -- confidence 자연축적 소요시간 vs
+hold 고정 2.0s 비교. C) dist_reached RELEASE 후 정당한 재가속 재개입 지연
+(현재 버그로 결과 신뢰 불가, 폐기).
+
+**281차 결과**: A) hold 무관하게 재-ACTIVE 발생 안 함(confidence blend가
+이미 방어). B) gap=0.3s 기준 confidence 자연축적 0.4s vs hold 고정 2.0s --
+**약 1.6초 순수 추가 지연**. 상세: WIP.md 281차.
+
+**한계**: `autoNaviSpeedCtrlEnd` 실제값 미확인(2.0s 가정), 전부 합성
+시나리오(실 corpus 아님). **실차 검증: 미실시.**
+
+**사용**: `python3 sim_route_281_release_hold_ab.py` (인자 없음, 3개
+시나리오 전부 stdout 출력)
+
+---
+
 ## sim_route_273_active_gate_relax_sensitivity.py (273차 신규, 273차 계속 재구성+재검증 -- NEEDS_INVESTIGATION 유지, baseline 오차 축소)
 **목적**: "apex 선정조건(stage2/3)/ACTIVE 진입조건(stage4)을 완화하면
 route 관여빈도가 얼마나 느는가" 감도분석. `carrot_man.py`(HEAD

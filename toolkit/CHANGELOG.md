@@ -3,6 +3,13 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+## 2026-09-06 (281차)
+- `sim_route_281_release_hold_ab.py` 신규 -- `ROUTE_RELEASE_HOLD_S`(2초)
+  재검토용 합성 시나리오 3종(A: 노이즈 재래치, B: 근접 2연속 커브 추가지연,
+  C: 재가속 재개입[버그, 폐기]). 시나리오 B에서 hold=2.0s가 confidence
+  자연축적(0.4~1.15s) 대비 최대 약 1.6초 순수 추가 지연을 유발함을 확인
+  (체크포인트, 실 corpus/실차 검증 전). 상세: README.md/WIP.md 281차.
+
 ## 2026-09-06 (275차)
 - `sim_route_254_release_dist20_6state.py`에 `--release-dist-m` 옵션
   추가(기본값 20.0, 생략 시 254차 원 동작과 동일 -- self-test 회귀

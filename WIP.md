@@ -1,3 +1,88 @@
+## 281차 (체크포인트 -- 오프라인 합성 시나리오 검증 완료, ryu 코드 변경 없음, 실차 검증 전) -- ROUTE_RELEASE_HOLD_S(2초) 재검토 착수: confidence blend(266차) 도입 후 노이즈 방지 역할이 이미 중복됐을 가능성 발견
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu`(변경 없음, HEAD `7571e63`=280차 재확인) /
+`ryu-devnotes`(HEAD `cdae942`, 이 항목 추가 전)
+
+**Branch**: `c3-ms-dev` / `main`
+
+**배경**: 사용자가 "2초 release hold를 없애도 되지 않냐"고 질의. §3 원칙대로
+먼저 최신 상태 확인 -- 240차가 동일 질문(2026-09-05 사용자 지시서)을
+실차 로그로 검증하려 했으나 업로드 로그 11건이 전부 223차(hold 신설)
+**이전** 빌드라 원천 검증 불가했고, 그 뒤로 245차까지 "재플래시 후 재검증"
+미해결 항목으로만 남아있던 것을 확인(WIP.md 240/245차). 이번 세션은 그
+사이(255~280차) 아키텍처가 크게 바뀐 뒤 처음으로 이 질문을 재검토.
+
+**분석(정적, §28 -- carrot_man.py L858-865/1152-1300 직접 추적)**: 223차
+당시(hold 신설 시점)엔 confidence blend가 없어서, RELEASE 직후 노이즈로
+candidate가 즉시 재검출되면 그대로 ACTIVE 재진입 -> 감속 재개했다(253차가
+dashcam 실측으로 "hold 없으면 인위적 ENGAGE/RELEASE 진동 발생"을 직접 확인,
+당시엔 hold가 유일한 방어선이었음). 그런데 266차 confidence blend 이후
+구조가 바뀌었다:
+1. 신규/재탐색 candidate는 `apex_streak=1` -> `_route_confidence_from_streak`가
+   정확히 0.0 반환 -> `eff_apex_speed=v_ego_kph` -> INERT 게이트의
+   `required_decel_mss=0` -> `DECEL_RATE` 문턱 통과 불가(L1258-1299).
+2. `speed_reached`로 RELEASE된 직후엔 `v_ego_ms<=target_ms`가 INERT
+   유지를 강제(L1262).
+3. `dist_reached`(근접, 224차 원설계)로 RELEASE된 직후엔 `eff_dist<=0`이
+   pass-through(INERT 유지)를 강제(L1269).
+
+즉 RELEASE의 3가지 트리거(passed/lost/new, speed_reached, dist_reached)
+전부, hold와 **무관하게** 이미 즉시 재-ACTIVE를 구조적으로 막고 있다 --
+hold가 막던 "노이즈 재래치" 문제를 confidence blend가 이미 별도로 해결한
+것으로 보임.
+
+**검증(오프라인 합성, 신규 toolkit `sim_route_281_release_hold_ab.py`,
+`RouteStateSim`이 위 3개 조건분기를 실제 소스 그대로 포트)**:
+- **시나리오 A**(RELEASE 직후 동일지점 노이즈 재검출, streak=1): hold=0.0s
+  에서도 즉시 재-ACTIVE **발생 안 함** -- 위 가설(confidence blend가 이미
+  방어) 확인.
+- **시나리오 B**(근접 2연속 커브, 실제 커브간 시간간격 gap=0.3/0.6/1.0s):
+  confidence 자연 축적만으로 ACTIVE 재진입에 걸리는 시간은 gap에 따라
+  0.4~1.15s인데, hold=2.0s는 이 자연 소요시간과 무관하게 **항상 정확히
+  2.0s**로 고정 -- gap=0.3s 케이스에서 **약 1.6초의 순수 추가 지연**이
+  hold 자체 때문에 발생함을 확인(hold=0.5/1.0s로 낮추면 그만큼 자연
+  소요시간에 수렴).
+- **시나리오 C**(dist_reached RELEASE 후 재가속에 의한 정당한 재개입):
+  구현 경계조건 이슈로 이번 결과(hold=2.0s에서 1.45s, 즉 hold값보다
+  짧게 나옴 -- 논리적으로 모순)는 **신뢰 불가, 폐기**. 다음 세션에서
+  `RouteStateSim` 호출측 apex_dist 갱신 순서 버그 수정 후 재실행 필요.
+
+**중요 가정/한계(§28 명시, NEEDS_VALIDATION)**:
+1. `autoNaviSpeedCtrlEnd`(CTRL_END) 실제 파라미터값이 PARAMS_REGISTRY.md에
+   등록돼 있지 않아 이번 스크립트는 2.0s로 가정(vturn_safe_time=2.0s 등
+   유사 파라미터 참고 추정치, **실제 device 파라미터 확인 안 됨**) --
+   시나리오 B의 절대 수치(0.4~1.15s)는 이 가정에 좌우된다. 실제값이
+   다르면 "자연 소요시간" 자체가 달라져 결론의 방향(hold가 추가지연을
+   유발한다)은 유지되더라도 정량값은 재계산 필요.
+2. 전부 합성 시나리오다 -- 실 corpus(naviPaths 재구성) 재생이 아니다.
+   240차가 확인했듯 hold 신설 이후 빌드의 실측 로그가 아직 없어 실 corpus
+   교차검증 자체가 미실시 상태.
+3. **실차 검증: 미실시.**
+
+**한 일**: 위 분석 + 신규 toolkit 스크립트 작성/배치(정적검증만, 합성
+self-test 3종 포함), ryu 소스 코드는 전혀 건드리지 않음(사용자 확인 전
+수정 금지 원칙).
+
+**미확인 사항**:
+- `autoNaviSpeedCtrlEnd` 실제 device 파라미터값 확인 필요.
+- 시나리오 C 재구현.
+- 223차 이후(hold 존재) 빌드로 재플래시한 실차 로그 확보 -- 240차부터
+  이어지는 미해결 선행조건, 이게 있어야 이번 합성 결과를 실 corpus로
+  교차검증 가능.
+
+**다음 작업(사용자 확인 필요, §33)**:
+1. `autoNaviSpeedCtrlEnd` 실측값 확인(device Params 조회 또는 로그).
+2. 시나리오 C 버그 수정 후 재실행.
+3. (a) 223차 이후 빌드로 재플래시 후 새 로그로 이번 합성 결론 실 corpus
+   교차검증 vs (b) 일단 `ROUTE_RELEASE_HOLD_S`를 0.5~1.0s로 낮춰 실차에서
+   체감 테스트(단, 이번 결론이 확정 근거가 아니므로 신중 권고) 중 사용자
+   판단.
+4. **production 코드(`ROUTE_RELEASE_HOLD_S` 값) 수정은 아직 하지 않음 --
+   위 1~3 중 최소 1개 이상 완료 후 사용자 승인 받아 진행.**
+
+---
 ## 280차 (완료 -- 코드 수정+정적 검증(py_compile)+독립 검증(git apply --check + git am) 완료, 실차 검증 아님) -- ROUTE_APEX_MISS_TOLERANCE_FRAMES 3->6: confidence blend(266차) 도입 후에도 잔존하는 목표속도 flicker 대응
 
 **Worker**: Claude
