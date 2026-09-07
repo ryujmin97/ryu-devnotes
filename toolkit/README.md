@@ -4238,6 +4238,71 @@ FINDINGS.md 246차 항목 253차 갱신 참고.
    시나리오 자체의 실측 반증/재현은 여전히 미확정(WIP.md 253차/FINDINGS.md
    239차 참고).
 
+## sim_route_297_reacquire_gap_real_corpus.py (297차 신규 -- sim_route_296의 실 corpus 실행 어댑터, route1~4 실측 완료: 24.6% seamless forced-release)
+
+**배경**: 296차가 self-test(합성)만 하고 "corpus 확보 후"로 미뤄둔
+`sim_route_296_active_reacquire_gap.py::RouteStateMachine`을 실
+corpus에 실행하기 위한 CSV -> frames 어댑터.
+
+**핵심 발견(devnotes 기존 toolkit gap)**: `analysis_helpers.py::
+recompute_route_curvature_speed()`(147/158차)가 279차에 프로덕션에
+재도입된 `mapTurnSpeedFactor` 곱셈(`carrot_man.py` 1004~1066행,
+macro/fine 양쪽)을 반영하지 않는다. `MapTurnSpeedFactor≠100%`인
+corpus(이 route1~4는 실측 110%, 287/291차 확인)를 그 함수로 재구성하면
+프로덕션과 어긋난 apex 목표속도가 나온다 -- 기존 함수를 쓰는 68개
+호출부에 영향을 주지 않기 위해(§27) 이 스크립트는 `carrot_man.py`
+960~1066행을 factor 곱셈 포함해 독립적으로 재이식한 신규 함수
+`recompute_route_speeds_with_factor()`를 자체 보유한다(기존
+`analysis_helpers.recompute_route_curvature_speed()`는 무변경).
+
+**이 스크립트가 하는 일**: CSV(`extract_log.py --with-navi-paths`로
+추출, `naviPaths`/`nRoadLimitSpeed`/`vEgo` 컬럼 필요)를 한 줄씩 읽어
+`naviPaths`가 있는 프레임마다 `parse_navi_paths()`로 폴리라인을 얻고,
+`recompute_route_speeds_with_factor()`로 stage0 후보 배열
+(distance, speed_cap)을 재구성한 뒤 `road_limit_speed` 필터를 적용해
+296차 `RouteStateMachine.step()`에 그대로 흘려보낸다.
+`naviPaths`가 없는 프레임은 스킵(§28 한계 -- 아래 참고).
+
+**실측 결과(route1~4, 2026-09-06 16:56~18:03, 실측
+`MapTurnSpeedFactor=1.10`/`AutoNaviSpeedCtrlEnd=8`/
+`AutoNaviSpeedDecelRate=0.70`, 287/291차 확인값)**:
+
+| route | naviPaths 프레임 | ACTIVE 에피소드 | seamless forced-release |
+|---|---|---|---|
+| a3b3373495 | 19784 | 39 | 10 |
+| 01742d6c1c | 22119 | 12 | 3 |
+| c8d2619479 | 23720 | 7 | 1 |
+| bf794c0073 | 10386 | 3 | 1 |
+| 합계 | 75009 | 61 | **15 (24.6%)** |
+
+15건 전부 `mode="lost"`(passed 케이스는 이 corpus에 없음), 전부
+`new_apex_needs_decel=True`(재탐색된 apex가 실제로 감속 대상),
+`immediate_reentry`는 전부 False(296차가 self-test로 예견한 지표
+자체의 구조적 한계 -- 새로운 정보 아님). 상세: WIP.md/FINDINGS.md
+297차 참고.
+
+**한계(§28, 다음 세션 과제)**:
+- qcamera 육안 대조 미실시 -- 15건이 전부 실제 커브인지, 일부가 맵
+  candidate 노이즈(294차가 다른 통계에서 확인한 패턴)인지 미확인.
+- `naviPaths` 결측 프레임(전체의 1.2~13.2%)을 스킵하는 방식이라
+  production처럼 "이번 프레임엔 candidate 없음"으로 스텝을 진행하는
+  것과 결과가 다를 수 있음(스킵 쪽이 streak 유지에 유리하게 작용할
+  가능성 -- 즉 24.6%가 과소추정 방향일 수 있음, 과대추정 방향 위험은
+  없음).
+
+**의존성**: `analysis_helpers.py`(`parse_navi_paths`만 재사용),
+`sim_route_296_active_reacquire_gap.py`(`RouteStateMachine` 그대로
+import).
+
+**사용**:
+```
+python3 sim_route_297_reacquire_gap_real_corpus.py \
+    --csv /path/to/route.csv \
+    --map-turn-speed-factor 1.10 --ctrl-end 8.0 --decel-rate 0.70
+```
+
+---
+
 ## sim_route_296_active_reacquire_gap.py (296차 신규 -- "passed/lost + 동일 프레임 재탐색" 시 강제 RELEASE 빈도 측정, self-test 5/5 PASS, 실 corpus 미실행)
 
 **배경**: 사용자+ChatGPT 협업 세션에서 "apex가 passed/lost로 판정되면서

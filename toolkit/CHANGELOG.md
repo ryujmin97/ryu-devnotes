@@ -3,6 +3,18 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+## 2026-09-07 (297차)
+- `sim_route_297_reacquire_gap_real_corpus.py`: **신규**. 296차
+  `sim_route_296_active_reacquire_gap.py::RouteStateMachine`을 실
+  corpus(route1~4, naviPaths CSV)에 통과시키는 어댑터. carrot_man.py
+  960~1066행(macro+fine 곡률, `mapTurnSpeedFactor` 곱셈 포함)을 독립
+  재이식 -- **`analysis_helpers.recompute_route_curvature_speed()`가
+  279차 mapTurnSpeedFactor 곱셈을 반영하지 않는 gap을 발견**했으나
+  기존 함수(68개 호출부 있음)는 무변경, 이 스크립트에만 별도 함수
+  추가. **실측 결과: 61개 ACTIVE 에피소드 중 15건(24.6%)이 seamless
+  forced-release, 전부 mode=lost, 전부 new_apex_needs_decel=True.**
+  qcamera 육안 대조는 미실시. 상세: WIP.md/FINDINGS.md 297차.
+
 ## 2026-09-07 (296차)
 - `sim_route_296_active_reacquire_gap.py`: **신규**. 사용자+ChatGPT
   협업 세션의 "passed/lost + 같은 프레임 재탐색 성공인데 무조건

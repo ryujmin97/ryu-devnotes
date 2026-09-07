@@ -1,3 +1,151 @@
+## 297차 (완료 -- ANALYSIS_ONLY, devnotes toolkit 신규 스크립트 1개, `ryu` 본체 무변경) -- 296차가 미룬 `sim_route_296_active_reacquire_gap.py` 실 corpus 실행 완료: route1~4 전체 61개 ACTIVE 에피소드 중 15건(24.6%)이 "seamless forced-release"(동일 프레임 재탐색 성공한 유효 apex를 버리고 무조건 RELEASE) -- 15건 전부 mode=lost, 전부 new_apex_needs_decel=True(재탐색된 apex가 실제로 감속 대상이었음) -- 부수 발견: `analysis_helpers.recompute_route_curvature_speed()`가 279차 이후 프로덕션의 `mapTurnSpeedFactor` 곱셈을 반영하지 않는 gap 확인(신규 함수로 우회, 기존 함수 무변경)
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu`(HEAD `d2f47d1`=290차, 변경 없음, 컨테이너
+리셋 후 재클론으로 드리프트 없음 재확인) / `ryu-devnotes`(HEAD
+`34dadfb`=296차, 이 항목 추가 전)
+
+**Branch**: `c3-ms-dev` / `main`
+
+**세션 시작 확인(§3)**: 세션 도중 컨테이너가 1회 초기화됨 -- §
+"컨테이너 리셋 복구" 절차에 따라 `git ls-remote`로 재클론 전 원격
+HEAD을 먼저 확인(양쪽 모두 리셋 전 기록과 정확히 동일 -- `ryu`
+`d2f47d1`, `ryu-devnotes` `34dadfb`), 리셋 사이 다른 작업자 push
+없음 확인. HANDOFF.md/CURRENT_STATUS.md 없음(관례).
+
+**배경**: 사용자가 별도 세션(사용자+ChatGPT)의 "실측 Route 전체
+재분석" 제안 문서와 함께 zip 4개(`a3b3373495`/`01742d6c1c`/
+`c8d2619479`/`bf794c0073`)를 업로드. 파일명/route ID 대조 결과 이는
+283~296차가 이미 반복 분석해온 바로 그 route1~4 corpus(2026-09-06
+16:56~18:03)의 재업로드로 확인됨(신규 corpus 아님, 재추출 행수
+22801/22799/23999/10546이 기존 기록과 정확히 일치). 따라서 "전체
+재분석"이 아니라 296차가 미뤄둔 다음 단계(`sim_route_296` 실 corpus
+실행)로 작업 범위를 좁힘.
+
+**한 일**:
+1. 4개 route를 `extract_log.py --with-navi-paths`로 재추출 --
+   naviPaths 컬럼 존재 프레임 비율 86.8%/97.0%/98.8%/98.5%(4개 route
+   전체 22801/22799/23999/10546행 중).
+2. 실측 디바이스 파라미터 재확인(287/291차 `params_backup-6.json`) --
+   `MapTurnSpeedFactor=110%`, `AutoNaviSpeedCtrlEnd=8`(초),
+   `AutoNaviSpeedDecelRate=70`(=0.70 m/s²). `sim_route_296`의
+   `--ctrl-end`/`--decel-rate` 기본값(7.0/0.70)과 대조한 결과
+   decel_rate는 이미 일치, ctrl_end만 7.0→8.0으로 실측치 사용 필요함을
+   확인.
+3. **신규 발견(devnotes 기존 toolkit gap)**: `analysis_helpers.py::
+   recompute_route_curvature_speed()`(147/158차)가 279차에 프로덕션에
+   재도입된 `self.carrot_serv.mapTurnSpeedFactor` 곱셈(`carrot_man.py`
+   1004~1066행, macro/fine 양쪽 다 곱함)을 반영하지 않음을 코드 대조로
+   확인. 이 corpus처럼 실측 factor=1.10인 경우 그 함수를 그대로 쓰면
+   apex 목표속도가 실제 프로덕션보다 낮게(=더 가혹하게) 재구성된다.
+   기존 함수를 고치지 않고(§27 -- 68개 다른 toolkit 스크립트가 이
+   함수를 "factor=1.0 가정" 하에 이미 검증된 방식으로 쓰고 있어, 그
+   가정 자체를 깨면 회귀 위험) `carrot_man.py` 960~1066행을 factor
+   곱셈 포함해 독립적으로 재이식한 신규 함수
+   `recompute_route_speeds_with_factor()`를 새 스크립트에만 추가.
+4. **신규 toolkit**: `sim_route_297_reacquire_gap_real_corpus.py` --
+   CSV(naviPaths 포함) -> 프레임 변환 어댑터 + 296차
+   `RouteStateMachine`을 그대로 통과시켜 route별로 독립 실행(별개
+   주행이므로 상태기계 인스턴스 분리).
+5. route1~4 전체 실행(정적 검증: py_compile/ast.parse 통과, 프레임
+   naviPaths 컬럼 없는 행은 스킵 -- 클러스터링 입력 재구성 불가하므로
+   보수적으로 제외, 아래 "미확인 사항" 참고).
+
+**실측 결과(핵심)**:
+
+| route | naviPaths 프레임 | ACTIVE 에피소드 | seamless forced-release 이벤트 |
+|---|---|---|---|
+| a3b3373495 | 19784 | 39 | 10 |
+| 01742d6c1c | 22119 | 12 | 3 |
+| c8d2619479 | 23720 | 7 | 1 |
+| bf794c0073 | 10386 | 3 | 1 |
+| **합계** | 75009 | **61** | **15 (24.6%)** |
+
+- **15건 전부 mode="lost"** -- 이번 corpus에서는 "passed + 동일 프레임
+  재탐색"(자연스러운 apex 통과 직후 재탐색) 조합은 한 건도 관측되지
+  않았고, 전부 "lost + 동일 프레임 재탐색"(6프레임 미스 허용치 초과
+  후 continuity가 끊기는 순간 새 클러스터가 이미 근처에 잡혀있던 경우)
+  였다. mode 분포 자체가 이번 세션의 새로운 실측 정보(296차는 self-test
+  에서 둘 다 합성으로만 확인).
+- **`immediate_reentry=True`는 0/15건** -- 296차 self-test 단계에서
+  이미 예견됐던 구조적 한계(재탐색 성공 시 streak가 1로 리셋 ->
+  confidence=0.0 -> eff_apex_speed=v_ego_kph 그대로 -> INERT 게이트
+  `v_ego_ms<=target_ms`가 항상 참)가 실측에서도 정확히 그대로
+  재현됨 -- 이 지표만으로는 "0프레임 flicker가 실제로 있는가"에 답할
+  수 없다는 296차의 사전 경고가 실측으로 확인됨.
+- **`new_apex_needs_decel=True`는 15/15건(100%)** -- 이 corpus에서
+  발생한 "seamless forced-release"는 예외 없이 재탐색된 새 apex가
+  실제로 감속 대상(`v_ego_ms > apex_speed/3.6`)이었다. 즉 RELEASE가
+  버린 데이터는 매번 "당장 쓸모없는 값"이 아니라 "당장 감속에 써야
+  했을 유효한 목표"였다는 뜻 -- 사용자/ChatGPT가 우려한 방향
+  ("재탐색된 새 apex가 감속 대상이면 ACTIVE 유지해야 하는데 그러지
+  못하고 있다")이 이 15건에 한해 실측으로 뒷받침됨.
+- **293차 "1/39(ep108)"와의 관계 재확인**: 296차가 코드 레벨로 예측한
+  대로, 이번 24.6%(15/61)는 293차의 gap-탐지 방법론(0/NaN cutoff
+  프레임 탐지)으로는 원천적으로 안 잡히는 별도 현상임이 실측으로도
+  확인됨 -- 두 수치는 서로 다른 것을 세고 있으므로 직접 비교/합산 대상이
+  아니다.
+
+**미확인/한계(정직하게 기록, §28)**:
+- **qcamera 육안 대조 미실시** -- 15건 모두 "코드/상태기계 로직상
+  RELEASE가 유효 데이터를 버렸다"는 것만 확인됐을 뿐, 그 15개 지점이
+  실제 화면상 진짜 커브인지(맵 candidate 노이즈의 오탐일 가능성은
+  293/294차가 이미 다른 통계에서 상당 비중 확인한 바 있음, 294차
+  "35건 중 18건 커브 없음") 아직 대조하지 않았다 -- 다음 세션 우선
+  후보.
+- naviPaths 컬럼이 없는 프레임(전체의 1.2~13.2%)은 이번 어댑터가
+  전부 스킵 -- production은 그 프레임에도 이전 상태(streak/locked_dist)
+  를 유지한 채 진행하므로, 스킵이 아니라 "이번 프레임엔 신규 candidate
+  없음"으로 처리하는 것이 더 정확할 수 있음(현재 스킵 방식은 continuity
+  streak가 실제보다 유리하게 유지될 위험 -- 즉 이 24.6%가 과소추정일
+  가능성이 있는 방향의 근사, 반대 방향 과대추정 위험은 없음). 다음
+  세션에서 "candidates=[] 프레임으로 스텝 진행" 방식과 결과 비교 필요.
+- `immediate_reentry` 판정 로직 자체는 296차가 이미 self-test로
+  "구조적으로 거의 항상 False"임을 확인한 상태 -- 15건 전부 False로
+  나온 것이 이 corpus의 특성이 아니라 지표 자체의 한계일 가능성이
+  높음(296차 경고 그대로), 새로운 정보 아님.
+- `analysis_helpers.recompute_route_curvature_speed()`의
+  mapTurnSpeedFactor 미반영 gap은 이번 세션에서 우회만 했을 뿐 그
+  함수 자체를 고치지는 않음 -- 68개 다른 스크립트에 영향을 주는
+  변경이라 사용자 결정 필요(§27).
+- 코드 변경 없음(ANALYSIS_ONLY) -- 이 실측 결과를 근거로 코드 수정을
+  제안하려면 §31 승인 절차 필요, 이번 세션은 빈도 확정까지만.
+
+**Devnotes**:
+- `toolkit/sim_route_297_reacquire_gap_real_corpus.py`: 신규
+- `toolkit/README.md`: 297차 섹션 추가
+- `toolkit/CHANGELOG.md`: 297차 항목 추가
+- `FINDINGS.md`: 297차 항목 추가(296차 발견을 실측으로 확정)
+
+**검증**:
+- 정적 분석: `py_compile`/`ast.parse` 통과
+- 로그 검증: route1~4 전체(75009 naviPaths 프레임) 실행 완료, 위 표
+  참고
+- 시뮬레이션: 해당 없음(이번 세션 자체가 296차 시뮬레이션의 실 corpus
+  실행)
+- 실차 검증: 해당 없음(ANALYSIS_ONLY, `ryu` 코드 무변경이라 실차 거동
+  영향 없음, §29)
+
+**다음 작업**:
+1. 15건 seamless forced-release 지점 qcamera 육안 대조(실제 커브
+   여부 확인) -- 우선순위 최상위 후보
+2. naviPaths 결측 프레임 처리 방식(스킵 vs candidates=[] 유지) A/B
+   비교로 24.6% 추정치의 상/하한 좁히기
+3. 빈도(24.6%)가 유의미하다고 판단되면 그때 코드 변경안(§31 승인
+   필요) 설계 착수 -- "재탐색된 새 apex가 감속 대상이면 apex 데이터를
+   유지한 채 계속 ACTIVE" 방향, 이번 세션은 여전히 ANALYSIS_ONLY
+4. `analysis_helpers.recompute_route_curvature_speed()`에
+   mapTurnSpeedFactor 인자를 추가할지(기존 68개 호출부 전부 영향)
+   여부는 사용자 결정 필요
+5. (293차부터 이월) ep108 클러스터링 코드 레벨 추적 -- 여전히 미착수
+6. (294차부터 이월) ep47/48/101/105 "직선인데 candidate 발생" 패턴
+   코드 레벨 추적
+
+**패치**: `0001-297cha-devnotes.patch`
+
+---
+
 ## 296차 (완료 -- devnotes toolkit 신규 스크립트 1개, `ryu` 본체 무변경) -- 사용자+ChatGPT 협업 세션의 "passed/lost+동일프레임 재탐색인데 무조건 RELEASE" 설계 논의를 코드 대조로 검증 -- "new"는 route_active=True 중 불가함을 정정, 293차 ep108(1/39)이 이 현상과 무관한 별개 통계임을 확인, 신규 상태기계 재현 도구 self-test 5/5 PASS(실 corpus는 다음 세션)
 
 **Worker**: Claude
