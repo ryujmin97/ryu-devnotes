@@ -3,6 +3,18 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+## 2026-09-07 (299차)
+- `sim_route_299_reacquire_confidence_features.py`: **신규**. 298차
+  qcamera 정답 15건(`evidence/route_297_seamless_release_qcamera/
+  classification.md`)에 candidate 신뢰도 진단 지표 4종(`cluster_size`,
+  `speed_margin_ratio`, `persistence_frames_before`/
+  `persistence_seconds_before`, `distance_jump_m`)을 계산해 real(실제
+  커브+약한 커브)/noise(커브 없음) 그룹 평균을 비교. 296/297차 판정
+  로직은 무변경(관찰만 추가). **결과: `cluster_size`만 약한 방향성
+  신호(noise 상한 3, real 8건 중 2건만 6/9), 나머지 3개는 가설과
+  반대 방향이거나 구분력 없음 -- n=15로는 단일 임계값 게이트 설계
+  근거 부족**. 상세: WIP.md/FINDINGS.md 299차.
+
 ## 2026-09-07 (297차)
 - `sim_route_297_reacquire_gap_real_corpus.py`: **신규**. 296차
   `sim_route_296_active_reacquire_gap.py::RouteStateMachine`을 실

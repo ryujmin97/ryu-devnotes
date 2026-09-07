@@ -1,3 +1,96 @@
+## 299차 (완료 -- ANALYSIS_ONLY, devnotes toolkit 신규 스크립트 1개, `ryu` 본체 무변경) -- 298차 qcamera 정답 15건에 candidate 신뢰도 진단 지표 4종 적용: `cluster_size`만 약한 방향성(노이즈 상한 3, real 일부만 6/9), 나머지 3개는 가설과 반대이거나 구분력 없음 -- 단일 임계값 게이트 설계 근거 부족
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu`(HEAD `d2f47d1`=290차, 변경 없음) /
+`ryu-devnotes`(HEAD `828fc23`=298차, 이 항목 추가 전)
+
+**Branch**: `c3-ms-dev` / `main`
+
+**세션 시작 확인(§3)**: 양쪽 저장소 fresh clone으로 HEAD 확인 -- `ryu`
+`d2f47d1`(드리프트 없음), `ryu-devnotes` `828fc23`(298차 그대로). HANDOFF/
+CURRENT_STATUS 없음(관례). 사용자가 route1~4 원본 zip 4개 + 기존
+추출 CSV 4개 + meta.json 4개를 재업로드 -- meta.json의 commit
+(`d2f47d1`)/n_rows(22801/22799/23999/10546)가 297/298차가 쓰던 corpus와
+정확히 일치함을 확인(신규 corpus 아님, 동일 corpus 재사용).
+
+**배경**: 사용자가 "298차 evidence의 15건을 기반으로 '정상
+재획득이면 ACTIVE 유지 / 노이즈면 RELEASE'를 어떻게 판별할 수 있는지를
+코드와 수치까지 대조해서 설계"를 제안 -- 298차 "다음 작업 3번"과
+동일한 방향.
+
+**한 일**:
+1. 기존 toolkit 확인(§21) -- 296/297차 상태기계에 candidate 신뢰도
+   지표를 추가로 계산하는 도구는 없음을 확인, 신규 작성 결정(§22).
+2. 신규 `sim_route_299_reacquire_confidence_features.py` 작성 --
+   296/297차의 `RouteStateMachine`/`ContinuityState`/
+   `route_find_clusters` 판정 로직은 **일절 수정하지 않고 그대로
+   import**, 그 옆에서 관찰만 하는 방식으로 4개 진단 지표(cluster_size,
+   speed_margin_ratio, persistence_frames/seconds_before,
+   distance_jump_m) 계산 로직 추가(§27 -- 판정 로직과 진단 로직을
+   물리적으로 분리, 되먹임 없음).
+3. 정적 검증: `py_compile` + `ast.parse` 통과.
+4. route1~4 CSV(297차와 동일 corpus, 재업로드분) 전체 실행 -- 15건
+   전부 매칭 성공, 298차 `classification.md` 정답 라벨과 `(route, t)`
+   키로 결합.
+5. real(실제 커브+약한 커브, n=8) vs noise(커브 없음, n=5) 그룹 평균
+   비교(불분명 2건 제외).
+
+**실측 결과(핵심)**: FINDINGS.md 299차 표 참고 -- 요약하면
+`cluster_size`만 방향성 있는 신호(noise 상한 3, real 8건 중 2건만
+6/9)이고, `speed_margin_ratio`/`persistence_frames_before`/
+`distance_jump_m` 3개는 사전 가설과 반대 방향으로 나타나거나 두 그룹
+분포가 사실상 겹침. `persistence_seconds_before`만 가설과 같은 방향(단,
+겹침 심함).
+
+**결론**: 이번 4개 지표만으로는 15건 표본에서 신뢰할 만한 단일 임계값
+게이트를 설계할 근거가 부족하다. `cluster_size>=4` 같은 게이트는
+precision은 높을 수 있으나 recall이 25%(2/8)에 불과해 실효성이
+제한적. 298차가 우려한 트레이드오프(노이즈에도 계속 ACTIVE 유지)를
+이 지표들로 해소한다고 결론 내리지 않는다.
+
+**검증**:
+- 정적 분석: 완료(py_compile/ast.parse 통과)
+- 로그 검증: 완료(route1~4 실 corpus, 15/15 이벤트 매칭 + 정답 라벨
+  15/15 결합 성공)
+- 시뮬레이션: 해당 없음(진단 계측, 상태기계 자체는 296/297차 그대로)
+- 실차 검증: 해당 없음(ANALYSIS_ONLY, `ryu` 코드 무변경, §29)
+
+**미확인/남은 것**:
+- n=15(그중 최대 3쌍 동일 물리적 위치 중복 가능) 표본 크기 자체가
+  방향성 결론을 내리기엔 부족 -- 표본 확대 없이는 이 방향의 게이트
+  설계를 계속 미루는 것이 안전(§28).
+- `persistence_seconds_before`가 유일하게 가설과 일치하는 방향을
+  보였다는 점은 표본이 늘면 재검토할 가치가 있음.
+- 대안 방향("진위 판별" 대신 "안전 범위 내 짧은 반응 + 확정 시
+  되돌림") 제안은 이번 세션에서 안전성 논증까지 하지 않음 -- 별도
+  세션에서 §28 절차로 처음부터 다룰 것.
+- 코드 변경(`carrot_man.py`) 여전히 미착수, 이번 결과가 오히려
+  "아직 착수할 근거 부족"을 뒷받침.
+
+**Devnotes**:
+- `toolkit/sim_route_299_reacquire_confidence_features.py`: 신규
+- `toolkit/README.md`/`CHANGELOG.md`: 갱신(신규 도구 등재, §22)
+- WIP/FINDINGS: 이 항목
+
+**다음 작업**:
+1. qcamera 육안 대조 표본 확대(추가 seamless forced-release 이벤트
+   발굴 + 육안 판정) -- 15건보다 큰 표본 없이는 지표 방향성을 신뢰하기
+   어려움
+2. `persistence_seconds_before` 지표를 프레임 카운트 대신 시간 기반으로
+   더 정교화할 가치가 있는지 표본 확대 후 재검토
+3. 대안 방향(진위 판별 대신 안전 범위 내 반응)의 안전성 논증 착수 여부
+   결정 -- §28 절차(증상->재현조건->...) 처음부터
+4. (293차부터 이월) ep108 클러스터링 코드 레벨 추적
+5. (294차부터 이월) ep47/48/101/105 패턴 코드 레벨 추적
+6. (298차부터 이월) #1/#2, #4/#5, #9/#10 GPS 좌표 대조로 "동일 물리적
+   커브 재탐색 2회" 가설 확정
+
+**패치**: `0001-299cha-devnotes.patch`(298차 patch 위에 순서대로 적용
+필요 -- 아래 사용자 작업 순서 참고)
+
+---
+
 ## 298차 (완료 -- ANALYSIS_ONLY, devnotes evidence 신규, `ryu`/toolkit 스크립트 본체 무변경) -- 297차 seamless forced-release 실측 15건 전부 qcamera 육안 대조 완료: 7/15(46.7%) 실제 커브, 3/15(20.0%) 불분명, 5/15(33.3%) 커브 없음(맵/GPS 후보 노이즈 의심, 그중 1건은 터널 내부)
 
 **Worker**: Claude

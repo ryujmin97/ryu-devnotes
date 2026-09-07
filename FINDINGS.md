@@ -1,3 +1,75 @@
+## 299차 -- [실측 확정] 298차 qcamera 정답 15건에 candidate 신뢰도 진단 지표 4종(cluster_size/speed_margin_ratio/persistence/distance_jump) 적용 -- `cluster_size`만 약하게 방향성 있는 신호(노이즈는 전부 2~3, 실제 커브 중 2건만 6/9로 뚜렷), 나머지 3개는 가설과 반대 방향이거나 겹침이 심해 discriminator로 부적합
+
+**배경**: 298차 "다음 작업 3번"(감속 대상 여부뿐 아니라 candidate
+신뢰도를 함께 보는 방향 검토)에 착수. 사용자가 "정상 재획득이면
+ACTIVE 유지 / 노이즈면 RELEASE"를 코드와 수치로 대조해 설계하자고
+제안.
+
+**한 일**: 신규 `sim_route_299_reacquire_confidence_features.py`가
+296/297차 상태기계 판정 로직은 전혀 건드리지 않고 그 옆에서(관찰만)
+4개 진단 지표를 계산:
+1. `cluster_size` -- 매칭된 apex를 이룬 원시 candidate 점 개수
+2. `speed_margin_ratio` -- `new_apex_speed / road_limit_speed`(279차
+   negligible-threshold 방향과 같은 relative severity 지표, 179차와
+   유사)
+3. `persistence_frames_before`/`persistence_seconds_before` -- 새
+   apex 위치가 등속 역투영 기준 과거 최대 3.0초 동안 얼마나 연속으로
+   이미 candidate로 잡혀왔는지(CONTINUITY_MATCH_TOLERANCE_M=20m 이내)
+4. `distance_jump_m` -- 끊어지는 순간 예측위치와 새 매칭 거리의 차이
+
+298차 `classification.md` 15건 전부와 `(route, t)` 키로 매칭 성공(15/15).
+
+**실측 결과**(real=실제 커브 7건+약한 커브 1건=8건, noise=커브
+없음 5건, 불분명 2건은 집계 제외):
+
+| 지표 | real 평균(n=8) | noise 평균(n=5) | 비고 |
+|---|---|---|---|
+| cluster_size | 3.75 | 2.40 | real값 {2,3,2,9,3,2,6,3}, noise값 {2,2,2,3,3} -- noise는 3 초과 없음, real은 6/9 두 건 존재(나머지 6건은 noise와 동일 범위) |
+| speed_margin_ratio | 0.801 | 0.734 | 가설(1.0에 가까울수록 노이즈)과 반대 방향, 겹침 심함(real 0.61~0.91, noise 0.57~0.78) |
+| persistence_frames_before | 7.0 | 9.2 | 가설과 반대 방향, 양쪽 다 0~20 전범위에 분포(구분력 없음) |
+| persistence_seconds_before | 1.588 | 1.257 | 가설 방향과 일치하나 겹침 매우 심함(real 0.00~2.96s, noise 0.08~3.00s) |
+| distance_jump_m | 87.2 | 41.9 | 가설(작을수록 real)과 반대 방향 -- real이 noise보다 평균적으로 더 크게 점프 |
+
+**해석**: 4개 지표 중 `cluster_size`만 노이즈 쪽에 상한(≤3)이 있다는
+점에서 방향성 있는 신호이지만, real 8건 중 6건이 noise와 같은
+2~3 범위에 있어 `cluster_size>=4`를 게이트로 쓰면 recall이 2/8(25%)에
+불과하다 -- "확실히 real"인 소수만 골라낼 뿐, 대다수의 애매한
+사례(real/noise 공통 범위)는 여전히 구분하지 못한다. 나머지 3개
+지표(`speed_margin_ratio`/`persistence_frames_before`/
+`distance_jump_m`)는 사전 가설과 반대 방향으로 나타나거나(§28 -- 이
+반대 방향 자체를 새로운 결론으로 채택하지 않는다, n=15로는 방향
+자체가 우연일 수 있음) 두 그룹이 사실상 같은 분포를 공유해 구분력이
+없다.
+
+**결론**: 이번에 계산한 4개 지표만으로는 15건 표본에서 "정상 재획득
+vs 노이즈"를 신뢰성 있게 가르는 단일 임계값 기반 게이트를 설계할 근거가
+부족하다. 298차가 우려했던 트레이드오프(잘못된 candidate에 대해서도
+계속 ACTIVE 유지하는 부작용)를 이 지표들로 해소할 수 있다고 결론
+내리지 않는다.
+
+**다음 세션 방향 제안(결정 아님, §31 이전 설계 단계)**:
+1. n=15는 통계적으로 방향성을 확정하기엔 너무 작다 -- 표본을 늘리지
+   않는 한(추가 qcamera 육안 대조 케이스 확보) 신뢰도 기반 게이트
+   설계는 시기상조일 수 있다.
+2. 대안 방향: "candidate가 진짜 커브인지 판별"하는 대신, "노이즈여도
+   안전 범위 내로만 짧게 반응하고 확정되면 되돌리는" 설계 -- 246차/
+   198차가 이미 확인한 `decel_rate` 상한(§ vEgo anti-pattern) 덕에
+   ACTIVE 유지 시 감속량 자체는 이미 물리적으로 제한돼 있다는 점에
+   착안. 다만 이 방향의 "안전성 논증"은 이번 세션에서 검증하지
+   않았으므로 별도 세션에서 처음부터 증상->재현조건->...(§28) 절차로
+   다뤄야 한다.
+3. `persistence_seconds_before`가 가설 방향과 일치하는 유일한 지표였다는
+   점(비록 겹침 심함)은, "프레임 카운트"보다 "경과 시간" 기반 지속성이
+   그나마 조금 더 나은 신호일 가능성을 시사 -- 표본이 늘면 재검토 가치.
+
+**미해결/한계**: 표본 15건(§298차 기록대로 그중 최대 3쌍이 동일
+물리적 위치 중복 가능성 있음 -- 실질적 독립 표본은 더 적을 수 있음).
+불분명 2건은 이번 집계에서 제외. `speed_margin_ratio` 계산에 쓴
+`road_limit_speed`는 CSV `nRoadLimitSpeed` 그대로 사용(단위/스케일
+재검증은 이번 세션 범위 밖).
+
+---
+
 ## 298차 -- [실측+육안 확정] 297차 seamless forced-release 15건 qcamera 대조: 7/15(46.7%) 실제 커브, 5/15(33.3%) 커브 없음 -- 297차 결론 보강(기존 결론 유지, 새 증거로 트레이드오프 추가)
 
 **기존 결론(297차)**: route1~4 corpus에서 61개 ACTIVE 에피소드 중

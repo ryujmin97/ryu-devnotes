@@ -4238,6 +4238,40 @@ FINDINGS.md 246차 항목 253차 갱신 참고.
    시나리오 자체의 실측 반증/재현은 여전히 미확정(WIP.md 253차/FINDINGS.md
    239차 참고).
 
+## sim_route_299_reacquire_confidence_features.py (299차 신규 -- 298차 qcamera 정답 15건에 candidate 신뢰도 진단 지표 4종 적용, `cluster_size`만 약한 방향성 신호, n=15로는 게이트 설계 근거 부족)
+
+296/297차 `RouteStateMachine`/`ContinuityState`/`route_find_clusters`를
+그대로 import(판정 로직 무변경)하고, 그 옆에서 관찰만 하는 방식으로
+아래 4개 candidate 신뢰도 진단 지표를 이벤트마다 추가 계산한다:
+
+- `cluster_size`: 매칭된 apex를 이룬 원시 candidate 점 개수
+- `speed_margin_ratio`: `new_apex_speed / road_limit_speed`
+- `persistence_frames_before`/`persistence_seconds_before`: 새 apex
+  위치가 등속 역투영 기준 과거 최대 3.0초 동안 얼마나 연속으로 이미
+  candidate로 잡혀왔는지(`CONTINUITY_MATCH_TOLERANCE_M` 이내)
+- `distance_jump_m`: 끊어지는 순간 예측위치와 새 매칭 거리의 차이
+
+`--classification`으로 298차 `classification.md`(15건 qcamera 정답
+라벨)를 읽어 `(route, t)` 키로 결합, real(실제 커브+약한 커브)/
+noise(커브 없음) 그룹 평균을 출력한다.
+
+**실측 결과(route1~4, 15/15 매칭)**: `cluster_size`만 방향성 있는
+신호(noise는 전부 2~3, real 8건 중 2건만 6/9 -- 단 recall 25%로
+제한적), `speed_margin_ratio`/`persistence_frames_before`/
+`distance_jump_m`은 가설과 반대 방향이거나 두 그룹이 사실상 겹침.
+**결론: 이 4개 지표만으로는 n=15에서 신뢰할 만한 단일 임계값 게이트를
+설계할 근거가 부족함**(확정 아님, 표본 확대 필요). 상세: WIP.md/
+FINDINGS.md 299차.
+
+사용:
+```
+python3 sim_route_299_reacquire_confidence_features.py \
+    --csv-dir <route_*.csv 4개가 있는 디렉토리> \
+    --classification evidence/route_297_seamless_release_qcamera/classification.md
+```
+
+---
+
 ## sim_route_297_reacquire_gap_real_corpus.py (297차 신규 -- sim_route_296의 실 corpus 실행 어댑터, route1~4 실측 완료: 24.6% seamless forced-release)
 
 **배경**: 296차가 self-test(합성)만 하고 "corpus 확보 후"로 미뤄둔
