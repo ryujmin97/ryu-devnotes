@@ -409,6 +409,31 @@
   아직 없음(design doc §12에 명시된 미해결 항목).
 - 실차 검증: 미실시(NEEDS_VALIDATION) — 오프라인 로그 시뮬레이션만 완료.
 
+## PROVISIONAL_PROMOTE_STREAK (307차 신규 — NEEDS_VALIDATION, ANALYSIS_ONLY)
+- 위치: `selfdrive/carrot/carrot_man.py`, 신규 모듈레벨 상수 +
+  `_route_provisional_singleton_step()`(신규 shadow tracker 메서드)
+- 값: `PROVISIONAL_PROMOTE_STREAK = 3` (프레임 수, `ROUTE_SPEED_LOOP_DT`=
+  0.05s 기준 약 150ms)
+- 목적: 306차가 코드+합성 재현으로 확정한 가설(위 `ROUTE_CLUSTER_
+  MIN_POINTS=2` 게이트가 고립된 1포인트 좁은 커브를 노이즈로 오인해
+  제거할 수 있음, ep108)을 실차 로그로 검증하기 위해, `route_find_
+  clusters()`의 min_points=2 필터에서 탈락한 고립 후보(orphan)만 대상
+  으로 기존 stage3(`_route_cluster_continuity_step()`)와 동일한 vEgo×dt
+  예측+매칭을 병렬 적용하는 shadow tracker. `streak>=이 값`이면
+  `promoted=True`로 관측 표시하지만, **이 값도 shadow tracker의 결과
+  (`routeProvisional*`, custom.capnp @64~@69)도 실제 apex 선택/제어
+  경로 어디에도 연결되지 않는다**(§10/§27 — production 동작은 이 계측
+  추가 전후로 완전히 동일, ANALYSIS_ONLY).
+- 근거: 시작값일 뿐 corpus 근거 없음. `toolkit/sim_route_307_
+  provisional_singleton_telemetry.py`로 (a) 물리적으로 실재하는 고립
+  커브 접근 시나리오에서 streak가 단조증가해 이 값 이상에서 promoted가
+  됨, (b) 위치가 일관되지 않는 단발성 노이즈는 streak가 계속 1로
+  리셋되어 promoted가 되지 않음을 합성 검증(15/15 PASS 중 일부).
+- 실차 검증: 미실시(NEEDS_VALIDATION) — 다음 실차 로그로 고립 후보의
+  실제 지속 프레임 분포를 확인한 뒤 이 값 자체 및 "설계안 A(시간적
+  continuity 승격) 채택 여부"를 판단할 예정. FINDINGS.md/WIP.md 307차
+  참고.
+
 ## ROUTE_APEX_MISS_TOLERANCE_FRAMES (234차 확정값 → 280차 사용자 확정 재변경 — NEEDS_VALIDATION)
 - **[280차 변경]** 값: 3 → **6** (프레임, 20Hz 기준 150ms → 300ms).
   배경: 266차 confidence blend 적용 이후에도 사용자가 목표속도 flicker

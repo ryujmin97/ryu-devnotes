@@ -1,3 +1,64 @@
+## 307차 -- [ANALYSIS_ONLY, 계측 patch만 추가] 306차 가설(min_points=2 게이트/ep108) 실차 검증용 계측 추가 -- production 제어 로직 무변경
+
+**배경**: 306차가 코드+합성 재현으로 확정한 가설("`route_find_
+clusters()`의 min_points=2 게이트가 고립된 1포인트 좁은 커브를
+노이즈로 오인해 제거할 수 있음")을 실제 corpus(ep108 원본 route4)로
+검증하려 했으나, §23 정책상 devnotes에 대용량 CSV가 보관되지 않고
+293/294차가 쓴 원본도 이번 세션에 재업로드되지 않아 **실측 재확인이
+불가능**했다. 원본 로그 없이 production 동작을 바로 바꾸는 것은 §28/29
+위반(추측만으로 확정 불가 + 실차 미검증 변경)이므로, 이번 세션은 다음
+실차 로그에서 이 가설을 확실히 검증할 수 있도록 **관측 전용 계측만**
+추가하는 것으로 범위를 한정했다.
+
+**추가한 계측(`ryu` patch, base `8d481ec`=305차, production 동작
+자체는 전혀 바뀌지 않음)**:
+1. `routeClusterCount`/`routeApexMode`/`routeApexFineTriggered` --
+   기존 `route_find_clusters()`(min_points=2) 결과 개수, 이번 프레임
+   `_route_cluster_continuity_step()`의 mode 문자열, 147차 fine
+   서브샘플이 macro를 대체했는지 여부를 그대로 노출.
+2. `routeOrphanSingletonCount/Dist/Speed` -- `route_find_clusters()`를
+   min_points=1로 한 번 더 호출해 얻은 전체 분할 중 min_points=2 미달로
+   기존에는 완전히 버려지던 고립 클러스터(orphan)의 개수/최근접
+   거리/속도. **이 min_points=1 재호출 방식이 기존 min_points=2 직접
+   호출과 `clusters` 결과 자체는 100% 동일함**을 toolkit self-test
+   6케이스로 확인(§27 회귀 없음).
+3. `_route_provisional_singleton_step()`(신규) + `routeProvisional
+   Active/Dist/Speed/Streak/MatchError/Promoted` -- orphan만 대상으로
+   기존 stage3와 동일한 vEgo×dt 예측+`CONTINUITY_MATCH_TOLERANCE_M`
+   매칭을 병렬 적용하는 shadow tracker. 179차 후속2(FINDINGS.md)가
+   "같은 프레임 내 공간적 지속성"으로 노이즈/진짜커브를 구분하려다
+   실패했던 것과 달리, 이 tracker는 "여러 프레임에 걸친 시간적(물리적
+   위치) 지속성"을 신호로 쓴다(실제 커브는 접근하며 매 프레임 거리가
+   vEgo×dt만큼 자연 감소하지만, 그리드 리샘플링 잡음이 이 패턴을 여러
+   프레임 연속 재현할 가능성은 낮다는 것이 근거 -- 이 근거 자체도 아직
+   실측 미검증, 이번 계측의 목적이 바로 이것). `PROVISIONAL_PROMOTE_
+   STREAK=3`(NEEDS_VALIDATION, 시작값)를 넘으면 관측용 `promoted=True`
+   표시만 하며, 실제 apex 선택/제어에는 어디에도 연결되지 않는다.
+
+**검증**: `toolkit/sim_route_307_provisional_singleton_telemetry.py`
+(신규) -- (1) orphan 도출 방식 등가성 6케이스 PASS, (2) shadow tracker가
+실재 고립 커브 접근 시 streak 단조증가+승격, 단발성 노이즈는 계속
+streak=1 유지+승격 안 됨을 확인하는 9케이스 PASS. 총 15/15 PASS.
+`py_compile` 통과. `cereal/custom.capnp` CarrotMan 필드(@0~@69) 번호
+중복/누락 없음 확인. 독립 fresh clone(base `8d481ec`)에서 `git am`
+적용 성공. **실차 검증: 미실시**(계측만 추가, 다음 실차 로그 확보 후
+이 항목 갱신 예정).
+
+**한계**: 이번 세션은 306차 가설의 정확성 자체를 새로 증명하지 않았다
+-- 306차가 이미 확정한 구조적 사실(발견 1)과 정황증거(발견 2)는 그대로
+유효하며, 이번엔 그걸 실측으로 넘어가기 위한 다리(계측)만 놓았다.
+`PROVISIONAL_PROMOTE_STREAK`가 적절한 값인지, "설계안 A(시간적
+continuity로 orphan을 apex로 승격)"를 실제로 채택할지는 다음 실차
+로그 없이는 판단 불가.
+
+**다음 작업**: 실차 로그 확보 → `routeOrphanSingleton*`/
+`routeProvisional*` 필드로 (a) ep108류 상황이 실제로 자주 발생하는지
+(orphan 발생 빈도), (b) orphan이 실재 커브(streak 누적→promoted)인
+경우와 노이즈(streak=1 반복)인 경우의 실제 분포, (c) 위 근거로
+`PROVISIONAL_PROMOTE_STREAK` 값 확정 + 설계안 A 채택 여부 결정.
+
+---
+
 ## 306차 -- [코드 구조로 확정 + 합성 재현] ep108(`lost_with_candidates_present`) 원인 -- route_find_clusters() min_points=2 게이트가 고립된 1포인트 좁은 커브를 노이즈로 오인해 제거하는 경로를 코드/시뮬레이션으로 확정 (`ryu` 코드 변경 없음, ANALYSIS_ONLY)
 
 **배경**: 293차가 발견하고 296차가 "무관함"만 재확인한 뒤 미착수로

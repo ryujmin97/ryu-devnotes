@@ -1,3 +1,93 @@
+## 307차 (완료 -- 계측 patch만, `ryu` ANALYSIS_ONLY/제어 로직 무변경, devnotes toolkit 신규 스크립트 1개) -- 306차 가설(min_points=2 게이트/ep108) 실차 검증용 계측 추가
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu`(base `8d481ec`=305차 → 이 patch로
+`bf71dec` 생성, **아직 push 전**) / `ryu-devnotes`(base `5abab5a`=306차,
+이 항목 추가 전)
+
+**Branch**: `c3-ms-dev` / `main`
+
+**세션 시작 확인(§3/§33)**: fresh clone으로 양쪽 HEAD 직접 조회 --
+`ryu` `8d481ec`(305차, 드리프트 없음), `ryu-devnotes` `5abab5a`(306차,
+드리프트 없음). HANDOFF.md/CURRENT_STATUS.md 없음, 다른 작업자 개입
+흔적 없음 확인 후 착수. (직전 세션이 도구 호출 한도로 중단되어, 사용자가
+업로드한 이전 세션 산출물(`carrot_man.py`/`carrot_serv.py`/toolkit
+스크립트/README.md, 컨테이너 리셋 전 로컬 상태)을 이번 세션에서 새로
+클론한 GitHub 기준 base 위에 재적용하는 방식으로 이어받음 -- `custom.
+capnp`는 업로드되지 않아 이번 세션에서 커밋 메시지에 기록된 필드
+목록(@58~@69, 명칭/타입)을 근거로 동일 패턴으로 재작성.)
+
+**배경**: 306차가 코드+합성 재현으로 확정한 가설("min_points=2 게이트가
+고립된 1포인트 좁은 커브를 노이즈로 오인해 제거할 수 있음", ep108)을
+검증하려면 실제 route4 corpus가 필요하나, §23 정책상 대용량 CSV가
+devnotes에 없고 재업로드도 안 됐음. 원본 없이 production을 바로
+바꾸지 않고(§28/29), 다음 실차 로그에서 확실히 검증 가능하도록
+관측 전용 계측만 추가하기로 함.
+
+**한 일**:
+1. `cereal/custom.capnp`: `CarrotMan` 구조체에 기존 필드(@0~@57)는
+   그대로 두고 @58~@69 신규 12개 필드 append -- `routeClusterCount`(
+   Int32)/`routeApexMode`(Text)/`routeApexFineTriggered`(Bool)/
+   `routeOrphanSingletonCount`(Int32)/`routeOrphanSingletonDist`(
+   Float32)/`routeOrphanSingletonSpeed`(Float32)/`routeProvisional
+   Active`(Bool)/`routeProvisionalDist`(Float32)/`routeProvisional
+   Speed`(Float32)/`routeProvisionalStreak`(Int32)/`routeProvisional
+   MatchError`(Float32)/`routeProvisionalPromoted`(Bool).
+2. `selfdrive/carrot/carrot_man.py`:
+   - `PROVISIONAL_PROMOTE_STREAK=3`(NEEDS_VALIDATION) 모듈 상수 추가.
+   - `route_find_clusters()`를 min_points=1로 한 번 더 호출해
+     `clusters`(len>=2)/`orphans`(len<2)를 동시 도출 -- 기존
+     min_points=2 직접호출과 `clusters` 결과가 100% 동일함을 toolkit
+     self-test로 확인(§27, 기존 apex 선택 동작 무회귀).
+   - `fine_triggered[]`: 147차 fine 서브샘플이 macro를 대체한 지점 표시.
+   - `_route_provisional_singleton_step()` 신규 메서드 -- orphan만
+     대상으로 기존 stage3(`_route_cluster_continuity_step()`)와 동일한
+     vEgo×dt 예측+`CONTINUITY_MATCH_TOLERANCE_M` 매칭을 병렬 적용하는
+     shadow tracker(실제 apex 선택/제어 경로와 완전 분리, 반환값 전부
+     관측용). miss-frame 유예 없이 매칭 실패 시 즉시 리셋(의도적 단순화
+     -- 보수적으로 "그리드 잡음 없이도 연속 매칭되는가"만 확인).
+   - 매 프레임 신규 telemetry sentinel 초기화 + 계산 후 mirror(193/204/
+     305차와 동일 패턴).
+3. `selfdrive/carrot/carrot_serv.py`: 대응 저장공간 초기화(`__init__`)
+   + cereal 발행(update 블록) -- 기존 `route_apex_*`/`route_candidate*`/
+   `route_navi_*`와 동일 패턴.
+4. `toolkit/sim_route_307_provisional_singleton_telemetry.py` 신규 --
+   (a) orphan 도출 등가성 6케이스, (b) shadow tracker 실재커브 접근(
+   streak 단조증가+승격)/단발성 노이즈(streak=1 유지+승격 안 됨)/
+   고립후보 소실(active=False) 9케이스. 15/15 PASS.
+5. 검증: `py_compile` 통과. `custom.capnp` 필드 번호(@0~@69) 중복/
+   누락 없음 정적 확인. 독립 fresh clone(base `8d481ec`)에서 `git am`
+   적용 성공 + 그 브랜치에서도 `py_compile`/capnp 필드 재확인.
+6. devnotes 갱신: `toolkit/README.md`/`toolkit/CHANGELOG.md`/
+   `PARAMS_REGISTRY.md`(`PROVISIONAL_PROMOTE_STREAK` 신규 등록)/
+   `FINDINGS.md`(307차 항목)/이 WIP 항목.
+
+**검증 상태**: 정적분석 완료, 합성(toolkit self-test) 15/15 PASS,
+`git am`/`py_compile`/capnp 무결성 확인 완료. **실차 검증: 미실시**
+(계측만 추가, production 제어 로직/apex 선택 결과는 이 patch 전후로
+완전히 동일함 -- ANALYSIS_ONLY).
+
+**패치**: `0001-307-min_points-2-ep108-cluster-orphan-fine-triggered.patch`
+(대상: `ryujmin97/ryu`, base `8d481ec`) -- 아래 "사용자 작업" 참고,
+아직 로컬 적용/push 전.
+
+**미확인 사항**: `PROVISIONAL_PROMOTE_STREAK=3`의 적절성(실차 로그
+없이는 판단 불가), ep108 그 프레임의 실제 raw candidate 배열 자체(
+route4 원본 재업로드 필요, 306차와 동일 한계).
+
+**다음 작업**:
+- 이 patch 적용 후 실차 주행 → 신규 `routeOrphanSingleton*`/
+  `routeProvisional*` 필드로 (a) orphan 발생 빈도, (b) 실재 커브(streak
+  누적→promoted) vs 노이즈(streak=1 반복) 분포 확인.
+- 위 실측 근거로 `PROVISIONAL_PROMOTE_STREAK` 값 확정 + "설계안 A(
+  orphan을 시간적 continuity로 apex 승격)" 채택 여부 결정 -> 채택 시
+  308차 이후 별도 patch로 production 경로에 연결(§31 사용자 승인 필요).
+- ep108 원본 route4 corpus 재업로드 시 실제 raw candidate 배열 직접
+  대조(306차 이월 항목, 여전히 유효).
+
+---
+
 ## 306차 (완료 -- ANALYSIS_ONLY, devnotes toolkit 신규 스크립트 1개, `ryu` 본체 무변경) -- 293/294차 이월 "ep108 클러스터링 코드 레벨 추적" 완료 -- min_points=2 게이트가 고립된 좁은 커브를 노이즈로 오인 제거하는 경로를 코드+합성 재현으로 확정
 
 **Worker**: Claude

@@ -3,6 +3,17 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+## 2026-09-08 (307차)
+- `sim_route_307_provisional_singleton_telemetry.py`: **신규**. 306차
+  가설(min_points=2 게이트/ep108)의 실차 검증용 계측 patch(`ryu`
+  carrot_man.py/carrot_serv.py/custom.capnp @58~@69) 자체의 로직
+  정확성을 배포 전에 self-test. (1) orphan 도출(min_points=1 재호출)
+  방식이 기존 min_points=2 직접호출과 100% 등가인지 6케이스 검증,
+  (2) 신규 `_route_provisional_singleton_step()` shadow tracker가
+  실재 고립 커브 접근 시 streak 단조증가+승격, 단발성 노이즈는 승격
+  안 됨을 9케이스 검증. 15/15 PASS(합성만, 이 patch는 ANALYSIS_ONLY
+  -- 실제 apex 선택/제어는 무변경). 상세: WIP.md/FINDINGS.md 307차.
+
 ## 2026-09-08 (306차)
 - `sim_route_306_ep108_cluster_isolation.py`: **신규**. 293/294차부터
   이월된 "ep108 클러스터링 코드 레벨 추적" 착수. production

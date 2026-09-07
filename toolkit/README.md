@@ -21,6 +21,34 @@ CHANGELOG.md를 같이 갱신**한다 (세션 종료 체크리스트에 포함�
 
 ---
 
+## sim_route_307_provisional_singleton_telemetry.py (307차 신규, 306차 가설의 실차 검증용 계측 patch 자체를 배포 전 self-test)
+**목적**: 306차가 확정한 가설(min_points=2 게이트가 고립 1포인트 좁은
+커브를 노이즈로 오인)을 실차 로그 없이 production에 바로 반영하지 않고,
+`ryu` 저장소에 실제로 추가한 관측 전용 계측 patch(carrot_man.py/
+carrot_serv.py/custom.capnp @58~@69, 307차)의 로직 정확성을 배포 전에
+확인한다.
+
+**검증 대상**: (1) `route_find_clusters()`를 min_points=1로 한 번만
+호출해 clusters/orphans를 동시 도출하는 방식이 기존 min_points=2 직접
+호출과 `clusters` 결과가 100% 동일한지(등가성, §27 회귀 방지) -- 6개
+시나리오로 확인. (2) 신규 `_route_provisional_singleton_step()` shadow
+tracker(설계안 A 타당성 사전검증용) -- 물리적으로 실재하는 고립 커브
+접근 시 streak가 정상 증가해 `PROVISIONAL_PROMOTE_STREAK`(3) 이상에서
+promoted=True가 되는지, 반대로 위치가 일관되지 않는 단발성 노이즈는
+계속 streak=1로 리셋되어 promoted가 절대 True가 안 되는지. self-test
+15/15 PASS.
+
+**중요**: 이 tracker의 결과(`routeProvisional*`)는 순수 관측용이며 실제
+apex 선택/제어 경로 어디에도 연결되지 않는다(§10/§27 -- 시뮬레이션·
+실측 검증 및 사용자 승인 전 production 동작 변경 금지). 다음 실차
+로그로 `PROVISIONAL_PROMOTE_STREAK` 값과 설계안 A 채택 여부를 판단할
+예정(NEEDS_VALIDATION).
+
+**입력**: 없음(순수 합성, 로직 등가성/tracker 동작만 검증). **사용**:
+`python3 sim_route_307_provisional_singleton_telemetry.py`.
+
+---
+
 ## sim_route_306_ep108_cluster_isolation.py (306차 신규, 293/294차 이월 "ep108 클러스터링 코드 레벨 추적" 착수)
 **목적**: 293/294차가 발견한 `lost_with_candidates_present`(39건 중
 유일한 1건, ep108 -- route4 t=4017.4, 주택가 좁은 도로/교차로 인접)의
