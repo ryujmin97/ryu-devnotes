@@ -1,3 +1,119 @@
+## 305차 (완료 -- 계측 패치 설계+구현+독립클론 검증+patch전달 완료, `ryu` 실차 로직 무변경) -- naviPaths 65건 신규 하위유형 원인분리용 navi_points 버퍼 lifecycle 계측 추가
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu`(base `d2f47d1`=290차) / `ryu-devnotes`(base `472568c`=304차, 이 항목 추가 전)
+
+**Branch**: `c3-ms-dev` / `main`
+
+**세션 시작 확인(§3/§33)**: fresh clone으로 양쪽 HEAD 직접 조회 -- `ryu`
+`d2f47d1`(290차, 드리프트 없음), `ryu-devnotes` `472568c`(304차, 드리프트
+없음). HANDOFF.md/CURRENT_STATUS.md 없음, 다른 작업자 개입 흔적 없음을
+확인 후 착수. (세션 중단 후 컨테이너가 리셋되어, 직전 대화에서 이미
+설계/구현/diff audit까지 진행됐던 내용을 이번 컨테이너에서 동일 base
+commit 기준으로 처음부터 재현했으며, `git diff --stat`(3 files
+changed, 120 insertions(+), 1 deletion(-))이 직전 컨테이너 결과와
+1바이트도 다르지 않게 일치함을 자체 검증.)
+
+**배경**: 304차가 `naviPointsActive=True`/`navdActive=True`/
+`dtRouteInactive=0.0` 유지 구간에서도 naviPaths만 항상 1.90~1.96초
+(39~40프레임, 고정 지속시간) 비는 65건 신규 하위유형을 발견하고
+원인 위치를 `self.navi_points` 버퍼 자체로 좁혔으나(FINDINGS.md
+304차), 상위 트리거(스레드 race vs 불완전 버퍼 vs 실제 클리어)는
+계측 없이는 구분 불가능한 상태였음.
+
+**한 일**:
+1. 원인 후보 2가지(A: `get_path_after_distance()` 호출부의
+   `self.navi_points_start_index`/`self.navi_points` 두 attribute
+   읽기 사이 스레드 race, B: 외부 navi 앱의 ~2초 재전송 주기 직후
+   폴리라인이 아직 현재위치를 못 덮는 경우)를 코드 레벨로 확정
+   (290차 `carrot_man.py`/`carrot_serv.py` 직접 열람 -- `self.navi_points`
+   재대입 지점 전수 grep, §30).
+2. 관측 전용 계측 필드 6개를 `custom.capnp` CarrotMan `@52~@57`로
+   append: `routeNaviPointsLen`/`routeNaviStartIdxIn`/
+   `routeNaviStartIdxOut`/`routePathLen`/`routeNaviUpdateAgeMs`/
+   `routeNaviUpdateCount`.
+3. `carrot_man.py`에 계측 삽입:
+   - `carrot_navi_route()` 최상단에 sentinel 초기화(조기 return
+     프레임에도 정의된 값이 발행되도록, 193차 `_route_apex_idx=-1`과
+     동일 패턴)
+   - `get_path_after_distance()` 호출 직전 두 attribute를 원본과
+     동일한 좌->우 순서로 로컬 변수에 스냅샷 후 그 변수를 그대로
+     호출 인자로 사용(값/타이밍/race 노출 여부 원본과 100% 동일,
+     로직 변경 없음) -- 호출 전/후 값을 텔레메트리로 기록
+   - `self.navi_points`가 재대입되는 7개 지점(초기화 1 +
+     `broadcast_version_info` 비활성클리어 1 + `carrot_navi_route()`
+     early-return 클리어 1 + `send_routes(from_navd)` 1 + TCP 7709
+     raw 1 + `handle_route`(TCP 7712) 빈배열 2 + 정상수신 1) 전부에
+     `update_count += 1` / `last_update_mono = time.monotonic()`
+     추가 -- **빈 리스트로 클리어되는 경우도 동일하게 카운트**
+     (사용자가 확정한 정의, "정상 수신만 카운트"가 아님)
+4. `carrot_serv.py`: 6개 필드 mirror 저장소(`__init__`) + publish
+   부(기존 `routeCandidate*` 블록과 동일 위치/패턴) 추가.
+5. 검증:
+   - 정적 분석: `py_compile` + `ast.parse` 통과(두 파일 모두)
+   - diff audit(§28): `git diff` 전체를 grep으로 필터링해 추가된
+     모든 라인이 305차 계측 코드/주석뿐임을 확인.
+     `ROUTE_ACTIVE_RELEASE_MARGIN_RATIO`/`_route_cluster_*`
+     (continuity)/`ROUTE_RELEASE_HOLD_S` 등 288차/290차가 다룬 상태기계
+     관련 키워드가 diff에 전혀 등장하지 않음을 별도 grep으로 재확인
+     -- Route ACTIVE/INERT/RELEASE 판정, margin 게이트 등 실차 제어
+     로직은 한 줄도 건드리지 않음.
+   - `git format-patch -1` 생성 후 **base commit `d2f47d1`으로 새로
+     만든 독립 클론**에서 `git apply --check` 성공 확인, 이어서
+     `git am`으로 실제 적용 -> 적용된 파일에 대해 재차 `py_compile`/
+     `ast.parse` 통과, `git diff d2f47d1..HEAD --stat`이 원본과 동일
+     (3 files changed, 120 insertions(+), 1 deletion(-)) 확인.
+
+**핵심 계측 필드 해석 가이드** (306차 실차 로그 분석 시 참고):
+```
+PointsLen  = get_path_after_distance() 호출 직전 len(self.navi_points)
+StartIdxIn = 호출 직전 self.navi_points_start_index (입력값)
+StartIdxOut= 호출 직후 self.navi_points_start_index (반환값=closest_index,
+             탐색실패 시 -1)
+PathLen    = get_path_after_distance() 반환 path 길이 (0 = 이번 프레임
+             naviPaths 공백의 직접 원인)
+UpdateAgeMs= now - 마지막 self.navi_points 재대입 시각(ms)
+UpdateCount= self.navi_points 재대입 누적 횟수(클리어 포함)
+```
+- `PointsLen=50, StartIdxIn=300(구버퍼 기준), StartIdxOut=-1, PathLen=0,
+  UpdateCount가 바로 이 프레임에 +1` 패턴이 나오면 **가설 A(버퍼 교체
+  race)의 거의 결정적 증거**.
+- `PointsLen=300, StartIdxIn=120, StartIdxOut=120, PathLen=40`인데도
+  `naviPaths`가 비어 있다면 **원인이 이 두 attribute 바깥에 있다는
+  뜻** -- 다른 경로를 봐야 함(가설 B 또는 제3의 원인).
+
+**검증**:
+- 정적 분석: 완료(위 참고)
+- 로그 검증: 미실시(305차는 계측 코드 자체 추가 -- 로그 재생 대상이
+  될 실차 로그가 아직 없음)
+- 시뮬레이션: 미실시(순수 관측 필드 추가라 시뮬레이션 대상 아님)
+- 실차 검증: **미실시** -- 306차 이후 이 계측이 포함된 빌드로 실차
+  주행 후 rlog를 재분석해야 원인이 실제로 확정됨
+
+**미확인 사항**:
+- `routeNaviUpdateCount`를 "정상 수신만" 카운트할지 "클리어 포함
+  전체"로 카운트할지 사용자와 논의 -- **클리어 포함 전체로 최종
+  확정**(직전 대화에서 사용자 지시, 위 3번 항목 참고). 별도
+  `ClearCount` 필드는 추가하지 않음(최소 계측 원칙).
+
+**패치**: `0001-305cha-instrument-navi_points-buffer-lifecycle-for-r.patch`
+(base `d2f47d1`, `git format-patch` + 독립 클론 `git apply --check`/
+`git am` 검증 완료)
+
+**다음 작업**:
+1. 사용자가 이 패치를 로컬 `ryu` 레포에 `git am` 적용 후 콤마 기기에
+   반영, 실차 주행으로 이 계측이 포함된 rlog 확보.
+2. 306차: 확보된 rlog에서 `naviPointsActive=True` 유지 구간의
+   `routeNaviPointsLen`/`routeNaviStartIdxIn`/`routeNaviStartIdxOut`/
+   `routePathLen`/`routeNaviUpdateCount`/`routeNaviUpdateAgeMs`를
+   naviPaths 공백 구간(304차가 찾은 65건 패턴)과 시간축으로 정렬해
+   가설 A/B/제3원인 중 실제로 어느 것인지 실측 확정.
+3. 원인 확정 후에만 수정 여부/방향을 결정(§28 -- 계측 없이 코드
+   수정 먼저 하지 않음. 288차 flicker 설계 대안 3가지 결정도 여전히
+   대기 중, 이번 305차와는 별개 이슈).
+
+
 ## 304차 (완료 -- ANALYSIS_ONLY, devnotes toolkit 신규 스크립트 1개, `ryu` 본체 무변경) -- 303차 naviPaths 2초대 프레임 점프 원인 코드레벨 확정, road_limit<=0 원인 기각, 182차형과 구별되는 신규 하위유형(65건) 발견 -- 상위 트리거(TCP 7712 배치 수신 주기 등)는 다음 세션 계측 필요
 
 **Worker**: Claude

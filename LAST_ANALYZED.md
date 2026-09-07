@@ -1,3 +1,25 @@
+## c3-ms-dev (305차, navi_points 버퍼 lifecycle 계측 패치 -- 코드 분석+구현, 실차 로그 검증 전)
+- last_analyzed_commit: `d2f47d1`(290차, `ryu` -- 패치는 이 base 기준
+  독립 클론 `git apply --check`+`git am`으로 검증 완료, 아직 이 base
+  자체에는 push되지 않음)
+- devnotes base: `472568c`(304차, 이 항목 추가 전)
+- date: 2026-09-08 (305차)
+- 분석 대상: `carrot_man.py`(`carrot_navi_route()`, `self.navi_points`
+  재대입 7개 지점 전수), `carrot_serv.py`, `custom.capnp` CarrotMan
+  구조체.
+- note: 304차가 좁힌 65건 신규 하위유형(naviPointsActive=True 유지
+  구간에서도 naviPaths만 1.90~1.96초 고정 지속 비는 현상) 원인을
+  (A) `get_path_after_distance()` 호출부 두 attribute 읽기 사이
+  스레드 race, (B) 재전송된 버퍼가 한동안 현재위치를 못 덮는 경우,
+  (C) 버퍼가 실제로 비워지는 경우 -- 세 가지로 구분하기 위한 순수
+  관측용 계측 6필드(`routeNaviPointsLen` 등, `custom.capnp` @52~@57)를
+  추가. 로직 변경 없음(diff audit로 margin/continuity/상태기계 관련
+  라인 diff에 없음 확인). 상세: WIP.md/FINDINGS.md 305차.
+- next: 이 계측이 포함된 빌드로 실차 주행 후 rlog 확보 -> 306차에서
+  `routeNaviPointsLen`/`routeNaviStartIdxIn/Out`/`routePathLen`/
+  `routeNaviUpdateCount`/`routeNaviUpdateAgeMs`를 naviPaths 공백
+  구간과 시간축으로 정렬해 가설 A/B/C 실측 확정.
+
 ## c3-ms-dev (272차, 실차 dashcam 2건 실측 검증 -- route B 258/266차 설계의도 재현 확인, route A "route off" 원인 완전 규명)
 - last_analyzed_commit: `0c03f7d0e`(270차 2번, ryu -- 코드 변경 없음,
   업로드된 실차 로그의 device build와 일치 확인).

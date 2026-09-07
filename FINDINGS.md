@@ -1,3 +1,52 @@
+## 305차 -- [계측 설계] 304차가 좁힌 "self.navi_points 버퍼 소진" 원인후보를 실차 로그로 원인분리하기 위한 lifecycle 계측 6필드 추가 (`ryu` 코드 변경, 실차 검증 전)
+
+**배경(§24, 304차 항목과의 관계 -- 기존 결론을 수정하는 것이 아니라
+보강)**: 304차는 `naviPointsActive=True`/`navdActive=True`/
+`dtRouteInactive=0.0` 유지 구간에서도 `naviPaths`만 1.90~1.96초
+(39~40프레임, 고정 지속시간) 비는 65건 신규 하위유형을 발견하고,
+정적 코드 추적만으로 원인 위치를 `carrot_man.py::carrot_navi_route()`의
+`get_path_after_distance()` 호출이 만드는 `self.navi_points` 버퍼
+자체로 좁혔다(FINDINGS.md 304차 "중요 한계" 항목). 그러나 304차 스스로
+명시했듯 `self.navi_points`/`navi_points_start_index`의 실제 런타임
+값은 CSV로 관측 불가능해 상위 트리거(스레드 race vs 재전송 지연 vs
+실제 클리어)는 정적 추론만으로 확정할 수 없는 상태였다. 이번 305차는
+그 한계를 해소하기 위한 **순수 계측 추가**이며, 새로운 원인 주장을
+하지 않는다.
+
+**한 일**: `self.navi_points` 버퍼의 lifecycle을 실차 로그로 관측하기
+위해 `custom.capnp` CarrotMan `@52~@57`에 6개 필드를 추가하고
+(`routeNaviPointsLen`/`routeNaviStartIdxIn`/`routeNaviStartIdxOut`/
+`routePathLen`/`routeNaviUpdateAgeMs`/`routeNaviUpdateCount`),
+`carrot_man.py`/`carrot_serv.py`에 발행 코드를 삽입했다. 상세 구현
+내용, 필드별 해석 가이드, 검증(정적분석+독립클론 `git apply --check`/
+`git am`)은 WIP.md 305차 항목 참고(중복 방지, §24).
+
+**원인 후보 3가지(이번 계측으로 306차 이후 구분 예정, 아직 미확정)**:
+- (A) `get_path_after_distance()` 호출부에서
+  `self.navi_points_start_index`/`self.navi_points` 두 attribute를
+  순서대로 읽는 사이 다른 스레드(navd/TCP 7709/TCP 7712)가
+  `self.navi_points`를 재대입하는 race
+- (B) 외부 navi 앱의 주기적 재전송 직후 새 폴리라인이 아직 현재
+  위치를 못 덮어 `get_path_after_distance()`가 빈 결과를 반환하는
+  경우
+- (C) 버퍼가 일시적으로 실제 빈 리스트 상태(clear 지점 통과 직후)인
+  경우
+
+**영향받는 실차 제어 로직**: 없음. `ROUTE_ACTIVE_RELEASE_MARGIN_RATIO`/
+`_route_cluster_*`(continuity)/`ROUTE_RELEASE_HOLD_S` 등 288~290차가
+다룬 상태기계·게이트 코드는 diff에 전혀 등장하지 않음(§27, WIP.md
+305차 diff audit 참고).
+
+**검증**: 정적 분석 통과, 독립 클론 기준 `git apply --check`/`git am`
+통과. 로그 검증/시뮬레이션/실차 검증은 **미실시** -- 이 계측이 포함된
+빌드로 실차 주행 후 rlog를 확보해야 원인 A/B/C 중 실제 원인이
+확정된다(306차 예정).
+
+**다음 작업**: 306차에서 확보된 실차 rlog의 6개 신규 필드를 naviPaths
+공백 구간(304차가 찾은 65건 패턴)과 시간축으로 정렬해 원인 A/B/C를
+실측 확정. 해석 기준은 WIP.md 305차 "핵심 계측 필드 해석 가이드" 참고.
+
+
 ## 304차 -- [실측+코드 확정] naviPaths ~1.95초 주기 공백 원인 특정 -- road_limit<=0 원인 기각, 182차형 dropout과 구별되는 신규 하위유형 65건 발견, 원인 위치를 self.navi_points 버퍼 소진 지점으로 좁힘
 
 **배경**: 303차가 a3b3373495 #4→#5 구간에서 발견한 "naviPaths 기반
