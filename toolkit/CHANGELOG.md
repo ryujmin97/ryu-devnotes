@@ -3,6 +3,21 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+## 2026-09-08 (306차)
+- `sim_route_306_ep108_cluster_isolation.py`: **신규**. 293/294차부터
+  이월된 "ep108 클러스터링 코드 레벨 추적" 착수. production
+  `route_find_clusters()`/`_route_cluster_continuity_step()`을
+  296차 스크립트에서 그대로 import(§21/22, 재구현 없음)해 합성
+  시나리오로 검증. **핵심 결과: raw candidate(stage0)가 존재해도
+  `route_find_clusters()`의 min_points=2 게이트가 "고립된 그리드
+  포인트 1개짜리"(물리적 폭 <10m) 커브를 전부 걸러내 최종 apex가
+  None이 되는 경로를 코드 구조상 확정(수학적 필연 -- clusters가
+  비어있는 경우만 apex_speed=None 가능) + 합성 재현(dip_len=1만
+  손실, 2~5는 정상). 293/294차 ep108(주택가 교차로) 정황과 부합하는
+  가설이나, 실제 ep108 프레임의 raw candidate 배열 자체는 미확인
+  (corpus 재업로드 필요).** self-test 5/5+2/2 PASS(합성만, 실 corpus
+  대조는 다음 작업). 상세: WIP.md/FINDINGS.md 306차.
+
 ## 2026-09-07 (304차)
 - `sim_route_304_navipaths_gap_audit.py`: **신규**. 303차가 발견한
   naviPaths 2초대 프레임 점프 현상의 원인을 원본 CSV(build_frames()

@@ -21,6 +21,39 @@ CHANGELOG.md를 같이 갱신**한다 (세션 종료 체크리스트에 포함�
 
 ---
 
+## sim_route_306_ep108_cluster_isolation.py (306차 신규, 293/294차 이월 "ep108 클러스터링 코드 레벨 추적" 착수)
+**목적**: 293/294차가 발견한 `lost_with_candidates_present`(39건 중
+유일한 1건, ep108 -- route4 t=4017.4, 주택가 좁은 도로/교차로 인접)의
+원인을 코드 레벨로 추적한다. `route_find_clusters()`/
+`_route_cluster_continuity_step()`(carrot_man.py)을 296차 스크립트에서
+그대로 import(§21/22, 재구현 없음)해 합성 시나리오로 검증.
+
+**구조적으로 코드만으로 확정되는 사실(실측 불필요)**: `_route_cluster_
+continuity_step()`이 `apex_speed=None`을 반환하는 경로는 정확히
+하나뿐 -- 그 프레임의 `clusters`(min_points=2 필터 통과분)가 완전히
+비어 있는 경우뿐이다. `clusters`가 하나라도 있으면 reset_reason이
+"passed"/"lost"여도 그 클러스터로 즉시 재탐색해 유효한 apex를
+반환한다. 즉 293차가 검출한 "raw candidate는 있는데 apex가 사라짐"
+현상은 반드시 "raw candidates는 있었지만 route_find_clusters()가
+그걸 min_points=2 미만이라 전부 걸러낸 경우"로만 설명 가능하다.
+
+**추가 검증한 가설(§28, 아직 실측 미확정)**: 147차가 넣은 fine 곡률
+서브샘플(10m 그리드, 교차로 우회전 같은 좁은 코너를 잡기 위한 기능)은
+물리적으로 짧은 커브(예: 좁은 교차로 코너)를 distance_interval=10m
+그리드에서 **고립된 1개 포인트**로만 찍히게 만들 수 있다 -- 그리고
+247차/251차의 min_points=2 게이트는 정확히 이런 "고립된 1개 포인트"를
+노이즈로 간주해 제거하도록 설계돼 있다. 합성 시나리오(실험1: dip_len
+1~5 스윕, 실험2: 기존 locked apex가 있다가 고립된 1포인트 커브로
+전환)로 이 메커니즘이 실제로 트리거됨을 재현 확인(self-test 5/5+2/2
+PASS). **한계**: ep108 그 프레임의 실제 raw candidate 배열(간격/거리)
+자체는 미확인 -- route4 원본 corpus 재업로드 필요(293/294차가 쓴
+데이터는 §23에 따라 devnotes에 없음).
+
+**입력**: 없음(순수 합성, 실 corpus 불필요). **사용**: `python3
+sim_route_306_ep108_cluster_isolation.py`.
+
+---
+
 ## sim_route_292_continuity_root_cause.py (292차 신규, 289차 'continuity' 재분류 세부원인 분석)
 **목적**: 289차 what-if가 "연장 30건 중 28건은 margin이 아니라 continuity
 소실"로 뭉뚱그린 것을, production `_route_cluster_continuity_step()`의

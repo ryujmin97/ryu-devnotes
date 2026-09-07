@@ -1,3 +1,96 @@
+## 306차 (완료 -- ANALYSIS_ONLY, devnotes toolkit 신규 스크립트 1개, `ryu` 본체 무변경) -- 293/294차 이월 "ep108 클러스터링 코드 레벨 추적" 완료 -- min_points=2 게이트가 고립된 좁은 커브를 노이즈로 오인 제거하는 경로를 코드+합성 재현으로 확정
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu`(HEAD `8d481ec`=305차, 변경 없음) /
+`ryu-devnotes`(base `2538bd0`=305차, 이 항목 추가 전)
+
+**Branch**: `c3-ms-dev` / `main`
+
+**세션 시작 확인(§3/§33)**: fresh clone으로 양쪽 HEAD 직접 조회 --
+`ryu` `8d481ec`(305차, 드리프트 없음), `ryu-devnotes` `2538bd0`
+(305차, 드리프트 없음). HANDOFF.md/CURRENT_STATUS.md 없음, 다른
+작업자 개입 흔적 없음 확인 후 착수.
+
+**배경/작업 선정**: 305차 계측 패치의 실차 로그 확보를 기다리는 동안
+"먼저 할 수 있는 것"으로 6개 후보(ep108 트레이스/직선도로 오탐
+트레이스/36-35 불일치/confidence 신호 검증/288차 flicker 결정/GPS
+proxy 결정)를 제시, 사용자가 ChatGPT(공동 작업자)의 우선순위 제안에
+동의해 **① ep108 클러스터링 코드 트레이스**부터 진행하기로 확정.
+
+**한 일**:
+1. 293차/296차 devnotes 기록 재확인 -- ep108(route4, t=4017.4,
+   `lost_with_candidates_present`, 39건 중 유일 1건, 주택가 좁은
+   도로/교차로 인접)이 여전히 코드 레벨 미착수 상태임을 확인, 296차가
+   다룬 "passed/lost+동일프레임 재탐색" 이슈와는 무관한 별개 사안임을
+   재확인(§24, 296차 결론과 모순 없음).
+2. `carrot_man.py::_route_cluster_continuity_step()`(749~822행)을
+   전체 분기 추적 -- **구조적 확정(코드만으로 증명, 실측 불필요)**:
+   `apex_speed=None`이 되는 경로는 그 프레임의 `clusters`(min_points=2
+   필터 통과분)가 완전히 빈 경우 하나뿐. `clusters`가 하나라도 있으면
+   reset_reason(passed/lost)과 무관하게 즉시 재탐색 성공. 따라서
+   293차 분류기준(`routeCandidateCount`(stage0 raw, 1206행)>0 이면서
+   apex_speed 0/None)은 "raw candidate는 있었지만 `route_find_
+   clusters()`가 min_points=2 미만이라 전부 걸러낸 경우"로만 설명
+   가능함을 확정.
+3. 추가로 `carrot_man.py` 1094~1139행(147차가 추가한 fine 곡률
+   서브샘플, `ROUTE_CURVATURE_FINE_SAMPLE=1`, "교차로 우회전 같은
+   좁은 코너"를 명시적으로 겨냥)을 발견 -- 물리적으로 짧은 커브가
+   `distance_interval=10m` 그리드에서 고립된 1개 포인트로만 찍힐 수
+   있고, 247차 design doc의 min_points=2 게이트 설계 의도("단발성
+   노이즈 후보 하나만으로 apex가 성립하지 않도록")가 정확히 이런
+   패턴을 걸러내도록 되어 있어, **147차가 잡으려던 신호와 251차가
+   걸러내려던 노이즈가 그리드 해상도상 구분 불가능**하다는 구체적
+   트리거 가설을 수립.
+4. 신규 `toolkit/sim_route_306_ep108_cluster_isolation.py` 작성
+   (§21/22 -- `route_find_clusters()`/`ContinuityState`는 296차
+   스크립트에서 그대로 import, 재구현 없음):
+   - 실험1: 고립된 커브 dip_len(연속 그리드 포인트 수) 1~5 스윕 --
+     dip_len=1(물리적 폭 <10m)일 때만 raw_candidate(1개) 존재함에도
+     apex_speed=None(mode="none") 재현, dip_len>=2부터 정상 유지.
+     self-test 5/5 PASS.
+   - 실험2: 기존 locked apex가 있다가(정상 "passed" 전이) 고립된
+     1포인트 커브로 전환되는 2프레임 시나리오 -- mode="passed" +
+     raw_candidate(1개) 존재 + apex_speed=None이 동시에 재현됨을
+     확인, 293차 분류기준과 정확히 동일한 조합. self-test PASS.
+5. `toolkit/README.md`/`CHANGELOG.md` 갱신(§22, 신규 스크립트 섹션
+   prepend).
+
+**검증**:
+- 정적 분석: 완료(코드 전체 분기 직접 추적)
+- 로그 검증: **미실시** -- 293/294차가 쓴 route4 corpus zip은 §23
+  대용량 파일 정책상 devnotes에 없고, 이번 컨테이너에도 재업로드
+  안 됨. 따라서 ep108 실제 프레임의 raw candidate 배열(간격/거리)
+  자체는 확인하지 못함.
+- 시뮬레이션: 완료(위 실험1/2, self-test 5/5+2/2 PASS)
+- 실차 검증: 해당 없음(코드/파라미터 변경 없음, ANALYSIS_ONLY)
+
+**결론 구분(§28, 혼동 방지)**:
+- "raw candidate가 있어도 min_points=2 게이트 때문에 apex가 None이
+  될 수 있다" -- **코드 구조만으로 확정적으로 참**.
+- "ep108이 실제로 이 메커니즘(고립된 1포인트 좁은 커브) 때문이었다"
+  -- **아직 미확정, 가장 유력한 가설**(정황증거: 주택가 교차로 위치
+  + 147차 fine-sample 좁은커브 대응 기능의 존재 + 합성 재현 성공).
+  실제 확정에는 원본 route4 CSV의 ep108 프레임 재확인 필요.
+
+**미확인 사항**:
+- ep108 프레임의 실제 raw candidate 배열(개수/거리) -- corpus
+  재업로드 필요
+- 이 메커니즘이 `lost_no_candidate` 36건 중 일부에도 관여하는지
+  (별개 확인 필요, 294차 "직선도로 맵 곡률 오탐" 분석과 겹칠 가능성)
+- min_points=2를 완화할지 여부(§31 -- 완화 시 노이즈 재유입 위험
+  재평가 필요, 코드 변경 전 반드시 사용자 승인)
+
+**다음 작업**:
+1. 사용자가 route4 zip(또는 t=4017.4 부근 세그먼트만) 재업로드 시
+   실측 대조로 발견 2 가설 확정.
+2. 재업로드 어려우면 사용자 판단으로: (a) 가설을 잠정 확정으로
+   간주하고 개선 설계 착수, 또는 (b) 다음 우선순위 작업(직선도로
+   오탐 트레이스 / 36-35 불일치 / confidence 신호 검증)으로 이동.
+3. 305차 실차 계측 로그는 여전히 별도로 대기 중(반영된 빌드로 실차
+   주행 후 rlog 확보되면 그것대로 분석 진행).
+
+
 ## 305차 (완료 -- 계측 패치 설계+구현+독립클론 검증+patch전달 완료, `ryu` 실차 로직 무변경) -- naviPaths 65건 신규 하위유형 원인분리용 navi_points 버퍼 lifecycle 계측 추가
 
 **Worker**: Claude
