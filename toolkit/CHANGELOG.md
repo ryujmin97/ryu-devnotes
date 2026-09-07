@@ -3,6 +3,37 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+## 2026-09-08 (310차)
+- `extract_log.py`: **필드 갱신**(신규 스크립트 아님). 307차가
+  cereal/custom.capnp @58~@69 + carrot_man.py/carrot_serv.py에 이미
+  추가해둔 ANALYSIS_ONLY 계측 필드 12개(routeClusterCount/
+  routeApexMode/routeApexFineTriggered/routeOrphanSingleton
+  Count·Dist·Speed/routeProvisional Active·Dist·Speed·Streak·
+  MatchError·Promoted)가 FIELDNAMES에 누락돼 rlog에는 채워지고 있어도
+  CSV로 뽑을 수 없었음(234차 routeCandidate류/204차와 동일 성격의
+  추출기 gap) -- 이번에 추가. **이 컬럼은 020ea86(307차) 이후 채록된
+  로그에만 값이 채워짐**(295차/234차 계속5와 동일 제약, 소급 재추출
+  불가).
+- `sim_route_310_provisional_streak_real_corpus.py`: **신규 +
+  세션 중 개선**. 307차 shadow tracker 최초 실차 로그(x17seg,
+  17세그먼트, `020ea86` 반영 확인) 분석. provisional streak episode
+  748건 재구성, streak>=3(PROVISIONAL_PROMOTE_STREAK 현재값) 도달
+  152건. `--near-threshold-m`/`--moving-min-vego` 옵션으로 근접/
+  원거리 x 이동중/정차중 4분면 **자동분류 추가**(근접+이동중 57 /
+  근접+정차중 1 / 원거리+이동중 19 / 원거리+정차중 0). **핵심 발견**:
+  근접+이동중 최상위 후보(streak=60, seg3 t=661.77~664.72s, dist
+  20m->10m, apex_mode 60/60프레임 전부 `none`)를 **qcamera로 대조**한
+  결과 횡단보도 교차로 진입부에서 다른 차량이 회전 중인 장면 확인 --
+  306/307차 가설(min_points=2 게이트가 고립 후보를 노이즈로 오인)과
+  부합하는 정황증거(교차로 회전 지오메트리, 확정 아님). **세션 중
+  라벨링 오류 발견·정정**: 최초 수작업 분류에서 streak=184 episode
+  (dist 500m->440m, 명백한 원거리)를 근접 후보로 잘못 인용했다가
+  qcamera 대조 시 발견해 정정(해당 구간엔 커브 없음, naviPaths
+  lookahead 끝단 아티팩트 의심으로 재분류) -- 이 사고를 계기로 4분면
+  자동분류를 추가함. 매우 긴 streak(472/1108)는 vEgo<1m/s 정차 자명
+  케이스로 "근접+정차중" 버킷이 자동 분리(버그 아님). 상세: WIP.md/
+  FINDINGS.md 310차.
+
 ## 2026-09-08 (309차)
 - `sim_route_309_real_release_confirm.py`: **신규**. 289/292차 함수를
   그대로 재사용(재구현 아님)해, 실제 production margin(1.10) 기준

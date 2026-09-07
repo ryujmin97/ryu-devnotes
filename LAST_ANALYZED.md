@@ -1,3 +1,30 @@
+## c3-ms-dev (310차, 307차 shadow tracker(`routeProvisional*`) 최초 실차 로그 1차 분석 + qcamera 1건 대조 -- `ryu` 코드 무변경)
+- Repository: `ryujmin97/ryu`
+- Branch: `c3-ms-dev`
+- last_analyzed_commit: `020ea86`(307차, ANALYSIS_ONLY 계측 patch --
+  이번 세션 코드 변경 없음, 업로드된 x17seg 로그의 meta.json repo
+  commit과 일치 확인)
+- devnotes base: `f2a6ec0`(309차, 이 항목 추가 전)
+- Analysis date: 2026-09-08 (310차)
+- Worker: Claude
+- Analyzed commits: 없음(코드 변경 없음, 로그 분석만)
+- Analyzed files/logs: 사용자 업로드
+  `20260908_065710_000003c6--586e535fca_x17seg.zip`(17세그먼트,
+  route `000003c6--586e535fca`) -> `extract_log.py --with-navi-paths`로
+  CSV화(20171행) + qcamera 프레임 1건 육안 대조(seg3, t=661.77~
+  664.72s).
+- Conclusion: `sim_route_310_provisional_streak_real_corpus.py`로
+  provisional episode 748건 재구성, streak>=3 도달 152건을 근접/
+  원거리 x 이동중/정차중 4분면으로 자동분류(근접+이동중 57 / 근접+
+  정차중 1 / 원거리+이동중 19 / 원거리+정차중 0). 근접+이동중
+  최상위 후보(streak=60, seg3 t=661.77~664.72s) qcamera 대조 결과
+  교차로 회전부로 확인(306/307차 가설과 부합하는 정황증거, 확정
+  아님). 세션 중 최초 원거리 후보(streak=184)를 근접으로 오분류한
+  실수를 발견·정정(상세: FINDINGS.md/WIP.md 310차).
+- next: 근접+이동중 추가 후보 qcamera 대조, harsh_brake_events 등
+  교차검증, 원거리+이동중 19건 lookahead 끝단 아티팩트 코드 레벨
+  추적, `PROVISIONAL_PROMOTE_STREAK` 조정 여부 결정.
+
 ## c3-ms-dev (305차, navi_points 버퍼 lifecycle 계측 패치 -- 코드 분석+구현, 실차 로그 검증 전)
 - last_analyzed_commit: `d2f47d1`(290차, `ryu` -- 패치는 이 base 기준
   독립 클론 `git apply --check`+`git am`으로 검증 완료, 아직 이 base

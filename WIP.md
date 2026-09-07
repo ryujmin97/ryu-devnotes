@@ -1,3 +1,124 @@
+## 310차 (완료 -- ANALYSIS_ONLY, `ryu` 본체 무변경, `extract_log.py` 컬럼 12개 추가 + devnotes toolkit 신규 스크립트 1개) -- 307차 shadow tracker(`routeProvisional*`) 최초 실차 로그 검증 -- qcamera 대조 결과 근접 후보는 "교차로 회전부", 최초 지목했던 원거리 후보는 라벨링 오류로 정정
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu`(HEAD `020ea86`=307차, 변경 없음) /
+`ryu-devnotes`(base `f2a6ec0`=309차, 이 항목 추가 전)
+
+**Branch**: `c3-ms-dev` / `main`
+
+**세션 시작 확인(§3/§33)**: `git ls-remote`로 두 저장소 원격 HEAD가
+309차 기록과 일치함을 확인 후 시작(세션 중 컨테이너가 재시작되어
+`ryu`/`ryu-devnotes`를 다시 clone -- 원격 HEAD 불변 확인, 이전 세션의
+로컬 작업물은 사용자가 재업로드한 산출 파일로 복원). 사용자가 실차
+로그 zip(x17seg, 17세그먼트, route `000003c6--586e535fca`)을
+업로드하며 "최신 커밋 반영된 실차 로그, 이번 로그에서 해야 할 작업
+진행" 지시. 307차 WIP "다음 작업"에 명시된 바로 그 검증(사용자 계획
+②단계).
+
+**한 일**:
+1. **`extract_log.py` 컬럼 gap 발견 및 수정**: 307차가 `cereal/
+   custom.capnp` @58~@69에 이미 추가해둔 12개 계측 필드(`route
+   ClusterCount`/`routeApexMode`/`routeApexFineTriggered`/`route
+   OrphanSingletonCount·Dist·Speed`/`routeProvisionalActive·Dist·
+   Speed·Streak·MatchError·Promoted`)가 rlog에는 채워지고 있었으나
+   CSV 추출기 FIELDNAMES에서 누락돼 있었음(234차/204차와 동일 성격
+   gap). FIELDNAMES + row 생성부에 추가. `020ea86`(307차) 이후 로그에만
+   소급 없이 적용.
+2. x17seg zip 압축 해제 후 수정한 `extract_log.py --with-navi-paths`로
+   CSV 추출(20171행, meta.json commit=`020ea86` 확인).
+3. 신규 `toolkit/sim_route_310_provisional_streak_real_corpus.py`
+   작성(§21/22 -- 기존 analysis_helpers.py에 동일 목적 함수 없음
+   확인 후 신규). `routeProvisionalActive`/`Streak` 연속 구간을
+   episode로 재구성, 각 episode의 max_streak/동시 `routeApexMode`
+   분포/`routeClusterCount` 최소값 기록.
+4. **1차 분석 중 라벨링 오류 발생 및 자체 정정(중요, 투명하게 기록)**:
+   최초 콘솔 출력에서 거리 기준 "근접/원거리"를 스크립트가 아닌
+   수작업으로 나누다가, streak=184 episode(dist 500m->440m, 명백히
+   원거리)를 "근접 승격 후보"로 잘못 기술한 채 WIP 초안에 기록하는
+   실수가 있었음. **qcamera 대조를 위해 프레임을 열어본 시점에
+   발견**(seg6 t=872.79~881.94s 구간 프레임에 커브가 전혀 안 보이고
+   신호대기 차량이 있는 넓은 직선 교차로만 나옴 -- distance 500m대는
+   naviPaths lookahead 최대 거리 부근이라는 것도 재확인). 이 실수를
+   계기로 스크립트에 `--near-threshold-m`(기본 150.0)/`--moving-min-
+   vego`(기본 3.0m/s) 옵션과 4분면 자동 분류(근접+이동중/근접+정차중/
+   원거리+이동중/원거리+정차중)를 추가해 이후 세션에서 동일 실수가
+   재발하지 않도록 함(§27 -- 계측/분석 스크립트 개선이므로 코드 최소
+   변경 원칙 예외 대상 아님, `ryu` 프로덕션 코드 아님).
+5. **정정된 최종 4분면 결과**(재작성한 스크립트로 재실행,
+   `--near-threshold-m 150 --moving-min-vego 3.0`):
+   - 근접+이동중(진짜 커브 후보): 57건
+   - 근접+정차중(신호대기 등 자명): 1건
+   - 원거리+이동중(lookahead 끝단 아티팩트 의심): 19건
+   - 원거리+정차중(자명한 비이슈): 0건
+6. **qcamera 대조 -- 근접+이동중 최상위 후보** (seg=`20260908_065910_
+   000003c6--586e535fca--3`, t=661.77~664.72s, seg-local 0.4~3.35s,
+   streak=60, avg_vEgo=6.5m/s, dist=20m->10m, apex_mode 60/60프레임
+   전부 `none`): 프레임 확인 결과 **횡단보도가 있는 넓은 교차로
+   진입부이며, 화면 내에 다른 차량이 우회전(또는 진입) 중인 장면**이
+   보임 -- 급격한 "도로 커브"라기보다 **교차로 코너/회전 지오메트리**
+   에 더 가까움. 306/307차 가설이 원래 겨냥한 "고립된 좁은 커브"의
+   전형적인 예(예: 사거리 우회전)와 부합하는 정황이나, 도로 자체의
+   연속 곡선(만곡도로)은 아님 -- **가설을 뒷받침하는 정황증거이되
+   "일반 도로 커브"보다는 "교차로 회전부" 쪽으로 구체화됨**.
+7. **qcamera 대조 -- (당초 잘못 지목했던) 원거리 후보**(seg6,
+   t=872.79~881.94s, seg-local 31.4~40.5s, streak=184, dist 500m->
+   440m): 프레임 전 구간에 커브 없음, 다차선 직선 도로 + 정체 차량만
+   확인. **naviPaths lookahead 끝단(약 500m) 샘플링 아티팩트일 가능성
+   에 무게가 실림**(코드 레벨 확인은 미실시, 다음 작업).
+
+**결론(정정판)**: 이번 세션의 qcamera 대조는 306/307차 가설(min_
+points=2 게이트가 고립 후보를 노이즈로 오인)을 **반증하지도 확정
+하지도 않음** -- 근접 후보 1건은 "교차로 회전부"로 가설과 부합하는
+정황이나 이것이 production 감속 실패로 이어진 사고/불편 사례인지는
+이 로그만으로 알 수 없고(§28 -- 증상->재현조건 확인 안 됨, 실제
+불편/개입 여부는 rlog의 driver disengagement/harsh brake 등 별도
+신호로 교차검증 필요), 최초 원거리 후보는 잘못된 라벨링으로 밝혀져
+증거 목록에서 제외한다.
+
+**한계(§28)**: (1) 표본 1개 로그(17세그먼트)뿐. (2) "production이
+이 후보를 놓쳐서 실제로 불편했는가"는 apex_mode 공백만으로 확정 불가
+-- 감속 프로파일/운전자 개입 신호와의 교차검증 필요(다음 작업). (3)
+근접+이동중 57건 중 qcamera 대조는 이번에 1건만 수행(최우선 순위
+1건).
+
+**검증**:
+- 정적 분석: 완료(`py_compile`/`ast.parse` PASS, `extract_log.py`/
+  `sim_route_310...py` 포함)
+- 로그 검증: 완료(x17seg 실차 로그, 20171프레임, `020ea86` 반영 확인)
+- 시뮬레이션: 해당 없음(실측 로그 분석)
+- 실차 검증: **미완**(qcamera 1건 대조는 완료했으나 "실제 불편/개입
+  사례로 이어졌는가"는 미확인, §29)
+
+**Devnotes**:
+- `toolkit/extract_log.py`: 컬럼 12개 추가(신규 스크립트 아님)
+- `toolkit/sim_route_310_provisional_streak_real_corpus.py`: 신규 +
+  세션 중 4분면 자동분류 옵션 추가(라벨링 오류 재발방지)
+- `toolkit/README.md`/`CHANGELOG.md`: 갱신
+- WIP/FINDINGS: 이 항목(라벨링 오류 자체 정정 포함)
+
+**미확인 사항**:
+- 근접+이동중 57건 중 나머지(2위 이하) qcamera 미대조.
+- "production apex 공백이 실제 감속 실패/운전자 개입으로 이어졌는가"
+  교차검증 미실시.
+- 원거리+이동중 19건이 실제로 naviPaths lookahead 끝단 아티팩트인지
+  코드 레벨(`get_path_after_distance()` 등) 확인 미실시.
+
+**다음 작업**:
+1. 근접+이동중 상위 후보(streak=16/15/13 등) 추가 qcamera 대조로
+   표본 확대.
+2. seg3 t=661.77~664.72s 구간에서 harsh_brake_events/steering_
+   oscillation_detector(analysis_helpers.py 재사용, §21) 등으로
+   "실제 불편했는가" 교차검증.
+3. 원거리+이동중 19건의 lookahead 끝단 아티팩트 가설을 `carrot_man.py`
+   `get_path_after_distance()`/naviPaths 리샘플 경계 로직으로 코드
+   레벨 추적.
+4. 위 결과를 축적한 뒤 `PROVISIONAL_PROMOTE_STREAK=3`(근접+이동중
+   기준) 값 조정 여부 및 설계안 A 채택 여부 결정(사용자 계획 ②단계
+   진행 중, 아직 결론 아님).
+
+---
+
 ## 309차 (완료 -- ANALYSIS_ONLY, `ryu` 본체 무변경, devnotes toolkit 신규 스크립트 1개) -- 289/292차 파이프라인을 실 corpus(route1~4)에 재적용해 실제 production margin 기준 "진짜 RELEASE" 건수 확정 -- 448건 orphan 후보 중 실제 RELEASE는 1건(ep108)뿐임을 확인 + "continuity 39건" 인용 수치의 분모 오류 정정(실제는 11건)
 
 **Worker**: Claude

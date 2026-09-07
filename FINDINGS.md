@@ -1,3 +1,88 @@
+## 310차 -- [실차 로그 1차 정황증거, 확정 아님] 307차 shadow tracker(`routeProvisional*`) 최초 실차 검증 -- 근접+이동중 최상위 후보(streak=60)는 qcamera 대조로 "교차로 회전부"로 확인, 당초 지목했던 원거리 후보(streak=184)는 라벨링 오류로 정정·제외
+
+**배경**: 307차는 306차가 코드+합성으로 확정한 가설(`route_find_
+clusters()`의 `min_points=2` 게이트가 고립된 1포인트 좁은 커브를
+노이즈로 오인해 제거할 수 있음)을 실차로 검증하기 위해 production
+로직과 완전히 분리된 shadow tracker(`_route_provisional_singleton_
+step()`, `PROVISIONAL_PROMOTE_STREAK=3` NEEDS_VALIDATION)를 계측만
+해두고 "실차 검증: 미실시"로 남겼다. 이번 세션에 `020ea86`(307차)
+반영이 확인된 첫 실차 로그(x17seg, 17세그먼트)를 확보해 검증했다.
+
+**사전 조치**: `extract_log.py`가 307차 계측 필드 12개를 FIELDNAMES
+에서 누락하고 있어(234차/204차와 동일 성격 gap) CSV로 뽑을 수
+없었음 -- 수정 후 재추출(20171행).
+
+**방법**: 신규 `sim_route_310_provisional_streak_real_corpus.py`로
+`routeProvisionalActive`/`Streak`의 연속 구간을 episode로 재구성.
+각 episode의 max_streak, 동시 `routeApexMode` 분포, 거리/평균
+vEgo를 함께 기록해 근접(<150m)/원거리(>=150m) × 이동중(avg vEgo
+>=3m/s)/정차중 4분면으로 분류.
+
+**세션 중 발견한 자체 오류와 정정(투명하게 기록, §28/§37)**: 최초
+분석 단계에서 근접/원거리 구분을 스크립트가 아닌 수작업으로 하다가,
+streak=184 episode(dist 500m->440m, 명백히 원거리 -- naviPaths
+lookahead 최대거리 부근)를 "근접 승격 후보"이자 306/307차 가설의
+첫 실측 정황증거로 잘못 기술했다. **qcamera로 실제 프레임을 열어본
+시점에 이 오류를 발견**했다(해당 구간 프레임에 커브가 전혀 없고
+신호대기 차량이 있는 넓은 직선 교차로만 확인됨). 이 오류를 계기로
+스크립트에 `--near-threshold-m`/`--moving-min-vego` 옵션과 4분면
+자동분류를 추가해 재발을 방지했다.
+
+**핵심 결과(정정판)**:
+1. 총 748개 provisional episode 중 streak>=3(현재 `PROVISIONAL_
+   PROMOTE_STREAK`) 도달 152건. 그중 production apex_mode가 none/
+   lost로 겹친(공백) episode 77건.
+2. 4분면 자동분류(재작성 스크립트 실행 결과): 근접+이동중 57건 /
+   근접+정차중 1건 / 원거리+이동중 19건 / 원거리+정차중 0건.
+3. **qcamera 대조 -- 근접+이동중 최상위 후보**(seg=`20260908_065910_
+   000003c6--586e535fca--3`, t=661.77~664.72s, seg-local 0.4~3.35s,
+   streak=60, avg_vEgo=6.5m/s, dist=20m->10m, apex_mode 60/60프레임
+   전부 `none`): 횡단보도가 있는 넓은 교차로 진입부이며 다른 차량이
+   교차로에서 회전(우회전으로 보임) 중인 장면 확인. **일반적인
+   "만곡 도로 커브"라기보다 "교차로 코너/회전 지오메트리"에 가까움**
+   -- 306/307차 가설이 원래 예로 든 "고립된 좁은 커브"(사거리
+   우회전 등)의 전형적인 사례와 부합하는 정황증거이나, 이 로그
+   만으로 "실제로 운전자 불편/개입이 있었는가"까지는 확정 불가.
+4. **qcamera 대조 -- 당초 잘못 지목했던 원거리 후보**(seg6,
+   t=872.79~881.94s, seg-local 31.4~40.5s, streak=184, dist 500m->
+   440m): 프레임 전 구간에 커브 없음, 다차선 직선 도로 + 정체 차량만
+   확인. **naviPaths lookahead 끝단(약 500m) 샘플링 아티팩트 의심**
+   (코드 레벨 확인 미실시) -- 이 사례는 "근접 진짜 커브 증거" 목록
+   에서 제외한다.
+5. 매우 긴 streak(472/1108, 각각 dist 50m/110m 고정)는 avg vEgo가
+   0.24/0.01m/s로 사실상 정차 상태였고, 이번 4분면 분류의 "근접+
+   정차중" 버킷(1건)이 이런 자명한 케이스를 자동으로 걸러냄을 확인
+   (버그 아님, `predicted≈locked_dist`인 정차 중 물리적 당연한 결과).
+
+**한계(§28)**: (1) 표본 1개 로그(17세그먼트)뿐, 일반화에는 추가
+로그 필요. (2) "production이 이 후보를 놓쳐서 실제로 불편했는가"는
+apex_mode 공백만으로 확정 불가 -- harsh_brake_events/steering_
+oscillation_detector 등 다른 실측 신호와의 교차검증이 필요(§21
+재사용 가능, 다음 작업). (3) 근접+이동중 57건 중 이번 세션은 1건만
+qcamera 대조.
+
+**검증**:
+- 정적 분석: 완료(`py_compile`/`ast.parse` PASS)
+- 로그 검증: 완료(x17seg 실차 로그 20171프레임, `020ea86` 반영 확인)
+- 시뮬레이션: 해당 없음(실측 로그 분석)
+- 실차 검증: **미완**(qcamera 1건 대조 완료, "실제 불편/개입" 교차
+  검증은 미실시, §29)
+
+**Devnotes**:
+- `toolkit/extract_log.py`: 컬럼 12개 추가
+- `toolkit/sim_route_310_provisional_streak_real_corpus.py`: 신규,
+  세션 중 4분면 자동분류 옵션 추가
+- `toolkit/README.md`/`CHANGELOG.md`: 갱신
+- WIP/FINDINGS: 이 항목(라벨링 오류 정정 포함)
+
+**다음 작업**:
+1. 근접+이동중 상위 후보 추가 qcamera 대조로 표본 확대.
+2. seg3 t=661.77~664.72s 구간 harsh_brake_events/steering_
+   oscillation_detector 등으로 "실제 불편했는가" 교차검증.
+3. 원거리+이동중 19건의 lookahead 끝단 아티팩트 가설 코드 레벨 추적.
+4. 위 결과 누적 후 `PROVISIONAL_PROMOTE_STREAK=3` 값 조정 여부 및
+   설계안 A 채택 여부 결정(사용자 계획 ②단계 진행 중).
+
 ## 309차 -- [실측 확정 + 중요 정정] 289/292차 파이프라인을 실 corpus(route1~4)에 재적용 -- 448건 orphan 후보 중 실제 production RELEASE는 1건(ep108)뿐 확인 + "continuity 39건" 인용 수치가 가상(margin=1.05 what-if) 기준이었음을 정정(실제 production=1.10 기준은 11건)
 
 **배경**: 308차가 raw apex_speed valid->invalid 전이 스캔(단순화 버전,

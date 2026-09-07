@@ -74,7 +74,25 @@ FIELDNAMES = [
     "routeCandidate1Idx", "routeCandidate1Dist", "routeCandidate1Speed",
     "routeCandidate2Idx", "routeCandidate2Dist", "routeCandidate2Speed",
     "nRoadLimitSpeed",
+    "routeClusterCount", "routeApexMode", "routeApexFineTriggered",
+    "routeOrphanSingletonCount", "routeOrphanSingletonDist", "routeOrphanSingletonSpeed",
+    "routeProvisionalActive", "routeProvisionalDist", "routeProvisionalSpeed",
+    "routeProvisionalStreak", "routeProvisionalMatchError", "routeProvisionalPromoted",
 ]
+# 2026-09-08 추가(310차): carrotMan.routeClusterCount/routeApexMode/
+# routeApexFineTriggered/routeOrphanSingleton(Count/Dist/Speed)/
+# routeProvisional(Active/Dist/Speed/Streak/MatchError/Promoted) --
+# 307차가 cereal/custom.capnp @58~@69 + carrot_man.py/carrot_serv.py에
+# 이미 추가해둔 ANALYSIS_ONLY 계측 필드 12개가, 이 CSV 추출기 FIELDNAMES
+#에는 반영되지 않아 그동안 rlog에는 실제로 채워지고 있었어도 CSV로는
+# 뽑을 수 없었음(234차 routeCandidate류/204차 gap과 동일 성격의 미스).
+# 307차 WIP "실차 검증: 미실시(다음 실차 로그 확보 후 갱신 예정)"의
+# 그 다음 실차 로그(310차, 020ea86 반영 확인된 x17seg)를 분석하기 위해
+# 이번에 추가. decode_rlog.iter_events()는 schema를 동적 로드하므로
+# 이 추출기 쪽 컬럼 목록만 갱신하면 됨(신규 rlog 판독 로직 불필요).
+# **이 컬럼들은 020ea86(307차) 이후에 채록된 로그에만 값이 채워진다**
+# -- 그 이전 route1~4 corpus(293~309차가 써온 것)에는 없으므로 소급
+# 재추출 불가(295차/234차 계속5와 동일 제약).
 # 2026-09-07 추가(295차): gpsLocation.horizontalAccuracy(cereal/log.capnp
 # GpsLocationData@6, Float32, 미터 단위 예상 수평오차) -- 293차가 터널
 # 가설(ep9/ep10)을 검증하려다 "GPS 정확도 자체는 직접 볼 수 없다"는 gap
@@ -449,6 +467,18 @@ def process_segment(rlog_path, seg_name, repo_dir, max_mb, commit_short="",
                 "routeCandidate2Dist": cm.routeCandidate2Dist,
                 "routeCandidate2Speed": cm.routeCandidate2Speed,
                 "nRoadLimitSpeed": cm.nRoadLimitSpeed,
+                "routeClusterCount": cm.routeClusterCount,
+                "routeApexMode": str(cm.routeApexMode),
+                "routeApexFineTriggered": cm.routeApexFineTriggered,
+                "routeOrphanSingletonCount": cm.routeOrphanSingletonCount,
+                "routeOrphanSingletonDist": cm.routeOrphanSingletonDist,
+                "routeOrphanSingletonSpeed": cm.routeOrphanSingletonSpeed,
+                "routeProvisionalActive": cm.routeProvisionalActive,
+                "routeProvisionalDist": cm.routeProvisionalDist,
+                "routeProvisionalSpeed": cm.routeProvisionalSpeed,
+                "routeProvisionalStreak": cm.routeProvisionalStreak,
+                "routeProvisionalMatchError": cm.routeProvisionalMatchError,
+                "routeProvisionalPromoted": cm.routeProvisionalPromoted,
             })
     return rows, last_cs, last_ctrl, last_lead, last_lat, last_model, last_pose, last_gps
 

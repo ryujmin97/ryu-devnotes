@@ -21,6 +21,63 @@ CHANGELOG.md를 같이 갱신**한다 (세션 종료 체크리스트에 포함�
 
 ---
 
+## extract_log.py -- routeClusterCount/routeApexMode/routeApexFineTriggered/routeOrphanSingleton*/routeProvisional* 컬럼 추가 (310차)
+**변경**: 307차가 cereal/custom.capnp @58~@69에 이미 추가해둔
+ANALYSIS_ONLY 계측 필드 12개가 rlog에는 채워지고 있었는데도 이
+추출기 FIELDNAMES에서 누락돼 CSV로는 뽑을 수 없었음(234차
+routeCandidate류/204차 gap과 동일 성격) -- 이번에 FIELDNAMES와
+row 생성부에 추가. 신규 rlog 판독 로직은 불필요(decode_rlog.py가
+schema를 동적 로드하므로 컬럼 목록만 갱신하면 됨).
+**주의**: 이 컬럼들은 `020ea86`(307차) 이후 채록된 로그에만 값이
+채워진다 -- 그 이전 route1~4 corpus(293~309차)에는 소급 적용 안 됨.
+
+## sim_route_310_provisional_streak_real_corpus.py (310차 신규, 307차 shadow tracker 최초 실차 로그 분석 -- provisional streak episode 재구성 + production apex 공백 겹침 확인)
+**목적**: 307차가 계측만 해두고 "실차 검증: 미실시"로 남겨둔
+`routeProvisionalStreak`(PROVISIONAL_PROMOTE_STREAK=3, NEEDS_VALIDATION)
+을 최초의 020ea86 반영 실차 로그로 검증.
+
+**방법**: `routeProvisionalActive`/`Streak`가 연속되는 구간을 episode로
+재구성(streak가 이전 값보다 커지지 않고 재시작하면 새 episode). 각
+episode에 대해 max_streak, 동시 구간 `routeApexMode` 분포(none/lost가
+섞이면 그 프레임엔 production apex 공백), `routeClusterCount` 최소값,
+평균 vEgo, 거리를 함께 기록. `--near-threshold-m`(기본 150.0)/
+`--moving-min-vego`(기본 3.0m/s)로 근접/원거리 x 이동중/정차중 4분면을
+**스크립트가 자동 분류**(세션 중 이 분류를 수작업으로 하다가 원거리
+사례를 근접으로 잘못 인용한 사고 이후 추가, 아래 참고). 순수 관측/집계,
+`ryu` 코드 무변경.
+
+**핵심 결과**: 748개 episode 중 streak>=3 도달 152건. 4분면 자동분류
+결과 근접+이동중 57건 / 근접+정차중 1건 / 원거리+이동중 19건 /
+원거리+정차중 0건. **qcamera로 근접+이동중 최상위 후보(streak=60,
+seg3 t=661.77~664.72s, dist 20m->10m, apex_mode 60/60프레임 전부
+`none`) 1건을 대조**한 결과, 횡단보도가 있는 교차로 진입부에서 다른
+차량이 회전 중인 장면 확인 -- 306/307차 가설("고립된 좁은 커브를
+min_points=2가 노이즈로 오인")과 부합하는 정황증거(일반 만곡도로
+커브라기보다 교차로 회전 지오메트리에 가까움, 확정 아님).
+
+**중요 -- 세션 중 라벨링 오류 및 정정**: 최초 분석 단계에서 근접/원거리
+구분을 수작업으로 하다가 streak=184 episode(dist 500m->440m, 명백한
+원거리)를 "근접 승격 후보"로 잘못 지목해 첫 실측 정황증거로 오기했음.
+qcamera 대조 시점에 발견(해당 구간엔 커브가 없고 넓은 직선 교차로 +
+정체 차량만 확인) -- FINDINGS.md 310차에 정정 기록, 이 사례는 증거
+목록에서 제외하고 대신 "원거리+이동중"(lookahead 끝단 아티팩트 의심)
+버킷으로 재분류. 이 사고를 계기로 위 4분면 자동분류 옵션을 추가함.
+매우 긴 streak(472/1108)는 vEgo<1m/s(정차) 자명 케이스로 "근접+정차중"
+버킷이 자동으로 걸러냄(버그 아님).
+
+**미확인**: qcamera 육안 대조 미실시(다음 단계 권장, seg6 local
+31~41s). 근거리 vs 원거리(경로 lookahead 끝단 500m 부근 아티팩트
+의심) 구분도 이번엔 콘솔 출력 수준에서만 확인, 별도 필터 옵션
+미구현.
+
+**입력**: `extract_log.py`(310차 갱신판)로 뽑은 `020ea86` 이후 로그
+CSV(routeProvisional* 컬럼 필요).
+
+**사용**: `python3 sim_route_310_provisional_streak_real_corpus.py
+<route.csv> [--promote-streak 3]`
+
+---
+
 ## sim_route_309_real_release_confirm.py (309차 신규, 289/292차 파이프라인을 실 corpus에 재적용해 실제 production margin 기준 "진짜 RELEASE" 건수 확정)
 **목적**: 308차가 raw apex_speed valid→invalid 전이만 세는 단순화된
 스캔으로 찾은 448건의 `lost_with_candidates_present`(100% orphan) 중,
