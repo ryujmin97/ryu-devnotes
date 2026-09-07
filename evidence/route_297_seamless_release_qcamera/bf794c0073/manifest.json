@@ -1,0 +1,32 @@
+[
+  {
+    "target_t": 3961.06,
+    "offset": -1,
+    "segment": "20260906_175927_000003c0--bf794c0073--4",
+    "segmentId": 911,
+    "matched_t": null,
+    "time_diff_s": null,
+    "frameId": null,
+    "file": "/home/claude/frames_297/bf794c0073/bf7t3961.06_off-1_seg911.jpg"
+  },
+  {
+    "target_t": 3961.06,
+    "offset": 0,
+    "segment": "20260906_175927_000003c0--bf794c0073--4",
+    "segmentId": 912,
+    "matched_t": 3961.080916098,
+    "time_diff_s": 0.020916098000270722,
+    "frameId": 77714,
+    "file": "/home/claude/frames_297/bf794c0073/bf7t3961.06_off+0_seg912.jpg"
+  },
+  {
+    "target_t": 3961.06,
+    "offset": 1,
+    "segment": "20260906_175927_000003c0--bf794c0073--4",
+    "segmentId": 913,
+    "matched_t": null,
+    "time_diff_s": null,
+    "frameId": null,
+    "file": "/home/claude/frames_297/bf794c0073/bf7t3961.06_off+1_seg913.jpg"
+  }
+]

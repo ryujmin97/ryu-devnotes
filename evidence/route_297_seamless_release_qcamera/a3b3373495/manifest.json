@@ -1,0 +1,302 @@
+[
+  {
+    "target_t": 319.06,
+    "offset": -1,
+    "segment": "20260906_165927_000003bd--a3b3373495--4",
+    "segmentId": 68,
+    "matched_t": null,
+    "time_diff_s": null,
+    "frameId": null,
+    "file": "/home/claude/frames_297/a3b3373495/a3bt319.06_off-1_seg68.jpg"
+  },
+  {
+    "target_t": 319.06,
+    "offset": 0,
+    "segment": "20260906_165927_000003bd--a3b3373495--4",
+    "segmentId": 69,
+    "matched_t": 319.053288196,
+    "time_diff_s": 0.006711804000019583,
+    "frameId": 4871,
+    "file": "/home/claude/frames_297/a3b3373495/a3bt319.06_off+0_seg69.jpg"
+  },
+  {
+    "target_t": 319.06,
+    "offset": 1,
+    "segment": "20260906_165927_000003bd--a3b3373495--4",
+    "segmentId": 70,
+    "matched_t": null,
+    "time_diff_s": null,
+    "frameId": null,
+    "file": "/home/claude/frames_297/a3b3373495/a3bt319.06_off+1_seg70.jpg"
+  },
+  {
+    "target_t": 325.61,
+    "offset": -1,
+    "segment": "20260906_165927_000003bd--a3b3373495--4",
+    "segmentId": 199,
+    "matched_t": null,
+    "time_diff_s": null,
+    "frameId": null,
+    "file": "/home/claude/frames_297/a3b3373495/a3bt325.61_off-1_seg199.jpg"
+  },
+  {
+    "target_t": 325.61,
+    "offset": 0,
+    "segment": "20260906_165927_000003bd--a3b3373495--4",
+    "segmentId": 200,
+    "matched_t": 325.600921672,
+    "time_diff_s": 0.009078327999986868,
+    "frameId": 5002,
+    "file": "/home/claude/frames_297/a3b3373495/a3bt325.61_off+0_seg200.jpg"
+  },
+  {
+    "target_t": 325.61,
+    "offset": 1,
+    "segment": "20260906_165927_000003bd--a3b3373495--4",
+    "segmentId": 201,
+    "matched_t": null,
+    "time_diff_s": null,
+    "frameId": null,
+    "file": "/home/claude/frames_297/a3b3373495/a3bt325.61_off+1_seg201.jpg"
+  },
+  {
+    "target_t": 536.76,
+    "offset": -1,
+    "segment": "20260906_170227_000003bd--a3b3373495--7",
+    "segmentId": 821,
+    "matched_t": null,
+    "time_diff_s": null,
+    "frameId": null,
+    "file": "/home/claude/frames_297/a3b3373495/a3bt536.76_off-1_seg821.jpg"
+  },
+  {
+    "target_t": 536.76,
+    "offset": 0,
+    "segment": "20260906_170227_000003bd--a3b3373495--7",
+    "segmentId": 822,
+    "matched_t": 536.741511845,
+    "time_diff_s": 0.018488155000000006,
+    "frameId": 9224,
+    "file": "/home/claude/frames_297/a3b3373495/a3bt536.76_off+0_seg822.jpg"
+  },
+  {
+    "target_t": 536.76,
+    "offset": 1,
+    "segment": "20260906_170227_000003bd--a3b3373495--7",
+    "segmentId": 823,
+    "matched_t": null,
+    "time_diff_s": null,
+    "frameId": null,
+    "file": "/home/claude/frames_297/a3b3373495/a3bt536.76_off+1_seg823.jpg"
+  },
+  {
+    "target_t": 578.36,
+    "offset": -1,
+    "segment": "20260906_170327_000003bd--a3b3373495--8",
+    "segmentId": 454,
+    "matched_t": null,
+    "time_diff_s": null,
+    "frameId": null,
+    "file": "/home/claude/frames_297/a3b3373495/a3bt578.36_off-1_seg454.jpg"
+  },
+  {
+    "target_t": 578.36,
+    "offset": 0,
+    "segment": "20260906_170327_000003bd--a3b3373495--8",
+    "segmentId": 455,
+    "matched_t": 578.373776599,
+    "time_diff_s": 0.013776599000038914,
+    "frameId": 10057,
+    "file": "/home/claude/frames_297/a3b3373495/a3bt578.36_off+0_seg455.jpg"
+  },
+  {
+    "target_t": 578.36,
+    "offset": 1,
+    "segment": "20260906_170327_000003bd--a3b3373495--8",
+    "segmentId": 456,
+    "matched_t": null,
+    "time_diff_s": null,
+    "frameId": null,
+    "file": "/home/claude/frames_297/a3b3373495/a3bt578.36_off+1_seg456.jpg"
+  },
+  {
+    "target_t": 585.36,
+    "offset": -1,
+    "segment": "20260906_170327_000003bd--a3b3373495--8",
+    "segmentId": 594,
+    "matched_t": null,
+    "time_diff_s": null,
+    "frameId": null,
+    "file": "/home/claude/frames_297/a3b3373495/a3bt585.36_off-1_seg594.jpg"
+  },
+  {
+    "target_t": 585.36,
+    "offset": 0,
+    "segment": "20260906_170327_000003bd--a3b3373495--8",
+    "segmentId": 595,
+    "matched_t": 585.375027815,
+    "time_diff_s": 0.015027814999939437,
+    "frameId": 10197,
+    "file": "/home/claude/frames_297/a3b3373495/a3bt585.36_off+0_seg595.jpg"
+  },
+  {
+    "target_t": 585.36,
+    "offset": 1,
+    "segment": "20260906_170327_000003bd--a3b3373495--8",
+    "segmentId": 596,
+    "matched_t": null,
+    "time_diff_s": null,
+    "frameId": null,
+    "file": "/home/claude/frames_297/a3b3373495/a3bt585.36_off+1_seg596.jpg"
+  },
+  {
+    "target_t": 749.11,
+    "offset": -1,
+    "segment": "20260906_170627_000003bd--a3b3373495--11",
+    "segmentId": 269,
+    "matched_t": null,
+    "time_diff_s": null,
+    "frameId": null,
+    "file": "/home/claude/frames_297/a3b3373495/a3bt749.11_off-1_seg269.jpg"
+  },
+  {
+    "target_t": 749.11,
+    "offset": 0,
+    "segment": "20260906_170627_000003bd--a3b3373495--11",
+    "segmentId": 270,
+    "matched_t": 749.11872059,
+    "time_diff_s": 0.008720589999938966,
+    "frameId": 13472,
+    "file": "/home/claude/frames_297/a3b3373495/a3bt749.11_off+0_seg270.jpg"
+  },
+  {
+    "target_t": 749.11,
+    "offset": 1,
+    "segment": "20260906_170627_000003bd--a3b3373495--11",
+    "segmentId": 271,
+    "matched_t": null,
+    "time_diff_s": null,
+    "frameId": null,
+    "file": "/home/claude/frames_297/a3b3373495/a3bt749.11_off+1_seg271.jpg"
+  },
+  {
+    "target_t": 1001.06,
+    "offset": -1,
+    "segment": "20260906_171027_000003bd--a3b3373495--15",
+    "segmentId": 508,
+    "matched_t": null,
+    "time_diff_s": null,
+    "frameId": null,
+    "file": "/home/claude/frames_297/a3b3373495/a3bt1001.06_off-1_seg508.jpg"
+  },
+  {
+    "target_t": 1001.06,
+    "offset": 0,
+    "segment": "20260906_171027_000003bd--a3b3373495--15",
+    "segmentId": 509,
+    "matched_t": 1001.066069485,
+    "time_diff_s": 0.0060694850000118095,
+    "frameId": 18511,
+    "file": "/home/claude/frames_297/a3b3373495/a3bt1001.06_off+0_seg509.jpg"
+  },
+  {
+    "target_t": 1001.06,
+    "offset": 1,
+    "segment": "20260906_171027_000003bd--a3b3373495--15",
+    "segmentId": 510,
+    "matched_t": null,
+    "time_diff_s": null,
+    "frameId": null,
+    "file": "/home/claude/frames_297/a3b3373495/a3bt1001.06_off+1_seg510.jpg"
+  },
+  {
+    "target_t": 1006.76,
+    "offset": -1,
+    "segment": "20260906_171027_000003bd--a3b3373495--15",
+    "segmentId": 622,
+    "matched_t": null,
+    "time_diff_s": null,
+    "frameId": null,
+    "file": "/home/claude/frames_297/a3b3373495/a3bt1006.76_off-1_seg622.jpg"
+  },
+  {
+    "target_t": 1006.76,
+    "offset": 0,
+    "segment": "20260906_171027_000003bd--a3b3373495--15",
+    "segmentId": 623,
+    "matched_t": 1006.751211528,
+    "time_diff_s": 0.008788471999991998,
+    "frameId": 18625,
+    "file": "/home/claude/frames_297/a3b3373495/a3bt1006.76_off+0_seg623.jpg"
+  },
+  {
+    "target_t": 1006.76,
+    "offset": 1,
+    "segment": "20260906_171027_000003bd--a3b3373495--15",
+    "segmentId": 624,
+    "matched_t": null,
+    "time_diff_s": null,
+    "frameId": null,
+    "file": "/home/claude/frames_297/a3b3373495/a3bt1006.76_off+1_seg624.jpg"
+  },
+  {
+    "target_t": 1225.81,
+    "offset": -1,
+    "segment": "20260906_171427_000003bd--a3b3373495--19",
+    "segmentId": 203,
+    "matched_t": null,
+    "time_diff_s": null,
+    "frameId": null,
+    "file": "/home/claude/frames_297/a3b3373495/a3bt1225.81_off-1_seg203.jpg"
+  },
+  {
+    "target_t": 1225.81,
+    "offset": 0,
+    "segment": "20260906_171427_000003bd--a3b3373495--19",
+    "segmentId": 204,
+    "matched_t": 1225.819037618,
+    "time_diff_s": 0.009037618000093062,
+    "frameId": 23006,
+    "file": "/home/claude/frames_297/a3b3373495/a3bt1225.81_off+0_seg204.jpg"
+  },
+  {
+    "target_t": 1225.81,
+    "offset": 1,
+    "segment": "20260906_171427_000003bd--a3b3373495--19",
+    "segmentId": 205,
+    "matched_t": null,
+    "time_diff_s": null,
+    "frameId": null,
+    "file": "/home/claude/frames_297/a3b3373495/a3bt1225.81_off+1_seg205.jpg"
+  },
+  {
+    "target_t": 1228.31,
+    "offset": -1,
+    "segment": "20260906_171427_000003bd--a3b3373495--19",
+    "segmentId": 253,
+    "matched_t": null,
+    "time_diff_s": null,
+    "frameId": null,
+    "file": "/home/claude/frames_297/a3b3373495/a3bt1228.31_off-1_seg253.jpg"
+  },
+  {
+    "target_t": 1228.31,
+    "offset": 0,
+    "segment": "20260906_171427_000003bd--a3b3373495--19",
+    "segmentId": 254,
+    "matched_t": 1228.297697144,
+    "time_diff_s": 0.01230285599990566,
+    "frameId": 23056,
+    "file": "/home/claude/frames_297/a3b3373495/a3bt1228.31_off+0_seg254.jpg"
+  },
+  {
+    "target_t": 1228.31,
+    "offset": 1,
+    "segment": "20260906_171427_000003bd--a3b3373495--19",
+    "segmentId": 255,
+    "matched_t": null,
+    "time_diff_s": null,
+    "frameId": null,
+    "file": "/home/claude/frames_297/a3b3373495/a3bt1228.31_off+1_seg255.jpg"
+  }
+]
