@@ -3,6 +3,20 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+## 2026-09-08 (309차)
+- `sim_route_309_real_release_confirm.py`: **신규**. 289/292차 함수를
+  그대로 재사용(재구현 아님)해, 실제 production margin(1.10) 기준
+  "진짜 continuity 에피소드"가 11건뿐임을 확인(전체 110건 중) --
+  세부: lost_no_candidate 8 / dist_reached_during_hold 1 / **lost_with_
+  candidates_present(orphan) 1건(ep108)** / UNRESOLVED 1(ep99). **308차가
+  raw 스캔으로 찾은 448건의 orphan 후보 cutoff 중 실제 RELEASE로 이어진
+  것은 1건뿐**임을 확정. 부수적으로 `possible_fragmentation` 플래그로
+  ep99가 `--merge-tol`(1.0s) 경계에서 쪼개진 파편일 가능성 발견. **중요
+  정정**: 293~308차가 인용해온 "continuity 39건"은 `sim_route_292...`
+  기본 인자(마진 1.05 what-if)의 `cause_new` 기준 숫자였고, 실제
+  production(1.10) 기준은 11건이었음(ep108 결론 자체는 불변, 상세는
+  WIP.md/FINDINGS.md 309차).
+
 ## 2026-09-08 (308차)
 - `sim_route_308_orphan_real_corpus_scan.py`: **신규**. 306차 가설을
   실 corpus(route1~4 원본 재업로드)로 최초 검증. raw apex_speed

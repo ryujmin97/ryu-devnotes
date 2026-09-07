@@ -1,3 +1,97 @@
+## 309차 -- [실측 확정 + 중요 정정] 289/292차 파이프라인을 실 corpus(route1~4)에 재적용 -- 448건 orphan 후보 중 실제 production RELEASE는 1건(ep108)뿐 확인 + "continuity 39건" 인용 수치가 가상(margin=1.05 what-if) 기준이었음을 정정(실제 production=1.10 기준은 11건)
+
+**배경**: 308차가 raw apex_speed valid->invalid 전이 스캔(단순화 버전,
+6프레임 miss-tolerance 미적용)으로 594건의 cutoff와 그중 448건의
+`lost_with_candidates_present`(100% orphan)를 찾았다. 이 448건 중 실제로
+몇 건이 production 코드가 진짜로 ACTIVE->INERT RELEASE를 발동시키는
+수준인지는 308차 자신이 "289차 전체 파이프라인 재실행 필요"라고 명시한
+미해결 항목이었다. 사용자가 실차 로그를 새로 따기 전에 이미 확보한
+4-route corpus로 이 질문에 먼저 답하자고 지시.
+
+**[핵심 정정, §24/26] "continuity 39건 중 ep108 유일" 수치의 실제 근거
+확인**: 293/294/306/307/308차가 반복 인용해온 "continuity 에피소드
+39건, 그중 lost_with_candidates_present는 ep108 1건뿐"이라는 숫자는,
+`sim_route_292_continuity_root_cause.py`를 인자 없이(기본값) 실행했을
+때 나오는 `cause_new` 컬럼 기준이다. 이 스크립트의 상위 파이프라인인
+`sim_route_289_margin_ab_real_log.py`는 기본적으로 "`ROUTE_ACTIVE_
+RELEASE_MARGIN_RATIO`를 1.10(실제 production 값)에서 1.05로 낮췄다면
+어떻게 될까"라는 **what-if 시뮬레이션**이고, `cause_new`는 그 가상
+시나리오의 결과다. 실제로 289차를 재실행해 `cause_old`(margin=1.10,
+현재 production 그대로)만 보면:
+
+- 전체 실제 에피소드 110건: speed_reached(margin) 51 / dist_reached
+  (10m) 27 / speed+dist_both 21 / **apex_lost_or_new(continuity) 11**
+- `cause_new`(margin=1.05 가정)로 보면 continuity가 39건으로 늘어나는데,
+  이는 원래(margin=1.10) 11건 + "마진을 낮췄다면 margin 조건이 더 늦게
+  성립해서 그 사이에 continuity를 먼저 만났을" **가상의 28건**의 합이다.
+
+ep108 자체는 마진 값과 무관하게 원래부터(margin=1.10) continuity였던
+11건 안에 포함되므로, **306~308차가 내린 ep108 관련 결론(orphan 확인,
+route 재귀속 정정 등) 자체는 전혀 바뀌지 않는다.** 바뀌는 것은 오직
+분모 -- "39건 중 1건"이 아니라 "**11건 중 1건**"이 실제 production
+데이터를 정확히 반영한 표현이다.
+
+**[핵심 결과] 448건 orphan 후보 중 실제 RELEASE는 몇 건인가**: 신규
+`toolkit/sim_route_309_real_release_confirm.py`(289/292차 함수 재사용,
+§21)로 실제 production margin(1.10) 기준 continuity 11건을 292차
+`classify_continuity_episode()`로 세부분류한 결과:
+
+- lost_no_candidate(진짜 소실): 8건
+- dist_reached_during_hold(정상): 1건(ep=100)
+- **lost_with_candidates_present(orphan 후보): 1건(ep=108)**
+- UNRESOLVED: 1건(ep=99, 아래 참고)
+
+**결론: 308차가 raw 스캔으로 찾은 448건의 "orphan 패턴" cutoff(순간
+blip) 중, 실제로 ROUTE_APEX_MISS_TOLERANCE_FRAMES(6프레임=0.3초)를
+넘어서 진짜 ACTIVE->INERT RELEASE까지 이어진 것은 딱 1건(ep108)이다.**
+나머지 447건은 production 코드의 6프레임 관용 구간 안에서 회복되는
+중간 blip으로, 실제 route 비활성화를 유발하지 않는다. 다만 이것이
+"orphan candidate 현상 자체가 드물다"는 뜻은 아니다 -- 448번의 순간
+blip이 실제로 벌어진다는 308차의 관측(빈도 자체)은 여전히 유효하며,
+단지 그 대부분이 6프레임 관용치 덕분에 **RELEASE로까지 확산되지 않고
+있을 뿐**이라는 것이 이번 세션의 정확한 해석이다(§28 과대해석/과소해석
+양쪽 다 경계).
+
+**[신규 발견, 292차 파이프라인 자체의 부수적 한계] ep=99 fragmentation
+의심 사례**: `possible_fragmentation` 플래그(에피소드 종료 프레임에서
+실제 0-crossing까지 걸린 시간이 production miss-tolerance 윈도 0.30초를
+초과하면 표시)가 11건 중 3건(ep91/99/100)에서 발생. 이 중 ep=99를 원본
+프레임 직접 조회로 확인한 결과: `src`가 `route`->`gas`로 바뀌는 약
+0.9~1.1초 동안 `routeApexSpeed` 자체는 계속 유효한 값을 유지하고 있었다
+(진짜 continuity 소실이 아니었음). `classify_continuity_episode()`의
+lookahead 윈도(기본 40프레임=2초)를 200프레임(10초)으로 넓히자, 실제
+0-crossing 시각이 **ep=100의 종료 시각(t=3182.22s, dist_reached_
+during_hold로 정상 분류됨)과 정확히 일치**했다. 이는 ep99와 ep100이
+사실은 같은 물리적 apex candidate가 `gas` 소스(운전자 가속페달 개입
+추정)에 약 1.10초간 우선순위를 내줬다가 복귀한 것인데, `--merge-tol`
+(1.0s)이 이 1.10초 간격을 병합 기준(<1.0s) 밖으로 판정해 두 개의 별도
+에피소드로 쪼갠 것으로 추정된다. **즉 289차의 에피소드 병합 로직은
+`route` 소스가 다른 우선순위 소스(gas/vturn/bump 등)에 1초 남짓
+우선순위를 내줬다가 되찾는 경우를 "같은 에피소드"로 인식하지 못하고
+분리할 수 있다** -- 이건 289차 자체의 새로운 한계이며, 정확한 RELEASE
+건수(110건, continuity 11건)가 실제로는 미세하게 과대계수됐을 가능성을
+시사한다(ep99가 독립 에피소드가 아니라면 실제로는 109/10건). ep=91도
+유사하게 `route`->`gas`(값 유지)->`bump`(다른 값 순간 등장 후 즉시 0)
+다중 소스 개입이 관찰되나 ep99만큼 명확한 재귀속 근거는 없어 재검토
+필요로만 표시.
+
+**한계(§28)**:
+- `possible_fragmentation` 플래그는 근사 탐지이며, 켜졌다고 전부 오분류인
+  것은 아니다(held 상태의 정상적인 decay 지연과 완전히 구분하려면
+  qcamera 대조가 필요).
+- ep99/91의 최종 판정(진짜 fragmentation인지 아닌지)은 로그만으로는
+  100% 확정되지 않는다.
+- `--merge-tol`을 조정한 재실행은 이번 세션 범위 밖(다음 세션 후보로
+  WIP에 기록).
+
+**다음 작업**:
+- 307차 patch가 실제 디바이스에 반영된 뒤 신규 로그로 `routeProvisional*`
+  필드 확인 -> `PROVISIONAL_PROMOTE_STREAK` 확정(사용자 계획 ②단계).
+- (선택) ep99/91 qcamera 육안 대조로 fragmentation 최종 확인.
+- (선택) `--merge-tol` 민감도 분석(1.0s -> 1.2s 등).
+
+---
+
 ## 308차 -- [실측 확정] 306차 가설(min_points=2 게이트가 고립 candidate를 노이즈로 오인) 실 corpus(route1~4)로 최초 검증 -- ep108 정확히 재식별(route4=`bf794c0073`, 기존 `c8d2619479` 지목은 route 번호 오귀속으로 정정) + orphan 패턴 448/448(100%) 확인
 
 **배경**: 사용자가 293/294차와 동일한 원본 route zip 4개(`a3b3373495`/

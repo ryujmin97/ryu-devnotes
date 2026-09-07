@@ -1,3 +1,102 @@
+## 309차 (완료 -- ANALYSIS_ONLY, `ryu` 본체 무변경, devnotes toolkit 신규 스크립트 1개) -- 289/292차 파이프라인을 실 corpus(route1~4)에 재적용해 실제 production margin 기준 "진짜 RELEASE" 건수 확정 -- 448건 orphan 후보 중 실제 RELEASE는 1건(ep108)뿐임을 확인 + "continuity 39건" 인용 수치의 분모 오류 정정(실제는 11건)
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu`(HEAD `020ea86`=307차, 변경 없음) /
+`ryu-devnotes`(base `ae571b8`=308차, 이 항목 추가 전)
+
+**Branch**: `c3-ms-dev` / `main`
+
+**세션 시작 확인(§3/§33)**: `git ls-remote`로 두 저장소 원격 HEAD가
+직전(308차) 세션이 push한 상태와 일치함을 확인 후 시작. 308차가 재추출한
+4-route CSV를 이번 세션에서도 동일 zip(사용자가 이전에 업로드)으로
+재추출(행수 22801/22799/10546/23999, 308차와 완전 일치).
+
+**배경(사용자 지시)**: 308차의 단순화된 cutoff 스캔(594건, 그중 448건
+`lost_with_candidates_present`/100% orphan)은 raw apex_speed valid->
+invalid 전이 자체를 전부 세므로, 실제 `ROUTE_APEX_MISS_TOLERANCE_
+FRAMES=6` 허용치 안에서 회복되는 프레임까지 "cutoff"로 잘못 셀 가능성이
+있다(308차 스크립트 자신도 이 한계를 명시). 사용자가 "448건 중 실제로
+몇 건이 ACTIVE RELEASE까지 유발했는가"를 정확히 알고 싶다며 289차 전체
+파이프라인(episode 병합 + 6프레임 miss-tolerance + continuity 세부분류)
+재실행을 요청.
+
+**한 일**:
+1. `sim_route_289_margin_ab_real_log.py`(기존, §21 재사용)를 이번
+   corpus로 재실행 -- `src=='route'` run 231개 -> 병합 후 실제 에피소드
+   110개. **실제 production 마진(`ROUTE_ACTIVE_RELEASE_MARGIN_RATIO=
+   1.10`) 기준 원인 분포**: speed_reached(margin) 51 / dist_reached(10m)
+   27 / speed+dist_both 21 / **apex_lost_or_new(continuity) 11**.
+   (참고: `margin=1.05로 낮췄을 때 지속시간이 늘어나는 에피소드: 30/110건`
+   -- 289차 원본 기록과 정확히 일치, 동일 corpus/동일 로직 확인.)
+2. **[중요 정정, §24/26] "continuity 39건" 인용 수치의 출처 확인**:
+   293/294/306/307/308차가 반복 인용해온 "continuity 에피소드 39건 중
+   ep108이 유일한 lost_with_candidates_present"는, `sim_route_292_
+   continuity_root_cause.py`를 **기본 인자**(`--new-ratio 1.05`, 마진을
+   1.05로 낮췄다고 가정하는 what-if)로 돌렸을 때의 `cause_new` 컬럼을
+   그대로 쓴 숫자였다. 즉 이 39건 중 11건만 실제(margin=1.10) continuity
+   이고, **나머지 28건은 "마진을 1.05로 낮췄다면 continuity로 끝났을
+   것"이라는 가상 에피소드**다. ep108 자체는 원래도(margin 변경과 무관)
+   continuity였으므로 이 11건에 포함되고 306~308차의 ep108 결론은 전혀
+   바뀌지 않지만, **정확한 분모는 "1/39"가 아니라 "1/11"이다.**
+3. 신규 `toolkit/sim_route_309_real_release_confirm.py` 작성(§21/22 --
+   289차 `find_runs`/`merge_runs`/`classify_cause`, 292차 `classify_
+   continuity_episode()`를 그대로 import해 재사용, 재구현 아님) --
+   실제 production margin 기준 11건의 continuity 에피소드를 292차 함수로
+   세부분류 + `possible_fragmentation` 플래그(에피소드 종료 프레임에서
+   실제 0-crossing까지 걸린 시간이 production miss-tolerance 윈도
+   0.30s=6프레임*0.05s를 넘으면 표시, §28 참고용) 신규 추가.
+4. **핵심 결과**: 실제 production 마진(1.10) 기준 continuity 11건의
+   세부원인 -- lost_no_candidate 8건 / dist_reached_during_hold(정상)
+   1건(ep=100) / lost_with_candidates_present(orphan 후보) **1건뿐**
+   (ep=108, 308차와 동일 프레임 cutoff_t=4017.36s) / UNRESOLVED 1건
+   (ep=99, 아래 5번 참고). **즉 308차가 찾은 448건의 raw orphan-패턴
+   cutoff(blip) 중, 실제로 ACTIVE->INERT RELEASE까지 이어진 것은 딱
+   1건(ep108)이고 나머지 447건은 6프레임 miss-tolerance 안에서 회복되는
+   중간 blip이었다.**
+5. `possible_fragmentation` 플래그 점검 -- 11건 중 3건(ep91/ep99/ep100)
+   이 종료 프레임과 실제 0-crossing 사이 간격이 0.30s를 초과. 그중
+   **ep=99는 직접 원본 프레임 조사로 진짜 원인을 확인**: `src`가
+   `route`->`gas`로 바뀌는 동안(약 0.9초) `routeApexSpeed` 자체는 유효한
+   채로 유지(진짜 continuity 소실 아님) -- lookahead를 200프레임(10초)
+   으로 넓히자 실제 0-crossing이 **ep=100의 종료 시각(t=3182.22s,
+   dist_reached_during_hold)과 정확히 일치**함을 확인. 즉 ep99/ep100은
+   같은 물리적 candidate가 `gas` 소스에 약 1.10초간 우선순위를 내줬다가
+   복귀한 것이 `--merge-tol`(1.0s) 경계를 살짝 넘어(1.10s) 하나로
+   병합되지 못하고 둘로 쪼개진 것으로 추정 -- **ep99는 독립적인
+   continuity 이벤트가 아니라 병합 임계값 경계의 파편(fragmentation)일
+   가능성이 높음**(qcamera 대조 없이 로그만으로는 100% 확정은 아님,
+   §28). ep=91도 `route`->`gas`(값 유지)->`bump`(다른 값 26.0 순간
+   등장 후 즉시 0) 패턴으로 유사한 다중 소스 개입이 관찰되나, ep99만큼
+   명확하게 다른 에피소드로 귀속되지는 않아 "재검토 필요"로만 표시(qcamera
+   대조 권장 목록에 이미 포함되어 있던 8건의 lost_no_candidate 중 하나).
+
+**검증 상태**: 실측 확정(§28) -- 289/292차 원본 함수를 그대로 재사용해
+독립적으로 재계산, 289차 원본 기록("30/110건 연장")과 정확히 일치하는
+것으로 재현성 확인. `possible_fragmentation` 세부 확인(ep99)은 원본
+프레임 직접 조회로 뒷받침됨. **실차 검증은 아님** -- 오프라인 로그
+분석.
+
+**Devnotes**: FINDINGS.md 309차 항목 신규(정정 내용 포함), toolkit
+README/CHANGELOG 갱신, 신규 스크립트, 이 WIP 항목.
+
+**미확인 사항**: ep=99/91의 fragmentation 여부 qcamera 대조로 최종 확정
+안 됨. `PROVISIONAL_PROMOTE_STREAK` 실측 근거는 여전히 307차 patch 배포
+후 신규 로그 필요(변동 없음).
+
+**다음 작업**:
+- 307차 patch(`020ea86`, 계측 전용)가 실제 디바이스에 반영된 뒤 신규
+  로그로 `routeProvisional*`/`routeOrphanSingleton*` 필드 직접 확인 ->
+  `PROVISIONAL_PROMOTE_STREAK` 값 확정 + 설계안 A 채택 여부 결정.
+  (사용자 계획 ②단계 -- 이번 309차로 ①단계 완료.)
+- (선택) ep=99/91 구간을 qcamera 육안 대조해 fragmentation 가설 최종
+  확인.
+- (선택) `--merge-tol`을 1.0s -> 1.2s 등으로 조정한 289차 재실행으로
+  ep99/ep100류 파편화가 실제로 줄어드는지 민감도 확인(단, merge_tol
+  변경은 다른 에피소드 경계에도 영향을 주므로 전체 재검증 필요).
+
+---
+
 ## 308차 (완료 -- ANALYSIS_ONLY, `ryu` 본체 무변경, devnotes toolkit 신규 스크립트 1개) -- 306차 가설(min_points=2 게이트/ep108) 실 corpus(route1~4) 최초 실측 검증 -- ep108 정확 위치 재식별(route4=`bf794c0073`으로 정정) + orphan 패턴 448/448(100%) 확인
 
 **Worker**: Claude

@@ -21,6 +21,41 @@ CHANGELOG.md를 같이 갱신**한다 (세션 종료 체크리스트에 포함�
 
 ---
 
+## sim_route_309_real_release_confirm.py (309차 신규, 289/292차 파이프라인을 실 corpus에 재적용해 실제 production margin 기준 "진짜 RELEASE" 건수 확정)
+**목적**: 308차가 raw apex_speed valid→invalid 전이만 세는 단순화된
+스캔으로 찾은 448건의 `lost_with_candidates_present`(100% orphan) 중,
+실제 production 설정(`ROUTE_ACTIVE_RELEASE_MARGIN_RATIO=1.10`, 6프레임
+miss-tolerance 적용)에서 몇 건이 진짜 ACTIVE→INERT RELEASE로 이어지는지
+확정한다.
+
+**한 일(§21 -- 289/292차 함수 그대로 import해 재사용, 재구현 아님)**:
+`sim_route_289_margin_ab_real_log.py`의 `find_runs`/`merge_runs`/
+`classify_cause`로 실제 에피소드(110건)와 그 원인(margin=1.10 기준)을
+재현 → `apex_lost_or_new(continuity)` 11건만 `sim_route_292_
+continuity_root_cause.py`의 `classify_continuity_episode()`로 세부분류.
+**결과: continuity 11건 중 lost_no_candidate 8 / dist_reached_during_
+hold 1 / lost_with_candidates_present(orphan) 1건(ep108) / UNRESOLVED
+1건(ep99)** -- 즉 448건의 raw orphan 후보 중 실제 RELEASE는 **1건뿐**.
+
+**신규 `possible_fragmentation` 플래그**: 에피소드 종료 프레임에서 실제
+0-crossing까지 걸린 시간이 production miss-tolerance 윈도(0.30s)를
+초과하면 표시. 이번 corpus에서 3건(ep91/99/100) 발생 -- ep99를 직접
+원본 프레임으로 확인한 결과 `route`→`gas` 소스 전환 중 apex_speed가
+실제로는 유효했고, lookahead를 넓히자 진짜 0-crossing이 **ep100의
+종료와 정확히 일치** -- `--merge-tol`(1.0s) 경계에서 같은 물리적
+candidate가 쪼개졌을 가능성 발견(289차 에피소드 병합 로직의 새로운
+한계, 상세는 FINDINGS.md 309차).
+
+**중요 정정**: 293~308차가 인용해온 "continuity 39건"은
+`sim_route_292_continuity_root_cause.py`를 기본 인자(마진 1.05 what-if)
+로 돌렸을 때의 `cause_new` 기준이었다 -- 실제 production(1.10) 기준은
+11건이며, ep108은 어느 쪽에도 포함되어 결론은 불변(정확한 분모만 정정).
+
+**입력**: `extract_log.py --with-navi-paths`로 뽑은 route CSV 1개 이상.
+**사용**: `python3 sim_route_309_real_release_confirm.py route1.csv route2.csv ... [--merge-tol 1.0] [--old-ratio 1.10] [--dist-m 10.0] [--miss-tolerance 6] [--out-prefix sim309_real_release]`.
+
+---
+
 ## sim_route_308_orphan_real_corpus_scan.py (308차 신규, 306차 가설을 실 corpus(route1~4)로 최초 실측 검증)
 **목적**: 306차가 코드+합성 재현으로 확정한 가설("`route_find_
 clusters()`의 min_points=2 게이트가 고립된 1포인트 좁은 커브를 노이즈로
