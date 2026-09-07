@@ -1,3 +1,112 @@
+## 301차 (완료 -- ANALYSIS_ONLY, devnotes toolkit 신규 스크립트 1개, `ryu` 본체 무변경) -- 300차 "lost" 15건 A→LOST→B 경계 계측: miss_frames=6 결정론적 확인, B 5초 생존율 0/15(real/noise 구분력 약함), #1→#2/#4→#5 연쇄 시간상 확인(GPS 대조는 여전히 미완)
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu`(HEAD `d2f47d1`=290차, 변경 없음) /
+`ryu-devnotes`(HEAD `52a077b`=300차, 이 항목 추가 전)
+
+**Branch**: `c3-ms-dev` / `main`
+
+**세션 시작 확인(§3/§33)**: GitHub API로 양쪽 HEAD 직접 조회 --
+`ryu` `d2f47d1`(290차, 드리프트 없음), `ryu-devnotes` `52a077b`(300차,
+부모 `fd022ac`=299차) -- 사용자가 제시한 ChatGPT 세션 요약 문서의
+주장(300차가 원격에 반영됨, ryu는 290차 그대로)이 실제 원격 상태와
+정확히 일치함을 먼저 검증(§33 -- 다른 AI/외부 문서의 주장을 그대로
+반영하지 않음). WIP.md 300차 항목/`sim_route_300_release_boundary_counterfactual.py`
+원격 내용도 직접 조회해 대조 완료. 사용자가 route1~4 zip/csv/
+meta.json을 재업로드 -- meta.json의 commit(`d2f47d1`)/n_rows가
+297~300차 corpus와 정확히 일치함을 재확인(신규 corpus 아님).
+
+**배경**: 사용자가 ChatGPT와의 협업 세션 결과물(301차 진행 방향
+제안, 문서로 제시)을 공유하며 "상기 지시대로 진행"을 지시함. 제안
+요지: 300차가 밝힌 "15/15 lost, passed 0건"을 바탕으로, 코드 패치
+전에 각 lost 이벤트를 **A(마지막 정상 apex) -> miss_frames 누적 ->
+LOST -> B(재획득 apex)** 관점으로 재구성해 "①진짜 seamless switch
+대상(같은 커브를 잠깐 놓침)"과 "②GPS/map noise로 엉뚱한 candidate를
+새로 잡은 경우"를 구분할 단서를 먼저 모으자는 것.
+
+**한 일**:
+1. 기존 toolkit 확인(§21) -- 296차 `ContinuityState`/`route_find_clusters`,
+   300차 `ActualLayer`/`build_frames`는 이 목적에 그대로 재사용
+   가능하고, "이벤트 전후 프레임별 사전/사후 상태(locked_dist/
+   locked_speed/miss_frames/cluster 크기)를 계측"하는 도구는 없음을
+   확인, 신규 작성 결정(§22).
+2. 신규 `sim_route_301_lost_boundary_trace.py` 작성 -- `ContinuityState`
+   호출 전후 `locked_dist`/`locked_speed`/`miss_frames`를 계측만 하는
+   얇은 래퍼(`build_stream()`)를 추가하고, 이벤트 탐지 자체는 300차
+   `ActualLayer`를 그대로 import해 재사용(§21, 이중 구현 방지). 각
+   `mode="lost"` 이벤트에 대해 A 마지막 매칭 프레임/미스 프레임 수/
+   B 거리·속도·클러스터 크기/B의 `--persistence-horizon`(기본 5초)
+   내 생존 여부를 계산. 정적 검증: `py_compile`+`ast.parse` 통과.
+3. route1~4 CSV(297~300차와 동일 corpus) 전체 실행 -- 강제 RELEASE
+   15건/lost 15건 전부 재검출, **300차 기록(15건, 전부 lost, route별
+   10/3/1/1건)과 정확히 일치함을 자체 정합성 검증으로 확인**.
+
+**실측 결과(핵심)**: FINDINGS.md 301차 표 참고.
+1. **`miss_frames_at_lost`가 15/15 전부 정확히 6** -- lost 판정이
+   설계된 tolerance 상수(`ROUTE_APEX_MISS_TOLERANCE_FRAMES=6`)
+   도달로만 결정론적으로 발생, "passed" 경로 개입 없음(300차 결과의
+   메커니즘 설명 보강).
+2. **B가 5초 생존을 완주한 사례 0/15.** 평균 생존시간은 real/weak_curve
+   그룹(2.61초)과 no_curve 그룹(2.85초) 사이에 뚜렷한 차이 없음 --
+   오히려 "노이즈"로 라벨된 쪽이 근소하게 더 오래 생존, B 생존시간
+   단독으로는 진위 판별 지표가 되지 못함(299차의 cluster_size 등
+   4개 지표 결론과 같은 표본 한계 패턴).
+3. **#1→#2, #4→#5 연쇄가 시간상 확인됨**(#1의 B가 0.26초 후 #2의
+   A로 이어짐, #4→#5도 0.7초 후 동일 패턴) -- 다만 거리/속도 값
+   자체는 상당히 다르게 관측되어(예: #1 B 250m/60.8kph vs #2 A_last
+   230m/85.6kph) 같은 물리적 커브인지 이 계측(GPS 미사용)만으로는
+   확정 불가. #9→#10(2.5초 간격)도 같은 후보 패턴으로 추가 식별.
+4. **#14(c8d2619479)는 성격이 다름**: A_last가 apex 통과 직전(30m/
+   5.5kph)이었다가 0.29초 만에 훨씬 먼/빠른 다음 목표(90m/26.0kph)로
+   전환 -- "동일 커브 재탐색 실패"보다 "다음 커브로의 정상 전환"에
+   가까운 패턴으로 보임(정성적).
+
+**중요 한계(§10/§28, 반드시 인지)**: 이 스크립트는 거리/속도/
+continuity 상태만 보며 GPS 좌표를 다루지 않는다. 따라서 ChatGPT가
+제시한 "①진짜 seamless switch 대상 vs ②GPS/map noise" 구분을 이
+결과만으로 완전히 답하지 못한다 -- 298차부터 이월된 GPS 좌표 대조가
+여전히 필수 선행 조건으로 남는다. 15건 모두 5초 생존을 못했다는
+관찰은 "seamless switch를 적용해도 그 결과 트랙 자체가 오래가지
+않을 수 있다"는 시사점이나, open-loop 관측(300차와 동일 한계)이라
+폐루프 실제 거동을 증명하지 않는다.
+
+**검증**:
+- 정적 분석: 완료(py_compile/ast.parse 통과)
+- 로그 검증: 완료(route1~4 실 corpus, 15/15 이벤트 재현 + 300차 대비
+  정합성 자체검증 통과 + qcamera 정답 라벨 15/15 결합)
+- 시뮬레이션: 해당 없음(open-loop 재생, 위 한계 참고)
+- 실차 검증: 해당 없음(ANALYSIS_ONLY, `ryu` 코드 무변경, §29)
+
+**미확인/남은 것**:
+- #1/#2, #4/#5, #9/#10 GPS 좌표 대조로 "동일 물리적 커브 재탐색 2회"
+  가설 확정(298차부터 이월, 이번 세션도 미해결).
+- A→LOST 경과시간이 2.25~6.31초로 편차가 큰 이유(naviPaths 프레임
+  도착 간격 불균일 여부, 원인 미추적).
+- B 생존시간/cluster_size 구분력 약함이 n=15를 넘는 표본에서도
+  재현되는지(299차와 동일한 표본 한계, 표본 확대 방향은 여전히 미결).
+- 코드 변경(`carrot_man.py`) 여전히 미착수 -- 이번 세션도 관측만,
+  패치 보류 판단 유지(300차와 동일 결론).
+
+**Devnotes**:
+- `toolkit/sim_route_301_lost_boundary_trace.py`: 신규
+- `toolkit/README.md`/`CHANGELOG.md`: 갱신(신규 도구 등재, §22)
+- WIP/FINDINGS: 이 항목
+
+**다음 작업**:
+1. GPS 좌표 대조로 #1/#2, #4/#5, #9/#10 "동일 커브 2회 탐지" 가설
+   확정(302차 후보)
+2. A→LOST 경과시간 편차 원인 추적
+3. qcamera 육안 대조 표본 확대는 여전히 미해결 -- 사용자가 이전에
+   제시한 3방향(A: 다른 RELEASE 유형 포함/B: 파라미터 변경/C: 신규
+   corpus 확보) 중 방향 결정 대기
+4. (293차부터 이월) ep108 클러스터링 코드 레벨 추적
+5. (294차부터 이월) ep47/48/101/105 패턴 코드 레벨 추적
+
+**패치**: `0001-301cha-devnotes.patch`
+
+---
+
 ## 300차 (완료 -- ANALYSIS_ONLY, devnotes toolkit 신규 스크립트 1개, `ryu` 본체 무변경) -- ChatGPT 제안(사용자 검토 지시): 강제 RELEASE의 counterfactual 비교 -- 15/15 전부 `mode="lost"`("passed" 0건), a3b3373495는 실제/가상 차이 거의 없음, 01742d6c1c·c8d2619479 real_curve 4건은 counterfactual이 더 감속했을 것으로 나타남(단, open-loop 한계 있음)
 
 **Worker**: Claude

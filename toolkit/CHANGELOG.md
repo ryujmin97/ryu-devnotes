@@ -3,6 +3,21 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+## 2026-09-07 (301차)
+- `sim_route_301_lost_boundary_trace.py`: **신규**. 300차 "15/15
+  lost" 결과에 대해 ChatGPT 제안(사용자 검토 지시)에 따라 각 lost
+  이벤트를 A(마지막 정상 매칭)->miss_frames 누적->LOST->B(재획득)
+  경계로 재구성. 296차 `ContinuityState`/`route_find_clusters`,
+  300차 `ActualLayer`/`build_frames` 무변경 재사용, 계측 레이어만
+  추가. **핵심 결과: (1) `miss_frames_at_lost` 15/15 전부 정확히 6
+  -- lost 판정이 tolerance 상수 도달로만 결정론적 발생. (2) B가
+  `--persistence-horizon`(5초) 생존을 완주한 사례 0/15, real/noise
+  그룹 간 생존시간 차이도 뚜렷하지 않음(cluster_size와 같은 299차식
+  약한 신호 패턴 재확인). (3) #1->#2, #4->#5 연쇄가 시간상 확인되나
+  거리/속도 값이 달라 GPS 좌표 대조 없이는 동일 커브 여부 미확정
+  (298차부터 이월된 항목, 계속 미해결).** 상세: WIP.md/FINDINGS.md
+  301차.
+
 ## 2026-09-07 (300차)
 - `sim_route_300_release_boundary_counterfactual.py`: **신규**.
   ChatGPT 제안(사용자 검토 지시)에 따라 "강제 RELEASE(`apex_mode in

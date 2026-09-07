@@ -4476,3 +4476,40 @@ CSV + `analysis_helpers.py::recompute_route_curvature_speed()`로 매
 입력으로 변환한 뒤 실측 실행 -- 273차가 top-3 근사 때문에 겪은 한계를
 이 방식은 구조적으로 피할 수 있음(단, 273차 자체의 baseline 재현 실패는
 별개 이슈로 이 스크립트 범위 밖).
+
+## sim_route_301_lost_boundary_trace.py (301차 신규 -- 300차 "lost" 15건 A→LOST→B 경계 계측, ChatGPT 제안/사용자 검토)
+
+**배경**: 300차가 강제 RELEASE 15/15 전부 `mode="lost"`("passed" 0건)임을
+확인한 뒤, ChatGPT가 제시하고 사용자가 검토를 지시한 다음 질문에
+답하기 위한 도구: "lost가 발생한 순간, 기존 Apex A가 정말 죽은
+것인가? B가 이미 유효한 새 Apex였는가?"
+
+**하는 일**: 296차 `ContinuityState`/`route_find_clusters`, 300차
+`ActualLayer`/`build_frames`를 전부 무변경 재사용(§21)하고, 그 위에
+프레임별 사전/사후 상태(호출 직전 `locked_dist`/`locked_speed`/
+`miss_frames`, 호출 후 매칭된 클러스터 크기)를 계측만 하는 얇은
+래퍼(`build_stream()`)를 추가한다. 이벤트 탐지는 300차 `ActualLayer`를
+그대로 import해 재사용(§21, 중복 구현 금지). 각 `mode="lost"`
+이벤트에 대해 다음을 계산:
+- A 마지막 정상 매칭(`matched`) 프레임의 t/거리/속도/vEgo, LOST까지
+  걸린 미스 프레임 수(`miss_frames_at_lost`)와 경과시간
+- LOST 순간 재획득된 B의 거리/속도/클러스터 크기
+- LOST 이후 `--persistence-horizon`(기본 5초) 동안 B가 계속
+  `matched`/`held`로 이어지는지(생존시간/생존프레임)
+
+route1~4 실측 corpus(297~300차와 동일) 전체 실행, **정합성
+자체검증**: 이번 스크립트가 탐지한 강제 RELEASE 15건/lost 15건이
+300차 기록(15건, 전부 lost, route별 10/3/1/1건)과 정확히 일치.
+
+**핵심 결과**: (1) `miss_frames_at_lost`가 15/15 전부 정확히 6 --
+lost 판정이 tolerance 상수 도달로만 결정론적으로 발생. (2) B가 5초
+생존을 완주한 사례 0/15, real/noise 그룹 간 생존시간 차이도 뚜렷하지
+않음(오히려 noise 쪽이 근소하게 김) -- 생존시간 단독으로는 진위 판별
+지표가 못 됨. (3) #1→#2, #4→#5가 시간상 곧바로 이어짐을 확인(B가
+다음 이벤트의 A로 재사용됨)했으나 거리/속도 값 자체는 다르게 관측돼
+같은 물리적 커브인지는 이 계측(GPS 미사용)만으로 확정 불가 -- 298차
+부터 이월된 GPS 좌표 대조가 여전히 필요. 상세: WIP.md/FINDINGS.md
+301차.
+
+사용: `python3 sim_route_301_lost_boundary_trace.py --csv-dir <dir>
+--classification evidence/route_297_seamless_release_qcamera/classification.md`
