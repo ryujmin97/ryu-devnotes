@@ -4537,3 +4537,30 @@ GPS_UNCERTAIN(horizontalAccuracy 과다 시). 15건 중 시간 gap<=10s인
 **한계**: bearingDeg는 1Hz라 최대 0.5초 지연 가능, horizontalAccuracy가
 이 corpus 전체에서 0.0으로 기록되어(295차 발견과 동일) 신뢰도
 게이팅에 활용 불가(수치는 항상 통과). 상세 결과: FINDINGS.md 302차.
+
+## sim_route_303_ab_continuity_features.py (303차 신규, A/B 연속성 feature 정량화 + 프레임 단위 상세 추적)
+**목적**: 302차가 GPS로 확정한 SAME_CURVE 3쌍(#4→#5/#7→#8/#9→#10,
+전부 a3b3373495)에 대해 "같은 커브였다"를 넘어 "B를 A의 연속 track
+으로 승계해도 되는가"를 판단할 연속성 feature(Δdistance/Δspeed/
+Δtime/ΔGPS_position/ΔGPS_bearing)를 계산하고, 그 구간 전체를
+프레임 단위(mode/apex_dist/apex_speed/raw candidate 개수/cluster
+개수·크기/miss_frames)로 dense 출력한다.
+
+**재사용**: 301차 `build_stream()`/`run_route()`, 302차
+`resolve_point()`/`load_gps()`/`haversine()`/`classify()`를 전부
+무변경 재사용(§21). raw candidate 개수는 300차 `build_frames()`의
+`fr["candidates"]` 길이를 t로 join만 함(신규 계산 아님, §27).
+
+**핵심 결과**: Δdistance/Δspeed는 3쌍 모두 부호·크기가 제각각(-60m~
+0m, 특히 #7→#8은 Δdistance=-60m인데도 GPS로는 SAME_CURVE 확정) --
+naviPaths apex 거리값의 연속성은 "동일 물리 대상 여부" 판별 feature로
+신뢰하기 어려울 수 있음을 시사. ΔGPS_bearing은 3쌍 모두 0.0~0.9도로
+작음. **부산물로 #4→#5 구간에서 naviPaths 프레임 시각이 2.05~2.07초
+간격으로 3회 점프하는 현상 발견**(원인 미조사). 상세: FINDINGS.md
+303차.
+
+**입력**: 301/302차와 동일 route1~4 CSV(`--csv-dir`) + `gps_<route>.csv`
+(`--gps-dir`).
+
+**사용**: `python3 sim_route_303_ab_continuity_features.py
+--csv-dir <dir> --gps-dir <dir>`

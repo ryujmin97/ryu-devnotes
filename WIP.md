@@ -1,3 +1,136 @@
+## 303차 (완료 -- ANALYSIS_ONLY, devnotes toolkit 신규 스크립트 1개, `ryu` 본체 무변경) -- 302차 SAME_CURVE 3쌍(#4→#5/#7→#8/#9→#10) 프레임 단위 상세 추적 + A/B 연속성 feature 정량화(Δdist/Δspeed/ΔGPS_bearing 신규), "B 승계 조건"은 이번 표본만으로는 불확정 -- counterfactual(STEP5)/LOST 재정의(STEP3~4)는 다음 세션으로 이월
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu`(HEAD `d2f47d1`=290차, 변경 없음) /
+`ryu-devnotes`(HEAD `9845974`=302차, 이 항목 추가 전)
+
+**Branch**: `c3-ms-dev` / `main`
+
+**세션 시작 확인(§3/§33)**: fresh clone으로 양쪽 HEAD 직접 조회 --
+`ryu` `d2f47d1`(290차, 드리프트 없음), `ryu-devnotes` `9845974`(302차).
+사용자가 제시한 문서(303차 방향 제안: STEP1~5, "LOST를 즉시 RELEASE
+하지 않고 B를 관찰하는 구조" 설계 검토)를 WIP.md 302차 항목과 대조 --
+**아직 원격에 303차로 커밋된 내용이 없음을 먼저 확인**(§33, 302차가
+301차 문서를 오인 중복작업할 뻔한 것과 동일한 실수를 피하기 위함).
+재업로드된 route1~4 zip/csv/meta.json도 297~302차와 동일 corpus
+(commit `d2f47d1`, n_rows 22801/22799/23999/10546 전부 일치, 압축
+해제 후 세그먼트 수 19/19/20/9도 meta.json과 일치)임을 재확인.
+
+**배경**: 302차가 GPS로 확정한 3쌍(#4→#5/#7→#8/#9→#10, 전부
+a3b3373495, SAME_CURVE<=15m)에 대해, "같은 물리적 커브였다"를 넘어
+"이 B를 A의 연속 track으로 승계해도 되는가"를 판단할 근거가 필요하다
+(302차 다음 작업 2번). 사용자가 제시한 문서의 STEP1(3쌍 프레임 단위
+재추적)/STEP2(A/B 연속성 feature 수치화)까지를 이번 세션 범위로
+좁혀 진행(STEP3~5는 아래 "미확인/남은 것" 참고).
+
+**한 일**:
+1. 기존 toolkit 확인(§21) -- 301차 `build_stream()`/`run_route()`,
+   302차 `resolve_point()`/`load_gps()`/`haversine()`/`classify()`가
+   그대로 재사용 가능함을 확인, 302차 결과를 이번 세션 corpus로
+   먼저 재실행해 완전히 동일한 출력(4쌍/3×SAME_CURVE/1×NEXT_CURVE,
+   거리값까지 정확히 일치)임을 자체 검증한 뒤 착수.
+2. `extract_gps.py` 재실행 -- route별 527~1198행(302차와 동일 행수)
+   실측 GPS 재확보(pycapnp/zstandard 컨테이너 재설치 필요, §28
+   환경 재현 기록).
+3. 신규 `sim_route_303_ab_continuity_features.py` 작성(§22) -- 301/
+   302차 함수 무변경 재사용 + 계측만 추가(§27):
+   - 3쌍 각각에 대해 prev.B(재획득 프레임) ~ next.A_last(다음 이벤트
+     LOST 직전 마지막 매칭)~next.LOST 구간을 프레임 단위로 dense
+     나열(mode/apex_dist/apex_speed/raw candidate 개수/cluster 개수·
+     크기/miss_frames).
+   - Δdistance/Δspeed/Δtime은 301차 이벤트 필드로 계산, ΔGPS_bearing
+     (신규)은 302차가 이미 구한 GPS fix의 `bearingDeg` 차이(원형
+     wraparound 처리)로 계산.
+   - raw candidate 개수는 300차 `build_frames()`가 만드는
+     `fr["candidates"]` 길이를 t로 join만 함(재계산 아님).
+   정적 검증: `py_compile`/`ast.parse` 통과.
+
+**실측 결과(핵심)**: FINDINGS.md 303차 표 참고.
+- 3쌍 모두 Δdistance/Δspeed의 부호와 크기가 제각각임
+  (#4→#5: Δdist=-20.0m/Δspeed=+6.9kph, #7→#8: Δdist=-60.0m/
+  Δspeed=-8.8kph, #9→#10: Δdist=+0.0m/Δspeed=+11.4kph) -- "같은
+  커브"라는 GPS 판정과 달리 apex 거리·속도 값 자체의 연속성은
+  일관된 패턴을 보이지 않는다.
+- ΔGPS_bearing은 3쌍 모두 0.0~0.9도로 매우 작음 -- 최소한 진행
+  방향(heading) 측면에서는 세 사례 모두 급격한 방향 전환 없이
+  이어짐(다만 1Hz 샘플이라 세부 회전은 못 봄, 302차 한계 동일).
+- **신규 발견(예상 밖)**: #4→#5 구간의 프레임 단위 흐름에서 held
+  구간 t가 578.96 -> 579.02(0.06s, 정상) 다음 579.06 -> 581.11로
+  **2.05초 점프**, 이어서 581.16 -> 583.21(2.05s), 583.26 ->
+  585.33(2.07s)로 동일 간격 점프가 3회 반복됨(`build_frames()`가
+  `naviPaths`/`nRoadLimitSpeed<=0`인 행을 건너뛰기 때문 -- 원인
+  자체는 이번 세션에서 특정하지 않음, §33). 즉 이 구간의
+  `miss_frames`(최종 6에 도달)는 실제 20Hz 연속 관측이 아니라
+  naviPaths가 간헐적으로만 갱신된 결과다 -- **"B_survive_seconds"/
+  "B_survive_frames"(301차 지표)를 "매 프레임 균등 간격"으로 해석하면
+  안 되고, 와일드하게 널뛰는 wall-clock 간격을 감안해야 한다.**
+  #7→#8/#9→#10 구간에서는 이런 대형 점프가 관찰되지 않음(정상
+  0.05~0.1s 간격 유지) -- 이 현상이 #4→#5에 국한된 것인지 route
+  전역 패턴인지는 미확인.
+
+**중요 한계(§10/§28)**:
+- 표본이 3쌍뿐이고 Δdistance/Δspeed 부호가 일관되지 않아, 이 3개
+  feature만으로 "B 승계 가능 조건"(STEP2가 원래 찾으려던 것)을
+  일반화된 임계값으로 확정할 근거가 아직 부족하다. 사용자 제안 문서
+  STEP2의 예시("자연스러운 감소" vs "동일 커브인데 거리가 확 튐")
+  기준으로 보면 #7→#8(Δdist=-60m)이 오히려 "부자연스러운" 쪽에 더
+  가까운데도 GPS로는 SAME_CURVE로 확정된 사례라 -- **naviPaths
+  apex 거리값 자체의 연속성은 "같은 물리적 대상 여부"의 좋은 판별
+  feature가 아닐 수 있다는 반대 증거**로 해석해야 한다(과대 일반화
+  금지, §28).
+- #4→#5의 2초대 점프 현상 원인(naviPaths 갱신 자체의 간헐성인지,
+  `nRoadLimitSpeed<=0` 구간 통과인지, 세그먼트 경계인지)은 미조사 --
+  이 발견 자체가 이번 세션의 부산물이며 STEP1 원래 목적(연속성 확정)
+  과는 별개의 신규 이슈다.
+- STEP3(LOST 재정의 설계)/STEP4(설계 후보)/STEP5(3방식 counterfactual)
+  는 이번 세션에서 착수하지 않음 -- 사용자 제안 문서 자체도 "조건이
+  데이터로 입증되면 다음 단계"라는 순서였고, 위 한계에서 보듯 이번
+  3쌍만으로는 조건이 뚜렷하게 나오지 않아 뒤 단계로 넘어가는 것이
+  성급하다고 판단(§28 원인 미확정 상태에서 확정 짓지 않기).
+- `carrot_man.py` 여전히 무변경(ANALYSIS_ONLY, §29).
+
+**검증**:
+- 정적 분석: 완료(py_compile/ast.parse 통과)
+- 로그 검증: 완료(route1~4 실 corpus + 실측 gpsLocation 재추출,
+  302차 판정(4쌍/거리값) 100% 재현 확인 후 신규 계측 실행)
+- 시뮬레이션: 해당 없음(open-loop 관측/계측)
+- 실차 검증: 해당 없음(ANALYSIS_ONLY, `ryu` 코드 무변경, §29)
+
+**미확인/남은 것**:
+1. #4→#5 구간 2초대 프레임 점프 원인 특정(신규 이슈, 이번 세션
+   부산물) -- naviPaths 갱신 간헐성 vs `nRoadLimitSpeed<=0` vs
+   세그먼트 경계 중 원인 분리.
+2. "B 승계 조건" 자체가 이번 3쌍 표본으로는 확정 안 됨 -- 표본 확대
+   (다른 route/다른 세션 corpus) 또는 다른 feature(예: cluster_size
+   추이, candidate 개수 추이) 조합으로 재시도 필요.
+3. STEP3(LOST 재정의)/STEP4(설계 후보)/STEP5(counterfactual 3방식
+   비교) -- 위 1/2가 해소되거나, 최소한 "표본 부족을 인지한 채로
+   진행할지"를 사용자가 결정한 뒤 착수.
+4. #1→#2 20.0m 판정 유보 건 -- 302차부터 이월, 여전히 미해결.
+5. A→LOST 경과시간 편차 원인 추적(301차부터 이월).
+6. (293차부터 이월) ep108 클러스터링 코드 레벨 추적
+7. (294차부터 이월) ep47/48/101/105 패턴 코드 레벨 추적
+
+**Devnotes**:
+- `toolkit/sim_route_303_ab_continuity_features.py`: 신규
+- `toolkit/README.md`/`CHANGELOG.md`: 갱신(신규 도구 등재, §22)
+- WIP/FINDINGS: 이 항목
+
+**다음 작업**:
+1. #4→#5 프레임 점프 원인 조사(신규 이슈)
+2. "B 승계 조건" feature 재탐색(표본 확대 또는 추가 feature)
+3. 사용자 결정 대기 -- STEP3~5 착수 여부(현재는 조건 미확정 상태로
+   보류 권장)
+4. #1→#2 20.0m 판정 유보 건(302차부터 이월)
+5. A→LOST 경과시간 편차 원인 추적(301차부터 이월)
+6. (293차부터 이월) ep108 클러스터링 코드 레벨 추적
+7. (294차부터 이월) ep47/48/101/105 패턴 코드 레벨 추적
+
+**패치**: `0001-303cha-devnotes.patch`
+
+---
+
 ## 302차 (완료 -- ANALYSIS_ONLY, devnotes toolkit 신규 스크립트 1개, `ryu` 본체 무변경) -- 301차 A→LOST→B 연쇄 GPS 좌표 대조: 4쌍 식별(#1→#2/#4→#5/#7→#8[신규]/#9→#10), 3쌍 SAME_CURVE(<=15m), #1→#2만 NEXT_CURVE 경계(20.0m)
 
 **Worker**: Claude

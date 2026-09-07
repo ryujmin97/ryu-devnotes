@@ -3,6 +3,17 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+## 2026-09-07 (303차)
+- `sim_route_303_ab_continuity_features.py`: **신규**. 302차가 GPS로
+  확정한 SAME_CURVE 3쌍(#4→#5/#7→#8/#9→#10)에 대해 A/B 연속성
+  feature(Δdistance/Δspeed/Δtime/ΔGPS_bearing[신규])를 정량화하고
+  구간 전체를 프레임 단위 dense 출력. 301/302차 함수 무변경 재사용
+  (§21). **핵심 결과: Δdistance/Δspeed는 3쌍 모두 부호·크기 불일치
+  (naviPaths 거리값 연속성이 판별 feature로 부적합할 가능성),
+  ΔGPS_bearing은 3쌍 모두 <=1도. 부산물로 #4→#5 구간 naviPaths
+  프레임 2초대 점프 현상 신규 발견(원인 미조사).** 상세: WIP.md/
+  FINDINGS.md 303차.
+
 ## 2026-09-07 (302차)
 - `sim_route_302_ab_gps_correlation.py`: **신규**. 301차/298차부터
   이월된 "A와 B가 실제로 같은 물리적 커브인가"를 실측 GPS
