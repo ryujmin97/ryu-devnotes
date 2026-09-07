@@ -1,3 +1,103 @@
+## 308차 -- [실측 확정] 306차 가설(min_points=2 게이트가 고립 candidate를 노이즈로 오인) 실 corpus(route1~4)로 최초 검증 -- ep108 정확히 재식별(route4=`bf794c0073`, 기존 `c8d2619479` 지목은 route 번호 오귀속으로 정정) + orphan 패턴 448/448(100%) 확인
+
+**배경**: 사용자가 293/294차와 동일한 원본 route zip 4개(`a3b3373495`/
+`01742d6c1c`/`bf794c0073`/`c8d2619479`)를 재업로드 -- 307차가 실차
+계측만 추가하고 실측 검증은 다음 로그로 미뤄뒀던 것을, 원본 raw
+candidate 필드(`routeCandidateCount`/`routeCandidate0~2Idx/Dist/Speed`,
+307차 신규 필드보다 훨씬 이전부터 존재)만으로도 오프라인에서 근사
+검증할 수 있음을 확인하고 착수.
+
+**[중요 정정, §24/26] route 번호 재귀속 오류 발견**: 306/307차가 "ep108
+= route4 = `c8d2619479`"로 기록한 것은 **틀렸다**. 근거: 285차 WIP
+기록("route1=22801/route2=22799/route3=23999/route4=10546행", 순서상
+`a3b3373495`/`01742d6c1c`/`c8d2619479`/`bf794c0073`)이 이미 route
+번호↔파일 매핑을 명시하고 있었는데, 306/307차는 이걸 놓치고 WIP.md
+328행의 **단순 업로드 파일명 나열 순서**(`a3b3373495`/`01742d6c1c`/
+`bf794c0073`/`c8d2619479`)를 route1~4 순서로 오인했다. 실제로는:
+- **route3 = `c8d2619479`(23999행)**
+- **route4 = `bf794c0073`(10546행)** -- ep108이 실제로 속한 파일
+
+이번 세션 재추출(`extract_log.py --with-navi-paths`, HEAD `bf71dec`)로
+행수 전부 재확인(a3b3373495=22801/01742d6c1c=22799/bf794c0073=10546/
+c8d2619479=23999) -- 293/294차 corpus와 완전히 동일함(§23 대용량 CSV
+미보관 정책과 별개로, **원본 zip 자체는 재업로드로 다시 확보됨**).
+
+**ep108 정확한 위치 재식별(신규 `toolkit/sim_route_308_orphan_real_
+corpus_scan.py`)**: `route_bf794c0073.csv`에서 `cutoff_t=4017.36s`
+(293/294차 기록 "t=4017.4"와 사실상 일치, 0.04s 차는 cutoff 프레임
+정의 방식 차이로 추정)에 정확히 매칭되는 이벤트 발견 -- `last_valid_
+dist_m=87.1m`(293/294차가 본 "커브가 있었는데" 정황과 부합), 그 직후
+프레임 `routeCandidateCount=1`, 유일 후보 거리=**90.0m**(10m 그리드
+양자화, 220차 이후 알려진 apex_dist 그리드 락 패턴과 일치),
+`predicted_at_cutoff_m≈86.5m`(>0, >10m dist_m 문턱 -- "passed"도
+"dist_reached_during_hold"도 아닌 진짜 lost 확정). **이것으로 306차가
+"코드 구조상 가능하다"고만 증명했던 메커니즘이, ep108 그 프레임에서
+실측 candidate=1(고립 singleton)이었음을 처음으로 직접 확인했다** --
+306차의 "한계" 항목(§28, "실제 raw candidate 배열은 미확인")이 이번
+세션에서 해소됨.
+
+**추가로 t=4017.36 부근(4017~4024s) 프레임을 훑어보면 같은 물리적
+지점을 반복적으로 가리키는 cutoff가 6회 더 발견됨**(90→60→50→30→30→
+20m로 감소하며 총 7회 cutoff, 매 cutoff 사이에는 apex_speed가 다시
+valid로 돌아왔다가 곧바로 다시 끊기는 flicker 패턴) -- 306/307차가
+우려한 "apex_speed가 min_points=2 경계에서 프레임마다 생겼다 사라졌다
+하는" 정확히 그 현상의 실측 사례.
+
+**더 넓은 corpus 스캔 결과(4개 route 전체, 79,945 프레임)**: 단순화된
+cutoff 탐지(raw apex_speed valid→invalid 전이, 289차의 "6프레임 초과
+지속" 조건 없이 전이 자체를 전부 셈 -- **아래 한계 참고**)로 총 594건의
+cutoff 발견, 이 중 448건(75.4%)이 `routeCandidateCount>0`(candidates
+존재)이면서 apex_speed가 None으로 떨어진 `lost_with_candidates_present`
+유형. **이 448건 전부(100%)가 CSV에 보이는 상위 3개 candidate끼리 서로
+40m(`ROUTE_CLUSTER_MAX_GAP_M`) 밖에 있는 "orphan 패턴"으로 확인됨**
+(candidate가 1개뿐이거나, 2~3개 있어도 인접 candidate 사이 gap이 전부
+40m 초과).
+
+**해석(§28, 과대해석 경계)**: 이 100%는 새로운 발견이 아니라 306차가
+이미 코드로 증명한 필연("clusters=[]일 때만 apex_speed=None 가능")의
+재확인에 가깝다 -- `lost_with_candidates_present`로 잡힌 프레임은
+정의상 그 순간 clusters=[]였을 것이 코드 구조로 이미 보장되고, 상위
+3개 candidate가 전부 40m 밖에 있다는 것은 딱 그 사실의 CSV 레벨 증거일
+뿐이다. **이번 세션의 진짜 새로운 정보는 "이 패턴이 실제로 4개 route
+79,945프레임 동안 448회(약 0.56%의 프레임에서 그 직전까지 유효하던
+apex가 이 패턴으로 끊김)나 발생한다"는 발생 빈도 자체**다 -- ep108
+1건의 일화가 아니라 흔히 벌어지는 현상임을 실측으로 확정.
+
+**한계(명확히 구분)**:
+- 이 스크립트의 cutoff 탐지는 289차 파이프라인(`ROUTE_APEX_MISS_
+  TOLERANCE_FRAMES=6` 초과 지속 여부)을 쓰지 않고 valid→invalid 전이
+  자체를 전부 센다 -- 458건 중 다수가 289차 기준으로는 "진짜 RELEASE"가
+  아니라 그 전에 곧바로 재탐색되는 held/재매칭 프레임일 수 있다(과대
+  카운트 가능성). 정확한 실제 RELEASE 건수는 289차 전체 파이프라인을
+  이번 4개 real route로 재실행해야 확정 가능 -- 다음 세션 후보.
+- `routeCandidate0~2`는 상위 3개까지만 CSV에 기록되므로, candidateCount
+  가 4 이상인 프레임(예: dists=[170,290,370], candidateCount=4)은
+  실제로 안 보이는 4번째 candidate가 앞의 3개 중 하나와 40m 이내였을
+  가능성을 배제 못한다 -- orphan 판정이 보수적으로 낙관 방향(orphan을
+  과소평가)일 수 있으나, 이번 세션 결과가 오히려 100% orphan으로
+  나온 것을 볼 때 실질적 영향은 적어 보임(§28, 단정하지 않음).
+- 307차가 추가한 `_route_provisional_singleton_step()` shadow tracker
+  자체(streak 누적)는 이번 corpus에 반영되지 않음(이 로그는 307차
+  patch 배포 이전에 기록됨) -- `PROVISIONAL_PROMOTE_STREAK` 값 확정은
+  여전히 307차 patch가 실제 디바이스에 반영된 이후의 신규 로그가 필요.
+  다만 이번 세션에서 관찰한 flicker 패턴(같은 지점이 90→20m로 접근하며
+  7회 반복 cutoff)은 "isolated candidate가 여러 프레임에 걸쳐 물리적
+  일관성을 유지하며 지속된다"는 307차 shadow tracker의 전제 자체가
+  실측과 부합함을 간접적으로 보여준다.
+
+**다음 작업**:
+- 306/307차 devnotes 내 "route4=`c8d2619479`" 오기재 확인 필요(이 항목
+  에서는 FINDINGS.md만 정정, WIP.md 306/307차 원문은 §14 "기존 회차
+  임의 수정 금지" 원칙에 따라 그대로 두고 이 308차 항목으로 정정 사실만
+  기록).
+- 289차 전체 파이프라인을 이번 4개 real route로 재실행해 정확한 RELEASE
+  건수(진짜 continuity 소실만) 확정.
+- 307차 patch가 실제 디바이스에 반영된 뒤의 신규 로그로 `routeProvisional*`
+  필드 직접 확인 -- `PROVISIONAL_PROMOTE_STREAK` 값 확정 + 설계안 A
+  채택 여부 결정.
+
+---
+
 ## 307차 -- [ANALYSIS_ONLY, 계측 patch만 추가] 306차 가설(min_points=2 게이트/ep108) 실차 검증용 계측 추가 -- production 제어 로직 무변경
 
 **배경**: 306차가 코드+합성 재현으로 확정한 가설("`route_find_

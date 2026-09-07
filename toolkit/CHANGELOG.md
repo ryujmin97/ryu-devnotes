@@ -3,6 +3,16 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+## 2026-09-08 (308차)
+- `sim_route_308_orphan_real_corpus_scan.py`: **신규**. 306차 가설을
+  실 corpus(route1~4 원본 재업로드)로 최초 검증. raw apex_speed
+  valid→invalid 전이를 스캔(292차 분류 산식 재사용)해 `lost_with_
+  candidates_present` 448건 발견, 전부(100%) orphan 패턴(candidate가
+  서로 40m 밖) 확인. **ep108 정확한 위치 재식별**: route4=`bf794c0073`
+  (기존 306/307차가 지목한 `c8d2619479`는 route 번호 오귀속, 정정
+  FINDINGS.md 308차 참고) t=4017.36s, candidateCount=1(90m 고립
+  candidate) -- 306차 가설을 그 정확한 프레임에서 직접 확인.
+
 ## 2026-09-08 (307차)
 - `sim_route_307_provisional_singleton_telemetry.py`: **신규**. 306차
   가설(min_points=2 게이트/ep108)의 실차 검증용 계측 patch(`ryu`

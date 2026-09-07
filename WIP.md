@@ -1,3 +1,72 @@
+## 308차 (완료 -- ANALYSIS_ONLY, `ryu` 본체 무변경, devnotes toolkit 신규 스크립트 1개) -- 306차 가설(min_points=2 게이트/ep108) 실 corpus(route1~4) 최초 실측 검증 -- ep108 정확 위치 재식별(route4=`bf794c0073`으로 정정) + orphan 패턴 448/448(100%) 확인
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu`(HEAD `020ea86`=307차, 변경 없음) /
+`ryu-devnotes`(base `4a2178e`=307차, 이 항목 추가 전)
+
+**Branch**: `c3-ms-dev` / `main`
+
+**세션 시작 확인(§3/§33)**: 사용자가 293/294차와 동일한 원본 route zip
+4개(`a3b3373495`/`01742d6c1c`/`bf794c0073`/`c8d2619479`)를 재업로드 --
+"ep108 원본 대신 이 로그로 확인 가능한지" 질문에서 시작.
+
+**한 일**:
+1. 4개 zip 압축 해제 -> `extract_log.py --with-navi-paths --repo
+   /home/claude/ryu`(HEAD `bf71dec`)로 개별 CSV 재추출. 행수 전부
+   293/294차 기록과 정확히 일치(a3b3373495=22801/01742d6c1c=22799/
+   bf794c0073=10546/c8d2619479=23999) -- **동일 corpus 확인, ep108
+   원본이 실제로 여기 포함돼 있음**.
+2. **route 번호 재귀속 오류 발견 및 정정(§24/26)**: 306/307차가 "ep108
+   =route4=`c8d2619479`"로 기록했던 것이 285차 WIP 기록(route1~4↔파일
+   매핑을 행수로 명시)과 불일치함을 확인 -- 306/307차는 WIP.md 328행의
+   "단순 업로드 파일명 나열 순서"를 route 번호로 오인했음. **정정:
+   route3=`c8d2619479`(23999행), route4=`bf794c0073`(10546행, ep108이
+   실제로 속한 파일)**. 상세 정정 근거는 FINDINGS.md 308차 참고.
+3. 신규 `toolkit/sim_route_308_orphan_real_corpus_scan.py` 작성(§21/22
+   -- 292차 `classify_continuity_episode()` 산식/296차·306차
+   `route_find_clusters()` 상수를 그대로 재사용, cutoff 탐지 방식만
+   독립적으로 단순화) -- raw apex_speed valid→invalid 전이를 스캔해
+   passed/dist_reached_during_hold/lost_with_candidates_present/
+   lost_no_candidate로 분류 + `lost_with_candidates_present`에 대해
+   CSV의 routeCandidate0~2로 min_points=2 orphan 여부 근사 판정.
+4. 4개 route 전체(79,945프레임)에 실행 -- **`route_bf794c0073.csv`
+   cutoff_t=4017.36s에서 ep108과 정확히 매칭되는 이벤트 발견**
+   (last_valid_dist_m=87.1m, candidateCount=1, 유일 후보거리=90.0m,
+   orphan_pattern=True). 그 부근(4017~4024s)에서 같은 물리적 지점이
+   90→20m로 접근하며 flicker형 cutoff가 총 7회 추가 확인.
+5. 전체 594건 cutoff 중 448건(75.4%)이 `lost_with_candidates_present`,
+   **그 448건 전부(100%) orphan 패턴** 확인.
+
+**검증 상태**: 실측 확정(§28) -- ep108 프레임의 실제 raw candidate
+배열이 처음으로 직접 확인됨(candidateCount=1, 고립). 단, cutoff 탐지
+자체는 289차의 엄격한 6프레임 기준을 안 쓰는 단순화 버전이라 정확한
+RELEASE 건수(과대계수 가능)는 별도 검증 필요(다음 작업 참고). **실차
+검증**이라는 표현은 이 항목에는 정확하지 않음 -- "오프라인 실측 로그
+분석"이며, production 제어 자체를 다시 실차에서 관찰한 것은 아님.
+
+**Devnotes**: FINDINGS.md 308차 항목 신규(정정 내용 포함), toolkit
+README/CHANGELOG 갱신, 이 WIP 항목.
+
+**미확인 사항**: 정확한 RELEASE 건수(289차 전체 재실행 필요),
+`PROVISIONAL_PROMOTE_STREAK` 실측 근거(307차 patch 배포 후 신규 로그
+필요 -- 이번 corpus는 307차 patch 이전 기록이라 `routeProvisional*`
+필드 자체가 없음).
+
+**다음 작업**:
+- 289차 전체 파이프라인(`sim_route_289_margin_ab_real_log.py` 등)을
+  이번 4개 real route로 재실행 -> 정확한 RELEASE 건수 확정.
+- 307차 patch가 실제 디바이스에 반영된 뒤 신규 로그로 `routeOrphan
+  Singleton*`/`routeProvisional*` 필드 직접 확인 -> `PROVISIONAL_
+  PROMOTE_STREAK` 값 확정 + 설계안 A(orphan을 apex로 승격) 채택 여부
+  결정.
+- ep108 qcamera 프레임(t≈4017, route `bf794c0073`)을 육안 재확인해
+  293차 당시 "주택가 좁은 도로/교차로 인접" 묘사와 일치하는지 재확인
+  (선택 사항 -- route 정정으로 원래 293차가 본 화면 자체가 바뀌진
+  않음, 파일명 라벨만 정정됨).
+
+---
+
 ## 307차 (완료 -- 계측 patch만, `ryu` ANALYSIS_ONLY/제어 로직 무변경, devnotes toolkit 신규 스크립트 1개) -- 306차 가설(min_points=2 게이트/ep108) 실차 검증용 계측 추가
 
 **Worker**: Claude

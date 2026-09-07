@@ -21,6 +21,41 @@ CHANGELOG.md를 같이 갱신**한다 (세션 종료 체크리스트에 포함�
 
 ---
 
+## sim_route_308_orphan_real_corpus_scan.py (308차 신규, 306차 가설을 실 corpus(route1~4)로 최초 실측 검증)
+**목적**: 306차가 코드+합성 재현으로 확정한 가설("`route_find_
+clusters()`의 min_points=2 게이트가 고립된 1포인트 좁은 커브를 노이즈로
+오인해 제거할 수 있음", ep108)을, 사용자가 재업로드한 실차 corpus
+(route1~4 원본 zip -- `a3b3373495`/`01742d6c1c`/`bf794c0073`/
+`c8d2619479`, 293/294차와 동일 파일)로 최초로 실측 검증한다.
+
+**한 일**: raw `routeApexSpeed`의 valid→invalid 전이를 4개 route
+전체(79,945프레임)에서 스캔(292차 `classify_continuity_episode()`
+산식 재사용) -- 총 594건의 cutoff 중 448건(75.4%)이 `lost_with_
+candidates_present`, CSV의 `routeCandidate0~2`(거리 오름차순 상위
+3개)만으로 min_points=2 클러스터링 통과 여부를 근사 판정한 결과 448건
+전부(100%) "orphan 패턴"(candidate가 서로 `ROUTE_CLUSTER_MAX_GAP_M`
+40m 밖에 고립) 확인. ep108 정확한 프레임(`route_bf794c0073.csv`
+cutoff_t=4017.36s, candidateCount=1, 유일 후보거리=90.0m)을 직접
+특정했고, 그 부근(4017~4024s)에서 같은 물리적 지점(90→60→50→30→30→
+20m)을 가리키는 flicker형 cutoff 총 7회 확인. **route 번호 재귀속
+오류 정정**(route3=`c8d2619479`, route4=`bf794c0073` -- 306/307차가
+반대로 기록했던 것을 정정, 근거는 FINDINGS.md 308차 참고)도 이 세션의
+부산물.
+
+**한계(중요, §28 과대해석 경계)**: 100% orphan 자체는 새 발견이
+아니라 306차가 이미 코드로 증명한 필연의 재확인 -- 진짜 새 정보는
+"이 패턴의 실제 발생 빈도"(79,945프레임 중 448회). 또한 cutoff 탐지가
+289차의 엄격한 6프레임 지속 기준을 쓰지 않는 단순화 버전이라 정확한
+RELEASE 건수는 과대계수 가능성 있음(289차 전체 파이프라인 재실행
+필요, 다음 세션 후보). `routeCandidate0~2`가 상위 3개까지만 기록되는
+한계도 있음(상세는 스크립트 docstring/FINDINGS.md 308차 참고).
+
+**입력**: `extract_log.py --with-navi-paths`로 뽑은 route CSV 1개
+이상(가변 개수). **사용**:
+`python3 sim_route_308_orphan_real_corpus_scan.py route1.csv route2.csv ... [--dt 0.05] [--dist-m 10.0] [--min-gap-frames 3] [--out-csv OUT.csv]`.
+
+---
+
 ## sim_route_307_provisional_singleton_telemetry.py (307차 신규, 306차 가설의 실차 검증용 계측 patch 자체를 배포 전 self-test)
 **목적**: 306차가 확정한 가설(min_points=2 게이트가 고립 1포인트 좁은
 커브를 노이즈로 오인)을 실차 로그 없이 production에 바로 반영하지 않고,
