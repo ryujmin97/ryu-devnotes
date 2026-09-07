@@ -4237,3 +4237,71 @@ FINDINGS.md 246차 항목 253차 갱신 참고.
    재현조건(vEgo≈105/target≈70kph 고속 커브 접근)을 포함하지 않아 그
    시나리오 자체의 실측 반증/재현은 여전히 미확정(WIP.md 253차/FINDINGS.md
    239차 참고).
+
+## sim_route_296_active_reacquire_gap.py (296차 신규 -- "passed/lost + 동일 프레임 재탐색" 시 강제 RELEASE 빈도 측정, self-test 5/5 PASS, 실 corpus 미실행)
+
+**배경**: 사용자+ChatGPT 협업 세션에서 "apex가 passed/lost로 판정되면서
+같은 프레임에 새 apex(B)를 이미 재탐색했는데도 무조건 RELEASE시키는
+것 아니냐"는 설계 논의가 있었음. Claude가 `carrot_man.py` 코드를 직접
+대조해 다음을 확인/정정:
+
+1. 논의 초안의 `"new"` 라벨은 정정 필요 -- `_route_cluster_continuity_step()`
+   805행 `(reset_reason or "new")`는 reset_reason이 이미 "passed"/"lost"면
+   그 값을 그대로 반환하므로, **route_active=True인 도중에는 "new"가
+   나올 수 없다**("new"는 진입 시 locked apex 자체가 없던 INERT 쪽에서만
+   나옴).
+2. 실제 문제 지점은 `apex_passed_or_lost = apex_mode in ("passed", "lost",
+   "new")`(1217행)가 "passed"/"lost"를 무조건 RELEASE로 취급하는 것 --
+   이때도 같은 프레임에 재탐색이 성공했으면 `apex_dist`/`apex_speed`는
+   이미 새 apex(B)의 유효값인데 그냥 버려진다.
+3. **293차 `lost_with_candidates_present`(ep108, 39건 중 1건)는 이
+   현상과 무관한 별개 통계** -- 289차 계열 분류 방법론은 raw
+   `routeApexSpeed`가 0/NaN으로 찍히는 gap을 찾는데, "동일 프레임
+   재탐색 성공"은 애초에 gap을 만들지 않아(A값→B값으로 끊김없이 점프)
+   그 탐지 방법에 구조적으로 안 잡힌다. 즉 "1/39"는 이 스크립트가 찾는
+   현상의 빈도에 대해 상한도 하한도 주지 못함.
+
+**이 스크립트가 하는 일**: `route_find_clusters()`(454~466행) +
+`_route_cluster_continuity_step()`(735~808행, 정확히 이식) +
+`carrot_navi_route()`의 ACTIVE/INERT/RELEASE 판정(1174~1324행, 266차
+confidence blend 포함)을 그대로 재현해, "route_active=True로 진입한
+프레임에서 mode가 passed/lost이면서 apex_speed가 None이 아닌"(=동일
+프레임 재탐색 성공) 이벤트를 직접 카운트.
+
+이벤트별 보조 지표 2종:
+- `immediate_reentry`: INERT 게이트(confidence blend 포함)를 그대로
+  재적용했을 때 0프레임 지연으로 즉시 ACTIVE 재진입했을지. **self-test
+  중 발견한 구조적 한계**: 재탐색 성공 시 streak가 항상 1로 리셋되고
+  `confidence_from_streak(1)=0.0`이라 그 프레임엔 eff_apex_speed가
+  무조건 v_ego_kph 그대로 나와 게이트가 거의 항상 False로 나옴 --
+  "0프레임 flicker 유무"의 답으로는 쓸모가 제한적임을 self-test로
+  확인(실 corpus 분석 시 이 지표 단독으로 결론 내리지 말 것).
+- `new_apex_needs_decel`(위 한계 보완용 신규): confidence blend 무관하게
+  `v_ego_ms > apex_speed/3.6`인지만 봄 -- "재탐색된 새 apex가 애초에
+  감속 대상이긴 한가"를 순수 물리량으로 판정, 사용자/ChatGPT가 제안한
+  "감속 필요/불필요" 분기 판정과 직접 대응.
+
+**self-test 5/5 PASS(합성만, 실 corpus 미실행 -- §29 "합성 검증 PASS /
+실차 미검증")**:
+1. matched 유지 -- 이벤트 0건, mode 전부 matched
+2. 진짜 passed(재탐색 후보 없음) -- 이벤트 0건, RELEASE는 정상 발생
+   (apex_speed=None이라 이벤트 조건에 안 걸림, 292차 분류의 "정상 완료"
+   케이스와 동일)
+3. **핵심 케이스**: passed + 같은 프레임 재탐색 성공 -- 이벤트 1건,
+   mode="passed"(≠"new") 확인
+4. lost(miss_frames 초과) + 같은 프레임 재탐색 성공 -- 이벤트 1건,
+   mode="lost" 확인
+5. INERT 상태에서 "new"로 재진입 -- mode="new" 확인되지만 이벤트 0건
+   ("new"는 route_active=True에서 안 나온다는 주장의 회귀 테스트)
+
+**디버깅 중 발견한 함정(회귀 방지용 기록)**: `ROUTE_CLUSTER_MIN_POINTS=2`
+때문에 단일 후보만으로는 클러스터가 형성되지 않는다 -- self-test 초안이
+프레임당 후보 1개만 넣었다가 전부 "none"/"held"로 새고 이벤트가 안 잡히는
+거짓 실패를 겪음. 모든 시나리오를 후보 2개(간격 <40m)로 수정 후 통과.
+
+**다음 세션(corpus 확보 후) 예정**: `extract_log.py --with-navi-paths`
+CSV + `analysis_helpers.py::recompute_route_curvature_speed()`로 매
+프레임 전체 후보 리스트(stage0, top-3 근사 아님)를 복원해 `--frames-json`
+입력으로 변환한 뒤 실측 실행 -- 273차가 top-3 근사 때문에 겪은 한계를
+이 방식은 구조적으로 피할 수 있음(단, 273차 자체의 baseline 재현 실패는
+별개 이슈로 이 스크립트 범위 밖).

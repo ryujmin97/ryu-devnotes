@@ -1,3 +1,114 @@
+## 296차 (완료 -- devnotes toolkit 신규 스크립트 1개, `ryu` 본체 무변경) -- 사용자+ChatGPT 협업 세션의 "passed/lost+동일프레임 재탐색인데 무조건 RELEASE" 설계 논의를 코드 대조로 검증 -- "new"는 route_active=True 중 불가함을 정정, 293차 ep108(1/39)이 이 현상과 무관한 별개 통계임을 확인, 신규 상태기계 재현 도구 self-test 5/5 PASS(실 corpus는 다음 세션)
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu`(HEAD `d2f47d1`=290차, fresh clone, 변경
+없음) / `ryu-devnotes`(HEAD `e8a9c28`=295차, 이 항목 추가 전)
+
+**Branch**: `c3-ms-dev` / `main`
+
+**세션 시작 확인(§3)**: 양쪽 fresh clone. HANDOFF.md/CURRENT_STATUS.md
+없음(관례). `ryu-devnotes` HEAD가 295차(`e8a9c28`)와 동일 -- 다른
+작업자 push 없음, 드리프트 없음 확인.
+
+**배경**: 별도 세션(사용자+ChatGPT)에서 이어진 설계 논의를 사용자가
+문서로 가져와 검토를 요청. 논의 요지: `carrot_navi_route()`가 apex
+"passed"/"lost" 판정 시 같은 프레임에 새 apex(B)를 재탐색했더라도
+무조건 route_active=False로 떨어뜨리는 것 아니냐는 문제 제기, 초안은
+이를 `"new"` 상태 전이의 문제로 표현.
+
+**한 일 -- 1차 코드 대조(패치 전)**:
+1. `_route_cluster_continuity_step()`(735~808행) 정독 -- 805행
+   `return idx, distances[idx], speeds[idx], (reset_reason or "new"), ...`
+   확인. `reset_reason`이 이미 "passed"/"lost"로 설정된 경우 그 값이
+   그대로 반환되므로, `"new"`는 **reset_reason이 None인 경우(=진입 시
+   locked apex 자체가 없던 경우)에만** 나온다는 것을 확인.
+2. 호출부(1177~1193행) 대조 -- locked apex가 사라지는 매 프레임(재탐색
+   실패 시 apex_speed=None)마다 `route_active`가 그 즉시 False로
+   떨어짐을 확인. 따라서 다음 프레임에 `"new"`가 뜰 때는 이미
+   route_active=False(INERT)인 상태 -- **`"new"`가 1217행의
+   `apex_passed_or_lost`(ACTIVE 분기 안)에 도달할 경로 자체가 코드
+   구조상 없음**을 정정.
+3. 실제 문제 지점은 `"passed"`/`"lost"` + 같은 프레임 재탐색 성공 --
+   이때 mode는 "passed"/"lost"로 나오지만 `apex_idx`/`apex_dist`/
+   `apex_speed`는 이미 새 apex(B)의 유효값(805행)인데, 1217행
+   `apex_passed_or_lost = apex_mode in ("passed","lost","new")`가
+   이를 무조건 RELEASE로 취급해 그 값을 버림을 확인.
+4. 이 현상의 실측 빈도를 devnotes 기존 기록(293차 `lost_with_candidates_present`
+   =39건 중 1건, ep108)으로 대신할 수 있는지 검토 -- `sim_route_292_
+   continuity_root_cause.py::classify_continuity_episode()`(97~103행)를
+   대조한 결과, 이 분류법은 raw `routeApexSpeed`가 **0/NaN으로 찍히는
+   cutoff 프레임**을 찾아야만 에피소드로 잡는데, "동일 프레임 재탐색
+   성공"은 apex_speed가 A값→B값으로 끊김없이 점프하므로 0/NaN 프레임이
+   아예 생기지 않는다 -- **이 gap-탐지 방법론 구조상 원천적으로 탐지
+   불가**. 즉 "1/39(ep108)"는 이 현상과 무관한 별개 통계(진짜 데이터
+   공백+클러스터링 매칭 실패)이며, 이 현상의 실제 빈도에 상한/하한을
+   전혀 주지 못함을 확인.
+
+**신규 도구**: `toolkit/sim_route_296_active_reacquire_gap.py` --
+`route_find_clusters()` + `_route_cluster_continuity_step()` +
+`carrot_navi_route()`의 ACTIVE/INERT/RELEASE 판정(266차 confidence
+blend 포함)을 그대로 이식해, "route_active=True 진입 프레임에서
+mode가 passed/lost이면서 apex_speed가 not None"인 이벤트를 직접
+카운트. 이벤트별 `immediate_reentry`(0프레임 재진입 여부)/
+`new_apex_needs_decel`(confidence 무관 순수 물리량 기준 감속 필요
+여부) 2개 보조지표 포함. 상세 설계/한계는 `toolkit/README.md` 296차
+항목 참고.
+
+**self-test 결과(합성만, 5/5 PASS)**:
+1. matched 유지 -- 이벤트 0건
+2. 진짜 passed(재탐색 후보 없음) -- 이벤트 0건, RELEASE는 정상 발생
+3. **핵심**: passed+동일프레임 재탐색 성공 -- 이벤트 1건, mode="passed"
+   (≠"new") 확인
+4. lost+동일프레임 재탐색 성공 -- 이벤트 1건, mode="lost" 확인
+5. INERT에서 "new"로 재진입 -- mode="new" 확인되지만 이벤트 0건
+   ("new"가 ACTIVE에서 안 나온다는 주장의 회귀 테스트)
+
+**self-test 중 발견한 함정(2건, 정직하게 기록)**:
+- `ROUTE_CLUSTER_MIN_POINTS=2`이므로 프레임당 후보 1개만으로는 클러스터가
+  형성되지 않음 -- 초안 시나리오가 이를 놓쳐 거짓 실패를 겪음, 후보
+  2개로 수정 후 통과.
+- `immediate_reentry` 지표는 재탐색 성공 시 streak가 항상 1로 리셋되고
+  `confidence_from_streak(1)=0.0`이라 그 프레임의 eff_apex_speed가
+  무조건 v_ego_kph 그대로 나와, confidence blend 설계상 **구조적으로
+  거의 항상 False**가 됨을 self-test로 확인 -- "0프레임 flicker
+  유무"의 답으로는 이 지표 하나만으로 불충분, 그래서 `new_apex_needs_decel`
+  (conf=1.0 가정, 순수 물리량)을 보완 지표로 추가.
+
+**핵심 발견(코드 레벨, 실측 미검증)**: 사용자/ChatGPT가 제안한 설계
+방향("재탐색된 새 apex가 감속 대상이면 ACTIVE 유지, 아니면 RELEASE")은
+개념적으로 타당하고 코드 구조상 실행 가능(필요 데이터가 이미 그 프레임에
+존재)하지만, **트리거 조건은 `"new"`가 아니라 `"passed"`/`"lost"` +
+동일 프레임 재탐색**으로 정정되어야 하며, 이 현상의 실측 빈도는 현재
+어떤 devnotes 자료로도 측정된 적이 없다(§28 -- 재현조건 단계 이전,
+실측 전까지 "얼마나 자주 발생하는가"는 미확정으로 유지).
+
+**Devnotes**:
+- `toolkit/sim_route_296_active_reacquire_gap.py`: 신규
+- `toolkit/README.md`: 296차 섹션 추가
+- `toolkit/CHANGELOG.md`: 296차 항목 추가
+- `FINDINGS.md`: 이 발견 등록(아래 항목)
+- WIP: 이 항목
+
+**검증**: 정적 분석(코드 라인 대조) 완료 / self-test(합성) 5/5 PASS /
+실 corpus 실행 -- 미실시(다음 세션, 사용자가 corpus 업로드 예정) /
+실차 검증 -- 해당 없음(`ryu` 본체 무변경, §29).
+
+**미확인/남은 것**:
+- 실 corpus로 이 이벤트의 실제 빈도 측정 (다음 세션, corpus 업로드 후)
+- `extract_log.py --with-navi-paths` + `recompute_route_curvature_speed()`로
+  매 프레임 전체 후보(top-3 근사 아님)를 복원해 `--frames-json` 입력
+  형식으로 변환하는 어댑터 아직 미작성(다음 세션)
+- 빈도가 유의미하게 확인되면 그때 코드 변경안(§31 승인 필요) 설계 착수
+  -- 이번 세션은 ANALYSIS_ONLY, `ryu` 코드 변경 없음
+- (293차부터 이월) ep108 클러스터링 코드 레벨 추적 -- 이번 세션에서
+  ep108은 "이 현상과 무관한 별개 이슈"로 재확인만 됨, 추적 자체는
+  여전히 미착수
+- (294차부터 이월) ep47/48/101/105 "직선인데 candidate 발생" 패턴
+  코드 레벨 추적
+
+---
+
 ## 295차 (완료 -- 코드 변경 있음: `ryu-devnotes/toolkit/extract_log.py`만, `ryu` 본체 무변경) -- 294차 대기 항목(b) 착수: `extract_log.py`에 `horizontalAccuracy` 컬럼 추가 + 실 corpus 검증 -- 이 디바이스(`source=qcomdiag`)는 해당 필드를 항상 0.0으로만 발행해 터널 가설 재검증에 사용 불가로 확인(부정적이지만 확정적 결론)
 
 **Worker**: Claude

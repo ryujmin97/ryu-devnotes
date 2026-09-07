@@ -1,3 +1,74 @@
+## 296차 -- [코드 대조로 확정, 실측 미검증] "passed/lost + 동일 프레임 재탐색" 시 유효한 새 apex 데이터를 버리고 무조건 RELEASE하는 지점 확인 -- 293차 ep108(1/39) 통계는 이 현상과 무관함을 확인
+
+**배경**: 사용자+ChatGPT 협업 세션에서 "apex가 통과/소실되면서 같은
+프레임에 새 apex를 이미 재탐색했는데도 route를 끄는 것 아니냐"는 설계
+논의가 제기됨. 초안은 이를 `_route_cluster_continuity_step()`의
+`"new"` 상태 전이 문제로 표현.
+
+**핵심 발견 1 -- 용어 정정(코드 대조로 확정)**: `"new"`는
+route_active=True인 도중에는 나올 수 없다. `_route_cluster_continuity_step()`
+805행 `(reset_reason or "new")`는 reset_reason이 이미 "passed"/"lost"로
+설정된 경우 그 값을 그대로 반환한다. `"new"`가 실제로 반환되는 경우는
+reset_reason이 `None`(=진입 시점에 locked apex 자체가 없던 경우)뿐이며,
+locked apex가 사라지는 매 프레임(재탐색 실패 시 apex_speed=None)마다
+호출부(1177~1193행)가 그 즉시 route_active=False로 떨어뜨리므로, 다음
+프레임에 `"new"`가 뜰 때는 이미 INERT 상태다. 즉 1217행의
+`apex_passed_or_lost`(ACTIVE 분기 안) 체크에 `"new"`가 도달할 코드
+경로 자체가 없다.
+
+**핵심 발견 2 -- 실제 문제 지점**: `"passed"`/`"lost"` + 같은 프레임
+재탐색 성공 시, 반환되는 mode는 "passed"/"lost"이지만 `apex_idx`/
+`apex_dist`/`apex_speed`(805행)는 이미 새 apex(B)의 유효값이다.
+1217행 `apex_passed_or_lost = apex_mode in ("passed", "lost", "new")`는
+이 셋을 무조건 RELEASE로 취급해, **B의 유효한 감속 목표 데이터가 이미
+있는데도 버리고 route_active=False로 떨어뜨린다.**
+
+**핵심 발견 3 -- 293차 ep108(1/39) 통계와의 관계(중요, 혼동 방지)**:
+이 현상의 빈도를 293차 `lost_with_candidates_present`(39건 중 1건,
+ep108) 수치로 대신 쓸 수 없다. `sim_route_292_continuity_root_cause.py::
+classify_continuity_episode()`(97~103행)의 분류 방법론은 raw
+`routeApexSpeed`가 **0/NaN으로 찍히는 cutoff 프레임**을 찾아야만
+에피소드로 잡는다. "passed/lost+동일프레임 재탐색"은 apex_speed가
+A값→B값으로 끊김없이 즉시 점프하므로 0/NaN 프레임이 아예 생기지
+않는다 -- 이 gap-탐지 방법론 구조상 원천적으로 탐지 불가능한 케이스다.
+**따라서 "1/39(ep108)"는 이 현상과 무관한 별개 통계(진짜 데이터 공백
++ 클러스터링 매칭 실패)이며, 이 현상의 실제 빈도에 대해 상한/하한을
+전혀 제공하지 못한다.**
+
+**신규 도구**: `toolkit/sim_route_296_active_reacquire_gap.py` -- 위
+`_route_cluster_continuity_step()` + `route_find_clusters()` +
+ACTIVE/INERT/RELEASE 판정(266차 confidence blend 포함)을 그대로
+재현해, "route_active=True 진입 프레임에서 mode가 passed/lost이면서
+apex_speed가 not None"인 이벤트를 직접 카운트하는 도구. self-test
+5/5 PASS(합성만). 상세: `toolkit/README.md`/WIP.md 296차 항목.
+
+**self-test 중 발견한 구조적 함정(회귀 방지 기록)**: 재탐색 성공 시
+streak가 항상 1로 리셋되고 `confidence_from_streak(1)=0.0`이라, 그
+프레임의 confidence-blended target은 무조건 v_ego_kph 그대로 나온다
+(266차 confidence blend 설계). 즉 "강제 RELEASE 직후 즉시(0프레임)
+재진입했을 것인가"를 묻는 지표(`immediate_reentry`)는 confidence
+blend 설계상 재탐색 직후 프레임에는 구조적으로 거의 항상 False가
+나오도록 되어 있어, 이 지표 하나만으로 "낭비가 없었다"고 결론 내릴 수
+없다 -- confidence 무관 순수 물리량 지표(`new_apex_needs_decel`,
+`v_ego_ms > apex_speed/3.6`)를 보완으로 추가함.
+
+**결론(현재까지, §28 원칙에 따라 명확히 구분)**:
+- "이 상태기계 설계가 유효한 새 apex 데이터를 버린다"는 것 -- **코드
+  분석만으로 확정적으로 참**(위 발견 2).
+- "이것이 실제 주행에서 자주 발생하는 문제다"는 것 -- **아직 미확정**.
+  기존 devnotes 어떤 통계도 이 빈도를 재지 않았음을 이번 세션에서
+  처음 확인(위 발견 3). 실 corpus 실행은 다음 세션(사용자 corpus
+  업로드 예정).
+
+**다음 작업**:
+- 실 corpus(route1~4, `--with-navi-paths`)로 빈도 실측
+- 빈도가 유의미하면 코드 변경안(재탐색된 apex가 감속 대상이면 ACTIVE
+  유지) 설계 착수 -- §31에 따라 `ryu` 코드 변경 전 사용자 승인 필요
+- (293차부터 이월, 이번 세션과는 별개 이슈로 재확인) ep108 클러스터링
+  코드 레벨 추적 자체는 여전히 미착수
+
+---
+
 ## 295차 -- [계측 추가 완료, 가설 재검증 결과 NEGATIVE-확정적] `extract_log.py`에 `gpsLocation.horizontalAccuracy` 컬럼 추가 -- 이 디바이스(Comma 3X, `source=qcomdiag`)는 해당 필드를 상시 0.0으로만 발행, 293차 터널 가설은 이 지표로 재검증 불가로 확정
 
 **배경**: 293차가 "터널에서 실제로 GPS 열화가 없었다"와 "열화가

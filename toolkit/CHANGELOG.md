@@ -3,6 +3,14 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+## 2026-09-07 (296차)
+- `sim_route_296_active_reacquire_gap.py`: **신규**. 사용자+ChatGPT
+  협업 세션의 "passed/lost + 같은 프레임 재탐색 성공인데 무조건
+  RELEASE" 설계 논의를 코드 대조로 검증하는 도구. "new"는
+  route_active=True 중엔 안 나온다는 정정, 293차 ep108(1/39) 통계가
+  이 현상과 무관한 별개 지표라는 점을 확인. self-test 5/5 PASS(합성만,
+  실 corpus는 다음 세션). 상세: WIP.md/FINDINGS.md 296차.
+
 ## 2026-09-07 (295차)
 - `extract_log.py`: **컬럼 추가**. `gpsLocation.horizontalAccuracy`
   (cereal/log.capnp GpsLocationData@6, Float32) 컬럼 신규 -- 293차가
