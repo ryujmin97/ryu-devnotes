@@ -4513,3 +4513,27 @@ lost 판정이 tolerance 상수 도달로만 결정론적으로 발생. (2) B가
 
 사용: `python3 sim_route_301_lost_boundary_trace.py --csv-dir <dir>
 --classification evidence/route_297_seamless_release_qcamera/classification.md`
+
+## sim_route_302_ab_gps_correlation.py (302차 신규, A/B apex 절대 GPS 대조)
+**목적**: 301차가 밝힌 15건의 A->LOST->B 경계 중 시간상 연쇄된 쌍들에
+대해, 이전 이벤트의 B(재획득 apex)와 다음 이벤트의 A(마지막 정상
+매칭 apex)가 실제로 같은 물리적 커브인지 실측 GPS로 판정한다
+(298차부터 이월).
+
+**방법**: naviPaths의 로컬(x,y)(analysis_helpers.parse_navi_paths, §21
+재사용)를 그 순간과 가장 가까운 실측 `gpsLocation`(extract_gps.py
+출력, 1Hz) 위치+bearingDeg로 회전투영해 절대 lat/lon을 구하고,
+haversine(compare_navpos_vs_gps.py 함수 재사용)으로 거리 비교.
+carrotMan 자체 추정 위치/헤딩은 162차 dead-reckoning 문제로 판정
+기준에서 제외.
+
+**판정**: SAME_CURVE(<=15m) / NEXT_CURVE(<=80m) / DIFFERENT(>80m) /
+GPS_UNCERTAIN(horizontalAccuracy 과다 시). 15건 중 시간 gap<=10s인
+인접 쌍만 자동 후보로 잡는다(같은 route 내부).
+
+**입력**: 301차와 동일 route1~4 CSV(`--csv-dir`) + `extract_gps.py`로
+사전 추출한 `gps_<route>.csv`(`--gps-dir`).
+
+**한계**: bearingDeg는 1Hz라 최대 0.5초 지연 가능, horizontalAccuracy가
+이 corpus 전체에서 0.0으로 기록되어(295차 발견과 동일) 신뢰도
+게이팅에 활용 불가(수치는 항상 통과). 상세 결과: FINDINGS.md 302차.

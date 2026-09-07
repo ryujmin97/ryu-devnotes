@@ -3,6 +3,22 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+## 2026-09-07 (302차)
+- `sim_route_302_ab_gps_correlation.py`: **신규**. 301차/298차부터
+  이월된 "A와 B가 실제로 같은 물리적 커브인가"를 실측 GPS
+  (`extract_gps.py` 1Hz `gpsLocation`)로 판정. carrotMan 자체 추정
+  위치/헤딩(`xPosLat/xPosLon/xPosAngle`)은 162차 dead-reckoning
+  문제로 판정 기준에서 제외, 대신 naviPaths 로컬(x,y)를 실측
+  GPS lat/lon+bearingDeg로 회전투영(단일 회전, 곡선 형태 보존)해
+  절대좌표를 구하고 haversine(`compare_navpos_vs_gps.py` 함수
+  재사용)으로 거리 비교. **핵심 결과: 15건 중 시간상 인접한 연쇄
+  4쌍 전부 a3b3373495 route 내부에서 발견(#1→#2, #4→#5, #7→#8[신규
+  식별], #9→#10) -- #4→#5(6.8m)/#7→#8(9.5m)/#9→#10(0.0m) 3쌍은
+  SAME_CURVE(≤15m) 판정, #1→#2(20.0m)만 NEXT_CURVE 경계(임계값
+  바로 근처, 판정 유보). horizontalAccuracy는 전 구간 0.0으로
+  기록되어(295차 기존 발견과 동일) 신뢰도 게이팅에 쓸 수 없었음.**
+  상세: WIP.md/FINDINGS.md 302차.
+
 ## 2026-09-07 (301차)
 - `sim_route_301_lost_boundary_trace.py`: **신규**. 300차 "15/15
   lost" 결과에 대해 ChatGPT 제안(사용자 검토 지시)에 따라 각 lost

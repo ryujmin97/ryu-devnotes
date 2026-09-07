@@ -1,3 +1,104 @@
+## 302차 (완료 -- ANALYSIS_ONLY, devnotes toolkit 신규 스크립트 1개, `ryu` 본체 무변경) -- 301차 A→LOST→B 연쇄 GPS 좌표 대조: 4쌍 식별(#1→#2/#4→#5/#7→#8[신규]/#9→#10), 3쌍 SAME_CURVE(<=15m), #1→#2만 NEXT_CURVE 경계(20.0m)
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu`(HEAD `d2f47d1`=290차, 변경 없음) /
+`ryu-devnotes`(HEAD `317b676`=301차, 이 항목 추가 전)
+
+**Branch**: `c3-ms-dev` / `main`
+
+**세션 시작 확인(§3/§33)**: fresh clone으로 양쪽 HEAD 직접 조회 --
+`ryu` `d2f47d1`(290차, 드리프트 없음), `ryu-devnotes` `317b676`(301차).
+사용자가 제시한 ChatGPT 세션 요약 문서(302차 방향 제안: GPS 좌표
+대조)를 WIP.md 301차 항목과 대조 -- **문서 내용이 이미 원격 301차에
+그대로 커밋되어 있음을 먼저 확인**(§33 -- 다른 세션 산출물을 새
+제안으로 오인해 중복 작업하지 않기 위함). 업로드된 route1~4 zip/csv/
+meta.json도 297~301차와 동일 corpus(commit `d2f47d1`, n_rows
+22801/22799/23999/10546 전부 일치)임을 재확인.
+
+**배경**: 301차/298차부터 이월된 과제 -- 시간상 연쇄된 A→LOST→B
+쌍에서 이전 이벤트의 B와 다음 이벤트의 A가 실제로 같은 물리적
+커브인지 GPS로 확정. 사용자가 명시적으로 "carrotMan 자체 추정
+위치/헤딩(`xPosAngle`)은 이번 판정 기준으로 쓰지 말 것"을 지시
+(162차 dead-reckoning 문제 근거).
+
+**한 일**:
+1. 기존 toolkit 확인(§21) -- `extract_gps.py`(133차, 실측 `gpsLocation`
+   1Hz 추출)와 `compare_navpos_vs_gps.py`(162차, haversine 포함)가
+   재료로 존재하나 "naviPaths 로컬 apex 좌표를 실측 GPS로 절대좌표
+   변환 후 이벤트 간 haversine 비교"를 하는 도구는 없음을 확인, 신규
+   작성 결정(§22).
+2. 이번 세션에 재업로드된 4개 route zip(rlog.zst 포함)에
+   `extract_gps.py` 실행 -- route별 527~1198행의 실측 GPS 확보.
+3. 신규 `sim_route_302_ab_gps_correlation.py` 작성 -- 301차
+   `run_route()`(무변경 재사용, §21)로 15건 이벤트를 재현하고, 각
+   이벤트의 A_last_dist_m/B_dist_m을 그 프레임 원본 `naviPaths`의
+   (x,y) 포인트와 근접 매칭해 로컬 좌표를 복원, 가장 가까운 실측
+   GPS fix의 위치+`bearingDeg`로 단일 회전투영해 절대 lat/lon 산출.
+   haversine으로 "이전 이벤트 B" <-> "다음 이벤트 A"(같은 route
+   내부, gap<=10s) 거리를 계산해 SAME_CURVE(<=15m)/NEXT_CURVE
+   (<=80m)/DIFFERENT/GPS_UNCERTAIN(accuracy 과다 시)로 자동 분류.
+   정적 검증: py_compile/ast.parse 통과.
+4. 최초 구현에서 "연쇄 판정 gap" 계산에 버그 발견 -- 다음 이벤트의
+   *A_last_matched_t*가 아니라 다음 이벤트 자신의 LOST 시각을 써서
+   #1→#2 gap이 6.55s로 잘못 나옴(정답은 0.26s). 원인 파악 후 즉시
+   수정, 수정 후 값이 ChatGPT 문서가 인용한 "#1의 B가 0.26초 후
+   #2의 A로 이어짐"/"#4→#5도 0.7초 후"와 정확히 일치함을 재확인해
+   교차검증 완료.
+
+**실측 결과(핵심)**: FINDINGS.md 302차 표 참고.
+- 15건 전체에 대해 같은 route 내 시간 인접 쌍을 프로그램적으로
+  스캔한 결과, 연쇄 후보는 4쌍 전부 a3b3373495route 내부:
+  #1→#2(20.0m, NEXT_CURVE 경계), #4→#5(6.8m, SAME_CURVE),
+  #7→#8(9.5m, SAME_CURVE, **301차까지 명시되지 않았던 신규 식별**),
+  #9→#10(0.0m, SAME_CURVE).
+- horizontalAccuracy는 15건 전 구간 0.0(295차 기존 발견 재확인) --
+  GPS 품질 기반 강등은 이번 corpus에서 발동 불가.
+
+**중요 한계(§10/§28)**: "같은 물리적 커브"가 확인된 3쌍조차 301차가
+이미 밝힌 대로 B의 5초 생존을 완주하지 못했다(seamless switch
+근거로 바로 이어지지 않음, 별개 문제). SAME_CURVE/NEXT_CURVE
+임계값(15m/80m)은 이번 세션 신규 기준으로 기존 검증된 상수가
+아니다. #1→#2의 20.0m가 실투영 오차인지 실제 위치차인지는 이
+결과만으로 완전히 분리 불가.
+
+**검증**:
+- 정적 분석: 완료(py_compile/ast.parse 통과)
+- 로그 검증: 완료(route1~4 실 corpus + 실측 gpsLocation, 15/15
+  이벤트 좌표 산출 + 301차 대비 gap 값 교차검증 통과)
+- 시뮬레이션: 해당 없음(open-loop 좌표 계산, GPS 투영 자체의
+  실측 정확도 검증은 별도 미실시)
+- 실차 검증: 해당 없음(ANALYSIS_ONLY, `ryu` 코드 무변경, §29)
+
+**미확인/남은 것**:
+- #1→#2의 20.0m가 투영 오차인지 실제 위치차인지 추가 검증(예: 정지
+  랜드마크 대조로 투영 오차 자체를 정량화).
+- SAME_CURVE로 확인된 3쌍에 대해 "왜 B가 5초 생존을 완주하지 못하는가"
+  (301차부터 이월, 여전히 미해결).
+- A→LOST 경과시간 편차 원인 추적(301차부터 이월).
+- 코드 변경(`carrot_man.py`) 여전히 미착수 -- seamless switch 설계
+  검토는 이번 302차 근거를 갖고 다음 세션에서 논의(303차 후보), 이번
+  세션은 패치 보류 판단 유지.
+
+**Devnotes**:
+- `toolkit/sim_route_302_ab_gps_correlation.py`: 신규
+- `toolkit/README.md`/`CHANGELOG.md`: 갱신(신규 도구 등재, §22)
+- WIP/FINDINGS: 이 항목
+
+**다음 작업**:
+1. #1→#2 20.0m 판정 유보 건 -- 투영 오차 정량화 또는 추가 증거로
+   SAME_CURVE/DIFFERENT 확정(303차 후보)
+2. SAME_CURVE 3쌍의 B가 5초 생존을 못하는 원인 추적
+3. seamless switch 설계(코드 패치) 착수 여부 사용자 결정 대기 --
+   이번 302차 결과(4쌍 중 3쌍 SAME_CURVE)를 근거로 제시
+4. A→LOST 경과시간 편차 원인 추적(301차부터 이월)
+5. (293차부터 이월) ep108 클러스터링 코드 레벨 추적
+6. (294차부터 이월) ep47/48/101/105 패턴 코드 레벨 추적
+
+**패치**: `0001-302cha-devnotes.patch`
+
+---
+
 ## 301차 (완료 -- ANALYSIS_ONLY, devnotes toolkit 신규 스크립트 1개, `ryu` 본체 무변경) -- 300차 "lost" 15건 A→LOST→B 경계 계측: miss_frames=6 결정론적 확인, B 5초 생존율 0/15(real/noise 구분력 약함), #1→#2/#4→#5 연쇄 시간상 확인(GPS 대조는 여전히 미완)
 
 **Worker**: Claude
