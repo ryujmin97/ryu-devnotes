@@ -3,6 +3,18 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+## 2026-09-07 (304차)
+- `sim_route_304_navipaths_gap_audit.py`: **신규**. 303차가 발견한
+  naviPaths 2초대 프레임 점프 현상의 원인을 원본 CSV(build_frames()
+  필터링 이전) 직접 감사로 코드 레벨 확정. **핵심 결과:
+  `nRoadLimitSpeed<=0` 원인 후보는 완전 기각(0/80,046행). 대신
+  naviPointsActive/navdActive=True 유지된 채 naviPaths만 정확히
+  ~1.95초(39~40프레임)씩 비는 신규 하위유형을 route1~4 합계 65회
+  관측(182차형 dropout은 별도로 1건뿐) -- 거리 기반이 아니라 시간
+  기반(고정 주기) 현상. 원인 위치를 `get_path_after_distance()`의
+  `self.navi_points` 버퍼 소진 지점으로 좁힘.** 상세: WIP.md/
+  FINDINGS.md 304차.
+
 ## 2026-09-07 (303차)
 - `sim_route_303_ab_continuity_features.py`: **신규**. 302차가 GPS로
   확정한 SAME_CURVE 3쌍(#4→#5/#7→#8/#9→#10)에 대해 A/B 연속성

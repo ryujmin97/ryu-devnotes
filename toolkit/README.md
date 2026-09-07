@@ -4564,3 +4564,46 @@ naviPaths apex 거리값의 연속성은 "동일 물리 대상 여부" 판별 fe
 
 **사용**: `python3 sim_route_303_ab_continuity_features.py
 --csv-dir <dir> --gps-dir <dir>`
+
+## sim_route_304_navipaths_gap_audit.py (304차 신규, naviPaths 2초대 점프 원인 코드레벨 확정 + 신규 하위유형 발견)
+**목적**: 303차가 a3b3373495 #4→#5 구간에서 발견한 "naviPaths 기반
+프레임이 2초대로 점프"하는 현상(추정만 기록, 원인 미조사)을 원본
+CSV(build_frames() 필터링 이전)를 직접 감사해서 코드 레벨로 확정한다.
+
+**방법**: 300차 `build_frames()`의 두 skip 조건(naviPaths 빈 값/
+nRoadLimitSpeed<=0)을 원본과 100% 동일 로직으로 재현해 각 CSV 행에
+KEEP/DROP 사유를 부여하고, naviPaths가 일정 시간(기본 1.0s) 이상
+비어있는 run을 전부 나열한다. 182차 계측 필드(naviPointsActive/
+navdActive/dtRouteInactive/routeSource)를 함께 출력해 182차가 다룬
+"navi 파이프라인 자체의 dropout" 유형과 이번에 새로 발견된 유형을
+자동으로 구분한다.
+
+**핵심 결과**: route1~4(a3b3373495/01742d6c1c/bf794c0073/c8d2619479)
+전부에서 `nRoadLimitSpeed<=0`은 단 한 번도 발생하지 않음(0/80,046행) --
+303차가 추정한 두 원인 후보 중 이쪽은 이번 4개 route 기준으로 완전히
+기각. 대신 **naviPointsActive/navdActive가 True로 유지된 채로
+naviPaths만 정확히 ~1.95초(39~40프레임)씩 비는 현상**이 4개 route
+전체에서 65회 관측됨(182차형 dropout은 a3b3373495 로그 시작부 1건뿐,
+naviPointsActive=False). 속도 17~56kph 전 구간에서 지속시간이
+1.90~1.96s로 고정(추정 이동거리는 9~54m로 제각각) -- **거리 기반이
+아니라 시간 기반(고정 주기) 현상**임을 실측으로 확인. 코드 추적 결과
+`carrot_navi_route()`(carrot_man.py 897~923행)의 `navi_points_active`
+early-return 분기는 전부 통과하고, `get_path_after_distance()`(298행)가
+빈 path를 반환하는 지점(967행 `if path:`)이 유일하게 가능한 원인
+위치로 좁혀짐 -- 즉 navi 데이터 파이프라인(182차가 다룬 영역)이 아니라
+`self.navi_points` 버퍼 자체가 일정 주기로 순간적으로 고갈되는,
+182차와는 구별되는 신규 하위유형. 상세: FINDINGS.md 304차(182차
+항목에 교차참조 추가).
+
+**미확정(다음 계측 필요)**: `self.navi_points`/`navi_points_start_index`
+실제 값은 CSV에 없어 이번 세션에서는 코드 구조로만 추론 -- 정확한
+상위 트리거(TCP 7712 `handle_route()` 배치 수신 주기 등)를 확정하려면
+그 두 값 자체를 새 cereal 필드로 계측하는 패치가 필요(182차와 동일한
+"먼저 계측 추가 -> 다음 실차 로그로 재분석" 패턴).
+
+**입력**: `extract_log.py`로 뽑은 route CSV 아무거나(naviPaths/
+nRoadLimitSpeed/naviPointsActive/navdActive/dtRouteInactive/
+routeSource 컬럼 필요, 182차 이후 로그면 전부 포함됨).
+
+**사용**: `python3 sim_route_304_navipaths_gap_audit.py <route.csv>
+[--min-gap 1.0]`

@@ -1,3 +1,95 @@
+## 304차 (완료 -- ANALYSIS_ONLY, devnotes toolkit 신규 스크립트 1개, `ryu` 본체 무변경) -- 303차 naviPaths 2초대 프레임 점프 원인 코드레벨 확정, road_limit<=0 원인 기각, 182차형과 구별되는 신규 하위유형(65건) 발견 -- 상위 트리거(TCP 7712 배치 수신 주기 등)는 다음 세션 계측 필요
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu`(HEAD `d2f47d1`=290차, 변경 없음) /
+`ryu-devnotes`(HEAD `e6984f9`=303차, 이 항목 추가 전)
+
+**Branch**: `c3-ms-dev` / `main`
+
+**세션 시작 확인(§3/§33)**: fresh clone으로 양쪽 HEAD 직접 조회 --
+`ryu` `d2f47d1`(290차, 드리프트 없음), `ryu-devnotes` `e6984f9`(303차,
+드리프트 없음). 다른 작업자의 개입 흔적 없음을 확인 후 착수.
+
+**배경**: 303차가 a3b3373495 #4→#5 구간에서 "naviPaths 기반 프레임이
+2.05~2.07초 간격으로 3회 점프"하는 현상을 발견했으나, 원인은
+"`build_frames()`(300차)가 naviPaths 빈 값 또는 nRoadLimitSpeed<=0인
+행을 건너뛰기 때문으로 추정"이라고만 적고 코드 레벨로 확정하지
+않았다(FINDINGS.md 303차). 이번 세션은 그 추정을 원본 CSV 실측 +
+코드 추적으로 확정하는 것이 목표(§28: 추정 -> 실측 확정).
+
+**한 일**:
+1. 신규 `sim_route_304_navipaths_gap_audit.py` 작성(§22) -- 300차
+   `build_frames()`의 두 skip 조건(naviPaths 빈 값 / nRoadLimitSpeed
+   <=0)을 원본과 100% 동일 로직으로 재현해 각 CSV 행에 KEEP/DROP
+   사유를 부여하고, naviPaths가 일정 시간(기본 1.0s) 이상 비어있는
+   구간을 전부 나열. 182차 계측 필드(naviPointsActive/navdActive/
+   dtRouteInactive/routeSource)를 함께 출력해 182차형 dropout과
+   신규 현상을 자동 구분.
+2. route1~4(a3b3373495/01742d6c1c/bf794c0073/c8d2619479) 전체
+   80,046행에 대해 실행.
+3. `carrot_man.py` 재확인 -- `carrot_navi_route()`(897~923행)의
+   `navi_points_active` early-return 분기 3곳, `get_path_after_
+   distance()`(298행) 정의, `self.navi_points` 대입/초기화 지점
+   전수 grep(§30: git log -> 변경 함수 -> 호출자 순으로 확장하는
+   대신, 이번엔 이미 아는 함수 내부를 좁혀서 추적).
+4. 이번 세션 컨테이너에서는 route_bf794c0073.csv 실물만 재확보
+   가능했음 -- 해당 route로 스크립트를 재실행해 직전(동일 대화
+   내 이전 컨테이너) 결과와 완전히 동일한 출력(구간 4개, 시각/
+   avg_vEgo/naviPointsActive 전부 일치)을 재현함을 자체 검증
+   (a3b3373495/01742d6c1c/c8d2619479 수치는 직전 컨테이너에서
+   동일 스크립트로 이미 실측된 값을 그대로 인용).
+
+**실측 결과(핵심)**: FINDINGS.md 304차 참고.
+- `nRoadLimitSpeed<=0`은 route1~4 전체(80,046행)에서 **단 한 번도
+  발생하지 않음** -- 303차가 추정한 두 원인 후보 중 이쪽은 완전히
+  기각.
+- naviPaths가 비는 현상은 명확히 두 유형으로 갈린다:
+  - **182차형**(`naviPointsActive=False`): a3b3373495 로그 시작부
+    76.99초(t=135.6~212.6) 1건뿐.
+  - **신규 하위유형**(`naviPointsActive=True`/`navdActive=True`/
+    `dtRouteInactive=0.0` 유지, 182차 계측 기준 "정상"인데도
+    naviPaths만 빔): route1~4 합계 **65건**(a3b3373495 37건/
+    01742d6c1c 17건/bf794c0073 4건/c8d2619479 7건). 지속시간이
+    **17~56kph 전 속도 범위에서 항상 1.90~1.96초(39~40프레임)로
+    고정** -- 이동거리는 9~54m로 제각각이라 **거리 기반이 아니라
+    시간 기반(고정 주기) 현상**임을 실측으로 확인. 303차가 발견한
+    #4→#5 점프가 바로 이 유형의 3연속 사례.
+- 코드 추적: `navi_points_active` early-return(897행) 분기는
+  `naviPointsActive=True` 구간에서는 통과되므로 원인이 아니다.
+  `carrot_navi_route()`가 실제로 빈 결과를 반환할 수 있는 남은
+  지점은 `get_path_after_distance()`(298행)가 만드는 `path`가
+  비었을 때(967행 `if path:` 분기) -- 즉 `self.navi_points` 버퍼
+  자체가 순간적으로 고갈되는 지점으로 원인 위치가 좁혀짐. 182차가
+  계측한 "navi 데이터 파이프라인" 상위 단계와는 구별되는, 한 단계
+  더 안쪽(버퍼/윈도우 관리)의 실패모드.
+
+**중요 한계(§28)**:
+- `self.navi_points`/`navi_points_start_index`의 실제 런타임 값은
+  CSV에 없어 이번 세션에서는 코드 구조 추론까지만 진행 -- 상위
+  트리거(TCP 7712 `handle_route()` 배치 수신 주기, 세그먼트 경계
+  등)를 확정하려면 그 두 값 자체를 새 cereal 필드로 계측하는 패치가
+  필요(182차와 동일 패턴: 계측 추가 -> 다음 실차 로그로 재분석).
+- 정적 분석 + 로그 실측(4개 route CSV)만 수행 -- **실차 검증: 미실시**.
+- 이 현상이 300~303차가 다뤄온 route 상태머신(ACTIVE/INERT, RELEASE
+  판정 등)의 판단 결과 자체를 얼마나 왜곡하는지는 이번 세션에서
+  정량화하지 않음 -- 303차 `miss_frames`/`B_survive` 류 지표 해석에
+  이번 발견을 반영하는 것은 다음 세션 과제.
+
+**미확인/다음 작업**:
+1. `self.navi_points` 버퍼 소진 상위 트리거 확정(신규 cereal 계측
+   패치 필요).
+2. 65건 신규 하위유형이 300~303차 route 연속성 분석 결론(특히
+   303차 "naviPaths apex 거리값 연속성은 판별 feature로 부적합할
+   가능성" 관찰)에 미치는 영향 재평가.
+3. STEP3(LOST 재정의 설계)/STEP4/STEP5(303차에서 이월된 counterfactual)
+   -- 이번 세션도 착수하지 않음, 여전히 다음 세션 과제.
+
+**범위**: `ryu` 코드 변경 없음(분석만) + `toolkit/
+sim_route_304_navipaths_gap_audit.py` 신규, README/CHANGELOG 갱신.
+
+---
+
 ## 303차 (완료 -- ANALYSIS_ONLY, devnotes toolkit 신규 스크립트 1개, `ryu` 본체 무변경) -- 302차 SAME_CURVE 3쌍(#4→#5/#7→#8/#9→#10) 프레임 단위 상세 추적 + A/B 연속성 feature 정량화(Δdist/Δspeed/ΔGPS_bearing 신규), "B 승계 조건"은 이번 표본만으로는 불확정 -- counterfactual(STEP5)/LOST 재정의(STEP3~4)는 다음 세션으로 이월
 
 **Worker**: Claude
