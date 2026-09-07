@@ -1,3 +1,87 @@
+## 295차 (완료 -- 코드 변경 있음: `ryu-devnotes/toolkit/extract_log.py`만, `ryu` 본체 무변경) -- 294차 대기 항목(b) 착수: `extract_log.py`에 `horizontalAccuracy` 컬럼 추가 + 실 corpus 검증 -- 이 디바이스(`source=qcomdiag`)는 해당 필드를 항상 0.0으로만 발행해 터널 가설 재검증에 사용 불가로 확인(부정적이지만 확정적 결론)
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu`(HEAD `d2f47d1`=290차, 변경 없음, fresh clone
+드리프트 없음 확인) / `ryu-devnotes`(HEAD `ad36b2e`=293차 기준 -- 294차
+패치는 아직 사용자 push 전이라 이 세션도 293차 HEAD에서 시작, 294차
+내용은 로컬에 그대로 유지한 채 이어서 작업)
+
+**Branch**: `c3-ms-dev` / `main`
+
+**세션 시작 확인(§3)**: `ryu` fresh clone, HEAD 드리프트 없음.
+`ryu-devnotes`는 293차 HEAD(`ad36b2e`) -- 294차 patch가 아직 사용자
+push 전 상태임을 확인, 다른 작업자 push 없음.
+
+**배경**: 294차가 남긴 다음 작업 후보 중 사용자가 **(b)
+`horizontalAccuracy` 컬럼 추가**를 선택.
+
+**한 일**:
+1. `cereal/log.capnp`에서 `GpsLocationData.horizontalAccuracy@6`
+   (Float32, "expected horizontal accuracy in meters") 필드 확인.
+2. `extract_log.py`에 `horizontalAccuracy` 컬럼 추가(§27 최소변경 --
+   `gpsLocation` 이벤트만 신규 구독, `carrotMan` row에 carry-over 방식
+   으로 실어보냄. `process_segment()`/`main()` 시그니처에 `carry_gps`/
+   `last_gps` 스레딩 추가). 신규 rlog 판독 로직 없이 `decode_rlog.
+   iter_events()`가 이미 열어보는 이벤트 스트림에서 새 `w=="gpsLocation"`
+   분기만 추가 -- 기존 컬럼/로직 무변경.
+3. route1 재추출로 스모크 테스트: 22801행, 기존 결과와 정확히 일치
+   (컬럼 추가가 다른 필드에 영향 없음 확인).
+4. 터널(ep9/ep10, t=525~545) vs 개활 고속도로(ep12~15 t=570~590,
+   ep46 t=1160~1180) 세 구간에서 `horizontalAccuracy` 비교 -- **전
+   구간 예외 없이 0.0**. raw capnp 이벤트를 직접 대조해 이것이
+   추출기 버그가 아님을 확인(`verticalAccuracy`/`speedAccuracy`는
+   프레임마다 실제로 다른 값을 가짐, `hasFix=True`, `satelliteCount=0`
+   고정, `source=qcomdiag`). route1~4 전체를 샘플링해도 동일 패턴
+   -- 이 콤마3X 디바이스의 GPS 소스(`qcomdiag`)가 이 필드를 애초에
+   채우지 않는 것으로 결론.
+
+**핵심 발견 -- 터널 가설 재검증 결과 (부정적, 확정적)**: 293차가
+"증거 불충분으로 확인도 기각도 못 함"으로 보류했던 터널 가설을,
+계획했던 `horizontalAccuracy` 지표로는 **재검증 자체가 불가능**하다는
+것이 이번 세션의 결론이다. 데이터가 애매해서가 아니라 이 하드웨어가
+그 필드를 아예 발행하지 않기 때문(0.0 상수) -- "열화가 없다"와
+"열화가 있어도 이 지표로는 안 보인다"의 구분을 293차보다 더
+명확하게 좁혔다: 이제는 "이 특정 지표(horizontalAccuracy)로는
+원천적으로 안 보인다"로 확정.
+
+**부수 관찰(탐색적, 미검증 -- 후속 작업 후보)**: 같은 대조에서
+`speedAccuracy`는 터널 구간(mean=0.40, max=2.39, n=14)이 개활
+구간(mean=0.07~0.08, max=0.08~0.30, n=20)보다 뚜렷이 높게 나타남.
+표본이 route1 1개 구간·건수도 14~20건으로 매우 작아 결론을 낼 수준은
+아니지만, `verticalAccuracy`/`speedAccuracy`는 이 디바이스에서
+실제로 값이 변하므로 향후 GPS 열화 프록시로 시도해볼 여지가 있음
+(코드/파라미터 변경 없음, 관찰만 기록 -- §28 "재현조건" 단계 이전).
+
+**Devnotes**:
+- `toolkit/extract_log.py`: `horizontalAccuracy` 컬럼 추가 (코드 diff
+  아래 패치 참고)
+- `toolkit/CHANGELOG.md`: 295차 항목 추가(§22)
+- `toolkit/README.md`: 미변경 -- `extract_log.py`는 기존에도 별도
+  README 섹션 없이 자체 docstring으로만 문서화되는 관례라 이번에도
+  동일 관례 유지(§22의 "새 도구 추가" 케이스는 아니고 "기존 도구 컬럼
+  추가"이나, CHANGELOG로 충분히 추적 가능하다고 판단)
+- WIP/FINDINGS: 이 항목
+
+**검증**: 정적 분석(schema 필드 존재 확인) 완료 / 스모크 테스트(행수
+불변 확인) 완료 / 실 corpus 3구간 대조 완료(raw capnp 이벤트 직접
+확인 포함) / 실차 검증 -- 해당 없음(계측 전용, §29 참고 -- 애초에
+`ryu` 본체 미변경이라 실차 거동에 영향 없음).
+
+**미확인/남은 것**:
+- (293차부터 이월) ep108 클러스터링 코드 레벨 추적
+- (294차부터 이월) ep47/48/101/105 "직선인데 candidate 발생" 패턴을
+  `route_find_clusters()` 코드 레벨로 추적
+- (신규) `speedAccuracy`/`verticalAccuracy`를 GPS 열화 프록시로 쓸
+  가치가 있는지, 있다면 CSV 컬럼으로 추가할지는 사용자 결정 필요
+  (탐색적 관찰 하나뿐이라 지금 바로 코드에 반영하지 않음, §28)
+- 294차의 "36건 vs 35건" 카운트 불일치 원인 확인 (여전히 미해결)
+- **294차 patch가 아직 사용자에 의해 push되지 않은 상태** -- 이번
+  295차 patch를 294차 patch보다 먼저 적용하면 순서가 꼬이므로, 아래
+  사용자 작업에 순서를 명시함.
+
+---
+
 ## 294차 (완료 -- ANALYSIS_ONLY, ryu 코드 변경 없음) -- 293차 미완료 항목(a) 완료: `lost_no_candidate` 나머지 28건 qcamera 육안 대조 전부 완료, 35건 전체 집계 결과 과반(18/35)이 화면상 커브 없음으로 확인 -- 289차 "continuity 소실" 우려의 무게중심이 route candidate 소스(맵 곡률 데이터) 노이즈 쪽으로 이동
 
 **Worker**: Claude

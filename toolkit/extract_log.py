@@ -17,7 +17,8 @@ CSV 컬럼:
     vEgo, aEgo, brakePressed, gasPressed, cruiseEnabled, vCruise, vCruiseCluster,
     steeringAngleDeg, desiredCurvature,
     leadStatus, leadDRel, leadVRel, leadVLead,
-    src, desiredSpeed, vTurnSpeed
+    src, desiredSpeed, vTurnSpeed,
+    horizontalAccuracy (295차 신규, gpsLocation.horizontalAccuracy, 미터)
 
 또한 <out.csv> 옆에 <out.csv>.meta.json 파일을 같이 생성한다.
 여기에는 추출 당시의 repo commit hash / branch / commit 날짜·메시지,
@@ -66,6 +67,7 @@ FIELDNAMES = [
     "ccYawDeg", "ccYawRateZ", "ccPoseValid",
     "vpPosPointLatNavi", "vpPosPointLonNavi", "dtNaviPacketAge", "positionDtSinceFix",
     "naviPointsActive", "navdActive", "dtRouteInactive", "routeSource",
+    "horizontalAccuracy",
     "routeApexIdx", "routeApexDist", "routeApexSpeed", "routeOutSpeed",
     "routeCandidateCount",
     "routeCandidate0Idx", "routeCandidate0Dist", "routeCandidate0Speed",
@@ -73,6 +75,20 @@ FIELDNAMES = [
     "routeCandidate2Idx", "routeCandidate2Dist", "routeCandidate2Speed",
     "nRoadLimitSpeed",
 ]
+# 2026-09-07 추가(295차): gpsLocation.horizontalAccuracy(cereal/log.capnp
+# GpsLocationData@6, Float32, 미터 단위 예상 수평오차) -- 293차가 터널
+# 가설(ep9/ep10)을 검증하려다 "GPS 정확도 자체는 직접 볼 수 없다"는 gap
+# 때문에 확인/기각 모두 못 하고 보류한 항목. carrotMan(20Hz)과 달리
+# gpsLocation은 별도 주기로 발행되는 독립 이벤트라 last_gps carry-over
+# 패턴(leadStatus 등과 동일)으로 처리 -- carrotMan row가 찍힐 때 가장
+# 최근 수신한 gpsLocation 값을 그대로 실어 보낸다. **패치 적용 이전 로그
+# (route1~4 포함, 293/294차 corpus)에는 이 컬럼이 없으므로 터널 가설
+# 재검증을 위해서는 동일 구간을 재추출해야 함** -- 기존 CSV에 소급 적용
+# 안 됨 (231차/234차 계속5와 동일한 성격의 제약).
+# 참고: GpsLocationData에는 hasFix/satelliteCount(GPS 위성 고정 여부/개수)
+# 필드도 존재하나, 이번 요청 범위(horizontalAccuracy)를 벗어나 이번엔
+# 추가하지 않음(§27 최소변경) -- horizontalAccuracy만으로 터널 구간
+# 판별력이 부족하면 다음 세션에서 hasFix/satelliteCount 추가를 검토할 것.
 # 2026-09-04 추가(234차 계속5): carrotMan.nRoadLimitSpeed -- cereal/custom.capnp
 # 확인 결과 CarrotMan 구조체에 nRoadLimitSpeed@1 : Int32로 이미 존재하고
 # carrot_serv.py에서 실제로 채워지는 값(맵 제한속도)인데, 이 CSV 추출기
@@ -290,7 +306,7 @@ def get_repo_git_info(repo_dir):
 
 def process_segment(rlog_path, seg_name, repo_dir, max_mb, commit_short="",
                      carry_cs=None, carry_ctrl=None, carry_lead=None, carry_lat=None,
-                     carry_model=None, carry_pose=None, with_navi_paths=False):
+                     carry_model=None, carry_pose=None, carry_gps=None, with_navi_paths=False):
     """
     carry_cs/carry_ctrl/carry_lead: 이전 세그먼트에서 넘어온 마지막 상태.
     None이면 이 세그먼트가 라우트의 첫 세그먼트라는 뜻으로 기본값 사용.
@@ -323,6 +339,9 @@ def process_segment(rlog_path, seg_name, repo_dir, max_mb, commit_short="",
     }
     last_pose = dict(carry_pose) if carry_pose is not None else {
         "ccYawDeg": "", "ccYawRateZ": "", "ccPoseValid": "",
+    }
+    last_gps = dict(carry_gps) if carry_gps is not None else {
+        "horizontalAccuracy": "",
     }
     rows = []
     for evt in iter_events(rlog_path, repo_dir=repo_dir, max_output_mb=max_mb):
@@ -372,6 +391,9 @@ def process_segment(rlog_path, seg_name, repo_dir, max_mb, commit_short="",
                 "ccYawRateZ": avl[2] if pose_valid else "",
                 "ccPoseValid": pose_valid,
             }
+        elif w == "gpsLocation":
+            gl = evt.gpsLocation
+            last_gps = {"horizontalAccuracy": gl.horizontalAccuracy}
         elif w == "radarState":
             lo = evt.radarState.leadOne
             if lo.status:
@@ -411,6 +433,7 @@ def process_segment(rlog_path, seg_name, repo_dir, max_mb, commit_short="",
                 "navdActive": cm.navdActive,
                 "dtRouteInactive": cm.dtRouteInactive,
                 "routeSource": str(cm.routeSource),
+                "horizontalAccuracy": last_gps["horizontalAccuracy"],
                 "routeApexIdx": cm.routeApexIdx,
                 "routeApexDist": cm.routeApexDist,
                 "routeApexSpeed": cm.routeApexSpeed,
@@ -427,7 +450,7 @@ def process_segment(rlog_path, seg_name, repo_dir, max_mb, commit_short="",
                 "routeCandidate2Speed": cm.routeCandidate2Speed,
                 "nRoadLimitSpeed": cm.nRoadLimitSpeed,
             })
-    return rows, last_cs, last_ctrl, last_lead, last_lat, last_model, last_pose
+    return rows, last_cs, last_ctrl, last_lead, last_lat, last_model, last_pose, last_gps
 
 
 def main():
@@ -466,14 +489,16 @@ def main():
         sys.exit(1)
 
     all_rows = []
-    carry_cs, carry_ctrl, carry_lead, carry_lat, carry_model, carry_pose = None, None, None, None, None, None
+    carry_cs, carry_ctrl, carry_lead, carry_lat, carry_model, carry_pose, carry_gps = \
+        None, None, None, None, None, None, None
     for seg in seg_dirs:
         rlog_path = os.path.join(args.route_dir, seg, "rlog.zst")
-        rows, carry_cs, carry_ctrl, carry_lead, carry_lat, carry_model, carry_pose = process_segment(
+        rows, carry_cs, carry_ctrl, carry_lead, carry_lat, carry_model, carry_pose, carry_gps = process_segment(
             rlog_path, seg, args.repo, args.max_mb,
             commit_short=git_info["commit_short"] or "",
             carry_cs=carry_cs, carry_ctrl=carry_ctrl, carry_lead=carry_lead, carry_lat=carry_lat,
-            carry_model=carry_model, carry_pose=carry_pose, with_navi_paths=args.with_navi_paths,
+            carry_model=carry_model, carry_pose=carry_pose, carry_gps=carry_gps,
+            with_navi_paths=args.with_navi_paths,
         )
         all_rows.extend(rows)
         print(f"done {seg}: {len(rows)} rows ({len(all_rows)} total)")

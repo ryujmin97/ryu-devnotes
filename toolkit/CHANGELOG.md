@@ -3,6 +3,23 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+## 2026-09-07 (295차)
+- `extract_log.py`: **컬럼 추가**. `gpsLocation.horizontalAccuracy`
+  (cereal/log.capnp GpsLocationData@6, Float32) 컬럼 신규 -- 293차가
+  터널 가설(ep9/ep10) 검증 중 "GPS 정확도를 직접 볼 수 없다"며 보류한
+  gap 해소용. `carrotMan`(20Hz)과 별개 주기로 발행되는 이벤트라
+  기존 leadStatus 등과 동일한 carry-over 패턴으로 처리(`process_segment`
+  시그니처에 `carry_gps`/리턴값 `last_gps` 추가, `main()` 스레딩 갱신).
+  **실측 결과(부정적, 중요): 이 corpus(route1~4, C3X, `source=qcomdiag`)
+  전 구간에서 `horizontalAccuracy`가 항상 0.0으로 확인됨(스키마/디코딩
+  버그 아님 -- raw capnp 이벤트 직접 대조로 확인)** -- 이 GPS 소스가
+  해당 필드를 채우지 않는 것으로 보임(`satelliteCount`도 항상 0,
+  `hasFix`는 항상 True로 고정, 반면 `verticalAccuracy`/`speedAccuracy`는
+  실제로 값이 변함). 따라서 **터널 가설을 `horizontalAccuracy`로
+  재검증하는 것은 이 하드웨어/빌드에서는 불가능** -- 다른 GPS
+  소스(ublox 등)를 쓰는 디바이스라면 값이 채워질 수 있음. 상세:
+  WIP.md/FINDINGS.md 295차.
+
 ## 2026-09-06 (292차)
 - `sim_route_292_continuity_root_cause.py`: **신규**. 289차가
   `apex_lost_or_new(continuity)`로 뭉뚱그린 원인을 production
