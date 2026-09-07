@@ -1,3 +1,112 @@
+## 300차 (완료 -- ANALYSIS_ONLY, devnotes toolkit 신규 스크립트 1개, `ryu` 본체 무변경) -- ChatGPT 제안(사용자 검토 지시): 강제 RELEASE의 counterfactual 비교 -- 15/15 전부 `mode="lost"`("passed" 0건), a3b3373495는 실제/가상 차이 거의 없음, 01742d6c1c·c8d2619479 real_curve 4건은 counterfactual이 더 감속했을 것으로 나타남(단, open-loop 한계 있음)
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu`(HEAD `d2f47d1`=290차, 변경 없음) /
+`ryu-devnotes`(HEAD `fd022ac`=299차, 이 항목 추가 전)
+
+**Branch**: `c3-ms-dev` / `main`
+
+**세션 시작 확인(§3)**: 양쪽 저장소 fresh clone으로 HEAD 확인 --
+`ryu` `d2f47d1`(드리프트 없음), `ryu-devnotes` `fd022ac`(299차
+그대로). HANDOFF/CURRENT_STATUS 없음(관례). 사용자가 route1~4 zip/csv/
+meta.json을 재업로드 -- meta.json의 commit(`d2f47d1`)/n_rows가 297~299차
+corpus와 정확히 일치함을 재확인(신규 corpus 아님).
+
+**배경**: 사용자가 처음 "qcamera 표본 확대"를 요청했으나, 297차
+스크립트가 결정론적이라 동일 corpus에서는 정확히 같은 15건만
+재검출됨을 확인하고 확대 방향(다른 RELEASE 유형 포함/파라미터 변경/
+신규 corpus 확보)을 먼저 질문함. 그 사이 사용자가 **ChatGPT와의
+협업 세션 결과물(300차 진행 방향 제안)**을 제시하고 "상기 내용으로
+검토"를 지시함 -- ChatGPT 제안 요지: "새 candidate(B)의 진위를
+판별"하는 방향 대신, "현재 강제 RELEASE(`apex_mode in
+('passed','lost','new')`)가 실제로 잘못된 RELEASE였는가"를 먼저
+counterfactual로 증명하자는 것. `passed`/`lost`를 분리 통계 내고,
+`0.9 게이트`/decel_rate 변경/RELEASE_HOLD 복원 등은 전부 보류하자는
+제안 포함.
+
+**한 일**:
+1. ChatGPT 제안의 전제를 원격 코드로 직접 재검증(§33 -- 다른 AI의
+   주장을 그대로 반영하지 않음): `carrot_man.py` 735~808행
+   (`_route_cluster_continuity_step`)과 1174~1324행(ACTIVE/INERT
+   판정)을 재확인 -- "passed/lost 판정 시 같은 프레임에 새 apex를
+   이미 재탐색했어도 mode 문자열만 보고 무조건 RELEASE"라는 주장이
+   805행 `(reset_reason or "new")`(reset_reason이 "passed"/"lost"면
+   그 값 그대로 반환) + 1217행 `apex_passed_or_lost = apex_mode in
+   ("passed","lost","new")` 조합과 정확히 일치함을 확인. `git log -L`로
+   `ROUTE_RELEASE_HOLD_S 2.0->0.0`이 282차에서 바뀐 것도 확인(주장과
+   일치).
+2. 기존 toolkit 확인(§21) -- 296/297차 판정 로직을 그대로 재사용하되
+   "실제 vs counterfactual" 이중 판정 레이어를 동시에 재생하는 도구는
+   없음을 확인, 신규 작성 결정(§22).
+3. 신규 `sim_route_300_release_boundary_counterfactual.py` 작성 --
+   `ContinuityState`/`route_find_clusters`(296차)는 무변경 재사용,
+   그 위에 `ActualLayer`(원본 판정 그대로)/`CounterfactualLayer`
+   (`apex_passed_or_lost` 항만 제거) 두 판정 레이어를 얹어 동일
+   continuity 스트림을 공유하며 재생. 정적 검증: `py_compile`+
+   `ast.parse` 통과.
+4. route1~4 CSV(297~299차와 동일 corpus) 전체 실행 -- 15/15 전부
+   재검출(결정론적, 297차와 동일 이벤트).
+
+**실측 결과(핵심)**: FINDINGS.md 300차 표 참고.
+1. **15/15 전부 `mode="lost"`, `"passed"`는 0건** -- "A가 실제로
+   apex를 통과했는데 강제 RELEASE"되는 사례는 이 corpus에 없음.
+2. a3b3373495 route 10건: 실제/counterfactual 5초 창 내 명령 속도
+   차이 사실상 0(≤0.1kph, 예외 없음).
+3. 01742d6c1c/c8d2619479의 real_curve 4건(#11~14): counterfactual이
+   실제보다 최대 6.9kph 더 낮은 속도를 명령했을 것으로 나타남.
+
+**중요 한계(§28/§29, 반드시 인지)**: 이 스크립트는 **open-loop
+재생**이다 -- 실제 기록된 vEgo 이력을 A/B 두 레이어에 동일하게
+입력하고 "그 순간 각 정책이 낼 명령"만 비교하므로, counterfactual이
+실제 적용됐을 때의 진짜 폐루프 차량 궤적이 아니다. `actual_gap=None`
+(미재진입) 구간은 route가 완전히 침묵하는데 그 시간 실제 차량 거동은
+스크립트 범위 밖(vTurn 등, 미모델링). 이 결과만으로 "강제 RELEASE가
+해롭다/무해하다"를 확정하지 않는다.
+
+**검증**:
+- 정적 분석: 완료(py_compile/ast.parse 통과)
+- 로그 검증: 완료(route1~4 실 corpus, 15/15 이벤트 재현 + qcamera
+  정답 라벨 15/15 결합 성공)
+- 시뮬레이션: 해당 없음(open-loop 재생, 위 한계 참고)
+- 실차 검증: 해당 없음(ANALYSIS_ONLY, `ryu` 코드 무변경, §29)
+
+**미확인/남은 것**:
+- open-loop 한계상 "진짜 반사실적 궤적"은 여전히 모름 -- 폐루프
+  검증(실차 또는 차량 동역학 시뮬레이션)이 있어야 확정 가능.
+- `actual_gap=None`(과반) 구간의 실제 차량 거동(다른 제어 레이어) 미상.
+- ChatGPT 제안의 "counterfactual" 정의가 이번 구현(강제 RELEASE 조건
+  단순 제거)과 완전히 같은지는 사용자/ChatGPT 재확인 필요 -- 신뢰도
+  게이트 없이 "무조건 계속 추적"으로 구현했음을 명시.
+- `passed`가 0/15로 전무하다는 결과가 다른 corpus에서도 재현되는지는
+  미확인(표본이 여전히 이 4개 route로 한정).
+- 코드 변경(`carrot_man.py`) 여전히 미착수 -- ChatGPT 제안대로 이번
+  세션도 관측만, 패치는 보류.
+
+**Devnotes**:
+- `toolkit/sim_route_300_release_boundary_counterfactual.py`: 신규
+- `toolkit/README.md`/`CHANGELOG.md`: 갱신(신규 도구 등재, §22)
+- WIP/FINDINGS: 이 항목
+
+**다음 작업**:
+1. open-loop 한계를 넘는 방법(폐루프 재현 또는 실차 검증) 검토
+2. `actual_gap=None` 구간의 실제 거동을 알 방법이 있는지(다른 CSV
+   컬럼, vTurn 로그 등) 확인
+3. ChatGPT/사용자와 counterfactual 정의(신뢰도 게이트 포함 여부 등)
+   재확인 후 필요시 재계산
+4. qcamera 육안 대조 표본 확대는 여전히 미해결 -- 사용자가 이전에
+   제시한 3방향(A: 다른 RELEASE 유형 포함/B: 파라미터 변경/C: 신규
+   corpus 확보) 중 방향 결정 대기
+5. (293차부터 이월) ep108 클러스터링 코드 레벨 추적
+6. (294차부터 이월) ep47/48/101/105 패턴 코드 레벨 추적
+7. (298차부터 이월) #1/#2, #4/#5, #9/#10 GPS 좌표 대조로 "동일 물리적
+   커브 재탐색 2회" 가설 확정
+
+**패치**: `0001-300cha-devnotes.patch`(299차 patch 위에 순서대로 적용
+필요 -- 아래 사용자 작업 순서 참고)
+
+---
+
 ## 299차 (완료 -- ANALYSIS_ONLY, devnotes toolkit 신규 스크립트 1개, `ryu` 본체 무변경) -- 298차 qcamera 정답 15건에 candidate 신뢰도 진단 지표 4종 적용: `cluster_size`만 약한 방향성(노이즈 상한 3, real 일부만 6/9), 나머지 3개는 가설과 반대이거나 구분력 없음 -- 단일 임계값 게이트 설계 근거 부족
 
 **Worker**: Claude

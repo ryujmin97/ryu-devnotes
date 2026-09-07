@@ -1,3 +1,86 @@
+## 300차 -- [실측 확정, open-loop 한계 있음] 강제 RELEASE(apex_mode in passed/lost/new) counterfactual 비교 -- 15/15 전부 mode="lost"("passed" 0건), a3b3373495 10건은 실제/가상 차이 없음, 01742d6c1c·c8d2619479 real_curve 4건은 counterfactual이 더 감속했을 것으로 나타남
+
+**배경**: ChatGPT가 협업 세션에서 "candidate 진위 판별" 대신 "현재
+강제 RELEASE가 실제로 손실을 만들었는가"를 먼저 증명하자고 제안,
+사용자가 검토 지시. 착수 전 제안의 코드 근거(`carrot_man.py`
+735~808행/1174~1324행, `ROUTE_RELEASE_HOLD_S=0.0`)를 직접 재확인해
+정확함을 확인(§33).
+
+**한 일**: 신규 `sim_route_300_release_boundary_counterfactual.py`가
+296/297차 `ContinuityState`/`route_find_clusters`(무변경)를 공유
+스트림으로 두고, 그 위에 `ActualLayer`(1217행 원본 그대로: `passed/
+lost/new` 무조건 RELEASE)와 `CounterfactualLayer`(같은 조건에서
+`passed/lost/new` 항만 제거, `speed_reached`/`dist_reached`만
+RELEASE 사유로 남김)를 나란히 재생. 297차와 동일 corpus(route1~4)에서
+15/15 이벤트 재현(결정론적).
+
+**실측 결과**:
+
+| # | route | t | label | mode | v0(kph) | actual_gap | actual_min | cf_min | cf_max_decel |
+|---|---|---|---|---|---|---|---|---|---|
+| 1 | a3b3373495 | 319.06 | real_curve | lost | 99.1 | 0.10s | 98.4 | 98.4 | 0.7 |
+| 2 | a3b3373495 | 325.61 | real_curve | lost | 97.3 | 3.85s | 92.9 | 92.9 | 4.4 |
+| 3 | a3b3373495 | 536.76 | no_curve | lost | 99.3 | 0.31s | 92.3 | 92.3 | 7.0 |
+| 4 | a3b3373495 | 578.36 | unclear | lost | 96.2 | 0.20s | 96.0 | 95.9 | 0.2 |
+| 5 | a3b3373495 | 585.36 | weak_curve | lost | 97.9 | None | 94.2 | 94.2 | 3.8 |
+| 6 | a3b3373495 | 749.11 | real_curve | lost | 65.3 | None | 57.9 | 57.9 | 7.5 |
+| 7 | a3b3373495 | 1001.06 | no_curve | lost | 64.6 | 0.05s | 62.1 | 62.1 | 2.5 |
+| 8 | a3b3373495 | 1006.76 | no_curve | lost | 60.3 | None | 55.3 | 55.3 | 5.0 |
+| 9 | a3b3373495 | 1225.81 | no_curve | lost | 71.3 | 0.05s | 71.3 | 71.3 | 0.1 |
+| 10 | a3b3373495 | 1228.31 | no_curve | lost | 74.0 | None | 71.4 | 71.4 | 2.6 |
+| 11 | 01742d6c1c | 1804.36 | real_curve | lost | 64.3 | None | 66.9 | 64.3 | 0.0 |
+| 12 | 01742d6c1c | 2144.71 | real_curve | lost | 66.9 | 4.80s | 73.8 | 66.9 | 0.0 |
+| 13 | 01742d6c1c | 2232.82 | real_curve | lost | 55.1 | None | 59.2 | 55.1 | 0.0 |
+| 14 | c8d2619479 | 2517.51 | real_curve | lost | 36.3 | 2.40s | 39.4 | 36.3 | 0.0 |
+| 15 | bf794c0073 | 3961.06 | unclear | lost | 53.9 | None | 52.2 | 52.2 | 1.7 |
+
+(`v0`=이벤트 프레임 vEgo, `actual_gap`=실제 트랙이 5초 창 내 재진입한
+시각, `actual_min`/`cf_min`=5초 창 내 각 트랙이 낸 최저 명령속도,
+`cf_max_decel`=v0 대비 counterfactual 최대 감속량)
+
+**핵심 관찰**:
+1. **15/15 전부 `mode="lost"`, `"passed"`는 0건.** ChatGPT가 우려한
+   "A가 실제로 apex를 통과(predicted<=0)했는데 강제 RELEASE"되는
+   경우는 이 4개 route corpus에 한 건도 없다 -- 전부 "추적을 순간
+   놓침"(miss_frames 초과) 유형.
+2. **a3b3373495 route(#1~10)**: label과 무관하게 실제(actual_min)와
+   counterfactual(cf_min) 결과가 사실상 동일(diff ≤0.1kph, 10건 전부).
+   이 route에서는 강제 RELEASE 유무가 5초 창 내 "route가 실제로 낸
+   명령 속도"에는 거의 영향을 주지 않았다.
+3. **01742d6c1c/c8d2619479 real_curve 4건(#11~14)**: `cf_max_decel`이
+   전부 0.0인데도 `actual_min`이 `v0`보다 오히려 **높다**(#12는 v0
+   66.9 -> actual_min 73.8, +6.9kph) -- 이는 counterfactual이 v0
+   근처에서 거의 정지 상태로 유지된 반면(감속도 거의 없이 유지),
+   **실제(기록된) vEgo는 강제 RELEASE 이후 오히려 상승**했다는 뜻이다.
+   즉 이 4건에서 강제 RELEASE는 "route가 계속 그 속도를 유지하도록
+   압박하는 효과"를 없앴고, 실측 기록상 차량은 그 이후 가속했다.
+
+**중요 한계(반드시 함께 인지, §28/§29)**:
+- **open-loop 재생이다.** A/B 두 레이어에 동일한(실제 기록된) vEgo
+  이력을 입력하고 "그 순간 각 정책이 어떤 명령을 냈을지"만 비교한다.
+  counterfactual 정책이 실제로 차량에 적용됐다면 그 순간부터 vEgo
+  자체가 달라졌을 것이므로(폐루프 피드백 없음), 이 결과는 진짜
+  반사실적 차량 궤적이 아니다. 3번 관찰의 "actual_min이 v0보다 높다"는
+  것도 "강제 RELEASE 때문에 차가 가속했다"는 인과 주장이 아니라
+  "그 시점 실제 기록된 vEgo가 상승 추세였다"는 사실 관찰이다 -- 그
+  상승이 강제 RELEASE의 결과인지, RELEASE와 무관한 원인(도로 형상,
+  운전자 개입 등)인지는 이 데이터만으로 구분 불가.
+- `actual_gap=None`(15건 중 7건, 과반)인 구간은 route가 5초 내내
+  침묵(`out_speed=None`)한다 -- 그 시간 실제 차량이 어떻게 제어됐는지
+  (vTurn 등 다른 레이어)는 스크립트 범위 밖.
+- `CounterfactualLayer`는 "신뢰도 게이트 없이 무조건 계속 추적"이라는
+  가장 단순한 가설 구현이다 -- ChatGPT가 실제로 의도한 "seamless
+  switch" 정의(신뢰도/persistence 게이트 포함 여부 등)와 정확히
+  같은지는 확인되지 않았다.
+
+**결론**: `passed`가 0/15라는 사실만은 이번 세션에서 확정할 수 있는
+새 정보다. 나머지("강제 RELEASE가 실제로 해로운가")는 open-loop
+한계 때문에 이번 결과만으로 확정하지 않는다 -- 폐루프 재현(실차 또는
+차량 동역학 시뮬레이션) 없이는 답이 나오지 않는다는 것 자체가 이번
+세션의 실질적 결론.
+
+---
+
 ## 299차 -- [실측 확정] 298차 qcamera 정답 15건에 candidate 신뢰도 진단 지표 4종(cluster_size/speed_margin_ratio/persistence/distance_jump) 적용 -- `cluster_size`만 약하게 방향성 있는 신호(노이즈는 전부 2~3, 실제 커브 중 2건만 6/9로 뚜렷), 나머지 3개는 가설과 반대 방향이거나 겹침이 심해 discriminator로 부적합
 
 **배경**: 298차 "다음 작업 3번"(감속 대상 여부뿐 아니라 candidate

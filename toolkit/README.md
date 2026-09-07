@@ -4238,6 +4238,78 @@ FINDINGS.md 246차 항목 253차 갱신 참고.
    시나리오 자체의 실측 반증/재현은 여전히 미확정(WIP.md 253차/FINDINGS.md
    239차 참고).
 
+## sim_route_300_release_boundary_counterfactual.py (300차 신규 -- ChatGPT 제안/사용자 검토: 강제 RELEASE의 counterfactual 비교, 15/15 전부 mode="lost"("passed" 0건), route별로 실제/가상 차이 상반)
+
+**배경**: 299차가 "candidate 진위 판별 게이트"는 n=15로 근거 부족이라고
+결론 낸 뒤, ChatGPT가 다른 방향(진위 판별 대신 "현재 RELEASE가 실제로
+잘못된 RELEASE였는가"를 먼저 증명)을 제안했고 사용자가 검토를 지시함.
+착수 전 원격 코드(`carrot_man.py` 735~808행 continuity, 1174~1324행
+ACTIVE/INERT 판정, `ROUTE_RELEASE_HOLD_S=0.0`)를 직접 재확인해 제안의
+전제(“`passed/lost`로 판정되며 같은 프레임에 새 apex를 이미 재탐색해도
+mode 문자열만 보고 무조건 RELEASE”)가 실제 코드와 일치함을 확인
+(§33 -- 다른 AI의 주장을 그대로 반영하지 않고 소스 대조 후 착수).
+
+**하는 일**: 296/297차 `ContinuityState`/`route_find_clusters`를
+무변경 재사용하되, 그 위에 두 개의 독립 판정 레이어를 얹는다:
+- `ActualLayer`: 1174~1324행 그대로(`apex_mode in
+  ('passed','lost','new')`면 무조건 RELEASE) -- 296/297차
+  `RouteStateMachine`과 동일 로직(continuity 공유 구조상 클래스만
+  얇게 재분리, 산식은 한 글자도 바꾸지 않음).
+- `CounterfactualLayer`: 위 조건에서 `passed/lost/new` 항만 제거하고
+  `speed_reached`/`dist_reached`만 RELEASE 사유로 남긴 가상 레이어
+  (="강제 RELEASE만 없앤다"는 가설의 최소 구현, 신뢰도 게이트는
+  추가하지 않음). 최초 진입 게이트(INERT)는 그대로 유지.
+
+두 레이어가 물리적으로 동일한 continuity 스트림을 프레임 단위로
+공유하므로(continuity는 `route_active`를 파라미터로 받지 않아 두
+레이어 선택과 무관하게 항상 동일하게 진행, 735행 근방 확인) 입력
+차이 없이 판정 로직 차이만으로 비교 가능.
+
+각 실제 강제 RELEASE 이벤트에 대해 이후 `--horizon`(기본 5)초 동안
+두 트랙의 `out_speed`를 나란히 기록, `actual_gap_seconds`(재진입까지
+시간)/`cf_min_speed_kph_in_window`(counterfactual이 그 구간에서
+냈을 최저 명령속도) 등을 계산. 298차 qcamera 정답(15건, `evidence/
+route_297_seamless_release_qcamera/classification.md`)과 결합.
+
+**실측 결과(route1~4, 15/15 이벤트 재현, 297차와 결정론적으로 동일)**:
+1. **15/15 전부 `mode="lost"`, `"passed"`는 0건.** "A가 실제로 apex를
+   통과(predicted<=0)했는데 강제 RELEASE"되는 사례는 이 corpus에
+   없다 -- 전부 "추적을 순간 놓침"(miss_frames 초과) 유형.
+2. a3b3373495 route 10건: 실제(A)/counterfactual(B) 5초 창 내 명령
+   속도 차이가 사실상 0(≤0.1kph, 예외 없음) -- 이 route에서는 강제
+   RELEASE 유무가 명령 속도 자체에는 거의 영향을 주지 않았다.
+3. 01742d6c1c/c8d2619479의 real_curve 4건(#11~14, IC/고가도로 구간):
+   counterfactual이 실제보다 최대 6.9kph 더 낮은 속도(=더 큰 감속)를
+   명령했을 것으로 나타남 -- 이 4건에서는 강제 RELEASE가 감속 기회를
+   깎았을 가능성을 시사(단, 아래 한계 참고).
+
+**중요 한계(§28/§29, 과대 해석 금지)**:
+- 이 스크립트는 **open-loop 재생**이다. 실제 기록된 vEgo 이력(그
+  당시 원격 코드 하에서 실제로 벌어진 주행)을 A/B 두 레이어에
+  동일하게 입력하고 "그 순간 각 정책이 어떤 명령을 냈을지"만
+  비교한다. counterfactual 정책이 실제로 적용됐다면 그 순간부터
+  vEgo 자체가 달라졌을 것이므로(폐루프 피드백), 이 비교는 진짜
+  반사실적 차량 궤적이 아니다 -- "정책 차이가 즉각적으로 어떤 명령
+  차이를 만드는가"까지만 답한다.
+- `route_active=False`로 `--horizon` 내 미재진입(`actual_gap=None`)인
+  구간은 route 모듈이 완전히 침묵(`out_speed=None`)한다. 그 시간
+  동안 실제 차량이 어떻게 제어됐는지(vTurn 등)는 이 스크립트 범위
+  밖이라, `actual_min_speed_kph_in_window`는 그 침묵 구간을 반영하지
+  못하고 route가 여전히 값을 낸 소수 프레임만 반영한다(과반 이벤트가
+  `Nones` gap).
+- confidence 임계값/게이트는 이번에도 설계하지 않음(§28 -- 데이터만
+  관찰, 결론 전 원인 확정 금지). `ryu` 코드는 무변경(ANALYSIS_ONLY).
+
+**사용**:
+```
+python3 sim_route_300_release_boundary_counterfactual.py \
+    --csv-dir <route_*.csv 4개가 있는 디렉토리> \
+    --classification evidence/route_297_seamless_release_qcamera/classification.md \
+    --horizon 5.0
+```
+
+---
+
 ## sim_route_299_reacquire_confidence_features.py (299차 신규 -- 298차 qcamera 정답 15건에 candidate 신뢰도 진단 지표 4종 적용, `cluster_size`만 약한 방향성 신호, n=15로는 게이트 설계 근거 부족)
 
 296/297차 `RouteStateMachine`/`ContinuityState`/`route_find_clusters`를

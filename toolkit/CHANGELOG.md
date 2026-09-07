@@ -3,6 +3,29 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+## 2026-09-07 (300차)
+- `sim_route_300_release_boundary_counterfactual.py`: **신규**.
+  ChatGPT 제안(사용자 검토 지시)에 따라 "강제 RELEASE(`apex_mode in
+  ('passed','lost','new')`)가 실제로 손실을 만들었는가"를 counterfactual
+  (해당 조건만 제거한 가상 판정 레이어)과 직접 비교. 296/297차
+  `ContinuityState`/`route_find_clusters`는 무변경 재사용, 실제(A)/
+  가상(B) 두 판정 레이어가 동일 continuity 스트림을 공유. route1~4
+  실측 15건 전부 재현(297차와 동일 15건, 결정론적 재확인). **핵심
+  결과: (1) 15/15 전부 `mode="lost"`, `"passed"`는 0건 -- "A가 실제로
+  apex를 통과했는데 강제 RELEASE"된 사례는 이 corpus에 없음. (2)
+  a3b3373495 route 10건은 실제/counterfactual 속도차 사실상 0(≤0.1kph).
+  01742d6c1c/c8d2619479의 real_curve 4건은 counterfactual이 5초 창 내
+  최대 6.9kph 더 낮은 속도를 명령했을 것으로 나타나 강제 RELEASE가
+  해당 4건에서 감속 기회를 깎았을 가능성.** 중요 한계(§28/§29): 이
+  스크립트는 **open-loop 재생**(실제 기록된 vEgo 이력을 두 레이어에
+  동일하게 입력)이라 counterfactual 결과가 "그 정책이 실제로 차량에
+  적용됐을 때의 진짜 궤적"은 아니며, 둘 다 같은 과거 vEgo를 보고 그
+  순간 어떤 명령을 냈을지만 비교한다(폐루프 차량 동역학 재현 아님).
+  `route_active=False`로 5초 내 미재진입(gap=None)인 구간은 route
+  모듈이 침묵하므로 그 시간 동안 실제 차량 거동은 이 스크립트 범위
+  밖(vTurn 등 다른 제어 레이어, 미모델링). 상세: WIP.md/FINDINGS.md
+  300차.
+
 ## 2026-09-07 (299차)
 - `sim_route_299_reacquire_confidence_features.py`: **신규**. 298차
   qcamera 정답 15건(`evidence/route_297_seamless_release_qcamera/
