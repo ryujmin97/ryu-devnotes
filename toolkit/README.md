@@ -76,6 +76,75 @@ transition이 동일하고 수치 차이는 입력 양자화로 설명 가능한
 적용하지 않음(위 참고). 5m/2.5m grid sweep(지선생 제안 3단계)은 이 stateful
 기준 모델이 신뢰 가능하다고 판정된 이후에만 착수(322차/322-D WIP.md 참고).
 
+## `sim_route_324_grid_counterfactual.py` -- 10m/5m/2.5m grid counterfactual (324차, 실차 corpus 적용)
+
+**목적**: 317차부터 이월된 "10m sampling 때문에 실제 curve geometry가
+사라져서 orphan/cluster/apex가 불안정해지는가?"를 321차의 chord-고정
+grid 설계(합성 데이터)와 323차의 raw geometry 계측(실차 데이터)을
+결합해 처음으로 **실측**으로 검증. 322-D stateful reproduction(10m
+production exact reproduction)은 그대로 두고, orphan 프레임(raw
+geometry 존재)에서만 입력을 5m/2.5m 재샘플로 교체하는 방식(§27,
+기존 로직 무변경 원칙 유지).
+
+**핵심 설계**:
+- `recompute_grid(pts, road_limit_speed, sample, sample_fine,
+  distance_interval)`: 322-D `recompute_full()`의 파라미터화판.
+  `sample=4,sample_fine=1,interval=10.0`(기본값)으로 호출하면
+  `recompute_full()`과 100% 동일(`--validate`로 회귀검증, mismatch 0).
+- grid 3종: 10m(sample4/fine1), 5m(sample8/fine2), 2.5m(sample16/fine4)
+  -- 321차와 동일하게 macro chord(80m)/fine chord(20m) 물리적으로 고정,
+  인덱스 스텝만 다름.
+- `resample_arclen()`: `resample_10m_np()`와 동일 알고리즘(interval만
+  매개변수화).
+- **핵심 근사(한계)**: raw geometry는 orphan 프레임(`orphan_count>0`)
+  에서만 존재(323차 트리거 설계). 비-orphan 프레임에서는 grid 무관하게
+  10m production 결과를 그대로 재사용 -- "orphan이 아니었던 프레임이
+  더 촘촘한 grid에서도 여전히 orphan이 아니었을 것"은 검증이 아니라
+  가정. 3개(10m/5m/2.5m) 상태 트래커는 전체 20Hz 시퀀스에 걸쳐 동시에
+  스텝(스킵 프레임 리셋 규칙도 동일 적용)해 locked_dist 시간감쇠
+  기준을 통일.
+
+**검증**: `--validate`로 (1) `recompute_grid` 회귀검증(mismatch 0),
+(2) orphan 프레임 raw round-trip(→10m 재샘플) vs 같은 프레임
+naviPaths 비교(3645건 중 0.05m 허용오차 내 전부 일치, 최대편차
+0.028m -- raw/naviPaths 이중 `.2f` 반올림 순서 차이로 인한 정상
+잔차, 버그 아님).
+
+**x18seg 실측 결과(2026-09-09 실차, `1b77b799`=323차 HEAD 빌드,
+20399행/17세그, params_backup-1.json 확인: x17seg와 동일 상수)**:
+- orphan 에피소드 41건 중 30건(73%)에서 5m+2.5m 모두 cluster 승격
+  (10m에서 min_points=2 미달이던 candidate가 5m/2.5m에서 cluster로
+  전환). **5m-only 또는 2.5m-only 승격은 0건** -- cluster 승격 여부만
+  보면 5m grid가 이미 2.5m과 동일한 효과, 2.5m으로 더 내려갈 추가
+  이득 없음.
+- 11건(27%)은 grid 무관하게 승격 없음(정말 고립된 단발 후보 -- 321차
+  Part3의 "단발 GPS 노이즈는 5m에서도 orphan 유지" 예측과 합치).
+- **2건(5%)은 `route_active`(사전감속 발동) 시퀀스 자체가 grid 간
+  상이** -- 이 중 1건(ep4, seg--4, 62초 에피소드)은 10m에서는 전체
+  구간 동안 `route_active`가 단 한 번도 True가 되지 않음(사전감속
+  완전 미발동)인데 5m에서는 28프레임(~1.4s), 2.5m에서는
+  195프레임(~9.75s) 발동. **cluster 승격 결과와 달리, streak
+  confidence/distance decay가 누적되는 stateful 레벨에서는 2.5m이
+  5m 대비 여전히 유의미하게 더 많은 발동시간을 만들어낸다** -- "5m
+  으로 충분"이라는 결론을 cluster 승격 지표만으로 일반화하면 안 됨.
+
+**한계(§28/§29)**: (1) 위 "비-orphan 프레임은 10m 결과 재사용" 근사
+그대로 유지 -- 그리드 변경으로 새로 생기는 orphan은 이 스크립트
+범위 밖. (2) 이 결과는 offline replay이며 **실차 검증 아님** -- 실제
+5m/2.5m grid를 production에 반영해 재주행하기 전까지는 "실제 개선"
+으로 확정할 수 없다. (3) route_active 상이 2건은 이번 corpus 1회
+주행 기준 -- 다른 corpus/커브에서의 재현성은 미확인.
+
+**사용**: `python3 sim_route_324_grid_counterfactual.py <CSV> --validate`
+(회귀검증만) 또는 `... <CSV> --out-episodes <out.csv>` (전체 실행 +
+에피소드별 요약 CSV 저장). CSV는 `extract_log.py`(323차 갱신판)
+`--with-navi-paths` 출력 기대(`routeOrphanRawPath` 컬럼 필요).
+
+**다음 단계**: route_active 상이 2건(특히 ep4)의 원인을 프레임 단위로
+추적(어느 프레임에서 정확히 required_decel_mss 임계 통과가 갈리는지)
+-- 5m 자체를 production에 반영하기 전에 반드시 필요(§27, 최소변경
+원칙 -- 2.5m까지 갈지 5m에서 멈출지 결정 근거).
+
 ## `ryu` 계측 patch -- routeOrphanRawPath 신규 (323차, cereal/custom.capnp @70)
 **목적**: 321차가 이월한 "orphan 국소 5m/2.5m 재샘플" 검증을 합성
 데이터가 아닌 **실측 corpus**로 진행하기 위한 전제조건. 317차/321차가

@@ -1,3 +1,91 @@
+## 324차 (완료 -- 323차 계측 실차 smoke test PASS + 10m/5m/2.5m grid counterfactual 실측 실행/분석, `ryu` 코드 변경 없음) -- x18seg 실차 로그(323차 HEAD 빌드)로 `routeOrphanRawPath` 정상동작 확인 후, 321차 grid 설계를 322-D stateful reproduction에 결합해 실측 counterfactual 처음 수행
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu`(base `1b77b799`=323차, 코드 변경 없음,
+읽기만) / `ryu-devnotes`(base `e2f2282b`=323차, 이 항목 추가 전)
+
+**Branch**: `c3-ms-dev` / `main`
+
+**배경**: 323차가 남긴 "다음 세션 필수 확인"(계측 patch의 실제
+CarrotMan 프로세스 동작 검증)에 대해, 사용자가 323차 빌드(`1b77b799`)
+반영된 기기로 실주행한 x18seg 로그(18세그, 마지막 세그 760KB=정상
+종료 잘림 -> 관례대로 제외, 17세그/20399행 추출) + 캡처 시점
+`params_backup-1.json`을 업로드. 이번 세션은 (1) 계측 자체의 smoke
+test, (2) 그 데이터로 곧바로 321차가 설계해둔 5m/2.5m grid
+counterfactual을 실측 실행하는 두 단계로 진행.
+
+**한 일**:
+1. GitHub 최신상태 확인(§3/§33) -- fresh clone으로 `ryu` HEAD
+   `1b77b799`(323차), `ryu-devnotes` HEAD `e2f2282b`(323차) 직접
+   재검증(사용자가 보고한 상태와 일치 확인).
+2. x18seg 업로드 압축 해제(18세그) -> 마지막 세그(--18, 760KB, 나머지
+   ~9~10MB 대비 확연히 작음) 정상 종료 잘림으로 판단, 제외 -> 17세그로
+   `extract_log.py --with-navi-paths` 재추출(repo commit 확인 로그에
+   `1b77b799e9ee` 정확히 표시됨 -- 로그가 실제로 323차 빌드에서 나온
+   것 확인). 20399행/17세그 정상 추출.
+3. **323차 계측 1차 smoke test(§29 실차 검증)**: `routeOrphanSingletonCount>0`
+   프레임 3645건(17.9%) 전부에서 `routeOrphanRawPath`가 채워짐(누락
+   0건), `orphan_count==0`인데 채워진 오염 사례 0건, raw path 포인트
+   수가 같은 프레임 `routePathLen`과 100% 일치(mismatch 0), 포맷
+   `"x,y;x,y;..."` 확인 -- **323차 계측 patch가 실차에서 설계대로
+   정확히 동작함을 확인(PASS)**. 참고: 이 corpus의 orphan 프레임
+   `routePathLen` 중앙값은 24(x17seg 설계당시 예측 32와 다름 -- corpus
+   차이로 인한 정상 변동, 버그 아님).
+4. **`sim_route_324_grid_counterfactual.py` 신규 작성**(toolkit README/
+   CHANGELOG 참고) -- 322-D(`ContinuityState`/`ProvisionalTracker`/
+   route_active 게이트)를 §27 원칙대로 무변경 재사용, 321차의 grid
+   설계(10m/5m/2.5m, chord 물리적 고정)를 실측 raw geometry에 적용.
+   `--validate`로 (a) `recompute_grid(4,1,10.0)`이 `recompute_full()`과
+   완전히 동일함을 회귀검증(mismatch 0), (b) orphan 프레임의 raw
+   round-trip(→10m 재샘플)이 production naviPaths와 0.05m 이내로
+   일치함(3645건 전부, 최대편차 0.028m=이중 `.2f` 반올림 잔차)을 확인
+   -- 두 검증 모두 PASS, 이후 counterfactual 결과를 신뢰 가능한
+   기반으로 판단.
+5. **전체 20399프레임 3-way(10m/5m/2.5m) 병렬 stateful replay 실행**:
+   orphan 에피소드 41건(319차 기준 EPISODE_GAP_S=1.0 재사용) 중
+   30건(73%) 5m+2.5m 모두 cluster 승격(5m-only/2.5m-only 0건 --
+   cluster 승격만 보면 5m으로 충분, 2.5m 추가이득 없음), 11건(27%)
+   grid 무관 승격 없음(단발 고립 후보, 321차 예측과 합치), **2건(5%)
+   `route_active` 시퀀스가 grid 간 상이**(그 중 1건은 10m에서 62초
+   에피소드 전체 동안 route_active가 단 한 번도 True 안 됨, 5m
+   28프레임/2.5m 195프레임 발동 -- **stateful 누적 레벨에서는 2.5m이
+   5m 대비 여전히 유의미한 차이를 만듦**, cluster 승격 지표 하나로
+   "5m이면 충분"이라 일반화하면 안 됨을 확인).
+6. `toolkit/README.md`/`toolkit/CHANGELOG.md` 신규 섹션 추가.
+
+**결론**: (1) 323차 계측 patch는 실차에서 정상 동작(PASS). (2) 실측
+raw geometry로 처음 수행한 10m/5m/2.5m counterfactual 결과, cluster
+승격 여부는 5m에서 포화되지만(2.5m 추가이득 없음) 실제 제어 판단
+(`route_active`)에는 2.5m이 5m 대비 여전히 유의미한 차이를 만드는
+사례가 존재 -- "5m으로 충분한가"는 지표(cluster 승격 vs 실제
+활성화시간)에 따라 답이 다르다. (3) `ryu` production 코드는 이번
+세션에서 전혀 변경하지 않음(§27, offline 분석만).
+
+**영향받는 실차 제어 로직**: 없음(offline replay, production 미변경).
+
+**검증**:
+- 정적 분석: `py_compile` 통과, `--validate` 회귀검증(recompute_grid
+  vs recompute_full mismatch 0)
+- 로그 검증: x18seg 실차 로그(323차 빌드) 20399행, raw round-trip
+  0.05m 이내 전부 일치
+- 시뮬레이션: 3-way 병렬 stateful replay, 41개 orphan 에피소드 분석
+- 실차 검증: **미실시** -- 5m/2.5m grid 자체는 아직 production에
+  반영되지 않음(이번 세션은 offline counterfactual만), route_active
+  상이 2건도 실차 재현 검증 전 단계
+
+**미확인/다음 작업**:
+- ep4(route_active 상이가 가장 큰 사례) 프레임 단위 원인 추적 --
+  정확히 어느 시점에서 required_decel_mss 임계 통과가 grid 간 갈리는지
+- route_active 상이 2건이 이번 corpus 1회 주행에 국한된 것인지, 다른
+  corpus/커브에서도 재현되는지(현재는 미확인, 신규 raw geometry
+  corpus 필요)
+- 5m 자체를 production에 반영할지(2.5m까지는 이번 결과로 근거 부족)
+  여부는 위 원인 추적 이후 판단(§27 최소변경 원칙, §31 사용자 승인
+  필요)
+
+---
+
 ## 323차 (완료 -- 계측 patch 작성, `ryu` 코드 변경(ANALYSIS_ONLY, 제어 로직 무변경) + devnotes(extract_log.py) 갱신, 실차 검증은 미실시로 다음 세션 이월) -- 321차가 이월한 "5m/2.5m 국소 재샘플" 실측 검증의 전제조건으로 `routeOrphanRawPath`(cereal @70) 계측 신규 추가, 트리거/페이로드 설계를 사용자+지선생(ChatGPT) 검토 거쳐 확정
 
 **Worker**: Claude

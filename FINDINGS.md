@@ -1,3 +1,75 @@
+## 324차 -- [실차 실측 확정] 10m sampling이 실제 curve geometry를 지워 orphan/route_active 손실을 일으킨다 -- cluster 승격은 5m에서 포화(2.5m 추가이득 0건)되지만, route_active 발동시간은 2.5m이 5m 대비 여전히 유의미하게 더 크다(에피소드별로 결론이 다름)
+
+**배경**: 317차부터 이월된 핵심 질문("10m sampling 때문에 실제 curve
+geometry가 사라져서 orphan/cluster/apex가 불안정해지는가?")을 321차의
+chord-고정 grid 설계(10m/5m/2.5m, 합성 데이터)와 323차의
+`routeOrphanRawPath` 계측(실차 raw geometry)을 결합해 처음으로 실측
+검증. 322-D stateful reproduction(10m production exact reproduction)
+구조는 완전히 재사용, 입력부만 orphan 프레임에서 grid별 재샘플로
+교체(§27, `sim_route_324_grid_counterfactual.py`, toolkit/README.md
+참고).
+
+**검증 신뢰성 확보**: 실행 전 (1) `recompute_grid(sample=4,fine=1,
+interval=10.0)`이 322-D `recompute_full()`과 완전히 동일한 결과를
+내는지 회귀검증(3645개 orphan 프레임 + 전체 20399프레임 기준
+mismatch 0), (2) orphan 프레임에서 raw geometry를 10m로 재샘플한
+결과가 같은 프레임의 production naviPaths와 일치하는지(raw
+round-trip) 확인 -- 3645건 전부 0.05m 이내 일치(최대편차 0.028m,
+raw/naviPaths 양쪽 다 `.2f` 반올림을 거치되 순서가 달라 생기는 정상
+잔차, 버그 아님). 두 검증 모두 PASS.
+
+**실측 결과(x18seg, 2026-09-09, `1b77b799`=323차 HEAD 빌드, 17세그/
+20399행, params_backup-1.json 확인: MapTurnSpeedFactor/
+AutoNaviSpeedCtrlEnd/AutoNaviSpeedDecelRate/TurnSpeedControlMode 전부
+x17seg(322차)와 동일값)**:
+
+- orphan 에피소드 41건(319차 기준 EPISODE_GAP_S=1.0):
+  - **30건(73%)**: 5m와 2.5m 둘 다 10m 대비 max cluster_count 증가
+    (orphan -> cluster 승격). **5m-only 또는 2.5m-only 승격은 0건**
+    -- 이번 corpus 전체에서 cluster 승격 여부만 놓고 보면 5m grid가
+    이미 2.5m과 동일한 효과를 낸다(2.5m으로 더 내려갈 추가 이득
+    없음).
+  - **11건(27%)**: grid를 아무리 올려도 승격 없음 -- 정말 고립된
+    단발 후보(321차 Part3 "단발 GPS 노이즈는 5m에서도 orphan 유지"
+    예측과 실측이 합치).
+  - **2건(5%)**: `route_active`(사전감속 발동) 시퀀스 자체가 grid
+    간 상이. 그 중 1건(ep4, 62초 에피소드)은 **10m에서 전체 구간
+    동안 route_active가 단 한 번도 True가 되지 않음**(사전감속 완전
+    미발동)인데, 5m에서는 28프레임(~1.4s), **2.5m에서는
+    195프레임(~9.75s)** 발동 -- 5m과 2.5m 사이에서도 발동시간
+    차이가 7배 가까이 남.
+
+**핵심 결론(두 지표가 다른 답을 준다는 것 자체가 발견)**:
+cluster_count 승격이라는 stateless/즉각적 지표만 보면 "5m으로
+충분"이라고 결론 낼 수 있었으나, `route_active`라는 stateful/누적
+지표(streak confidence, `locked_dist` 시간감쇠, `required_decel_mss`
+임계 비교가 여러 프레임에 걸쳐 누적)에서는 **동일한 corpus에서도
+2.5m이 5m 대비 여전히 유의미한 차이를 만드는 사례가 존재**한다.
+즉 "grid 해상도가 실제 제어 판단에 영향을 주는가"라는 질문에는
+어떤 지표로 판단하느냐에 따라 다른 답이 나온다 -- 5m 패치를
+production에 반영할지 결정하려면 cluster 승격 수치 하나로는
+부족하고, route_active/실제 발동시간 기준의 재검토가 필요하다.
+
+**한계(§28/§29, 명시적 미검증 사항)**:
+1. 비-orphan 프레임(대다수)에는 raw geometry가 없어(323차 트리거가
+   `orphan_count>0` 단일조건) grid 무관하게 10m 결과를 그대로
+   재사용하는 근사를 적용했다 -- "orphan이 아니었던 프레임이 더
+   촘촘한 grid에서도 여전히 orphan이 아니었을 것"은 가정이지 검증이
+   아니다.
+2. 이 결과는 offline replay이며 **실차 검증이 전혀 아니다** -- 실제
+   5m/2.5m grid를 production에 반영해 재주행하기 전까지 "실제
+   개선/악화"로 확정할 수 없다.
+3. route_active 상이 2건은 이번 corpus **1회 주행 기준**이다. 다른
+   corpus/커브에서 재현되는지는 신규 raw geometry corpus 없이는
+   확인 불가.
+4. ep4의 정확한 분기 원인(어느 프레임에서 `required_decel_mss` 임계
+   통과가 grid 간 갈리는지)은 아직 프레임 단위로 추적하지 않았다
+   -- 다음 세션 과제.
+
+**의존**: `sim_route_324_grid_counterfactual.py`(신규, 322-D +
+321차 조합), `extract_log.py`(323차 갱신판) `--with-navi-paths` 출력
+CSV(x18seg, `routeOrphanRawPath` 컬럼 필요).
+
 ## 323차 -- [계측 patch 작성, 실차 미검증] "orphan raw relative_coords" 계측(cereal @70) -- 트리거는 orphan_count>0 단일조건(B가 항상 A의 부분집합임을 실측 확인), 페이로드는 기존 routePathLen 역산으로 사전 산정(orphan 프레임 중앙값 32포인트, 부담 없음)
 
 **배경**: 321차가 "5m/2.5m 국소 재샘플" 실측 검증을 위해 필요하다고

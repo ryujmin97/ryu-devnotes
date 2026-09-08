@@ -3,6 +3,26 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+## 2026-09-09 (324차)
+- `sim_route_324_grid_counterfactual.py`: **신규**. 323차 계측
+  (`routeOrphanRawPath`)으로 확보한 실차 로그(x18seg, `1b77b799`=323차
+  HEAD)에 321차의 10m/5m/2.5m chord-고정 grid 설계(sample=4/8/16,
+  sample_fine=1/2/4)를 실측 적용. 322-D의 `ContinuityState`/
+  `ProvisionalTracker`/route_active 게이트를 그대로 재사용(§27)하고
+  입력부만 orphan 프레임(raw geometry 존재 프레임)에서 grid별
+  재샘플로 확장 -- 10m 조건은 production naviPaths 그대로(322-D
+  변경 없음), 5m/2.5m은 raw를 `resample_arclen()`(resample_10m_np와
+  동일 알고리즘, interval만 다름)으로 재샘플. `--validate`로
+  `recompute_grid(4,1,10.0)` vs `recompute_full()` 회귀검증(mismatch
+  0) + raw round-trip vs naviPaths 정합성(0.05m 허용오차 내 전부
+  일치, 이중 `.2f` 반올림 잔차 확인) 수행. 41개 orphan 에피소드 중
+  30건(73%) 5m+2.5m 모두 cluster 승격, 5m-only/2.5m-only 0건(cluster
+  승격만 보면 5m으로 충분), 2건(5%)에서 `route_active` 시퀀스 자체가
+  그리드 간 상이(그 중 1건은 10m에서 전체 에피소드 동안 route_active
+  단 한 번도 True 안 됨, 5m 28프레임/2.5m 195프레임 발동 -- cluster
+  승격 결과와 달리 stateful 누적 동역학에서는 2.5m이 5m 대비 여전히
+  더 많은 발동시간을 만들어냄, FINDINGS.md 324차 참고).
+
 ## 2026-09-09 (323차)
 - `ryu` 계측 patch(ANALYSIS_ONLY, 제어 로직 무변경): `cereal/custom.capnp`에
   `routeOrphanRawPath @70 : Text` 신규 -- orphan(min_points=2 미달 고립
