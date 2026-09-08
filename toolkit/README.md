@@ -21,6 +21,61 @@ CHANGELOG.md를 같이 갱신**한다 (세션 종료 체크리스트에 포함�
 
 ---
 
+## sim_route_322_single_frame_check.py / sim_route_322_mismatch_triage.py (322차 신규, "10m production exact reproduction" 1단계)
+
+**목적**: production이 실제로 candidate/cluster/orphan 계산에 쓴
+입력(`carrotMan.naviPaths`)만으로, `carrot_man.py`의 candidate/cluster/
+orphan 계산 블록(1160~1372행)을 오프라인 재구현해 로그된
+`routeCandidate*`/`routeClusterCount`/`routeOrphanSingletonCount`와
+프레임별로 대조한다.
+
+**핵심 전제(코드로 확정)**: `carrot_navi_route()`는 `return
+resampled_points, resampled_distances, out_speed`로 끝나고, 이 반환값이
+`carrot_serv.py::update_navi()`에서 그대로 `naviPaths`(`.2f` 직렬화)로
+발행된다. 즉 로그의 `naviPaths`는 `get_path_after_distance`/
+`gps_to_relative_xy`/`resample_10m_np`까지 이미 끝난, production이 실제로
+쓴 배열이다 -- 이 앞단 파이프라인은 재현할 필요가 없다(apex_mode/Dist/
+Speed는 예외 -- `_route_cluster_continuity_step()` 상태를 가지므로 이
+단계로 검증 불가, 다음 단계로 이월).
+
+**`sim_route_322_single_frame_check.py`**: 단일 프레임(`--t`) 또는 전체
+스캔(옵션 생략)으로 candidate_count/cluster_count/orphan_count 일치
+여부를 판정. `MAP_TURN_SPEED_FACTOR=1.10`으로 하드코딩(아래 참고).
+사용: `python3 sim_route_322_single_frame_check.py <extract_log.py
+--with-navi-paths CSV> [--t <초>] [--limit N]`
+
+**`sim_route_322_mismatch_triage.py`**: 위 스크립트가 찾은 불일치
+프레임들을 자동으로 "A(반올림 경계)" vs "B(기타)"로 분류. A 판정
+기준: 재계산된 speed 중 `road_limit_speed`(nRoadLimitSpeed)와의 거리가
+`ROUND_MARGIN_KPH`(0.5) 이내인 지점이 하나라도 있으면 A. 사용:
+`python3 sim_route_322_mismatch_triage.py <위와 동일 CSV>`
+
+**x17seg corpus(020ea86, 020171행) 실측 결과**: naviPaths 있는 19860
+프레임 중 19746건(99.43%) 완전 일치, 불일치 114건. 114건 재분류 결과
+113건(99.1%)이 반올림 경계(margin<=0.5kph, 대부분 0.1kph 이내)로 설명됨.
+나머지 1건(t=670.921, seg3)은 diff=2라 자동분류 게이트(diff==1)에
+안 걸렸지만, 수동 확인 결과 후보 4개 전부가 road_limit_speed(50kph)
+바로 옆(48.6~50.0kph)에 몰려 경계 후보가 동시에 2개 갈린 동일 성격의
+현상으로 확인(WIP.md 322차 참고). **결론: 114/114(100%) `.2f`(0.01m)
+좌표 반올림 경계값으로 설명 -- stateless 10m candidate/cluster/orphan
+reproduction은 PASS로 판정.**
+
+**`MapTurnSpeedFactor` 관련 발견(중요)**: `PARAMS_REGISTRY.md`에 등록된
+1.30(201/210차 실측값)이 아니라, 이 x17seg 캡처 당시 실제값은 **1.10**
+이었음을 단일 프레임 스윕(1.0/1.1/1.2/1.3)으로 역산 후 사용자가
+`params_backup.json`(`"MapTurnSpeedFactor": "110"`)으로 재확인. Params는
+언제든 사용자가 바꿀 수 있는 값이라 서로 다른 캡처가 다른 factor를 가질
+수 있다 -- **이 상수(1.10)는 x17seg corpus 전용이며, 다른 route CSV
+재현에는 그 캡처 당시의 실제 파라미터값을 다시 확인해야 한다**(레지스트리
+등록값을 무비판적으로 재사용하지 말 것).
+
+**의존성**: `extract_log.py --with-navi-paths` 출력 CSV(naviPaths/
+routeCandidate*/routeClusterCount/routeOrphanSingletonCount/
+nRoadLimitSpeed 컬럼 필요, 020ea86=307차 이후 로그).
+
+**한계/다음 단계**: `routeApexMode`/`Dist`/`Speed`는 이 단계에서 검증
+안 됨(stateful, 322차 다음 작업으로 이월).
+
 ## group_orphan_episodes_319.py (319차 신규, orphan singleton 프레임 -> 에피소드 그룹화 + 계층화, 재현성 확보용 baseline)
 
 **320차 정정 안내**: 이 스크립트로 도출한 "원거리=lookahead 아티팩트"

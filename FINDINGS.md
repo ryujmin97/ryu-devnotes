@@ -1,3 +1,57 @@
+## 322차 -- [구조 확인 + 검증 PASS] "10m production exact reproduction" 1단계 -- `carrotMan.naviPaths`는 이미 production의 `resample_10m_np()` 결과 그 자체(앞단 파이프라인 재현 불필요), stateless candidate/cluster/orphan reproduction 114/114 불일치가 `.2f` 좌표 반올림 경계값으로 설명, `MapTurnSpeedFactor` 실제값(1.10)이 레지스트리 등록값(1.30)과 다름을 발견
+
+**배경**: 지선생(ChatGPT) 제안 -- 5m/2.5m 패치 이전에 "production
+telemetry == offline 10m reproduction"부터 exact match 확인 필요.
+제안이 근거로 든 구체적 mismatch 수치("1313 vs 764" 등)는 devnotes
+전체 grep으로도 찾을 수 없어 근거 없음으로 확인(지선생도 착오 인정) --
+이 항목은 그 수치와 무관하게 이번 세션에서 직접 재현한 결과만 기록.
+
+**구조 확인**: `carrot_man.py::carrot_navi_route()`가 `return
+resampled_points, resampled_distances, out_speed`로 끝나고, 이 값이
+그대로 `carrot_serv.py::update_navi()`를 거쳐 `.2f` 직렬화 후 cereal
+`carrotMan.naviPaths`로 발행됨을 코드로 확정(1134/1145/1152/1357/1358/
+1705행). 로그의 `naviPaths`는 `get_path_after_distance`/
+`gps_to_relative_xy`/`resample_10m_np`가 이미 끝난, production이 실제
+candidate 계산에 쓴 배열 -- "exact reproduction"에서 이 앞단 재현은
+불필요.
+
+**`MapTurnSpeedFactor` 발견**: `PARAMS_REGISTRY.md`가 등록한 1.30
+(201/210차 실측)은 이 x17seg corpus 캡처 시점 실제값이 아니었음 --
+단일 프레임 후보 speed 역산 스윕(1.0/1.1/1.2/1.3)으로 1.10만 정확히
+일치함을 확인 후, 사용자가 `params_backup.json`(`"MapTurnSpeedFactor":
+"110"`)으로 직접 재확인. Params는 실행 중 사용자가 바꿀 수 있는 값이라
+서로 다른 캡처가 다른 factor를 가지는 것 자체는 정상이나, **레지스트리
+값을 무비판적으로 가정했다면 이번 재현 자체가 실패했을 것** -- 다른
+route CSV 재현 시에도 매번 재확인이 필요함을 원칙으로 기록.
+
+**stateless 10m candidate/cluster/orphan reproduction 결과**: x17seg
+20171행 중 naviPaths 있는 19860프레임에서 candidate_count/
+cluster_count/orphan_count 3개 지표 기준 19746건(99.43%) 완전 일치.
+불일치 114건을 자동 분류(margin=재계산 speed와 road_limit_speed 거리
+<=0.5kph)한 결과 113건(99.1%)이 반올림 경계로 설명됨(margin 대부분
+0.1kph 이내, 최소 0.0012kph). 나머지 1건(t=670.921, seg
+`20260908_065910_...--3`)은 candidate diff=2라 자동분류 게이트를
+피했지만, 수동 확인 결과 후보 4개 전부가 road_limit_speed(50kph)
+바로 옆(48.6~50.0kph)에 몰려 경계 후보 2개가 동시에 갈린 동일 성격의
+현상으로 확인 -- **114/114(100%) `.2f`(0.01m) 좌표 반올림 경계값으로
+설명, 실제 로직 불일치 0건. stateless reproduction PASS.**
+
+**한계**: 113건(diff=1)의 A 판정은 "재계산 speed가 threshold에
+가깝다"는 간접 지표이며, production의 미반올림 원본 좌표로 직접
+검증한 것은 아님(로그에 `.2f` 반올림값만 있어 원리적으로 불가). 최초
+분류 스크립트 초안은 "cluster/orphan count까지 정확히 일치해야 A"로
+잘못 설계했다가(경계 후보 1개의 고립 여부에 따라 orphan_count가 함께
+움직이는 것을 놓침) 재검토 중 수정 -- 자동화 스크립트 결과라도
+판정 로직 자체를 다시 점검할 것(§28 원칙 재확인).
+
+**아직 검증 안 됨**: `routeApexMode`/`Dist`/`Speed`는
+`_route_cluster_continuity_step()`/provisional tracker의 프레임간
+상태에 의존하는 stateful 로직이라 이번 stateless 대조로 검증되지
+않음(322차 WIP "다음 작업 1번"으로 이월).
+
+**도구**: `toolkit/sim_route_322_single_frame_check.py`,
+`toolkit/sim_route_322_mismatch_triage.py`.
+
 ## 321차 -- [벤치마크 정정 + 신규 검증 PASS] "orphan 국소 윈도우(~120m) 10m->5m 조건부 그리드" -- 318차 벤치마크는 실제로 5m 그리드를 테스트한 적 없음(경로 길이만 2배)을 발견/정정, 국소 윈도우 실제 부하 최초 측정(1.7~2.0x, +0.04~0.06ms/트리거) + 실제 함수 조합으로 진짜커브 승격/노이즈 오탐없음 확인, `relative_coords`가 로깅 없이도 orphan 판정 시점까지 스코프에 살아있음을 코드로 확정
 
 **배경**: 사용자 지시("10m를 5m로 조건부 그리드 코딩을 위한

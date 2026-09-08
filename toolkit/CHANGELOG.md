@@ -3,6 +3,22 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+## 2026-09-08 (322차)
+- `sim_route_322_single_frame_check.py`: **신규**. "10m production exact
+  reproduction" 1단계 -- `carrotMan.naviPaths`가 이미 production의
+  resample_10m_np() 결과 그 자체임을 코드로 확정(get_path_after_distance/
+  gps_to_relative_xy/resample_10m_np 재현 불필요), naviPaths만으로
+  candidate/cluster/orphan 블록을 오프라인 재구현해 로그와 프레임별 대조.
+  x17seg 20171행 중 19860프레임에서 99.43%(19746건) 완전 일치.
+  `MapTurnSpeedFactor`가 레지스트리 등록값(1.30)이 아니라 x17seg 캡처
+  당시 실제값 1.10임을 스윕으로 역산(사용자 `params_backup.json`으로
+  재확인).
+- `sim_route_322_mismatch_triage.py`: **신규**. 위 불일치 114건을
+  자동으로 A(naviPaths .2f 반올림 경계)/B(기타) 분류. 113/114(99.1%)가
+  A로 설명됨, 나머지 1건도 수동 확인 결과 동일 성격(경계 후보 2개
+  동시 발생). 결론: stateless 10m reproduction PASS. 상세는 WIP.md/
+  README.md 322차 항목 참고.
+
 ## 2026-09-08 (321차)
 - `sim_route_321_local_window_grid_benchmark.py`: **신규**. 318차가
   "10m->5m 그리드 전환 부하"로 보고한 벤치마크가 실제로는

@@ -1,3 +1,128 @@
+## 322차 (완료 -- ANALYSIS_ONLY, `ryu` 본체 무변경, devnotes toolkit 신규 스크립트 2개 추가) -- "10m production exact reproduction" 1단계(stateless candidate/cluster/orphan) -- `naviPaths`가 이미 production resample_10m_np() 결과 그 자체임을 코드로 확정, x17seg 19860프레임 중 99.43% 완전 일치 + 나머지 114건 전부 `.2f` 좌표 반올림 경계값으로 설명, `MapTurnSpeedFactor`가 레지스트리 등록값(1.30)과 다른 이 corpus 실제값(1.10)임을 발견/사용자 확인
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu`(HEAD `020ea86`=307차, 변경 없음) /
+`ryu-devnotes`(base `ae15488`=321차, 이 항목 추가 전)
+
+**Branch**: `c3-ms-dev` / `main`
+
+**배경**: 지선생(ChatGPT)이 "10m/5m/2.5m 패치를 바로 만들 단계가 아니다,
+production telemetry vs offline reproduction이 먼저 exact match해야
+그 다음 단계(orphan 국소 5m refinement 등)를 신뢰할 수 있다"는 순서를
+제안(322-A 단일프레임 -> 322-B 전체구간 -> 5m/2.5m sweep). 제안 문서가
+근거로 든 "1313 vs 764" 등 구체적 mismatch 수치를 `WIP.md`/`FINDINGS.md`
+전체 grep으로 확인했으나 어디에도 없어 사용자에게 보고 -- 지선생이
+자신의 착오였음을 인정(이 문서의 3번째 메시지에서 "그 수치를 실제
+과거 검증 결과라고 전제한 것은 잘못"이라 정정). 이하는 그 근거 없이
+이번 세션에서 직접 얻은 결과만을 기준으로 진행.
+
+**GitHub 최신상태 확인(§3)**: `ryu` HEAD `020ea86`(307차, 변경없음),
+`ryu-devnotes` HEAD `ae15488`(321차), HANDOFF.md/CURRENT_STATUS.md
+없음 확인. 사용자 업로드 x17seg zip(`000003c6--586e535fca`, 17세그)
+재추출 -- 20171행 재확인(310~321차와 동일 corpus).
+
+**한 일**:
+1. **핵심 구조 확인(코드 추적)**: `carrot_man.py::carrot_navi_route()`가
+   마지막에 `return resampled_points, resampled_distances, out_speed`
+   (1705행)로 끝나고, 이 반환값이 그대로 `carrot_serv.py::update_navi()`
+   호출 인자(`coords, distances`)로 전달돼 `.2f` 직렬화 후
+   `carrotMan.naviPaths`로 cereal 발행됨(1357~1358행)을 확정. 즉 로그의
+   `naviPaths`는 `get_path_after_distance()`/`gps_to_relative_xy()`/
+   `resample_10m_np()`까지 이미 끝난, production이 candidate 계산에
+   실제로 쓴 배열 그 자체 -- 이 앞단 파이프라인의 divergence 추적은
+   이번 단계 범위에서 제거됨(지선생 문서가 제안한 1단계 항목 중 상당수가
+   구조적으로 불필요해짐).
+2. `sim_route_322_single_frame_check.py` 신규 작성(§21 확인 -- naviPaths
+   기반 candidate/cluster/orphan stateless 재구현 도구는 기존에 없음) --
+   `carrot_man.py` 1160~1372행(candidate 판정 -> stage2 클러스터링 ->
+   orphan 분리) 블록을 그대로 재구현, naviPaths 파싱값 + `nRoadLimitSpeed`
+   (CSV 컬럼)만 입력으로 사용.
+3. **`MapTurnSpeedFactor` 캘리브레이션(중요 발견)**: 단일 프레임 대조에서
+   candidate 값이 `PARAMS_REGISTRY.md` 등록값 1.30을 쓰면 안 맞고, 1.0/
+   1.1/1.2/1.3 스윕 결과 **1.10에서만** candidate0/1 speed(logged 5.5)가
+   정확히 재현됨을 확인. 이후 사용자가 `params_backup.json`
+   (`"MapTurnSpeedFactor": "110"`, 이 route 실측 당시 설정값)으로
+   1.10을 직접 재확인 -- 추측이 아니라 실제 파라미터였음이 확정.
+   Params는 사용자가 언제든 바꿀 수 있는 값이라 레지스트리에 등록된
+   과거 실측값(201/210차)과 이 corpus 캡처 시점 값이 다른 것 자체는
+   버그가 아님 -- **단, 무비판적으로 레지스트리 값을 재사용했다면
+   이번 재현이 계속 어긋났을 것**이므로 §33(GitHub/실측 우선 원칙)의
+   실전 사례로 기록.
+4. 전체 corpus 스캔(naviPaths 있는 19860프레임): factor=1.10 확정 후
+   candidate_count/cluster_count/orphan_count 3개 지표 기준
+   **19746/19860(99.43%) 완전 일치**, 불일치 114건.
+5. `sim_route_322_mismatch_triage.py` 신규 작성 -- 114건을 A(naviPaths
+   `.2f`=0.01m 반올림 경계) vs B(기타)로 자동 분류. **최초 초안 버그**:
+   "cluster_count/orphan_count까지 로그와 정확히 같아야 A"로 짰다가,
+   경계 후보 1개가 고립돼 있으면 그 자체가 orphan_count에 직접
+   반영되므로 candidate diff=1일 때 orphan_count도 함께 ±1 움직이는
+   것이 정상임을 재검토 중 발견 -- 그 게이트를 제거하고 "재계산된
+   speed 중 road_limit_speed와의 거리(margin)가 0.5kph 이내인 지점이
+   있는가"만으로 재분류.
+6. 재분류 결과: **113/114(99.1%)가 A(반올림 경계)**, margin 대부분
+   0.1kph 이내(최소 0.0012kph). 나머지 1건(t=670.921, seg
+   `20260908_065910_...--3`)은 candidate diff=2라 자동분류 게이트
+   (diff==1 전제)에 안 걸렸으나, 수동 확인 결과 해당 프레임 후보 4개
+   전부가 road_limit_speed(50kph) 바로 옆(48.6~50.0kph)에 몰려있어
+   경계 후보가 동시에 2개 갈린, 성격은 동일한 반올림 경계 현상으로 확인.
+   **-> 114/114(100%) 반올림 경계값으로 설명됨.**
+7. `toolkit/README.md`/`toolkit/CHANGELOG.md` 신규 섹션 추가, 두 스크립트
+   모두 toolkit 위치에서 재실행해 수치 동일 재현 확인 + `py_compile` 통과.
+
+**결론**: (1) `naviPaths`가 production의 실제 10m 리샘플 결과이므로,
+"10m production exact reproduction"의 앞단(좌표변환/리샘플) 재현은
+불필요 -- naviPaths를 입력으로 candidate/cluster/orphan 로직만
+재구현하면 된다. (2) 그 결과 **stateless 10m candidate/cluster/orphan
+reproduction은 PASS**로 판정(114/114 불일치가 `.2f` 로깅 정밀도
+손실로 설명, 실제 로직 불일치 0건). (3) `MapTurnSpeedFactor`는 corpus별
+실제값을 반드시 재확인해야 하며 레지스트리 등록값을 그대로 가정하면 안
+된다(다른 route CSV 재현 시에도 동일 원칙 적용 필요, PARAMS_REGISTRY.md
+자체는 §26에 따라 이 세션에서 수정하지 않음 -- 값 자체가 틀린 게 아니라
+"어느 시점 실측인지"의 문제이므로 항목 추가는 다음 세션 판단 필요시).
+(4) `routeApexMode`/`Dist`/`Speed`는 여전히 미검증 -- 프레임 간 상태를
+갖는 `_route_cluster_continuity_step()`/provisional tracker 재생이
+별도로 필요(다음 작업).
+
+**영향받는 실차 제어 로직**: 없음(`ryu` 코드 변경 없음, devnotes
+toolkit 신규 스크립트 2개만 추가, ANALYSIS_ONLY).
+
+**검증**:
+- 정적 분석: `py_compile` 통과(toolkit 위치)
+- 로그 검증: x17seg 20171행 재추출 재현 확인, naviPaths 있는 19860
+  프레임 전수 스캔(2개 스크립트 모두 toolkit 위치에서 재실행해 수치
+  동일 확인)
+- 시뮬레이션: 해당 없음(실 corpus 기준 재현 검증)
+- 실차 검증: 미실시(로그 사후분석, ANALYSIS_ONLY)
+
+**Devnotes**: `toolkit/sim_route_322_single_frame_check.py`,
+`toolkit/sim_route_322_mismatch_triage.py` 신규(각 ~150/~180줄),
+`toolkit/README.md`/`toolkit/CHANGELOG.md` 갱신, 이 WIP 항목,
+FINDINGS.md 322차 항목 신규.
+
+**미확인 사항**:
+- `routeApexMode`/`Dist`/`Speed` stateful reproduction -- 다음 작업.
+- 114건 중 diff=2였던 1건 외 113건은 "margin<=0.5kph"라는 간접 지표로만
+  판정했고, production의 미반올림 원본 좌표 자체로 직접 증명한 것은
+  아님(로그에 원본이 없어 원리적으로 불가능, 한계로 명시).
+- `MapTurnSpeedFactor`가 x17seg 외 다른 corpus에서도 레지스트리 값과
+  다를 수 있음 -- 재사용 시 매번 재확인 필요(1회성 발견, 자동화 안 함).
+
+**다음 작업**:
+1. (핵심, 322-D/E) x17seg 전체 구간 stateful apex replay --
+   `_route_cluster_continuity_step()`/provisional tracker를 프레임
+   순서대로 재생해 `routeApexMode`/`Dist`/`Speed`를 production과 대조.
+   PASS 시 이 시뮬레이터를 "신뢰 가능한 기준 모델"로 격상, 그 이후에만
+   5m/2.5m grid sweep 착수(지선생 제안 순서 유지).
+2. (이월, 312차부터) `PROVISIONAL_PROMOTE_STREAK=3` 조정 여부 결정 --
+   서두를 근거 약함, 계속 이월.
+3. (이월, 311차부터) seg16 cruiseEnabled 재개입 가설 코드 레벨 추적 --
+   이번 세션에서도 미착수.
+4. (이월, 316차부터) `harsh_brake_events`/`steering_oscillation_detector`
+   임계값 민감도 확인 -- 이번 세션에서도 미착수.
+
+---
+
 ## 321차 (완료 -- ANALYSIS_ONLY, `ryu` 본체 무변경, devnotes toolkit 신규 스크립트 1개 추가) -- "orphan 국소 윈도우(~120m) 10m->5m 조건부 그리드" 검증(사용자 지시, 지선생 설계 제안 반영) -- 318차 벤치마크가 실제로는 5m 그리드를 테스트한 적이 없었음을 발견/정정, 국소 윈도우 실제 부하 최초 정량화 + 실제 함수 조합(resample_10m_np+calculate_curvature+route_find_clusters)으로 진짜커브 승격/노이즈 오탐없음 재확인, `relative_coords`가 로깅 없이도 orphan 판정 시점까지 스코프에 살아있음을 코드로 확정
 
 **Worker**: Claude
