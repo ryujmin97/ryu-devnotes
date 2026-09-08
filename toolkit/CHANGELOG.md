@@ -3,6 +3,15 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+## 2026-09-08 (317차)
+- `sim_route_317_orphan_local_fine_resample.py`: **신규**. 사용자 제안
+  "orphan 지점 주변 국소 재샘플" 아이디어 검증. Part1 합성 self-test
+  PASS(밀도↑는 폭>0 진짜 커브만 살리고 폭0 노이즈는 안 살림). x17seg
+  실측으로 `navRouteNavd` 0건(routeSource=tcp_navi) 확인 -- 원본
+  pre-resample 폴리라인 부재로 "국소 재샘플" 자체는 이 corpus로 검증
+  불가 확정. 대안으로 Part2(그리드 위상 민감도, 기존 로그 컬럼만 사용)
+  실측: orphan 에피소드 316개 중 84건(26.6%) phase-resolved.
+
 ## 2026-09-08 (316차)
 - `sim_route_310_provisional_streak_real_corpus.py`: **옵션 추가**(315차
   WIP "다음 작업" 2번). `--check-comfort`(위치 군집화된 각 물리적

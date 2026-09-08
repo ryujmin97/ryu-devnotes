@@ -42,6 +42,34 @@ schema를 동적 로드하므로 컬럼 목록만 갱신하면 됨).
 **주의**: 이 컬럼들은 `020ea86`(307차) 이후 채록된 로그에만 값이
 채워진다 -- 그 이전 route1~4 corpus(293~309차)에는 소급 적용 안 됨.
 
+## sim_route_317_orphan_local_fine_resample.py (317차 신규, 사용자 제안 "orphan 국소 국소재샘플" 아이디어의 self-test + x17seg phase-resolution 실측)
+**목적**: 306차가 확정한 min_points=2 게이트/orphan 문제에 대해, 사용자가
+제안한 "600m 전체를 매 프레임 5m로 재샘플하는 대신, orphan 탐지 지점
+주변만 국소적으로 5m(또는 더 촘촘하게) 재샘플" 아이디어를 검증한다.
+**Part 1(합성 self-test)**: "점 밀도만 올리고 fine curvature chord(20m)는
+고정"하는 방식이 "폭이 있는 진짜 좁은 커브(L>0)"는 위상(phase) 의존성
+없이 클러스터로 잡아내면서 "폭 0 순수 노이즈"는 밀도를 올려도 절대
+클러스터로 만들지 않는지를 폭(L)x간격x위상 스윕으로 검증
+(`route_find_clusters()` 306/308차와 동일 이식, §27) -- **self-test
+PASS**(노이즈 0% 유지 + 폭>0 전부 밀도↑에 성공률 단조증가).
+**사전 확인(중요)**: x17seg corpus는 `routeSource=="tcp_navi"`뿐이라
+`navRouteNavd`(원본 pre-resample 폴리라인) 이벤트가 **0건**임을 실측
+확인 -- `carrotMan.naviPaths`는 이미 10m로 리샘플된 결과만 담고 있어,
+"원본 폴리라인을 국소적으로 5m 재샘플"이라는 원안 자체는 **이 corpus로
+실측 불가능**함을 확정(§28, 원본 pre-resample 계측 신설 + 재주행
+필요, §31). **Part 2(대안 실측, x17seg)**: 대신 같은 메커니즘의 다른
+예측("그리드 위상이 바뀌면 같은 물리적 지점이 orphan<->cluster를
+오갈 것")을 이미 로그된 `routeOrphanSingletonDist`/`routeClusterCount`/
+`routeApexDist`만으로 검증 -- orphan 에피소드 316개 중 84건(26.6%)이
+인접 프레임(그리드 위상 다름)에서 같은 위치가 cluster로 잡힌 이력 있음
+확인(phase-resolved). **한계**: Part 2는 "국소 재샘플을 했다면
+풀렸을 것"의 직접 증거가 아니라 같은 가설의 대리 검증. persistent
+232건(73.4%)이 왜 어떤 위상에서도 안 풀리는지(진짜 폭<10m 커브인지
+vs 다른 원인인지)는 미확인 -- 다음 작업 참고.
+**의존성**: `extract_log.py --with-navi-paths` 출력 CSV(routeOrphanSingleton*/
+routeClusterCount/routeApexDist 컬럼 필요, 020ea86=307차 이후 로그).
+**사용**: `python3 sim_route_317_orphan_local_fine_resample.py --csv <csv> --rlog-sample <route/segN/rlog.zst> --repo <ryu>`
+
 ## sim_route_310_provisional_streak_real_corpus.py (310차 신규, 307차 shadow tracker 최초 실차 로그 분석 -- provisional streak episode 재구성 + production apex 공백 겹침 확인)
 **목적**: 307차가 계측만 해두고 "실차 검증: 미실시"로 남겨둔
 `routeProvisionalStreak`(PROVISIONAL_PROMOTE_STREAK=3, NEEDS_VALIDATION)
