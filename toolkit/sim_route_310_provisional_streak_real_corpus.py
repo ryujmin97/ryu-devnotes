@@ -53,8 +53,12 @@ production 로직과 완전히 분리된 shadow tracker를 계측만 해두었�
 """
 import argparse
 import csv
+import os
 import sys
 from collections import Counter
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from analysis_helpers import harsh_brake_events, steering_oscillation_detector
 
 
 def load_rows(csv_path):
@@ -167,6 +171,19 @@ def main():
                           "같은 seg 내 시간 gap이 이 값(초) 이하면 같은 물리적 위치로 묶는다(312차 "
                           "발견 -- routeProvisionalStreak가 하나의 커브 접근 중 여러 번 끊겨 "
                           "episode 수가 실제 물리적 위치 수보다 부풀려짐).")
+    ap.add_argument("--check-comfort", action="store_true",
+                     help="[316차 신규] --check-cruise/--cluster-gap-s와 함께 사용. 위치 군집화로 "
+                          "얻은 각 물리적 위치(근접+이동중, ADAS engaged 여부 무관하게 전체)에 대해 "
+                          "harsh_brake_events/steering_oscillation_detector(analysis_helpers, 기존 "
+                          "함수 재사용, §21)를 그 위치의 seg 내 프레임 구간(+-comfort-pad-s 패딩)에 "
+                          "적용해 실제 '불편' 신호(급브레이크/조향진동) 존재 여부를 위치별로 집계한다. "
+                          "311/312차가 seg14/seg16 두 곳에서 대화식 코드로 수행했던 것과 동일한 로직을 "
+                          "정식 옵션으로 편입(313차 교훈 -- 대화식 분석은 재현 불가하므로 즉시 "
+                          "스크립트화해야 함)하고, seg3/seg4를 포함한 전체 위치로 범위를 넓힌다.")
+    ap.add_argument("--comfort-pad-s", type=float, default=5.0,
+                     help="[316차 신규] --check-comfort 패딩(초). 위치 [start_t-pad, end_t+pad] "
+                          "구간을 검사 대상으로 삼는다(311/312차가 seg14/seg16에서 수동으로 앞뒤를 "
+                          "넓혀 확인했던 관행을 동일하게 편입).")
     args = ap.parse_args()
 
     rows = load_rows(args.csv_path)
@@ -293,6 +310,46 @@ def main():
         for loc in sorted(locations, key=lambda x: -len(x["episodes"])):
             print(f"  seg={loc['seg']} t={loc['start_t']:.2f}~{loc['end_t']:.2f}s "
                   f"episode {len(loc['episodes'])}건")
+
+        if args.check_comfort:
+            # [316차 신규] 각 물리적 위치(ADAS engaged, cruiseEnabled=True
+            # 구간)에 대해 harsh_brake_events/steering_oscillation_detector를
+            # 적용한다. 311/312차가 seg14/seg16에서 대화식으로 했던 것과
+            # 동일한 방식이나, 이번엔 4곳(seg3/seg4/seg14/seg16) 전체를
+            # 스크립트로 일괄 처리한다(§21/22 -- 로직 재사용, 새 탐지
+            # 알고리즘 아님).
+            #
+            # [316차 주의 -- 초판 버그 발견 및 수정] 단순 시간 패딩만
+            # 적용하면 패딩 구간 안에서 cruiseEnabled가 False로 바뀐
+            # 뒤(=ADAS 비engaged, 운전자 수동조작)의 프레임까지 섞여
+            # 들어가 "무관한 수동 정지 시 급브레이크"를 이 위치의
+            # ADAS 관련 불편으로 오탐할 수 있다(실제로 seg3에서 발생 --
+            # 아래 한계 참고). 따라서 패딩 구간 내에서도
+            # cruiseEnabled=='True'인 프레임만 검사 대상으로 남긴다.
+            pad = args.comfort_pad_s
+            print(f"\n[--check-comfort] 물리적 위치 {len(locations)}곳에 대한 "
+                  f"harsh_brake_events/steering_oscillation_detector 적용 "
+                  f"(구간 +-{pad}s 패딩, cruiseEnabled=True 프레임만):")
+            for loc in sorted(locations, key=lambda x: -len(x["episodes"])):
+                seg = loc["seg"]
+                t0 = loc["start_t"] - pad
+                t1 = loc["end_t"] + pad
+                pad_rows = [r for r in rows
+                            if r.get("seg") == seg
+                            and t0 <= to_float(r.get("t", "0")) <= t1]
+                loc_rows = [r for r in pad_rows if to_bool(r.get("cruiseEnabled"))]
+                excluded = len(pad_rows) - len(loc_rows)
+                hb = harsh_brake_events(loc_rows)
+                so = steering_oscillation_detector(loc_rows)
+                print(f"  seg={seg} t={loc['start_t']:.2f}~{loc['end_t']:.2f}s "
+                      f"(검사구간 {t0:.2f}~{t1:.2f}s, {len(pad_rows)}프레임 중 "
+                      f"cruiseEnabled=True {len(loc_rows)}건 검사, {excluded}건 제외): "
+                      f"harsh_brake={len(hb)}건 steering_oscillation={len(so)}건")
+                for h in hb:
+                    print(f"    harsh_brake: t={h['t']:.2f}s aEgo={h['aEgo']:.2f} vEgo={h['vEgo']:.1f}")
+                for s in so:
+                    print(f"    steering_oscillation: t={s['t_start']:.2f}~{s['t_end']:.2f}s "
+                          f"reversals={s['n_reversals']} max_abs_angle={s['max_abs_angle']:.1f}")
 
     # 최근접 orphan 존재 빈도(전체 프레임 대비) -- 참고용
     total_frames = len(rows)

@@ -98,6 +98,24 @@ gap-s`(기본 5.0초)는 같은 seg 내 ADAS engaged episode들을 시간 gap
 후처리보다 정식 스크립트 옵션이 재현성과 정확도 면에서 우선한다는
 근거 사례.
 
+**[316차 추가] `--check-comfort`/`--comfort-pad-s`**: 311/312차가
+seg14/seg16 두 곳에서 대화식으로 수행했던 `harsh_brake_events`/
+`steering_oscillation_detector`(`analysis_helpers.py`, 기존 함수
+재사용, §21) 적용을 정식 옵션으로 편입하고, `--cluster-gap-s`로 묶인
+물리적 위치 전체(이번 x17seg corpus에서는 seg3/seg4/seg14/seg16 4곳)로
+범위를 넓혔다. `--comfort-pad-s`(기본 5.0초)는 각 위치의
+`[start_t-pad, end_t+pad]` 구간을 검사 대상으로 삼는다.
+**초판 버그 발견 및 수정**: 단순 시간 패딩만 적용하면 패딩 구간 안에서
+`cruiseEnabled`가 False로 전환된(=ADAS 비engaged, 운전자 수동조작)
+이후 프레임까지 섞여 들어가 무관한 수동조작 이벤트(예: seg3 적신호
+수동 정지 시 급브레이크 8건)를 이 위치의 ADAS 관련 "불편"으로
+오탐할 수 있음을 실행 중 직접 발견 -- qcamera로도 빨간불 정지임을
+확인. 패딩 구간 내에서도 `cruiseEnabled=='True'`인 프레임만 검사
+대상으로 남기도록 즉시 수정. **수정 후 결과: 물리적 위치 4곳(seg3/
+seg4/seg14/seg16) 전부 harsh_brake=0건, steering_oscillation=0건**
+(seg14/seg16은 311/312차 대화식 결과의 스크립트 재현, seg3/seg4는
+이번에 처음 체계적으로 확인 -- FINDINGS.md 316차 참고).
+
 ---
 
 ## sim_route_309_real_release_confirm.py (309차 신규, 289/292차 파이프라인을 실 corpus에 재적용해 실제 production margin 기준 "진짜 RELEASE" 건수 확정)

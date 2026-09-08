@@ -1,3 +1,99 @@
+## 316차 (완료 -- ANALYSIS_ONLY, `ryu` 본체 무변경, devnotes toolkit 기존 스크립트에 옵션 2개 추가) -- `sim_route_310_provisional_streak_real_corpus.py`에 `--check-comfort`/`--comfort-pad-s` 정식 편입 -- 근접+이동중 ADAS engaged 물리적 위치 4곳(seg3/seg4/seg14/seg16) 전체에서 harsh_brake_events/steering_oscillation_detector 0건 확인(310차부터 이월된 다음 작업 완료), 옵션 초판의 cruiseEnabled 미필터링 버그를 실행 중 발견·즉시 수정
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu`(HEAD `020ea86`=307차, 변경 없음) /
+`ryu-devnotes`(base `fdf7f2b`=315차, 이 항목 추가 전)
+
+**Branch**: `c3-ms-dev` / `main`
+
+**세션 시작 확인(§3/§33)**: 컨테이너가 세션 중 리셋되어 fresh clone
+재확인 -- `ryu`=`020ea86`(변경 없음), `ryu-devnotes`=`fdf7f2b`(315차,
+직전 세션이 이미 확인한 상태와 동일). 다른 AI(ChatGPT)의 개입 흔적
+없음. 사용자가 "이전세션 중단, 계속" 지시 -- 315차 WIP "다음 작업"
+2번(근접+이동중 57건 중 harsh_brake_events/steering_oscillation_detector
+교차검증, 310차부터 이월)에 착수.
+
+**한 일**:
+1. 컨테이너 리셋으로 사라진 x17seg CSV를 동일 업로드 zip에서
+   재추출(pycapnp/zstandard 재설치 포함) -- 20171행, `020ea86` 확인,
+   기존 기록과 완전 일치(재현성 재확인).
+2. `sim_route_310_provisional_streak_real_corpus.py`에
+   `--check-comfort`(위치 군집화된 각 물리적 위치에
+   harsh_brake_events/steering_oscillation_detector 적용, §21 --
+   `analysis_helpers.py` 기존 함수 재사용) + `--comfort-pad-s`(기본
+   5.0초 패딩) 옵션 신규 추가.
+3. **초판 버그 발견 및 즉시 수정**: 단순 시간 패딩만 적용한 초판을
+   실행한 결과 seg3 클러스터에서 harsh_brake 8건이 잡혔으나, 원시
+   CSV 대조 결과 전부 `cruiseEnabled=False`(운전자가 적신호에
+   수동으로 정지하는 구간)였고 qcamera로도 빨간불 정지 확인 --
+   ADAS 비engaged 구간은 무관하므로(311차 원칙) 패딩 구간 내에서도
+   `cruiseEnabled=='True'` 프레임만 검사하도록 즉시 수정.
+4. 수정 후 재실행 -- **물리적 위치 4곳(seg3/seg4/seg14/seg16) 전부
+   harsh_brake=0건, steering_oscillation=0건** 확인(seg14/seg16은
+   311/312차 대화식 결과를 스크립트로 재현, seg3/seg4는 이번에 처음
+   체계적으로 확인).
+5. `toolkit/README.md`(316차 단락 추가) / `toolkit/CHANGELOG.md`
+   (2026-09-08 316차 항목 추가) 갱신 완료.
+6. `FINDINGS.md` 316차 항목 신규 작성(위 결과 + 버그 발견/수정
+   경위 + 한계 명시).
+
+**결론**: 310~316차 누적 결과, x17seg corpus의 "근접+이동중+ADAS개입"
+진짜 커브 후보 4곳 전체에서 production apex 공백이 실제 급브레이크나
+조향진동으로 이어졌다는 증거는 전무하다. "306/307차 가설이 실측으로
+뒷받침되는가"는 여전히 "production이 후보를 놓쳤다"(계측 사실, 참)
+단계에 머물러 있고 "그로 인해 실제 문제가 생겼다"(§28/§29) 단계로는
+나아가지 못했다. 310차부터 이월되어온 "harsh_brake/steering_oscillation
+교차검증" 다음 작업 항목은 이번 세션으로 완료됨.
+
+**한계(§28)**:
+1. 단일 로그(17세그먼트) 표본, `harsh_brake_events`/
+   `steering_oscillation_detector`의 기본 임계값(`accel_drop_thresh=
+   -0.8`, `min_reversals=3` 등) 기준 결과 -- 더 민감한 임계값에서는
+   다른 결과 가능성 배제 못함.
+2. `--comfort-pad-s` 기본값(5.0초) 자체의 타당성은 별도 검증하지
+   않음(311/312차 수동 관행을 그대로 편입).
+3. seg14/seg16이 완만한 저속 커브라는 312차 지적과 동일하게
+   "완만해서 감속이 애초에 불필요했다"는 대안 설명은 여전히 배제
+   못함.
+
+**검증**:
+- 정적 분석: `py_compile` 통과
+- 로그 검증: 완료(x17seg 20171프레임, 재현성 확인)
+- 시뮬레이션: 해당 없음(순수 관측/집계, `ryu` 코드 무변경)
+- 실차 검증: **완료**(§29 -- 실차 로그 기반 harsh_brake/조향진동
+  부재 직접 확인. 단 "무해하다"는 결론은 이 corpus/이 임계값에
+  한정, 위 한계 참고)
+
+**Devnotes**: `FINDINGS.md` 316차 항목 신규, 이 WIP 항목,
+`toolkit/README.md`/`toolkit/CHANGELOG.md` 갱신.
+`toolkit/sim_route_310_provisional_streak_real_corpus.py` 옵션 2개
+추가(`--check-comfort`/`--comfort-pad-s`).
+
+**미확인 사항**:
+- `harsh_brake_events`/`steering_oscillation_detector` 임계값을
+  달리했을 때도 0건이 유지되는지 미검증.
+- 원거리+이동중 19건 lookahead 끝단 아티팩트 가설의 나머지 코드
+  레벨(비-샘플) 확인 여부(310차부터 이월, 314/315차가 실측으로 대부분
+  해소했으나 코드 레벨 확인은 별개 -- 아래 다음 작업 참고).
+- 다른 로그(x17seg 외 corpus)에서도 "물리적 위치 4곳 전부 불편 신호
+  0건" 패턴이 재현되는지 미확인(단일 로그 한계).
+
+**다음 작업**:
+1. `PROVISIONAL_PROMOTE_STREAK=3` 조정 여부/설계안 A 채택 여부 결정
+   (사용자 계획 ②단계) -- 310~316차 누적 결과 "실제 불편 증거 0건"
+   상태이므로 조정을 서두를 근거가 약함을 다음 세션에 명시적으로
+   재논의 필요(312차부터 이월).
+2. seg16 cruiseEnabled False->True 전환 시점의 "커브 통과 후
+   재개입" 가설 코드 레벨 추적(311차 이월, 계속 미착수).
+3. `harsh_brake_events`/`steering_oscillation_detector` 임계값
+   민감도 확인(예: `accel_drop_thresh=-0.6` 등 더 보수적인 값으로
+   재실행해 0건이 유지되는지).
+4. 다른 corpus 확보 시 동일 `--check-comfort` 파이프라인 재적용해
+   일반화 가능성 확인.
+
+---
+
 ## 315차 (완료 -- ANALYSIS_ONLY, `ryu` 본체 무변경, devnotes toolkit 신규/수정 없음(기존 스크립트 재사용)) -- 314차가 이월한 "원거리+이동중" 나머지 18건 표본검증 완료, 5개 물리적 사건으로 전부 설명 -- 그중 seg13->seg14 경계 사례에서 `ROUTE_CLUSTER_MIN_POINTS=2` 게이트 결함(306/307차 가설)의 x17seg corpus 내 최초 실측+qcamera 확정 사례 발견(510m 진입~0m 통과까지 전 구간 apex 미승격)
 
 **Worker**: Claude

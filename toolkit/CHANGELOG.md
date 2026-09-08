@@ -3,6 +3,19 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+## 2026-09-08 (316차)
+- `sim_route_310_provisional_streak_real_corpus.py`: **옵션 추가**(315차
+  WIP "다음 작업" 2번). `--check-comfort`(위치 군집화된 각 물리적
+  위치에 `harsh_brake_events`/`steering_oscillation_detector` 적용,
+  `analysis_helpers.py` 기존 함수 재사용, §21) + `--comfort-pad-s`
+  (기본 5.0초, 위치 구간 앞뒤 패딩) 정식 편입. **초판 버그를 실행
+  중 발견 및 즉시 수정**: 시간 패딩만 적용 시 `cruiseEnabled=False`
+  구간(운전자 수동조작)의 이벤트까지 오탐(seg3 적신호 수동정지
+  harsh_brake 8건이 잘못 잡힘) -- 패딩 구간 내에서도
+  `cruiseEnabled=='True'` 프레임만 검사하도록 수정. 수정 후 물리적
+  위치 4곳(seg3/seg4/seg14/seg16) 전부 harsh_brake=0건,
+  steering_oscillation=0건 확인(FINDINGS.md 316차 참고).
+
 ## 2026-09-08 (314차)
 - `extract_log.py`: **필드 추가**(신규 스크립트 아님). `routeNaviPointsLen`/
   `routeNaviStartIdxIn`/`routeNaviStartIdxOut`/`routePathLen`(cereal/
