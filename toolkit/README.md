@@ -74,7 +74,18 @@ qcamera 대조 시점에 발견(해당 구간엔 커브가 없고 넓은 직선 
 CSV(routeProvisional* 컬럼 필요).
 
 **사용**: `python3 sim_route_310_provisional_streak_real_corpus.py
-<route.csv> [--promote-streak 3]`
+<route.csv> [--promote-streak 3] [--check-cruise] [--cluster-gap-s 5.0]`
+
+**[313차 추가] `--check-cruise`/`--cluster-gap-s`**: 311/312차가 대화식
+python으로 수행했던 두 가지(cruiseEnabled 구간 분류, 물리적 위치
+군집화)를 정식 옵션으로 편입. `--check-cruise`는 근접+이동중 episode를
+cruiseEnabled 구간 전체 값(True/False/mixed)으로 분류하고, `--cluster-
+gap-s`(기본 5.0초)는 같은 seg 내 ADAS engaged episode들을 시간 gap
+기준으로 물리적 위치 단위로 묶는다. **정밀화 결과 311/312차가 인용한
+"cruiseEnabled=True 23건"은 실제로는 25건이었음이 확인됨**(물리적 위치
+4곳이라는 결론 자체는 무영향, FINDINGS.md 313차 참고) -- 대화식
+후처리보다 정식 스크립트 옵션이 재현성과 정확도 면에서 우선한다는
+근거 사례.
 
 ---
 

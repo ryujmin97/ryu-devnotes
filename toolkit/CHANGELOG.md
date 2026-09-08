@@ -3,6 +3,16 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+## 2026-09-08 (313차)
+- `sim_route_310_provisional_streak_real_corpus.py`: **옵션 추가**(312차
+  WIP "다음 작업" 1번). `--check-cruise`(근접+이동중 episode를
+  cruiseEnabled 구간 전체 값 True/False/mixed로 분류) + `--cluster-
+  gap-s`(기본 5.0초, 같은 seg 내 ADAS engaged episode를 시간 gap
+  기준으로 물리적 위치 단위 군집화) 정식 편입. 311/312차 대화식
+  후처리를 정식 옵션으로 재현하는 과정에서 **프레임 단위 재계산이
+  311/312차 인용치(True 23건)와 다름(실제 25건)을 발견** -- 물리적
+  위치 4곳 결론은 무영향, FINDINGS.md 313차 참고.
+
 ## 2026-09-08 (310차)
 - `extract_log.py`: **필드 갱신**(신규 스크립트 아님). 307차가
   cereal/custom.capnp @58~@69 + carrot_man.py/carrot_serv.py에 이미

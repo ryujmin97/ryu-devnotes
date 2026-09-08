@@ -33,7 +33,23 @@ production 로직과 완전히 분리된 shadow tracker를 계측만 해두었�
 
 사용:
     python3 sim_route_310_provisional_streak_real_corpus.py <route.csv>
-      [--promote-streak 3]
+      [--promote-streak 3] [--check-cruise] [--cluster-gap-s 5.0]
+
+[313차 추가] --check-cruise / --cluster-gap-s:
+  311/312차가 대화식 python 후처리로 확인한 두 가지를 스크립트 정식
+  옵션으로 편입한다(§21 -- 로직 재구현 아님, 두 세션에서 검증된 방식
+  그대로 옮김).
+    --check-cruise: 근접+이동중(gap_overlap) episode 각각에 대해 구간
+      전체의 cruiseEnabled 값 집합을 계산해 True(전체 개입)/False(전체
+      수동)/mixed(구간 중 전환)로 분류하고, True만 별도로 "ADAS engaged"
+      상위 목록으로 출력한다. cruiseEnabled=False 구간은 apex 공백이
+      실제 차량 거동에 영향을 주지 못하므로(311차 발견) 우선순위에서
+      낮춘다.
+    --cluster-gap-s (기본 5.0): ADAS engaged episode들을 같은 seg 내에서
+      시간 gap이 이 값 이하면 같은 물리적 위치로 묶는다(312차 발견 --
+      routeProvisionalStreak가 하나의 커브 접근 중 여러 번 끊겨 episode
+      수가 실제 물리적 위치 수보다 부풀려짐). 클러스터링 결과는
+      "episode 건수"가 아니라 "물리적 위치 건수"로 요약 출력된다.
 """
 import argparse
 import csv
@@ -84,6 +100,7 @@ def build_episodes(rows):
         dist = to_float(row.get("routeProvisionalDist", "0"))
         speed = to_float(row.get("routeProvisionalSpeed", "0"))
         match_err = to_float(row.get("routeProvisionalMatchError", "0"))
+        cruise = to_bool(row.get("cruiseEnabled", ""))
 
         if not active or streak <= 0:
             if cur is not None:
@@ -103,7 +120,7 @@ def build_episodes(rows):
                 "dist_first": dist, "dist_last": dist,
                 "speed_first": speed, "speed_last": speed,
                 "max_match_error": 0.0, "seg": row.get("seg", ""),
-                "vegos": [],
+                "vegos": [], "cruise_states": set(),
             }
 
         cur["end_t"] = t
@@ -115,6 +132,7 @@ def build_episodes(rows):
         cur["speed_last"] = speed
         cur["max_match_error"] = max(cur["max_match_error"], match_err)
         cur.setdefault("vegos", []).append(to_float(row.get("vEgo", "0")))
+        cur.setdefault("cruise_states", set()).add(cruise)
         prev_streak = streak
 
     if cur is not None:
@@ -139,6 +157,16 @@ def main():
                           "정체). vEgo≈0이면 predicted≈locked_dist라 streak가 무의미하게 커지는 "
                           "게 당연한 결과이므로 이런 케이스가 streak 상위 랭킹을 왜곡하지 않게 "
                           "한다.")
+    ap.add_argument("--check-cruise", action="store_true",
+                     help="[313차 신규] 근접+이동중 episode를 cruiseEnabled 구간 전체 값으로 "
+                          "True(ADAS 개입)/False(운전자 수동)/mixed(전환)로 분류해 별도 출력한다. "
+                          "311차 발견 -- cruiseEnabled=False 구간은 apex 공백이 실제 차량 거동에 "
+                          "영향을 주지 못하므로 우선순위에서 낮춘다.")
+    ap.add_argument("--cluster-gap-s", type=float, default=5.0,
+                     help="[313차 신규] --check-cruise와 함께 사용. ADAS engaged episode들을 "
+                          "같은 seg 내 시간 gap이 이 값(초) 이하면 같은 물리적 위치로 묶는다(312차 "
+                          "발견 -- routeProvisionalStreak가 하나의 커브 접근 중 여러 번 끊겨 "
+                          "episode 수가 실제 물리적 위치 수보다 부풀려짐).")
     args = ap.parse_args()
 
     rows = load_rows(args.csv_path)
@@ -214,6 +242,57 @@ def main():
             print(f"  seg={e.get('seg','?')} t={e['start_t']:.2f}~{e['end_t']:.2f}s "
                   f"max_streak={e['max_streak']} avg_vEgo={e['avg_vego']:.1f}m/s "
                   f"dist={e['dist_first']:.1f}->{e['dist_last']:.1f}m apex_modes={modes}")
+
+    if args.check_cruise and near_moving:
+        # [313차 신규, 311/312차 대화식 로직 편입 -- §21] cruiseEnabled
+        # 구간 전체 값으로 분류.
+        def cruise_label(e):
+            states = e.get("cruise_states", set())
+            if states == {True}:
+                return "True"
+            if states == {False}:
+                return "False"
+            return "mixed"
+
+        for e in near_moving:
+            e["cruise_label"] = cruise_label(e)
+
+        cruise_true = [e for e in near_moving if e["cruise_label"] == "True"]
+        cruise_false = [e for e in near_moving if e["cruise_label"] == "False"]
+        cruise_mixed = [e for e in near_moving if e["cruise_label"] == "mixed"]
+
+        print(f"\n[--check-cruise] 근접+이동중 {len(near_moving)}건의 cruiseEnabled 구간 분류:")
+        print(f"  cruiseEnabled=True(ADAS 개입, 실제 의미있는 후보): {len(cruise_true)}건")
+        print(f"  cruiseEnabled=False(운전자 수동조작, apex 공백 무해): {len(cruise_false)}건")
+        print(f"  mixed(구간 중 전환): {len(cruise_mixed)}건")
+
+        # [313차 신규, 312차 발견 편입] 같은 seg 내에서 시간 gap이
+        # --cluster-gap-s 이하인 ADAS engaged episode들을 하나의 물리적
+        # 위치로 묶는다. episode 수가 아니라 물리적 위치 수를 본다.
+        by_seg = {}
+        for e in sorted(cruise_true, key=lambda x: x["start_t"]):
+            by_seg.setdefault(e.get("seg", ""), []).append(e)
+
+        locations = []
+        for seg, seg_episodes in by_seg.items():
+            cur_loc = None
+            for e in seg_episodes:
+                if cur_loc is None or e["start_t"] - cur_loc["end_t"] > args.cluster_gap_s:
+                    if cur_loc is not None:
+                        locations.append(cur_loc)
+                    cur_loc = {"seg": seg, "start_t": e["start_t"], "end_t": e["end_t"],
+                               "episodes": [e]}
+                else:
+                    cur_loc["end_t"] = max(cur_loc["end_t"], e["end_t"])
+                    cur_loc["episodes"].append(e)
+            if cur_loc is not None:
+                locations.append(cur_loc)
+
+        print(f"\n[위치 군집화] (gap<={args.cluster_gap_s}s 기준) ADAS engaged "
+              f"{len(cruise_true)}건 episode -> 물리적 위치 {len(locations)}곳:")
+        for loc in sorted(locations, key=lambda x: -len(x["episodes"])):
+            print(f"  seg={loc['seg']} t={loc['start_t']:.2f}~{loc['end_t']:.2f}s "
+                  f"episode {len(loc['episodes'])}건")
 
     # 최근접 orphan 존재 빈도(전체 프레임 대비) -- 참고용
     total_frames = len(rows)

@@ -1,3 +1,93 @@
+## 313차 (완료 -- ANALYSIS_ONLY, `ryu` 본체 무변경, devnotes toolkit 기존 스크립트에 옵션 2개 추가) -- `sim_route_310_provisional_streak_real_corpus.py`에 `--check-cruise`/`--cluster-gap-s` 정식 편입 -- 그 과정에서 311/312차가 인용한 "cruiseEnabled=True 23건"이 프레임 단위 재계산 결과 실제로는 25건이었음을 발견(물리적 위치 4곳 결론은 무영향)
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu`(HEAD `020ea86`=307차, 변경 없음) /
+`ryu-devnotes`(base `bd6093f`=312차, 이 항목 추가 전)
+
+**Branch**: `c3-ms-dev` / `main`
+
+**세션 시작 확인(§2/§3/§33)**: 컨테이너가 리셋되어 fresh clone으로
+재확인 -- `ryu`=`020ea86`(변경 없음), `ryu-devnotes`=`bd6093f`(312차
+patch가 정상 push되었음을 확인). 다른 AI(ChatGPT)의 개입 흔적 없음.
+사용자가 동일 x17seg zip(`000003c6--586e535fca`, 17세그먼트)을
+재업로드하며 "계속" 지시 -- 312차 WIP "다음 작업" 1번(`--check-cruise`/
+위치 군집화를 정식 옵션으로 편입)에 착수.
+
+**한 일**:
+1. x17seg CSV 재추출(`pycapnp`/`zstandard` 재설치 포함) -- 20171행,
+   `020ea86` 확인, 기존 기록과 완전 일치(재현성 재확인).
+2. `sim_route_310_provisional_streak_real_corpus.py`에 두 옵션 정식
+   추가(§21 -- 기존 스크립트 확장, 신규 스크립트 아님):
+   - `--check-cruise`: episode 프레임 전체의 `cruiseEnabled` 값 집합을
+     계산해 True(전체 ADAS 개입)/False(전체 수동)/mixed(구간 중 전환)로
+     분류.
+   - `--cluster-gap-s`(기본 5.0): ADAS engaged episode들을 같은 seg 내
+     시간 gap 기준으로 물리적 위치 단위로 군집화(312차가 대화식으로
+     발견한 "episode 다수 = 위치 소수" 패턴을 재사용 가능하게 편입).
+3. `--check-cruise` 실행 결과가 311/312차 인용 수치(True 23/False 29/
+   mixed 5)와 다르게 나옴(True 25/False 31/mixed 1) -- **원인 규명을
+   위해 원시 CSV를 직접 대조**: seg3 t=672~677.5s 구간의 `cruiseEnabled`
+   컬럼을 프레임 단위로 전부 출력해 전환 시점(673.371s False->True,
+   676.573s True->False)을 확인한 결과, 313차 프레임 단위 분류가 이
+   원시값과 정확히 일치함을 확인(전환이 겹치는 단일 episode만 mixed,
+   그 앞뒤는 순수 True/False). **313차 수치가 정확한 값이며, 311/312차가
+   어떤 방식으로 23/29/5를 얻었는지는 대화식 코드가 세션 종료 후
+   소실되어 재현 불가**(§28, 원인 미확정이나 사실은 명확히 정정).
+4. 위치 군집화(`--cluster-gap-s 5.0`) 재실행 -- **물리적 위치 4곳(seg3/
+   seg4/seg14/seg16)이라는 312차 핵심 결론은 그대로 재현됨**. 차이는
+   seg3 클러스터의 episode 개수(7건->9건, True 총계 23->25에 대응)뿐이며,
+   이미 qcamera 대조를 마친 4개 위치 자체나 "실제 불편 신호 0건"
+   결론에는 영향 없음.
+
+**결론**: 대화식 후처리로 얻은 수치(23/29/5)는 프레임 단위 정식
+스크립트 재계산(25/31/1)과 다르며, 후자가 원시 로그와 일치하는 정확한
+값이다. 이번 세션의 핵심 교훈은 "대화식 분석은 다음 세션에서 재현
+불가능하므로, 재사용 가치가 확인된 로직은 그 즉시 정식 스크립트 옵션으로
+편입해야 한다"(§21/22 원칙의 재확인) -- 이번엔 편입이 한 세션 늦어
+23/29/5라는 부정확한 수치가 두 세션(311/312차) 동안 WIP/FINDINGS에
+그대로 인용되는 결과를 낳았다.
+
+**한계(§28)**:
+1. 311/312차 원본 대화식 코드가 남아있지 않아 오류의 정확한 지점(어떤
+   근사/그룹핑을 썼는지)은 규명 불가 -- 결과만 정정, 원인은 미상.
+2. 이번 정정은 계측 정확도 문제이며 차량 거동/production 코드와는
+   무관 -- `ryu` 본체 변경 없음, 실차 검증 대상 아님.
+3. 여전히 단일 corpus(17세그먼트) 표본, 다른 로그에서 `--check-cruise`/
+   `--cluster-gap-s`가 정상 동작하는지는 미검증(이번 corpus 1건 확인).
+
+**검증**:
+- 정적 분석: 완료(`py_compile` PASS)
+- 로그 검증: 완료(x17seg 20171행 재현성 확인 + seg3 원시 cruiseEnabled
+  컬럼 프레임 단위 직접 대조로 정정 수치 검증)
+- 시뮬레이션: 해당 없음(실측 로그 분석)
+- 실차 검증: 해당 없음(계측 정확도 정정, 차량 거동 문제 아님)
+
+**Devnotes**: `toolkit/sim_route_310_provisional_streak_real_corpus.py`
+옵션 2개 추가, `toolkit/README.md`/`CHANGELOG.md` 갱신, FINDINGS.md
+313차 항목 신규(정정), 이 WIP 항목.
+
+**미확인 사항**:
+- 311/312차 대화식 코드의 정확한 오류 지점(코드 소실로 재현 불가).
+- 원거리+이동중 19건 lookahead 끝단 아티팩트 가설 코드 레벨 확인(310차
+  부터 이월, 계속 미착수).
+- seg16 "커브 통과 후 재개입" 가설 코드 레벨 확인(311차 이월).
+- 다른 로그에서 `--check-cruise`/`--cluster-gap-s` 재현성 미확인.
+
+**다음 작업**:
+1. 원거리+이동중 19건의 lookahead 끝단 아티팩트 가설 코드 레벨 확인
+   착수(`get_path_after_distance()`/naviPaths 리샘플 경계 확인) -- 310차
+   부터 3개 세션째 이월된 최우선 작업.
+2. seg16 cruiseEnabled False->True 전환 시점의 "커브 통과 후 재개입"
+   가설 코드 레벨 추적.
+3. 위 결과 누적 후 `PROVISIONAL_PROMOTE_STREAK=3` 조정 여부/설계안 A
+   채택 여부 결정(사용자 계획 ②단계) -- 여전히 "실제 불편 증거 0건"
+   상태이므로 조정을 서두를 근거가 약함.
+4. (낮은 우선순위) 다른 real corpus에서 `--check-cruise`/
+   `--cluster-gap-s` 재현성 확인.
+
+---
+
 ## 312차 (완료 -- ANALYSIS_ONLY, `ryu` 본체 무변경, devnotes toolkit 신규 스크립트 없음(기존 스크립트 + 임시 분석 코드 재사용)) -- ADAS engaged(cruiseEnabled=True) 23건이 물리적으로 4개 위치에 불과함을 발견, 마지막 미확인 위치(seg14)에서 두 번째 "실제 커브+ADAS개입+apex공백" 사례 확인(harsh_brake/조향진동 0건은 seg16과 동일)
 
 **Worker**: Claude
