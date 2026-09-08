@@ -3,6 +3,23 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+## 2026-09-09 (325차)
+- `sim_route_325_ep4_frame_trace.py`: **신규**. 324차의 ep4
+  `route_active` grid 상이 사례를 프레임 단위로 진단하기 위해
+  324차 `GridReplayState`/`recompute_grid`/`GRID_CONFIGS`를 무변경
+  재사용(§27)하고, `step()` 내부에서만 쓰이고 버려지던 진단값
+  (`required_decel_mss`, `target_kph`, `eff_dist`, `apex_confidence`,
+  `apex_passed_or_lost`, `speed_reached`, `dist_reached`, `decision`)을
+  반환값에 노출하는 `DiagGridReplayState` 서브클래스 추가. 판정
+  분기 자체는 한 글자도 변경하지 않음(`--validate-parity`로 324차
+  `summarize_episodes()` 결과와 100% 일치 회귀검증). `--seg`/`--t0`/
+  `--t1`/`--pad-s`로 지정한 시간창의 프레임을 grid간 `route_active`
+  전환/불일치(diverge) 시점 위주로 콘솔 출력하고, `--out-csv`로 전체
+  진단 필드를 CSV 저장 가능. ep4(seg--4, 962 orphan-tagged 프레임)
+  트레이스 결과 서로 다른 두 개의 divergence 메커니즘(구간1: 동일
+  apex 속도추정 타이밍차, 구간2: 2.5m 고유의 추가 apex 검출) 확인
+  (FINDINGS.md 325차 참고).
+
 ## 2026-09-09 (324차)
 - `sim_route_324_grid_counterfactual.py`: **신규**. 323차 계측
   (`routeOrphanRawPath`)으로 확보한 실차 로그(x18seg, `1b77b799`=323차

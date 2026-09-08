@@ -1,3 +1,124 @@
+## 325차 (완료 -- ep4 `route_active` grid 상이 프레임 단위 원인 추적, `ryu` 코드 변경 없음) -- 324차가 남긴 "2건 중 가장 큰 사례(ep4)의 원인을 프레임 단위로 추적" 과제 완료, 서로 다른 두 개의 divergence 메커니즘 확인
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu`(base `1b77b799`=323차, 코드 변경 없음,
+읽기만) / `ryu-devnotes`(base `bf9b4681`=324차, 이 항목 추가 전)
+
+**Branch**: `c3-ms-dev` / `main`
+
+**배경**: 324차가 x18seg 실측 counterfactual에서 발견한 "41건 중 2건은
+`route_active` 시퀀스 자체가 grid 간 상이"의 가장 큰 사례(ep4, seg--4,
+62초 에피소드, 10m 전체 미발동/5m 28프레임/2.5m 195프레임)에 대해,
+정확히 어느 프레임에서 무엇 때문에 갈리는지가 미확인 상태로 이월됨.
+이번 세션은 그 원인을 프레임 단위로 추적.
+
+**참고(세션 중 컨테이너 리셋 사고)**: 이번 세션 도중 컨테이너가 리셋되어
+1차로 완료했던 클론/추출/커밋/patch 생성 작업이 전부 유실됨(§33 원칙에
+따라 유실 이전에 사용자에게 보고한 내용 중 "verify 완료"는 실제로는
+git 계정정보 미설정으로 실패한 상태였음 -- 실패 상태를 성공으로
+보고하지 않고 정정). fresh clone부터 재확인(`ryu` HEAD `1b77b799`,
+`ryu-devnotes` HEAD `bf9b4681` -- 리셋 전과 동일, 다른 작업자의 변경
+없음 확인) 후 전 과정을 재실행, 최종 결과는 리셋 전 1차 실행과 100%
+동일함을 재확인.
+
+**한 일**:
+1. GitHub 최신상태 확인(§3/§33) -- `ryu` HEAD `1b77b799`(323차,
+   변경없음), `ryu-devnotes` HEAD `bf9b4681`(324차, 변경없음) 재확인.
+2. 사용자가 업로드한 x18seg 원본 로그(18세그, 마지막 세그 --18은
+   1.1MB로 정상 종료 잘림 -- 기존 관례대로 제외)를 `extract_log.py
+   --with-navi-paths`(323차 갱신판, `--repo` 323차 HEAD)로 재추출 --
+   17세그/20399행, 324차와 동일 corpus임을 행수로 확인.
+3. **`sim_route_325_ep4_frame_trace.py` 신규 작성** -- 324차
+   `GridReplayState`/`recompute_grid`/grid 정의를 무변경 재사용(§27),
+   `step()`이 내부에서만 계산하고 버리던 진단값(`required_decel_mss`,
+   `target_kph`, `eff_dist`, `apex_confidence`, `apex_passed_or_lost`,
+   `speed_reached`, `dist_reached`, `decision` 등)을 반환값에 노출하는
+   서브클래스(`DiagGridReplayState`)만 추가 -- 판정 분기 자체는 한 글자도
+   변경하지 않음.
+4. **회귀검증(`--validate-parity`)**: 324차 `summarize_episodes()`와
+   동일 함수를 그대로 호출해 41개 에피소드의 cluster 승격/`orphEnd`/
+   `route_active_diverge` 판정이 324차 결과와 전부 일치함을 확인(PASS) --
+   진단값 노출이 연산 결과를 바꾸지 않았음을 보장.
+5. **ep4(seg--4, t0=722.190925417~t1=782.136427401, 962 orphan-tagged
+   프레임) 프레임 단위 트레이스 실행**, `route_active` 전환/grid간
+   불일치(diverge) 지점을 전수 스캔.
+
+**핵심 발견 -- 서로 다른 두 개의 divergence 구간, 서로 다른 메커니즘**:
+
+- **구간 1 (t=730.836~733.336, 약 2.5초)**: 세 grid 모두 물리적으로
+  동일한 apex(약 135~140m 전방)를 대상으로 하지만,
+  - **10m**: 이 구간 내내 `cluster_count=0`(min_points=2 게이트
+    미통과) -- `apex_mode`가 처음부터 "none"이라 `route_active` 판정
+    자체가 한 번도 실행되지 않음("임계 미달"이 아니라 "판정 미실행").
+  - **5m/2.5m**: 둘 다 결국 같은 apex를 cluster로 승격하지만, 분기
+    프레임(t=730.836)에서 재샘플 밀도 차이로 인한 `apex_speed` 추정치가
+    다름(5m=47.4kph vs 2.5m=41.6kph) -> `required_decel_mss`가
+    5m=0.676(임계 `AUTONAVI_SPEED_DECEL_RATE`=0.90 미달) vs
+    2.5m=0.979(즉시 통과)로 갈림. 5m도 0.254초 뒤(t=731.090,
+    apex_speed 재추정치 46.5kph 도달) 짧게 통과(ACTIVATE)하지만, 두
+    grid 모두 t=733.336에 동일하게 apex_lost로 release -- **순수하게
+    "얼마나 일찍 통과 조건을 만족하는가"의 타이밍 차이**(원인:
+    재샘플 간격에 따른 apex_speed 추정 노이즈).
+
+- **구간 2 (t=770.690~779.091, 약 8.4초, 활성시간 비대칭의 주된
+  기여분)**: 앞 구간과 메커니즘이 다름 -- **2.5m grid가 10m/5m와는
+  아예 다른(더 가까운) apex를 별도 cluster로 검출**함.
+  - 10m: `cluster_count=1~2`, apex_dist=320m -> 180m로 서서히
+    접근하는 먼 apex 하나만 추적, `required_decel_mss`가 0.065~0.21
+    수준으로 임계(0.90)에 한참 못 미침(below_threshold 지속).
+  - 5m: `cluster_count=1~3`, 10m과 거의 동일한 먼 apex를 추적(마찬가지로
+    below_threshold 지속) -- 이 구간에서는 5m이 10m과 동일한 편에 위치.
+  - 2.5m: `cluster_count=3~4` -- 10m/5m이 하나로 뭉개는 구간에서
+    **더 가까운 별도의 apex(160m -> 20m로 빠르게 접근)를 독립
+    cluster로 검출**, `required_decel_mss=0.916`으로 즉시 임계 통과 ->
+    t=770.690에 ACTIVATE, 이후 계속 hold_active하다가 apex 통과
+    시점(t=779.091)에 정상 release.
+  - **즉 이 구간은 "같은 apex의 속도추정 노이즈"가 아니라, "10m/5m
+    해상도에서는 존재 자체가 뭉개지는 두 번째(더 가까운) 커브
+    포인트를 2.5m만 별도로 분리해낸다"는 322차/324차의 원래 가설
+    (10m sampling이 실제 curve geometry를 지운다)과 정확히 일치하는
+    사례.**
+
+**결론**: ep4의 62초 중 `route_active` grid 상이는 원인이 하나가
+아니라 **두 가지가 섞여 있음** -- (1) 동일 apex에 대한 재샘플 밀도별
+속도추정 타이밍 차이(구간1, 짧고 5m/2.5m 모두 결국 통과), (2) 10m/5m
+해상도가 지워버리는 두 번째 curve apex를 2.5m만 분리 검출(구간2, 길고
+5m은 10m과 동일하게 놓침). 이는 324차 결론("cluster 승격만 보면 5m로
+충분, route_active 발동시간은 2.5m이 여전히 유의미") 중 "여전히
+유의미"의 실체가 최소 이번 사례에서는 **2.5m 고유의 추가 검출력**
+(단순 타이밍 차이가 아님)임을 명확히 함 -- "5m으로 충분"이라는
+결론을 재확인하는 근거가 아니라 오히려 **2.5m이 5m 대비 갖는 실질적
+이득의 존재를 뒷받침**하는 방향의 증거.
+
+**한계(§28/§29)**: (1) 이번 사례 1건(ep4)에 대한 원인 규명이며, 324차의
+나머지 1건(ep3)은 아직 프레임 단위 추적 전. (2) qcamera 1차 육안
+대조(신호등 교차로 부근 완만한 커브, 트럭 시야가림 프레임 혼재)는
+곡률 자체를 확정하기엔 불충분해 별도 결론에 반영하지 않음. (3) 이
+결과는 offline replay이며 **실차 검증 아님** -- 5m/2.5m grid 자체는
+production에 아직 반영되지 않음.
+
+**검증**:
+- 정적 분석: `py_compile` 통과
+- 로그 검증: x18seg 실차 로그(323차 빌드) 20399행 재추출, 324차와 행수
+  일치 확인
+- 시뮬레이션: `--validate-parity`로 324차 41개 에피소드 결과와 100%
+  일치(PASS), ep4 962 orphan-tagged 프레임 전수 트레이스
+- 실차 검증: **미실시**
+
+**미확인/다음 작업**:
+- ep3(두 번째 route_active 상이 사례)도 동일 방식으로 프레임 단위
+  추적
+- 구간2 유형("10m/5m이 뭉개는 두 번째 apex를 2.5m만 분리 검출")이
+  이번 corpus 1회 주행에 국한된 것인지, 다른 corpus/커브에서도
+  재현되는지(현재는 미확인)
+- 5m/2.5m 중 어느 쪽을 production에 반영할지는 이번 발견(구간2 유형이
+  실질적 이득의 핵심일 가능성)을 반영해 재검토 필요(§27 최소변경
+  원칙, §31 사용자 승인 필요) -- "cluster 승격만 5m으로 포화"라는
+  324차 지표 하나로 5m 채택을 단정하면 안 됨
+
+---
+
 ## 324차 (완료 -- 323차 계측 실차 smoke test PASS + 10m/5m/2.5m grid counterfactual 실측 실행/분석, `ryu` 코드 변경 없음) -- x18seg 실차 로그(323차 HEAD 빌드)로 `routeOrphanRawPath` 정상동작 확인 후, 321차 grid 설계를 322-D stateful reproduction에 결합해 실측 counterfactual 처음 수행
 
 **Worker**: Claude

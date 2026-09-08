@@ -76,6 +76,33 @@ transition이 동일하고 수치 차이는 입력 양자화로 설명 가능한
 적용하지 않음(위 참고). 5m/2.5m grid sweep(지선생 제안 3단계)은 이 stateful
 기준 모델이 신뢰 가능하다고 판정된 이후에만 착수(322차/322-D WIP.md 참고).
 
+## `sim_route_325_ep4_frame_trace.py` -- ep4 route_active grid 상이 프레임 단위 원인 추적 (325차)
+
+**목적**: 324차 grid counterfactual이 발견한 "41개 orphan 에피소드 중
+2건은 `route_active` 시퀀스 자체가 grid 간 상이"의 가장 큰 사례(ep4)에
+대해, 정확히 어느 프레임에서 무엇 때문에 10m/5m/2.5m 판정이 갈리는지
+진단값(`required_decel_mss`, `apex_confidence`, `decision` 등)을 노출해
+프레임 단위로 추적한다.
+
+**핵심 설계**: 324차 `GridReplayState`/`recompute_grid`/`GRID_CONFIGS`를
+무변경 import(§27) -- `DiagGridReplayState`는 동일 연산에 진단 필드
+노출만 추가한 서브클래스. `--validate-parity`로 324차
+`summarize_episodes()` 결과와 100% 일치함을 먼저 확인한 뒤에만 프레임
+트레이스를 신뢰.
+
+**사용**:
+- `python3 sim_route_325_ep4_frame_trace.py <CSV> --validate-parity`
+  (324차 결과 대비 회귀검증만)
+- `python3 sim_route_325_ep4_frame_trace.py <CSV> --seg <seg_substr>
+  --t0 <t0> --t1 <t1> [--pad-s 5] [--out-csv trace.csv]` (지정 구간
+  콘솔 트레이스 + 선택적 CSV 저장)
+
+**ep4 실측 결과**: 서로 다른 두 개의 divergence 메커니즘 확인(구간1:
+동일 apex의 재샘플 밀도별 속도추정 타이밍 차이, ~2.5초, 5m도 결국
+통과/구간2: 2.5m만 10m/5m이 뭉개는 더 가까운 별도 apex를 분리
+검출, ~8.4초, 5m은 10m과 동일하게 놓침 -- 활성시간 비대칭의 주된
+기여분). 상세는 FINDINGS.md 325차 참고.
+
 ## `sim_route_324_grid_counterfactual.py` -- 10m/5m/2.5m grid counterfactual (324차, 실차 corpus 적용)
 
 **목적**: 317차부터 이월된 "10m sampling 때문에 실제 curve geometry가
