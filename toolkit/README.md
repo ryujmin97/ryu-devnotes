@@ -21,6 +21,17 @@ CHANGELOG.md를 같이 갱신**한다 (세션 종료 체크리스트에 포함�
 
 ---
 
+## extract_log.py -- routeNaviPointsLen/routeNaviStartIdxIn/routeNaviStartIdxOut/routePathLen 컬럼 추가 (314차)
+**변경**: 307차가 cereal/custom.capnp @52~@55에 이미 추가해둔 계측
+필드 4개(`routeNaviPointsLen`=`get_path_after_distance()` 호출 직전
+`len(self.navi_points)`, `routeNaviStartIdxIn/Out`=호출 전후
+`self.navi_points_start_index`, `routePathLen`=반환된 `path` 길이)가
+rlog에는 채워지고 있었는데도 FIELDNAMES에서 누락돼 CSV로는 뽑을 수
+없었음 -- 310차가 같은 307차 계측 묶음을 반영할 때 이 4개만 놓친
+것으로 보임(경위 미상). 310차 "원거리+이동중 19건 lookahead 끝단
+아티팩트" 가설을 코드 레벨/실측으로 검증하는 데 필수적이라 이번에
+추가. **020ea86(307차) 이후 로그에만 값이 채워짐(소급 재추출 불가)**.
+
 ## extract_log.py -- routeClusterCount/routeApexMode/routeApexFineTriggered/routeOrphanSingleton*/routeProvisional* 컬럼 추가 (310차)
 **변경**: 307차가 cereal/custom.capnp @58~@69에 이미 추가해둔
 ANALYSIS_ONLY 계측 필드 12개가 rlog에는 채워지고 있었는데도 이

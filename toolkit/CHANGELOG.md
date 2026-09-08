@@ -3,6 +3,17 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+## 2026-09-08 (314차)
+- `extract_log.py`: **필드 추가**(신규 스크립트 아님). `routeNaviPointsLen`/
+  `routeNaviStartIdxIn`/`routeNaviStartIdxOut`/`routePathLen`(cereal/
+  custom.capnp @52~@55, 307차가 이미 추가해둔 계측 필드) 4개가
+  FIELDNAMES에 누락돼 있었음(310차가 같은 307차 계측 묶음 12개 중
+  8개만 반영하고 이 4개를 놓친 것으로 추정, 정확한 누락 경위는 미상)
+  -- 이번에 추가. 310차부터 이월된 "원거리+이동중 19건 lookahead
+  끝단 아티팩트" 가설을 실측으로 검증하는 데 직접 사용(FINDINGS.md
+  314차 참고). **020ea86(307차) 이후 로그에만 값이 채워짐(소급 재추출
+  불가, 234차 계속5/295차/310차와 동일 제약).**
+
 ## 2026-09-08 (313차)
 - `sim_route_310_provisional_streak_real_corpus.py`: **옵션 추가**(312차
   WIP "다음 작업" 1번). `--check-cruise`(근접+이동중 episode를

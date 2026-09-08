@@ -78,7 +78,16 @@ FIELDNAMES = [
     "routeOrphanSingletonCount", "routeOrphanSingletonDist", "routeOrphanSingletonSpeed",
     "routeProvisionalActive", "routeProvisionalDist", "routeProvisionalSpeed",
     "routeProvisionalStreak", "routeProvisionalMatchError", "routeProvisionalPromoted",
+    "routeNaviPointsLen", "routeNaviStartIdxIn", "routeNaviStartIdxOut", "routePathLen",
 ]
+# 2026-09-08 추가(314차): carrotMan.routeNaviPointsLen/routeNaviStartIdxIn/
+# routeNaviStartIdxOut/routePathLen -- cereal/custom.capnp @52~@55, 307차가
+# 이미 추가해둔 계측 필드인데 310차가 FIELDNAMES를 보강할 때 같은 12개
+# 묶음 중 이 4개만 누락됐음(310차 WIP가 명시한 "12개" 중 실제로는 8개만
+# 반영된 것으로 추정, 나머지 사유 미상). 310차부터 이월된 "원거리+이동중
+# 19건의 lookahead 끝단 아티팩트" 가설을 코드가 아닌 실측으로 직접 검증
+#하려면 이 4개 필드(특히 routePathLen -- get_path_after_distance()가
+# 실제로 몇 m어치 path를 반환했는지)가 필수라서 이번에 추가한다.
 # 2026-09-08 추가(310차): carrotMan.routeClusterCount/routeApexMode/
 # routeApexFineTriggered/routeOrphanSingleton(Count/Dist/Speed)/
 # routeProvisional(Active/Dist/Speed/Streak/MatchError/Promoted) --
@@ -479,6 +488,10 @@ def process_segment(rlog_path, seg_name, repo_dir, max_mb, commit_short="",
                 "routeProvisionalStreak": cm.routeProvisionalStreak,
                 "routeProvisionalMatchError": cm.routeProvisionalMatchError,
                 "routeProvisionalPromoted": cm.routeProvisionalPromoted,
+                "routeNaviPointsLen": cm.routeNaviPointsLen,
+                "routeNaviStartIdxIn": cm.routeNaviStartIdxIn,
+                "routeNaviStartIdxOut": cm.routeNaviStartIdxOut,
+                "routePathLen": cm.routePathLen,
             })
     return rows, last_cs, last_ctrl, last_lead, last_lat, last_model, last_pose, last_gps
 

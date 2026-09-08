@@ -1,3 +1,94 @@
+## 314차 (완료 -- ANALYSIS_ONLY, `ryu` 본체 무변경, devnotes toolkit `extract_log.py`에 계측 필드 4개 추가) -- 310차부터 4세션째(310→311→312→313→314) 이월된 "원거리+이동중 19건 lookahead 끝단 아티팩트" 가설을 대표 사례(seg6, streak=184)로 실측 검증 -- **반증**: 진짜 우회전 커브였고 production apex_mode가 500m→30m까지 끊김 없이 정상 추적함을 확인, 310차 "커브 없음" 판정은 500m 밖은 qcamera에 원래 안 보인다는 검증방법론 오류였음
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu`(HEAD `020ea86`=307차, 변경 없음) /
+`ryu-devnotes`(base `2285193`=313차, 이 항목 추가 전)
+
+**Branch**: `c3-ms-dev` / `main`
+
+**세션 시작 확인(§2/§3/§33)**: 컨테이너가 리셋되어 fresh clone으로
+재확인 -- `ryu`=`020ea86`(변경 없음), `ryu-devnotes`=`2285193`(313차
+patch가 정상 push되었음을 확인). 다른 AI 개입 흔적 없음. 사용자가
+동일 x17seg zip(`000003c6--586e535fca`, 17세그먼트)을 재업로드하며
+"계속" 지시 -- 313차 WIP 없음(313차는 이 항목 착수 전 상태), 실제로는
+310차 WIP "다음 작업" 1번(최우선, 3세션째 이월)에 착수.
+
+**한 일**:
+1. `extract_log.py`에 307차 계측 필드 12개 중 310차가 놓친 4개
+   (`routeNaviPointsLen`/`routeNaviStartIdxIn`/`routeNaviStartIdxOut`/
+   `routePathLen`, cereal `@52~@55`)를 추가로 반영해 x17seg 재추출
+   (seg1-16, 19199행 -- seg17은 rlog.zst 파일 자체가 잘려있어 one-shot/
+   stream_reader 폴백 모두 실패, 이번 조사 구간과 무관해 범위 밖으로 둠).
+2. 해당 구간(t=872~882s, seg6)에서 `routeNaviPointsLen`=93(고정, 도중
+   84로 한 번 교체), `routePathLen`=18→12로 감소하는 패턴을 발견해
+   최초엔 "버퍼 소진" 가설에 부합하는 듯 보였다.
+3. `extract_log.py --with-navi-paths`로 실제 리샘플 폴리라인(10m 간격
+   x,y,거리)을 직접 대조한 결과, **같은 프레임들에서 리샘플 거리가
+   매번 590.00m까지 완전히 채워져 있음** 확인 -- `routePathLen` 감소는
+   원시 GPS 포인트 개수(간격 넓은 raw waypoint 수)가 준 것일 뿐, 리샘플된
+   600m lookahead 자체는 한 번도 소진되지 않음. **"버퍼 소진" 가설은
+   이 사례에서 반증**.
+4. 폴리라인 좌표 직접 검토 -- arc-distance 510~590m 구간에서 진행방향이
+   거의 90도 급격히 꺾임(명백한 실제 도로 형상, 우회전).
+5. production 추적 확인 -- t=883.02s부터 `routeApexMode`="matched"로
+   승격, 정차(신호대기 추정) 후 재출발해도 500m대→30m대까지 한 번도
+   끊기지 않고 연속 감소(t=883~944s), 접근 중 자연스러운 감속(11.6→
+   7.3m/s)까지 확인.
+6. apexDist≈30m 시점(seg7, seg-local t=42.79s) qcamera 프레임 확인 --
+   우회전 화살표 노면표시 + 실제 우회전 도로 형상 확인. 310차가 "커브
+   없음"이라 판정한 것은 t=872~882s(그 시점 apexDist는 아직 430~500m)
+   시점 화면만 봤기 때문 -- 500m 밖은 애초에 도심 대시캠 가시거리
+   (대체로 100~150m)를 벗어나 안 보이는 거리였음.
+
+**변경 이유**: 위 증거 모두 "샘플링 아티팩트로 인한 오탐"이 아니라
+"정상적으로 조기(500m) 감지된 진짜 커브가 production까지 정상 승격·
+추적된 사례"임을 가리킴. 310차의 원인 판정(아티팩트 의심)과 "근접
+진짜 커브 증거 목록에서 제외" 조치를 철회.
+
+**방법론 교훈(재발 방지)**: 원거리(>=150m) 후보를 qcamera로 검증할
+때는 후보가 처음 잡힌 시점이 아니라, apex_mode=matched로 승격된 뒤
+apexDist가 충분히 작아진(예: <100m) 시점의 qcamera를 봐야 한다.
+
+**한계(§28)**:
+1. 19건 중 이번에 완전 재검증한 것은 1건(seg6, streak=184)뿐 -- 나머지
+   18건은 미착수.
+2. "실제 불편했는가"(harsh_brake/조향진동 등)까지는 미확인 -- 이번
+   세션 범위는 "커브 실재 여부/production 정상 추적 여부"로 한정.
+3. `ryu` 본체 변경 없음(§27), 이번 세션은 devnotes toolkit 계측 컬럼
+   4개 추가 + 실측 로그 분석뿐 -- ANALYSIS_ONLY.
+
+**검증**:
+- 정적 분석: 완료(`py_compile` PASS, `extract_log.py`)
+- 로그 검증: 완료(x17seg seg1-16, 19199행 재추출 -- seg17 제외)
+- 시뮬레이션: 해당 없음(실측 로그 + qcamera 직접 대조)
+- 실차 검증: apex 승격/추적 자체는 실측 확인, "실제 운전자 체감"까지는
+  미확인(위 한계 2)
+
+**미확인 사항**:
+- seg17(`20260908_071258...--17`) rlog.zst가 잘려 있어 one-shot
+  decompress 실패 -> `decode_rlog.py`의 stream_reader 폴백도
+  `zstandard.backend_c.ZstdError`로 동일 실패(원인 미확인) -- 이번 조사
+  대상(seg6-7)과 무관해 범위 밖으로 둠, 다음 세션에서 seg17이 필요해지면
+  별도로 원인 규명.
+
+**Devnotes**:
+- `toolkit/extract_log.py`: 필드 4개 추가(위 1번)
+- `FINDINGS.md`: 314차 항목 추가(310차 결론 정정)
+- `toolkit/README.md`/`CHANGELOG.md`: 갱신
+- `WIP.md`: 이 항목
+
+**다음 작업**:
+1. 나머지 원거리+이동중 18건 중 표본을 추가로 같은 방식(승격 후
+   apexDist<100m qcamera 대조)으로 검증해 "310차 가설이 완전히
+   틀렸는지" 또는 "일부는 진짜 아티팩트가 남아있는지" 일반화.
+2. seg17 rlog.zst 잘림 + stream_reader 폴백 실패 원인 규명(우선순위
+   낮음, 필요 시).
+3. 근접+이동중 57건 중 harsh_brake_events/steering_oscillation_detector
+   교차검증(310차 다음 작업 2번, 계속 이월 중).
+4. 누적 결과 후 `PROVISIONAL_PROMOTE_STREAK=3` 조정 여부 결정(사용자
+   계획 ②단계).
+
 ## 313차 (완료 -- ANALYSIS_ONLY, `ryu` 본체 무변경, devnotes toolkit 기존 스크립트에 옵션 2개 추가) -- `sim_route_310_provisional_streak_real_corpus.py`에 `--check-cruise`/`--cluster-gap-s` 정식 편입 -- 그 과정에서 311/312차가 인용한 "cruiseEnabled=True 23건"이 프레임 단위 재계산 결과 실제로는 25건이었음을 발견(물리적 위치 4곳 결론은 무영향)
 
 **Worker**: Claude
