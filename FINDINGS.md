@@ -1,3 +1,91 @@
+## 311차 -- [실차 로그 정황증거 재평가] 310차가 최우선 증거로 제시한 근접+이동중 후보(streak=60 포함) 상당수가 `cruiseEnabled=False`(운전자 수동조작) 구간이었음을 발견 -- 57건 중 29건(51%)이 ADAS 비engaged, 신뢰 가능한 후보는 23건으로 축소 -- 그중 seg16 클러스터에서 "실제 커브+ADAS개입+apex공백" 최초 확인(단, 실제 불편 신호는 없음)
+
+**배경**: 310차는 `routeProvisionalActive`/`Streak` 연속 구간을 근접
+(<150m)×이동중(avg vEgo>=3m/s) 4분면으로 자동분류해 57건의 "진짜
+커브 후보"를 추렸고, 그중 최상위(streak=60)를 qcamera로 대조해
+"교차로 회전부 -- 306/307차 가설과 부합하는 정황증거"로 결론지었다.
+그러나 310차는 이 판단에 `cruiseEnabled`(ADAS 실제 개입 여부)를
+전혀 확인하지 않았다.
+
+**이번 세션에서 발견한 문제**: streak=60 구간(seg3, t=661.77~664.72s)
+전체를 CSV에서 직접 조회한 결과 `cruiseEnabled`가 전 구간
+`False`였다. 같은 구간에서 `harsh_brake_events()`(§21,
+`analysis_helpers.py`)로 급감속 이벤트 2건이 검출되었으나, 이는
+`brakePressed=True`(운전자가 직접 브레이크 페달을 밟음) 상태에서
+발생한 것이지 ADAS 개입과 무관했다 -- 즉 이 구간은 처음부터 운전자가
+수동으로 감속->재가속(브레이크->가스)한 구간이며, `routeApexMode`가
+공백(`none`)이었다는 사실 자체는 참이지만, **애초에 시스템이 종방향
+제어를 하고 있지 않았으므로 이 공백이 실제 차량 거동에 아무 영향을
+줄 수 없었다.**
+
+**추가 확인(근접+이동중 상위 3건, streak=16/15/13)**: 동일하게 3건
+전부 `cruiseEnabled=False`. streak=16/15는 교차로 회전부(streak=60과
+동일 유형), streak=13만 실제 만곡도로였으나 apex_modes에
+matched/held가 다수(7/13프레임) 섞여 있어 production이 대부분
+이 후보를 잡고 있었다.
+
+**57건 전체 재분류**(`sim_route_310_provisional_streak_real_corpus.py`의
+`build_episodes()`/4분면 분류 로직을 그대로 재사용, 새 스크립트 작성
+없이 대화식 python 후처리로 각 episode 구간의 `cruiseEnabled` 값
+집합을 조회):
+- `cruiseEnabled=True`(구간 전체, ADAS 실제 개입 중): **23건**
+- `cruiseEnabled=False`(구간 전체, 운전자 수동조작): **29건**
+  (streak=60 포함 -- 즉 310차가 "최우선 정황증거"로 제시한 사례가
+  이 29건에 속함)
+- 혼합(구간 중 전환): 5건
+
+**ADAS engaged 23건 중 상위 qcamera 대조**:
+- streak=8/7/6 클러스터(seg3, t=674.04~674.87s, dist 80~140m,
+  리드차량 존재): 넓은 직선 도로 + 원거리 교차로, 커브 없음.
+- streak=6(seg4, t=724.27~724.52s, dist 10m): 직선 도로, 커브 없음.
+- **streak=5 및 연쇄 episode(seg16, t=1465.92~1471.63s, dist
+  70m->10m로 점진 감소, `cruiseEnabled` 대부분 `True`)**: 가로수
+  늘어선 좁은 도로에서 완만한 좌커브 형태 육안 확인. `routeApexMode`
+  전 구간 `none`. **이번 세션 최초로 "실제 커브지형 + ADAS 개입 +
+  apex 완전 공백"이 동시에 성립하는 사례.**
+  - 단서: `cruiseEnabled`가 이 클러스터 시작 직전(t=1465.27s)에
+    False->True로 전환됨. 전환 시점 직전 조향각이 -26.9°에서 점차
+    0°로 복귀 중이었던 것으로 보아, **급커브 구간 자체는 운전자가
+    수동으로 이미 통과했고 크루즈는 그 직후 켜졌을 가능성**이 있음
+    -- dist가 감소하며 추적되는 candidate가 "이미 지난 커브"인지
+    "그 앞의 다른 지형"인지는 코드 레벨(`get_path_after_distance()`)
+    확인 없이는 확정 불가.
+  - `harsh_brake_events()`/`steering_oscillation_detector()`(§21
+    재사용)를 t=1463~1474s 구간에 적용 -- **둘 다 0건**. 즉 이
+    구간에서 apex 공백이 실제 "불편"으로 이어졌다는 증거는 없다.
+
+**결론**: 310차의 핵심 정황증거(streak=60)는 `cruiseEnabled=False`
+누락으로 **과대평가되었을 가능성이 높음** -- 완전히 폐기하지는
+않되(반증도 아님) "306/307차 가설을 뒷받침하는 정황증거"로서의
+가중치를 낮춘다. 대신 seg16 클러스터가 현재까지 확보한 것 중 가장
+설득력 있는 사례이나, 여기서도 harsh_brake/조향진동 등 "실제 운전자
+불편" 신호는 전혀 발견되지 않았다 -- **"production이 candidate를
+놓쳤다"는 사실(계측으로 확인됨)과 "그것이 실제 문제였다"는 것(§28,
+아직 어떤 사례에서도 확인 안 됨)은 이 로그 표본 내에서는 여전히
+분리되어 있다.**
+
+**한계(§28)**:
+1. `cruiseEnabled`를 구간 전체 True/False로 단순화(혼합 5건은
+   프레임 단위 세부분석 미실시).
+2. seg16의 "커브 통과 후 재개입" 가설은 코드 레벨 확인 없이 추정.
+3. ADAS engaged 23건 중 3건만 qcamera 대조, 20건 미확인.
+4. 단일 로그(17세그먼트) 표본 -- "근접+이동중 후보 중 절반이
+   cruiseEnabled=False"라는 이번 비율이 다른 로그에서도 재현되는지
+   미확인. 이 비율 자체가 향후 후보 우선순위 산정에 구조적으로
+   중요할 수 있음(다음 작업 참고).
+
+**검증 상태**: 실측 확인(§28) -- CSV 원본 프레임의 `cruiseEnabled`/
+`brakePressed`/`gasPressed`/`steeringAngleDeg` 직접 조회로 뒷받침.
+`harsh_brake_events`/`steering_oscillation_detector`는 기존 검증된
+함수 재사용(58차/별도 세션에서 합성+실측 검증 완료). **실차 검증은
+아님** -- 오프라인 로그 분석.
+
+**Devnotes**: WIP.md 311차 항목(이 내용 요약 포함), toolkit
+README/CHANGELOG는 이번엔 변경 없음(신규 스크립트 미작성, 다음
+작업에 `--check-cruise` 옵션 정식 추가를 명시).
+
+---
+
 ## 310차 -- [실차 로그 1차 정황증거, 확정 아님] 307차 shadow tracker(`routeProvisional*`) 최초 실차 검증 -- 근접+이동중 최상위 후보(streak=60)는 qcamera 대조로 "교차로 회전부"로 확인, 당초 지목했던 원거리 후보(streak=184)는 라벨링 오류로 정정·제외
 
 **배경**: 307차는 306차가 코드+합성으로 확정한 가설(`route_find_

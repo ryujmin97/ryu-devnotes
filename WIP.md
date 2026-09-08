@@ -1,3 +1,148 @@
+## 311차 (완료 -- ANALYSIS_ONLY, `ryu` 본체 무변경, devnotes toolkit 신규 스크립트 없음(기존 스크립트 재사용 + 임시 분석 코드)) -- 310차 근접+이동중 57건 후보 목록에 `cruiseEnabled` 필터 추가 -- 57건 중 29건(51%)이 ADAS 비engaged(운전자 수동조작) 구간이었음을 발견, 310차가 최우선 증거로 제시한 streak=60도 여기 포함되어 결론 재검토 필요 -- ADAS engaged 23건 중 최초로 "실제 커브 + cruiseEnabled=True + apex_mode 전부 none" 사례(seg16) 확인
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu`(HEAD `020ea86`=307차, 변경 없음) /
+`ryu-devnotes`(base `54f5ee3`=310차, 이 항목 추가 전)
+
+**Branch**: `c3-ms-dev` / `main`
+
+**세션 시작 확인(§3/§33)**: fresh clone으로 양쪽 원격 HEAD가 310차
+기록과 일치함을 확인(`ryu`=`020ea86`, `ryu-devnotes`=`54f5ee3`) 후
+시작. 사용자가 310차와 동일한 x17seg zip(`000003c6--586e535fca`,
+17세그먼트)을 재업로드하며 "계속" 지시 -- 310차 WIP "다음 작업" 1번
+(근접+이동중 상위 후보 추가 qcamera 대조)에 착수.
+
+**한 일**:
+1. `extract_log.py`(310차 갱신판)로 x17seg 재추출 -- 20171행,
+   `meta.json` commit=`020ea86` 확인, 310차 기록과 완전 일치(재현성
+   확인). 컨테이너에 `pycapnp`/`zstandard`가 이번 세션에는 정상
+   설치됨(이전 세션 기록의 "sandbox 미지원" 메모와 달리 이번엔 pip
+   설치로 해결됨 -- 환경이 달라졌을 가능성, 다음 세션 참고).
+2. `sim_route_310_provisional_streak_real_corpus.py`를 그대로 재실행
+   -- 4분면 분류 결과(근접+이동중 57 / 근접+정차중 1 / 원거리+이동중
+   19 / 원거리+정차중 0)가 310차 기록과 완전히 일치함을 재확인.
+3. **근접+이동중 상위 3건(streak=16/15/13) qcamera 대조**
+   (`verify_and_extract_frames.py` 재사용):
+   - streak=16(seg2, t=650.69~651.42s, dist 10m 고정, avg_vEgo=3.6m/s):
+     T자형 교차로 진입부, 도로가 좌측으로 꺾이는 구간 -- streak=60과
+     유사한 "교차로 회전부" 유형.
+   - streak=15(seg3, t=680.42~681.13s, dist 20m 고정): 적신호 다차선
+     넓은 교차로 진입부 -- 역시 교차로 유형, 일반 커브 아님.
+   - streak=13(seg3, t=670.42~671.03s, dist 140m 고정, avg_vEgo=
+     11.9m/s): **이번 3건 중 유일하게 실제 만곡도로(우측으로 굽는
+     일반 도로 커브, 교차로 아님)를 육안 확인**. 단, apex_modes에
+     matched/held가 다수 섞여 있어(`{'lost':1,'none':1,'new':1,
+     'matched':3,'held':7}`) production이 대부분 이 후보를 잡고
+     있었던 구간임 -- "production이 완전히 놓친 사례"는 아님.
+4. **[핵심, 이번 세션 신규 관점] `cruiseEnabled` 상태 교차검증**:
+   위 3건(streak=16/15/13) 및 310차가 최우선 증거로 제시한 streak=60
+   구간을 모두 확인한 결과 **전부 `cruiseEnabled=False`**(운전자
+   수동 조작, 브레이크/가속페달 직접 조작)였다. 310차는 이 점을
+   확인하지 않고 apex_mode 공백만으로 "306/307차 가설과 부합하는
+   정황증거"라고 기술했는데, **ADAS가 애초에 개입하지 않는 구간이면
+   production apex 공백이 실제 차량 거동에 아무 영향을 주지 않는다**
+   -- 정황증거로서의 가치가 크게 낮아짐(반증은 아니지만 "이 후보가
+   실제 불편으로 이어졌을 가능성"은 사실상 배제됨).
+5. 위 발견을 계기로 **310차 스크립트의 `build_episodes()`/분류 로직을
+   그대로 재사용**(§21 -- 새 스크립트 작성 안 함, 대화식 python으로
+   근접+이동중 57건 전체에 대해 각 episode 구간의 `cruiseEnabled`
+   집합을 조회하는 후처리만 추가)해 **57건 전체를 재분류**:
+   - `cruiseEnabled=True`(구간 전체 ADAS 개입 중, 실제 의미있는 후보):
+     **23건**
+   - `cruiseEnabled=False`(운전자 수동조작, apex 공백이 실질적으로
+     무해): **29건**(streak=60 포함)
+   - 혼합(구간 중간에 전환): 5건
+6. **ADAS engaged 23건 중 최상위 3건 qcamera 대조**:
+   - streak=8(seg3, t=674.53~674.87s, dist 140->130m) 및 인접
+     streak=7/6(t=674~677s 클러스터, 같은 위치): 넓은 직선 도로 +
+     전방 원거리 교차로 + 리드 차량 존재. **커브 없음** -- 전방
+     교차로 지점을 가리키는 원거리 navi 포인트로 추정(코드 레벨
+     확인 안 함).
+   - streak=6(seg4, t=724.27~724.52s, dist 10m 고정): 마찬가지로
+     직선 도로, 커브 없음.
+   - **streak=5(seg16, t=1465.92~1466.12s, dist 70m) 및 동일 위치
+     연쇄 episode(streak 4~5, t=1465.9~1471.6s, dist 70m->10m로
+     차량이 실제 접근하며 감소)**: 가로수가 늘어선 좁은 도로, 화면
+     상 완만한 좌커브 형태 확인. **이번 세션 최초로 "실제 커브로
+     보이는 지형 + `cruiseEnabled=True`(대부분 구간) + apex_mode
+     전 구간 `none`"이 동시에 성립하는 사례**를 확인했다.
+     프레임/로그 상세 확인 결과 `cruiseEnabled`가 이 클러스터
+     시작 직전(t=1465.27s)에 False->True로 전환됨(그 이전 조향각이
+     -26.9deg에서 점차 0 방향으로 복귀 중이었음 -- 즉 급커브 구간
+     자체는 운전자가 수동으로 이미 통과한 뒤 크루즈를 켰을 가능성이
+     있고, 이후 dist가 줄어드는 candidate는 그 지점 자체이거나
+     조금 더 진행 방향의 다른 지형일 수 있음, 코드 레벨/추가
+     프레임 확인 없이는 확정 불가).
+   - `harsh_brake_events`/`steering_oscillation_detector`(§21,
+     `analysis_helpers.py` 재사용)를 이 구간(t=1463~1474s)에 적용한
+     결과 **둘 다 0건** -- 급브레이크/조향진동 없음, 즉 이 구간에서
+     production apex 공백이 실제 "불편"으로 이어졌다는 증거는 없음
+     (놓친 candidate 자체는 실측되었으나 부정적 영향의 증거는 없음).
+
+**결론**: 310차의 "streak=60 = 306/307차 가설 정황증거" 결론은
+**`cruiseEnabled=False` 사실이 누락되어 과대평가**되었을 가능성이
+높다 -- 폐기하지는 않되(반증도 아님) 신뢰도를 낮춰야 한다. 대신
+이번 세션에서 확인한 seg16 클러스터가 "실제 커브 + ADAS 개입 +
+apex 공백"이 모두 성립하는 **더 나은(그러나 여전히 완전하지는 않은)
+정황증거**다. 다만 이 사례도 harsh_brake/조향진동 등 "실제 불편"
+신호는 전혀 없어 **"production이 후보를 놓쳤다"는 사실과 "그것이
+실제로 문제였다"는 것은 여전히 별개**임을 재확인한다(§28).
+
+**한계(§28)**:
+1. `cruiseEnabled` 상태 자체가 매 프레임 값이라, "구간 전체
+   True/False"로 단순화한 것은 근사치다(혼합 5건은 더 세밀한 프레임
+   단위 분석 필요, 이번엔 미실시).
+2. seg16 사례의 "커브 자체는 이미 지났고 candidate는 다른 지점"
+   가설은 코드 레벨(`get_path_after_distance()`/naviPaths 리샘플
+   경계) 확인 없이는 확정 불가.
+3. ADAS engaged 23건 중 이번엔 3건만 qcamera 대조(나머지 20건 미확인).
+4. 이번 corpus 1개 로그(17세그먼트)뿐 -- 다른 로그에서도 "근접+이동중
+   후보 중 cruiseEnabled=False 비율이 절반 가까이"라는 패턴이
+   재현되는지는 확인 안 됨.
+
+**검증**:
+- 정적 분석: 해당 없음(신규 프로덕션/toolkit 파일 없음, 대화식 python
+  스니펫만 사용 -- 재사용 가치가 확인되면 다음 세션에서
+  `sim_route_310...py`에 `--check-cruise` 옵션으로 정식 편입 권장)
+- 로그 검증: 완료(x17seg 실차 로그 20171프레임, 310차와 동일 corpus
+  재현성 확인)
+- 시뮬레이션: 해당 없음
+- 실차 검증: **미완**(seg16 사례도 "실제 불편"까지는 미확인, §29)
+
+**Devnotes**: FINDINGS.md 311차 항목 신규(310차 결론 재검토 포함),
+이 WIP 항목. `toolkit/README.md`/`CHANGELOG.md`는 이번엔 신규
+스크립트가 없어 변경 없음(단, 다음 작업에 `cruiseEnabled` 필터를
+정식 스크립트 옵션으로 편입할 것을 명시해둠).
+
+**미확인 사항**:
+- ADAS engaged 23건 중 나머지 20건 qcamera 미대조.
+- seg16 사례의 "커브 통과 후 재개입" 가설 코드 레벨 미확인.
+- 혼합 5건(구간 중 cruiseEnabled 전환) 프레임 단위 세부 미분석.
+- 다른 로그에서도 근접+이동중 후보의 cruiseEnabled=False 비율이
+  비슷하게 높은지 재현성 미확인.
+
+**다음 작업**:
+1. `sim_route_310_provisional_streak_real_corpus.py`에
+   `--check-cruise` 옵션을 정식 추가(현재는 이번 세션 대화식 코드로만
+   확인) -- 근접+이동중/원거리+이동중 각 후보 옆에 `cruiseEnabled`
+   구간 요약(True/False/mixed)을 자동 출력하도록 해 다음 세션이
+   반복 작업 없이 바로 ADAS-engaged 후보만 우선순위로 볼 수 있게 함.
+2. ADAS engaged 23건 중 다음 순위(streak=5/4/3, seg4/seg14/seg16
+   나머지) qcamera 대조 계속.
+3. seg16 사례(t=1463~1466s, cruiseEnabled False->True 전환 구간)를
+   `get_path_after_distance()`/naviPaths 리샘플 로직으로 코드 레벨
+   추적 -- "커브 통과 후 재개입" 가설 확인.
+4. 원거리+이동중 19건의 lookahead 끝단 아티팩트 가설 코드 레벨 확인
+   (310차부터 이월, 아직 미착수).
+5. 위 결과 누적 후 `PROVISIONAL_PROMOTE_STREAK=3` 값 조정 여부/설계안
+   A 채택 여부 결정(사용자 계획 ②단계, 여전히 진행 중 -- 이번
+   `cruiseEnabled` 발견으로 "streak 상위 = 우선순위 상위"가 아니라
+   "streak 상위 AND cruiseEnabled=True = 우선순위 상위"로 판단 기준을
+   구체화해야 함이 명확해짐).
+
+---
+
 ## 310차 (완료 -- ANALYSIS_ONLY, `ryu` 본체 무변경, `extract_log.py` 컬럼 12개 추가 + devnotes toolkit 신규 스크립트 1개) -- 307차 shadow tracker(`routeProvisional*`) 최초 실차 로그 검증 -- qcamera 대조 결과 근접 후보는 "교차로 회전부", 최초 지목했던 원거리 후보는 라벨링 오류로 정정
 
 **Worker**: Claude
