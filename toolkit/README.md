@@ -76,6 +76,60 @@ transition이 동일하고 수치 차이는 입력 양자화로 설명 가능한
 적용하지 않음(위 참고). 5m/2.5m grid sweep(지선생 제안 3단계)은 이 stateful
 기준 모델이 신뢰 가능하다고 판정된 이후에만 착수(322차/322-D WIP.md 참고).
 
+## `ryu` 계측 patch -- routeOrphanRawPath 신규 (323차, cereal/custom.capnp @70)
+**목적**: 321차가 이월한 "orphan 국소 5m/2.5m 재샘플" 검증을 합성
+데이터가 아닌 **실측 corpus**로 진행하기 위한 전제조건. 317차/321차가
+반복 확정한 대로, `naviPaths`는 이미 production의 10m 리샘플 결과라
+그걸 다시 보간해 "5m"라 부를 수 없음 -- `resample_10m_np()` 적용
+**이전** 원본 `relative_coords`(600m lookahead, `get_path_after_distance()`
++ `gps_to_relative_xy()` 직후)를 그대로 보존해야 함.
+
+**변경**: `ryu` `cereal/custom.capnp`에 `routeOrphanRawPath @70 : Text`
+신규(기존 @0~@69 무변경). `carrot_man.py`의 orphans 확정 직후(1160~1372행
+블록 내부, `orphans` non-empty일 때만) `relative_coords`를 raw
+`"x,y;x,y;..."` 문자열로 직렬화(naviPaths와 달리 거리 필드 없음 --
+이 시점엔 아직 10m 리샘플 전이라 거리값 자체가 무의미). `carrot_serv.py`
+에 저장소 초기화 + cereal 발행 라인 추가. 4개 파일 합쳐 순수 추가
+41줄(diff에 조건 분기/제어로직 변경 0건, 기존 orphans 계산 결과를
+그대로 문자열화만 함, §27).
+
+**트리거 설계**: 단일 조건 `orphan_count>0`. 애초 "orphan 즉시(A)" vs
+"provisional streak>=3(B)" 두 트리거를 검토했으나, x17seg 실측(20171행)
+결과 `routeProvisionalStreak>=3`인데 `routeOrphanSingletonCount==0`인
+프레임이 **0건**임을 확인(B가 항상 A의 부분집합) -- 이미 발행 중인
+`routeProvisionalStreak`(@67)로 사후 A-only(streak<3)/A∩B(streak>=3)
+분류가 가능하므로 별도 트리거 필드를 추가하지 않음.
+
+**페이로드 실측**: 신규 계측 없이 기존 `routePathLen`(305차 계측)으로
+사전 역산 -- orphan 발생 프레임의 raw path 길이는 중앙값 32포인트(전체
+평균 15포인트보다 훨씬 밀집, min 9/max 39). `"{x:.2f},{y:.2f}"` 포맷
+기준 포인트당 약 13바이트 -> 프레임당 약 120~510바이트, 발행 빈도
+3433/20171(17.02%) -- corpus 전체(약 1008초) 기준 총 1.1~1.7MB 수준으로
+부담 없음.
+
+**검증**: `py_compile` 통과(`carrot_man.py`/`carrot_serv.py`),
+`custom.capnp`를 `pycapnp`로 직접 로드해 `routeOrphanRawPath` 필드
+read/write 실동작 확인(40차 radard 크래시 교훈 -- 스키마 필드 멤버십
+명시적 검증), 삽입한 직렬화 표현식을 합성 데이터로 별도 재현
+(naviPaths와 동일 `.2f` 정밀도, orphans 없을 때 sentinel 빈 문자열
+유지 확인). **구버전(020ea86=307차 이전) rlog 하위호환 확인** --
+새 스키마로 기존 x17seg 20171행을 재디코딩한 결과 전부 빈 문자열로
+정상 처리됨(capnp 필드 추가의 전방/후방 호환성 원리대로 동작, 크래시
+없음). **실차 검증: 미실시**(이 patch를 반영한 빌드로 재주행 필요,
+323차 다음 작업).
+
+**`extract_log.py` 갱신**: `routeOrphanRawPath` 컬럼 추가(FIELDNAMES +
+매핑부), `--with-navi-paths` 플래그와 무관하게 항상 채움(naviPaths와
+달리 대역폭 부담이 작아 옵션으로 뺄 필요 없음). **주의**: 이 컬럼은
+이 patch 반영 이후 채록된 로그에만 값이 채워짐(기존 x17seg 등
+020ea86=307차 로그는 소급 재추출해도 항상 빈 문자열).
+
+**다음 단계(323차 이후 이월)**: 이 patch를 `C:\dev\ryu`에 적용 후
+실차 재주행 -> 신규 로그 확보 -> 321차가 검증한 chord=20m 고정/
+WINDOW_PAD_M=60m 설계를 raw `relative_coords`에 대해 **오프라인
+toolkit 스크립트에서** 10m/5m/2.5m 재구성 비교(production에는 재샘플
+로직을 넣지 않음).
+
 ## sim_route_322_single_frame_check.py / sim_route_322_mismatch_triage.py (322차 신규, "10m production exact reproduction" 1단계)
 
 **목적**: production이 실제로 candidate/cluster/orphan 계산에 쓴

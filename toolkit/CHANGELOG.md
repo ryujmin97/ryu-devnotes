@@ -3,6 +3,22 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+## 2026-09-09 (323차)
+- `ryu` 계측 patch(ANALYSIS_ONLY, 제어 로직 무변경): `cereal/custom.capnp`에
+  `routeOrphanRawPath @70 : Text` 신규 -- orphan(min_points=2 미달 고립
+  후보) 발생 프레임에서 `resample_10m_np()` 적용 이전 원본
+  `relative_coords`(600m lookahead)를 raw `"x,y;x,y;..."`로 발행(거리
+  필드 없음, naviPaths와 다른 포맷). `carrot_man.py`/`carrot_serv.py`
+  4개 지점(sentinel 초기화 2 + 직렬화/발행 각 1) 순수 추가만 41줄.
+  트리거는 `orphan_count>0` 단일 조건 -- 실측(x17seg) 결과
+  `routeProvisionalStreak>=3`인데 `orphan_count==0`인 프레임이 0건임을
+  확인해, 이미 발행 중인 `routeProvisionalStreak`(@67)로 사후
+  A(즉시)/A∩B(streak>=3) 분류가 가능하므로 별도 트리거 필드 미추가.
+  구버전(020ea86=307차) rlog 디코딩 하위호환 확인(전부 빈 문자열).
+- `extract_log.py`: `routeOrphanRawPath` 컬럼 추가(FIELDNAMES + 매핑),
+  `--with-navi-paths` 플래그와 무관하게 항상 채움. py_compile 통과,
+  신규 필드 포함 CSV 재추출 확인.
+
 ## 2026-09-09 (322-D)
 - `sim_route_322d_stateful_replay.py`: **신규**. "10m production exact
   reproduction" 2단계(stateful) -- `_route_cluster_continuity_step()`/

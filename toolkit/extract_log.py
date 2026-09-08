@@ -79,7 +79,15 @@ FIELDNAMES = [
     "routeProvisionalActive", "routeProvisionalDist", "routeProvisionalSpeed",
     "routeProvisionalStreak", "routeProvisionalMatchError", "routeProvisionalPromoted",
     "routeNaviPointsLen", "routeNaviStartIdxIn", "routeNaviStartIdxOut", "routePathLen",
+    "routeOrphanRawPath",
 ]
+# 2026-09-09 추가(323차): carrotMan.routeOrphanRawPath -- cereal/custom.capnp
+# @70, 321차가 이월한 "5m/2.5m 국소 재샘플" 실측 검증을 위해 orphan(min_points=2
+# 미달 고립 후보) 발생 프레임에서만 resample_10m_np() 적용 이전 원본
+# relative_coords(600m lookahead)를 raw "x,y;x,y;..." 문자열로 발행하는
+# 신규 계측 필드. --with-navi-paths 플래그와 무관하게 항상 채운다(naviPaths와
+# 달리 대역폭 부담이 작음 -- orphan 프레임 기준 routePathLen 중앙값 32,
+# 최대 39, WIP.md 323차 실측 참고).
 # 2026-09-08 추가(314차): carrotMan.routeNaviPointsLen/routeNaviStartIdxIn/
 # routeNaviStartIdxOut/routePathLen -- cereal/custom.capnp @52~@55, 307차가
 # 이미 추가해둔 계측 필드인데 310차가 FIELDNAMES를 보강할 때 같은 12개
@@ -492,6 +500,7 @@ def process_segment(rlog_path, seg_name, repo_dir, max_mb, commit_short="",
                 "routeNaviStartIdxIn": cm.routeNaviStartIdxIn,
                 "routeNaviStartIdxOut": cm.routeNaviStartIdxOut,
                 "routePathLen": cm.routePathLen,
+                "routeOrphanRawPath": cm.routeOrphanRawPath,
             })
     return rows, last_cs, last_ctrl, last_lead, last_lat, last_model, last_pose, last_gps
 

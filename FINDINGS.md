@@ -1,3 +1,56 @@
+## 323차 -- [계측 patch 작성, 실차 미검증] "orphan raw relative_coords" 계측(cereal @70) -- 트리거는 orphan_count>0 단일조건(B가 항상 A의 부분집합임을 실측 확인), 페이로드는 기존 routePathLen 역산으로 사전 산정(orphan 프레임 중앙값 32포인트, 부담 없음)
+
+**배경**: 321차가 "5m/2.5m 국소 재샘플" 실측 검증을 위해 필요하다고
+남긴 `relative_coords` 계측 patch(317차부터 반복 이월). 322-D로
+"10m exact reproduction"이 닫힌 뒤 사용자가 323차를 이 계측 patch
+작성으로 지시, 지선생(ChatGPT)과 3라운드 검토 거쳐 확정.
+
+**트리거 조건 확정(실측)**: 애초 검토한 "orphan 즉시(A)" vs
+"provisional streak>=3(B)" 두 트리거 후보 중, x17seg 20171행에서
+`routeProvisionalStreak>=3`이면서 `routeOrphanSingletonCount==0`인
+프레임을 검색한 결과 **0건**. B는 항상 A의 부분집합(A-only 999건,
+A∩B 2434건, 합집합=A 그 자체 3433건/17.02%)임을 확인 -- provisional
+tracker가 orphan 없는 프레임에 즉시 streak을 리셋하는 구조상 당연한
+결과지만, 실측으로 0건임을 직접 확인한 뒤에야 트리거를 단순화(§28
+추측 금지 원칙). 결론: 트리거는 `orphan_count>0` 하나로 충분, 이미
+발행 중인 `routeProvisionalStreak`(@67)로 사후 분류 가능 -- 별도
+트리거 필드 불필요.
+
+**페이로드 사전 산정(신규 계측 없이 기존 로깅 재활용)**: 305차가
+이미 로깅한 `routePathLen`(원본 `path` 길이)을 그대로 활용 -- 전체
+프레임 평균은 성김(중앙값 15포인트/600m, 직선구간 웨이포인트가
+드묾)이지만, **orphan 발생 프레임만 필터링하면 중앙값 32포인트**
+(min 9/max 39)로 훨씬 밀집됨을 확인. Tmap 웨이포인트가 실제 커브
+구간에 더 촘촘히 배치되는 것으로 해석됨(원인 자체는 이번 조사범위
+밖, 결과만 활용). 이 덕분에 국소 윈도우 크롭 로직을 production에
+넣지 않고 전체 `relative_coords`를 그대로 로깅해도 페이로드가 작음
+(포인트당 약 13바이트, 프레임당 최대 약 510바이트, corpus 전체
+기준 총 1.1~1.7MB) -- 지선생도 이 산정 결과에 동의, 국소 크롭은
+production 대신 offline toolkit으로 이관.
+
+**필드 포맷 결정 경위**: 최초 제안은 naviPaths와 "동일 포맷"이라
+표현했으나, 지선생이 naviPaths는 "10m 리샘플 이후 데이터"라는
+의미가 이미 포함된 이름이라 raw 원본에 그 표현을 재사용하면
+혼동을 유발한다고 지적 -- `"x:.2f,y:.2f"`(거리 필드 없음, naviPaths
+는 x,y,d 3필드)로 명확히 구분해 확정. 필드 개수도 애초 검토한
+`routeOrphanRawPathLen`(신규 카운트 필드) 추가안을 기각 -- 기존
+`routePathLen`(305차, 원본 path 전체 길이)과 조합하면 충분하다는
+지선생 지적을 받아들여 `@70` 단일 필드만 추가.
+
+**patch 검증 범위와 한계**: `py_compile`/`pycapnp` 스키마 로드+필드
+read-write/직렬화 표현식 합성 재현/구버전 rlog 하위호환(20171행
+재디코딩, 전부 빈 문자열, 크래시 없음)까지 확인했으나, **실제
+CarrotMan 프로세스 구동(실차 또는 PC 리플레이)은 미검증**. 40차
+radard 크래시 교훈(순수 Python 로직 테스트만으로는 capnp 구조체
+할당 경로의 문제를 못 잡음)에 따라 스키마 필드 멤버십은 별도
+명시적으로 검증했으나, 이것이 "실차 검증 완료"를 의미하지는 않음
+-- §29 원칙상 이 patch로 확보한 raw 좌표를 이용한 5m/2.5m 비교
+실험은 실제 rlog로 필드가 정상 채워짐을 먼저 확인한 뒤 시작해야 함.
+
+**영향받는 실차 제어 로직**: 없음(orphans 계산 결과를 그대로
+직렬화하는 순수 관측 코드만 추가, 기존 apex/candidate/cluster/
+orphan/provisional 판정 로직 전부 무변경).
+
 ## 322-D -- [검증 PASS] "10m production exact reproduction" 2단계(stateful) -- `_route_cluster_continuity_step()`/`_route_provisional_singleton_step()`/INERT-ACTIVE 게이트 재생으로 apex_mode 불일치 53건(0.26%) 전부 기존 원인 2가지로 재분류, 미분류 0건
 
 **배경**: 322차(stateless PASS)의 다음작업으로 이월됐던 항목(WIP.md

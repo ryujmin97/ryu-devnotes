@@ -1,3 +1,113 @@
+## 323차 (완료 -- 계측 patch 작성, `ryu` 코드 변경(ANALYSIS_ONLY, 제어 로직 무변경) + devnotes(extract_log.py) 갱신, 실차 검증은 미실시로 다음 세션 이월) -- 321차가 이월한 "5m/2.5m 국소 재샘플" 실측 검증의 전제조건으로 `routeOrphanRawPath`(cereal @70) 계측 신규 추가, 트리거/페이로드 설계를 사용자+지선생(ChatGPT) 검토 거쳐 확정
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu`(base `020ea86`=307차, 이 항목에서
+patch 적용) / `ryu-devnotes`(base `a2e5718`=322-D, 이 항목 추가 전)
+
+**Branch**: `c3-ms-dev` / `main`
+
+**배경**: 322-D(stateful reproduction PASS)로 "10m production exact
+reproduction"을 닫은 뒤, 사용자가 다음 단계를 "323차 = 5m/2.5m grid
+실험 설계"로 지시. 다만 321차 결론(`relative_coords`는 코드상 이미
+스코프에 살아있으나, **실측 검증에는 cereal 발행 계측이 먼저 필요**)에
+따라, 이번 세션은 실제 5m/2.5m 재샘플 실험 자체가 아니라 **그 실험에
+필요한 원본 좌표를 실차 로그로 확보하기 위한 계측 patch 설계+작성**을
+범위로 잡음. 트리거 조건/필드 구조/페이로드를 사용자 및 지선생과
+왕복 검토(3라운드)한 뒤 확정, 승인 후 patch 작성으로 진행.
+
+**한 일**:
+1. GitHub 최신상태 확인(§3/§33, 세션 중 컨테이너 리셋으로 2회 재확인)
+   -- `ryu` HEAD `020ea86`(307차, 변경없음), `ryu-devnotes` HEAD
+   `a2e5718`(322-D, 사용자가 보고한 push 결과를 직접 clone으로 재검증).
+2. **코드 구조 재확인**: `carrot_man.py::carrot_navi_route()`에서
+   `relative_coords`가 `get_path_after_distance()` 직후(1145행 부근)
+   생성돼 orphans 확정(1369행 부근)까지 동일 스코프에 살아있음을 재확인.
+3. **트리거 설계 실측 검증(중요)**: 애초 "orphan 즉시(A)" vs
+   "provisional streak>=3(B)" 두 트리거를 검토했으나, x17seg 20171행
+   재추출 결과 `routeProvisionalStreak>=3`이면서
+   `routeOrphanSingletonCount==0`인 프레임이 **0건**임을 확인 -- B가
+   항상 A의 부분집합(제공자 tracker가 orphan 없는 프레임엔 즉시 streak
+   리셋하는 구조상 당연한 결과). 지선생도 동일 결론에 동의 -- 트리거를
+   `orphan_count>0` 단일 조건으로 확정, 이미 발행 중인
+   `routeProvisionalStreak`(@67)로 사후 A-only/A∩B 분류 가능.
+4. **페이로드 실측(신규 계측 없이 기존 로깅 재활용)**: 305차가 이미
+   로깅해둔 `routePathLen`(리샘플 이전 원본 `path` 길이)으로 사전 역산
+   -- 전체 프레임은 중앙값 15포인트(600m lookahead 기준, 성긴 Tmap
+   웨이포인트)지만, **orphan 발생 프레임만 보면 중앙값 32포인트**(min
+   9/max 39, 커브 구간에 웨이포인트가 더 촘촘함)로 나타남. 이 덕분에
+   "국소 윈도우 크롭"을 production에서 할 필요 없이 전체
+   `relative_coords`를 그대로 로깅해도 페이로드가 작음(포인트당 약
+   13바이트, 프레임당 최대 약 510바이트, 발행빈도 3433/20171=17.02%,
+   corpus 전체 기준 총 1.1~1.7MB) -- 지선생 검토로 최종 승인.
+5. **patch 작성**: `cereal/custom.capnp`에 `routeOrphanRawPath @70 :
+   Text` 신규(기존 @0~@69 무변경, naviPaths와 다른 2필드 raw XY 포맷
+   -- 지선생 지적 반영해 naviPaths와 동일 포맷이라 부르지 않음, 거리
+   필드 제거). `carrot_man.py`(sentinel 초기화 2곳 + orphans 확정
+   직후 직렬화 1곳 + carrot_serv 발행 대입 1곳)/`carrot_serv.py`
+   (저장소 초기화 1곳 + cereal 발행 1곳) 총 4개 지점, 3개 파일 합쳐
+   순수 추가 41줄(diff에 조건 분기/제어로직 변경 0건).
+6. **검증**: `py_compile` 통과(`carrot_man.py`/`carrot_serv.py`),
+   `custom.capnp`를 `pycapnp`로 직접 로드해 `routeOrphanRawPath`
+   필드 read/write 실동작 확인(40차 radard 크래시 교훈 -- 스키마
+   필드 멤버십 명시적 검증 필수), 삽입한 직렬화 표현식을 합성 데이터로
+   재현 검증(naviPaths와 동일 `.2f` 정밀도, orphans 없을 때 sentinel
+   빈 문자열 유지). **구버전(020ea86=307차) rlog 하위호환 확인** --
+   신규 스키마로 기존 x17seg 20171행 재디코딩 결과 전부 빈 문자열로
+   정상 처리(크래시 없음, capnp 필드 추가의 전후방 호환성 원리대로
+   동작).
+7. `extract_log.py`에 `routeOrphanRawPath` 컬럼 추가(FIELDNAMES+매핑),
+   `--with-navi-paths` 무관하게 항상 채움. `py_compile` 통과 + 신규
+   컬럼 포함 CSV 재추출 확인(기존 로그는 전부 빈 문자열).
+8. `toolkit/README.md`/`toolkit/CHANGELOG.md` 신규 섹션 추가.
+
+**결론**: (1) 5m/2.5m 실험 자체는 아직 착수하지 않음 -- 이번 세션은
+그 실험의 전제조건(실측 raw 좌표 확보용 계측)만 완료. (2) 계측
+patch는 정적/스키마 레벨 검증을 전부 통과했으나 **실제 CarrotMan
+프로세스에서의 동작(실차 or PC 리플레이)은 미검증** -- 다음 세션에서
+반드시 확인 필요(§28/§29, 코드 패치 후 실차 검증 전까지 5m/2.5m
+비교 실험 자체를 시작하지 않음).
+
+**영향받는 실차 제어 로직**: 없음(순수 관측용 필드 추가, 기존
+apex/candidate/cluster/orphan/provisional 판정 로직 전부 무변경).
+
+**검증**:
+- 정적 분석: `py_compile` 통과(`ryu`/`ryu-devnotes` 양쪽 수정 파일)
+- 로그 검증: 신규 스키마로 구버전(020ea86) x17seg 20171행 재디코딩
+  하위호환 확인(전부 빈 문자열, 크래시 없음)
+- 시뮬레이션: capnp 스키마 실제 로드 + 필드 read/write 검증, 직렬화
+  표현식 합성 데이터 재현
+- 실차 검증: **미실시** -- 이 patch를 반영한 빌드로 재주행 필요(다음
+  작업 1번)
+
+**Devnotes**: `toolkit/README.md`/`toolkit/CHANGELOG.md` 갱신,
+`toolkit/extract_log.py`(컬럼 추가), 이 WIP 항목, FINDINGS.md 323차
+항목 신규. `ryu` patch는 별도 파일로 전달(사용자 적용용).
+
+**미확인 사항**:
+- patch 반영 빌드의 실제 rlog 동작 미검증(사용법상 CarrotMan
+  프로세스를 실제로 띄워보지 않음, capnp 스키마 레벨 검증까지만).
+- orphan 발생 프레임 routePathLen(중앙값32/최대39) 통계는 x17seg 1개
+  corpus 기준 -- 다른 route/다른 도로유형(고속도로 등)에서는 Tmap
+  웨이포인트 밀도가 다를 수 있어 페이로드 추정치가 달라질 수 있음.
+- `routeOrphanRawPath`가 비어있지 않은데 `orphan_count==0`인 경우
+  (초기화 sentinel이 잘못 남는 버그) 등 엣지 케이스는 실측 로그로만
+  최종 확인 가능(정적 검증으로는 sentinel 재대입 누락 여부까지만 확인).
+
+**다음 작업**:
+1. (핵심) 이 patch를 `C:\dev\ryu`에 적용 -> 실차(또는 PC 리플레이)로
+   재주행 -> `routeOrphanRawPath` 실제 채워짐/포맷 정상 여부 1차 확인.
+2. 신규 로그 확보 후, 321차가 합성 데이터로 이미 검증한 chord=20m
+   고정/WINDOW_PAD_M=60m 설계를 raw `relative_coords`에 대해
+   **오프라인 toolkit 스크립트에서** 10m/5m/2.5m 재구성 비교(production
+   에는 재샘플 로직 추가하지 않음, 실험 전부 offline).
+3. (이월, 312차부터) `PROVISIONAL_PROMOTE_STREAK=3` 조정 여부 결정.
+4. (이월, 311차부터) seg16 cruiseEnabled 재개입 가설 코드 레벨 추적.
+5. (이월, 316차부터) `harsh_brake_events`/`steering_oscillation_detector`
+   임계값 민감도 확인.
+
+---
+
 ## 322-D (완료 -- ANALYSIS_ONLY, `ryu` 본체 무변경, devnotes toolkit 신규 스크립트 1개 추가) -- "10m production exact reproduction" 2단계(stateful apex replay) -- `_route_cluster_continuity_step()`/`_route_provisional_singleton_step()`/INERT-ACTIVE 게이트 전체 이식 재생, apex_mode 불일치 53건(0.26%) 전부 기존 원인 2가지로 자동분류(미분류 0건) -- **stateful reproduction PASS**
 
 **Worker**: Claude
