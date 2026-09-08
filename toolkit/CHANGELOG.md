@@ -3,6 +3,14 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+## 2026-09-08 (318차)
+- `perf_route_269_curvature_batch_optimize.py`: **신규 코드 없음,
+  기존 도구 재사용**(§21). 317차 체크포인트 "다음 작업 2번"(곡률
+  loop 실행시간 프로파일링) 수행 -- `--self-test` 10/10 PASS
+  재확인, `--benchmark --iters 20000` 4회 반복으로 61-point(10m)=
+  0.09~0.10ms/frame vs 121-point(5m)=0.18~0.19ms/frame(비율 약
+  1.9배) 확인.
+
 ## 2026-09-08 (317차)
 - `sim_route_317_orphan_local_fine_resample.py`: **신규**. 사용자 제안
   "orphan 지점 주변 국소 재샘플" 아이디어 검증. Part1 합성 self-test

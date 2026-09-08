@@ -630,6 +630,14 @@ apex_idx/apex_dist/apex_speed/apex_mode/apex_streak/out_speed까지의
 동일성까지는 여전히 미실시, `replay_route_237_vs_baseline.py` 방식
 A/B는 별도 필요).
 
+**[318차 추가] 317차 체크포인트 "곡률 loop 실행시간 프로파일링" 다음
+작업에 재사용**: 신규 도구 작성 없이(§21) 기존 `--self-test`/
+`--benchmark`를 그대로 재실행. `--self-test` 10/10 PASS 재확인,
+`--benchmark --iters 20000`을 4회 반복해 61-point(10m/600m)=
+0.09~0.10ms/frame vs 121-point(5m/600m)=0.18~0.19ms/frame(비율 약
+1.9배, 절대증가폭 약 0.09ms/frame, 이 컨테이너 CPU 상대비교) 확인.
+상세: FINDINGS.md 318차.
+
 **사용**:
 ```
 python3 perf_route_269_curvature_batch_optimize.py --self-test

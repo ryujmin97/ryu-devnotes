@@ -1,3 +1,96 @@
+## 318차 (완료 -- ANALYSIS_ONLY, `ryu` 본체 무변경, devnotes toolkit 신규 스크립트 없음(기존 도구 재사용)) -- 317차 체크포인트 "다음 작업 2번"(곡률 loop 실행시간 프로파일링) 수행 -- 기존 `perf_route_269_curvature_batch_optimize.py` 재사용해 10m(61-point)->5m(121-point) 그리드 전환 부하를 프레임당 ms로 정량화, 절대증가폭 약 0.09ms/frame(비율 약 1.9배, 이 컨테이너 CPU 상대비교)
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu`(HEAD `020ea86`=307차, 변경 없음) /
+`ryu-devnotes`(base `f1a7588`=317차 계속, 이 항목 추가 전)
+
+**Branch**: `c3-ms-dev` / `main`
+
+**세션 시작 확인(§3/§33)**: 사용자가 "계속" 지시. `git ls-remote`로
+원격 fresh 재확인 -- `ryu`=`020ea86`(변경 없음), `ryu-devnotes`=
+`f1a7588`(317차 계속, 직전 세션이 push까지 완료·검증한 상태와 일치).
+다른 AI 개입 흔적 없음. WIP.md 최상단(`## 317차 계속`)의 "다음 작업"
+목록 1번(체크포인트 2번 항목, 곡률 loop 프로파일링)에 착수.
+
+**한 일**:
+1. §21 원칙대로 새 스크립트 작성 전 `toolkit/README.md` 확인 --
+   `perf_route_269_curvature_batch_optimize.py`가 이미 정확히
+   이 목적(baseline/optimized 곡률 계산의 n_points=61/121 벤치마크)
+   으로 존재함을 확인 -- **신규 도구 작성 없이 재사용**.
+2. `--self-test` 재실행 -- 10/10 PASS 재확인(이 세션 컨테이너에서도
+   baseline=optimized 출력 완전 동일 재검증).
+3. `--benchmark --iters 20000`을 4회 반복 실행해 수치 안정성 확인.
+4. 실 x17seg corpus의 `routeNaviPointsLen` 분포를 확인해 합성
+   n_points=61 가정을 교차검증 시도 -- 중앙값 65로 근접하나, 이
+   필드가 실제 곡률 루프 입력(`resampled_points`)과 직접 대응하는
+   필드가 아님을 확인해 완전한 교차검증에는 실패(계측 공백,
+   FINDINGS.md 318차 한계 항목 참고).
+5. `toolkit/README.md`(perf_route_269 섹션에 318차 단락 추가) /
+   `toolkit/CHANGELOG.md`(2026-09-08 318차 항목 추가) 갱신.
+6. `FINDINGS.md` 318차 항목 신규 작성(수치 표 + 해석 + 한계).
+
+**결과**: 61-point(10m/600m) 3개 시나리오 평균 ≈0.098ms/frame,
+121-point(5m/600m) 평균 ≈0.187ms/frame -- 비율 약 1.9배(포인트 개수
+비율 121/61≈1.98과 거의 일치, 거의 선형 스케일), **절대 증가폭
+약 0.09ms/frame**(이 컨테이너 CPU 기준).
+
+**결론**: 269차 최적화가 이미 적용된 현재 production 코드 기준으로,
+전체 600m를 10m 대신 5m로 매 프레임 재샘플하더라도 곡률 계산 자체의
+절대 부하 증가는 이 지표(클라우드 CPU 상대비교)로는 미미하다(서브
+밀리초). "전체 5m 재샘플은 부하가 걱정된다"는 애초 우려(317차
+체크포인트가 기록한 사용자 발언)가 이 벤치마크만으로는 강하게
+뒷받침되지 않는다. 다만 317차가 채택한 "orphan 주변 국소 윈도우만
+재샘플" 설계가 이 "전체 5m 최악의 경우"보다도 훨씬 저렴할 것이므로,
+이번 결과는 317차 설계 방향의 부하 우려를 낮추는 보강 근거로 작용한다
+(단, 국소 윈도우 케이스 자체를 직접 벤치마크하지는 않음).
+
+**한계(§28)**:
+1. 클라우드 컨테이너 CPU 기준 상대 비교 -- C3 임베디드 디바이스
+   절대 실행시간 미확인(269차/271차부터 이월된 한계, 이번에도
+   미해소).
+2. 317차의 실제 "국소 윈도우(약 120m)" 케이스를 직접 벤치마크하지
+   않음 -- "전체 600m를 5m로" 최악의 경우만 측정.
+3. `routeNaviPointsLen` 분포(중앙값 65, 최대 164)가 실제
+   `resampled_points` 개수와 어떻게 대응하는지 미확인.
+4. `carrot_navi_route()` 실제 호출 주기(Hz)를 확인하지 않아, 전체
+   CPU 점유율 증가폭(프레임당 증가폭 x Hz)은 계산하지 않음.
+
+**영향받는 실차 제어 로직**: 없음(`ryu` 코드 변경 없음, 기존 toolkit
+스크립트 재실행만 수행, ANALYSIS_ONLY).
+
+**검증**:
+- 정적 분석: 해당 없음(신규 코드 없음)
+- 로그 검증: `routeNaviPointsLen` 분포 확인(x17seg 20171행)
+- 시뮬레이션: `--self-test` 10/10 PASS 재확인, `--benchmark` 4회
+  반복으로 수치 안정성 확인
+- 실차 검증: 미실시(C3 디바이스 프로파일링 없음)
+
+**Devnotes**: `FINDINGS.md` 318차 항목 신규, 이 WIP 항목,
+`toolkit/README.md`(perf_route_269 섹션에 318차 단락 추가)/
+`toolkit/CHANGELOG.md` 갱신. 신규 toolkit 스크립트 없음(기존 도구
+재사용).
+
+**미확인 사항**:
+- C3 디바이스 절대 실행시간.
+- 317차 국소 윈도우 케이스의 직접 벤치마크.
+- `routeNaviPointsLen`과 실제 `resampled_points` 개수의 관계.
+- `carrot_navi_route()` 실제 호출 주기(Hz).
+
+**다음 작업**:
+1. persistent 232건(317차 이월) 중 일부를 표본추출해 qcamera 대조
+   -- 진짜 좁은 커브 vs 미약 노이즈 분류.
+2. "국소 재샘플" 원안 실측하려면 `relative_coords` 신규 계측 patch
+   가 필요 -- 사용자 승인 필요(§31, 317차부터 이월).
+3. phase-resolved 84건(317차 이월) 표본의 실제 감속 손실량 정량화.
+4. `PROVISIONAL_PROMOTE_STREAK=3` 조정 여부/설계안 A 채택 여부 최종
+   결정(312차부터 이월).
+5. (이번 세션 신규 이월) 가능하면 실제 C3 디바이스에서 동일 벤치마크
+   재실행, 또는 `carrot_navi_route()` 호출 주기 확인해 전체 CPU
+   점유율 증가폭 계산.
+
+---
+
 ## 317차 계속 (완료 -- ANALYSIS_ONLY, `ryu` 본체 무변경, devnotes toolkit 신규 스크립트 1개 추가) -- 위 317차 체크포인트 "다음 작업 1번"(국소 파인그리드 재확인 시뮬레이션)을 실행 -- Part1 합성 self-test PASS(밀도↑는 폭>0 진짜 커브만 구제, 폭0 노이즈는 절대 구제 안 함), Part2 원안(원본 폴리라인 국소 재샘플)은 x17seg corpus로 실측 불가 확정(navRouteNavd 0건), 대안으로 그리드 위상 민감도 실측 -- orphan 316개 중 84건(26.6%) phase-resolved
 
 **Worker**: Claude
