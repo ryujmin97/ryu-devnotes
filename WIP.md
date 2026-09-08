@@ -1,3 +1,79 @@
+## 317차 (진행 중 -- 코드/파일 변경 없음, 순수 설계 논의) -- `route_find_clusters()` min_points=2 게이트 개선 방향으로 "공간축(국소 파인그리드 재확인) + 시간축(307차 shadow tracker, 설계안 A)" 병행안을 논의, 아직 시뮬레이션/구현 착수 전
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu`(HEAD `020ea86`=307차, 변경 없음) /
+`ryu-devnotes`(base `b90c8b9`=316차, 이 항목 추가 전)
+
+**Branch**: `c3-ms-dev` / `main`
+
+**배경**: 316차로 "근접+이동중 ADAS engaged 4곳 전부 harsh_brake/
+조향진동 0건" 검증이 완료된 뒤, 사용자가 "그래서 결국 무엇을
+고치려는 것인가"를 질문 -- 306~316차 히스토리 전체를 훑어 목표(
+`PROVISIONAL_PROMOTE_STREAK`/설계안A 채택 여부 결정)를 재정리해
+답변. 이어서 사용자가 "10m 그리드를 5m로 줄이면 더 정확한가/부하는
+어떤가/평상시 10m로 있다가 곡선 감지되면 5m로 바꾸는 방법은?"을
+질문.
+
+**한 일(코드 읽기/설명만, 변경 없음)**:
+1. `carrot_man.py` 1085행 `distance_interval = 10.0`이 클래스 상수나
+   `PARAMS_REGISTRY.md` 등록값이 아니라 함수 내 지역변수(하드코딩)임을
+   확인.
+2. 이 값이 (a) `resample_10m_np()` 리샘플 간격, (b) `route_find_
+   clusters()`의 `min_points` 판정 단위, (c) macro/fine 곡률 chord
+   길이(`sample * distance_interval`, macro=4x40m/fine=1x10m,
+   `ROUTE_CURVATURE_FINE_SAMPLE=1`)에 동시에 영향을 준다는 점을
+   코드로 확인 -- 즉 distance_interval만 5m로 바꾸면 "해상도"뿐
+   아니라 "곡률 계산 스무딩 창"도 같이 좁아짐(별개 파라미터로
+   분리 안 돼 있음).
+3. `ROUTE_CLUSTER_MIN_POINTS=2`/`ROUTE_CLUSTER_MAX_GAP_M=40.0`/
+   `CONTINUITY_MATCH_TOLERANCE_M=20.0`가 모두 10m 그리드 기준으로
+   실측 검증된 값들임을 확인(변경 시 재검증 필요).
+4. 곡률 계산 루프(1149행 근처, `for i in range(len(resampled_points)
+   - sample*2)`)가 numpy 벡터화 안 된 순수 Python for문임을 확인 --
+   `route_lookahead_m=600.0` 기준 10m 그리드 ~60포인트 -> 5m 그리드
+   ~120포인트로 반복 횟수가 대략 2배가 됨(269차가 과거 이 구간을
+   벡터화 최적화한 이력 있음, 실측 프로파일링 전에는 실시간 영향
+   단정 불가).
+5. **[신규 논의 방향, 아직 검증/구현 전]** "평상시 10m, 곡선
+   감지 시 5m" 아이디어에 대해, 이미 `min_points=1`로 orphan은
+   탐지되고 있으므로(1369행 `route_find_clusters(candidates,
+   distances, 1, ...)`) 전체 600m를 매 프레임 5m로 돌릴 필요 없이
+   **orphan이 탐지된 지점 주변만 국소적으로 파인그리드 재확인**하는
+   방식을 제안 -- 이는 307차 shadow tracker(시간축, 여러 프레임에
+   걸친 매칭 continuity)와 상호보완적인 **공간축(단일 프레임 내
+   국소 지형 곡률) 검증**으로 볼 수 있음. 두 축을 병행하면 "일회성
+   노이즈"와 "진짜 짧은 커브"를 더 확실히 구분 가능할 것으로 보이나,
+   전부 아직 가설 단계(§28 -- 추측만으로 확정 안 함).
+
+**결론**: 코드/설계 변경 없음. §27/31 규칙상 실제 구현 전 시뮬레이션
+검증 + 사용자 명시 승인 필요하다는 점을 사용자에게 안내, 다음
+단계로 두 가지 옵션 제시(아래 참고).
+
+**검증**: 해당 없음(순수 코드 읽기/설명, `ryu`/`ryu-devnotes` 파일
+변경 없음).
+
+**Devnotes**: 이 WIP 항목만 신규(체크포인트 트리거, 파일 변경 없어
+FINDINGS.md/PARAMS_REGISTRY.md는 이번엔 변경 없음).
+
+**미확인 사항**:
+- 국소 파인그리드 재확인 방식의 orphan 탐지율/오탐률 변화 -- 합성
+  시뮬레이션 미실시.
+- 곡률 loop의 실제 프레임당 실행시간(현재 10m 기준 자체도 프로파일링
+  안 됨, 5m 대비 비교는 더더욱 없음).
+
+**다음 작업(사용자에게 양자택일 제시, 미결정)**:
+1. 국소 파인그리드 재확인 방식을 합성 시나리오로 시뮬레이션 --
+   orphan 탐지율/오탐률이 어떻게 바뀌는지 먼저 확인.
+2. 곡률 loop 자체의 실제 프레임당 실행시간을 x17seg corpus 기준으로
+   프로파일링 -- "부하 2배"가 실제로 몇 ms인지 숫자로 확인.
+3. (여전히 유효, 312차부터 이월) `PROVISIONAL_PROMOTE_STREAK=3`
+   조정 여부/설계안 A 채택 여부 자체의 최종 결정 -- 이번 논의는
+   설계안 A를 대체하는 게 아니라 보완하는 방향이므로 별개로 계속
+   유효.
+
+---
+
 ## 316차 (완료 -- ANALYSIS_ONLY, `ryu` 본체 무변경, devnotes toolkit 기존 스크립트에 옵션 2개 추가) -- `sim_route_310_provisional_streak_real_corpus.py`에 `--check-comfort`/`--comfort-pad-s` 정식 편입 -- 근접+이동중 ADAS engaged 물리적 위치 4곳(seg3/seg4/seg14/seg16) 전체에서 harsh_brake_events/steering_oscillation_detector 0건 확인(310차부터 이월된 다음 작업 완료), 옵션 초판의 cruiseEnabled 미필터링 버그를 실행 중 발견·즉시 수정
 
 **Worker**: Claude
