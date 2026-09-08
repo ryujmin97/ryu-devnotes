@@ -1,3 +1,90 @@
+## 319차 (완료 -- ANALYSIS_ONLY, `ryu` 본체 무변경, devnotes toolkit 신규 스크립트 1개 추가) -- 318차 "다음 작업 1번"(persistent 232건 중 표본추출 qcamera 대조)을 수행하던 중간 세션이 devnotes 미기록 상태로 컨테이너 리셋되어 전량 소실 -- 그룹화 로직을 코드로 고정한 신규 baseline으로 재구성, 8곳 육안 대조
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu`(HEAD `020ea86`=307차, 변경 없음) /
+`ryu-devnotes`(base `0567a13`=318차, 이 항목 추가 전)
+
+**Branch**: `c3-ms-dev` / `main`
+
+**세션 시작 확인(§3/§33)**: 사용자가 x17seg.zip 재업로드 + "계속" 지시,
+이전 대화에 "232건→73건→16곳 중 8곳 완료, 8곳 남음" 요약이 있었음.
+`git ls-remote`로 원격 fresh 재확인 -- `ryu-devnotes`=`0567a13`(318차),
+`ryu`=`020ea86`(변경 없음). **그러나 318차 WIP/FINDINGS 어디에도
+"232건/73건/16곳" 관련 기록이 없음을 발견** -- 즉 그 작업 전체가
+컨테이너 리셋 전 세션에서 devnotes에 기록되지 않은 채 진행 중이던
+미보존 작업이었음(§21/§22 위반, 원 세션의 실수). §29 원칙에 따라
+"8곳 완료"로 보고됐던 내용을 미검증으로 재분류하고 사용자에게 상황을
+알린 뒤, 사용자 승인(§18/§34 취지, "예 - 새 기준으로 처음부터 다시
+진행") 받아 재구성 진행.
+
+**한 일**:
+1. x17seg.zip을 `/home/claude/work/x17seg`에 재추출, `ryu`(`020ea86`)
+   재클론 후 `extract_log.py --with-navi-paths`로 corpus 재생성 --
+   20171행, commit 일치 확인(317/318차와 동일 재현).
+2. 소실된 원본 그룹화 로직(orphan 3433건 → 316개 에피소드 → 232건
+   persistent → 73건 근접+이동+활성) 재현을 두 가지 방식으로 시도했으나
+   모두 실패(150개, 114개 -- 316과 불일치). **원본 로직 재현 불가
+   확정**.
+3. §21 원칙대로 `toolkit/README.md` 확인 -- 동일 목적(orphan 에피소드
+   그룹화+계층화)의 기존 도구 없음 확인 후, `toolkit/`
+   `group_orphan_episodes_319.py` 신규 작성. 그룹화 기준(같은 seg,
+   시간 gap<=1.0s)과 계층화 기준(near/far x moving x active, 5개
+   stratum)을 docstring에 명시 고정 -- 재발 방지 목적.
+4. x17seg corpus에 적용 -- orphan 3433건(재확인) → 53개 에피소드
+   (near_moving_active 14 / far_moving_active 12 / moving_inactive 23
+   / stopped_inactive 2 / other 2).
+5. `extract_dashcam_frames.py`(기존 도구 재사용, §21) 로 근접군
+   대표 5곳(seg1) + seg14/seg16 근접군 각 1곳 + dist=0 아형 1곳 +
+   원거리군(510m) 2곳, 총 10프레임 추출 후 8곳 육안 대조.
+6. `FINDINGS.md` 319차 항목 신규 작성(재현 실패 경위 + 8곳 대조
+   결과 + 신규 아형 발견 + 한계 명시).
+
+**결과**: 새 baseline(53개 에피소드)에서도 이전 소실 세션이 보고한
+것과 질적으로 동일한 패턴 재확인 -- 원거리(~510m) 그룹은 프레임상
+아무 것도 안 보이는 lookahead 경계 아티팩트, 근접 그룹 상당수는
+주차차량 협착 오탐. 추가로 근접군 14건 중 7건이 `dist_mean≈0`인
+**진출입로(지하주차장 등) 아형**을 신규 발견 -- 이전에는 명시적으로
+분류되지 않았던 카테고리.
+
+**영향받는 실차 제어 로직**: 없음(`ryu` 코드 변경 없음,
+ANALYSIS_ONLY, 신규 toolkit 스크립트는 분석 전용).
+
+**검증**:
+- 정적 분석: 신규 스크립트 `python3 -m py_compile` PASS
+- 로그 검증: orphan 3433건 재확인(317/318차와 일치), 53개 에피소드
+  산출(신규 baseline, 이전 316/150/114와 모두 불일치 -- 그룹화 기준
+  차이가 원인)
+- 시뮬레이션: 해당 없음
+- 실차 검증: 미실시. qcamera 육안 대조 8곳(近접 6곳 + 원거리 2곳)
+
+**Devnotes**: `FINDINGS.md` 319차 항목 신규(위), 이 WIP 항목,
+`toolkit/group_orphan_episodes_319.py` 신규 스크립트,
+`toolkit/README.md`/`toolkit/CHANGELOG.md` 갱신(아래).
+
+**미확인 사항**:
+- near_moving_active 14건 중 8건, far_moving_active 12건 중 10건
+  미확인(전수 아님).
+- seg14 ep50: 단일 프레임만으론 apex 판정 불충분, 에피소드 전체
+  구간(60프레임) 재확인 필요.
+- `dist_mean≈0` 진출입로 아형이 실제 route 제어(감속/HUD)에 미치는
+  영향 미조사.
+- 소실된 원본 232/73건 분류와 이번 신규 baseline(53건) 간 대응관계
+  확인 불가(원본 로직 소실로 구조적으로 불가능).
+
+**다음 작업**:
+1. near_moving_active/far_moving_active 나머지 표본 계속 육안 대조.
+2. seg14 ep50 에피소드 전체 구간(t=1322.2~1339.3) 다중 프레임으로
+   apex 위치 재확인.
+3. `dist_mean≈0` 진출입로 아형이 몇 건인지, route 제어에 영향을
+   주는지 별도 조사(신규 이슈로 추적할지 사용자 확인 필요).
+4. (이월) 312차부터 이월된 `PROVISIONAL_PROMOTE_STREAK=3` 조정 여부
+   최종 결정.
+5. (이월) "국소 재샘플" 원안 실측용 `relative_coords` 신규 계측
+   patch -- 사용자 승인 필요(317차부터 이월).
+
+---
+
 ## 318차 (완료 -- ANALYSIS_ONLY, `ryu` 본체 무변경, devnotes toolkit 신규 스크립트 없음(기존 도구 재사용)) -- 317차 체크포인트 "다음 작업 2번"(곡률 loop 실행시간 프로파일링) 수행 -- 기존 `perf_route_269_curvature_batch_optimize.py` 재사용해 10m(61-point)->5m(121-point) 그리드 전환 부하를 프레임당 ms로 정량화, 절대증가폭 약 0.09ms/frame(비율 약 1.9배, 이 컨테이너 CPU 상대비교)
 
 **Worker**: Claude

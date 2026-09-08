@@ -21,6 +21,39 @@ CHANGELOG.md를 같이 갱신**한다 (세션 종료 체크리스트에 포함�
 
 ---
 
+## group_orphan_episodes_319.py (319차 신규, orphan singleton 프레임 -> 에피소드 그룹화 + 계층화, 재현성 확보용 baseline)
+
+**배경**: 317/318차가 x17seg corpus에서 orphan 3433건을 316개
+에피소드 -> 232건 persistent -> 73건 근접+이동+활성 후보로 나눴던
+작업이 devnotes에 기록되지 않은 채 컨테이너 리셋으로 전량 소실됨
+(§21/§22 위반). 319차가 재현을 시도했으나 원본 그룹화 로직(정확한
+gap 허용치, 위상 재앵커링 처리 방식)을 복원할 수 없어 재현 불가
+확정 -- 이 스크립트가 새로운 명시적 baseline이다.
+
+**그룹화 기준**: 동일 seg 내 연속 orphan 프레임 간 시간 gap<=1.0s면
+같은 에피소드(EPISODE_GAP_S 상수로 조정 가능).
+
+**계층화 기준**(에피소드 평균값 기준, 5개 stratum): `near_moving_active`
+(dist<=200m, vEgo>0.5, cruise_frac>=50%) / `far_moving_active`
+(dist>=400m, 동일 조건) / `moving_inactive`(cruise off) /
+`stopped_inactive` / `other`.
+
+**x17seg corpus(020ea86) 실측 결과**: orphan 3433건(317/318차와
+일치) -> 53개 에피소드(near_moving_active 14 / far_moving_active 12
+/ moving_inactive 23 / stopped_inactive 2 / other 2). 이전 수치
+(316/232/73)와 절대값이 다름 -- 그룹화 기준 차이가 원인, 이 316 등의
+수치는 재현 불가.
+
+**신규 발견**: near_moving_active 14건 중 7건이 `dist_mean≈0` --
+qcamera 대조 결과 실제 도로 곡선이 아니라 지하주차장 등 진출입로
+교차점으로 확인됨(신규 아형, 미조사 상태로 다음 작업에 이월).
+
+**사용**: `python3 group_orphan_episodes_319.py --csv <extract_log.py
+--with-navi-paths 출력 CSV> --out-episodes episodes.csv --out-summary
+summary.txt`
+
+상세 해석은 FINDINGS.md 319차 항목 참고.
+
 ## extract_log.py -- routeNaviPointsLen/routeNaviStartIdxIn/routeNaviStartIdxOut/routePathLen 컬럼 추가 (314차)
 **변경**: 307차가 cereal/custom.capnp @52~@55에 이미 추가해둔 계측
 필드 4개(`routeNaviPointsLen`=`get_path_after_distance()` 호출 직전
