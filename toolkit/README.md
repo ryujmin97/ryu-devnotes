@@ -85,6 +85,55 @@ schema를 동적 로드하므로 컬럼 목록만 갱신하면 됨).
 **주의**: 이 컬럼들은 `020ea86`(307차) 이후 채록된 로그에만 값이
 채워진다 -- 그 이전 route1~4 corpus(293~309차)에는 소급 적용 안 됨.
 
+## sim_route_321_local_window_grid_benchmark.py (321차 신규, "orphan 국소 윈도우(~120m) 10m->5m 조건부 그리드" 실행시간+오탐 검증)
+**배경**: 318차가 "10m->5m 그리드 전환 부하"로 보고한 `perf_route_269_
+curvature_batch_optimize.py`의 `long_route_121` 시나리오를 이번 세션에서
+재실행/재확인한 결과, `benchmark()`/`self_test()`가 `distance_interval`을
+항상 10.0으로 고정 호출하고 포인트 생성 함수도 `step=10.0` 고정이라
+**실제로는 5m 그리드가 아니라 더 긴(982.6m) 10m 그리드 경로였음**을
+발견(point spacing 직접 측정으로 확인, 아래 "재검증" 참고). 318차의
+수치(1.9배/+0.09ms) 자체는 유지하되 "경로 길이 2배 부하"로 재해석해야
+하며, **국소 윈도우(orphan 주변 ~120m)를 실제 5m로 재샘플하는 부하는
+이번 세션 이전까지 측정된 적이 없었다.**
+**설계**: 317차 Part1이 확정한 "밀도만 올리고 chord는 물리적으로 고정"
+방식을 그대로 이식 -- 10m baseline(sample=4/macro chord 80m,
+sample_fine=1/fine chord 20m) vs 국소 5m(sample=8/macro chord 80m 동일,
+sample_fine=2/fine chord 20m 동일), 윈도우 폭은 317차 WINDOW_PAD_M=60m
+그대로(편도 60m, 총 120m).
+**벤치마크 결과(4자리 반올림, 이 컨테이너 CPU 기준 상대비교)**: 10m
+baseline(n=13) 약 0.05ms/call, 5m 국소(n=25) 약 0.09~0.12ms/call,
+비율 약 1.7~2.0x, 절대 증가폭 약 0.04~0.06ms/**트리거 1회당**(매
+프레임이 아님 -- "조건부"이므로 orphan 후보가 실제 발생한 프레임에만
+1회 실행). 전체-route 10m 프레임 비용(318차 straight_61, ~0.4ms) 대비
+약 25% 수준.
+**Part 3(신규, 실제 함수 파이프라인 오탐 검증)**: 317차 Part1은 거리-속도
+프로파일 추상화 수준에서만 검증했던 것과 달리, 이번엔 `resample_10m_np`
+(carrot_man.py 408행 재이식)+`calculate_curvature`+`route_find_clusters`
+(317차 이식본 재사용, §27)를 실제로 통과시켜 검증: (a) 진짜 좁은 커브
+(R=30m/호길이3m, 실측 스윕으로 10m에서 candidates=1(orphan)이 되는
+최소 조합 캘리브레이션) -- 10m orphan -> 국소 5m에서 cluster로 승격
+**PASS**. (b) 단발 GPS 노이즈(원본 정점 1개만 0.3m 옆으로 튐, 마찬가지로
+스윕으로 10m orphan 유지되는 최대 offset 캘리브레이션) -- 국소 5m에서도
+여전히 orphan 유지(오탐 재유입 없음) **PASS**. 317차 Part1(추상화 수준)의
+결론이 실제 함수 조합으로도 재현됨.
+**한계(§28)**: (1) 클라우드 컨테이너 CPU 절대시간 아님(269/271/318차와
+동일 한계). (2) "조건부" 트리거 실제 빈도(Hz)는 미측정 -- 317차가 남긴
+별개 과제. (3) Part3의 raw 폴리라인은 합성(raw_step=1m 고정)이며 실제
+navi TCP 좌표의 노이즈 특성(간헐 결측/다중 튐)을 재현하지 않음. (4)
+**가장 중요**: `relative_coords`(10m 리샘플 이전 원본)가 실제
+`carrot_navi_route()` 함수 내부에서 orphan 판정 시점(1369행)까지도
+동일 함수 스코프에 여전히 살아있는 지역변수임을 코드로 확인(1145행
+할당, 1369행 orphan 판정 -- 사이에 재대입/해제 없음) -- 즉 **국소
+재샘플 자체는 신규 로깅 없이도 코드 구조상 구현 가능**하다(317차가
+"cereal 계측 patch가 있어야 가능"이라 한 것은 **과거 로그로 사후
+검증**하는 데 필요한 것이지, 프로덕션에서 기능 자체가 동작하는 데
+필요한 전제가 아니었음 -- 이번 세션에서 구분 확정). 다만 이 신규
+로직이 실제로 어떻게 동작하는지 **검증**하려면(합성이 아닌 실제
+주행에서) 여전히 별도 계측(예: 국소 재샘플 발동 여부/전후 apex 값)이
+필요하며, 이는 실제 patch를 작성한 뒤에나 설계 가능한 범위다.
+**사용**: `python3 sim_route_321_local_window_grid_benchmark.py`
+(인자 없음, self-test+benchmark+Part3 순서로 전부 실행).
+
 ## sim_route_317_orphan_local_fine_resample.py (317차 신규, 사용자 제안 "orphan 국소 국소재샘플" 아이디어의 self-test + x17seg phase-resolution 실측)
 **목적**: 306차가 확정한 min_points=2 게이트/orphan 문제에 대해, 사용자가
 제안한 "600m 전체를 매 프레임 5m로 재샘플하는 대신, orphan 탐지 지점

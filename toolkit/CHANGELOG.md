@@ -3,6 +3,23 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+## 2026-09-08 (321차)
+- `sim_route_321_local_window_grid_benchmark.py`: **신규**. 318차가
+  "10m->5m 그리드 전환 부하"로 보고한 벤치마크가 실제로는
+  `distance_interval`/point step이 항상 10.0으로 고정되어 5m 그리드를
+  전혀 테스트하지 않았음(경로 길이만 2배)을 재확인하고, 317차 Part1
+  설계(밀도↑, chord 물리적 고정)를 그대로 이식해 orphan 주변 국소
+  윈도우(~120m)의 실제 10m vs 5m 실행시간을 처음 정량화(비율
+  약 1.7~2.0x, 절대증가 약 0.04~0.06ms/트리거). Part3(신규)로
+  `resample_10m_np`+`calculate_curvature`+`route_find_clusters` 실제
+  함수 조합에서 진짜 좁은 커브(R30m/3m)는 orphan->cluster 승격,
+  단발 GPS 노이즈(0.3m)는 orphan 유지를 확인(오탐 재유입 없음, 캘리브레이션
+  스윕으로 파라미터 확정). 코드 확인으로 `relative_coords`가
+  orphan 판정 시점까지 동일 함수 스코프에 살아있어 국소 재샘플이
+  신규 로깅 없이도 구조적으로 구현 가능함을 확정(317차 한계 재해석).
+  독립 clean clone에서 py_compile+재실행 재현성 확인. 상세는 WIP.md/
+  FINDINGS.md 321차 참고.
+
 ## 2026-09-08 (319차)
 - `group_orphan_episodes_319.py`: **신규**. 318차 "다음 작업 1번"(근접+
   이동+활성 orphan 후보 qcamera 대조) 진행 중 devnotes 미기록 상태로

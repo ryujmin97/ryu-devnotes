@@ -1,3 +1,151 @@
+## 321차 (완료 -- ANALYSIS_ONLY, `ryu` 본체 무변경, devnotes toolkit 신규 스크립트 1개 추가) -- "orphan 국소 윈도우(~120m) 10m->5m 조건부 그리드" 검증(사용자 지시, 지선생 설계 제안 반영) -- 318차 벤치마크가 실제로는 5m 그리드를 테스트한 적이 없었음을 발견/정정, 국소 윈도우 실제 부하 최초 정량화 + 실제 함수 조합(resample_10m_np+calculate_curvature+route_find_clusters)으로 진짜커브 승격/노이즈 오탐없음 재확인, `relative_coords`가 로깅 없이도 orphan 판정 시점까지 스코프에 살아있음을 코드로 확정
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu`(HEAD `020ea86`=307차, 변경 없음) /
+`ryu-devnotes`(base `73e7391`=320차, 이 항목 추가 전)
+
+**Branch**: `c3-ms-dev` / `main`
+
+**배경**: 사용자가 x17seg zip을 재업로드하며 "10m를 5m로 조건부
+그리드 코딩을 위한 검증작업 우선"을 지시. 이후 지선생(ChatGPT)이
+제안한 순서(① 317차 결과 정리 → ② 국소 5m/2.5m 재검증(chord=20m
+고정) → ③ false positive 검사)를 검토하던 중, 지선생 제안이 인용한
+318차 수치("10m→5m 전체 전환 +0.09ms/1.9배")가 실제로는 5m 그리드를
+테스트한 적이 없다는 것을 코드 재실행으로 먼저 발견해 정정한 뒤,
+제안 방향(국소/조건부, chord 고정, false positive 분리검증)은
+그대로 채택해 진행함.
+
+**한 일**:
+1. GitHub 최신상태 확인(§3) -- `ryu` HEAD `020ea86`(307차, 변경없음),
+   `ryu-devnotes` HEAD `73e7391`(320차), HANDOFF.md/CURRENT_STATUS.md
+   없음 확인.
+2. 사용자 업로드 x17seg zip(`000003c6--586e535fca`, 17세그) 재추출 --
+   20171행, commit `020ea8670c02` 일치 재확인(310~320차와 동일 corpus
+   재현).
+3. **318차 벤치마크 재검증(중요 발견)**: `perf_route_269_curvature_
+   batch_optimize.py`의 `benchmark()`/`self_test()`가 `distance_interval`
+   인자를 항상 10.0으로 고정 호출하고, 포인트 생성 함수(`make_straight`
+   등)도 `step=10.0` 고정임을 코드/직접실행으로 확인 -- `long_route_121`
+   시나리오는 point spacing=10.0m, 총연장=982.6m로 실측되어 **5m
+   그리드가 아니라 그냥 더 긴(약 1.6배) 10m 경로**였음을 확정. 318차의
+   "1.9배/+0.09ms"라는 수치 자체(계산량 증가)는 유효하나, 이를
+   "10m->5m 그리드 전환"으로 명명한 것은 오분류 -- **실제 5m 그리드
+   부하는 이번 세션 이전까지 한 번도 측정되지 않았음**.
+4. `sim_route_321_local_window_grid_benchmark.py` 신규 작성(§21 확인
+   -- 기존 도구 중 국소윈도우+chord고정 조합을 다루는 것 없음 확인
+   후 신규, perf_route_269의 `calculate_curvature`는 import 재사용,
+   route_find_clusters는 sim_route_317에서 import 재사용, §27). 317차
+   Part1 설계(밀도만 올리고 chord는 물리적으로 고정)를 그대로 이식 --
+   10m baseline(sample=4/macro chord 80m, sample_fine=1/fine chord
+   20m) vs 국소 5m(sample=8/macro chord 80m 동일, sample_fine=2/fine
+   chord 20m 동일), 윈도우 폭은 317차 WINDOW_PAD_M=60m(편도) 그대로
+   재사용(총 120m).
+5. self-test: 직선 입력 -> 곡률 전부 0(10m/5m 공통) 확인. 최초 초안은
+   heading을 인덱스 기반 오일러 적분으로 누적해 step 크기 자체가
+   곡선 형상에 영향을 주는 버그가 있었음(10m/5m이 서로 다른 곡선을
+   만들어 chord를 맞췄는데도 곡률이 94% 차이나는 것으로 발견) --
+   x=s(호길이), y=A*sin(s/L) 연속함수로 직접 정의하도록 수정해 재검증,
+   수정 후 동일 물리지점 macro curvature가 10m/5m 완전히 일치(rel_diff
+   0.00%) 확인.
+6. 벤치마크(iters=20000, 4회 반복으로 안정성 확인): 10m baseline(n=13)
+   0.05~0.054ms/call, 5m 국소(n=25) 0.09~0.12ms/call, 비율
+   1.7~2.0x, 절대증가 0.04~0.06ms/**트리거 1회당**(조건부이므로 매
+   프레임이 아니라 orphan 후보 발생 프레임에만 실행). 참고로 318차의
+   전체-route 10m baseline(straight_61, n=61) 프레임 비용(~0.36~
+   0.46ms) 대비 약 25% 수준.
+7. **Part 3(신규, 사용자 지시 "false positive도 같이 검사" 반영)**:
+   317차 Part1은 거리-속도 프로파일 추상화 수준에서만 검증했던 것과
+   달리, `resample_10m_np`(carrot_man.py 408행 재이식)+
+   `calculate_curvature`+`route_find_clusters`(317차 이식본 재사용)
+   실제 함수 조합으로 통과시켜 검증. radius/arc_len 스윕(10~60m x
+   3~20m)과 노이즈 offset 스윕(0.2~3.0m)으로 "10m에서 정확히
+   candidates=1(orphan)"이 되는 최소 조합을 먼저 캘리브레이션(임의
+   추정값 사용 안 함, §33). 결과:
+   - (a) 진짜 좁은 커브(R=30m, 호길이 3m): 10m에서 candidates=1
+     (orphan) -> 국소 5m에서 candidates=2(cluster로 승격) **PASS**.
+   - (b) 단발 GPS 노이즈(원본 정점 1개만 0.3m 옆으로 튐): 10m에서
+     candidates=1(orphan) -> 국소 5m에서도 candidates=1(orphan 유지,
+     오탐 재유입 없음) **PASS**.
+   317차 Part1(추상화 수준)의 결론이 실제 함수 조합으로도 재현됨.
+8. **코드 구조 확인(중요 발견)**: `carrot_man.py::carrot_navi_route()`를
+   직접 읽어 `relative_coords`(10m 리샘플 **이전** 원본, 1145행 할당)가
+   `route_find_clusters()` 호출 및 orphan 판정(1369행, 동일 함수 내부)
+   시점까지 **동일 함수 스코프에 재대입/해제 없이 그대로 살아있는
+   지역변수**임을 확정. 즉 317차가 "실측 검증에는 relative_coords를
+   cereal에 발행하는 계측 patch가 필요"라고 한 것은 **과거 로그로
+   사후 검증**하는 데 필요한 조건이었을 뿐 -- 국소 재샘플 **기능
+   자체**는 신규 로깅 없이도 현재 코드 구조상 구현 가능함을 이번에
+   구분해 확정(317차 한계 재해석, 결론 자체를 뒤집는 것은 아님).
+9. 독립 clean clone(`ryu-devnotes` 재클론)에서 `py_compile` 통과 +
+   재실행 -- 원본 세션 실행과 판정(PASS/FAIL, 케이스별 결과) 완전
+   동일 재현 확인(수치는 CPU 변동으로 약간 다름, 판정 구조는 동일).
+10. `toolkit/README.md`/`toolkit/CHANGELOG.md` 신규 섹션 추가.
+
+**결론**: (1) 318차의 "5m 그리드 부하" 결론은 재분류 필요 -- 실제로는
+"경로 길이 2배" 부하였을 뿐, 5m 그리드는 이번 세션에서 처음 측정됨.
+(2) orphan 주변 국소 윈도우(~120m)만 조건부로 5m 재샘플하는 방식은
+1회 트리거당 약 0.04~0.06ms 추가 비용으로 매우 저렴하며(전체
+프레임 비용의 약 25% 수준 1회성), 실제 함수 조합(합성 데이터 한정)
+으로도 진짜 좁은 커브만 구제하고 단발 노이즈는 재유입시키지 않음을
+확인. (3) 이 기능은 신규 로깅 없이도 `relative_coords`를 그대로
+활용해 코드 구조상 구현 가능 -- 단, **아직 production patch를 작성할
+단계는 아니다**(§28 -- 실측/자동화 검증이 전부 합성 데이터 기준이며,
+지선생 제안대로 ANALYSIS_ONLY -> 실차계측 -> production 순서를
+따라야 함). 특히 이번 합성 검증은 raw 폴리라인의 실제 GPS/navi TCP
+노이즈 특성(간헐 결측, 다중 튐 등)을 반영하지 않아 실 corpus 검증을
+대체하지 않는다.
+
+**영향받는 실차 제어 로직**: 없음(`ryu` 코드 변경 없음, devnotes
+toolkit 신규 스크립트 1개만 추가, ANALYSIS_ONLY).
+
+**검증**:
+- 정적 분석: `py_compile` 통과(독립 clean clone 및 이번 세션 환경
+  양쪽에서 재확인)
+- 로그 검증: x17seg 20171행 재추출 재현 확인(318차 재검증 목적).
+  Part3은 실 corpus 아닌 합성 데이터 기준(위 한계 참고)
+- 시뮬레이션: self-test PASS(chord 고정 확인, 오일러적분 버그
+  발견/수정 포함), 벤치마크 4회 반복 안정성 확인, Part3 캘리브레이션
+  스윕 + 2개 케이스 PASS
+- 실차 검증: 미실시(합성 데이터 기준, ANALYSIS_ONLY)
+
+**Devnotes**: `toolkit/sim_route_321_local_window_grid_benchmark.py`
+신규(약 250줄), `toolkit/README.md`/`toolkit/CHANGELOG.md` 갱신,
+이 WIP 항목, FINDINGS.md 321차 항목 신규.
+
+**미확인 사항**:
+- "조건부" 실제 트리거 빈도(Hz) -- 317차가 이미 남긴 별개 과제,
+  이번에도 미착수.
+- Part3의 raw 폴리라인은 완전 합성(raw_step=1m 고정) -- 실제 GPS/navi
+  TCP 좌표의 노이즈 특성(간헐 결측, 다중 튐, 비등간격 등)과 다를 수
+  있음.
+- `relative_coords`를 이용한 실제 patch 설계(어느 시점에 국소 재샘플을
+  트리거할지, 어떤 폭으로 자를지, 승격된 cluster를 continuity
+  tracker에 어떻게 연결할지)는 이번 세션 범위 밖 -- 사용자 승인 필요.
+- ROUTE_CLUSTER_MAX_GAP_M(40m)나 release 조건은 이번 조사 대상이
+  아님(지선생 제안대로 현재 문제의 직접 원인이 아니라는 판단에 동의,
+  건드리지 않음).
+
+**다음 작업**:
+1. (지선생 제안 순서 반영) 이번 세션 결과가 충분히 안전하다고 판단되면,
+   다음 단계로 "언제 국소 재샘플을 트리거할지"(orphan 판정 직후 즉시 vs
+   continuity streak 일정 이상일 때 등) 설계안을 사용자와 함께 확정.
+2. 설계안 확정 후 실제 `carrot_man.py` patch 초안 작성 -- 단, 실제
+   `relative_coords`(합성 아닌 실제 원본좌표)에 대해 §28 시뮬레이션
+   선행 원칙대로 patch 적용 전 반드시 재검증.
+3. patch에는 검증용 계측 필드(국소 재샘플 발동 여부/전후 apex 값 등)를
+   함께 추가해 실차 로그로 "합성 검증과 실제 동작이 일치하는지"
+   바로 확인 가능하게 설계할 것(317차가 남긴 "신규 계측+재주행 필요"
+   원칙과 연결).
+4. (이월, 312차부터) `PROVISIONAL_PROMOTE_STREAK=3` 조정 여부 결정 --
+   서두를 근거 약함, 계속 이월.
+5. (이월, 311차부터) seg16 cruiseEnabled 재개입 가설 코드 레벨 추적 --
+   이번 세션에서도 미착수.
+6. (이월, 316차부터) `harsh_brake_events`/`steering_oscillation_detector`
+   임계값 민감도 확인 -- 이번 세션에서도 미착수.
+
+---
+
 ## 320차 (완료 -- ANALYSIS_ONLY, `ryu` 본체 무변경, devnotes toolkit README만 갱신) -- 바로 아래 319차 결론 정정: "원거리=아티팩트"는 314차 실측과 상충해 철회, "근접 신규 아형"은 310차 "교차로 회전부"와 동일 현상 -- 318차 "다음 작업 1번"은 310~316차로 이미 완료됐음을 확정, 종료 처리
 
 **Worker**: Claude
