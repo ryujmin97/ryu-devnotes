@@ -23,6 +23,16 @@ CHANGELOG.md를 같이 갱신**한다 (세션 종료 체크리스트에 포함�
 
 ## group_orphan_episodes_319.py (319차 신규, orphan singleton 프레임 -> 에피소드 그룹화 + 계층화, 재현성 확보용 baseline)
 
+**320차 정정 안내**: 이 스크립트로 도출한 "원거리=lookahead 아티팩트"
+결론은 314차 실측(seg6 실제 커브가 500m~30m까지 정상 추적됨)과
+상충해 철회됨(FINDINGS.md 320차 참고). **근접/원거리 orphan 후보를
+qcamera로 분류하는 목적이라면, 이미 물리적 위치 4곳(seg3/seg4/
+seg14/seg16)까지 확정하고 harsh_brake/조향진동까지 검증을 마친
+`sim_route_310_provisional_streak_real_corpus.py --check-cruise
+--check-comfort`를 우선 사용할 것.** 이 스크립트는 `routeOrphanSingleton*`
+필드 기반이라 `routeProvisional*` 기반인 위 도구와 관측 대상이
+다르지만, 같은 물리적 후보를 가리키는 것으로 확인됨(320차).
+
 **배경**: 317/318차가 x17seg corpus에서 orphan 3433건을 316개
 에피소드 -> 232건 persistent -> 73건 근접+이동+활성 후보로 나눴던
 작업이 devnotes에 기록되지 않은 채 컨테이너 리셋으로 전량 소실됨
