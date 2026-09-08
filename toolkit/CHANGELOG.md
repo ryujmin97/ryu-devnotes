@@ -3,6 +3,18 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+## 2026-09-09 (322-D)
+- `sim_route_322d_stateful_replay.py`: **신규**. "10m production exact
+  reproduction" 2단계(stateful) -- `_route_cluster_continuity_step()`/
+  `_route_provisional_singleton_step()`/INERT-ACTIVE 게이트를 그대로
+  이식해 x17seg 20171행 시간순 재생, routeApexMode/Dist/Speed/
+  ClusterCount/OrphanSingleton*/Provisional* 프레임별 대조.
+  apex_mode 불일치 53건(0.26%) 전부(`--classify` 옵션) 기존에 설명된
+  2가지 원인(A: naviPaths .2f 좌표양자화로 인한 cluster 경계 이동 33건,
+  B: predicted<=0 부동소수점 zero-crossing 경계 20건)으로 100% 분류,
+  미분류 0건. 결론: stateful reproduction PASS. 상세는 WIP.md/
+  FINDINGS.md/README.md 322-D 항목 참고.
+
 ## 2026-09-08 (322차)
 - `sim_route_322_single_frame_check.py`: **신규**. "10m production exact
   reproduction" 1단계 -- `carrotMan.naviPaths`가 이미 production의

@@ -1,3 +1,120 @@
+## 322-D (완료 -- ANALYSIS_ONLY, `ryu` 본체 무변경, devnotes toolkit 신규 스크립트 1개 추가) -- "10m production exact reproduction" 2단계(stateful apex replay) -- `_route_cluster_continuity_step()`/`_route_provisional_singleton_step()`/INERT-ACTIVE 게이트 전체 이식 재생, apex_mode 불일치 53건(0.26%) 전부 기존 원인 2가지로 자동분류(미분류 0건) -- **stateful reproduction PASS**
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu`(HEAD `020ea86`=307차, 변경 없음) /
+`ryu-devnotes`(base `a8e9100`=322차, 이 항목 추가 전)
+
+**Branch**: `c3-ms-dev` / `main`
+
+**배경**: 322차(stateless)가 이월한 다음 작업. 사용자가 업로드한 대화
+문서(지선생/ChatGPT)가 "322-C(stateless) PASS 선언 후 바로 322-D(stateful)
+진행"을 제안 -- production telemetry(`routeApexMode`/`Dist`/`Speed`/
+`routeProvisional*`)와 오프라인 재생을 프레임 단위로 대조하되, "숫자
+완전 동일"이 아니라 "mode/state transition이 동일하고 수치 차이는 입력
+양자화로 설명 가능한가"를 PASS 기준으로 삼자는 제안을 그대로 채택함.
+
+**GitHub 최신상태 확인(§3)**: `ryu` HEAD `020ea86`(307차, 변경없음),
+`ryu-devnotes` HEAD `a8e9100`(322차, 지선생 문서가 인용한 `ae15488`=321차
+보다 한 커밋 앞선 최신 상태 -- 322차가 이미 push되어 있었음, 문서 작성
+시점과 세션 시작 시점 사이의 정상적인 진행). HANDOFF.md/CURRENT_STATUS.md
+없음 확인. 사용자 업로드 x17seg zip 재추출 -- 20171행, commit `020ea8670c02`
+재확인(310~322차와 동일 corpus). `params_backup.json` 재확인
+(`MapTurnSpeedFactor=110`->1.10, 322차 발견과 정확히 일치 -- 이번 세션
+`carrot_serv.py` 351~361행 코드 추적으로 스케일 계수(`*0.01`) 자체도
+확인, 322차 결론을 코드 레벨로 재확증).
+
+**한 일**:
+1. **핵심 구조 확인(코드 추적)**: `_route_cluster_continuity_step()`/
+   `_route_provisional_singleton_step()`(carrot_man.py 765~901행) 전문
+   확인. candidate/cluster/continuity 블록은 `if path: if
+   len(resampled_points)>=9:`를 통과한 프레임에만 실행되며(1146/1166행),
+   naviPaths가 있어도 포인트<9개(x17seg 1340/19860프레임)면 스킵된다.
+   스킵 시 continuity lock 리셋은 **그 순간 route_active였을 때만**
+   발생(`elif self.route_active:`, 1559~1573행) -- False였다면 lock은
+   그대로 유지된 채 다음 실행 프레임까지 넘어간다. 이 비대칭을 재현하려면
+   257차 거리게이트(D_required 기반 INERT->ACTIVE)와 247차 3-OR
+   RELEASE(apex_passed_or_lost/speed_reached/dist_reached)까지 함께
+   이식해 route_active 자체를 추적해야 함을 확인(단순 continuity 함수
+   이식만으로는 재현 불가능하다는 것이 이번 세션의 핵심 발견).
+   **부산물**: 메모리에 남아있던 "257차 distance-gate 패치 적용 전,
+   미해결 질문 2개(a_fixed 재사용 여부/eff_dist<=0 처리)"는 이미 코드에
+   반영되어 있음을 확인(1487~1549행, "Master 최종 결정"으로 주석에 명시)
+   -- a_fixed는 `autoNaviSpeedDecelRate` 그대로 재사용, eff_dist<=0은
+   INERT 유지(vEgo 그대로 통과)로 이미 확정/적용된 상태(§33 GitHub 우선
+   원칙의 실전 사례 -- 세션 메모리가 실제 코드 상태보다 오래된 것이었음).
+2. `sim_route_322d_stateful_replay.py` 신규 작성(§21 확인 -- stateful
+   재생 도구는 기존에 없음) -- 322차 recompute() 블록을 distances/
+   speeds/clusters/orphans까지 반환하도록 확장 재사용(§27, 후보판정
+   로직 자체는 무변경), 위 continuity/provisional 함수를 `ContinuityState`/
+   `ProvisionalTracker` 클래스로 그대로 이식, INERT/ACTIVE 게이트를
+   재구현해 route_active를 매 프레임 추적, x17seg 20171행을 시간순으로
+   재생하며 `routeClusterCount`/`routeApexMode`/`Dist`/`Speed`/
+   `FineTriggered`/`routeOrphanSingleton*`/`routeProvisional*`을 프레임별
+   대조.
+3. **실측 결과**: full-block(계산 실행) 18520 / skipped 1651프레임.
+   `routeApexMode` 불일치 53건(0.26%), `routeClusterCount` 불일치 22건.
+   자동분류 로직(`classify_mode_mismatches()`, `--classify` 옵션) 신규
+   작성 -- apex_mode 불일치 53건을 A(전후 2초 내 cluster_count 자체가
+   322차와 동일한 원인으로 어긋나 continuity 매칭 대상이 바뀐 경우)/
+   B(apex_dist=0.00에서 `matched`<->`passed`만 갈리는 부동소수점
+   zero-crossing 경계, 대부분 vEgo≈0 정지구간)로 분류한 결과 **A=33건,
+   B=20건, 미분류=0건(100% 분류)**. 대표사례(t=652.331159749): logged
+   `routeClusterCount=1`인데 offline recompute는 2(idx=10 candidate
+   speed=25.241이 road_limit=30.0 근접 경계) -- 322차가 문서화한 원인이
+   여기서는 상태전이 타이밍까지 1프레임 흔드는 파급효과가 있음을 신규
+   확인(FINDINGS.md 322-D 참고).
+4. 속도류 필드(`routeApexSpeed`/`OrphanSingletonSpeed`/`ProvisionalSpeed`)
+   불일치는 건수는 많으나(1864/1919/1913, 0.05kph 초과만 카운트) 중앙값
+   약 0.10kph -- 322차가 이미 확인한 naviPaths `.2f` 반올림이 곡률
+   보간에 주는 정상 노이즈와 동일 성격(신규 원인 아님).
+5. `toolkit/README.md`/`toolkit/CHANGELOG.md` 신규 섹션 추가, 스크립트를
+   toolkit 위치에서 재실행해 수치 동일 재현 확인 + `py_compile` 통과.
+
+**결론**: mode/state transition 불일치가 100% 기존에 설명된 2가지 원인
+(입력 좌표 양자화 / 물리적 apex 통과 순간의 부동소수점 zero-crossing)으로
+귀결되고 새로운 미설명 divergence가 0건 -- **"10m production exact
+reproduction" stateful 단계(322-D) PASS로 판정**. 지선생 제안 순서대로,
+이 replay를 다음 단계(5m/2.5m grid sweep)의 신뢰 가능한 기준 모델로 격상
+가능.
+
+**영향받는 실차 제어 로직**: 없음(`ryu` 코드 변경 없음, devnotes toolkit
+신규 스크립트 1개만 추가, ANALYSIS_ONLY).
+
+**검증**:
+- 정적 분석: `py_compile` 통과(toolkit 위치)
+- 로그 검증: x17seg 20171행 전체 시간순 재생, `--classify` 자동분류
+  53/53건 재현 확인(toolkit 위치에서 재실행해 수치 동일)
+- 시뮬레이션: 해당 없음(실 corpus 기준 재현 검증)
+- 실차 검증: 미실시(로그 사후분석, ANALYSIS_ONLY)
+
+**Devnotes**: `toolkit/sim_route_322d_stateful_replay.py` 신규(~370줄),
+`toolkit/README.md`/`toolkit/CHANGELOG.md` 갱신, 이 WIP 항목, FINDINGS.md
+322-D 항목 신규.
+
+**미확인 사항**:
+- `routeProvisional*` 쪽 mismatch(orphan_count 61/prov_active 41/
+  prov_streak 106/prov_dist 41/prov_err 37/prov_promoted 31건)는 A/B
+  자동분류를 적용하지 않음 -- cluster와 동일한 `all_clusters` 분할을
+  공유하므로 같은 원인 추정이나 직접 확인은 다음 세션 과제.
+- `routeOutSpeed`(실제 제어입력, ACTIVE 상태의 감속식 출력)는 이번
+  단계의 비교 대상이 아니었음(route_active는 리셋판정을 위한 내부
+  추적 목적으로만 재현, out_speed 자체의 프레임별 수치 대조는
+  범위 밖) -- 5m/2.5m sweep 이전에 필요하다면 별도 단계로 추가 가능.
+
+**다음 작업**:
+1. (핵심, 지선생 제안 3단계) 이 stateful replay를 기준 모델로 삼아
+   orphan 국소 윈도우 5m/2.5m grid sweep 착수.
+2. (선택) `routeProvisional*` mismatch에도 A/B 자동분류 적용해 100%
+   설명 여부 확인(`classify_mode_mismatches()` 재사용 가능하도록
+   일반화 필요).
+3. (이월, 312차부터) `PROVISIONAL_PROMOTE_STREAK=3` 조정 여부 결정.
+4. (이월, 311차부터) seg16 cruiseEnabled 재개입 가설 코드 레벨 추적.
+5. (이월, 316차부터) `harsh_brake_events`/`steering_oscillation_detector`
+   임계값 민감도 확인.
+
+---
+
 ## 322차 (완료 -- ANALYSIS_ONLY, `ryu` 본체 무변경, devnotes toolkit 신규 스크립트 2개 추가) -- "10m production exact reproduction" 1단계(stateless candidate/cluster/orphan) -- `naviPaths`가 이미 production resample_10m_np() 결과 그 자체임을 코드로 확정, x17seg 19860프레임 중 99.43% 완전 일치 + 나머지 114건 전부 `.2f` 좌표 반올림 경계값으로 설명, `MapTurnSpeedFactor`가 레지스트리 등록값(1.30)과 다른 이 corpus 실제값(1.10)임을 발견/사용자 확인
 
 **Worker**: Claude

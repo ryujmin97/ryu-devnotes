@@ -1,3 +1,81 @@
+## 322-D -- [검증 PASS] "10m production exact reproduction" 2단계(stateful) -- `_route_cluster_continuity_step()`/`_route_provisional_singleton_step()`/INERT-ACTIVE 게이트 재생으로 apex_mode 불일치 53건(0.26%) 전부 기존 원인 2가지로 재분류, 미분류 0건
+
+**배경**: 322차(stateless PASS)의 다음작업으로 이월됐던 항목(WIP.md
+322차 "다음 작업" 1번). 지선생(ChatGPT)이 322-C(stateless) PASS 선언
+후 322-D(stateful) 진행을 제안(업로드된 대화 근거) -- `routeApexMode`/
+`Dist`/`Speed`/held/matched/passed/lost/new/provisional streak까지
+production과 프레임 단위 대조하고, "숫자 완전 동일"이 아니라 "mode/state
+transition이 동일하고 수치 차이는 입력 양자화로 설명 가능한가"를
+PASS 기준으로 삼자는 제안을 그대로 채택.
+
+**핵심 전제(코드 추적으로 신규 확정)**: candidate/cluster/continuity
+블록은 `if path: if len(resampled_points)>=9:` 를 통과한 프레임에만
+실행된다(carrot_man.py 1146/1166행). naviPaths가 CSV에 있어도 포인트
+9개 미만(x17seg 1340/19860프레임)이면 스킵되며, 이때 continuity lock
+리셋 여부가 **그 순간 route_active였는지에 따라 다르다**(True면 무조건
+리셋/False면 그대로 유지, 1559~1573행 `elif self.route_active:` vs
+1046~1080행 무조건 리셋 두 분기가 다름) -- 이 비대칭을 정확히 재현하려면
+257차 거리게이트(INERT->ACTIVE)/247차 3-OR(ACTIVE->RELEASE)까지 함께
+이식해 route_active 자체를 추적해야 함(단순 continuity 함수 이식만으로는
+부족, `sim_route_322d_stateful_replay.py` docstring에 상세).
+
+**실측 결과(x17seg corpus, 020ea86, 20171행)**: full-block(계산 실행)
+18520 / skipped 1651. `routeApexMode` 불일치 53건(0.26%),
+`routeClusterCount` 불일치 22건. **자동분류(`--classify`) 결과 53건
+전부(100%) 아래 2가지 이미 알려진 원인으로 설명, 미분류 0건**:
+
+- **A(33건)**: 해당 프레임 전후 2초 이내에 `routeClusterCount` 자체가
+  322차와 동일한 naviPaths `.2f` 좌표 양자화 경계로 로그와 어긋나는
+  프레임이 있음 -- 예시(t=652.331159749): logged `routeClusterCount=1`인데
+  offline recompute는 `cluster_count=2`(candidates=[0,1,7,10], idx=10의
+  speed=25.241이 road_limit=30.0에 근접한 경계 후보, `[7,10]`이 40m gap
+  이내로 별도 클러스터를 형성) -- 이 stateless 층위 불일치가 continuity
+  매칭 대상 자체를 바꿔, 이후 이어지는 matched/held/lost/passed 전이가
+  production 대비 정확히 1프레임 앞/뒤로 밀렸다가 몇 프레임 안에 재동기화됨.
+  322차가 이미 문서화한 원인(naviPaths `.2f` 반올림 경계)이 여기서는
+  "카운트 불일치"뿐 아니라 "상태전이 타이밍 1프레임 이동"까지 유발할 수
+  있음을 이번 세션에서 신규 확인(322차 결론 자체를 수정하지는 않음,
+  같은 원인의 하위 파급효과를 추가로 특정한 것).
+- **B(20건)**: logged/offline 양쪽 다 `apex_dist=0.00`이고 `matched`<->
+  `passed` 사이에서만 갈림(예: t=601.480608344, vEgo≈0). 대부분 vEgo가
+  0에 근접(정지 상태 -- 신호대기 등)한 구간에서 발생 -- `predicted =
+  locked_dist - v_ego_ms*dt`가 사실상 0(부동소수점 노이즈 수준, vEgo
+  자체가 이미 ~1e-13 수준 잡음)이라 `predicted<=0` 판정이 등호 경계에서
+  갈리는 순수 부동소수점 zero-crossing 현상. 로직 결함이 아니라 "apex를
+  정확히 통과하는 그 순간"을 프레임 단위로 나눌 때 필연적으로 발생하는
+  1프레임 판정차.
+
+속도류 필드(`routeApexSpeed`/`routeOrphanSingletonSpeed`/
+`routeProvisionalSpeed`) 불일치 건수는 많지만(1864/1919/1913, 0.05kph
+초과만 카운트) 중앙값 약 0.10kph, p95 약 0.27kph -- 322차가 이미 확인한
+naviPaths `.2f` 좌표 반올림이 곡률 보간 결과에 주는 정상 노이즈와 동일
+성격(신규 원인 아님). `routeProvisional*`(307차 주석대로 순수 관측용,
+제어 미사용) 쪽 mismatch(orphan/prov count·streak 등)는 cluster와 동일한
+`all_clusters` 분할을 공유하므로 위 A/B와 같은 원인이 그대로 전이된
+것으로 추정 -- 이번 세션에서 별도 A/B 세부분류는 하지 않음(다음 세션
+필요시 동일 분류 로직을 orphan 쪽에도 적용 가능, toolkit 스크립트
+`classify_mode_mismatches()` 재사용).
+
+**결론**: mode/state transition 불일치가 100% 기존에 설명된 2가지 원인
+(입력 좌표 양자화 / 물리적 경계의 부동소수점 zero-crossing)으로 귀결되고
+새로운 미설명 divergence가 0건 -- **"10m production exact reproduction"
+stateful 단계(322-D) PASS로 판정**(지선생 제안 기준 충족). 5m/2.5m grid
+sweep(다음 단계)에 이 replay를 신뢰 가능한 기준 모델로 사용할 수 있다.
+
+**영향받는 실차 제어 로직**: 없음(`ryu` 코드 변경 없음, devnotes toolkit
+신규 스크립트 1개만 추가, ANALYSIS_ONLY).
+
+**검증**: 정적 분석(py_compile, toolkit 위치에서 재실행 확인) + 로그 검증
+(x17seg 20171행 전수 재생, --classify로 53건 전부 자동분류 재현 확인).
+시뮬레이션/실차 검증 해당 없음(사후 로그 재생 분석).
+
+**미확인 사항**: `routeProvisional*` 쪽 mismatch(orphan_count 61/
+prov_active 41/prov_streak 106/prov_dist 41/prov_err 37/prov_promoted 31건)는
+A/B 자동분류를 적용하지 않음 -- 위 "실측 결과" 문단 근거로 동일 원인
+추정이나 직접 확인은 다음 세션 과제.
+
+---
+
 ## 322차 -- [구조 확인 + 검증 PASS] "10m production exact reproduction" 1단계 -- `carrotMan.naviPaths`는 이미 production의 `resample_10m_np()` 결과 그 자체(앞단 파이프라인 재현 불필요), stateless candidate/cluster/orphan reproduction 114/114 불일치가 `.2f` 좌표 반올림 경계값으로 설명, `MapTurnSpeedFactor` 실제값(1.10)이 레지스트리 등록값(1.30)과 다름을 발견
 
 **배경**: 지선생(ChatGPT) 제안 -- 5m/2.5m 패치 이전에 "production

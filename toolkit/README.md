@@ -21,6 +21,61 @@ CHANGELOG.md를 같이 갱신**한다 (세션 종료 체크리스트에 포함�
 
 ---
 
+## sim_route_322d_stateful_replay.py (322-D/322차 다음작업1, "10m production exact reproduction" 2단계 -- stateful)
+
+**목적**: 위 322차 1단계(stateless)에 이어, `carrot_man.py`의
+`_route_cluster_continuity_step()`/`_route_provisional_singleton_step()`
+및 INERT/ACTIVE 게이트(257차 거리게이트, 247차 3-OR RELEASE)를 그대로
+이식한 상태 추적기로 x17seg 전체 20171행을 시간순 재생, `routeApexMode`/
+`Dist`/`Speed`/`ClusterCount`/`OrphanSingleton*`/`Provisional*`을
+production 로그와 프레임 단위 대조한다.
+
+**핵심 전제(코드 추적으로 확정)**: candidate/cluster/continuity 블록은
+`if path: if len(resampled_points)>=9:` 조건을 통과한 프레임에만 실행된다.
+naviPaths가 CSV에 있어도 포인트<9개(x17seg 1340/19860프레임)면 스킵되고,
+continuity lock은 **그 순간 route_active가 True였을 때만** 리셋된다(False면
+그대로 유지) -- 이 비대칭 리셋 규칙을 재현하려면 ACTIVE/INERT 상태 자체도
+함께 추적해야 함(스크립트 docstring에 근거 코드라인 상세 기록).
+
+**x17seg corpus(020ea86, 020171행) 실측 결과**: 전체 20171행 중
+full-block(계산 실행) 18520 / skipped 1651. `routeApexMode` 불일치는
+53건(0.26%), `routeClusterCount` 불일치 22건 -- **`--classify` 옵션으로
+자동 분류하면 53건 전부(100%)가 이미 알려진 2가지 원인으로 설명됨**:
+(A) 33건 -- 해당 프레임 전후 2초 내 cluster_count 자체가 322차와 동일한
+naviPaths `.2f` 좌표 양자화 경계로 어긋나, continuity 매칭 대상이 바뀌며
+mode 전이가 production 대비 정확히 1프레임 밀림. (B) 20건 -- apex_dist가
+logged/offline 양쪽 다 0.00(=apex 통과 순간)이고 `matched`<->`passed`
+사이에서만 갈림, 대부분 vEgo가 0에 근접(정지 상태)한 구간 -- `predicted<=0`
+판정이 부동소수점 등호 경계에 걸린 것. **미분류 0건.** 속도류 필드
+(`apex_speed`/`routeOrphanSingletonSpeed`/`routeProvisionalSpeed`)는
+불일치 건수는 많지만(1864/1919/1913) 중앙값 약 0.10kph(=naviPaths `.2f`
+좌표 반올림이 곡률 보간에 주는 정상 노이즈, 322차와 동일 성격) --
+전부 0.05kph 초과만 "불일치"로 셌으므로 실질적으로는 대부분 반올림
+잔차. `routeProvisional*`(관측 전용, 307차 주석 -- 제어에 전혀 미사용)
+쪽 mismatch(orphan/prov count·streak 등)는 cluster 쪽과 동일한 all_clusters
+분할을 공유하므로 같은 두 원인이 그대로 전이된 것으로 추정(이번 세션에서
+별도 세부분류는 하지 않음, 다음 세션 필요시 A/B 분류 로직을 orphan 쪽에도
+그대로 적용 가능).
+
+**결론**: mode/state transition 불일치가 100% 기존에 설명된 2가지 원인
+(naviPaths 좌표 양자화 경계 / 부동소수점 zero-crossing 경계)으로 귀결되고
+새로운 미설명 divergence가 0건이므로, **"10m production exact
+reproduction" stateful 단계는 PASS로 판정**(지선생 제안 기준 "mode/state
+transition이 동일하고 수치 차이는 입력 양자화로 설명 가능한가" 충족).
+
+**의존**: `extract_log.py --with-navi-paths` 출력 CSV(322차와 동일 컬럼
+셋 + `vEgo`/`nRoadLimitSpeed`, 020ea86=307차 이후 로그). `params_backup.json`
+캡처 시점 실제값(`MapTurnSpeedFactor=110`->1.10, `AutoNaviSpeedCtrlEnd=8`,
+`AutoNaviSpeedDecelRate=90`->0.90, `TurnSpeedControlMode=2`)을 x17seg 전용
+상수로 하드코딩(322차와 동일 원칙 -- 다른 corpus 재사용 시 반드시 재확인).
+
+**사용**: `python3 sim_route_322d_stateful_replay.py <CSV> [--classify]
+[--limit-print N]`
+
+**한계/다음 단계**: `routeProvisional*` 쪽 mismatch는 A/B 분류를 아직
+적용하지 않음(위 참고). 5m/2.5m grid sweep(지선생 제안 3단계)은 이 stateful
+기준 모델이 신뢰 가능하다고 판정된 이후에만 착수(322차/322-D WIP.md 참고).
+
 ## sim_route_322_single_frame_check.py / sim_route_322_mismatch_triage.py (322차 신규, "10m production exact reproduction" 1단계)
 
 **목적**: production이 실제로 candidate/cluster/orphan 계산에 쓴
