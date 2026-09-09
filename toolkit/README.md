@@ -5438,3 +5438,21 @@ routeSource 컬럼 필요, 182차 이후 로그면 전부 포함됨).
 
 **사용**: `python3 sim_route_304_navipaths_gap_audit.py <route.csv>
 [--min-gap 1.0]`
+
+## sim_route_334_local_merge_parity_trace.py (334차)
+**목적**: `route_local_curve_merge()` offline replay 예측이 x18seg
+실측 corpus 전체에서 실측 텔레메트리와 구조적으로 반대로 갈리는 불일치
+(333차 발견, 334차 corpus 전체 확장 재현)를 재사용 가능한 형태로
+formalize. 실측: 3645/3645건 10m 그리드 정렬(병합 미발동 정황) / offline:
+3635/3635건 `local_used=True` 예측 -- 100% 역전. 원인 미확정, 계측 패치
+승인 대기(상세: FINDINGS.md 334차, WIP.md 334차).
+
+**입력**: `extract_log.py --with-navi-paths`로 뽑은 route CSV.
+
+**사용**: `python3 sim_route_334_local_merge_parity_trace.py <route.csv>
+[--limit N] [--factor 1.10]`
+
+**한계**: 출력의 "실측 local_used 추정"은 10m-grid 휴리스틱 proxy이며
+직접 계측이 아니다. `self._route_local_resample_used` cereal 계측 패치
+(승인 대기) 적용 후 재검증 필요 -- 이 스크립트 출력만으로 FINDINGS.md를
+갱신하지 말 것.

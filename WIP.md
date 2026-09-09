@@ -1,3 +1,122 @@
+## 334차 (진행중 -- 333차 불일치가 corpus 전체로 확장 재현됨, 원인 미확정, ryu 코드 무변경, 계측 패치 승인 대기) -- `route_local_curve_merge()` offline replay vs 실측 텔레메트리 parity가 x18seg 전체(3635/3635 프레임)에서 구조적으로 반대로 갈림
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu`(base `823943a6`=329차 계속2, 코드 변경 없음,
+읽기용 clone만, 업로드된 `carrot_man.py`가 이 HEAD와 바이트 단위 동일함을
+diff로 확인) / `ryu-devnotes`(base `1ffa900f`=333차, 이 항목 추가 전)
+
+**Branch**: `c3-ms-dev` / `main`
+
+**세션 시작 확인(§3/§33)**: 새 세션에서 fresh clone으로 `ryu` HEAD
+`823943a6`, `ryu-devnotes` HEAD `1ffa900f`(333차, push 완료 상태) 확인.
+HANDOFF.md 없음(§15, 존재하지 않는 파일). 사용자가 이번 세션에 업로드한
+`carrot_man.py`가 fresh clone HEAD와 완전 동일(다른 작업자 개입 흔적
+없음) -- 333차가 남긴 "다음 작업 1번"(t=640.216 프레임 내부 단계별
+원인 추적)을 그대로 이어받아 착수.
+
+**이번 회차 작업**: 333차가 발견한 t=640.216295606 단일 프레임 불일치를
+§28 순서(증상→재현조건→입력→상태→호출흐름→계산→조건/분기→출력→원인)로
+재추적.
+
+**확인된 것(원인 미확정, 배제 목록만 늘어남)**:
+1. 1차 10m pass(stage0) 재현: `candidateCount=23`, candidate0~2 거리
+   (40.0/90.0/150.0m) 전부 실측과 완전 일치 -- stage0 자체는 문제 없음
+   (333차와 동일 확인, 재검증).
+2. **production 소스 직접 대조**: `carrot_man.py`(823943a6) 609~725행
+   `route_local_curve_merge()`를 toolkit 사본
+   (`sim_route_331_ws_negative_downstream.py` 180~270행)과 바이트 단위로
+   diff -- 로직 100% 동일(차이는 주석과 331차 A/B 비교용
+   `patch_ws_clamp` 파라미터 뿐, 기본 `patch_ws_clamp=False` 경로는
+   production과 동일 코드). **코드 자체는 재현 오류 후보에서 배제**.
+3. **텔레메트리 의미 재확정(중요)**: `carrot_man.py` 1595~1610행 코드를
+   재확인한 결과 `routeOrphanRawPath`/`routeOrphanSingletonCount`/
+   `routeClusterCount`는 `if self._route_local_resample_used:` 블록
+   __안에서__ 병합 후(post-merge) 재계산된 값을 읽는다 -- 즉 이 값이
+   병합 전(10m 1차pass)과 동일하다는 것은 `local_used=False`였다는
+   뜻으로 해석해야 정확하다(333차의 "완전히 일치" 표현이 이 의미였음을
+   코드 근거로 명확화).
+4. **corpus 전체로 확장(신규, 결정적)**: t=640.216 한 프레임이 아니라
+   x18seg 전체(19,199행, orphan-raw-path 존재 3645프레임)로 검증 범위를
+   넓힘:
+   - **실측**: 3645/3645건 전부 `routeOrphanSingletonDist`가 정확히
+     10m 그리드 배수(휴리스틱: 로컬 재계산 간격은 2.5m이므로, 병합이
+     한 번이라도 발동했다면 singleton dist가 10m 배수에서 벗어나는
+     경우가 나와야 함) -- **병합 성공 흔적이 corpus 전체에서 단 한
+     건도 없음**.
+   - **offline replay**(동일 verbatim 함수 + CSV에서 복원한
+     orphans/distances/relative_coords, `mapTurnSpeedFactor≈1.10`
+     역산값 사용): 도달 가능한 3635/3635건 __전부__ `local_used=True`
+     예측 -- **100% 성공 예측**.
+   - 입력값도 배제: `naviPaths` 기반 1차pass 결과와
+     `routeOrphanRawPath`(raw relative_coords) 총 누적 길이/좌표가
+     서로 정합됨을 개별 프레임에서 확인(333차 확인분과 동일 결론
+     재확인, 두 컬럼이 같은 원본에서 파생됐다는 가정 이상 무이상).
+5. **결론**: 이 불일치는 ws=0 경계 특이 케이스가 아니라 corpus 전체에서
+   재현과 실측이 정반대로 갈리는 **구조적 불일치**다. 코드/상수/입력을
+   전부 대조했지만 차이를 찾지 못했다. 남은 유력 후보는 (a) production
+   런타임에서만 존재하는 값(레이스 컨디션, 예: `self._route_local_resample_used`
+   판정에 관여하는 다른 상태값이 로그에 없는 경우) 또는 (b) 로그로는
+   관측 불가능한 조건 -- **현재로선 로그만으로 원인 확정 불가**(§28,
+   추측만으로 확정하지 않음).
+
+**제안(승인 대기, 아직 미적용)**: 기존 패턴(182차/304차와 동일 -- "먼저
+계측 추가 → 다음 실차 로그로 재분석")을 따라, `self._route_local_resample_used`
+(현재 내부 bool 변수, `carrot_man.py` 1253/1576/1579행)를 새 cereal
+텔레메트리 필드(가칭 `routeLocalResampleUsed`, `custom.capnp` +
+`carrot_serv.py` 1개 필드 추가 + `carrot_man.py` 1579행 근처에서 그 값을
+`carrot_serv`로 전달하는 1줄)로 직접 노출하는 계측 패치를 제안한다.
+적용되면 간접 추론 없이 다음 실차 로그에서 병합이 실제로 한 번이라도
+`True`가 되는지 즉시 확인 가능하다. **§27/§31에 따라 사용자 승인
+필요 -- 아직 코드/패치 파일 작성하지 않았고 `ryu`에는 어떤 diff도
+생성하지 않음**.
+
+**검증**:
+- 정적분석: `py_compile` 통과(신규 스크립트 포함).
+- 코드 대조: `carrot_man.py`(823943a6) 609~725행 vs toolkit 사본
+  바이트 단위 diff -- 로직 동일 확인(주석/비교용 파라미터만 차이).
+- 실측 corpus 대조: x18seg 19,199행/orphan 3645프레임 전수(위 4번 항목).
+- 업로드 파일 무결성: 사용자가 이번 세션에 업로드한 `carrot_man.py`가
+  fresh clone HEAD `823943a6`과 바이트 단위 동일함을 diff로 확인
+  (다른 작업자 개입 없음, §33).
+- **실차 검증: 미실시**(오프라인 재생/코드 대조 한정, `ryu` 소스 무변경).
+
+**신규 toolkit**: `toolkit/sim_route_334_local_merge_parity_trace.py`
+(§21, 기존 함수 import만 -- `parse_navi_paths`/`recompute_full`(322d),
+`route_local_curve_merge`(331), `parse_raw_path`(332), 재구현 없음).
+10m-grid 휴리스틱은 proxy이며 직접 계측이 아님을 스크립트 docstring에
+명시(§28, 이 스크립트 출력만으로 FINDINGS 갱신 금지 주석 포함).
+`toolkit/README.md`/`CHANGELOG.md` 갱신.
+
+**Devnotes**: FINDINGS.md에 334차 항목 신규 등록(332차 항목 앞) --
+"local merge offline-실측 parity 불일치가 corpus 전체에서 100%
+재현됨"은 실측 corpus 대조로 이미 확정된 관찰(§24 결과)이므로 등록하되,
+그 __원인__(코드/입력 문제가 아니라는 배제 결과까지만)은 확정, 근본
+원인 자체는 미확정임을 findings에도 명시(§28 -- 결과와 해석 분리).
+
+**미확인 사항**:
+- 불일치의 근본 원인(런타임 전용 값 vs 로그 미관측 조건, 위 "제안"
+  항목 참고) -- 계측 패치 승인/적용 전까지 확정 불가.
+- x18seg 외 다른 route에서도 동일 패턴(offline 100% 성공예측 vs 실측
+  100% 미발동 정황)이 재현되는지 미확인(현재 1개 route만 검증).
+- 계측 패치 승인 여부(사용자 확인 대기).
+
+**다음 작업**:
+1. **사용자 승인 대기**: `self._route_local_resample_used` cereal 노출
+   계측 패치 진행 여부 확인. 승인 시 `custom.capnp`/`carrot_serv.py`/
+   `carrot_man.py` 최소 변경(§27) 패치 작성 → `C:\dev\patch\`용 파일
+   + 적용 PowerShell/git 명령어(§18/§31/§32) 함께 전달.
+2. 승인 후 다음 실차 로그(x18seg 재드라이브 또는 신규 route)에서
+   `routeLocalResampleUsed` 실측값과 offline replay 예측을 직접 대조 --
+   그 결과로만 이번 회차의 "구조적 불일치" 원인을 확정.
+3. (이월) 332차 다음작업 1~3번(다른 route STEP3 반복 / 수정안 설계
+   착수 보류 / `RELEASE_MARGIN_RATIO` 실차검증) 계속 이월.
+4. (이월) 333차 미확인 사항 중 "x18seg 외 다른 route/프레임에서도
+   동일 유형 재현 불일치가 있는지"는 이번 회차로 x18seg 자체는
+   corpus 전체 확인 완료 -- 다른 route 확인만 남음.
+
+---
+
 ## 333차 (진행중 -- 재현 불일치 발견, 원인 미해결, ryu 코드 무변경) -- 'matched' 모드까지 ws<0 유입 확인 시도 중 stateful+local-merge 조합 재현 버그 발견
 
 **Worker**: Claude

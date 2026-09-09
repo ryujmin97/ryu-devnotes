@@ -1,3 +1,51 @@
+## 334차 -- [미해결·계측 패치 승인 대기] `route_local_curve_merge()` offline replay 예측이 x18seg 실측 corpus 전체(3635/3635 도달가능 프레임)에서 실측 텔레메트리와 구조적으로 반대로 갈림 -- 원인 미확정
+
+**확정된 관찰(§24 결과, x18seg 19,199행/orphan-raw-path 존재 3645프레임,
+`toolkit/sim_route_334_local_merge_parity_trace.py`)**:
+- 실측: 3645/3645건 전부 `routeOrphanSingletonDist`가 정확히 10m 그리드
+  배수 -- 로컬 병합(2.5m 간격 재계산) 성공을 시사하는 흔적이 단 한 건도
+  없음.
+- offline replay(production과 바이트 단위 동일 코드로 확인된
+  `route_local_curve_merge()`를 CSV 복원 입력으로 재실행): 도달 가능한
+  3635/3635건 전부 `local_used=True`(병합 성공) 예측.
+- 즉 "offline은 100% 성공을 예측하는데 실측은 100% 미발동 정황을
+  보인다"는 완전한 역전이 corpus 전체에서 재현됨(333차가 발견한
+  단일 프레임 t=640.216 불일치가 특이 케이스가 아니라 구조적임을
+  이번 회차로 확인).
+
+**배제된 원인 후보(해석, 미확정 원인과 분리 -- §28)**:
+- 코드 자체: `carrot_man.py`(823943a6) 609~725행을 toolkit 사본과 바이트
+  단위 diff해 로직 100% 동일 확인 -- 배제.
+- 입력값(orphans/distances/relative_coords): `naviPaths` 1차pass 결과와
+  `routeOrphanRawPath` 복원값이 서로 정합됨을 확인 -- 배제.
+- 텔레메트리 해석 오류: `routeOrphanRawPath`/`routeClusterCount`/
+  `routeOrphanSingletonCount`는 코드상(1595~1610행)
+  `self._route_local_resample_used` 블록 안에서만 병합 후 값으로
+  재계산되므로, "병합 전과 동일값"은 `local_used=False`를 의미하는
+  것이 코드 근거로 맞음 -- 해석 방식 자체는 배제(문제는 여전히 남음).
+
+**미확정(원인, 계측 패치 승인 대기)**: 위 세 후보를 모두 배제한 뒤
+남은 유력 후보는 (a) production 런타임에만 존재하는 상태값(레이스
+컨디션 등) 또는 (b) 로그로는 관측 불가능한 조건 -- 어느 쪽인지는
+`self._route_local_resample_used`를 새 cereal 필드로 직접 계측하는
+패치(§27/§31, 사용자 승인 대기, 아직 미작성) 없이는 로그만으로 확정
+불가.
+
+**입력**: `extract_log.py --with-navi-paths`로 뽑은 route CSV(naviPaths/
+routeOrphanRawPath/nRoadLimitSpeed/routeOrphanSingletonDist/
+routeClusterCount/routeOrphanSingletonCount 컬럼 필요).
+
+**사용**: `python3 sim_route_334_local_merge_parity_trace.py <route.csv>`
+(출력은 10m-grid 휴리스틱 proxy이며 직접 계측 아님 -- 계측 패치 적용
+전까지는 정황 근거로만 취급, 스크립트 docstring 참고).
+
+**관련**: 328/329차(`route_local_curve_merge()` 도입/버그수정),
+331차(`ws<0` 라벨 전파 경로 STEP1/STEP2), 332차(STEP3 실측 corpus,
+이번 항목의 CSV/함수 재사용 기반), 333차(이번 불일치 최초 발견,
+단일 프레임 t=640.216).
+
+---
+
 ## 332차 -- [STEP3 실측 corpus 확인, 미해결·이월 유지] `ws<0` 라벨이 apex_dist/ACTIVE 게이트에 미치는 실제 영향 -- x18seg 실측(946프레임)으로 메커니즘 재현 확인, 그러나 실제 `routeApexMode=='new'` 락 시점과는 이번 corpus에서 우연히 미충돌해 실측 `routeApexDist<0`는 0건
 
 **기존 결론(331차, WIP만 존재·FINDINGS 미등록·진행중)**: 코드 추적(STEP1)으로

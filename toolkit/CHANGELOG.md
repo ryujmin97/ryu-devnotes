@@ -1984,3 +1984,15 @@ discontinuity 0건). 개발 중 트리거 소스별 boost_s 미구분 버그가 
   222차 원 버그(정지->재출발 55kph 초과) FIX 확인 + 신규 발견 2건(apex
   전 정지 시 RELEASE 미작동/apexIdx flicker 무감쇠 노출). 상세는
   FINDINGS.md 224차 참고.
+
+## 334차
+- `sim_route_334_local_merge_parity_trace.py`: 신규 -- 333차가 발견한
+  t=640.216 단일 프레임 재현 불일치를 x18seg corpus 전체(orphan-raw-path
+  존재 3645프레임)로 확장 검증. `sim_route_322d_stateful_replay.py`
+  (`parse_navi_paths`/`recompute_full`), `sim_route_331_ws_negative_downstream.py`
+  (`route_local_curve_merge`), `sim_route_332_ws_negative_real_corpus.py`
+  (`parse_raw_path`) 기존 검증된 함수만 import(§21, 재구현 없음). 결과:
+  실측 3645/3645건 10m 그리드 정렬(병합 미발동 정황) vs offline replay
+  3635/3635건 `local_used=True` 예측(100% 성공) -- 완전한 역전 확인.
+  코드/입력값은 바이트 단위 diff 및 정합성 확인으로 배제, 근본 원인은
+  미확정(계측 패치 승인 대기). 상세: WIP.md/FINDINGS.md 334차.
