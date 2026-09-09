@@ -1,3 +1,23 @@
+## c3-ms-dev (343차, ACTIVE 릴리즈 OR-조건에서 `speed_reached` 삭제 -- `ryu` 코드 변경 1건, Master 승인)
+- Repository: `ryujmin97/ryu`
+- Branch: `c3-ms-dev`
+- last_analyzed_commit: `7b3dfec4`(336차, 이 세션의 code base -- 코드 변경은
+  했으나 로컬 클론에서 커밋만 했고 아직 push 안 됨, 패치 파일로 전달)
+- devnotes base: `927ea3d4`(342차 계속, 이 항목 추가 전)
+- Analysis date: 2026-09-10 (343차)
+- Worker: Claude
+- Analyzed commits: 코드 변경은 `selfdrive/carrot/carrot_man.py` 1개
+  파일, `speed_reached` OR-절 삭제(패치 `0001-343cha-...patch`)
+- Analyzed files/logs: `20260910_060827_000003d4--59a8ae5773`(x20seg,
+  20세그먼트, 재추출 23,776행 -- 340~342차와 완전 일치)
+- Conclusion: 사용자 지시(target_ms 유지, speed_reached만 삭제)를 그대로
+  코드에 반영. 342차/342차 계속이 이미 확인한 "(1) speed_reached 단독
+  제거" 시나리오와 동일 조건 조합이며, 이 신규 추출본으로도 동일하게
+  accel_commanded 0건 재확인(릴리즈 47->35, flapping 33->21, route_active
+  비율 3.2%->6.2%). 상세: WIP.md 343차 참고.
+- next: 사용자가 패치 적용/push 후 실차 주행으로 route_active 개입 증가
+  체감 및 flapping 감소 체감 확인.
+
 ## c3-ms-dev (338차, 335차 이월 x6/x10/x16seg 저속 apex_dist<0 사례 qcamera 대조 -- `ryu` 코드 무변경)
 - Repository: `ryujmin97/ryu`
 - Branch: `c3-ms-dev`

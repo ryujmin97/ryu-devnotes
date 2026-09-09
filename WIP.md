@@ -1,3 +1,74 @@
+## 343차 (완료 -- `ryu` 코드 변경 1건, ANALYSIS_ONLY 아님/Master 승인 하 적용, §27/§31) -- ACTIVE 릴리즈 OR-조건에서 `speed_reached`(`v_ego_kph<=apex_speed*ROUTE_ACTIVE_RELEASE_MARGIN_RATIO`) 삭제, `v_ego_ms<=target_ms`는 그대로 유지
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu`(base `7b3dfec4`=336차, 이 항목이 첫 코드 변경) /
+`ryu-devnotes`(base `927ea3d4`=342차 계속, 이 항목 추가 전)
+
+**Branch**: `c3-ms-dev` / `main`
+
+**사용자 지시**: "코드 수정하자. v_ego_ms <= target_ms,는 유지, v_ego_kph <=
+apex_speed * 1.05는 릴리즈 조건에서 삭제" -- 위 342차/342차 계속이 도달한
+최종 권고("target_ms 조건 유지, speed_reached만 별도 검토")와 정확히
+일치하는 방향으로, 사용자가 이번 세션에서 실제 `ryu` 코드 적용을 명시적으로
+승인/지시(§27/§31 요구하는 명시적 승인 충족).
+
+**변경 위치**: `selfdrive/carrot/carrot_man.py` ACTIVE 상태 릴리즈
+OR-조건(옛 L1686/L1692) -- `speed_reached = v_ego_kph <= apex_speed *
+ROUTE_ACTIVE_RELEASE_MARGIN_RATIO` 계산 및 `if apex_passed_or_lost or
+speed_reached or dist_reached:`의 `speed_reached` 항을 삭제, 나머지
+`apex_passed_or_lost`/`dist_reached`는 그대로. `v_ego_ms<=target_ms`가
+있는 두 지점(ACTIVE STEP2 else-분기, INERT 진입게이트)은 이번 변경과
+무관하게 코드 그대로(수정하지 않음) -- diff에 포함되지 않음, grep으로
+직접 재확인함.
+
+`ROUTE_ACTIVE_RELEASE_MARGIN_RATIO` 상수 정의(L171, 1.05) 자체는
+toolkit 스크립트 다수(`sim_route_322d_stateful_replay.py`,
+`sim_route_324_grid_counterfactual.py`,
+`sim_route_342_release_condition_removal.py`,
+`sim_route_273_active_gate_relax_sensitivity.py`,
+`sim_route_289_margin_ab_real_log.py`,
+`sim_route_281_release_hold_ab.py`,
+`sim_route_296_active_reacquire_gap.py`,
+`sim_route_309_real_release_confirm.py`,
+`sim_route_300_release_boundary_counterfactual.py`,
+`sim_route_325_ep4_frame_trace.py`,
+`analyze_route_release_trigger_288.py`,
+`sim_route_265_confidence_target_blend.py`)이 import하므로 §27
+최소변경 원칙에 따라 삭제하지 않고 유지.
+
+**검증**:
+- **재현/사전검증(코드 변경 전, what-if)**: 사용자가 이번 세션에 재업로드한
+  route(`20260910_060827_000003d4--59a8ae5773`, x20seg, 20세그먼트)를
+  `extract_log.py --repo <ryu>`로 재추출 -- 23,776행, 340~342차와 완전
+  일치(§21 재현성 재확인). 기존 toolkit
+  `sim_route_342_release_condition_removal.py --summary`의 "(1)
+  speed_reached 제거만" 시나리오(=이번 코드변경과 정확히 동일한 조건
+  조합, target_ms는 ACTIVE/INERT 둘 다 그대로 유지)를 이 신규 추출본에
+  재실행해 재확인: 릴리즈 47->35건, flapping(2s) 33->21건, route_active
+  프레임비율 3.2%->6.2%, **accel_commanded 0건**(342차/342차 계속이
+  이 corpus로 이미 보고한 수치와 프레임 단위로 동일).
+- **정적 분석**: `py_compile` 통과(작업 클론 및 base-commit 기준 throwaway
+  clone 양쪽에서 확인).
+- **패치 적용 검증**: `git format-patch` -> 별도 throwaway clone(base
+  `7b3dfec4`)에 `git am` 성공 확인 -> 검증 후 브랜치 폐기(§ patch
+  workflow).
+- **실차 검증: 미실시**(§29). 위 수치는 어디까지나 이 1개 route(x20seg)
+  what-if 시뮬레이션 기준이며, `speed_reached` 제거로 route_active
+  개입 비율이 약 2배(3.2%->6.2%) 늘어나는 트레이드오프가 있음(342차가
+  이미 문서화) -- 체감 변화(더 적극적 apex 추종 vs 과개입)는 실차에서
+  확인 필요.
+
+**미확인 사항**: 342차가 남긴 "(2) v_ego_ms<=target_ms 단독 제거가 이
+로그에서 무변화인 이유"에 대한 code-path 직접 카운트는 이번에도 수행하지
+않음(이월, target_ms를 건드리지 않는 이번 변경과는 무관).
+
+**다음 작업**: 사용자가 패치를 로컬 적용/push한 뒤, 실차 주행으로
+route_active 개입 비율 증가(더 적극적 개입) 체감과 flapping 감소 체감을
+확인. 필요 시 `ROUTE_RELEASE_DIST_M`/재진입 hold 시간 등 관련 파라미터
+재검토.
+
+
 ## 342차 계속 -- 사용자 질문("target_ms를 릴리즈조건에만 국한해서 삭제한다면") 검증: ACTIVE STEP2 분기 단독 제거만으로도 동일한 가속 오명령 재현, INERT 진입게이트 단독 제거는 완전 무변화
 
 **Worker**: Claude
