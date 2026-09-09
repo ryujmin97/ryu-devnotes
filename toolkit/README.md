@@ -1,3 +1,39 @@
+## sim_route_342_release_condition_removal.py (342차, 신규 -- 릴리즈조건 `speed_reached`/`v_ego_ms<=target_ms` 제거 what-if 시뮬레이션)
+
+**목적**: 사용자 지시로 ACTIVE 릴리즈 조건 `speed_reached`
+(`v_ego_kph<=apex_speed*RELEASE_MARGIN_RATIO`)와 STEP2/INERT 게이트의
+`v_ego_ms<=target_ms` 얼리엑싯(단, `eff_dist<=0` 0-division 가드는
+유지)을 각각/동시에 제거했을 때 실차로그에서 route_active flapping과
+거동이 어떻게 바뀌는지 관찰한다. `diag_required_decel_341.py`/
+`sim_route_273_active_gate_relax_sensitivity.py`의 게이트 산식을 그대로
+재사용(§21), 두 조건만 스위치로 껐다 켰다 할 수 있게 만든 변형이다.
+
+**중요 -- `RELEASE_MARGIN_RATIO` stale 상수 주의**: `sim_route_273`이
+export하는 `RELEASE_MARGIN_RATIO=1.10`은 `carrot_man.py`의 290차 변경
+(1.1->1.05) 이전 값으로 stale이다. 이 스크립트는 import 직후 **1.05로
+override**한다(파일 상단 주석 참고). `diag_required_decel_341.py`는 이
+override를 하지 않으므로 그 스크립트의 `--summary` 결과(특히 341차가
+보고한 61.1%)는 실제 코드값과 다른 마진으로 계산된 것이니 해석 시
+FINDINGS.md 342차를 참고할 것.
+
+**핵심 결과**: `speed_reached` 단독 제거는 flapping을 36% 감소시키지만
+route_active 개입 비율이 2배 증가. `v_ego_ms<=target_ms` 단독 제거는
+이 로그에서 무변화. 두 조건을 동시에 제거하면 route가 vEgo보다 높은
+속도(가속)를 명령하는 프레임이 18건 발생(최대 +10.69kph) -- 341차가
+문서화한 grid 경계 apex_speed 스파이크가 원인. 상세는 FINDINGS.md/
+WIP.md 342차 참고.
+
+**사용**:
+```bash
+# BASELINE / (1)speed_reached 제거 / (2)target_ms 제거 / (1)+(2) 4가지 비교
+python3 sim_route_342_release_condition_removal.py <csv> --summary [--flap-window=2.0]
+
+# 구간별 상세(항상 (1)+(2) 동시 제거 버전, accel! 컬럼으로 가속오명령 표시)
+python3 sim_route_342_release_condition_removal.py <csv> <t0> <t1>
+```
+
+---
+
 ## diag_required_decel_341.py -- 정정판 갱신 (341차 계속)
 
 **정정 경위**: 바로 아래 341차 원 항목은 `src`/`routeApexIdx`/

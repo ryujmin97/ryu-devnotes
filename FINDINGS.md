@@ -1,3 +1,70 @@
+## 342차 -- `RELEASE_MARGIN_RATIO` stale 상수 발견(341차 수치 하향 정정) + 릴리즈조건 `speed_reached`/`v_ego_ms<=target_ms` 제거 시뮬레이션(ANALYSIS_ONLY)
+
+**기존 결론(341차/341차 계속)**: flapping성 릴리즈(2초 이내 재진입) 54건
+중 `speed_reached`(`v_ego_kph<=apexSpeed*RELEASE_MARGIN_RATIO(1.1)`)가
+33건(61.1%)으로 1위 원인.
+
+**새로운 증거**: `diag_required_decel_341.py`가 import하는
+`sim_route_273_active_gate_relax_sensitivity.py`의 `RELEASE_MARGIN_RATIO`
+상수가 1.10으로 하드코딩돼 있다. 그러나 `carrot_man.py`의 실제
+`ROUTE_ACTIVE_RELEASE_MARGIN_RATIO`는 290차에서 1.1->1.05로 변경됐고,
+340/341/342차가 분석한 로그의 base commit(`7b3dfec4`)은 이 변경 이후다
+(`git log -p`로 290차 diff 직접 확인: `-ROUTE_ACTIVE_RELEASE_MARGIN_RATIO
+= 1.1` / `+ROUTE_ACTIVE_RELEASE_MARGIN_RATIO = 1.05`).
+
+**변경 이유**: 273차 당시 작성된 시뮬레이션 상수가 이후 세션(290차)의
+실제 코드 변경을 반영하지 못한 채 재사용돼(§21), 341차가 이를 그대로
+import해 잘못된 마진으로 release 원인을 분류했다. 코드 변경(§27) 없이
+동일 로그를 올바른 마진(1.05)으로 재계산해 검증했다.
+
+**새로운 결론(정정)**: 1.05 마진 기준 전체 릴리즈 47건(68건 아님),
+flapping 33건(54건 아님) 중 `speed_reached` 12건(36.4%, 61.1% 아님).
+**`speed_reached`가 여전히 최다 원인이라는 정성적 결론은 유지**되나,
+지분은 상당히 낮아진다. `no_apex`(12건)와 거의 대등한 수준.
+
+**신규 실험(사용자 지시, ANALYSIS_ONLY)**: 위 정정된 1.05 마진 기준으로
+아래 4가지 조합을 `toolkit/sim_route_342_release_condition_removal.py`로
+시뮬레이션(x20seg, `000003d4--59a8ae5773`, 23,776행):
+
+1. BASELINE(현재 코드): 릴리즈 47 / flapping 33 / route_active 3.2%
+2. `speed_reached` 제거만: 릴리즈 35 / flapping 21 / route_active 6.2%
+3. `v_ego_ms<=target_ms` 얼리엑싯 제거만(ACTIVE STEP2 L1723 + INERT
+   L1755, `eff_dist<=0` 0-division 가드는 유지): 1번과 완전 동일(무변화)
+4. 1+3 동시 제거: 릴리즈/flapping/route_active 비율은 2번과 동일하나,
+   **`accel_commanded`(route가 out_speed>v_ego, 즉 가속을 명령) 18건
+   발생, 최대 초과폭 10.69kph(t=904.74, vEgo 29.0->outSpeed 39.0kph
+   명령)**. 발생 위치는 341차가 이미 문서화한 `routeApexIdx` grid 경계
+   전환 시 `routeApexSpeed` 순간 상승 구간과 일치.
+
+**결론**: (a) `v_ego_ms<=target_ms` 단독 제거는 이 로그에서 이득 없음
+(완전 무변화), (b) `speed_reached`와 동시 제거 시 341차가 발견한 grid
+스파이크 아티팩트가 그대로 가속 오명령으로 전이된다 -- 이는 §4/224/228차
+회귀와 동일 패턴이므로 (2) 제거는 비권고. `speed_reached` 단독 제거는
+flapping을 36% 줄이지만 route_active 개입 시간이 3.2%->6.2%로 2배
+증가하는 트레이드오프가 있음(실차 체감 판단 필요).
+
+**FINDINGS.md 288차/341차와의 관계**: 288차/341차가 이미 다룬
+`ROUTE_ACTIVE_RELEASE_MARGIN_RATIO` 관련 마진 메커니즘의 연장선. 이번
+발견(stale 상수)은 그 자체가 `ryu` 코드 버그가 아니라 **분석 tooling의
+버그**이므로 `ryu` 패치 대상이 아니다(devnotes toolkit 자체 수정
+대상, §21/§27과 무관, 별도 논의 필요).
+
+**검증**: `git log -p` 직접 diff 확인(290차 변경 원문 인용) + 4가지
+시나리오 전수 카운트 + 재현성(23,776행, 340/341차와 완전 일치) +
+accel_commanded 구간 프레임별 수동 대조(t=900~908). **실차 검증: 미실시**
+(§29, ANALYSIS_ONLY, `ryu` 코드 무변경).
+
+**미확인 사항**:
+1. `v_ego_ms<=target_ms` 단독 제거가 "완전 무변화"인 이유의 code-path
+   직접 카운트 미실시(정성적 추정만).
+2. `speed_reached` 단독 제거 시 route_active 비율 2배 증가의 실제
+   체감 영향(과개입 여부) -- 시뮬레이션으로 판단 불가.
+3. `RELEASE_MARGIN_RATIO` stale 상수가 이번 342차 외 다른 과거
+   `sim_route_273` 재사용 세션에도 영향을 줬는지 미점검.
+
+**다음 작업**: WIP.md 342차 "다음 작업" 참고.
+
+
 ## 341차 계속 -- [정정, 사용자 지적] 위 341차 항목의 원인 귀속 오류 정정: "신규 진입게이트(v_ego<=target) 실패"가 아니라 "ACTIVE 유지 중 릴리즈 조건 speed_reached(v_ego_kph<=apexSpeed*RELEASE_MARGIN_RATIO 1.1)" 발동이 실제 원인
 
 **기존 결론(위 341차 항목)**: `routeApexIdx` grid 경계 전환 시

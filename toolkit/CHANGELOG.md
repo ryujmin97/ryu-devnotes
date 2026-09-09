@@ -3,6 +3,16 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+## 2026-09-10 (342차)
+- `sim_route_342_release_condition_removal.py`: **신규**. `speed_reached`/
+  `v_ego_ms<=target_ms` 릴리즈조건 제거 what-if 시뮬레이션(§21 -- 기존
+  게이트 산식 재사용). `sim_route_273`의 `RELEASE_MARGIN_RATIO=1.10`이
+  290차 이후 실제 코드값(1.05)과 다른 stale 상수임을 발견해 이 스크립트는
+  1.05로 override(주의: `diag_required_decel_341.py`는 override하지
+  않음 -- 341차 수치 재해석 시 FINDINGS.md 342차 참고). 두 조건 동시
+  제거 시 route가 vEgo 초과 속도(가속)를 명령하는 회귀(18건, 최대
+  +10.69kph) 발견 -- FINDINGS.md 342차 참고.
+
 ## 2026-09-10 (341차 계속, 정정)
 - `diag_required_decel_341.py`: **파일 교체(정정판)**. 사용자가 "ACTIVE
   릴리즈조건(`v_ego_kph<=apex_speed*1.1`) 아니냐"고 지적, `route_active`

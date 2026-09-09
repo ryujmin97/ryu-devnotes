@@ -1,3 +1,117 @@
+## 342차 (완료 -- ANALYSIS_ONLY, `ryu` 코드 무변경, 신규 toolkit 스크립트 1개 추가) -- 릴리즈조건 `speed_reached`/`v_ego_ms<=target_ms` 두 조건 제거 시뮬레이션 + 기존 스크립트의 `RELEASE_MARGIN_RATIO` stale 상수 버그 발견(341차 수치 재검토 필요)
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu`(base `7b3dfec4`=336차, 코드 변경 없음) /
+`ryu-devnotes`(base `ccfc2be1`=341차 계속, 이 항목 추가 전)
+
+**Branch**: `c3-ms-dev` / `main`
+
+**세션 시작 확인**: 재클론 후 `ryu` HEAD `7b3dfec4`(336차, 기억과 일치),
+`devnotes` HEAD `ccfc2be1`(341차 계속, 기억과 일치) 확인. HANDOFF.md/
+CURRENT_STATUS.md 없음 -- 다른 작업자 흔적 없이 이어서 진행.
+
+**사용자 지시**: 341차 계속과 동일 route(`000003d4--59a8ae5773`, x20seg)
+재업로드 + "릴리즈조건에서 `v_ego_ms<=target_ms`, `v_ego_kph<=apex_speed*1.1`
+이 두가지 조건을 삭제하고 실차로그 시뮬레이션 해볼래?"
+
+**해석/가정 명시**: `v_ego_ms<=target_ms`는 carrot_man.py에 두 곳(ACTIVE
+STEP2 L1723의 `eff_dist<=0 or v_ego_ms<=target_ms` OR절 중 하나, INERT
+진입게이트 L1755)에 존재한다. 사용자가 특정 한 곳만 지목한 것이 아니므로,
+이번 세션에서는 (1) ACTIVE 릴리즈조건 `speed_reached` 제거와 (2) 두 곳의
+`v_ego_ms<=target_ms` 얼리엑싯 제거(단, `eff_dist<=0`의 0-division
+가드는 유지)를 각각 단독/동시 4가지 조합으로 시뮬레이션했다. 실제
+`ryu` 코드는 변경하지 않았다(§27 -- Master 승인 전 시뮬레이션 전용).
+
+**작업 1 -- 재현성 확인**: `extract_log.py`로 x20seg 재추출, 23,776행 --
+340/341차와 완전 일치(§21 재현성 확인).
+
+**작업 2 -- 신규 발견(중요, 341차 결과에 영향)**: `diag_required_decel_341.py`가
+import하는 `sim_route_273_active_gate_relax_sensitivity.py`의
+`RELEASE_MARGIN_RATIO=1.10`이 **stale 상수**임을 발견했다. `carrot_man.py`의
+실제 `ROUTE_ACTIVE_RELEASE_MARGIN_RATIO`는 290차(devnotes 290차 기록,
+"1.1->1.05, 289차 what-if 시뮬레이션 결과 flicker train 4->1, 사용자
+옵션(a) 확정")에서 1.05로 변경됐고, 340/341차가 분석한 로그의 base
+commit(`7b3dfec4`)도 이 변경 이후 커밋이다. 즉 **341차/341차 계속이
+보고한 "flapping 54건 중 speed_reached 33건(61.1%)" 수치는 실제 코드가
+쓰는 마진(1.05)이 아니라 273차 시절 값(1.10)으로 계산된 것**이다(§29
+위반 소지는 아니나 §24 관점에서 수치 재검토 필요).
+
+**정정된 수치(1.05 마진 적용, `sim_route_342_release_condition_removal.py`
+`--summary`)**: 전체 릴리즈 47건(68건 아님) -- `speed_reached` 21건(45%),
+`no_apex` 15건(32%), `dist_reached` 9건(19%), `apex_reset` 2건(4%).
+flapping(2초 이내 재진입) 33건(54건 아님) -- `speed_reached` 12건(36.4%,
+61.1% 아님), `no_apex` 12건, `dist_reached` 7건, `apex_reset` 2건.
+`speed_reached`가 여전히 1위 원인이라는 341차의 정성적 결론 자체는
+유지되나, 지분(61%->36%)은 상당히 낮아진다.
+
+**작업 3 -- 조건 제거 시뮬레이션 결과(1.05 마진 기준)**:
+| 시나리오 | 릴리즈 | flapping | route_active 비율 | accel_commanded |
+|---|---|---|---|---|
+| BASELINE(현재 코드) | 47 | 33 | 3.2%(764/23660) | 0건 |
+| (1) speed_reached 제거만 | 35 | 21 | 6.2%(1469/23660) | 0건 |
+| (2) v_ego_ms<=target_ms 제거만 | 47(동일) | 33(동일) | 3.2%(동일) | 0건 |
+| (1)+(2) 동시 제거 | 35 | 21 | 6.2% | **18건** |
+
+**(1) 단독 제거**: 릴리즈 47->35(-25.5%), flapping 33->21(-36.4%) --
+speed_reached 릴리즈가 사라지면서 그 상황 상당수가 dist_reached(9->16)/
+apex_reset(2->4)로 재분류돼 route가 더 늦게(더 가까운 거리에서) 해제된다.
+대신 route_active 프레임 비율이 3.2%->6.2%로 거의 2배 늘어난다 -- "더
+오래 개입한다"는 뜻이므로 체감 변화(더 적극적인 apex 추종 vs 과도한
+개입) 판단은 실차 필요.
+
+**(2) 단독 제거**: 이 로그에서는 **완전히 무변화**(모든 지표 동일,
+accel_commanded도 0건). speed_reached가 살아있는 한 v_ego가 target 밑으로
+떨어지기 전에 이미 release가 먼저 발동하기 때문으로 추정(정성적 설명,
+직접 code-path 카운트로 확인하지는 않음 -- 미확인 사항 1).
+
+**(1)+(2) 동시 제거 -- 안전 문제 확인(중요)**: speed_reached까지 함께
+사라지면 route가 ACTIVE를 더 오래 유지하다가 `v_ego_ms<target_ms`인
+프레임에 진입하는 경우가 생기고, 이때 STEP2 얼리엑싯이 없으므로
+`required_decel_mss`가 음수로 계산돼 `max(...,0.0)`으로 0에 클립되고
+`out_speed_ms=max(target_ms, v_ego_ms)=target_ms`가 되어 **route가 현재
+속도보다 높은 속도(가속)를 명령**한다. 18개 프레임에서 발생, 최대
+초과폭 10.69kph(t=904.74, vEgo 29.0kph -> outSpeed 39.0kph 명령), 발생
+구간 t=903.44~904.89. 상세 프레임 로그로 확인한 결과 이 구간은 341차가
+이미 문서화한 "`routeApexIdx` grid 경계 전환 시 `routeApexSpeed` 순간
+상승" 현상과 동일 위치에서 발생 -- 즉 알려진 apex_speed 스파이크
+아티팩트가, 얼리엑싯 가드 없이는 그대로 가속 명령으로 이어진다. 이는
+코드 주석이 명시한 224/228차 회귀 패턴(§4 "route는 vEgo를 초과 명령해서는
+안 된다")과 정확히 동일한 종류의 문제다.
+
+**검증**: `route_active` 상태전이 직접 추적(기존 341차 스크립트 게이트
+산식 재사용, §21) + 로그 검증(4가지 조합 전체 카운트) + 재현성(23,776행,
+340/341차와 완전 일치) + 프레임별 상세 대조(t=900~908 구간 수동 검토로
+accel_commanded 발생 지점/크기 확인). **실차 검증: 미실시**(§29 --
+이 세션은 시뮬레이션 전용, `ryu` 코드 변경도 없음).
+
+**결론(권고, Master 최종 결정 필요, §27/§34)**: (2) `v_ego_ms<=target_ms`
+얼리엑싯 제거는 이 로그 기준 이득이 전혀 없으면서(단독 제거 시 무변화)
+(1)과 결합 시 실측 가속 오명령을 유발하므로 **제거 비권고**. (1)
+`speed_reached` 제거(또는 마진 완화)는 flapping을 실질적으로 줄이지만
+route_active 개입 시간이 2배 늘어나는 트레이드오프가 있어 사용자 확인
+필요.
+
+**미확인 사항**:
+1. (2) 단독 제거가 "완전 무변화"인 이유를 code-path 카운트로 직접
+   확인하지 않음(정성적 추정만).
+2. (1) 단독 제거 시 route_active 비율 2배 증가가 실제 종방향 체감에
+   미치는 영향(과도한 개입 여부) -- 시뮬레이션으로는 판단 불가.
+3. accel_commanded 18건 외에 다른 grid 스파이크 구간에서도 유사 패턴이
+   재현되는지 이번 로그 1개만으로는 일반화 불가.
+4. `RELEASE_MARGIN_RATIO` stale 상수 버그가 341차 외 다른 과거 세션의
+   `sim_route_273` 재사용 스크립트 결과에도 영향을 줬는지 미점검.
+
+**다음 작업**:
+1. `sim_route_273_active_gate_relax_sensitivity.py`의 `RELEASE_MARGIN_RATIO`
+   상수를 실제 코드값(1.05)으로 갱신할지 Master 논의(단, 273차 원 결과와의
+   비교 가능성 때문에 상수 자체보다 "현재값 사용" 파라미터화가 나을 수
+   있음).
+2. (1) `speed_reached` 제거(또는 완화)를 실제 `ryu` 코드에 반영할지 여부
+   Master 결정 -- 결정 시 실차검증 선행(§29).
+3. 미확인 사항 1/2/3 순서로 후속 조사.
+
+
 ## 341차 계속 (완료 -- 정정, ANALYSIS_ONLY, `ryu` 코드 무변경) -- 사용자가 릴리즈조건(`v_ego_kph<=apex_speed*1.1`) 가능성을 지적, 위 341차의 "신규 진입게이트" 귀속이 오류였음을 확인하고 정정
 
 **Worker**: Claude
