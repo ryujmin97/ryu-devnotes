@@ -1,3 +1,107 @@
+## 332차 (완료 -- STEP3 실측 corpus 검증 완료, ryu 코드 무변경) -- 331차 STEP1/STEP2가 예측한 ws<0 -> apex_dist 영향을 x18seg 실측 corpus(946프레임)로 확인, 메커니즘은 재현되나 이번 corpus에서는 실제 routeApexDist<0 관측 0건(원인까지 추적 확인)
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu`(base `823943a6`=329차 계속2, 코드 변경 없음,
+읽기용 clone만) / `ryu-devnotes`(base `c6ef29ec`=331차, 이 항목 추가 전)
+
+**Branch**: `c3-ms-dev` / `main`
+
+**세션 시작 확인(§3/§33)**: fresh clone으로 `ryu` HEAD `823943a6`,
+`ryu-devnotes` HEAD `c6ef29ec`(331차) 확인 -- WIP.md 331차 "다음 작업"
+2번(STEP3: 실측 corpus에서 ws<0 실제 발생 프레임을 찾아 apex_dist/
+ACTIVE 영향 정량 확인)과 사용자가 이번 세션에 업로드한
+`20260909_062749_000003c9--5335674c02_x18seg.zip`(18세그, 327/328/329차와
+동일 route로 파일명 확인) + `params_backup-1.json`이 정확히 일치. 다른
+작업자 개입 흔적 없음.
+
+**이번 회차 작업(STEP3)**: 업로드된 x18seg zip(18개 세그먼트, 각
+`rlog.zst`)을 `toolkit/extract_log.py --repo ryu`(base `823943a6`,
+`routeOrphanRawPath`는 기본 컬럼이라 `--with-navi-paths` 불필요)로
+재추출 -- 20,498행(327/328/329차와 raw_path 존재 행수 3645건으로 정확히
+일치, 동일 corpus 재확인). `sim_route_329_local_merge_replay.py`의 CSV
+재생 골격과 `sim_route_331_ws_negative_downstream.py`의
+`route_local_curve_merge`/`route_find_clusters`/`continuity_new_entry`/
+`active_gate_downstream`(모두 import, 재구현 없음, §21)을 조립한
+`toolkit/sim_route_332_ws_negative_real_corpus.py` 신규 작성.
+
+**결과**:
+```
+raw_path 존재 3645건 중 10m 1차패스 재계산 orphan>0: 3633건
+  ws>=0(구조적으로 안전, 331차 확인분): 2687건
+  ws<0(이번 조사 대상): 946건(26%) -- 드문 경계조건이 아님
+    ws 분포: min=-40.00m median=-40.00m max=-10.00m(10m grid 이산값)
+
+ws<0 946건 중 offline apex 산출 성공 901건:
+  apex_dist<0로 산출: 637건(71%)
+  apex_dist==ws(라벨 그대로 노출, 331차 STEP2 synthetic 예측과 일치): 434건
+
+실제 routeApexDist(20,498행 전체) 음수값: 0건
+
+routeApexMode=='new'(신규 lock) 52건 중 ws<0과 겹친 프레임: 2건
+  t=713.14  실측apex=260.0  offline_apex=260.00  ws=-10.00  diff=0.0
+  t=713.94  실측apex=240.0  offline_apex=240.00  ws=-30.00  diff=0.0
+  -> 두 건 모두 근접(ws<0) orphan window 자체는 route_find_clusters()
+     min_points=2를 못 넘어 클러스터로 승격되지 못함(orphan으로 잔존).
+     그 순간 실제로 lock된 클러스터는 260m/240m 떨어진 별개의 먼
+     클러스터였음(n_clusters=2, cluster_dists=[260.0,437.5]/[240.0,420.0]).
+```
+
+**해석**: STEP1(코드추적)/STEP2(synthetic)이 예측한 전파 경로
+("ws<0 -> apex_dist 음수/시프트 -> RELEASE 조기발동 또는 감속게이트
+미발동")가 실측 raw-path 데이터에서도 **구조적으로 100% 재현됨**
+(offline 재생 기준 71%가 음수 apex_dist). 그러나 실제 production
+`routeApexDist`가 한 번도 음수로 관측되지 않은 이유까지 추적 확인함:
+이 결함이 실제 제어 출력에 드러나려면 (a) 근접(ws<0) orphan이
+`route_local_curve_merge()`로 클러스터 승격까지 되고 (b) 그 클러스터가
+하필 'new' lock 순간의 최근접 클러스터여야 하는데, 이번 x18seg corpus
+(3645 orphan 프레임, 52 'new' lock 이벤트)에는 이 두 조건의 정렬이
+없었음. **미관측이 무해를 증명하지 않는다(§28)** -- 표본 부족이지
+메커니즘이 틀렸다는 뜻이 아님. offline 재생값이 실제 'new' lock
+프레임(2건)에서 실측과 diff=0.0으로 정확히 일치해 재생 로직 자체의
+신뢰도는 이번 회차로 검증됨.
+
+**검증**:
+- 정적분석: `py_compile` 통과.
+- 실측 재생: x18seg 20,498행/orphan 3645프레임 전수 스캔(위 표 참고),
+  `sim_route_329_local_merge_replay.py`/`sim_route_331_ws_negative_downstream.py`
+  기존 검증된 함수 재사용(재구현 없음).
+- 교차검증: 'new' 모드 2건에서 offline-실측 apex_dist 완전 일치(diff=0.0)
+  확인 -- 재생 파이프라인 신뢰도 자체를 검증.
+- **실차 검증: 미실시**(이번 회차는 오프라인 재생 분석, `ryu` 소스
+  무변경).
+
+**영향받는 실차 제어 로직**: 코드 변경 없음. 문제 지점은 여전히
+`_route_cluster_continuity_step()`의 apex_dist 채택(1099행)과 ACTIVE
+RELEASE 판정(1675행)/ACTIVE·INERT 공통 게이트(1706행/1738행) --
+FINDINGS.md 332차/330차와 동일.
+
+**신규 toolkit**: `toolkit/sim_route_332_ws_negative_real_corpus.py`.
+`toolkit/README.md`/`CHANGELOG.md` 갱신.
+
+**Devnotes**: FINDINGS.md 332차(신규, 330차 항목 앞에 추가) -- 331차는
+FINDINGS 미등록 상태였어서 332차 항목에 331차 STEP1/STEP2 요약도 함께
+포함해 이력 연속성 유지.
+
+**미확인 사항**:
+- "근접 curve가 승격되고 + 마침 그 순간 이전 apex가 released돼 new
+  lock되는" 정렬이 실제로 관측되는 다른 route/상황.
+- 이번 corpus에서 apex_dist<0가 관측되지 않은 것이 일반적 현상인지,
+  아니면 이 route(고속/자동차전용도로 위주 추정)의 특성(근접 오르판이
+  대부분 클러스터 승격 실패)때문인지는 다른 route와 비교 필요.
+
+**다음 작업**:
+1. 다른 route(특히 도심/저속 근접 커브가 잦은 구간)로 STEP3 반복 --
+   실제 `routeApexDist<0` 관측 사례를 찾거나, "근접 orphan은 대체로
+   클러스터 승격에 실패한다"는 이번 corpus의 패턴이 일반적인지 확인.
+2. 위에서 실제 나쁜 사례를 찾으면 그때 수정안(§26 사용자 승인 필요)
+   설계 착수 -- 여전히 "0 클램프가 유일한 정답은 아님"(지선생 331차
+   제안 유보 유지, 좌표계 정합 등 대안도 검토).
+3. `ROUTE_ACTIVE_RELEASE_MARGIN_RATIO=1.05` 실차 검증(별도 이월 과제,
+   249차/290차) 및 터널 구간 포함 로그 확보도 계속 이월.
+
+---
+
 ## 331차 (진행중 -- STEP1 코드추적 완료 + STEP2 synthetic 초기 검증, ryu 코드 무변경) -- ws<0 라벨의 candidates/cluster/apex/ACTIVE 게이트 실제 영향 확인 착수
 
 **Worker**: Claude

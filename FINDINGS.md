@@ -1,3 +1,66 @@
+## 332차 -- [STEP3 실측 corpus 확인, 미해결·이월 유지] `ws<0` 라벨이 apex_dist/ACTIVE 게이트에 미치는 실제 영향 -- x18seg 실측(946프레임)으로 메커니즘 재현 확인, 그러나 실제 `routeApexMode=='new'` 락 시점과는 이번 corpus에서 우연히 미충돌해 실측 `routeApexDist<0`는 0건
+
+**기존 결론(331차, WIP만 존재·FINDINGS 미등록·진행중)**: 코드 추적(STEP1)으로
+`ws<0` 라벨이 `_route_cluster_continuity_step()`의 'new' 진입 분기에서
+`apex_dist`로 그대로 채택돼 ACTIVE RELEASE(`apex_dist<=20m`)/ACTIVE·INERT
+공통 게이트(`eff_dist=max(0,apex_dist-...)`)에 직접 들어감을 확인. 전구간
+곡률 사인곡선 synthetic(STEP2)에서는 apex_idx가 항상 재계산 window
+좌단(=ws 그 자체)으로 나와 `apex_dist==ws`(음수)가 그대로 게이트 입력이
+됨을 수치로 확인했으나, "실제 도로처럼 커브 진입점이 window 내부 임의
+위치인 경우"는 synthetic만으로 확정할 수 없다고 이월(§28).
+
+**새로운 증거(332차, x18seg 실측 corpus 20,498행/orphan 3645프레임,
+`toolkit/sim_route_332_ws_negative_real_corpus.py`)**:
+- `routeOrphanRawPath` 오프라인 10m 1차패스 재계산 결과 orphan 3633건 중
+  **946건(26%)이 `ws<0`** -- 드문 경계조건이 아니라 근접 커브 진입
+  시 흔히 발생하는 조건임을 실측으로 확인(ws 분포: min=-40m,
+  median=-40m, max=-10m -- 10m grid 이산값).
+- 이 946건에 대해 `route_local_curve_merge()`(production `823943a6`,
+  verbatim, 무변경) 오프라인 재생 -> "지금 새로 lock된다면" 값을
+  `continuity_new_entry()`로 산출한 901건 중 **637건(71%)이 apex_dist<0**,
+  그 중 434건은 `apex_dist==ws`(라벨이 그대로 노출, 331차 STEP2 synthetic
+  예측과 일치) -- **STEP1 코드추적이 예측한 전파 경로가 실측 raw path
+  데이터에서도 구조적으로 재현됨을 확인**.
+- 그러나 실제 production 텔레메트리 `routeApexDist` 전체 20,498행을
+  직접 grep한 결과 **음수값은 0건**. 원인을 추적하기 위해 이 corpus
+  전체에서 `routeApexMode=='new'`(신규 lock 순간)인 프레임 52건 중
+  `ws<0` 조건과 겹친 프레임을 확인한 결과 **단 2건**이었고, 이 2건
+  모두 offline 재생값이 실측 `routeApexDist`와 정확히 일치(260.00m/
+  240.00m, diff=0.0)했으나 **둘 다 양수** -- 진단해보니 두 프레임 모두
+  `ws<0`인 근접 orphan window 자체는 `route_find_clusters()`
+  min_points=2를 충족하지 못해 클러스터로 승격되지 못했고(orphan으로
+  남음), 그 순간 실제로 'new' lock된 apex는 260m/240m 떨어진 전혀 다른
+  (더 먼) 클러스터였음.
+
+**해석**: STEP1/STEP2가 예측한 결함 메커니즘은 이번 회차로 **실측
+raw-path 데이터에서도 구조적으로 100% 재현**됨(오프라인 재생 기준
+71%가 음수). 그러나 이 결함이 실제 제어 출력(`routeApexDist`)에
+드러나려면 "근접(`ws<0`) orphan이 `route_local_curve_merge()`로
+클러스터 승격까지 되고, 그 클러스터가 하필 'new' lock 순간의 최근접
+클러스터인" 두 조건이 동시에 맞아야 하는데, 이번 x18seg corpus(18세그,
+3645 orphan 프레임)에는 그 정렬(우연)이 없었다 -- 즉 **미관측 == 무해
+아님**(§28 원칙, 추측 금지). 표본이 부족한 것이지 메커니즘이 틀렸다는
+뜻이 아니다.
+
+**변경 이유**: 331차 WIP "다음 작업 1번"(STEP3, 실측 corpus 검증) 완료.
+
+**현재 상태(미해결, 이월 유지)**: 수정안 설계는 아직 착수하지 않음
+(§26, 사용자 승인 필요 -- 지선생 331차 제안대로 "0 클램프가 유일한
+정답은 아님"이라는 유보도 유지). 실측으로 실제 나쁜 `routeApexDist<0`
+사례를 잡으려면 이 corpus보다 "근접 curve 직후 이전 apex가 막
+release된" 상황을 담은 다른 route가 필요 -- 다음 세션 과제로 이월.
+
+**패치 범위**: 없음(이번 회차도 코드 변경 없음, 순수 오프라인 재생
+분석, `ryu` 소스 무변경).
+
+**실차 검증**: 미실시.
+
+**관련**: WIP.md 331차/332차, FINDINGS.md 330차/329차(부록),
+`toolkit/sim_route_331_ws_negative_downstream.py`(STEP1/STEP2, 함수
+재사용),`toolkit/sim_route_332_ws_negative_real_corpus.py`(신규, STEP3).
+
+---
+
 ## 330차 -- [합성 폐루프 재현 성공, 근본원인 확정] `ws<0`일 때 `route_local_curve_merge()` 출력에 음수 distance 라벨이 그대로 노출됨 -- 329차(부록)의 가설을 최소 재현 케이스로 확정
 
 **기존 결론(329차 부록, 이월/미해결)**: 합성 300케이스 회귀에서 병합 후

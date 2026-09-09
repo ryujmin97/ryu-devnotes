@@ -1,3 +1,32 @@
+## sim_route_332_ws_negative_real_corpus.py (332차, STEP3 -- x18seg 실측 corpus로 ws<0 실제 발생빈도/apex_dist 영향 확인)
+
+331차 STEP1/STEP2(synthetic)의 후속. `sim_route_329_local_merge_replay.py`의
+`routeOrphanRawPath` CSV 재생 골격 + `sim_route_331_ws_negative_downstream.py`의
+`route_local_curve_merge`/`route_find_clusters`/`continuity_new_entry`/
+`active_gate_downstream`(모두 import, 재구현 없음, §21)을 조립해 실측
+corpus에서 (a) `ws<0` 실제 발생 빈도, (b) 그 프레임들의 offline
+"지금 새로 lock된다면" apex_dist, (c) 실제 `routeApexMode=='new'`
+프레임과의 직접 비교, (d) ACTIVE/INERT 게이트 영향까지 확인한다.
+
+**핵심 결과(x18seg, 20,498행/orphan 3645프레임)**: `ws<0`이 946건(26%,
+드물지 않음). offline 재생 901건 중 637건(71%)이 apex_dist<0로 산출돼
+STEP1/STEP2 메커니즘이 실측 raw-path에서도 재현됨을 확인. 그러나 실제
+텔레메트리 `routeApexDist`는 20,498행 전체에서 음수 0건 -- 원인은
+`routeApexMode=='new'`(신규 lock) 52건 중 `ws<0`과 겹친 2건 모두, 근접
+orphan이 `route_find_clusters()` min_points=2를 못 넘어 승격되지 못하고
+실제로는 훨씬 먼(260m/240m) 다른 클러스터가 lock됐기 때문(offline
+재생값이 실측과 정확히 일치, diff=0.0 -- 재생 신뢰도 자체는 검증됨).
+결론: 메커니즘은 실측 데이터로 확정됐으나, "근접 orphan이 승격되고 +
+하필 그 순간 new lock되는" 정렬은 이 corpus에는 없었음(§28, 미관측이
+무해를 증명하지 않음). 상세는 WIP.md 332차/FINDINGS.md 332차 참고.
+
+**입력**: `extract_log.py --with-navi-paths` 불필요(routeOrphanRawPath는
+기본 컬럼) -- 일반 `extract_log.py <route_dir> <out.csv> --repo <ryu>` CSV.
+
+**사용**: `python3 sim_route_332_ws_negative_real_corpus.py <CSV> [--limit-print N]`
+
+---
+
 ## sim_route_331_ws_negative_downstream.py (331차, ws<0 라벨의 candidates/cluster/apex/ACTIVE 게이트 실제 영향 A/B 비교, STEP1 코드추적+STEP2 초기 synthetic)
 
 330차 `sim_route_330_boundary_synthetic.py`의 확장. ws<0(orphan이 ego

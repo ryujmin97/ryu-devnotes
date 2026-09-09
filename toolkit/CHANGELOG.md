@@ -4,6 +4,16 @@
 남긴다. `README.md`도 같이 갱신할 것.
 
 
+## 2026-09-09 (332차)
+- `sim_route_332_ws_negative_real_corpus.py`: **신규**(331차 STEP3).
+  x18seg 실측 `routeOrphanRawPath` corpus(20,498행/orphan 3645프레임)로
+  ws<0 실제 발생빈도(946건, 26%)와 offline apex_dist 영향(901건 중
+  637건 음수, 71%) 확인. 실제 `routeApexMode=='new'` 프레임(52건) 중
+  ws<0과 겹친 2건은 offline-실측 완전 일치(diff=0.0)했으나 둘 다 양수 --
+  근접 orphan이 min_points=2 미승격이라 실제로는 더 먼 클러스터가
+  lock됨. 실측 `routeApexDist<0`는 corpus 전체 0건(미해결 이슈 자체가
+  사라진 것은 아님, §28). 상세는 WIP.md 332차/FINDINGS.md 332차 참고.
+
 ## 2026-09-09 (331차)
 - `sim_route_331_ws_negative_downstream.py`: **신규**(330차 스크립트
   확장). ws<0 라벨이 candidates/`route_find_clusters()`/apex(
