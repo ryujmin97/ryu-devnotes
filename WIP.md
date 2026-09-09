@@ -1,3 +1,121 @@
+## 339차 (완료 -- 338차가 지하주차장 제외 후 남긴 옥외 사례 2건(x6seg t=1409.607477381 / x19seg t=481.858660709)의 code-level 원인 확정, `ryu` 코드 무변경) -- 두 사례의 `apexDist=-40.0`이 330차가 이미 확정한 `distance_offset=ws` 언클램프 라벨링 버그의 "ws==-40.0 정확 경계값" 사례임을 실측으로 확정 -- 신규 결함 아님
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu`(base `823943a6`=329차 계속2, 335~338차와
+동일 -- 코드 변경 없음, x6seg/x19seg 재추출용 checkout만) /
+`ryu-devnotes`(base `aebce69e`=338차, 이 항목 추가 전)
+
+**Branch**: `c3-ms-dev` / `main`
+
+**사용자 지시(중요)**: 이번 세션 시작 시 사용자가 "지하주차장은 검토대상에서
+제외할것"이라 명시 -- 338차가 발견한 x6seg 지하주차장 4건은 이번 회차
+범위에서 제외하고, 남은 실측 결정적 사례 2건(x6seg 옥외 교차로 1건 +
+x19seg 1건, 둘 다 337/338차가 이미 `src`=vturn 승리로 실제 출력 무영향은
+확인했으나 code-level 원인은 미확정 상태였음)만 이어서 분석.
+
+**이번 회차 작업**: x6seg(6,309행)/x19seg(22,798행)를
+`extract_log.py --with-navi-paths`로 재추출(335~338차 기록과 행수
+완전 일치, 재현성 재확인) 후, 두 목표 프레임 전후 구간을
+`routeApexMode`/`routeApexIdx`/`routeApexDist`/`routeCandidateCount`/
+`routeCandidate0Dist`/`routeClusterCount`/`routeOrphanSingletonCount`/
+`routeOrphanSingletonDist` 컬럼으로 프레임 단위 전수 대조 + `ryu` 소스
+(base `823943a6`) `route_local_curve_merge()`/`_route_cluster_continuity_step()`
+코드를 §28 순서(증상->재현조건->입력->상태->호출흐름->계산->조건/분기->
+출력->원인)로 직접 대조.
+
+**결과 1 (결정적) -- `-40.0`의 정체는 `LOCAL_CURVE_WINDOW_BACK_M`
+그 자체, 330차가 이미 확정한 라벨링 버그의 경계 사례**: `carrot_man.py`
+L238 `LOCAL_CURVE_WINDOW_BACK_M = 40.0` 확인. `route_local_curve_merge()`
+L619 `windows.append((center - LOCAL_CURVE_WINDOW_BACK_M, ...))`에서
+`center`(orphan 위치)가 ego 근처(≈0m)일 때 `ws = 0 - 40 = -40.0`이
+정확히 산출됨. 이 `ws`는 L685 `route_curvature_macro_fine(..., ws, ...)`의
+`distance_offset`으로 그대로 전달되는데, FINDINGS.md 330차가 이미
+합성 재현으로 확정한 대로 `route_crop_path_by_distance()` 내부의
+`d_start = max(0.0, d_start)` 클램프와 `distance_offset=ws`(언클램프)가
+서로 어긋나 -- **ws<0인 모든 경우, 그 window의 병합 출력 포인트 전부가
+실제 물리적 위치보다 `|ws|`만큼 가깝게(음수 방향으로) 라벨링된다.**
+두 사례 모두 orphan 위치가 정확히 ego 부근(0m)이라 `ws`가 정확히
+`-40.0`(가능한 가장 단순한/경계값 형태)로 나온 것 -- 다른 값이 아니라
+`-40.0`이 반복 관측된 이유가 이걸로 설명됨.
+
+**결과 2 (x6seg t=1409.607477381)**: t=1408.804~1409.423 구간(0.65초)
+동안 기존에 lock돼 있던 apex가 `passed` 모드로 거리 `-40.0` 고정 유지
+(이미 위 메커니즘으로 오염된 값이 계속 tracking됨) -> t=1409.455에서
+cluster가 min_points 미달로 orphan 단일점(`orphanSingletonDist=-40.0`)으로
+강등 -> `none` 2프레임 -> t=1409.607에서 같은 오염된 점이 다시
+`routeCandidateCount=1`(`routeCandidate0Dist=0.0`, 이건 병합 *이전*
+stage0 telemetry라 다른 값 -- 223차 design doc §2, 335차 이전부터 알려진
+stage0/병합후 telemetry 분리 관례)로 재등장, continuity가 이를 `new`로
+lock하며 `apexDist=-40.0` 재확정 -> 바로 다음 프레임(t=1409.651)에서
+`routeCandidateCount=0`으로 route 정보 전체 소실. `src` 컬럼은 이
+구간(t=1408.8~1410.2) 전체에서 `vturn` 고정 -- 337차가 x19seg에서
+확인한 것과 동일하게 이 사례도 실제 `desiredSpeed` 출력에 영향 없음
+(재확인, 신규 아님).
+
+**결과 3 (x19seg t=481.858660709, 337차 사례의 원인 재확정)**: 337차는
+qcamera로 "직전 커브 tail 잔여물 오탐" 정황을 관측했으나 code-level로는
+미확정이었음. 이번에 재확인한 시퀀스: t=481.212~481.603 구간에 실제
+210m 전방 커브가 `matched`/`held`로 정상 추적(거리가 210.0→203.4로
+자연스럽게 감소, `vEgo` 기반 예측과 일치) -> t=481.653 `lost`(routeCandidateCount
+0으로 소실) -> `none` 3프레임 -> t=481.859에서 결과1의 동일 메커니즘으로
+`new` lock, `apexDist=-40.0`. 즉 337차의 정성적 가설("직전 커브의 tail
+잔여물이 새 클러스터로 오인식")이 실제로는 "그 tail 잔여물이 ego 근처
+window에서 재계산되며 `distance_offset=ws`(=-40.0) 라벨링 버그에
+걸린 것"이라는 구체적 코드 경로로 확정됨.
+
+**해석**: 두 사례 모두 **330차가 이미 원인을 확정한 기존 버그**(distance_offset
+언클램프)의 재현일 뿐, 328/329차의 "zero-margin fallback"이나 2.5m
+로컬 리샘플/300m→변경 이전 600m lookahead와는 무관한 별개 경로다.
+"ws==-40.0 정확 경계값"이 두 개의 서로 다른 route에서 반복 관측됐다는
+것은, orphan이 ego 바로 근처(0m 부근)에 생기는 상황(막 통과한 apex의
+잔여, 막 lost된 커브의 tail) 자체가 드물지 않다는 뜻 -- 330차가 미확정으로
+남겼던 "실제 도로에서 이 라벨링 문제가 발생하는 빈도"에 대한 답을
+부분적으로 제공한다(§28, 두 사례 모두 §29 실차 검증).
+
+**결론(신규 아님, 확정도 강화됨)**: 335차부터 "실제 나쁜 사례"로 추적해온
+production `routeApexDist<0` 사례들은 전부 330차가 이미 코드로 확정한
+동일 버그(`distance_offset=ws` 언클램프)의 인스턴스다. 지하주차장 4건은
+이번 회차 범위 밖(사용자 지시)이라 별도 -- 다만 그쪽도 orphan이 ego
+근처에서 생겼다면 동일 메커니즘일 가능성이 높다(코드 추적은 미실시,
+추측으로만 기록).
+
+**검증**:
+- 정적분석: `LOCAL_CURVE_WINDOW_BACK_M`/`route_local_curve_merge()`/
+  `route_crop_path_by_distance()` 코드 직접 대조(신규).
+- 실측 corpus 대조: x6/x19seg 재추출 재현성 확인(행수 일치) + 목표
+  프레임 전후 전수 대조(신규).
+- **실차 검증(§29)**: 이번 회차 자체가 실차 로그 기반 code-level 원인
+  확정(합성 재현이 아닌 실측 -> 코드 대조).
+
+**신규 toolkit**: 없음(§21, CSV 컬럼 직접 대조만 -- 함수 replay 스크립트
+불필요, 기존 330차 합성 재현이 이미 동일 메커니즘 확정, 이번은 실측
+대조로 연결만 함).
+
+**Devnotes**: `FINDINGS.md` 335차 항목에 "339차 보강" 문단 추가(기존
+결론 삭제 없이 보강, §24) -- `-40.0`의 정체를 330차 기존 원인과 명시적으로
+연결.
+
+**미확인 사항**:
+- 지하주차장 4건이 동일 메커니즘인지는 이번 회차에서 확인하지 않음
+  (사용자 지시로 범위 제외).
+- 330차가 이미 이월한 "이 라벨링 문제가 `route_find_clusters()`/apex
+  continuity/ACTIVE 판정에 실제로 어떤 영향을 주는지"는 335/337/338차가
+  일부 답했음(이번 2건 모두 src=vturn이라 무해) -- 그러나 "항상 무해한지
+  구조적 상관인지"는 여전히 미확정(338차와 동일 이월).
+
+**다음 작업**:
+1. (이월, 335차 최우선 유지) 기기를 `5cba802`(또는 그 이후) 기준으로
+   업데이트 후 재드라이브 -> `routeLocalResampleUsed` 실측값 직접 대조.
+2. (이월) 332차 다음 작업 2/3번: 330차 원인(`distance_offset=ws` 언클램프)에
+   대한 수정안(예: `distance_offset=max(0.0, ws)`로 클램프 정합) 설계
+   착수 여부 사용자 확인 -- 이번 회차로 원인이 실측까지 확정됐으므로
+   수정 필요성 판단 근거는 더 강해짐.
+3. (선택, 낮은 우선순위) 지하주차장 4건도 동일 메커니즘인지 코드 레벨
+   확인(사용자가 범위에 포함시키기로 결정하면).
+
+---
+
 ## 338차 (완료 -- 335차 이월 항목(x6/x10/x16seg 저속 `apex_dist<0` 사례 qcamera 대조) 수행, `ryu` 코드 무변경) -- 335차의 "vEgo≈5.5m/s대 저속" 서술이 offline `apex_speed`(saturate 값)와의 혼동이었음을 정정 + x6seg에서 동일 결함의 실제 production 사례 5건 신규 발견(4건은 지하주차장, 1건은 옥외 교차로) -- 전부 `src`가 route였던 적 없음
 
 **Worker**: Claude
