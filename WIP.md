@@ -1,3 +1,111 @@
+## 337차 (완료 -- 335차가 미확인으로 남긴 t=481.858660709 사례 qcamera 대조 + arbitration(src) 실측 확인, `ryu` 코드 무변경) -- 문제의 apex_dist<0 'new' lock이 실제 desiredSpeed 출력에는 반영되지 않았음을 확인(vturn이 해당 구간 arbitration 전부 승리), qcamera로 도로형상도 대조
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu`(base `823943a6`=329차 계속2, 335차와 동일 --
+코드 변경 없음, `extract_log.py --with-navi-paths` + qcamera 프레임 추출용
+clone만) / `ryu-devnotes`(base `7eff97d2`=335차, 이 항목 추가 전)
+
+**Branch**: `c3-ms-dev` / `main`
+
+**세션 시작 확인(§3/§33, 중요)**: 이번 세션에 사용자가 업로드한 route
+4건(x19/x6/x10/x16seg, 파일명/해시/타임스탬프 전부 335차 기록과 완전
+일치)이 **335차에서 이미 동일 파일로 전수 분석되어 WIP.md/FINDINGS.md/
+LAST_ANALYZED.md에 기록 후 push 완료된 상태**임을 GitHub 최신 상태 확인
+으로 발견(§6/§33, 중복작업 방지). 332차/334차 이월 검증(STEP3 반복,
+local-merge parity 반복)은 재수행하지 않고, 335차가 "다음 작업"으로
+남긴 항목 중 이번 세션에서 바로 착수 가능한 항목(2번: t=481.858660709
+사례 qcamera 대조 + ACTIVE 상태 여부 추가 확인)만 이어서 진행함. 참고로
+`ryu` 원격 HEAD는 이 세션 확인 시점 `7b3dfec4`(336차, `route_lookahead_m`
+600.0->300.0)까지 진행돼 있었으나, 사용자가 이번 업로드 로그를 "300m
+수정 커밋 이전 패치 주행로그"로 명시했고 실제로도 823943a6 채록(336차
+이전)이 맞음 -- 335차와 동일 로그이므로 당연한 결과.
+
+**이번 회차 작업**:
+1. x19seg 재추출(`extract_log.py --with-navi-paths`)로 22,798행 재현성
+   재확인(335차 LAST_ANALYZED 기록과 행수 완전 일치).
+2. t=481.858660709 프레임(`routeApexMode='new'`, `routeApexDist=-40.0`)
+   전후 t=478.0~485.0 구간(약 90프레임)을 `src`/`routeApexMode`/
+   `routeApexDist`/`desiredSpeed`/`vTurnSpeed`/`routeOutSpeed` 컬럼으로
+   전수 대조.
+3. `verify_and_extract_frames.py`로 t=481.858660709 시점(seg6,
+   `20260909_124551_000003cb--7940c9e2c6--6`, 매칭 diff=0.014s) qcamera
+   프레임 1장 추출.
+4. **`route_active` 내부 상태 직접 계측 가능 여부 코드 확인**:
+   `carrot_man.py`의 `self.route_active`(L879 등)는 `cereal/custom.capnp`
+   어디에도 발행되지 않는 순수 파이썬 내부 상태임을 grep으로 확정 --
+   즉 **어떤 CSV 컬럼으로도 직접 관측 불가**(335차가 "CSV에 별도 상태
+   컬럼 없어 직접 확인 불가"라 적은 것이 정확했음, 재확인만 하고 새
+   계측 패치 설계는 이번 세션 범위 밖).
+
+**결과 1 (arbitration 실측 -- 결정적)**: t=478.0~485.0 구간 전체에서
+`src`가 `route`였던 구간은 t=478.314~478.556(3프레임)과 t=478.457~480.608
+(짧은 flicker 포함, 대부분 held/matched)뿐이고, **t=480.665601282
+이후로는 t=485.0까지(문제의 t=481.858660709 포함) `src`가 계속
+`vturn`으로 고정**돼 있음(desiredSpeed가 그 구간 내내 `vTurnSpeed`와
+동일값으로 움직임, `routeOutSpeed`는 150.0 고정 -- route가 산출한 값이
+출력 경로에 전혀 반영 안 됨을 직접 확인). **즉 이 -40.0 'new' lock이
+`route_active` 내부 상태와 무관하게, 최소한 "실제 desiredSpeed 출력에
+영향을 줬는가"라는 실용적 질문에는 명확히 "아니오"로 답할 수 있음**
+(vturn이 이 구간 arbitration을 전부 승리). 332차/335차가 조건부("이
+프레임에 ACTIVE 상태였다면")로만 서술했던 것보다 한 단계 더 구체적인
+실측 확인.
+
+**결과 2 (qcamera 대조)**: t=481.858660709 프레임 도로 형상은 완만한
+우측 굴곡(급커브 아님, 표지판/가로수 있는 넓은 왕복도로) -- 직전
+t=481.211848368~481.603084637 구간에서 정상적으로 210m->0m까지
+하강하며 추적되던 커브(`held`->`matched`->`lost`, t=481.653183826)가
+막 끝난 직후(0.2초 뒤) 같은 커브의 잔여/후미 raw-path 포인트가 새
+클러스터로 오인식돼 "새 커브"(`new`, 뒤쪽 -40m)로 재등록된 것으로
+보이는 정황과 부합(직전 커브의 tail 잔여물 오탐 가설, §28 -- 코드
+트레이스로 확정한 것은 아니고 시간축/거리값 정합성 기반 정황 판단).
+
+**해석**: 335차가 등록한 FINDINGS 항목("실제 관측된 나쁜 사례")의
+실질 위험도를 낮추는 방향의 보강 증거 -- 이 특정 사례는 arbitration이
+vturn 승리로 우연히 무해했다. 단 **다른 시점/다른 route에서 이 순간
+route가 승리 중이었다면 desiredSpeed가 순간적으로 정상값(124)에서
+route의 58대(오탐된 근접 apex 목표속도)로 급락했을 것**이므로, 결함
+메커니즘 자체(§28 원인)는 여전히 유효하고 수정 필요성 판단은 335차와
+동일하게 유지(§26, "0 클램프가 유일한 정답은 아님" 유보도 동일 유지).
+
+**검증**:
+- 정적분석: `carrot_man.py` `route_active` grep으로 cereal 미발행
+  확인(신규).
+- 실측 corpus 대조: x19seg 재추출 22,798행 재현성 확인 + t=478~485
+  구간 전수 대조(신규).
+- **실차 검증(§29)**: 335차와 동일 -- 이번 회차도 실차 로그 기반
+  분석(코드 변경 없음, qcamera 프레임 대조 포함).
+
+**신규 toolkit**: 없음(§21, 기존 `extract_log.py`/
+`verify_and_extract_frames.py` 재사용만).
+
+**Devnotes**: `FINDINGS.md` 335차 항목에 "337차 보강" 문단 추가(기존
+결론 삭제 없이 보강, §24) -- arbitration 실측 결과(vturn 승리, 실제
+출력 무영향)와 qcamera 정황(직전 커브 tail 오탐 가설)만 추가.
+
+**미확인 사항**:
+- `route_active` 내부 상태는 여전히 미계측(코드상 cereal 미발행
+  확정) -- 335차 "다음 작업 1번"(신규 계측 빌드로 재드라이브) 외에는
+  이 값을 직접 알 방법 없음.
+- "직전 커브 tail 잔여물 오탐" 가설은 정황 판단이며 코드 레벨(어느
+  raw-path 포인트가 어떻게 재클러스터링됐는지)로 확정하지 않음 --
+  필요시 다음 세션에서 `route_local_curve_merge()`/`route_find_
+  clusters()` 입력을 이 프레임 `routeOrphanRawPath` 원본으로 직접
+  재생해 확정 가능.
+- x6/x10/x16seg 저속 `apex_dist<0` 사례(335차가 이월)의 qcamera
+  대조는 이번 회차에도 미실시.
+
+**다음 작업**:
+1. (이월, 335차 최우선 유지) 기기를 `5cba802`(또는 그 이후) 기준으로
+   업데이트 후 재드라이브 -> `routeLocalResampleUsed` 실측값 직접 대조.
+2. (신규, 선택) "직전 커브 tail 오탐" 가설을 `routeOrphanRawPath`
+   원본으로 코드 레벨 확정 -- 필요성은 낮음(§28 원인 자체는 이미
+   332차로 확정, 이번은 보강일 뿐).
+3. (이월) x6/x10/x16seg 저속 `apex_dist<0` 사례 qcamera 대조.
+4. (이월) 332차 다음 작업 2/3번: 수정안 설계 착수 여부 사용자 확인.
+
+---
+
 ## 335차 (완료 -- 사용자 업로드 신규 route 4건으로 332차/334차 이월 검증 수행, `ryu` 코드 무변경) -- 332차가 이월했던 "실제 `routeApexDist<0` 나쁜 사례"를 x19seg에서 최초 확인(offline diff=0.0) + 334차 local-merge parity 구조적 불일치가 신규 route 4개 전부에서 100% 재현
 
 **Worker**: Claude

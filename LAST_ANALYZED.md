@@ -1,3 +1,29 @@
+## c3-ms-dev (337차, 335차 이월 t=481.858660709 사례 qcamera 대조 + arbitration(src) 실측 확인 -- `ryu` 코드 무변경)
+- Repository: `ryujmin97/ryu`
+- Branch: `c3-ms-dev`
+- last_analyzed_commit: `823943a6`(335차와 동일 -- 코드 변경 없음, 재추출
+  + qcamera 프레임 추출용 clone일 뿐. `ryu` 원격 HEAD는 이 세션 확인
+  시점 `7b3dfec4`(336차, route_lookahead_m 600->300)까지 진행돼 있었음)
+- devnotes base: `7eff97d2`(335차, 이 항목 추가 전)
+- Analysis date: 2026-09-09 (337차)
+- Worker: Claude
+- Analyzed commits: 없음(코드 변경 없음, 로그 분석만)
+- Analyzed files/logs: 사용자 재업로드 x19seg(파일명/해시 335차와 완전
+  동일, `7940c9e2c6`) 재추출(22,798행, 335차와 행수 일치 재확인) +
+  qcamera 프레임 1장(t=481.858660709, seg6).
+- Conclusion: (1) `route_active` 내부 상태가 cereal에 전혀 발행되지
+  않음을 코드로 확정(직접 계측 구조적으로 불가능, 계측 패치 없이는
+  영구히 미확인). (2) t=478~485 구간 `src` 전수 대조 결과 t=480.665
+  이후 계속 `vturn` 고정 -- 문제의 -40.0 apex_dist가 실제 desiredSpeed
+  출력에는 영향을 주지 않았음을 실측으로 확인. (3) qcamera 대조로
+  급커브 아닌 완만한 굴곡 확인, 직전 커브 tail 오탐 정황(코드 확정 아님).
+  결론 변경 없음(결함 메커니즘 자체는 유효). 상세: FINDINGS.md/WIP.md
+  337차 참고.
+- next: (이월) 기기를 `5cba802` 이후 커밋으로 업데이트 후 재드라이브해
+  `routeLocalResampleUsed` 직접 계측값 확보. (이월) x6/x10/x16seg 저속
+  `apex_dist<0` 사례 qcamera 대조. (이월) 332차 수정안 설계 착수 여부
+  사용자 확인.
+
 ## c3-ms-dev (335차, 신규 route 4건(x19/x6/x10/x16seg) 실차로그로 332차/334차 이월 검증 -- `ryu` 코드 무변경)
 - Repository: `ryujmin97/ryu`
 - Branch: `c3-ms-dev`
