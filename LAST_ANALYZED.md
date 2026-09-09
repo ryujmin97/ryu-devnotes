@@ -1,3 +1,28 @@
+## c3-ms-dev (338차, 335차 이월 x6/x10/x16seg 저속 apex_dist<0 사례 qcamera 대조 -- `ryu` 코드 무변경)
+- Repository: `ryujmin97/ryu`
+- Branch: `c3-ms-dev`
+- last_analyzed_commit: `823943a6`(335/337차와 동일 -- 코드 변경 없음)
+- devnotes base: `c49e74b3`(337차, 이 항목 추가 전)
+- Analysis date: 2026-09-09 (338차)
+- Worker: Claude
+- Analyzed commits: 없음(코드 변경 없음, 로그 분석만)
+- Analyzed files/logs: x6seg/x10seg/x16seg 재추출(6,309/10,992/18,815행,
+  335차 기록과 행수 일치) + qcamera 프레임 9장(offline 후보 5건 +
+  신규 발견 실측 사례 5건 중 옥외 1건 및 지하주차장 4건 -- t=1409.607
+  프레임은 두 카테고리에 모두 해당해 중복 제외).
+- Conclusion: (1) 335차 "vEgo≈5.5m/s대" 서술이 offline apex_speed(saturate
+  값)와의 혼동이었음을 정정, 실제 vEgo는 15.8~43.6kph로 정상 주행.
+  (2) qcamera 대조로 5건 중 4건이 실제 도로 곡선(교차로/커브경고표지)과
+  부합함을 확인. (3) x6seg에서 실측 `routeApexMode=='new' AND
+  routeApexDist<0` 사례 5건 신규 발견(x19seg 1건에 이은 2번째 route) --
+  이 중 4건이 지하주차장 내부(qcamera로 확인)에서 발생. (4) 6건(x19seg
+  1+x6seg 5) 전부 `src`가 route였던 적 없어 실제 출력 영향은 없었음.
+  상세: FINDINGS.md/WIP.md 338차 참고.
+- next: (이월) 기기를 `5cba802` 이후 커밋으로 업데이트 후 재드라이브해
+  `routeLocalResampleUsed` 직접 계측값 확보. (선택) 지하주차장 4건의
+  `routeOrphanRawPath` 원본 좌표로 유발 메커니즘 코드 레벨 확정.
+  (이월) 332차 수정안 설계 착수 여부 사용자 확인.
+
 ## c3-ms-dev (337차, 335차 이월 t=481.858660709 사례 qcamera 대조 + arbitration(src) 실측 확인 -- `ryu` 코드 무변경)
 - Repository: `ryujmin97/ryu`
 - Branch: `c3-ms-dev`
