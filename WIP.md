@@ -1,3 +1,54 @@
+## 342차 계속 -- 사용자 질문("target_ms를 릴리즈조건에만 국한해서 삭제한다면") 검증: ACTIVE STEP2 분기 단독 제거만으로도 동일한 가속 오명령 재현, INERT 진입게이트 단독 제거는 완전 무변화
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu`(base `7b3dfec4`=336차, 코드 변경 없음) /
+`ryu-devnotes`(base `b2fbad5`=342차, 이 항목 추가 전)
+
+**Branch**: `c3-ms-dev` / `main`
+
+**계기**: 위 342차에서 `v_ego_ms<=target_ms`가 ACTIVE STEP2 분기(L1723)와
+INERT 진입게이트 분기(L1755) 두 곳에 있음을 설명한 뒤, 사용자가 "그럼
+릴리즈 조건에만 국한해서 삭제한다면"이라고 질문. (참고: 이 조건 자체는
+엄밀히는 release OR-조건에 속하지 않고 ACTIVE 유지 중 STEP2의 별도
+분기이나, 사용자 맥락상 "ACTIVE 상태에서의 그 분기만"을 의미하는
+것으로 해석 -- §14 관례상 확인 후 진행, 이번엔 결과로 답이 명확해 별도
+확인 없이 진행.)
+
+**작업**: `sim_route_342_release_condition_removal.py`를 확장해
+`remove_target_active`/`remove_target_inert`를 독립적으로 켤 수 있게
+분리(§27 최소변경 -- 기존 4가지 시나리오는 그대로 두고 옵션 추가).
+ACTIVE 단독 제거/INERT 단독 제거를 각각 speed_reached 유지/제거
+조합으로 재실행.
+
+**결과**: **INERT 진입게이트만 제거**(ACTIVE는 그대로) -- 전체 지표
+BASELINE과 완전히 동일(릴리즈 47/flapping 33/route_active 3.2%/
+accel_commanded 0건). **ACTIVE STEP2 분기만 제거**(INERT는 그대로) --
+speed_reached 유지 시에는 BASELINE과 동일하나, speed_reached까지 함께
+제거하면 위 342차가 발견한 가속 오명령이 **완전히 동일하게**
+재현됨(18건, 최대 +10.69kph, t=903.44~904.89 -- 프레임 단위로 위
+342차 결과와 100% 일치). 즉 위험은 INERT 쪽이 아니라 **ACTIVE STEP2
+분기 단 하나**에서 전부 발생하며, 이 분기를 "릴리즈 조건에만 국한"해서
+지워도 위험이 줄지 않는다 -- 오히려 이 분기 자체가 위험의 근원임이
+명확해졌다.
+
+**결론**: `v_ego_ms<=target_ms`를 부분적으로만 제거하는 방식으로는
+안전 문제를 피할 수 없다. INERT 쪽은 건드려도 효과가 없고(이 로그
+기준 사실상 dead branch), ACTIVE 쪽은 건드리면 그 자체로 위험하다.
+위 342차의 최종 권고(target_ms 조건 유지, speed_reached만 별도 검토)를
+그대로 재확인.
+
+**검증**: 4가지 세분화 시나리오 전수 카운트 + ACTIVE단독+speed_reached
+동시제거 결과가 위 342차의 전체제거 결과와 프레임 단위로 완전히
+일치함을 직접 대조. **실차 검증: 미실시**(§29, ANALYSIS_ONLY, `ryu`
+코드 무변경).
+
+**미확인 사항**: 위 342차와 동일(이월).
+
+**다음 작업**: 위 342차와 동일(이월) -- speed_reached 완화/제거를
+`ryu`에 반영할지는 Master 결정 필요, 결정 시 실차검증 선행(§29).
+
+
 ## 342차 (완료 -- ANALYSIS_ONLY, `ryu` 코드 무변경, 신규 toolkit 스크립트 1개 추가) -- 릴리즈조건 `speed_reached`/`v_ego_ms<=target_ms` 두 조건 제거 시뮬레이션 + 기존 스크립트의 `RELEASE_MARGIN_RATIO` stale 상수 버그 발견(341차 수치 재검토 필요)
 
 **Worker**: Claude

@@ -1,3 +1,25 @@
+## sim_route_342_release_condition_removal.py -- ACTIVE/INERT 분기 분리 옵션 추가 (342차 계속)
+
+**계기**: 사용자가 "target_ms를 릴리즈조건에만 국한해서 삭제한다면"이라고
+질문 -- `v_ego_ms<=target_ms`가 있는 두 지점(ACTIVE STEP2 L1723 / INERT
+진입게이트 L1755)을 독립적으로 켜고 끌 수 있어야 답할 수 있었다.
+`remove_target_active`/`remove_target_inert` 파라미터를 `simulate()`에
+추가(§27 최소변경 -- 기존 4가지 시나리오 동작은 그대로, 옵션만 추가).
+
+**핵심 결과**: INERT 진입게이트만 제거하면 이 로그 기준 완전히
+무변화(사실상 dead branch). ACTIVE STEP2 분기만 제거해도 speed_reached와
+함께 제거 시 아래 342차 원 항목의 가속 오명령(18건, 최대 +10.69kph)이
+프레임 단위로 100% 동일하게 재현됨 -- 위험은 ACTIVE 분기 하나에 전부
+있다. 상세는 FINDINGS.md/WIP.md "342차 계속" 참고.
+
+**사용(추가된 옵션, `--summary` 실행 시 두 세분화 시나리오 자동 포함됨)**:
+```bash
+python3 sim_route_342_release_condition_removal.py <csv> --summary
+# 출력에 "(2a) ACTIVE만" / "(2b) INERT만" 두 세분화 시나리오가 추가로 포함됨
+```
+
+---
+
 ## sim_route_342_release_condition_removal.py (342차, 신규 -- 릴리즈조건 `speed_reached`/`v_ego_ms<=target_ms` 제거 what-if 시뮬레이션)
 
 **목적**: 사용자 지시로 ACTIVE 릴리즈 조건 `speed_reached`

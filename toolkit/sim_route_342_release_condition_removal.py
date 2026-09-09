@@ -57,7 +57,19 @@ def load_src(csv_path):
 
 
 def simulate(rows, decel_rate, tau, ctrl_end, continuity_tol,
-             remove_speed_reached, remove_target_early_exit):
+             remove_speed_reached, remove_target_early_exit,
+             remove_target_active=None, remove_target_inert=None):
+    """
+    remove_target_early_exit: 하위호환용 -- True면 ACTIVE/INERT 둘 다 제거.
+    remove_target_active / remove_target_inert: 각각 단독 지정 시 이 값이
+    remove_target_early_exit보다 우선한다(342차 후속 -- "릴리즈 조건에만
+    국한"이라는 사용자 질문에 답하기 위해 ACTIVE-STEP2 분기와 INERT
+    진입게이트 분기를 독립적으로 켜고 끌 수 있게 분리).
+    """
+    if remove_target_active is None:
+        remove_target_active = remove_target_early_exit
+    if remove_target_inert is None:
+        remove_target_inert = remove_target_early_exit
     cont = ContinuityApprox(continuity_tol)
     route_active = False
     prev_t = None
@@ -102,8 +114,10 @@ def simulate(rows, decel_rate, tau, ctrl_end, continuity_tol,
                     reason = ("apex_reset" if apex_reset else
                               "speed_reached" if speed_reached else "dist_reached")
                 else:
-                    # STEP2 -- (2) 제거: eff_dist<=0 가드는 유지, v_ego_ms<=target_ms만 제거
-                    skip = (eff_dist <= 0) if remove_target_early_exit else (eff_dist <= 0 or v_ego_ms <= target_ms)
+                    # STEP2 -- ACTIVE 상태에서의 target_ms 얼리엑싯.
+                    # remove_target_active=True면 이 분기(§ACTIVE 전용)만
+                    # 제거(eff_dist<=0 0-division 가드는 유지).
+                    skip = (eff_dist <= 0) if remove_target_active else (eff_dist <= 0 or v_ego_ms <= target_ms)
                     if skip:
                         out_speed_ms = v_ego_ms
                     else:
@@ -114,7 +128,9 @@ def simulate(rows, decel_rate, tau, ctrl_end, continuity_tol,
                         accel_commanded = True
                     out_speed_kph = out_speed_ms * 3.6
             else:
-                cond1 = (v_ego_ms <= target_ms) if not remove_target_early_exit else False
+                # INERT 진입게이트의 target_ms 체크.
+                # remove_target_inert=True면 이 분기(§INERT 전용)만 제거.
+                cond1 = (v_ego_ms <= target_ms) if not remove_target_inert else False
                 if cond1:
                     pass
                 elif eff_dist <= 0:
@@ -135,11 +151,13 @@ def simulate(rows, decel_rate, tau, ctrl_end, continuity_tol,
 
 
 def run_summary(csv_path, decel_rate, tau, ctrl_end, continuity_tol, flap_window,
-                 remove_speed_reached, remove_target_early_exit, label):
+                 remove_speed_reached, remove_target_early_exit, label,
+                 remove_target_active=None, remove_target_inert=None):
     from collections import Counter
     rows = load_rows(csv_path)
     sim = simulate(rows, decel_rate, tau, ctrl_end, continuity_tol,
-                    remove_speed_reached, remove_target_early_exit)
+                    remove_speed_reached, remove_target_early_exit,
+                    remove_target_active, remove_target_inert)
 
     releases = [(i, s) for i, s in enumerate(sim) if s["was_active"] and not s["route_active"]]
     print(f"=== {label} ===")
@@ -229,10 +247,23 @@ def main():
                     label="(1) speed_reached 제거만")
         run_summary(csv_path, decel_rate, tau, ctrl_end, continuity_tol, flap_window,
                     remove_speed_reached=False, remove_target_early_exit=True,
-                    label="(2) v_ego_ms<=target_ms 제거만")
+                    label="(2) v_ego_ms<=target_ms 제거만(ACTIVE+INERT 둘 다)")
         run_summary(csv_path, decel_rate, tau, ctrl_end, continuity_tol, flap_window,
                     remove_speed_reached=True, remove_target_early_exit=True,
                     label="(1)+(2) 두 조건 모두 제거")
+        print("### 342차 후속 -- ACTIVE 전용 / INERT 전용 분리 ###\n")
+        run_summary(csv_path, decel_rate, tau, ctrl_end, continuity_tol, flap_window,
+                    remove_speed_reached=False, remove_target_early_exit=False,
+                    remove_target_active=True, remove_target_inert=False,
+                    label="(2a) target_ms 제거 -- ACTIVE STEP2만(INERT는 그대로), speed_reached 유지")
+        run_summary(csv_path, decel_rate, tau, ctrl_end, continuity_tol, flap_window,
+                    remove_speed_reached=True, remove_target_early_exit=False,
+                    remove_target_active=True, remove_target_inert=False,
+                    label="(2a)+(1) target_ms(ACTIVE만) + speed_reached 동시 제거")
+        run_summary(csv_path, decel_rate, tau, ctrl_end, continuity_tol, flap_window,
+                    remove_speed_reached=False, remove_target_early_exit=False,
+                    remove_target_active=False, remove_target_inert=True,
+                    label="(2b) target_ms 제거 -- INERT 진입게이트만(ACTIVE는 그대로), speed_reached 유지")
     else:
         t0 = float(rest[0])
         t1 = float(rest[1])

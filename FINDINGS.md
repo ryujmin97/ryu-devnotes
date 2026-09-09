@@ -1,3 +1,40 @@
+## 342차 계속 -- `v_ego_ms<=target_ms`를 ACTIVE STEP2 분기에만 국한해 제거해도 위 342차의 가속 오명령이 동일하게 재현됨(INERT 진입게이트 단독 제거는 무변화) -- 위험은 ACTIVE 분기 단일 지점
+
+**기존 결론(위 342차)**: `speed_reached`+`v_ego_ms<=target_ms`(ACTIVE
+STEP2 L1723 + INERT 진입게이트 L1755 두 곳 동시) 제거 시 가속 오명령
+18건(최대 +10.69kph) 발생.
+
+**새로운 증거**: 사용자가 "target_ms를 릴리즈조건에만 국한해서
+삭제한다면"이라고 질문. `sim_route_342_release_condition_removal.py`에
+`remove_target_active`/`remove_target_inert` 독립 옵션을 추가해
+ACTIVE 분기와 INERT 분기를 분리 테스트.
+
+**변경 이유**: 위 342차는 두 지점을 항상 함께 켜고 껐기 때문에 위험이
+두 지점 중 어디서 오는지 구분하지 못했다. 사용자 질문을 계기로 분리
+검증이 필요해짐.
+
+**새로운 결론**: **INERT 진입게이트만 제거** -- 모든 지표가 BASELINE과
+완전 동일(릴리즈 47/flapping 33/route_active 3.2%/accel_commanded
+0건), 이 로그 기준 사실상 dead branch. **ACTIVE STEP2 분기만 제거** --
+speed_reached 유지 시엔 BASELINE과 동일하지만, speed_reached까지
+제거하면 위 342차와 프레임 단위로 100% 동일한 가속 오명령(18건, 최대
++10.69kph, t=903.44~904.89)이 재현된다. 즉 **위험은 ACTIVE STEP2
+분기 단 하나에서 전부 발생**하며, "부분적으로만 지운다"고 해서 안전해지지
+않는다 -- 오히려 그 부분이 위험의 정확한 근원임을 확인했다.
+
+**결론(권고 재확인)**: `v_ego_ms<=target_ms`를 어떤 식으로 scope를
+좁혀 제거하든 이득(INERT)이 없거나 위험(ACTIVE)만 남는다. 이 조건은
+그대로 유지하고, flapping 개선은 `speed_reached` 쪽만 별도로 검토하는
+것을 권고(위 342차 결론과 동일, 재확인됨).
+
+**검증**: 4가지 세분화 시나리오 전수 카운트 + ACTIVE단독+speed_reached
+제거 결과를 위 342차의 전체제거 결과와 프레임별(t/out_speed/accel!) 직접
+대조해 100% 일치 확인. **실차 검증: 미실시**(§29, ANALYSIS_ONLY, `ryu`
+코드 무변경).
+
+**미확인 사항**: 위 342차와 동일(이월).
+
+
 ## 342차 -- `RELEASE_MARGIN_RATIO` stale 상수 발견(341차 수치 하향 정정) + 릴리즈조건 `speed_reached`/`v_ego_ms<=target_ms` 제거 시뮬레이션(ANALYSIS_ONLY)
 
 **기존 결론(341차/341차 계속)**: flapping성 릴리즈(2초 이내 재진입) 54건

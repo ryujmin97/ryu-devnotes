@@ -3,6 +3,14 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+## 2026-09-10 (342차 계속)
+- `sim_route_342_release_condition_removal.py`: **함수 시그니처 확장**(신규
+  도구 아님). `remove_target_active`/`remove_target_inert` 옵션 추가 --
+  `v_ego_ms<=target_ms`가 있는 ACTIVE STEP2/INERT 진입게이트 두 지점을
+  독립적으로 제거 테스트 가능. INERT 단독 제거는 무변화, ACTIVE 단독
+  제거는 342차 원 항목의 가속 오명령을 프레임 단위로 동일 재현 --
+  위험이 ACTIVE 분기 하나에 있음을 확인. FINDINGS.md 342차 계속 참고.
+
 ## 2026-09-10 (342차)
 - `sim_route_342_release_condition_removal.py`: **신규**. `speed_reached`/
   `v_ego_ms<=target_ms` 릴리즈조건 제거 what-if 시뮬레이션(§21 -- 기존
