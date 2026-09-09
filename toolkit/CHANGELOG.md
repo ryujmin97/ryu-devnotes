@@ -3,6 +3,16 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+## 2026-09-10 (344차)
+- `verify_release_variant_344.py`: **신규**. ACTIVE 릴리즈 OR-조건을
+  speed_reached 포함/제거 두 가설로 텔레메트리 재생(§21 -- 283차
+  `verify_route_release_hold_283_real_log.py`의 `src=='route'` 프록시
+  방식 재사용) + 3프레임 이상 지속 run의 종료 사유 분류. 이 스크립트로
+  사용자 재업로드 로그(`000003d4--59a8ae5773` x20seg 재촬영본)가
+  343차(speed_reached 삭제) 패치 미반영 상태(device gitCommit=
+  `7b3dfec4`+dirty=True)로 기록됐음을 `check_device_build.py`와
+  독립적으로 교차검증. 상세는 FINDINGS.md/WIP.md 344차 참고.
+
 ## 2026-09-10 (342차 계속)
 - `sim_route_342_release_condition_removal.py`: **함수 시그니처 확장**(신규
   도구 아님). `remove_target_active`/`remove_target_inert` 옵션 추가 --

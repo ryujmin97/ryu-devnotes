@@ -1,3 +1,35 @@
+## verify_release_variant_344.py (344차, 신규 -- ACTIVE 릴리즈 조건 speed_reached 포함/제거 두 가설 텔레메트리 재생 + 343차 패치 반영 여부 교차검증)
+
+**목적**: `extract_log.py` 실측 CSV의 `routeApexMode`/`Dist`/`Speed`(코드가
+이미 계산해 발행한 값 그대로 재생, 재도출 아님, §27)와 `vEgo`를
+speed_reached 포함/제거 두 가설로 각각 재생해 실측 `src=='route'`
+프록시(283차 `verify_route_release_hold_283_real_log.py`가 이미
+문서화한 한계 있는 프록시)와 대조한다. 부가로 3프레임(150ms) 이상
+지속된 `src=='route'` run의 종료 사유를 `speed_reached 단독` vs
+`dist_reached/apex_passed_or_lost`로 분류해, 해당 로그가 343차
+(speed_reached 삭제) 패치 반영 전/후 중 어느 쪽으로 기록됐는지
+판별하는 데 사용한다.
+
+**344차가 이 스크립트로 실제 확인한 것**: 사용자가 재업로드한
+`000003d4--59a8ae5773`(x20seg, 20260910 재촬영본) 로그는
+`check_device_build.py` 기준 device gitCommit=`7b3dfec4`(336차)+
+dirty=True였고, 이 replay로도 3프레임 이상 지속된 `src=='route'` run
+118개 중 19건이 dist_reached/apex_passed_or_lost가 아닌
+speed_reached 단독 조건으로 종료됨을 확인 -- 343차(speed_reached
+삭제) 패치가 이 로그 기록 시점에는 실제 반영되지 않았음을 시사
+(WIP.md 344차 참고). git 메타데이터 대조와 텔레메트리 재생이라는
+서로 독립적인 두 방법이 동일 결론에 도달한 사례.
+
+**사용**:
+```bash
+python3 verify_release_variant_344.py <extract_log.py 출력 CSV>
+```
+CSV는 `extract_log.py --repo <ryu>`로 추출한 것(`--with-navi-paths`
+불필요, `routeApexMode`/`routeApexDist`/`routeApexSpeed`/`vEgo`/`src`
+컬럼만 사용).
+
+---
+
 ## sim_route_342_release_condition_removal.py -- ACTIVE/INERT 분기 분리 옵션 추가 (342차 계속)
 
 **계기**: 사용자가 "target_ms를 릴리즈조건에만 국한해서 삭제한다면"이라고

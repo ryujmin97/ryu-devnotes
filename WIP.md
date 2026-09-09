@@ -1,3 +1,92 @@
+## 344차 (완료 -- ANALYSIS_ONLY, `ryu` 코드 무변경, 신규 toolkit 스크립트 1개 추가) -- 사용자 재업로드 실측 로그로 "리드차량 서행/정지 중 route 상태" + "좌회전 apex에서 신호대기 정지" 두 시나리오 실측 확인, 겸 343차 패치 미반영(구코드 기준 로그) 발견
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu`(base `da7ab36f`=343차, 코드 변경 없음) /
+`ryu-devnotes`(base `c2a17cd7`=343차 devnotes 기록, 이 항목 추가 전)
+
+**Branch**: `c3-ms-dev` / `main`
+
+**세션 시작 확인**: 재클론 후 `ryu` HEAD `da7ab36f`(343차, 기억과 일치),
+`devnotes` HEAD `c2a17cd7`(343차 devnotes, 기억과 일치) 확인. HANDOFF.md/
+CURRENT_STATUS.md 없음.
+
+**계기**: 직전 대화에서 사용자가 "라우트 액티브중 앞차가 서행/신호로
+현재속도<목표속도인 상황"과 "apex가 좌회전 교차로였고 그 교차로에서
+좌회전신호로 정지한 상황" 두 시나리오에서 route가 release되는지 코드
+분석만으로 답한 뒤, 사용자가 "실측해보자"며 route
+`000003d4--59a8ae5773`(x20seg, 20260910 06:08 재촬영본)를 재업로드.
+
+**작업 1 -- 재추출**: `extract_log.py --repo <ryu>`로 재추출, 23,776행,
+20세그먼트(342/343차와 동일 route, 재촬영).
+
+**작업 2 -- 신규 발견(계기 외 부가): 이 로그는 343차 패치 미반영 상태로
+기록됨**. `check_device_build.py --compare-commit da7ab36f` 결과 device
+gitCommit=`7b3dfec4`(336차)+**dirty=True**, `da7ab36f`(343차)의 조상일
+뿐 후손 아님. git 메타데이터만으로 단정하지 않고(§28) 신규
+`verify_release_variant_344.py`로 텔레메트리 자체를 두 가설(speed_reached
+포함/제거)로 재생해 교차검증 -- 3프레임(150ms) 이상 지속된 `src=='route'`
+run 118건 중 **19건이 dist_reached/apex_passed_or_lost가 아닌
+speed_reached 단독 조건으로 정확히 그 프레임에 종료**됨을 확인(343차
+패치가 실제 반영됐다면 이 경로 자체가 존재할 수 없음). 두 독립적 방법이
+같은 결론에 도달 -- **343차 패치가 이 로그 기록 시점 디바이스에는 아직
+반영/적용되지 않은 것으로 판단**(§33 -- GitHub/패치 상태가 예상과 다른
+경우로 사용자에게 즉시 보고함).
+
+**작업 3 -- 시나리오 1(리드차량 서행/정지) 실측**: t=1290~1298s 구간에서
+실측 확인. 리드차량이 거의 정지(`leadVLead` 0.2~1.2km/h)한 채 접근하는
+동안, apex_dist가 아직 20~50m 남아있고(dist_reached 미충족) apex_mode도
+`matched` 유지 중인데도, vEgo가 `apex_speed*1.05` 이하로 떨어지는 매
+순간 route가 release됨(t=1294.2s, 1297.1s 각각 3프레임 지속 후
+release) -- 341/342차가 이미 문서화한 flapping 메커니즘의 실제 발현
+사례. 위 작업 2로 확인된 대로 이 로그는 343차 이전 코드이므로, 343차
+패치가 실제 디바이스에 반영되면 이 두 release는 사라지고 route가 apex
+통과/10m 이내까지 계속 개입할 것으로 예상되나 **이번 로그로는 아직
+확인되지 않음**(구코드 로그이므로 343차 효과 자체는 미검증 -- 다음
+실차 검증 시 재확인 필요).
+
+**작업 4 -- 시나리오 2(좌회전 apex + 신호대기 정지) 실측**: t≈1406~1530s
+구간에서 명확한 사례 확인. `xTurnInfo==1`(좌회전) 접근 중 route가
+apex_dist 100m→10m까지 정상 감속 개입(`src=='route'`) -> apex_dist가
+물리적으로 0에 도달, vturn/road로 arbitration 이관 -> 이후 약 100초간
+완전 정지(신호대기, vEgo≈0). 정지 내내 `apex_dist=0.0`(10m 이내,
+dist_reached 조건 항상 충족 상태 유지)이고, `apex_mode`는 `matched`<->
+`passed` 사이에서 계속 flicker -- 이는 **기존 FINDINGS "322차 계속,
+원인 B"**가 이미 규명한 것과 완전히 동일한 현상(vEgo≈0 근처 부동소수점
+잡음으로 `predicted=locked_dist-v_ego_ms*dt`의 0-경계 판정이 흔들리는
+것, 로직 결함 아님, 신규 원인 아님, §24 -- 중복 FINDINGS 미생성).
+정지 내내 `src=='road'`이고 route가 arbitration에서 이기는 프레임 0건 --
+dist_reached가 이미 항상 충족돼 release 판정 자체에는 flicker가 실질적
+영향 없음. **직전 대화에서 코드 분석만으로 예측했던 "정지선이 apex
+10m 이내면 정지 중이라도 release 유지"가 그대로 실측 확인됨.**
+
+**검증**:
+- **정적 분석**: `py_compile` 통과.
+- **재현성**: `verify_release_variant_344.py`를 원본 CSV에 재실행해
+  동일 수치(mismatch 33/0.14%(WITH) vs 881/3.71%(WITHOUT), speed_reached
+  단독 종료 19/118건) 재확인.
+- **로그 검증**: 위 시나리오 1/2 모두 원본 CSV에서 직접 프레임 단위로
+  대조 확인(pandas 직접 조회, 스크립트 결과와 일치).
+- **실차 검증**: 해당 없음(이미 실차에서 기록된 로그의 사후 분석).
+- **343차 패치 자체의 실차 효과 검증: 미실시** -- 이 로그가 343차
+  이전 코드로 기록됐음이 확인됐으므로(작업 2), 343차의 "speed_reached
+  제거로 시나리오 1류 release가 사라지는지"는 여전히 미확인.
+
+**미확인 사항**:
+- 343차 패치가 실제로 사용자 로컬/디바이스에 `git am`/커밋/빌드까지
+  완료됐는지 불명 -- 다음 세션 시작 시 재확인 필요.
+- 좌회전 apex(작업 4)의 물리적 위치가 실제 정지선/교차로 진입부와
+  정확히 얼마나 가까운지(qcamera 대조)는 이번 세션에서 수행하지 않음.
+
+**다음 작업**:
+- 사용자에게 343차 패치의 로컬 적용/커밋/디바이스 재빌드 여부 확인
+  요청.
+- 343차 패치가 실제로 반영된 후 동일 route(가능하면 동일 리드차량
+  서행 상황)를 재주행/재촬영해 시나리오 1 release 소멸 여부 직접
+  재확인.
+
+
+
 ## 343차 (완료 -- `ryu` 코드 변경 1건, ANALYSIS_ONLY 아님/Master 승인 하 적용, §27/§31) -- ACTIVE 릴리즈 OR-조건에서 `speed_reached`(`v_ego_kph<=apex_speed*ROUTE_ACTIVE_RELEASE_MARGIN_RATIO`) 삭제, `v_ego_ms<=target_ms`는 그대로 유지
 
 **Worker**: Claude
