@@ -1,3 +1,69 @@
+## 329차 -- [코드수정 완료, 실차 미검증] route_local_curve_merge()의 context(macro chord 계산용 원본 경로 구간)=replacement(10m 결과 대체 구간) 설계가 여유(margin) 0이라 정상적인 mid-path 상황에서도 fallback -- crop 범위를 macro chord 길이만큼 넓혀 수정
+
+**기존 결론(328차)**: "10m 기본 패스 + orphan(min_points 미달) 주변만
+±40m window에서 2.5m 국소 재샘플"로 orphan 후보를 줄일 수 있다(326/327차
+확정설계, 328차 최초 patch).
+
+**새로운 증거(329차, x18seg 3645프레임 raw-path 재생)**: `route_local_curve_merge()`가
+국소 재계산에 쓰는 원본 경로 구간(context, `route_crop_path_by_distance(relative_coords, ws, we)`)과
+10m 결과를 실제로 대체하는 구간(replacement, `[ws,we]`)이 동일하게
+설계돼 있었다. 그런데 macro chord(곡률 계산에 필요한 물리적 길이)는
+`2*LOCAL_CURVE_MACRO_SAMPLE*LOCAL_CURVE_DISTANCE_INTERVAL = 2*16*2.5 = 80m`로
+window 폭(`WINDOW_BACK_M+WINDOW_FWD_M=80m`)과 우연히 정확히 같다.
+그 결과:
+- window 전체가 사실상 macro chord 1개만 겨우 채우는 구조라, 정상
+  케이스에서도 국소 출력이 거의 항상 1점뿐(<=2점 window 비율 81.9%,
+  2~8점 사이는 0건인 완전 양자화된 분포).
+- 여유가 0이라 부동소수점 보간 오차만으로도 `total_len`이 80.0m보다
+  아주 조금(예: 79.999...m) 작아지면 `int(total_len//2.5)+1=32<33`이
+  되어 그대로 fallback(원본 10m 포인트 복원) -- **path 경계 근처가
+  아닌 mid-path 정상 상황에서도** 발생(fallback 45.5% 중 상당수).
+
+**변경 이유**: 이 여유 0 설계는 328차 코드리뷰(ChatGPT)가 지적한
+"window 후반부 커버리지 부족"/"distance_offset 경계 불일치"보다 더
+근본적인 원인으로, x18seg 실측 재생으로 정량 확인됨(WIP.md 329차 참고).
+
+**새로운 결론(329차 계속2, 패치 적용)**: `route_crop_path_by_distance()`
+호출 시 context 범위를 `[ws, we + LOCAL_CURVE_MACRO_CHORD_M]`로 확장하고
+(replacement 판정 범위 `[ws,we]`와 `distance_offset=ws` 라벨링은 기존
+유지), context가 path 끝단에서 clamp돼 국소 출력이 `we`까지 못 미치는
+꼬리 구간은 원본 10m 포인트로 부분 복원(`tail_partial_restore`, 신규)한다.
+x18seg 3645프레임 재생 결과: fallback 45.5%->0%, local_used 63.4%->100%,
+cluster 승격 61.8%->92.5%, 병합 후 무결성(중복/미정렬/gap>15m) 전부
+0건. 부수적으로 별도 기존 버그(orphan이 path 시작점 근처, `ws<0`
+clamp/라벨링 불일치 계열)의 발생빈도도 94% 줄었으나(137건->8건) 완전
+해결은 아님 -- 별도 이슈로 이월(다음 항목).
+
+**패치 범위(§27)**: `selfdrive/carrot/carrot_man.py`,
+`route_local_curve_merge()` 내부만(상수 1개 추가 + crop 호출 1곳 수정 +
+tail 복원 분기 1곳 신규). ACTIVE/continuity 로직 무변경.
+
+**실차 검증**: 미실시. 이 로그(x18seg) 자체가 328차 패치 이전
+(`1b77b799`, 323차 빌드) 기록이라 raw geometry를 오프라인 재생한
+counterfactual 검증이며, 329차 패치 자체의 실차 사전감속 타이밍
+영향은 아직 관측되지 않음.
+
+**관련**: WIP.md 329차/329차 계속2, `toolkit/sim_route_329_local_merge_replay.py`
+(수정 전 328차 원본 재생), `toolkit/sim_route_329b_context_fix_replay.py`
+(수정 후 재생).
+
+---
+
+## 329차(부록) -- [미해결, 이월] route_local_curve_merge() 부근 orphan이 path 시작점 근처(`ws<0`)일 때 distance_offset 라벨링과 route_crop_path_by_distance()의 d_start clamp가 어긋나는 잔존 버그 -- 329차 계속2 패치로 발생빈도 94% 감소(137건->8건)했으나 미해결
+
+**증거**: 합성 300케이스 회귀(임의 경로+임의 orphan)에서 병합 후
+distance gap>15m이 328차 원본 코드 기준 137건 발생. 329차 계속2
+context/replacement 분리 패치 적용 후 동일 300케이스에서 8건으로
+감소(94%↓)했으나 0건은 아님.
+
+**현재 상태**: 원인 후보(가설 단계, §28 -- 미확정)는 orphan이 path
+시작점 근처라 `ws<0`이 되는 경우 `route_crop_path_by_distance()`의
+`d_start` clamp(0으로 clamp)와 `distance_offset=ws`(음수 그대로 사용)
+라벨링이 서로 어긋나는 것. 아직 코드 추적으로 확정하지 않음(§28
+"추측만으로 원인을 확정하지 않는다" 원칙에 따라 미확정으로 기록).
+
+**다음 작업**: `ws<0` 케이스만 별도로 골라내 8건 각각을 프레임 단위로
+추적, 근본 원인 확정 후 수정안 설계(사용자 승인 필요).
 ## 327차 -- [실차 실측 확정, 325차 "다음 단계" 완료] ep3 `route_active` 대량유실의 원인은 10m grid quantization에 의한 apex candidate churn -- ep4의 두 메커니즘과 구분되는 세 번째 유형, 이번엔 5m이 2.5m과 사실상 동일하게 성공
 
 **배경**: 325차가 "다음 단계"로 미룬 ep3(seg--3, 34.90초, 324차가

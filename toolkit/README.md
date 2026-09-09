@@ -45,6 +45,40 @@ byte-identical 회귀검증 완료) + `route_local_curve_merge()`에만
 (`extract_log.py` 기본 출력, `--with-navi-paths` 불필요 --
 `routeOrphanRawPath`는 항상 채워짐)
 
+## sim_route_329b_context_fix_replay.py (329차 계속, context/replacement 분리 수정 검증)
+
+**목적**: 위 329차 스크립트가 실측으로 확인한 "여유(margin) 0" 문제를
+고치는 실제 `ryu` patch(`route_local_curve_merge()`, base `b31016fe`
++ 이번 세션 patch)를 verbatim 반영해 같은 x18seg 데이터로 재생하고,
+fallback률/window당 출력 point 개선과 병합 후 무결성(중복 distance/
+미정렬/distance hole)을 함께 검사한다.
+
+**핵심 설계**: crop 범위를 `[ws, we + LOCAL_CURVE_MACRO_CHORD_M]`(기존
+`[ws, we]`에서 뒤쪽으로 80m 확장)로 바꾸되 `distance_offset=ws`와
+replacement 판정 범위(`ws,we`)는 그대로 둔다 -- macro chord(80m)를
+채우는 데 필요한 context를 replacement 범위보다 넓게 확보하는 것이
+핵심(§27, 상태기계/라벨링 관례는 무변경). `route_crop_path_by_distance()`가
+path 끝단에서 d_end를 clamp하므로, context가 부족해 국소 출력이 `we`
+까지 못 미치는 꼬리 구간은 원본 10m 포인트로 부분 복원한다(신규
+`tail_partial_restore` 분기 -- 이게 없으면 제거는 `[ws,we]` 전체인데
+대체는 일부만 되어 조용한 데이터 손실이 생김, 328차가 이미 한 번 고친
+것과 동일 성격의 버그, x18seg 실측 946/3633프레임 gap 최대 52.5m로
+확인 후 추가).
+
+**결과 요약**(x18seg 3645프레임, 329차와 동일 데이터): local_used
+63.4%→100%, fallback(완전 원본복원) 45.5%→0%, cluster 승격
+61.8%→92.5%, window당 output point 중앙값 1→32(최소 1→16). 병합 후
+중복/미정렬/distance gap>15m 전부 0건. 합성 300케이스 회귀에서 예외/
+중복/미정렬 0건 -- gap>15m 8건은 328차 원본 코드로 재현 시 137건이라
+**이 패치가 만든 신규 회귀가 아니라 기존 별도 버그(orphan이 path
+시작점 근처일 때 `ws<0` clamp/라벨링 불일치, WIP 329차 "미확인 사항"
+②번과 동일 계열)의 발생빈도를 94% 줄인 부수 효과**임을 확인(완전
+해결은 아님, 다음 작업으로 이월).
+
+**사용**: `python3 sim_route_329b_context_fix_replay.py <CSV>`
+(329차와 동일 CSV 재사용 가능. 수정 전 328차 원본 동작과 비교하려면
+`sim_route_329_local_merge_replay.py`를 그대로 계속 사용)
+
 **x18seg 실측 결과(2026-09-09, 323차 빌드 `1b77b799`로 기록된 로그를
 328차 `b31016fe` 함수로 오프라인 재생 -- production 필드 자체는 328차
 반영 안 됨, 324차와 동일한 counterfactual 방식)**:

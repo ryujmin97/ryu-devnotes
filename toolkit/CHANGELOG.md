@@ -3,6 +3,28 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+## 2026-09-09 (329차 계속)
+- `sim_route_329b_context_fix_replay.py`: **신규**. 329차(진행중)가
+  발견한 "context(macro chord 계산용 원본 경로 구간)=replacement(10m
+  결과 대체 구간)" 설계의 여유(margin) 0 문제를 고치는 실제 `ryu`
+  patch(`route_local_curve_merge()`, base `b31016fe`)를 verbatim
+  반영. crop 범위만 `LOCAL_CURVE_MACRO_CHORD_M`(=80m)만큼 뒤쪽으로
+  넓히고(distance_offset/replacement 범위는 기존과 동일 유지),
+  context가 path 끝단에서 clamp돼 국소 출력이 replacement 범위 끝까지
+  못 미치는 꼬리 구간은 원본 10m 포인트로 부분 복원(신규,
+  `tail_partial_restore`). x18seg 동일 3645프레임 재생 결과:
+  local_used 63.4%->100%, fallback(완전 원본복원) 45.5%->0%, cluster
+  승격 61.8%->92.5%, window당 output point 중앙값 1->32(최소
+  1->16). 병합 후 무결성 검사(중복 distance/미정렬/distance
+  gap>15m) 전부 0건(수정 전 gap>15m 946/3633프레임 관측 -> 0). 합성
+  300케이스 회귀(임의 경로+임의 orphan)에서 예외/중복/미정렬 0건;
+  gap>15m 8건 잔존하나 328차 원본 코드로 동일 케이스 재현 시 137건
+  -> **이 패치가 만든 신규 회귀가 아니라 기존에 있던 별도 버그(orphan이
+  path 시작점 근처, `ws<0`이라 `route_crop_path_by_distance()`의
+  `d_start` clamp와 `distance_offset=ws` 라벨링이 어긋나는 경우)의
+  발생빈도를 94% 줄인 것**(129건 감소, 완전 해결은 아님 -- 다음
+  작업으로 이월). 상세는 WIP.md 329차 계속 참고.
+
 ## 2026-09-09 (329차)
 - `sim_route_329_local_merge_replay.py`: **신규**. 328차
   `route_local_curve_merge()`/`route_curvature_macro_fine()`/

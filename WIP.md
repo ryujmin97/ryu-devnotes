@@ -1,3 +1,128 @@
+## 329차 계속2 (완료 -- context/replacement 분리 설계 구현 + patch 작성 + 독립검증(git apply/am/py_compile) + 전달 완료) -- 329차가 실측 확인한 route_local_curve_merge() "여유(margin) 0" 설계를 crop 범위 확장 + tail 부분복원으로 수정, x18seg 재생 fallback 45.5%->0%
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu`(base `b31016fe`=328차, 이 패치 적용 대상) /
+`ryu-devnotes`(base `83f5198`=329차 진행중 체크포인트, 이 항목 추가 전)
+
+**Branch**: `c3-ms-dev` / `main`
+
+**세션 시작 확인(§3/§33)**: `git ls-remote`로 원격 fresh 재확인 -- `ryu` HEAD
+`b31016fe`(328차, 변경 없음), `ryu-devnotes` HEAD `83f5198`(329차 진행중,
+변경 없음). 다른 작업자 개입 흔적 없음. 사용자가 329차 진행중 세션이
+설계/구현한 산출물(`carrot_man.py` 수정본, `toolkit/sim_route_329b_context_fix_replay.py`,
+`toolkit/README.md`/`CHANGELOG.md` 갱신분, x18seg 원본 zip 재업로드)을
+이번 세션에 제공.
+
+**배경**: 329차(진행중)가 실측으로 확인한 문제 -- `route_local_curve_merge()`의
+crop 범위(context)가 replacement 판정 범위 `[ws,we]`(80m)와 동일한데
+macro chord 물리 길이도 정확히 80m라 여유(margin)가 0이 되어, x18seg
+3645프레임 재생에서 fallback(원본 10m 복원) 45.5%, window당 출력이 거의
+항상 1점뿐임을 확인함(WIP.md 329차 참고). 이 회차는 그 수정안을 구현/
+검증/패치화하는 작업.
+
+**1) 수정 설계(§26 원칙에 따른 명시)**:
+- **기존값**: `route_crop_path_by_distance(relative_coords, ws, we)` --
+  context와 replacement 범위가 동일 `[ws, we]`(80m).
+- **변경값**: `route_crop_path_by_distance(relative_coords, ws, we + LOCAL_CURVE_MACRO_CHORD_M)`
+  (신규 상수 `LOCAL_CURVE_MACRO_CHORD_M = LOCAL_CURVE_MACRO_SAMPLE * LOCAL_CURVE_DISTANCE_INTERVAL * 2 = 80m`) --
+  context만 뒤쪽으로 80m 확장. `distance_offset=ws`, replacement 판정
+  범위 `(ws,we)`는 기존과 동일하게 유지(§27, 라벨링 관례/상태기계 무변경).
+- **변경 이유**: macro chord(80m)를 채우는 데 필요한 최소 context 길이가
+  기존 window 폭(80m)과 정확히 같아 여유가 0이었던 것이 fallback의
+  근본 원인(329차 5번 발견, 부동소수점 경계에서도 실패). context를
+  replacement보다 넓게 잡아 여유를 만드는 것이 목적.
+- **영향**: `route_crop_path_by_distance()`가 path 끝단에서 `d_end`를
+  `total_len`으로 clamp하므로, path 끝 근처에서는 context가 자동으로
+  좁아져 국소 출력의 마지막 점이 `we`에 못 미치는 꼬리 구간이 생길 수
+  있음(x18seg 실측 946/3633프레임, gap 최대 52.5m) -- 이 구간을 그냥
+  비워두면 제거는 `[ws,we]` 전체인데 대체는 일부만 되어 조용한 데이터
+  손실이 됨(328차가 이미 한 번 고친 것과 동일 성격의 버그, §28). 이를
+  막기 위해 `covered_max < we`인 꼬리 구간을 원본 10m 포인트로 부분
+  복원하는 `tail_partial_restore` 분기를 신규 추가.
+- **검증 결과**: 아래 4번 참고.
+
+**2) 구현 범위(§27 최소변경)**: `selfdrive/carrot/carrot_man.py` 단일
+파일, `route_local_curve_merge()` 함수 내부 crop 호출 1곳 + tail 복원
+분기 1곳 추가, 상수 1개(`LOCAL_CURVE_MACRO_CHORD_M`) 추가. `ACTIVE`/
+`continuity` 등 다른 로직은 이번 패치에서 전혀 건드리지 않음(doc 확인
+완료 -- diff가 이 두 지점 외에는 0바이트 차이).
+
+**3) toolkit 신규**: `toolkit/sim_route_329b_context_fix_replay.py` --
+329차 스크립트(`sim_route_329_local_merge_replay.py`)와 동일 방법론으로
+수정 후 `route_local_curve_merge()`를 재생. `route_find_clusters`/
+`calculate_curvature`/상수는 `sim_route_322d_stateful_replay.py`에서
+재사용(§21, 기존 328차/329차와 동일 패턴). 328차 원본 스크립트는 비교용으로
+그대로 보존(변경 없음).
+
+**4) x18seg 재생 결과(3645프레임, 329차와 동일 데이터)**:
+```
+local_used: 63.4% -> 100%
+fallback(완전 원본복원): 45.5% -> 0%
+cluster 승격: 61.8% -> 92.5%
+window당 output point 중앙값: 1 -> 32 (최소 1 -> 16)
+병합 후 무결성(중복 distance/미정렬/distance gap>15m): 전부 0건
+  (수정 전 gap>15m 946/3633프레임 관측 -> 0)
+합성 300케이스 회귀(임의 경로+임의 orphan): 예외/중복/미정렬 0건
+  gap>15m 8건 잔존 -- 328차 원본 코드로 동일 케이스 재현 시 137건과
+  대조하면 이 패치가 만든 신규 회귀가 아니라 기존에 있던 별도 버그
+  (orphan이 path 시작점 근처, ws<0이라 route_crop_path_by_distance()의
+  d_start clamp와 distance_offset=ws 라벨링이 어긋나는 경우)의
+  발생빈도를 94% 줄인 부수 효과로 확인(129건 감소, 완전 해결은 아님 --
+  다음 작업으로 이월).
+```
+이 수치는 이번 회차 이전(329차 계속, 설계/구현 단계)에 이미 산출된
+것으로 파일 제공 시점에 전달받음 -- 아래 5번은 이번 회차가 **독립적으로
+재확인**한 항목만 구분해 기록.
+
+**5) 이번 회차가 독립적으로 수행한 검증(재실행분)**:
+- `carrot_man.py`(업로드본) vs `ryu` HEAD `b31016fe`(원본) 텍스트 diff:
+  변경 지점이 위 1)/2)에서 설명한 두 곳(상수 추가 1곳, crop 호출부 +
+  tail 복원 분기)뿐임을 라인 단위로 직접 확인(PASS, 다른 로직 변경 없음).
+- `py_compile`: 업로드본 `carrot_man.py` 단독 PASS.
+- **패치 생성 + 독립 적용검증(§31 절차)**: `ryu` HEAD `b31016fe`를
+  fresh clone한 뒤 업로드본으로 교체해 `git format-patch`로 단일 패치
+  생성 -> **별도의 fresh clone**(`b31016fe`, 첫 번째 clone과 무관)에서
+  `git apply --check` PASS -> `git am` PASS -> 적용된 파일
+  `py_compile` PASS. 세 단계 모두 통과.
+- `toolkit/README.md`/`CHANGELOG.md`(업로드본) vs `ryu-devnotes` HEAD
+  `83f5198`(원본) diff: 두 파일 다 순수 추가(append)뿐이고 기존 내용
+  삭제/수정 없음을 확인(§21/§22 준수).
+- **재실행하지 않은 것(명시, §17/§29)**: x18seg zip(18세그, raw
+  rlog/qcamera)을 `extract_log.py`로 재추출해 `sim_route_329b_context_fix_replay.py`를
+  이번 세션에서 처음부터 다시 돌려 위 4번 수치를 재현하는 것은 이번
+  회차에서 수행하지 않았음(원본 rlog 파싱에 `ryu`의 capnp 스키마 전체
+  빌드가 필요해 범위 밖으로 판단, 이미 제공된 CSV 기반 재생 결과를
+  코드 diff 검증으로 대체). 따라서 4번 수치는 "재확인"이 아니라
+  "전달받아 devnotes에 정식 반영"으로 구분해서 읽을 것.
+
+**검증**:
+- 정적분석/diff: PASS(위 5번).
+- 패치 적용(git apply/am/py_compile, 독립 fresh clone): PASS(위 5번).
+- 로그 검증(x18seg raw-path 3645프레임 재생): 329차 계속 단계에서 수행,
+  이번 회차는 결과 수치를 코드 diff로 교차검증만 함(4/5번 참고).
+- **실차 검증: 미실시.** ACTIVE/continuity 로직은 이번 패치에서 변경
+  하지 않았으므로 사전감속 발동 타이밍 자체는 아직 실측 확인 안 됨.
+
+**영향받는 실차 제어 로직**: `route_local_curve_merge()`의 국소 곡률
+재계산 입력 geometry 품질(orphan candidate 주변 2.5m 재샘플의 실제
+점 개수/커버리지) -- ACTIVE 판정/continuity 정책 자체는 무변경.
+
+**미확인 사항**:
+- x18seg zip을 이번 세션 환경에서 처음부터 재추출해 4번 수치를 재현하는
+  절차(위 5번 마지막 항목).
+- ws<0 근처 별도 버그(129건 감소했지만 8건 잔존)의 완전한 원인 규명/수정.
+- 325차 방식(route_active 프레임트레이스)과 결합한 실제 사전감속 타이밍
+  영향 확인.
+- 실차 투입 후 관측.
+
+**다음 작업**:
+1. 이 패치를 `ryu`에 적용(`git am`) 후 실제 빌드로 실차 투입, 사전감속
+   발동 타이밍 변화를 325차 방식 frame trace로 확인.
+2. ws<0 근처 잔존 8건 버그 원인 규명(우선순위는 사용자 판단에 위임 --
+   이미 94% 개선됐고 이번 패치의 핵심 목표는 아니었음).
+3. FINDINGS.md에 이번 발견/수정을 별도 항목으로 기록(이 회차에서 함께
+   진행, 아래 별도 커밋 참고).
 ## 329차 (진행중 -- ChatGPT의 328차 코드리뷰를 코드 재확인 + x18seg 실측 재생으로 검증, 코드 수정 전 체크포인트) -- 328차 local curve merge의 실제 동작을 raw geometry 재생으로 정량화: fallback 45.5%, 정상 케이스 output이 거의 항상 1점뿐임을 확인
 
 **Worker**: Claude
