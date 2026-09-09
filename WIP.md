@@ -1,3 +1,106 @@
+## 327차 (완료 -- 신규 업로드 원본 zip 재추출로 324/325차 결과 100% 재현 확인 + ep3 프레임트레이스로 325차 "다음 단계" 완료, `ryu` 코드 변경 없음) -- 10m grid quantization으로 인한 apex candidate churn(순간등록->min_points미달->lost 반복)이 route_active 대량유실의 세 번째 메커니즘으로 확인됨
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu`(base `1b77b799`=323차, 코드 변경 없음,
+`extract_log.py --with-navi-paths` 실행용 clone만) /
+`ryu-devnotes`(base `d3b1f550`=326차, 이 항목 추가 전)
+
+**Branch**: `c3-ms-dev` / `main`
+
+**세션 시작 확인(§3/§33)**: `git ls-remote`로 원격 fresh 재확인 --
+`ryu` HEAD `1b77b799`(323차, 변경 없음), `ryu-devnotes` HEAD
+`d3b1f550`(326차, 변경 없음). 다른 작업자 개입 흔적 없음.
+
+**배경**: 326차가 "다음 세션 착수 항목"으로 남긴 "324/325차 로그
+A/B 비교를 신규 업로드분(x18seg 원본 zip 재포함)까지 반영해 재실행"을
+이번 세션에서 수행. 사용자가 `ep4_trace_325cha.csv`/
+`x18seg_324_episodes.csv`(기존 산출물)와
+`20260909_062749_000003c9--5335674c02_x18seg.zip`(원본 로그
+재업로드, 18세그)/`params_backup-1.json`을 함께 업로드.
+
+**1) 원본 로그 재추출 + 기존 산출물 재현성 확인**:
+- `extract_log.py --with-navi-paths --repo <1b77b799 clone>`으로
+  18세그 전체(20,498행, 기존 324차가 분석한 17세그/20,399행 + 신규
+  seg--18 tail 99행) 재추출.
+- `params_backup-1.json` 확인 결과 `MapTurnSpeedFactor=110`/
+  `AutoNaviSpeedCtrlEnd=8`/`AutoNaviSpeedDecelRate=90`/
+  `TurnSpeedControlMode=2` -- 324/325차 스크립트에 하드코딩된 값과
+  100% 일치(다른 corpus 재사용 시 반드시 재확인하라는 324차 README
+  경고 사항 충족).
+- `sim_route_324_grid_counterfactual.py --validate`: `recompute_grid`
+  회귀검증 mismatch 0, orphan 3645프레임 raw round-trip 확인(324차와
+  동일 모수).
+- `sim_route_324_grid_counterfactual.py`(신규 20,498행 CSV) 실행 결과
+  41개 에피소드(5m+2.5m 모두 승격 30 / 승격없음 11 / route_active
+  상이 2)가 기존 업로드된 `x18seg_324_episodes.csv`와 **13개 컬럼 x
+  41행 전부 byte-for-byte 동일**(신규 seg--18에는 orphan 에피소드
+  없어 집계 불변) -- 원본 재업로드가 324차 결과를 정확히 재현함을
+  확인, 신규 분석 진행의 데이터 기반 확보.
+- `sim_route_325_ep4_frame_trace.py --validate-parity` +
+  ep4(seg--4) 프레임트레이스(1200행, t=722.19~782.14) 재실행 결과도
+  기존 업로드된 `ep4_trace_325cha.csv`와 **39컬럼 x 1200행 전부
+  byte-for-byte 동일**.
+
+**2) ep3 프레임트레이스 신규 실행(325차가 "다음 단계"로 남긴 항목)**:
+- 324차가 `route_active 상이` 2건 중 아직 미추적으로 남겨뒀던
+  ep3(seg--3, 34.90초, t=687.24~722.14)를 동일 스크립트
+  (`sim_route_325_ep4_frame_trace.py`, §27 무변경 재사용)로
+  `--seg="--3" --t0 687.235592274 --t1 722.135800252`로 트레이스.
+- **route_active 구간 확정**: 10m은 t=720.189~720.538(0.35초)뿐,
+  5m/2.5m은 t=712.137/712.036~721.736(각 9.60초/9.70초) -- 10m이
+  실질적으로 이 커브 전체를 놓치고, 5m과 2.5m은 활성 시작 시각이
+  0.1초 차이로 사실상 동일(ep4의 "2.5m만 추가 검출"과는 다른 유형).
+- **10m 실패 메커니즘(신규 규명)**: t=712.6~720.1(약 7.5초) 동안 10m
+  `apex_mode`가 `new`(apex_dist가 270->260->...->130으로 10m
+  그리드 간격만큼 정확히 계단식 하강)로 매번 새로 등록됐다가
+  `cluster_count=1`(min_points=2 미달)로 즉시 `held`->`lost`->`none`
+  으로 꺼지는 패턴을 약 0.7~1초 주기로 14회 반복 -- **동일한 물리적
+  커브 하나가 10m 그리드에서는 매 리샘플 지점마다 단발 candidate로
+  재등록만 되고 연속된 두 점으로 뭉치지 못해(min_points=2 미충족)
+  전혀 cluster로 승격되지 못하는 상태가 약 7.5초간 지속**됨. 반면
+  5m/2.5m은 같은 물리적 위치(175~180m)에서 t=712.0~712.1대에 곧바로
+  cluster_count>=2로 안정화. 10m은 결국 t=720.14(apex_dist=130m)에서
+  한 번 ACTIVATE에 도달하나 0.35초 뒤 apex_lost로 즉시 release.
+- **324차/325차 기존 결론과의 관계**: 이 메커니즘은 325차가 ep4에서
+  규명한 두 가지(①구간1: 재샘플밀도별 속도추정 타이밍차, 다 결국
+  통과 / ②구간2: 2.5m만의 고유 apex 분리검출, 5m도 놓침)와 **셋째로
+  구분되는 별도 메커니즘** -- ep3에서는 5m이 2.5m과 사실상 동일하게
+  완전히 성공하고, 10m만 유일하게 실패(단일 apex를 grid quantization
+  때문에 min_points 문턱 자체를 못 넘음). 234차/292차가 지목했던
+  "apex candidate continuity instability"(메모리 기존 학습)의 실제
+  실차 사례로도 해석 가능 -- 각 10m 그리드 스텝마다 candidate가
+  continuity 매칭 없이 매번 처음부터(streak=1) 다시 시작하는 것이
+  근본 원인.
+- 산출물: `ep3_trace_full.csv`(798행, ep4와 동일 39컬럼) --
+  toolkit에는 신규 스크립트 작성 없음(기존 스크립트 그대로 재사용),
+  §21 원칙에 따라 파일 자체는 devnotes에 커밋하지 않고(§23, 대용량
+  아님이나 1회성 트레이스 산출물이라 work/ 정책과 동일하게 취급)
+  핵심 프레임/결론만 FINDINGS.md에 기록.
+
+**검증**: 정적분석(기존 스크립트 재사용, 신규 코드 없음) + 로그검증
+(byte-for-byte 재현성 확인 2건) + 오프라인 프레임트레이스(ep3 신규).
+**실차 검증: 미실시**(전부 offline replay).
+
+**영향받는 실차 제어 로직**: 없음(이번 항목은 분석/문서화뿐, `ryu`
+코드 변경 없음).
+
+**다음 작업**:
+1. 326차가 확정한 "10m 기본 + 곡선후보 주변 국소 2.5m 재샘플" patch
+   설계에 착수하기 전, 이번 ep3 발견(10m candidate churn -> min_points
+   미달 반복)이 326차 "곡선 후보" 판정 trigger 조건(326차 미확정
+   사항 1번)의 근거로 쓰일 수 있는지 검토 -- 예: 10m에서 apex_mode가
+   `new`로 반복 재등록되며 매번 cluster_count<2로 꺼지는 패턴 자체를
+   trigger로 삼는 방안.
+2. 326차 미확정 사항 2~5번(국소윈도우 폭/hysteresis/유지거리/코드
+   레벨 `distance=-10.0` 일반화)은 여전히 미착수.
+3. 41개 에피소드 중 route_active 상이 2건(ep3/ep4) 모두 프레임
+   추적 완료 -- 이 corpus 기준으로는 추가 미추적 상이 사례 없음.
+   다른 corpus에서도 이 3가지 메커니즘(타이밍차/2.5m전용검출/10m
+   candidate churn)이 재현되는지는 미확인(§28/§29 한계).
+
+---
+
 ## 326차 (진행 중 -- 설계 방향 확정, 코드 패치 착수 전 체크포인트) -- 2.5m 국소(local) 곡선후보 재샘플 설계로 확정, "계측 patch 선행" 사이클 생략하고 "패치 -> 실차 -> 로그 역추적" 순서로 전환
 
 **Worker**: Claude (사용자 + ChatGPT/지선생과의 설계 논의 결과를 반영해 체크포인트 작성)

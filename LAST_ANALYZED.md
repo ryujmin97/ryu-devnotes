@@ -1,3 +1,27 @@
+## c3-ms-dev (327차, 신규 업로드 x18seg 원본zip 재추출 재현성 확인 + ep3 프레임트레이스로 325차 "다음 단계" 완료 -- `ryu` 코드 무변경)
+- Repository: `ryujmin97/ryu`
+- Branch: `c3-ms-dev`
+- last_analyzed_commit: `1b77b799`(323차, 코드 변경 없음, `extract_log.py
+  --with-navi-paths` 실행용 clone일 뿐)
+- devnotes base: `d3b1f550`(326차, 이 항목 추가 전)
+- Analysis date: 2026-09-09 (327차)
+- Worker: Claude
+- Analyzed commits: 없음(코드 변경 없음, 로그 분석만)
+- Analyzed files/logs: 사용자 업로드
+  `20260909_062749_000003c9--5335674c02_x18seg.zip`(18세그먼트,
+  route `000003c9--5335674c02`) -> `extract_log.py --with-navi-paths`로
+  CSV화(20,498행) + 기존 업로드 `x18seg_324_episodes.csv`/
+  `ep4_trace_325cha.csv`/`params_backup-1.json`과 대조.
+- Conclusion: 재추출 CSV가 324차/325차 기존 산출물과 byte-for-byte
+  동일함을 확인(재현성 검증). ep3(324차가 미추적으로 남긴 route_active
+  상이 사례) 프레임트레이스 신규 실행 -- 10m grid quantization에
+  의한 apex candidate churn(min_points 미달 반복)이 route_active
+  대량유실의 세 번째 메커니즘임을 확인(325차 ep4의 두 메커니즘과
+  구분). 상세: FINDINGS.md/WIP.md 327차 참고.
+- next: 326차 "10m+국소 2.5m 재샘플" patch의 trigger 조건 설계에
+  이번 발견(10m candidate churn 패턴) 반영 검토, 326차 미확정 사항
+  2~5번(윈도우폭/hysteresis/유지거리/코드레벨 일반화) 착수.
+
 ## c3-ms-dev (310차, 307차 shadow tracker(`routeProvisional*`) 최초 실차 로그 1차 분석 + qcamera 1건 대조 -- `ryu` 코드 무변경)
 - Repository: `ryujmin97/ryu`
 - Branch: `c3-ms-dev`
