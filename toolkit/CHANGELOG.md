@@ -3,6 +3,17 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+
+## 2026-09-09 (331차)
+- `sim_route_331_ws_negative_downstream.py`: **신규**(330차 스크립트
+  확장). ws<0 라벨이 candidates/`route_find_clusters()`/apex(
+  `_route_cluster_continuity_step()`)/ACTIVE·INERT 게이트까지 실제로
+  전파되는지 A(현재 `823943a6`)/B(가상패치 max(0,ws)) 비교. STEP2
+  synthetic(`--downstream`)에서 apex_dist==ws(A)/==0(B) 직접 확인,
+  eff_dist 클램프->RELEASE 조기발동/감속게이트 미발동까지 재현.
+  `--downstream-localized`(국소 curve 재현)는 파라미터 설계 문제로
+  미완성. 상세는 WIP.md 331차 참고.
+
 ## 2026-09-09 (330차)
 - `sim_route_330_boundary_synthetic.py`: **신규**. ChatGPT의 329차
   계속2 코드감사 제안(경계조건 폐루프 합성검증)을 구현. `carrot_man.py`

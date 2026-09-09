@@ -1,3 +1,109 @@
+## 331차 (진행중 -- STEP1 코드추적 완료 + STEP2 synthetic 초기 검증, ryu 코드 무변경) -- ws<0 라벨의 candidates/cluster/apex/ACTIVE 게이트 실제 영향 확인 착수
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu`(base `823943a6`=329차 계속2, 코드 변경 없음,
+읽기용 clone만) / `ryu-devnotes`(base `07c7dcb0`=330차, 이 항목 추가 전)
+
+**Branch**: `c3-ms-dev` / `main`
+
+**세션 시작 확인(§3/§33)**: fresh clone으로 `ryu` HEAD `823943a6`,
+`ryu-devnotes` HEAD `07c7dcb0` 확인 -- 사용자가 제공한 지선생(ChatGPT)의
+331차 방향 제안 문서와 완전히 일치(기준점, 330차 요약 내용 모두 일치,
+다른 작업자 개입 흔적 없음). 지선생 제안: "`ws<0`를 지금 바로
+`max(0,ws)`로 고치지 말고, 이 음수 라벨이 실제로 candidate/cluster/
+apex/ACTIVE에 영향을 주는지부터 독립적으로 증명하라"(STEP1 코드 추적 ->
+STEP2 synthetic 확장 -> STEP3 A/B 비교).
+
+**이번 회차 작업(STEP1)**: `823943a6` 기준 `carrot_man.py`를
+`route_crop_path_by_distance()`(568행) -> `route_curvature_macro_fine()`
+(509행) -> `route_local_curve_merge()`(609행) -> candidate 재계산(1585행)
+-> `route_find_clusters()`(732행/1586행) -> `_route_cluster_continuity_step()`
+(1034행) -> ACTIVE/INERT 게이트(1655~1776행)까지 순서대로 추적.
+
+**확정된 전파 경로**:
+```
+route_local_curve_merge()가 로컬 재계산 macro chord 시작점으로
+distance_offset=ws(음수 가능, clamp 없음)를 그대로 씀(686행)
+  -> 재계산된 distances 배열의 첫 값이 ws 그 자체(라벨 음수 노출,
+     330차가 이미 확인)
+  -> 이 배열로 candidates 재계산(1585행)/route_find_clusters() 재계산
+     (1586행) -- gap 계산은 상대값(distances[i]-distances[cur[-1]])이라
+     클러스터링 자체(어디서 끊기는지)는 영향 없음(지선생 우려와 달리
+     이 단계는 구조적으로 안전, 실측으로 확인)
+  -> 그러나 _route_cluster_continuity_step()의 'new' 진입 분기(1097~1104행)는
+     `self._route_cluster_locked_dist = distances[idx]`로 그 인덱스의
+     distance 값을 그대로 apex_dist로 채택 -- idx가 재계산 구간
+     내부(음수 라벨 구간)에 있으면 **apex_dist 자체가 음수(또는 ws만큼
+     실제값보다 작게 시프트된 값)가 됨**
+  -> apex_dist가 그대로 ACTIVE 유지 중 RELEASE 판정(1675행
+     `dist_reached = apex_dist <= ROUTE_RELEASE_DIST_M(20m)`)과 ACTIVE/
+     INERT 공통 게이트 거리(1706행/1738행
+     `eff_dist = max(0.0, apex_dist - target_ms*autoNaviSpeedCtrlEnd)`)에
+     직접 들어감
+```
+
+**STEP2 -- 최소 synthetic 검증(toolkit/sim_route_331_ws_negative_downstream.py,
+`--downstream`)**: 330차 스크립트의 ws<0 케이스(orphan center 5~39m,
+전구간 곡률 사인곡선)를 그대로 확장해 candidates/clusters/apex/ACTIVE
+게이트까지 실행. 결과, 이 synthetic 케이스에서는 재계산 window 전체가
+candidate라 apex_idx가 항상 window 좌단(=ws 그 자체)으로 나옴 --
+**apex_dist == ws(A, 현재코드) / apex_dist == max(0,ws)=0(B, 가상패치)임을
+직접 수치로 확인**(예: orphan_center=15m -> A: apex_dist=-30.0m,
+B: apex_dist=0.0m). 두 경우 모두 eff_dist=0.00으로 클램프되고,
+ACTIVE 중이면 dist_reached=True로 즉시 RELEASE, INERT면
+"eff_dist<=0 pass-through"로 감속 게이트 자체가 발동하지 않음 --
+**즉 위 STEP1 코드추적이 예측한 전파 경로가 실제로 재현됨을 최소
+synthetic으로 1차 확인**.
+
+**중요 -- 아직 확정 아님(§28)**: 이 synthetic 케이스는 전구간 곡률
+사인곡선이라 apex가 항상 "재계산 window의 좌단"으로 나오는 것이
+자연스러운 결과다. 실제 도로처럼 "커브 진입점이 window 내부 임의
+위치"인 경우 apex_dist 오차(A vs B, 또는 A vs 실제 물리적 거리)의
+크기가 이 케이스와 같을지, 더 작을지는 이번 synthetic만으로는
+확정할 수 없다. 국소 curve(진짜 진입점이 window 시작점과 다른
+위치)로 재현하려는 `--downstream-localized` 1차 시도는 이번 세션
+파라미터 설계 문제(macro sample 간격 40m 대비 짧은 파장 -> aliasing)로
+현실적인 결과를 못 냈음 -- **미완성, 다음 세션 과제로 이월**.
+
+**검증**:
+- 정적분석: `py_compile`/`ast.parse` 통과.
+- 회귀 확인: `--self-test`로 330차 원본 5개 시나리오 재실행, 4/5 PASS
+  (동일 ISSUE 1건)로 330차와 완전히 동일한 결과 -- 이번 세션 추가(
+  `patch_ws_clamp` 파라미터, 기본값 False)가 기존 동작을 바꾸지 않았음을
+  확인.
+- STEP2 synthetic(`--downstream`): 위 본문 참고, PASS/FAIL 개념이 아니라
+  수치 확인용.
+- 로그 검증: 이번 회차는 미실시(사용자가 업로드한 x18seg.zip은 327차에
+  이미 분석된 동일 route로 확인, 이번 회차에서는 미사용 -- STEP3에서
+  국소 curve synthetic이 안정화된 뒤 실측 대조에 사용 예정).
+- **실차 검증: 미실시.**
+
+**영향받는 실차 제어 로직**: 코드 변경 없음(이번 회차는 순수 분석/
+synthetic 검증, `ryu` 소스 무변경). 단, STEP1/STEP2가 가리키는 실제
+영향 지점은 `_route_cluster_continuity_step()`의 apex_dist 채택
+(1099행)과 ACTIVE RELEASE 판정(1675행)/ACTIVE·INERT 공통 게이트
+(1706행/1738행) -- 향후 수정이 필요하다면 이 지점들이 대상.
+
+**미확인 사항**:
+- 국소 curve synthetic(`--downstream-localized`) 파라미터 재설계.
+- 실제 x18seg 등 실측 corpus에서 ws<0가 실제로 몇 프레임/어떤
+  상황(근접 orphan)에서 발생하는지, 그때 apex가 정말 window 좌단에
+  걸리는지(STEP3 실측 A/B).
+- ACTIVE RELEASE 조기발동(경우 C, 지선생 331차 제안 분류)이 실측에서도
+  나타나는지는 아직 synthetic 1건 확인 수준.
+
+**다음 작업**:
+1. `--downstream-localized` 파라미터 재설계(macro sample 간격을 고려한
+   현실적 국소 curve) 또는 실측 x18seg corpus로 STEP3 직행.
+2. STEP3: 실측 corpus에서 ws<0가 실제로 발생하는 프레임을 찾아
+   apex_dist/ACTIVE 판정에 미치는 실제 영향을 정량 확인.
+3. 영향이 실측으로도 확인되면 그때 수정안(§26 사용자 승인 필요) 설계
+   착수 -- 지선생이 지적한 대로 "0으로 클램프"가 유일한 정답은 아님
+   (좌표계 정합 방식 등 대안도 함께 검토).
+
+---
+
 ## 330차 (완료 -- ChatGPT의 329차 계속2 코드감사에서 제안한 경계조건 폐루프 합성검증 구현+실행) -- route_local_curve_merge() 5개 카테고리(정상/path끝단/ws<0/다중orphan/window겹침) 합성 검증, ws<0만 재현 확인(기존 FINDINGS 329차(부록)와 일치)
 
 **Worker**: Claude

@@ -1,3 +1,34 @@
+## sim_route_331_ws_negative_downstream.py (331차, ws<0 라벨의 candidates/cluster/apex/ACTIVE 게이트 실제 영향 A/B 비교, STEP1 코드추적+STEP2 초기 synthetic)
+
+330차 `sim_route_330_boundary_synthetic.py`의 확장. ws<0(orphan이 ego
+40m 이내 근접)일 때 `route_local_curve_merge()`가 노출하는 음수
+distance 라벨이 candidates -> `route_find_clusters()` -> apex(
+`_route_cluster_continuity_step()` 'new' 진입) -> ACTIVE/INERT
+게이트(RELEASE 판정, eff_dist 클램프)까지 실제로 전파되는지 A(현재
+`823943a6`, distance_offset=ws) / B(가상 패치, distance_offset=
+max(0,ws)) 두 경로로 비교.
+
+**핵심 결과(--downstream)**: synthetic 케이스(전구간 곡률 사인곡선)에서
+apex_idx가 항상 재계산 window 좌단으로 나와, apex_dist == ws(A,
+음수 그대로) / == max(0,ws)(B)가 그대로 검증됨. eff_dist가 0으로
+클램프되어 ACTIVE 중이면 dist_reached=True로 즉시 RELEASE, INERT면
+감속 게이트 자체가 발동하지 않음(eff_dist<=0 pass-through) --
+STEP1 코드추적(`_route_cluster_continuity_step()` 1099행 `distances[idx]`
+직접 채택 -> 1675행/1706행/1738행 apex_dist 소비)이 예측한 전파
+경로가 재현됨.
+
+**한계(§28, 아직 확정 아님)**: 이 synthetic은 전구간 곡률이라 apex가
+항상 window 좌단에 걸리는 특수 케이스 -- 실제 도로처럼 진입점이 window
+내부 임의 위치인 일반적 경우의 오차 크기는 미확정. `--downstream-localized`
+(국소 curve 시도)는 파라미터 설계 문제(macro sample 간격 40m 대비
+짧은 파장으로 aliasing)로 미완성, 다음 세션 과제.
+
+**입력**: 없음(순수 synthetic, self-contained).
+
+**사용**: `python3 sim_route_331_ws_negative_downstream.py --self-test`
+(330차 원본 5개 시나리오 회귀 확인) / `--downstream`(STEP2 A/B 비교,
+orphan center 5~39m 스윕) / `--downstream-localized`(미완성 1차 시도).
+
 # toolkit/ 인덱스
 
 > **[필독, 계정 무관 — 예외 없음] 로그분석/시뮬레이션/검증 스크립트가
