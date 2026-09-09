@@ -1,3 +1,53 @@
+## 340차 -- [실측 확정] `routeLocalResampleUsed` 직접 계측 최초 대조: 330차 "distance_offset=ws 언클램프" 라벨링 버그가 `route_local_curve_merge()` 채택 시에만 발생함을 인과 확정
+
+**배경**: 330차가 합성 재현으로 발견하고 332/333/334/339차가 실측
+orphan corpus 정황(10m-grid)으로 뒷받침해 온 가설 -- "`routeApexDist`가
+음수로 나오는 프레임은 전부 `route_local_curve_merge()`(국소 2.5m
+재계산 병합)가 채택된 프레임이다" -- 을 334차가 노출한 `routeLocalResampleUsed`
+cereal 필드(@71, commit `5cba802`)로 직접 검증하는 것이 335~339차의
+공통 이월 과제였다. `extract_log.py`가 그동안 이 필드를 FIELDNAMES에서
+누락하고 있어 직접 계측이 불가능했다(340차에서 컬럼 2줄 추가로 해결,
+§21/§22 -- 신규 스크립트 작성 아님).
+
+**대상 로그**: `20260910_060827_000003d4--59a8ae5773`(x20seg, 20세그먼트,
+23,776행). `check_device_build.py`로 디바이스 gitCommit이 `7b3dfec4`
+(336차, `5cba802`의 후손 -- 계측 필드 포함 빌드)임을 확인(`dirty=True`
+경고 있으나 결론에 영향 없음).
+
+**결과(인과 확정)**:
+```
+routeLocalResampleUsed 분포: False 20,820행 / True 2,956행 (전체 23,776행)
+routeApexDist < 0        : 1,213행 (전체 중)
+  └ 이 1,213행의 routeLocalResampleUsed: True 1,213 / False 0  (100%)
+```
+`routeLocalResampleUsed=False`인 20,820행에서는 음수 `routeApexDist`가
+단 한 건도 없다. 즉 "음수 apex_dist ⟺ 로컬 병합 채택" 관계가 실측
+계측값으로 정확히 성립함이 이번에 처음 직접 확정됐다(기존 정황 증거가
+아니라 cereal 필드 verbatim 대조).
+
+**src=='route'(실제 출력 도달) 사례 9건 세부**: 8건은 `cruiseEnabled=False`
++ `vEgo`≈0(정차, `apexDist=-40.0`=`LOCAL_CURVE_WINDOW_BACK_M` 정확히
+일치, 330/339차 경계값 패턴과 동일 유형) -- 실질 영향 없음. 1건
+(t=777.24, `vEgo`=13.8m/s, `apexDist`=-2.5, `cruiseEnabled=True`)만
+비정차 상태 도달 사례 -- qcamera 대조(고가차도 하부 완만한 좌커브,
+apex 통과 직후 경계값) 결과 시각적으로 위험 신호 없음, 크기(-2.5m)도
+무시 가능한 수준으로 판단.
+
+**결론**: 330차 가설은 **확정**(NEEDS_VALIDATION 해제). 다만 실제
+출력에 도달하는 사례는 극히 드물고(9/23,776행, 그마저 8건은 정차 중)
+크기도 작아(-2.5~-40m), 이 버그 자체가 현재 체감 주행감에 미치는 영향은
+미미한 것으로 판단된다. 코드 수정(클램프 추가) 여부는 §27/§34에 따라
+Master 확인 후 별도 세션에서 결정.
+
+**검증**: 정적 분석(`extract_log.py` py_compile) + 독립 재현성(재추출
+시 세그먼트별 행수 완전 일치) + 로그 전수 대조(23,776행) + qcamera
+대조(1건, `verify_and_extract_frames.py` diff=0.003s). **실차 검증**:
+이미 실차에서 기록된 로그의 사후분석이므로 별도 실차 재검증 불필요.
+
+**관련**: 330차(가설 최초 발견, 합성 재현), 332/333/334차(실측 정황
+간접 확인, 계측 필드 신설), 335~339차(경계값 사례 다수 확인), 340차
+(이번 항목, 인과 최초 확정).
+
 ## 338차 -- [실측 확인 + 서술 정정] 335차 "x6/x10/x16seg 저속 apex_dist<0" 서술의 속도값 오류 정정 + x6seg에서 동일 결함의 실제 production 사례 5건 신규 발견(4건 지하주차장, 1건 옥외 교차로)
 
 **기존 서술(335차)**: "나머지 신규 route(x6seg/x10seg/x16seg) 3개에서도

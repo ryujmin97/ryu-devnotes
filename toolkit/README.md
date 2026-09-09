@@ -1,3 +1,20 @@
+## extract_log.py -- routeLocalResampleUsed 컬럼 추가 (340차)
+
+334차(commit `5cba802`)가 cereal(`custom.capnp` @71)에 노출한
+`routeLocalResampleUsed`(route_local_curve_merge() 국소 2.5m 재계산
+병합이 이번 프레임에 실제 채택됐는지 True/False, 순수 관측용) 필드가
+FIELDNAMES/row dict 양쪽에서 누락돼 있어 335~339차의 "실측 직접 대조"
+과제를 막고 있었다 -- 컬럼 2줄만 추가(§21/§22, 신규 로직 없음).
+`5cba802` 이전 로그(예: `823943a6` 기준)를 재추출하면 capnp 전방호환
+기본값(False)만 채워질 뿐 실제 미계측 상태이므로, 반드시
+`check_device_build.py`로 디바이스 gitCommit이 `5cba802`의 후손인지
+먼저 확인할 것.
+
+**사용**: 기존과 동일, `--with-navi-paths` 여부 무관하게 항상 포함되는
+기본 컬럼.
+
+---
+
 ## sim_route_333_ws_negative_matched_mode.py (333차, 진행중 -- 미해결 -- 'matched' 모드까지 ws<0 유입 확인 시도)
 
 **목적**: 332차는 매 orphan 프레임을 독립적(stateless)으로 "신규 진입이라면"만

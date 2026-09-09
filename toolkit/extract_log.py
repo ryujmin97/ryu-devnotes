@@ -80,7 +80,18 @@ FIELDNAMES = [
     "routeProvisionalStreak", "routeProvisionalMatchError", "routeProvisionalPromoted",
     "routeNaviPointsLen", "routeNaviStartIdxIn", "routeNaviStartIdxOut", "routePathLen",
     "routeOrphanRawPath",
+    "routeLocalResampleUsed",
 ]
+# 2026-09-10 추가(340차): carrotMan.routeLocalResampleUsed -- cereal/custom.capnp
+# @71(334차 계측 커밋 5cba802에서 노출, 7b3dfec4의 조상). route_local_curve_merge()
+# 국소(2.5m) 재계산 병합이 이번 프레임에 실제로 채택됐는지(True/False)를 그대로
+# 발행하는 순수 관측용 필드 -- 334차가 cereal에 추가했으나 이 추출기가 그동안
+# FIELDNAMES/row dict 양쪽 모두에서 누락되어 있었다(§22 -- 기존 toolkit 확인 후
+# 신규 작성이 아니라 기존 extract_log.py에 컬럼만 추가). 335/337/338/339차가
+# 이월해 온 "routeLocalResampleUsed 실측값 직접 대조" 다음 작업의 전제 조건.
+# 5cba802 이전 로그(예: 823943a6 기준)를 이 스크립트로 재추출하면 capnp
+# 전방호환 기본값(False)이 채워질 뿐 실제 미계측 상태이므로, 반드시
+# check_device_build.py로 디바이스 gitCommit이 5cba802의 후손인지 먼저 확인할 것.
 # 2026-09-09 추가(323차): carrotMan.routeOrphanRawPath -- cereal/custom.capnp
 # @70, 321차가 이월한 "5m/2.5m 국소 재샘플" 실측 검증을 위해 orphan(min_points=2
 # 미달 고립 후보) 발생 프레임에서만 resample_10m_np() 적용 이전 원본
@@ -501,6 +512,7 @@ def process_segment(rlog_path, seg_name, repo_dir, max_mb, commit_short="",
                 "routeNaviStartIdxOut": cm.routeNaviStartIdxOut,
                 "routePathLen": cm.routePathLen,
                 "routeOrphanRawPath": cm.routeOrphanRawPath,
+                "routeLocalResampleUsed": cm.routeLocalResampleUsed,
             })
     return rows, last_cs, last_ctrl, last_lead, last_lat, last_model, last_pose, last_gps
 

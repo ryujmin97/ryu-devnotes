@@ -3,6 +3,14 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+## 2026-09-10 (340차)
+- `extract_log.py`: **컬럼 추가**(신규 도구 아님). `routeLocalResampleUsed`
+  (cereal `custom.capnp` @71, 334차 계측 필드)가 FIELDNAMES/row dict
+  양쪽에서 누락돼 있던 것을 추가 -- 335~339차가 이월해 온 "실측 직접
+  대조" 전제조건 해결. FINDINGS.md 340차에서 이 컬럼으로 330차 라벨링
+  버그 인과관계를 최초로 실측 확정함.
+
+
 
 ## 2026-09-09 (333차, 진행중 -- 미해결)
 - `sim_route_333_ws_negative_matched_mode.py`: **신규**(332차 gap 대응

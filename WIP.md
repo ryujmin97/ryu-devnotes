@@ -1,3 +1,116 @@
+## 340차 (완료 -- ANALYSIS_ONLY/일부 NEEDS_VALIDATION, `ryu` 코드 무변경, `extract_log.py` 컬럼 추가만) -- `routeLocalResampleUsed` 최초 실측 대조로 330차 라벨링 버그 인과관계 직접 확정 + 사용자 제보("직선구간 route flapping") 원인 후보(10m 그리드 요철->required_decel_mss 임계 flicker) 신규 발견
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu`(base `7b3dfec4`=336차, 코드 변경 없음) /
+`ryu-devnotes`(base `a159658`=339차, 이 항목 추가 전)
+
+**Branch**: `c3-ms-dev` / `main`
+
+**세션 시작 확인**: 재클론 후 `ryu` HEAD `7b3dfec4`(336차, 기억과 일치),
+`devnotes` HEAD `a159658`(339차, 기억과 일치) 확인. HANDOFF.md/CURRENT_STATUS.md
+없음 -- 다른 작업자 흔적 없이 이어서 진행.
+
+**사용자 지시**: 신규 실차주행 로그(`20260910_060827_000003d4--59a8ae5773`,
+x20seg, 20세그먼트/23,776행) 업로드 + "1번부터(=339차가 이월한 다음작업
+1번, routeLocalResampleUsed 실측 대조) 진행. 대체로 만족스런 주행감이나
+직선구간에서 route가 액티브된 후 꺼졌다 켜졌다 하는 증상의 원인도 확인".
+
+**작업 1 -- `extract_log.py` 컬럼 누락 수정 및 실측 대조**:
+`routeLocalResampleUsed`는 cereal(`custom.capnp` @71)에 334차(commit
+`5cba802`)부터 존재하나, `extract_log.py`의 FIELDNAMES/row dict 양쪽에서
+누락돼 있었다(§21 -- 기존 toolkit 확인 후 신규 작성이 아니라 기존
+스크립트에 2줄만 추가하는 최소변경, §22/§27). `check_device_build.py`로
+디바이스 빌드가 `7b3dfec4`(336차, `5cba802`의 후손, 계측 필드 포함)임을
+확인(단 `dirty=True` 경고 -- 작업트리에 커밋 안 된 로컬 변경이 있었던
+상태로 빌드됨, 최종 결론에는 영향 없음).
+
+**핵심 결과(직접 계측 최초 확정)**: `routeApexDist<0`인 1,213개 프레임
+전부(100%)에서 `routeLocalResampleUsed=True`. 330/332/333/334/339차가
+오프라인 재현+간접 정황(10m-grid orphan telemetry)으로만 추정했던
+"`route_local_curve_merge()` 채택 시에만 음수 apex_dist 라벨링 버그가
+발생한다"는 인과관계가 이번 세션에서 처음으로 실측 계측값 직접 대조로
+확정됐다(전체 로그 `routeLocalResampleUsed=True` 2,956/23,776행 중
+음수 라벨은 정확히 1,213행에서만 나타나며, `False`인 프레임에서는
+음수 라벨이 단 한 건도 없음).
+
+**src=='route'(실제 출력 영향) 도달 사례 9건 확인**: 8건은
+`cruiseEnabled=False`이고 `vEgo`가 사실상 0(정차 상태, `apexDist=-40.0`,
+`-40`은 `LOCAL_CURVE_WINDOW_BACK_M` 그 자체 -- 330/339차가 이미 확정한
+경계값 패턴과 동일 유형)이라 실질 영향 없음. 1건(t=777.24,
+`vEgo=13.8m/s`≈50kph, `apexDist=-2.5`, `cruiseEnabled=True`)만
+저속이 아닌 상태에서 발생 -- qcamera 대조(`verify_and_extract_frames.py`,
+matched_t=777.237, diff=0.003s) 결과 완만한 좌커브 진입부(고가차도
+하부)로, 시각적으로 위험 신호 없음(apex 통과 직후 경계값, 영향 미미).
+335~339차가 관측한 "src는 항상 vturn이 승리"보다 한 단계 나쁜(=route가
+실제로 승리한) 케이스가 처음 확인됐으나, 크기(-2.5m)와 상황(이미 커브를
+빠져나가는 시점) 모두 안전에 실질적 영향 없는 것으로 판단.
+
+**작업 2 -- "직선구간 route 꺼짐/켜짐" 증상 원인 조사(신규)**:
+`src` 컬럼 기준 route 진입/이탈 에피소드(165건)를 전체 로그에서 추출,
+gap<5s로 그룹화한 결과 t=1076~1085(13회 flapping)를 포함해 직선
+구간(`steeringAngleDeg`/`desiredCurvature` 거의 0)에서 반복 flapping이
+다수(그룹 9/10/15/16 등) 발견됨 -- 전부 `routeLocalResampleUsed=False`
+구간이라 작업 1의 버그와는 무관한 **별개의 원인**.
+
+**코드 추적(§28) 결과, 가설(미확정) 제시**: `carrot_man.py` ACTIVE/INERT
+게이트는 매 프레임 `required_decel_mss = (vEgo²-target²)/(2·eff_dist)`를
+`autoNaviSpeedDecelRate`와 비교해 그 순간 재판정한다. t=1076~1085
+구간에서 `routeApexDist`가 10m 그리드(150,140,...,10,0)를 따라 단조
+감소하는 동안 `routeApexSpeed`(후보 목표속도)가 그리드 경계마다 방향성
+없이 요동(예: 39.9→38.1→...→49.8→48.9kph)하는 패턴이 실측으로
+확인됨(219차가 확인한 "apexIdx가 10m 간격 인접 후보로 계속 전환되며
+apex_speed가 계단식으로 흔들리는" 메커니즘과 후보 자체는 동일 계열).
+이 요동이 `required_decel_mss`를 임계값 바로 근처에서 프레임마다
+넘었다/안 넘었다 하게 만들어, INERT 전이 시 `out_speed=None`이 되어
+route가 해당 프레임에서 `speed_n_sources` min() 경쟁에서 완전히
+제외되고(desiredSpeed가 순간 150~200 sentinel로 튐), 다음 프레임 다시
+게이트를 통과해 ACTIVE로 복귀하는 패턴이 CSV상 `src`가
+route↔road/vturn으로 반복 전환되는 것과 시간적으로 정확히 일치한다.
+
+**기존 flicker 기록과의 관계(대조 완료, §24)**: FINDINGS.md 244차(터널
+구간 position-identity vs 실제 후보전환, road_limit_speed 근접 노이즈
+후보 다발)와 288차(ROUTE_ACTIVE_RELEASE_MARGIN_RATIO 1.1 관여 margin
+flicker, apex_dist 150~400m 완만한 하이웨이 커브, confidence blend
+불일치로 진입 직후 즉시 재해제)를 전문 대조했다. 이번 사례는 (1) 244차와
+달리 candidate identity 자체(routeCandidateCount 등)는 비교적 안정적이고
+routeApexSpeed 수치 자체가 흔들리는 점, (2) 288차와 달리 margin(1.1)
+트리거가 아니라 INERT 게이트(D_required) 통과/미통과 자체가 흔들리는
+점에서 **기존 두 기록 어느 쪽과도 정확히 일치하지 않는 별개 경로로
+보인다**. 다만 219차가 이미 문서화한 "10m 그리드 apex_speed 계단식
+흔들림" 자체는 신규 현상이 아니며, 이번에 새로 확인된 것은 "그 흔들림이
+`required_decel_mss` 임계값을 걸쳐 ACTIVE/INERT **상태 자체**를
+프레임 단위로 뒤집을 수 있다"는 하류 영향 경로다.
+
+**결론(§28, 미확정임을 명시)**: 이 세션은 `routeApexSpeed` 요동과
+`src` 토글의 **시간적 일치(correlation)**만 확인했다 -- `required_decel_mss`
+자체를 프레임별로 직접 재구성(`apex_confidence`/`apex_streak` blend
+포함)해 임계 통과 여부를 실측 대조하는 인과 확정 작업은 **미실시**
+(다음 세션 최우선 과제). 따라서 이 가설은 FINDINGS로 "확정" 등록하지
+않고 이 WIP 항목에만 기록한다.
+
+**검증**: 정적 분석(`extract_log.py` py_compile 통과) + 독립 클론
+재현성(재추출 시 세그먼트별 행수가 339차 이전 결과와 완전 일치, 23,776행)
++ 로그 검증(전체 CSV 통계/에피소드 분석) + qcamera 대조(1건). **실차
+재검증: 불필요**(기존 로그 재분석) / **원인 가설의 code-level 인과
+확정: 미실시**.
+
+**미확인 사항**:
+1. `required_decel_mss` 프레임별 직접 재구성(가설 확정용).
+2. 직선구간 flapping이 실제 종/횡 제어 출력(가속/감속 명령)에 체감
+   가능한 영향을 주는지(현재는 desiredSpeed sentinel 튐만 확인, aEgo
+   변화 미확인 -- 283/285차 aEgo 기반 탐지 사각지대 가능성 있음, 288차가
+   이미 지적한 것과 동일한 방법론적 한계).
+
+**다음 작업**:
+1. `required_decel_mss`/`apex_confidence`/`eff_apex_speed` 프레임별
+   재구성 스크립트(219차 `diag_route_boost_arm_219.py` 패턴 재사용
+   가능, §21)로 t=1076~1085 등 직선구간 flapping 그룹에서 게이트 통과
+   여부 직접 대조 -> 가설 확정/기각.
+2. 확정되면 FINDINGS.md 정식 등록 + 필요 시 게이트에 최소 유지시간/
+   하한 추가 여부를 Master 확인 후 논의(§27/§34, 코드 임의수정 금지).
+3. `extract_log.py`(340차 갱신판)를 devnotes toolkit에 반영.
+
 ## 339차 (완료 -- 338차가 지하주차장 제외 후 남긴 옥외 사례 2건(x6seg t=1409.607477381 / x19seg t=481.858660709)의 code-level 원인 확정, `ryu` 코드 무변경) -- 두 사례의 `apexDist=-40.0`이 330차가 이미 확정한 `distance_offset=ws` 언클램프 라벨링 버그의 "ws==-40.0 정확 경계값" 사례임을 실측으로 확정 -- 신규 결함 아님
 
 **Worker**: Claude
