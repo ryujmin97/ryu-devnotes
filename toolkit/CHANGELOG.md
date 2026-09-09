@@ -3,6 +3,18 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+## 2026-09-09 (329차)
+- `sim_route_329_local_merge_replay.py`: **신규**. 328차
+  `route_local_curve_merge()`/`route_curvature_macro_fine()`/
+  `route_crop_path_by_distance()`/`resample_10m_np()`를 `carrot_man.py`
+  (base `b31016fe`)에서 verbatim 추출(무작위 200+ 케이스 byte-identical
+  회귀검증) + 진단필드(window별 output point 수/span/fallback 사유)
+  추가. x18seg `routeOrphanRawPath` 3645프레임 전수 재생 결과: fallback
+  45.5%, local_used 중 cluster 승격 61.8%, window당 output point가
+  거의 항상 1개(2~8점 사이 0건)임을 확인. ChatGPT의 328차 코드리뷰
+  ①②번 지적을 실측으로 재확인 + window 크기 여유(margin) 0으로 인한
+  mid-path fallback을 신규 발견. 상세는 WIP.md 329차 참고.
+
 ## 2026-09-09 (325차)
 - `sim_route_325_ep4_frame_trace.py`: **신규**. 324차의 ep4
   `route_active` grid 상이 사례를 프레임 단위로 진단하기 위해

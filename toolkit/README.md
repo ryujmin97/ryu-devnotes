@@ -21,6 +21,57 @@ CHANGELOG.md를 같이 갱신**한다 (세션 종료 체크리스트에 포함�
 
 ---
 
+## sim_route_329_local_merge_replay.py (329차, 328차 patch 오프라인 재생/실측)
+
+**목적**: 328차가 `carrot_man.py`에 추가한 `route_local_curve_merge()`
+(orphan 주변 국소 2.5m 재샘플)가 실제로 어떻게 동작하는지, x18seg
+실측 `routeOrphanRawPath`(323차 계측, orphan 프레임의 원본
+relative_coords)를 그대로 재생해 정량 검증한다. ChatGPT가 328차를
+코드리뷰로 지적한 두 가지 문제(window 후반부 커버리지 부족 / path
+경계 distance_offset 불일치)를 실측으로 재확인하고, 리뷰에 없던
+"window 크기 여유(margin) 0으로 인한 mid-path fallback"을 새로
+발견했다.
+
+**핵심 설계**: `route_curvature_macro_fine()`/`route_crop_path_by_distance()`/
+`resample_10m_np()`/`route_local_curve_merge()`를 `carrot_man.py`
+(base `b31016fe`, 328차)에서 verbatim 추출(무작위 200+ 케이스로
+byte-identical 회귀검증 완료) + `route_local_curve_merge()`에만
+진단 필드(window별 output point 수/span/fallback 사유) 추가.
+`calculate_curvature`/`route_find_clusters`/`V_CURVE_LOOKUP_*`/
+`MAP_TURN_SPEED_FACTOR`는 `sim_route_322d_stateful_replay.py`에서
+그대로 import(§21).
+
+**사용**: `python3 sim_route_329_local_merge_replay.py <CSV>`
+(`extract_log.py` 기본 출력, `--with-navi-paths` 불필요 --
+`routeOrphanRawPath`는 항상 채워짐)
+
+**x18seg 실측 결과(2026-09-09, 323차 빌드 `1b77b799`로 기록된 로그를
+328차 `b31016fe` 함수로 오프라인 재생 -- production 필드 자체는 328차
+반영 안 됨, 324차와 동일한 counterfactual 방식)**:
+- orphan raw-path 3645프레임 중 3633건(99.7%) 10m 1차패스 재현 성공.
+- `local_used=True` 2304건(63.4%), **fallback(원본 10m 복원) 1654건
+  (45.5%)** -- 그 중 75%는 path 경계(<=90m) 근접, 25%는 mid-path에서도
+  발생(window 크기=macro chord 최소요구치와 정확히 같아 여유 0 ->
+  부동소수점 경계에서도 실패).
+- local_used 중 cluster로 승격 1424건(61.8%), 여전히 orphan 456건
+  (19.8%).
+- **window당 실제 출력 point 수가 거의 항상 1개**(1점:2092건,
+  9점:12건, 2~8점 사이 0건 -- 완전 양자화된 이산 분포). "2.5m로
+  촘촘해진다"는 설계 의도와 달리, 기본 window(80m)는 macro chord
+  (40m)를 채우기 위한 최소 point 수만 정확히 만족해 사실상 1점으로
+  축약됨.
+- 승격 메커니즘은 "밀도 증가"가 아니라, 그 1개 점의 위치(macro chord
+  시작점 관례상 orphan 중심에서 40m 앞)가 window 밖 기존 10m 후보와
+  새로 40m gap 이내로 들어와 체인이 연결되는 것으로 재해석됨.
+
+**한계**: 이 로그는 328차 패치 이전 빌드로 기록돼 `route_active` 상태
+기계까지 연결한 실차 관측은 아님(counterfactual). fallback/승격이
+실제 사전감속 타이밍에 주는 영향은 325차 방식 frame trace와 결합해야
+확인 가능(다음 세션 후보).
+
+**의존**: `extract_log.py` 기본 CSV(`routeOrphanRawPath`,
+`nRoadLimitSpeed` 컬럼 필요), `sim_route_322d_stateful_replay.py`.
+
 ## sim_route_322d_stateful_replay.py (322-D/322차 다음작업1, "10m production exact reproduction" 2단계 -- stateful)
 
 **목적**: 위 322차 1단계(stateless)에 이어, `carrot_man.py`의

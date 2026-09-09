@@ -1,3 +1,139 @@
+## 329차 (진행중 -- ChatGPT의 328차 코드리뷰를 코드 재확인 + x18seg 실측 재생으로 검증, 코드 수정 전 체크포인트) -- 328차 local curve merge의 실제 동작을 raw geometry 재생으로 정량화: fallback 45.5%, 정상 케이스 output이 거의 항상 1점뿐임을 확인
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu`(base `b31016fe`=328차, 코드 변경 없음, 읽기+
+오프라인 재생용 clone만) / `ryu-devnotes`(base `5e7009e7`=328차, 이 항목
+추가 전)
+
+**Branch**: `c3-ms-dev` / `main`
+
+**세션 시작 확인(§3/§33)**: `git clone`으로 원격 fresh 확인 -- `ryu` HEAD
+`b31016fe`(328차, 변경 없음), `ryu-devnotes` HEAD `5e7009e7`(328차, 변경
+없음). 다른 작업자 개입 흔적 없음. 사용자가 328차 패치에 대한 ChatGPT
+코드리뷰 결과(외부에서 작성된 문서)와 `20260909_062749_000003c9--
+5335674c02_x18seg.zip`/`params_backup-1.json`(327/328차와 동일 세트,
+328차 WIP에 이미 기록된 대로 이 로그 자체는 328차 패치 *이전*(323차
+빌드, `1b77b799`)에 기록된 것)을 이번 세션에 제공.
+
+**배경**: ChatGPT가 328차 패치(`route_local_curve_merge` 등)를 코드
+리뷰로 검토해 두 가지 문제를 지적함 -- (①) window(±40m)가 실제로는
+macro chord(40m) 때문에 후반부 커버리지가 부족한데도 기존 10m 후보는
+window 전체에서 먼저 삭제된다, (②) window가 path 시작/끝 경계를 넘을 때
+`route_curvature_macro_fine()`에 전달되는 `distance_offset`이 clamp되지
+않은 원래 `ws` 값을 그대로 써서 좌표-거리 불일치가 생길 수 있다. 이
+세션에서는 이 두 지적을 (a) 실제 코드(`carrot_man.py`, base `b31016fe`)를
+직접 재확인하고 (b) x18seg 실측 `routeOrphanRawPath`(323차 계측, 3645개
+프레임)를 328차 함수에 오프라인 재생시켜 정량 검증했다.
+
+**1) 코드 검증 방법론(신뢰성 확보)**: `route_curvature_macro_fine()`/
+`route_crop_path_by_distance()`/`resample_10m_np()`를 `carrot_man.py`
+(base `b31016fe`)에서 텍스트로 추출해 무작위 경로(200+ 케이스)로
+byte-identical 동작을 확인한 뒤(이번 세션 자체 회귀검증, 328차가 이미
+검증한 것과 별개로 재확인), `route_local_curve_merge()`는 동일 로직에
+진단 필드(diag: window별 output point 수/span/fallback 사유)만 추가한
+`toolkit/sim_route_329_local_merge_replay.py`로 옮겨 실제 raw path
+재생에 사용.
+
+**2) ①번 지적 재확인 -- 실측 결과가 지적보다 더 심각함**: 기본
+window(±40m=80m)에서 macro chord(2.5m*16=40m)를 채우려면 최소
+`33`개의 2.5m 리샘플 point가 필요하고(`MACRO_SAMPLE*2+1`), 딱
+80m짜리 window는 정확히 33개를 만들어 macro 출력이 `33-32=1`개뿐이다.
+"후반부 40m 손실"이 아니라 **"window 전체가 사실상 1개 점으로
+축약"**되는 경우가 실측 재생에서 지배적으로 나타남(아래 4번 결과).
+
+**3) ②번 지적 재확인 -- 확인되고, 실제 fallback의 주 원인 중 하나**:
+window가 path 경계(600m lookahead의 시작/끝)에 가까우면
+`route_crop_path_by_distance()`가 clamp되어 crop 결과가 짧아지고,
+`resample_10m_np()` 결과가 `MACRO_SAMPLE*2+1=33`에 못 미쳐 fallback
+(원본 10m 포인트 복원)된다. 이건 ②가 말한 "distance_offset이 실제
+crop 시작과 어긋난다"는 것과는 다른 결로 재확인됐지만(실측으로는
+distance_offset 자체의 수치 불일치보다 "짧아서 아예 fallback"이 더
+두드러짐), 근본 원인(경계 clamp)은 동일.
+
+**4) x18seg 실측 재생 결과(`sim_route_329_local_merge_replay.py`,
+`routeOrphanRawPath` 3645프레임)**:
+```
+raw_path 존재 행수: 3645
+  10m 1차패스 재계산 orphan==0(불일치, 반올림/근사): 12건(0.3%, 무시 가능)
+  10m 1차패스 재계산 orphan>0 (재현 성공): 3633건
+    -> route_local_curve_merge local_used=True: 2304건(63.4%)
+       fallback(원본 10m 복원): 1654건(45.5%)
+         사유: resampled_too_short 1767 / 그중 path 가장자리(<=90m) 1235(75%)
+       병합 후 cluster(>=2점)로 승격: 1424건(local_used의 61.8%)
+       병합 후에도 orphan 잔존: 456건(local_used의 19.8%)
+  window당 실제 2.5m curvature 출력 point 개수:
+    min=1 median=1.0 max=65, <=2점인 window 비율 81.9%
+    분포(1~10점): 1점:2092건, 9점:12건 (2~8점 사이는 0건 -- 완전
+    양자화된 이산 분포)
+```
+
+**5) 신규 발견(리뷰에 없던 것) -- window 크기에 여유(margin)가 전혀
+없어 부동소수점 경계에서도 fallback**: fallback 사유
+"resampled_too_short" 1767건 중 25%(약 419건 상당)는 path 가장자리와
+무관한 mid-path에서도 발생한다. 원인은 window 크기(80m)가
+`route_curvature_macro_fine`이 point를 1개라도 만들기 위한 최소
+요구치(2*MACRO_SAMPLE*2.5=80m)와 **정확히 같게 설계**돼 있어서다
+-- `route_crop_path_by_distance()`의 보간(`_interp_at`)과
+`resample_10m_np()`의 재계산이 부동소수점 오차로 총 길이를
+80.0m보다 아주 조금(예: 79.999...m) 작게 만들면 `total_len //
+distance_interval`이 32로 떨어져(§`int(total_len//2.5)+1=32<33`)
+그대로 fallback된다. 즉 이 설계는 **경계 조건이 아니라 정상적인
+mid-path 상황에서도 수치 정밀도만으로 실패할 수 있는 여유 0(zero
+margin) 설계**다.
+
+**6) 순기능 메커니즘 재해석(중요, 리뷰가 설명한 것과 다름)**: local
+merge가 cluster 승격(61.8%)에 기여하는 방식은 "2.5m로 촘촘해져서"가
+아니라, window당 거의 항상 1개만 생성되는 그 점의 위치
+(`distance=ws`, 즉 orphan 중심에서 40m 앞 -- 이 라벨링 자체는 10m
+1차패스부터 있던 기존 macro chord 시작점 관례이므로 328차가 만든
+신규 버그는 아님, 별도 확인 완료)가 window 밖에 남아있던 기존 10m
+후보와 새로 40m gap 이내로 들어오면서 체인이 연결돼 승격되는 구조다.
+즉 "국소 2.5m 밀도 증가"라는 설계 의도와 실제 승격 메커니즘이 다르다.
+
+**검증**:
+- 정적분석/회귀: `route_curvature_macro_fine`/`route_crop_path_by_distance`/
+  `resample_10m_np`를 원본에서 추출해 무작위 200+ 케이스 byte-identical
+  확인(PASS). `route_local_curve_merge`는 진단필드만 추가한 상태로
+  단일 합성 케이스 대조 확인(PASS, 원본과 동일 분기/반환값).
+- 로그 검증: x18seg 3645개 orphan raw-path 프레임 전수 재생(위 4/5번).
+- **실차 검증: 미실시**(이 로그 자체가 328차 패치 이전 빌드라 328차
+  패치의 실차 동작을 직접 관측한 것이 아님 -- 여전히 오프라인
+  재생/counterfactual 성격의 검증, 324차와 동일한 한계).
+
+**영향받는 실차 제어 로직**: 코드 변경 없음(이번 세션은 순수 분석/검증).
+
+**신규 toolkit**: `toolkit/sim_route_329_local_merge_replay.py`
+(`carrot_man.py` base `b31016fe`에서 `route_curvature_macro_fine`/
+`route_crop_path_by_distance`/`resample_10m_np`/`route_local_curve_merge`를
+verbatim 추출 + 진단필드 추가, `sim_route_322d_stateful_replay.py`의
+`calculate_curvature`/`route_find_clusters`/상수 재사용(§21)).
+`toolkit/README.md`/`CHANGELOG.md` 갱신.
+
+**미확인 사항**:
+- window 크기 재설계안(예: `WINDOW_BACK_M/FWD_M`에 macro chord 대비
+  여유를 두거나, 최소 출력 point 수를 보장하는 방식) -- 아직 코드
+  작성 안 함, 사용자 승인 후 다음 세션 착수.
+- fallback 45.5%가 실제 도로 주행 체감(사전감속 발동 실패/지연)에
+  얼마나 영향을 주는지는 이 오프라인 재생만으로는 알 수 없음(§28,
+  route_active 상태기계까지 연결한 재생은 아직 안 함 -- 325차 방식
+  frame trace를 329차 함수에 결합하면 가능할 것으로 추정).
+- distance_offset 관련 ②번 지적의 "좌표-거리 수치 자체 불일치"는
+  이번 세션에서 별도로 수치 검증하지 않음(fallback 원인 규명에 밀려
+  후순위로 미룸).
+
+**다음 작업**:
+1. window 크기/최소 출력 보장 방식에 대한 수정안 설계(사용자 승인
+   필요, §26 원칙 -- 값 변경 시 기존값/변경값/이유/영향/검증 명시).
+2. 수정안을 코드 패치로 작성 후 이번 세션과 동일한 방식(x18seg raw
+   path 재생)으로 fallback율/output point 분포가 개선되는지 재검증.
+3. 여유가 되면 325차 방식(`route_active` 프레임트레이스)을 329차
+   함수와 결합해 fallback/promotion이 실제 사전감속 타이밍에 주는
+   영향까지 확인.
+4. ②번 distance_offset 수치 불일치 여부 별도 확인.
+
+---
+
 ## 328차 (완료 -- 코드 패치 작성 + 합성 구조테스트 PASS, 실차/로그 검증 미실시) -- 326/327차가 확정한 "10m 기본 + 곡선후보(orphan) 주변 국소 2.5m 재샘플" 설계를 `ryu`에 최초 적용, patch 전달
 
 **Worker**: Claude
