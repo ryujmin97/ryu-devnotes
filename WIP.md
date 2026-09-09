@@ -1,3 +1,109 @@
+## 330차 (완료 -- ChatGPT의 329차 계속2 코드감사에서 제안한 경계조건 폐루프 합성검증 구현+실행) -- route_local_curve_merge() 5개 카테고리(정상/path끝단/ws<0/다중orphan/window겹침) 합성 검증, ws<0만 재현 확인(기존 FINDINGS 329차(부록)와 일치)
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu`(base `823943a6`=329차 계속2, 코드 변경 없음,
+읽기용 clone만) / `ryu-devnotes`(base `1908308e`=329차 계속2 반영 후,
+이 항목 추가 전)
+
+**Branch**: `c3-ms-dev` / `main`
+
+**세션 시작 확인(§3/§33)**: `git ls-remote`로 원격 fresh 재확인 -- `ryu`
+HEAD `823943a6`(329차 계속2 patch, 이전 세션이 전달한 `0001-329cha-context-fix.patch`와
+diff 내용 byte-identical 확인), `ryu-devnotes` HEAD `1908308e`(329차
+계속2 devnotes, `0002-329cha-cont2-devnotes.patch`와 일치). 사용자가
+push를 완료했고, 다른 작업자 개입 흔적 없음. 사용자가 이번 세션에
+제공한 문서는 외부(ChatGPT)의 329차 계속2 코드감사 -- diff 재확인 결과
+"논리 PASS"이나 (a) `ws<0` boundary 라벨링 문제가 이월돼 있음, (b)
+apex/ACTIVE behavioral regression이 미검증임을 지적하고, 다음 단계로
+"`route_local_curve_merge()`에 실제 숫자를 넣어 ws<0/path끝/다중orphan/
+window겹침/정상 mid-path 각각을 폐루프로 검증"을 제안함.
+
+**이번 회차 작업**: 위 제안을 그대로 구현. `route_local_curve_merge()`/
+`route_curvature_macro_fine()`/`route_crop_path_by_distance()`/
+`resample_10m_np()`/`calculate_curvature()`를 `carrot_man.py`(base
+`823943a6`)에서 텍스트로 verbatim 추출해(로직 무변경, §27) 5개 합성
+시나리오에 직접 투입하는 `toolkit/sim_route_330_boundary_synthetic.py`
+작성.
+
+**시나리오 설계**(사인곡선 합성 path, 길이 600m, 곡률 0이 아닌 임의
+형상 -- 목적은 특정 도로 재현이 아니라 배열 정합성 검증이므로 합성으로
+충분):
+1. 정상 mid-path: orphan center=300m (양쪽 200m+ 여유)
+2. path 끝단(clamp): orphan center=585m, path 길이 600m -- context
+   확장(`we+80m`=625m)이 총길이를 넘어 clamp가 반드시 발동하는 경로
+3. `ws<0`: orphan center=15m -- `ws=15-40=-25m<0`
+4. 다중 orphan(분리): orphan center=150m/400m -- window 겹치지 않음
+5. window 겹침(merge): orphan center=280m/310m -- window (240,320)/(270,350)
+   겹쳐 (240,350) 단일 window로 병합
+
+각 시나리오는 10m 1차패스를 직접 재생해 orphan 위치에 가장 가까운
+인덱스를 orphan cluster로 지정한 뒤 `route_local_curve_merge()`를
+호출하고, 출력 배열에 대해 (a) 정렬 여부, (b) 중복 distance, (c)
+distance gap>15m, (d) 음수 distance 라벨 유무를 자동 검사.
+
+**결과**:
+```
+1_normal_mid_path:        PASS (92점, d_range=[0.0,670.0])
+2_path_end_clamp:         PASS (92점, d_range=[0.0,670.0] -- tail_partial_restore 정상 동작)
+3_ws_negative:            ISSUE -- 음수 distance 라벨 12건(min=-30.00m)
+4_multi_orphan_separate:  PASS (116점)
+5_overlapping_windows:    PASS (101점, window 병합 정상)
+4/5 PASS
+```
+
+**해석**: ChatGPT 감사의 판정과 일치 -- context/replacement 분리(1,2번),
+다중/겹침 window 처리(4,5번)는 합성 폐루프 검증에서 구조적으로
+문제없음(정렬/중복/gap>15m 전부 0건). 유일한 ISSUE는 **3번 `ws<0`
+케이스에서 `distance_offset=ws`가 음수 그대로 `route_curvature_macro_fine()`에
+전달되어 출력 distance 배열에 음수 라벨이 그대로 노출**되는 것 --
+FINDINGS.md `329차(부록)`가 합성 300케이스 회귀(임의 경로, 원인
+미확정)로 남겨둔 이슈를 **단일 최소 재현 케이스로 확정**함(원인:
+`route_crop_path_by_distance()`의 `d_start = max(0.0, d_start)` clamp와
+`distance_offset=ws`(clamp 없음) 라벨링이 서로 다른 기준점을 쓰는 것 --
+이번 검증으로 가설이 아니라 확정된 근본원인).
+
+**중요-- 이 음수 라벨 자체가 즉시 위험한지는 별도 확인 필요**: 이번
+검증은 배열 구조(정렬/중복/gap) 정합성만 확인했고, 이 음수 distance
+라벨이 이후 `route_find_clusters()`/apex continuity/ACTIVE 판정에서
+실제로 어떤 영향을 주는지(예: 음수 distance가 apex_dist로 잘못
+해석되는지, 혹은 이후 단계에서 자연히 걸러지는지)는 이번 회차에서
+확인하지 않음 -- 다음 작업으로 이월.
+
+**검증**:
+- 정적분석/합성: 위 5개 시나리오 자동 검사(PASS 4/5, ISSUE 1/5 -- 위
+  참고). `route_local_curve_merge()` 등 추출 함수는 `carrot_man.py`
+  원본과 텍스트 diff로 byte-identical 확인(로직 재구현 아님).
+- 로그 검증: 이번 회차는 순수 합성(실측 로그 미사용) -- x18seg 등
+  실측 corpus 재생은 하지 않음.
+- **실차 검증: 미실시.**
+
+**영향받는 실차 제어 로직**: 코드 변경 없음(이번 회차는 순수 분석/
+검증, `ryu` 소스 무변경).
+
+**신규 toolkit**: `toolkit/sim_route_330_boundary_synthetic.py`
+(carrot_man.py base `823943a6`에서 `route_local_curve_merge`/
+`route_curvature_macro_fine`/`route_crop_path_by_distance`/
+`resample_10m_np`/`calculate_curvature`를 verbatim 추출, `--self-test`
+합성 시나리오 5개 내장, 실측 corpus 불필요). `toolkit/README.md`/
+`CHANGELOG.md` 갱신.
+
+**미확인 사항**:
+- `ws<0` 음수 라벨이 `route_find_clusters()`/ACTIVE 판정에 실제로
+  주는 영향(다음 작업 1번).
+- `ws<0` 수정안 설계(사용자 승인 필요, §26).
+- 이번 합성 검증은 5개 카테고리 각 1케이스뿐 -- 경계값(예: 정확히
+  `ws=0`, orphan이 window 병합 경계에 걸치는 경우 등) 추가 케이스는
+  다루지 않음.
+
+**다음 작업**:
+1. `ws<0` 음수 distance 라벨을 `route_find_clusters()`에 그대로 투입해
+   cluster/apex 판정에 미치는 실제 영향 확인(합성 또는 실측).
+2. 영향이 확인되면 수정안 설계(예: `distance_offset`도 0으로 clamp,
+   또는 라벨링 기준을 실제 crop 시작점에 맞추는 방식 등 -- 사용자
+   승인 후 착수).
+3. 여유가 되면 `sim_route_330_boundary_synthetic.py`에 경계값 케이스
+   추가(정확히 `ws=0`, window 병합 경계 등).
 ## 329차 계속2 (완료 -- context/replacement 분리 설계 구현 + patch 작성 + 독립검증(git apply/am/py_compile) + 전달 완료) -- 329차가 실측 확인한 route_local_curve_merge() "여유(margin) 0" 설계를 crop 범위 확장 + tail 부분복원으로 수정, x18seg 재생 fallback 45.5%->0%
 
 **Worker**: Claude

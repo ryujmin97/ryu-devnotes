@@ -3,6 +3,19 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+## 2026-09-09 (330차)
+- `sim_route_330_boundary_synthetic.py`: **신규**. ChatGPT의 329차
+  계속2 코드감사 제안(경계조건 폐루프 합성검증)을 구현. `carrot_man.py`
+  (base `823943a6`)에서 `route_local_curve_merge()` 등 verbatim 추출 +
+  사인곡선 합성 path로 5개 카테고리(정상 mid-path/path 끝단 clamp/
+  `ws<0`/다중 orphan/window 겹침) 실행, 출력 배열 정렬/중복/gap>15m/
+  음수 distance 라벨 자동 검사. 결과: 4/5 PASS, `ws<0`만 음수 distance
+  라벨 12건(min=-30.00m) 노출 -- FINDINGS.md `329차(부록)`이 합성 300케이스
+  회귀로 남긴 미확정 가설을 단일 최소 재현 케이스로 확정(원인:
+  `route_crop_path_by_distance()`의 `d_start` clamp와
+  `distance_offset=ws`(clamp 없음) 라벨링이 서로 다른 기준점을 씀).
+  상세는 WIP.md 330차/FINDINGS.md 330차 참고.
+
 ## 2026-09-09 (329차 계속)
 - `sim_route_329b_context_fix_replay.py`: **신규**. 329차(진행중)가
   발견한 "context(macro chord 계산용 원본 경로 구간)=replacement(10m

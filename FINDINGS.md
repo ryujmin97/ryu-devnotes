@@ -1,3 +1,42 @@
+## 330차 -- [합성 폐루프 재현 성공, 근본원인 확정] `ws<0`일 때 `route_local_curve_merge()` 출력에 음수 distance 라벨이 그대로 노출됨 -- 329차(부록)의 가설을 최소 재현 케이스로 확정
+
+**기존 결론(329차 부록, 이월/미해결)**: 합성 300케이스 회귀에서 병합 후
+distance gap>15m이 8건 잔존(328차 원본 137건 대비 94%↓). 원인 후보는
+"orphan이 path 시작점 근처(`ws<0`)일 때 `route_crop_path_by_distance()`의
+`d_start` clamp와 `distance_offset=ws` 라벨링이 어긋나는 것"이나 §28
+원칙에 따라 미확정으로 기록.
+
+**새로운 증거(330차, 단일 최소 재현 케이스)**: `toolkit/sim_route_330_boundary_synthetic.py`로
+orphan center=15m(`ws=15-40=-25m<0`)인 합성 케이스를 단독 실행 -- 출력
+distance 배열에 음수 라벨 12건(min=-30.00m) 확인. 원인 경로를 코드
+추적으로 확정:
+- `route_crop_path_by_distance(relative_coords, ws, we+80)` 호출 시
+  내부에서 `d_start = max(0.0, d_start)`로 실제 crop 시작점은 0m로
+  clamp됨(음수 구간은 애초에 crop되지 않음).
+- 그런데 같은 `ws`(clamp 전, 음수 그대로)가
+  `route_curvature_macro_fine(..., distance_offset=ws, ...)`로 그대로
+  전달되어, 실제로는 0m부터 시작하는 crop 결과의 첫 macro chord
+  포인트에 `ws`(예: -25m)를 distance 라벨로 붙임 -- 이후 `distance
+  += distance_interval`로 누적되므로 그 window의 모든 출력 포인트가
+  실제 물리적 위치보다 25m(=|ws|) 작은 distance로 라벨링됨.
+
+**변경 이유**: 329차(부록)이 남긴 "미확정 가설"을 합성 폐루프로
+재현/확정 -- 이제 코드 추적으로 근본원인이 특정됨.
+
+**현재 상태(미해결, 이월 유지)**: 이번 회차는 원인 확정까지만 수행.
+이 음수 라벨이 `route_find_clusters()`/apex continuity/ACTIVE 판정에
+실제로 어떤 영향을 주는지(예: 음수 distance가 apex_dist로 오인되는지,
+혹은 이후 필터링 단계에서 자연히 걸러지는지)는 아직 확인하지 않음 --
+수정안도 아직 설계하지 않음(§26, 사용자 승인 필요).
+
+**패치 범위**: 없음(이번 회차는 코드 변경 없음, 순수 합성 검증).
+
+**실차 검증**: 미실시. 이번 재현은 순수 합성(실측 corpus 미사용)이며
+이 라벨링 문제가 실제 도로에서 orphan이 path 시작점 근처에 위치하는
+빈도/영향은 별도 확인 필요.
+
+**관련**: WIP.md 330차, FINDINGS.md 329차(부록)(이 항목이 확정한 원본
+가설), `toolkit/sim_route_330_boundary_synthetic.py`.
 ## 329차 -- [코드수정 완료, 실차 미검증] route_local_curve_merge()의 context(macro chord 계산용 원본 경로 구간)=replacement(10m 결과 대체 구간) 설계가 여유(margin) 0이라 정상적인 mid-path 상황에서도 fallback -- crop 범위를 macro chord 길이만큼 넓혀 수정
 
 **기존 결론(328차)**: "10m 기본 패스 + orphan(min_points 미달) 주변만

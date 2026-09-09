@@ -21,6 +21,27 @@ CHANGELOG.md를 같이 갱신**한다 (세션 종료 체크리스트에 포함�
 
 ---
 
+## sim_route_330_boundary_synthetic.py (330차, route_local_curve_merge 경계조건 합성 폐루프 검증)
+
+**목적**: ChatGPT의 329차 계속2 코드감사가 제안한 "실제 숫자를 넣어
+`ws<0`/path 끝/다중 orphan/window 겹침/정상 mid-path 각각을 폐루프로
+검증"을 구현. 실측 로그가 아닌 순수 합성 경로(사인곡선)로 5개 카테고리
+시나리오를 각각 실행해 `route_local_curve_merge()` 출력 배열의 정렬/
+중복/gap>15m/음수 distance 라벨을 자동 검사한다.
+
+**핵심 설계**: `route_local_curve_merge()`/`route_curvature_macro_fine()`/
+`route_crop_path_by_distance()`/`resample_10m_np()`/`calculate_curvature()`를
+`carrot_man.py`(base `823943a6`=329차 계속2)에서 verbatim 추출(로직
+무변경, §27). 실측 corpus 불필요 -- 순수 합성이라 `extract_log.py`
+CSV 없이 단독 실행 가능.
+
+**결과 요약**: 5개 시나리오 중 4개(정상 mid-path/path 끝단 clamp/다중
+orphan/window 겹침) PASS, `ws<0` 케이스만 음수 distance 라벨 노출
+확인(FINDINGS.md 330차, 329차(부록)의 가설을 최소 재현 케이스로 확정).
+
+**사용**: `python3 sim_route_330_boundary_synthetic.py` (인자 없이
+실행하면 5개 시나리오 전부 실행, `--self-test`도 동일)
+
 ## sim_route_329_local_merge_replay.py (329차, 328차 patch 오프라인 재생/실측)
 
 **목적**: 328차가 `carrot_man.py`에 추가한 `route_local_curve_merge()`
