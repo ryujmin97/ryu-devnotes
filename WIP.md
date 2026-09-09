@@ -1,3 +1,132 @@
+## 328차 (완료 -- 코드 패치 작성 + 합성 구조테스트 PASS, 실차/로그 검증 미실시) -- 326/327차가 확정한 "10m 기본 + 곡선후보(orphan) 주변 국소 2.5m 재샘플" 설계를 `ryu`에 최초 적용, patch 전달
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu`(base `1b77b799`=323차, 이 패치 적용 대상) /
+`ryu-devnotes`(base `d6ebe01c`=327차, 이 항목 추가 전)
+
+**Branch**: `c3-ms-dev` / `main`
+
+**세션 시작 확인(§3/§33)**: `git ls-remote`로 원격 fresh 재확인 -- `ryu`
+HEAD `1b77b799`(323차, 변경 없음), `ryu-devnotes` HEAD `d6ebe01c`(327차,
+변경 없음). 다른 작업자 개입 흔적 없음. 사용자가 업로드한
+`20260909_062749_000003c9--5335674c02_x18seg.zip`/`params_backup-1.json`
+은 327차와 동일 세트(재확인만, 이번 세션 신규 재추출은 수행하지 않음).
+
+**배경**: 326차 미확정 5개 항목 중 1번(트리거 조건)을 확정하고, 2~5번은
+사용자 지시대로(WIP.md 326차 4번 "계측선행 사이클 생략") 실차 1차
+후보값으로 채워 실제 코드 패치를 작성.
+
+**1) 326차 미확정 1번(트리거) 확정**: `orphan_count>0` 단일조건 채택 --
+323차가 `routeOrphanRawPath` 계측 트리거로 이미 동일 조건을 실측검증한
+전례(FINDINGS.md 323차, "B가 항상 A의 부분집합") 재사용. 327차 ep3가
+발견한 "10m candidate churn(매 프레임 새로 등록 -> min_points 미달 ->
+즉시 소실)"도 결국 매 프레임 `orphan_count>0`으로 관측되므로 이 조건이
+그대로 포괄.
+
+**2) 코드 변경(`carrot_man.py`, base `1b77b799`)**:
+- `route_curvature_macro_fine()` 신규(순수함수) -- 기존 인라인 macro/fine
+  curvature 계산(213/269/279/147/307차가 쌓아온 로직)을 그대로 추출.
+  `distance_interval=10.0/sample=4/sample_fine=1/distance_offset=0.0`으로
+  호출하면 원본과 완전히 동일한 연산 순서/결과(아래 검증 참고). 326차
+  미확정 5번(`distance=-10.0` 하드코딩)도 이 함수의 `distance_offset -
+  distance_interval` 일반화로 함께 해소.
+- `route_crop_path_by_distance()` 신규 -- `relative_coords`(원본 연속
+  경로)에서 누적거리 구간만 arclength 보간으로 crop.
+- `route_local_curve_merge()` 신규 -- 10m 1차패스 orphan 지점 주변
+  window(기본 앞/뒤 각 40m -- macro half-chord와 동일 크기, 326차 1차안이
+  실측했던 물리적 chord 감각 재사용, 겹치면 병합)만
+  `route_curvature_macro_fine(..., distance_interval=2.5, sample=16,
+  sample_fine=4, ...)`로 재계산해 10m 결과와 병합. 병합 실패(window가
+  path 시작/끝단이라 너무 짧음 등)시 원본 10m 포인트를 그대로 복원.
+- `carrot_navi_route()`: 10m 1차패스로 `orphans` 계산한 직후(기존
+  `all_clusters/clusters/orphans` 3줄 바로 다음) 위 병합을 적용하고,
+  `local_used`면 `candidates/all_clusters/clusters/orphans`를 병합된
+  배열로 재계산 -- 이후 `_route_cluster_continuity_step()` 이하
+  (apex continuity/telemetry/provisional singleton/ACTIVE 게이트)는
+  **전혀 수정하지 않고** 그대로 재사용(326차 확정 설계 다이어그램,
+  §27 최소변경). Stage0 candidate telemetry(`route_candidate0~2`)는
+  기존과 동일하게 병합 이전 10m 원본 기준으로 유지(223차 design doc §2
+  호환, 기존 분석 스크립트 영향 없음).
+- `LOCAL_CURVE_DISTANCE_INTERVAL/MACRO_SAMPLE/FINE_SAMPLE/
+  WINDOW_BACK_M/FWD_M` 신규 상수(값 근거는 patch 주석 참고) --
+  **production 최종값 선언 아님, 실차 1차 후보**(326차와 동일 원칙).
+  `ROUTE_CLUSTER_MAX_GAP_M/MIN_POINTS`, continuity 임계값,
+  `autoNaviSpeedDecelRate`, `AutoNaviSpeedCtrlEnd`, `route_active`
+  상태기계 -- 전부 무변경.
+
+**검증**:
+- 정적분석: `py_compile`/`ast.parse` PASS(패치 적용 전/후 모두, 독립
+  클론에서 `git apply --check` + `git am` 재검증 PASS).
+- **리팩터 회귀(가장 중요)**: `route_curvature_macro_fine()`이 기존
+  인라인 코드와 정말 byte-identical인지, 원본 알고리즘을 별도로
+  재구현해 무작위 경로 200개(랜덤워크, 곡률/직선 혼합, `road_limit_speed`/
+  `mapTurnSpeedFactor` 무작위)로 대조 -- **200/200 완전 일치**(부동소수점
+  단위까지, 1e-9 이내). 10m production 경로는 이번 패치로 전혀 바뀌지
+  않았음을 확인.
+- **국소 병합 구조테스트(합성)**: (1) `route_crop_path_by_distance()`
+  경계값(1m 미만/경로 시작-끝단/음수 시작/범위초과) 전부 의도대로 동작.
+  (2) 인위적으로 단일 orphan을 주입한 뒤 실제 곡선 위치에서
+  `route_local_curve_merge()`를 호출 -- 2.5m 재계산으로 5점 클러스터로
+  승격 확인(10m에서는 원래 1개 클러스터로 이미 검출되던 곡선이라 순수
+  메커니즘 검증용, 아래 한계 참고), window 밖 지점은 완전히 불변임을
+  대조로 확인. (3) 이 테스트 중 "crop이 실패(<1m)하면 원본 포인트가
+  복원되지 않고 조용히 소실"되는 fallback 누락을 발견해 즉시 수정(패치에
+  반영 완료, 세 갈래 실패 분기 모두 원본 포인트 복원 확인).
+- **자연발생 orphan 재현 시도(실패, 정직하게 기록 -- §28)**: 원형 커브/
+  근사-순간 코너 지오메트리로 반경(0.5~180m) x 호길이(3~150m) x
+  grid위상(0~9m) x `road_limit_speed`(60~150) 대규모 스윕을 시도했으나,
+  **이 세션의 단시간 정적 합성탐색으로는 10m 1차패스에서 자연스럽게
+  orphan만 발생(cluster는 0)하는 조합을 찾지 못함** -- 매크로/파인
+  fine window(20m)가 인접 10m 그리드 지점끼리 크게 겹쳐 한쪽이 후보면
+  이웃도 거의 항상 후보가 되는 구조. 327차 ep3의 실제 churn은 "정적
+  스냅샷의 공간적 고립"이 아니라 "20Hz마다 그리드가 차량 위치 기준으로
+  재앵커링되며 프레임마다 물리적으로 다른 지점의 곡률이 나오는" **시간적
+  현상**(220차가 이미 규명한 apexIdx flicker 근본원인과 동일 계열)이라,
+  단일 프레임 정적 지오메트리 합성으로는 재현 난이도가 본질적으로 높다는
+  가설을 세움(검증 안 됨). **따라서 이 패치가 ep3/ep4류 실제 사례를
+  개선하는지는 실차 로그로만 확정 가능** -- 이번 세션 구조테스트는
+  "병합 메커니즘 자체가 의도대로 동작하는가"만 검증했을 뿐, "실제 도로
+  orphan 사례에서 트리거되는가"는 검증하지 못함.
+
+**실차 검증: 미실시**. **로그 검증: 미실시**(다음 세션 -- 이 패치를 실제
+차량에 적용한 로그로 327차 ep3(seg--3)/ep4(seg--4)류 사례가 실제로
+개선되는지, 그리고 이 패치가 새로운 flicker/성능 문제를 만들지 않는지
+반드시 확인).
+
+**영향받는 실차 제어 로직**: 있음 -- `carrot_navi_route()`의 route apex
+후보 지오메트리 계산 경로(orphan 발생 프레임에 한해 국소적으로). 10m
+결과가 이미 cluster(orphans 없음)인 프레임은 이번 패치의 영향을 전혀
+받지 않음(위 리팩터 회귀 검증이 이를 뒷받침).
+
+**패치**: `0001-328cha-orphan-local-2.5m-resample.patch`
+(`selfdrive/carrot/carrot_man.py`, +280/-107줄, base `1b77b799`)
+
+**미확인 사항**:
+- 자연발생 orphan에서 이 패치가 실제로 트리거되는지(위 한계 참고).
+- 국소 2.5m window의 실행시간 벤치마크(318차 한계 2번, 여전히 미해소 --
+  이번 window 크기(80m 이내)는 318차가 벤치마크했던 "전체 600m 5m 재샘플"
+  최악 케이스보다 훨씬 작지만 별도 실측 없음).
+- window 폭 40m/40m, hysteresis 없음, 유지거리 없음(매 프레임 재계산)이
+  실차에서 flicker/과소검출/과다검출 중 어느 쪽으로 문제를 보일지.
+- provisional singleton 경로(`_route_provisional_singleton_step`)와의
+  상호작용 -- 이번 패치로 orphan이 줄면 provisional 경로에 도달하는
+  후보 자체가 줄어들 것으로 예상되나 실측 없음.
+
+**다음 작업**:
+1. 이 패치를 실차에 적용해 로그 확보(§29, 실차 검증 필수).
+2. 확보한 로그에서 327차 ep3(seg--3, t=687~722)/ep4(seg--4, t=722~782)와
+   동일 지점을 다시 통과할 기회가 있으면 A/B 비교(패치 전 10m-only 재현
+   결과는 324/325/327차 CSV로 이미 확보돼 있음).
+3. `self._route_local_resample_used`(cereal 미발행, 내부 속성만) --
+   실차에서 관측이 필요해지면 `orphan_count`/`cluster_count`/`apex_mode`
+   기존 telemetry의 프레임간 변화로 간접 추적 가능한지 먼저 확인하고,
+   부족하면 그때 신규 cereal 필드 추가를 검토(이번 세션엔 스키마 변경
+   범위를 늘리지 않기 위해 보류).
+4. 위 "미확인 사항" 전부.
+
+---
+
 ## 327차 (완료 -- 신규 업로드 원본 zip 재추출로 324/325차 결과 100% 재현 확인 + ep3 프레임트레이스로 325차 "다음 단계" 완료, `ryu` 코드 변경 없음) -- 10m grid quantization으로 인한 apex candidate churn(순간등록->min_points미달->lost 반복)이 route_active 대량유실의 세 번째 메커니즘으로 확인됨
 
 **Worker**: Claude
