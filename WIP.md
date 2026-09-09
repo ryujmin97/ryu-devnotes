@@ -1,3 +1,148 @@
+## 335차 (완료 -- 사용자 업로드 신규 route 4건으로 332차/334차 이월 검증 수행, `ryu` 코드 무변경) -- 332차가 이월했던 "실제 `routeApexDist<0` 나쁜 사례"를 x19seg에서 최초 확인(offline diff=0.0) + 334차 local-merge parity 구조적 불일치가 신규 route 4개 전부에서 100% 재현
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu`(업로드 로그 채록 기준 base `823943a6`=329차 계속2 -- 사용자
+명시. 단 fresh clone 결과 원격 HEAD가 `5cba802`로 앞서 있음을 확인, 아래
+"세션 시작 확인" 참고) / `ryu-devnotes`(base `85d44b08`=334차, 이 항목
+추가 전)
+
+**Branch**: `c3-ms-dev` / `main`
+
+**세션 시작 확인(§3/§33, 중요)**: fresh clone으로 `ryu` HEAD가 `5cba802`
+(커밋 메시지 "334차 계측: routeLocalResampleUsed cereal 필드 노출")임을
+확인 -- 그런데 `ryu-devnotes` WIP.md 최신 항목(334차)은 이 계측 패치를
+"제안(승인 대기, 아직 코드/패치 파일 작성 안 함)"으로 기록하고 있어
+devnotes 기록과 실제 `ryu` 코드 상태가 어긋나 있었다(§33 "WIP와 실제
+코드가 다름"). `5cba802` diff를 334차 WIP의 제안 내용과 대조한 결과
+`cereal/custom.capnp` @71 필드 추가 + `carrot_man.py`/`carrot_serv.py`
+각 1개 전달 라인만 있는 순수 관측용 패치로 **내용이 완전히 일치** --
+이 세션 밖에서 사용자가 승인/적용/push한 것으로 판단(작업자 삭제/덮어쓰기
+없음, §36). 이번 세션에서 새로 만든 코드는 없으므로 충돌 없음(§8) --
+그대로 최신 상태를 기준으로 진행. 사용자가 이번에 업로드한 4개 로그는
+전부 823943a6 채록으로 명시됐고, 커밋 시각(`5cba802` author date
+2026-09-09 08:20:20 UTC = 17:20:20 KST)이 4개 로그 타임스탬프(12:40~15:23
+KST) 전부보다 늦어 시간순으로도 모순 없음 -- **즉 이번 4개 로그에는
+`routeLocalResampleUsed` 필드가 없다(823943a6 기준이라 당연함)**.
+
+**이번 회차 작업**: 업로드된 신규 route 4건(x19seg/x6seg/x10seg/x16seg,
+전부 처음 보는 route hash -- 327~334차가 반복 사용한 x18seg와 무관한
+신규 채록)을 `extract_log.py --repo ryu --with-navi-paths`로 CSV화한 뒤,
+이월돼 있던 두 미해결 검증 항목을 반복 수행:
+1. 332차 "다음 작업 1번": 다른 route에서 STEP3(`ws<0`→실제
+   `routeApexDist`/ACTIVE 게이트 영향) 반복 -- 기존
+   `sim_route_332_ws_negative_real_corpus.py` 그대로 재사용(§21, 재구현
+   없음).
+2. 334차 "다음 작업 4번"(=333차 이월 미확인사항 2번): x18seg 외 다른
+   route에서도 local-merge offline replay vs 실측 parity 구조적
+   불일치가 재현되는지 확인 -- 기존
+   `sim_route_334_local_merge_parity_trace.py` 그대로 재사용(§21).
+
+**결과 1 (332차 STEP3 반복 -- 결정적 신규 증거)**:
+
+- x19seg(22,798행, raw_path 존재 1013프레임): 10m 1차pass 재계산
+  orphan>0 1008건 중 `ws<0` 177건(구조적으로 흔함, 331/332차와 동일
+  경향 재확인). offline apex 산출 성공 140건 중 offline
+  `apex_dist<0` 21건.
+- **`t=481.858660709`: 실측 `routeApexMode='new'`, 실측
+  `routeApexDist=-40.0` -- offline replay 예측(-40.0)과 diff=0.0으로
+  정확히 일치.** 332차가 "이번 corpus(x18seg)에는 정렬이 없었다"고
+  이월했던 "근접(`ws<0`) orphan이 `route_local_curve_merge()`로
+  클러스터 승격까지 되고, 그 클러스터가 하필 'new' lock 순간의
+  최근접 클러스터인" 정렬이 **실제로 관측된 최초 사례**
+  (`n_clusters=1`, `cluster_dists=[-40.0]` -- 근접 orphan이 유일
+  클러스터로 승격되어 그대로 lock됨).
+- 원본 CSV로 프레임 문맥 대조: 이 시점은
+  `held→matched→passed→none→new(t=481.211848368,+124.0 정상양수)→held→
+  matched→held→held→held→lost→none→none→none→new(t=481.858660709,
+  -40.0)→passed→...` 식으로 약 0.65초 사이 lock 상태가 2회 교체되는
+  flicker 구간 안에 위치(`vEgo`≈16.3m/s≈59km/h, `vTurnSpeed`는
+  124~135로 flicker 중 목표속도 자체는 크게 변하지 않음).
+- 이 프레임에 대한 게이트 영향(`sim_route_332` 계산, 가정: 이 프레임에
+  ACTIVE 상태였다면): `[ACTIVE중] RELEASE` / `[INERT] INERT_hold
+  (eff_dist<=0_224차_pass_through)` -- 330차가 코드추적으로 예측한
+  경로("`ws<0` 라벨이 apex_dist로 그대로 채택 -> `apex_dist<=20m`
+  조건 충족 -> ACTIVE RELEASE 즉시 트리거")가 실제 production
+  텔레메트리로 확인됨. 단 이 프레임에서 시스템이 실제로 ACTIVE
+  상태였는지는 CSV에 별도 상태 컬럼이 없어 직접 확인 불가(§28,
+  추측 금지 -- 확정 아님, 가정 조건부 결과로만 기록).
+- 나머지 3개 route(x6seg 1건, x10seg 2건, x16seg 2건)에서도 offline
+  `apex_dist<0` 사례를 발견했으나 전부 `vEgo`≈5.5m/s대 저속(정차/서행
+  추정) 프레임이라 곡선속도제어 문맥과 직접 관련 있는지 불확실(§28,
+  qcamera 대조 없이는 확정 보류).
+
+**결과 2 (334차 parity 불일치 반복 -- 4/4 route 100% 재현)**:
+
+| route | orphan-raw-path 행수 | 불일치 건수 | 비율 |
+|---|---|---|---|
+| x19seg | 1004(도달) | 1004 | 100% |
+| x6seg | 6 | 6 | 100% |
+| x10seg | 262 | 262 | 100% |
+| x16seg | 665(도달) | 665 | 100% |
+
+334차 미확인사항 2번("x18seg 외 다른 route에서도 동일 패턴이 재현되는지")에
+대한 답: **예, 독립적인 신규 route 4개 전부에서 재현**(offline
+`local_used=True` 예측 vs 실측 10m-grid 정렬 100% 역전) -- 이 구조적
+불일치가 x18seg 특이 현상이 아니라 일반적임을 강하게 시사. 단, 여전히
+10m-grid 정렬은 **직접 계측이 아닌 휴리스틱 proxy**이며(스크립트 자체
+경고), `routeLocalResampleUsed` 직접 계측 재검증 전까지는 참고 정황일
+뿐 확정 증거가 아님(§28).
+
+**해석**:
+- 결과 1은 332차가 "실제 나쁜 사례를 찾으면 그때 수정안 설계 착수"라고
+  이월했던 조건을 처음으로 충족한다 -- FINDINGS.md 신규 등록 대상
+  (§24, 기존 332차 항목은 삭제/수정하지 않고 새 항목으로 보강).
+- 결과 2는 334차가 이미 FINDINGS에 등록한 구조적 불일치의 **일반성**을
+  보강하는 정황 증거이나, 스크립트 자체가 "이 출력만으로 FINDINGS
+  갱신 금지"를 명시하므로 이번 회차도 FINDINGS는 갱신하지 않고
+  WIP에만 기록한다. `5cba802`(직접 계측 패치)는 이미 `ryu`에 병합돼
+  있으므로, **다음에 필요한 것은 코드가 아니라 5cba802 기준으로 빌드된
+  기기에서의 신규 실차 로그뿐**이다.
+
+**검증**:
+- 정적분석: 기존 검증된 toolkit 스크립트 재사용, 신규 코드 없음.
+- 실측 corpus 대조: 4개 신규 route(x19/x6/x10/x16seg) 전수 스캔, 위
+  결과 1/2 참고.
+- 코드 대조: `5cba802` diff를 334차 WIP 제안문과 대조해 완전 일치 확인.
+- **실차 검증(§29)**: 이번 회차 자체가 실차 로그 기반 검증 -- 단
+  `routeLocalResampleUsed` 직접 계측은 아직 불가(로그가 823943a6 기준,
+  5cba802 이전 채록).
+
+**신규 toolkit**: 없음(§21, 기존 `sim_route_332_ws_negative_real_corpus.py`/
+`sim_route_334_local_merge_parity_trace.py` 재사용만).
+
+**Devnotes**: `FINDINGS.md`에 335차 항목 신규 등록(최상단, 332차 항목은
+무변경 유지) -- 결과 1(실측 `routeApexDist<0` 관측 사례)만 등록, 결과
+2(parity 재현)는 §28 원칙에 따라 미등록. `LAST_ANALYZED.md`에 335차
+항목 추가.
+
+**미확인 사항**:
+- t=481.858660709 프레임에서 시스템이 실제 ACTIVE 상태였는지(CSV에
+  상태 컬럼 없음 -- qcamera 영상 대조나 추가 계측 없이는 확정 불가).
+- 나머지 route(x6/x10/x16seg)의 저속 `apex_dist<0` 사례가 곡선속도제어와
+  실제로 관련 있는지(qcamera 대조 필요).
+- `routeLocalResampleUsed` 직접 계측값 -- `5cba802` 기준으로 빌드된
+  기기의 신규 로그 필요(사용자 작업: 기기를 `c3-ms-dev` 최신 커밋으로
+  업데이트 후 재드라이브).
+
+**다음 작업**:
+1. **최우선**: 기기를 `5cba802`(또는 그 이후) 기준으로 업데이트 후
+   재드라이브 -> 신규 로그에서 `routeLocalResampleUsed` 실측값을
+   offline replay 예측과 직접 대조 -- 334차/이번 회차의 "구조적 불일치"
+   원인을 계측으로 확정.
+2. t=481.858660709 사례에 대해 (a) 동일 시각 qcamera 프레임 대조로
+   실제 도로 형상 확인, (b) 가능하면 이 route의 실제 ACTIVE 진입/이탈
+   로그(활성 상태를 유추할 수 있는 다른 필드)를 추가로 뽑아 ACTIVE
+   상태 여부 확정.
+3. (이월) 332차 다음 작업 2/3번: 실제 나쁜 사례(이번 t=481.858660709)를
+   확보했으므로 수정안 설계 착수 여부를 사용자에게 확인(§26, 여전히
+   "0 클램프가 유일한 정답은 아님" 유보 유지) / `ROUTE_ACTIVE_
+   RELEASE_MARGIN_RATIO=1.05` 실차검증 + 터널구간 로그 확보는 계속 이월.
+4. (이월) 333차 미확인사항 중 "다른 route 확인" 항목은 이번 회차로
+   종료(4개 route 확인 완료).
+
+---
+
 ## 334차 (진행중 -- 333차 불일치가 corpus 전체로 확장 재현됨, 원인 미확정, ryu 코드 무변경, 계측 패치 승인 대기) -- `route_local_curve_merge()` offline replay vs 실측 텔레메트리 parity가 x18seg 전체(3635/3635 프레임)에서 구조적으로 반대로 갈림
 
 **Worker**: Claude

@@ -1,3 +1,31 @@
+## c3-ms-dev (335차, 신규 route 4건(x19/x6/x10/x16seg) 실차로그로 332차/334차 이월 검증 -- `ryu` 코드 무변경)
+- Repository: `ryujmin97/ryu`
+- Branch: `c3-ms-dev`
+- last_analyzed_commit: `823943a6`(업로드 로그 채록 기준, 329차 계속2 --
+  단 `ryu` 원격 HEAD는 이 세션 확인 시점 `5cba802`(334차 계측 patch,
+  이미 병합됨)까지 진행돼 있었음. 코드 변경 없음, `extract_log.py
+  --with-navi-paths` 실행용 clone일 뿐)
+- devnotes base: `85d44b08`(334차, 이 항목 추가 전)
+- Analysis date: 2026-09-09 (335차)
+- Worker: Claude
+- Analyzed commits: 없음(코드 변경 없음, 로그 분석만)
+- Analyzed files/logs: 사용자 업로드 4건 --
+  `20260909_124051_000003cb--7940c9e2c6_x19seg.zip`(19세그, 22,798행),
+  `20260909_125951_000003cc--7d0263046d_x6seg.zip`(6세그, 6,309행),
+  `20260909_150044_000003cd--1cd2ef2125_x10seg.zip`(10세그, 10,992행),
+  `20260909_152346_000003d0--f49c84d79d_x16seg.zip`(16세그, 18,815행)
+  -- 전부 처음 보는 route hash(327~334차가 반복 써온 x18seg=`5335674c02`와
+  무관), `extract_log.py --with-navi-paths`로 개별 CSV화.
+- Conclusion: (1) x19seg에서 332차가 이월했던 실제 `routeApexMode='new'`
+  + `routeApexDist<0` 사례를 최초 확인(t=481.858660709, offline
+  diff=0.0). (2) 334차 local-merge parity 구조적 불일치(offline
+  `local_used=True` 예측 vs 실측 10m-grid 정황 100% 역전)가 4개 route
+  전부에서 재현(참고 정황, 직접계측 아님). 상세: FINDINGS.md/WIP.md
+  335차 참고.
+- next: 기기를 `5cba802` 이후 커밋으로 업데이트 후 재드라이브해
+  `routeLocalResampleUsed` 직접 계측값으로 재검증. t=481.858660709
+  사례 qcamera 대조 및 ACTIVE 상태 여부 추가 확인.
+
 ## c3-ms-dev (327차, 신규 업로드 x18seg 원본zip 재추출 재현성 확인 + ep3 프레임트레이스로 325차 "다음 단계" 완료 -- `ryu` 코드 무변경)
 - Repository: `ryujmin97/ryu`
 - Branch: `c3-ms-dev`
