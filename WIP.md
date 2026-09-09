@@ -1,3 +1,55 @@
+## 341차 계속 (완료 -- 정정, ANALYSIS_ONLY, `ryu` 코드 무변경) -- 사용자가 릴리즈조건(`v_ego_kph<=apex_speed*1.1`) 가능성을 지적, 위 341차의 "신규 진입게이트" 귀속이 오류였음을 확인하고 정정
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu`(base `7b3dfec4`=336차, 코드 변경 없음) /
+`ryu-devnotes`(base `160c4fd`=위 341차, 이 항목 추가 전)
+
+**Branch**: `c3-ms-dev` / `main`
+
+**계기**: 위 341차 결과 전달 후 사용자가 "이 상황이 라우트 릴리즈조건
+`v_ego_ms<=target_ms`, `v_ego_kph<=apex_speed*1.1`에 해당되서 끊어졌다
+붙었다를 반복하는 것으로도 볼 수 있나"라고 질문. 위 341차는 이 구분을
+검증하지 않고 상관관계(grid 전환 + apex_speed 상승 + src 토글)만으로
+"단일 프레임 ACTIVE 이탈"이라 서술했었다(§29 -- 검증 없이 확정처럼
+서술한 것에 해당해 정정 필요).
+
+**작업**: `toolkit/diag_required_decel_341.py`를 `route_active`
+(True/False) 상태를 실제로 프레임별 추적하는 방식으로 재작성(§21 --
+`sim_route_273_active_gate_relax_sensitivity.py` 게이트 산식은 그대로
+재사용, 상태추적/reason 분류 레이어만 추가, §27). release 시점마다
+`apex_reset`/`speed_reached`(=`v_ego_kph<=apexSpeed*RELEASE_MARGIN_RATIO(1.1)`)/
+`dist_reached`/`no_apex` 중 어느 것이 발동했는지 분류.
+
+**결과(정정 확정)**: 그룹13(t=1076~1085) 릴리즈 이벤트 7건 전부(100%),
+전체 로그 기준 flapping성 릴리즈(2초 이내 재진입) 54건 중 33건(61.1%)이
+신규 진입게이트가 아니라 **ACTIVE 릴리즈 조건 speed_reached**(사용자가
+지적한 바로 그 조건, `v_ego_kph<=apex_speed*1.1`)에서 발동했다. 즉
+grid 전환에 따른 apex_speed 순간 상승이 릴리즈 마진(1.1배) 조건을
+스스로 충족시켜 route가 해제되는 것이 확정 메커니즘이다. 상세는
+FINDINGS.md "341차 계속" 참고.
+
+FINDINGS.md 288차(`ROUTE_ACTIVE_RELEASE_MARGIN_RATIO` margin flicker)와
+같은 파라미터가 관여하는 별개 트리거 경로로 보이나(직선구간 grid
+apex_speed 점프 vs 288차의 하이웨이 confidence blend 불일치), 직접
+대조는 미실시.
+
+**검증**: `route_active` 상태전이 직접 추적(실제 코드 분기를 그대로
+재현) + 로그 검증(68건/54건 전수 카운트) + 재현성(23,776행, 위 341차와
+동일). **실차 재검증: 불필요**.
+
+**미확인 사항(위 341차에서 이월)**:
+1. no_apex/dist_reached/apex_reset 경로의 개별 기여도.
+2. grid 경계 apex_speed 급상승의 상류 원인(`route_curvature_macro_fine`).
+3. flapping의 실제 종방향 제어 출력 체감 영향.
+4. 288차와의 "같은 파라미터, 다른 트리거" 판단은 정성 비교 수준.
+
+**다음 작업**:
+1. `route_curvature_macro_fine`/apex 후보 산출 경로 code-level 추적.
+2. 288차 `ROUTE_ACTIVE_RELEASE_MARGIN_RATIO` 이슈와 통합 논의(Master
+   승인 필요, §27/§34).
+3. `diag_required_decel_341.py`(정정판)를 다른 flapping 그룹에도 적용.
+
 ## 341차 (완료 -- ANALYSIS_ONLY, `ryu` 코드 무변경, 신규 toolkit 스크립트 1개 추가) -- 340차가 남긴 "직선구간 route flapping" 가설을 code-level 인과로 확정 (grid 전환 시 apex_speed 스파이크 -> 단일 프레임 드롭아웃)
 
 **Worker**: Claude

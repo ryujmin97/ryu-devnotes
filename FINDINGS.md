@@ -1,3 +1,71 @@
+## 341차 계속 -- [정정, 사용자 지적] 위 341차 항목의 원인 귀속 오류 정정: "신규 진입게이트(v_ego<=target) 실패"가 아니라 "ACTIVE 유지 중 릴리즈 조건 speed_reached(v_ego_kph<=apexSpeed*RELEASE_MARGIN_RATIO 1.1)" 발동이 실제 원인
+
+**기존 결론(위 341차 항목)**: `routeApexIdx` grid 경계 전환 시
+`routeApexSpeed` 상승 점프가 "단일 프레임 ACTIVE 이탈"을 유발한다고
+서술하며, 그 이탈의 code-level 원인을 명시하지 않고(엄밀히는 진입게이트
+`v_ego<=target` 계열로 암시) 상관관계(93.5%/93.0%)만 근거로 제시했다.
+
+**새로운 증거**: 사용자가 "이 상황이 릴리즈조건
+`v_ego_ms<=target_ms`, `v_ego_kph<=apex_speed*1.1`에 해당되어
+끊어졌다 붙었다 하는 것 아니냐"고 질문했다. 이를 계기로
+`route_active`(True/False) 상태를 실제로 프레임별 추적하는 스크립트로
+재작성해(`toolkit/diag_required_decel_341.py`, 이 patch에서 갱신)
+release 시점에 정확히 어느 조건(`apex_reset`=streak==1 /
+`speed_reached`=`v_ego_kph<=apexSpeed*RELEASE_MARGIN_RATIO(1.1)` /
+`dist_reached`=`apexDist<=20m` / `no_apex`) 이 발동했는지 재확인했다.
+
+**변경 이유**: 위 341차의 1차 분석은 `src` 컬럼과 `routeApexIdx`/
+`routeApexSpeed`만으로 상관관계를 확인했을 뿐, route 모듈 내부의
+ACTIVE/INERT 상태 자체를 추적하지 않아 "어느 분기(신규진입 vs 기존
+릴리즈)가 실제로 발동했는지"를 검증하지 못한 채 서술했다(§29 위반
+소지 -- 검증 없이 확정처럼 서술).
+
+**새로운 결론(정정)**: 그룹13(t=1075.99~1084.84, 직선구간)의 릴리즈
+이벤트 7건 전부(100%)가 `speed_reached`에서 발동했다. 전체 로그
+(23,776행) 기준 `route_active` True->False 릴리즈 이벤트 68건 중
+`speed_reached` 42건(61.8%), `no_apex` 15건(22.1%), `dist_reached`
+9건(13.2%), `apex_reset` 2건(2.9%). "릴리즈 후 2초 이내 재진입"만
+필터링한 flapping성 이벤트 54건 기준으로도 `speed_reached` 33건
+(61.1%)이 여전히 1위다. 즉 확정된 인과는 "신규 진입 문턱을 못 넘어서"가
+아니라 "**이미 ACTIVE였던 route가 grid 전환에 따른 apex_speed 순간
+상승 때문에 릴리즈 마진(1.1배) 조건을 스스로 충족시켜 해제**"된다는
+것이다.
+
+**FINDINGS.md 288차와의 관계(추가, §24)**: 이번에 확정된 경로는 288차가
+이미 다룬 `ROUTE_ACTIVE_RELEASE_MARGIN_RATIO`(1.1) 파라미터가 관여하는
+**같은 계열의 릴리즈 마진 메커니즘**이다. 다만 트리거가 다르다 --
+288차는 confidence blend 불일치(하이웨이 완만한 커브, apex_dist
+150~400m), 이번은 직선구간에서 `routeApexIdx` grid 전환에 따른
+`apexSpeed` 자체의 불연속 점프다. 이 판단은 두 사례를 직접 재현/대조한
+것이 아니라 기록 검토 수준의 정성 비교이며, 직접 대조 검증은 미실시로
+남겨둔다(미확인 사항).
+
+**검증**: `route_active` 상태 프레임별 직접 추적(시뮬레이션 근사가
+아니라 실제 코드 분기를 그대로 따라간 상태기계) + 로그 검증(전체
+68건/54건 카운트) + 독립 재추출 재현성(23,776행, 위 341차와 동일).
+**실차 재검증: 불필요**(기존 로그 재분석, `ryu` 코드 변경 없음).
+
+**미확인 사항(위 341차 항목에서 이월)**:
+1. no_apex(22.1%)/dist_reached(13.2%)/apex_reset(2.9%) 경로의 개별
+   기여도 미조사.
+2. grid 경계마다 apex_speed가 도로제한 근처로 튀는 상류 원인
+   (`route_curvature_macro_fine`) code-level 미추적.
+3. flapping의 실제 종방향 제어 출력 체감 영향 여전히 미확인.
+4. 288차 margin flicker와의 "같은 파라미터, 다른 트리거" 판단은
+   정성 비교 수준(직접 대조 미실시).
+
+**다음 작업(갱신)**:
+1. `route_curvature_macro_fine`/apex 후보 산출 경로에서 grid 경계마다
+   apex_speed가 급상승하는 근본 원인 code-level 추적.
+2. 수정 방향은 Master 논의 필요(§27/§34) -- 288차
+   `ROUTE_ACTIVE_RELEASE_MARGIN_RATIO` 이슈와 통합 논의(예: 마진 배율
+   자체를 낮출지, apex_speed 스파이크를 릴리즈 판정 전에 필터링할지 등
+   코드 임의수정 금지 원칙상 사용자 승인 필요).
+3. `diag_required_decel_341.py`(정정판)를 다른 flapping 그룹(8/9/11/12/14/16
+   등)에도 적용해 release reason別 비율 재확인.
+
+---
+
 ## 341차 -- [실측 확정, ANALYSIS_ONLY, `ryu` 코드 무변경] 직선구간 "route flapping"(340차가 사용자 제보로 발견) 원인 code-level 확정: `routeApexIdx` 10m grid 경계 전환 시 `routeApexSpeed` 상승 점프 -> 단일 프레임 ACTIVE 이탈 -> 즉시 재진입
 
 **배경**: 340차가 사용자 제보("직선구간에서 route가 액티브된 후 꺼졌다

@@ -3,6 +3,15 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+## 2026-09-10 (341차 계속, 정정)
+- `diag_required_decel_341.py`: **파일 교체(정정판)**. 사용자가 "ACTIVE
+  릴리즈조건(`v_ego_kph<=apex_speed*1.1`) 아니냐"고 지적, `route_active`
+  상태를 실제로 프레임별 추적해 release 원인(`apex_reset`/
+  `speed_reached`/`dist_reached`/`no_apex`)을 분류하는 방식으로
+  재작성(§21/§29). 340차 가설의 정확한 메커니즘이 신규 진입게이트가
+  아니라 릴리즈 조건 `speed_reached`임을 확정. `--summary` 옵션 신규
+  추가. FINDINGS.md "341차 계속" 참고.
+
 ## 2026-09-10 (341차)
 - `diag_required_decel_341.py`: **신규**(219차 `diag_route_boost_arm_219.py`와
   동일 패턴 -- `sim_route_273_active_gate_relax_sensitivity.py`의

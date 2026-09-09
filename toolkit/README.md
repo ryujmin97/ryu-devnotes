@@ -1,4 +1,30 @@
-## diag_required_decel_341.py (341차, 신규 -- 340차 "직선구간 route flapping" 가설 code-level 확정)
+## diag_required_decel_341.py -- 정정판 갱신 (341차 계속)
+
+**정정 경위**: 바로 아래 341차 원 항목은 `src`/`routeApexIdx`/
+`routeApexSpeed`의 상관관계만 보고 flapping 원인을 "신규 진입게이트
+(`v_ego<=target_eff`) 실패"로 서술했다. 사용자가 "ACTIVE 유지 중
+릴리즈 조건(`v_ego_kph<=apex_speed*1.1`) 아니냐"고 지적해, 스크립트를
+`route_active`(True/False) 상태를 실제로 프레임별 추적하는 방식으로
+재작성했다(파일 자체를 이 patch에서 교체, §21 -- 게이트 산식은
+`sim_route_273_active_gate_relax_sensitivity.py`에서 그대로 재사용).
+
+**정정된 핵심 결과**: 그룹13 릴리즈 이벤트 7건 전부(100%), 전체 로그
+기준 flapping성 릴리즈 54건 중 33건(61.1%)이 **ACTIVE 릴리즈 조건
+`speed_reached`**(`v_ego_kph<=apexSpeed*RELEASE_MARGIN_RATIO(1.1)`)에서
+발동했다 -- 신규 진입게이트가 아니다. 상세는 FINDINGS.md "341차 계속"
+참고.
+
+**사용(갱신됨 -- 아래 원 항목의 사용법과 다름)**:
+```bash
+# 구간 상세 (route_active/reason 컬럼 포함)
+python3 diag_required_decel_341.py <csv> <t0> <t1> [--decel-rate=1.00]
+# 전체 로그 release reason 통계
+python3 diag_required_decel_341.py <csv> --summary [--flap-window=2.0]
+```
+
+---
+
+## diag_required_decel_341.py (341차, 신규 -- 340차 "직선구간 route flapping" 가설 code-level 확정) [주의: 이 항목의 "핵심 결과"는 오류 -- 바로 위 "341차 계속" 정정 항목 참고, 스크립트 파일도 정정판으로 교체됨]
 
 **목적**: WIP 340차가 남긴 가설("직선구간 route flapping이
 `required_decel_mss`의 임계값 근처 진동 때문")을 code-level로
