@@ -1,3 +1,34 @@
+## diag_required_decel_341.py (341차, 신규 -- 340차 "직선구간 route flapping" 가설 code-level 확정)
+
+**목적**: WIP 340차가 남긴 가설("직선구간 route flapping이
+`required_decel_mss`의 임계값 근처 진동 때문")을 code-level로
+확정/기각. `sim_route_273_active_gate_relax_sensitivity.py`의
+`ContinuityApprox`/`confidence_from_streak`/게이트 산식(stage4 거리게이트
++ confidence blend)을 그대로 import해(§21) 재사용하되, 219차
+`diag_route_boost_arm_219.py`와 동일하게 게이트 로직 자체는 건드리지
+않고 `required_decel_mss`/`eff_apex_speed`/`streak`/게이트 판정을
+프레임별로 노출하는 관측 레이어만 얹는다(§27).
+
+**핵심 결과**: 340차 가설보다 구체적인 단일 메커니즘 확정 --
+`routeApexIdx`가 10m grid 경계를 넘어 전환되는 프레임마다
+`routeApexSpeed`가 도로제한속도 근처까지 순간 상승(+1.6~+5.6kph
+관측)하면서 `v_ego<=target` 조건을 정확히 1프레임 성립시켜 route가
+ACTIVE에서 이탈했다가 다음 프레임 즉시 재진입한다. 전체 로그
+(23,776행) 기준 "route->1프레임 이탈->route" 드롭아웃 46건 중
+93.5%(43건)가 `routeApexIdx` grid 전환과 동시 발생, 그 중 93.0%
+(40건)에서 동시에 `routeApexSpeed` 상승 관측(결합 시 전체 87.0%
+직접 설명). 상세는 FINDINGS.md 341차 참고.
+
+**사용**:
+```bash
+python3 diag_required_decel_341.py <csv> <t0> <t1> [--decel-rate=1.00]
+```
+CSV는 `sim_route_273_active_gate_relax_sensitivity.py`와 동일
+(`--with-navi-paths` 불필요, `routeApex*`/`routeCandidate*`/`src`
+컬럼만 사용).
+
+---
+
 ## extract_log.py -- routeLocalResampleUsed 컬럼 추가 (340차)
 
 334차(commit `5cba802`)가 cereal(`custom.capnp` @71)에 노출한

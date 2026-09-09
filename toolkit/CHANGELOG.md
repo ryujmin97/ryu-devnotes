@@ -3,6 +3,15 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+## 2026-09-10 (341차)
+- `diag_required_decel_341.py`: **신규**(219차 `diag_route_boost_arm_219.py`와
+  동일 패턴 -- `sim_route_273_active_gate_relax_sensitivity.py`의
+  `ContinuityApprox`/`confidence_from_streak`/게이트 산식을 그대로 import,
+  진단값 출력 레이어만 추가, §21/§27). `required_decel_mss`/`eff_apex_speed`/
+  `streak`/게이트 판정을 프레임별로 실측 `src`와 나란히 출력. 340차
+  가설("직선구간 route flapping"의 required_decel_mss 임계 진동설)을
+  code-level로 확정하는 데 사용됨 -- FINDINGS.md 341차 참고.
+
 ## 2026-09-10 (340차)
 - `extract_log.py`: **컬럼 추가**(신규 도구 아님). `routeLocalResampleUsed`
   (cereal `custom.capnp` @71, 334차 계측 필드)가 FIELDNAMES/row dict

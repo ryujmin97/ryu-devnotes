@@ -1,3 +1,73 @@
+## 341차 (완료 -- ANALYSIS_ONLY, `ryu` 코드 무변경, 신규 toolkit 스크립트 1개 추가) -- 340차가 남긴 "직선구간 route flapping" 가설을 code-level 인과로 확정 (grid 전환 시 apex_speed 스파이크 -> 단일 프레임 드롭아웃)
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu`(base `7b3dfec4`=336차, 코드 변경 없음) /
+`ryu-devnotes`(base `4114596`=340차, 이 항목 추가 전)
+
+**Branch**: `c3-ms-dev` / `main`
+
+**세션 시작 확인**: 재클론 후 `ryu` HEAD `7b3dfec4`(336차, 기억과 일치),
+`devnotes` HEAD `4114596`(340차, 기억과 일치) 확인. HANDOFF.md/CURRENT_STATUS.md
+없음 -- 다른 작업자 흔적 없이 이어서 진행.
+
+**사용자 지시**: 340차와 동일 route(`20260910_060827_000003d4--59a8ae5773`,
+x20seg) 재업로드 + "계속"(추가 지시 없음, WIP 340차 "다음 작업 1"을
+그대로 이어감).
+
+**작업**: `extract_log.py`로 x20seg 재추출(23,776행, 340차 결과와 완전
+일치 -- 재현성 확인, §21). `src` 컬럼 기준 flapping 그룹을 gap<5s로
+재추출한 결과 340차가 지목한 t=1076~1085 그룹(steeringAngleDeg 평균
+0.26°, 직선구간 확인)과 완전 동일 위치(그룹13, t=1075.99~1084.84,
+26회 전환)로 재현됨. (참고: t=764.89~788.59 구간도 109회로 훨씬 더
+빈번한 전환이 발견됐으나 steeringAngleDeg 평균 18.78°로 실제 커브
+구간이라 사용자 제보 "직선구간" 증상과는 무관 -- 조사범위에서 제외.)
+
+기존 `toolkit/sim_route_273_active_gate_relax_sensitivity.py`의
+`ContinuityApprox`/`confidence_from_streak`/게이트 산식을 그대로
+import해서(§21) 신규 관측 스크립트 `toolkit/diag_required_decel_341.py`
+(219차 `diag_route_boost_arm_219.py`와 동일 패턴 -- 기존 로직에 손대지
+않고 진단값 출력 레이어만 추가, §27)를 작성, 그룹13 구간을 프레임별로
+재생해 `required_decel_mss`/`eff_apex_speed`/`streak`/게이트 판정을
+실측 `src`와 나란히 출력.
+
+**핵심 결과**: FINDINGS.md 341차 참고(신규 등록). 요약 -- 340차의
+포괄적 가설("required_decel_mss가 임계값 근처에서 흔들림")보다 더
+구체적인 단일 메커니즘을 확정: `routeApexIdx`가 10m grid 경계를 넘어
+전환되는 프레임마다 `routeApexSpeed`가 순간적으로 도로제한 근처까지
+튀어올라(+1.6~+5.6kph 관측) `v_ego<=target` 조건이 정확히 1프레임
+성립, 그 프레임만 route가 ACTIVE에서 이탈했다가 다음 프레임 즉시
+재진입한다. 전체 로그(23,776행) 기준 "route->1프레임 이탈->route"
+드롭아웃 46건 중 93.5%(43건)가 `routeApexIdx` grid 전환과 동시
+발생하며, 그 중 93.0%(40건)에서 동시에 `routeApexSpeed` 상승이
+관측됨(결합 시 전체의 87.0%가 이 메커니즘으로 직접 설명됨).
+
+**검증**: 재현성(23,776행 340차와 완전 일치) + 로그 검증(전체 CSV
+통계 직접 카운트, 시뮬레이션 근사에 의존하지 않고 실측
+`src`/`routeApexIdx`/`routeApexSpeed` 컬럼만으로 통계 확정) +
+시뮬레이션(sim_route_273 게이트 재생으로 그룹13 프레임별 정성 대조).
+**실차 재검증: 불필요**(기존 로그 재분석, `ryu` 코드 변경 없음).
+
+**미확인 사항**:
+1. 나머지 6.5%(grid 전환과 무관한 단일프레임 dropout 3건, t=828.74/
+   849.94/1138.44)의 원인.
+2. grid 경계마다 apex_speed가 도로제한 근처로 튀는 현상 자체의 상류
+   원인(`route_curvature_macro_fine`/후보 산출 로직) -- 하류 영향
+   경로 확정을 우선해 이번 세션에서는 미추적.
+3. 이 flapping의 실제 종방향 제어 출력(가속/감속 명령) 체감 영향
+   (340차가 이미 남긴 미확인 사항, 여전히 미해결).
+
+**다음 작업**:
+1. `route_curvature_macro_fine`/apex 후보 산출 경로에서 grid 경계마다
+   apex_speed가 급상승하는 근본 원인 code-level 추적.
+2. 원인 확정 후 수정 방향은 Master 논의 필요(§27/§34, 코드 임의수정
+   금지).
+3. `diag_required_decel_341.py`를 다른 flapping 그룹(8/9/11/12/14/16
+   등)에도 적용해 동일 메커니즘 비율 확인(이번 세션은 그룹13 1건만
+   상세 대조).
+4. `toolkit/README.md`/`toolkit/CHANGELOG.md`에 `diag_required_decel_341.py`
+   반영(이 패치에 포함).
+
 ## 340차 (완료 -- ANALYSIS_ONLY/일부 NEEDS_VALIDATION, `ryu` 코드 무변경, `extract_log.py` 컬럼 추가만) -- `routeLocalResampleUsed` 최초 실측 대조로 330차 라벨링 버그 인과관계 직접 확정 + 사용자 제보("직선구간 route flapping") 원인 후보(10m 그리드 요철->required_decel_mss 임계 flicker) 신규 발견
 
 **Worker**: Claude
