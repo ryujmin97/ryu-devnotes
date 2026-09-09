@@ -1,3 +1,113 @@
+## 333차 (진행중 -- 재현 불일치 발견, 원인 미해결, ryu 코드 무변경) -- 'matched' 모드까지 ws<0 유입 확인 시도 중 stateful+local-merge 조합 재현 버그 발견
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu`(base `823943a6`=329차 계속2, 코드 변경 없음,
+읽기용 clone만) / `ryu-devnotes`(base `a83bdda0`=332차, 이 항목 추가 전)
+
+**Branch**: `c3-ms-dev` / `main`
+
+**세션 시작 확인(§3/§33)**: 새 세션(memory 없음)에서 fresh clone으로
+`ryu` HEAD `823943a6`, `ryu-devnotes` HEAD `a83bdda0`(332차, push 완료
+상태) 확인 -- 이전 세션 메모리(316차로 기억)가 실제 GitHub 상태보다
+크게 뒤처져 있었음(§2 원칙대로 GitHub 기준으로 진행). 사용자가 업로드한
+`20260909_062749_000003c9--5335674c02_x18seg.zip`이 332차와 동일 route/
+동일 zip 파일명임을 확인(다른 작업자 개입 흔적 없음). 사용자가 "같은
+x18seg로 다른 분석"을 선택해 이번 회차 착수.
+
+**이번 회차 작업**: 332차 WIP "미확인 사항"의 일부(=332차는 매 orphan
+프레임을 stateless로 "신규 진입이라면"만 가정해 검사했고, "기존 locked
+apex가 이번 프레임 근접(ws<0) 클러스터에 matched로 재확인되는" 경로는
+전혀 검증되지 않은 gap이었음)를 메우기 위해, `toolkit/sim_route_322d_stateful_replay.py`
+(전체 타임라인 stateful continuity, x17seg에서 100% 재현검증됨)에
+`route_local_curve_merge()`(328차)를 production과 동일 순서로 주입한
+`toolkit/sim_route_333_ws_negative_matched_mode.py`를 신규 작성(§21,
+기존 함수 import만 -- `recompute_full`/`ContinuityState`/`route_find_clusters`/
+`parse_navi_paths`(322d), `route_local_curve_merge`(331), `parse_raw_path`(332)).
+x18seg를 `--with-navi-paths` 옵션으로 재추출(20399행, 트렁케이트된 18번째
+세그먼트는 제외 -- rlog.zst 크기가 다른 세그먼트 대비 1/10 이하로 명백히
+잘림).
+
+**결과(1차 -- 검증 전)**:
+```
+전체 20399행 중 full_block 17136 / local_curve_merge 적용 3635 /
+  ws<0 윈도우 포함 956
+apex_mode별: matched 7866, held 524, new 14, passed 6008, lost 25, none 2699
+apex_mode별 ws<0 윈도우 안에서 채택: matched 351, new 6, passed 418, lost 3
+전체 타임라인 중 apex_dist<0로 채택된 프레임: 416건(전부 'passed' 모드)
+```
+
+**검증 중 발견한 미해결 문제(중요 -- 위 수치를 findings로 등록하지 않은
+이유)**: 위 결과를 실측과 대조하려고 첫 orphan 프레임(t=640.216295606,
+ws=0 정확한 경계값)을 실측 CSV와 직접 비교:
+```
+1차 10m pass(stage0): 완전 일치
+  candidateCount=23(실측/재현 동일), candidate0=40.0/candidate1=90.0/
+  candidate2=150.0(실측/재현 동일) -- stage0 재현 자체는 정확함 확인.
+
+route_local_curve_merge() 적용 후:
+  실측: routeClusterCount=2, routeOrphanSingletonCount=3(병합 전 10m
+        1차pass와 완전히 동일한 값 -- 즉 실제로는 이 프레임에서 로컬
+        병합이 사실상 무변화였던 것으로 보임), routeApexMode=new,
+        routeApexDist=200.0(=1차pass 클러스터 그대로)
+  재현: local_used=True, 병합 후 클러스터 4개(40.0/150.0/200.0/500.0로
+        증가 -- 원래 orphan이었던 40m/150m 지점이 새 클러스터로 승격됨),
+        continuity가 idx=16(dist=40.0)에 새로 lock
+```
+`route_local_curve_merge()` 함수 자체는 331/332차에서 이미 verbatim
+검증됐고 이번 회차도 재구현 없이 그대로 import했으며, 내부 단계(윈도우
+계산 -> `route_crop_path_by_distance` crop(22개 raw point) -> `resample_10m_np`
+2.5m 재샘플(109개 point, 최소요건 33개 이상 충족) -> `route_curvature_macro_fine`)
+전부 정상 실행됨을 개별 확인(크래시/조기이탈 없음, 코드 자체는 "정상
+동작"함). 그런데도 결과가 실측과 다르다 -- **원인 미확정**. `naviPaths`
+기반 1차pass 결과 <-> `resample_10m_np(routeOrphanRawPath 파싱값, 10.0)`
+결과가 거의 완전히 일치함을 별도 확인(두 컬럼이 같은 원본에서 파생됐다는
+가정은 맞음, 최대 오차 <0.01m) -- 이 부분은 재현 오류 원인이 아님을
+배제함.
+
+**결론**: 이번 회차 스크립트가 출력하는 "matched 모드 ws<0 유입 351건"/
+"음수 apex_dist 416건"은 위 미해결 재현 불일치 때문에 **신뢰할 수 없어
+findings로 등록하지 않음**(§28 -- 미확정을 확정처럼 보고하지 않음).
+332차의 기존 결론(ws<0 946건, offline apex_dist<0 637건, 실측
+routeApexDist<0 0건)은 이번 회차로 무효화되지 않음(별개의 stateless
+검증이었고 그쪽은 그대로 유효).
+
+**검증**:
+- 정적분석: `py_compile` 통과.
+- 실측 대조: 딱 1개 프레임(t=640.216, ws=0 경계) 대조에서 불일치 발견,
+  그 외 프레임은 이번 회차에서 체계적으로 대조하지 않음(다음 세션 필요).
+- **실차 검증: 미실시**(오프라인 재현 자체가 이번 회차 결과로 신뢰
+  미검증 상태가 됨).
+
+**신규 toolkit**: `toolkit/sim_route_333_ws_negative_matched_mode.py`
+(스크립트 상단에 이번 미해결 문제 경고 주석 포함). `toolkit/README.md`/
+`CHANGELOG.md` 갱신(신뢰 불가 상태 명시).
+
+**Devnotes**: FINDINGS.md는 이번 회차 변경 없음(미확정 결과라 등록 안 함).
+
+**미확인 사항**:
+- t=640.216 프레임에서 `route_local_curve_merge()` 내부 어느 단계부터
+  실측과 갈라지는지 원인 미확정(위 "검증 중 발견한 미해결 문제" 참고).
+- 이 불일치가 ws=0 경계값에 특이적인지, 아니면 ws<0을 포함해 local merge가
+  적용되는 모든 프레임에 광범위하게 존재하는지 미확인.
+- x18seg 외 다른 프레임/다른 route에서도 동일 유형의 재현 불일치가
+  있는지 미확인.
+
+**다음 작업**:
+1. **최우선**: t=640.216 프레임에서 `route_local_curve_merge()` 내부
+   호출을 단계별로(윈도우 계산 -> crop -> resample -> macro/fine curvature
+   각 단계 중간값) 실측과 대조해 정확히 어느 단계부터 갈라지는지 원인
+   확정(§28 순서 그대로). 원인 확정 전까지 `sim_route_333_*.py` 결과는
+   계속 미신뢰 상태 유지.
+2. 원인 확정 후: 이 불일치가 ws=0 경계 특이적인지 광범위한지 재분류하고,
+   ws<0 프레임만 다시 필터링해 재검증.
+3. 원인 확정+재검증 통과 후에만 'matched' 모드 ws<0 유입 여부를
+   FINDINGS.md에 등록.
+4. (이월) 332차 다음작업 1~3번(다른 route STEP3 반복 / 수정안 설계 착수
+   보류 / RELEASE_MARGIN_RATIO 실차검증) 계속 이월.
+
+---
+
 ## 332차 (완료 -- STEP3 실측 corpus 검증 완료, ryu 코드 무변경) -- 331차 STEP1/STEP2가 예측한 ws<0 -> apex_dist 영향을 x18seg 실측 corpus(946프레임)로 확인, 메커니즘은 재현되나 이번 corpus에서는 실제 routeApexDist<0 관측 0건(원인까지 추적 확인)
 
 **Worker**: Claude

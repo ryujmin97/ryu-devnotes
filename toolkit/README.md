@@ -1,3 +1,52 @@
+## sim_route_333_ws_negative_matched_mode.py (333차, 진행중 -- 미해결 -- 'matched' 모드까지 ws<0 유입 확인 시도)
+
+**목적**: 332차는 매 orphan 프레임을 독립적(stateless)으로 "신규 진입이라면"만
+가정해 검사했다 -- 실제로는 "기존에 locked된 apex가 이번 프레임 근접(ws<0)
+클러스터에 matched로 재확인되는" 경로가 전혀 검증되지 않은 gap이었다. 이를
+메우려고 `sim_route_322d_stateful_replay.py`(전체 타임라인 stateful
+continuity, x17seg 100% 재현검증됨)에 `route_local_curve_merge()`(328차)를
+production과 동일 순서(1차 10m pass -> orphan>0이면 local merge -> 병합
+결과로 candidates/clusters 재계산 -> continuity.step)로 주입해 x18seg
+전체(20399행)를 시간순 재생하도록 조립(§21 -- 재구현 없음, 기존 함수
+import만).
+
+**구성**: `sim_route_322d_stateful_replay.py`의 `recompute_full`/
+`ContinuityState`/`route_find_clusters`/`parse_navi_paths`와
+`sim_route_331_ws_negative_downstream.py`의 `route_local_curve_merge`,
+`sim_route_332_ws_negative_real_corpus.py`의 `parse_raw_path`를 그대로
+import해 조립.
+
+**미해결 문제(중요 -- 이 스크립트 출력을 findings로 쓰지 말 것)**: 검증
+삼아 첫 orphan 프레임(t=640.216, ws=0 경계값)을 실측과 대조한 결과, 1차
+10m pass(stage0 candidate/cluster)까지는 실측과 완전 일치(candidateCount=23,
+candidate0~2 거리 전부 정확히 일치)하지만, `route_local_curve_merge()`
+적용 후 결과가 실측과 다르다:
+```
+실측: routeClusterCount=2, routeOrphanSingletonCount=3(병합 전과 동일
+      -- 사실상 이 프레임에서 로컬 병합이 무변화였던 것으로 보임)
+재현: 로컬 병합 후 클러스터 4개로 증가(40m/150m 지점이 새 클러스터로 승격)
+```
+`route_local_curve_merge()` 자체는 331/332차에서 이미 verbatim 검증된
+함수를 그대로 썼음에도, 이 조합(naviPaths 기반 1차pass + routeOrphanRawPath
+기반 로컬 재계산 + 전체 타임라인 stateful 연결)에서 실측과 어긋나는 지점이
+있음 -- 원인 미확정. 원인 후보(추측, 미확인): (1) ws=0 정확한 경계값 --
+332차는 ws<0만 조사해 ws=0 케이스는 애초에 검증된 적 없는 사각지대,
+(2) naviPaths 1차pass와 routeOrphanRawPath 로컬 재계산 조합 시 놓친 상태
+의존성.
+
+**결론**: 이 스크립트가 출력하는 "matched 모드 ws<0 유입 351건"/"음수
+apex_dist 416건"은 재현 버그가 섞여 있을 가능성이 있어 findings로 등록하지
+않음(§28, 미확정을 확정으로 보고하지 않음). **실차 검증: 미실시**(애초에
+오프라인 재현 자체가 신뢰 미검증 상태).
+
+**사용**: `python3 sim_route_333_ws_negative_matched_mode.py <CSV>
+[--limit-print N]` (참고/디버깅용, 결과 신뢰 불가 명시된 상태)
+
+**다음 세션 최우선 작업**: t=640.216 프레임에서 `route_local_curve_merge()`
+내부 호출을 단계별로(윈도우 계산 -> crop -> resample -> macro/fine curvature)
+실측과 대조해 정확히 어느 단계부터 갈라지는지 원인 확정(§28 순서:
+증상->재현조건->입력->상태->호출흐름->계산->조건/분기->출력->원인).
+
 ## sim_route_332_ws_negative_real_corpus.py (332차, STEP3 -- x18seg 실측 corpus로 ws<0 실제 발생빈도/apex_dist 영향 확인)
 
 331차 STEP1/STEP2(synthetic)의 후속. `sim_route_329_local_merge_replay.py`의

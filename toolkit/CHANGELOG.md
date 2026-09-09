@@ -4,6 +4,20 @@
 남긴다. `README.md`도 같이 갱신할 것.
 
 
+## 2026-09-09 (333차, 진행중 -- 미해결)
+- `sim_route_333_ws_negative_matched_mode.py`: **신규**(332차 gap 대응
+  시도). `sim_route_322d_stateful_replay.py`(전체타임라인 stateful
+  continuity, x17seg 100% 재현검증됨)에 `route_local_curve_merge()`(328차)를
+  production과 동일 순서로 주입해 x18seg 전체(20399행)를 시간순 재생,
+  332차가 검사하지 않은 'matched' 모드(기존 lock이 이번 프레임 근접
+  클러스터에 재확인되는 경로)까지 ws<0 유입 여부를 확인하려 시도.
+  **미해결**: 첫 orphan 프레임(t=640.216, ws=0 경계)에서 1차 10m pass는
+  실측과 완전 일치하나 `route_local_curve_merge()` 적용 후 결과(클러스터
+  4개로 증가)가 실측(클러스터 2개, 병합 전과 동일=사실상 무변화)과
+  불일치 -- 원인 미확정. **이 스크립트 출력(matched 351건/음수apex_dist
+  416건)은 재현 버그 가능성이 있어 findings로 등록하지 않음**(§28).
+  다음 세션에서 원인 확정 후 재검증 필요. 상세는 WIP.md 333차 참고.
+
 ## 2026-09-09 (332차)
 - `sim_route_332_ws_negative_real_corpus.py`: **신규**(331차 STEP3).
   x18seg 실측 `routeOrphanRawPath` corpus(20,498행/orphan 3645프레임)로
