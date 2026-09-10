@@ -1,4 +1,73 @@
-## 350차 계속 -- [코드 확정, 실기기 검증 대기] dirty=True 반복 발생 근본원인 후보 -- `system/version.py::is_dirty()`가 `@{u}`(업스트림 추적 브랜치) 미해결 시 실제 워킹트리 상태와 무관하게 무조건 True 반환
+## 351차 -- [확정] dirty=True 반복 발생 진짜 근본원인 -- 350차 가설(업스트림 미설정) 기각, 실제 원인은 fork 내장 언어 전환 스크립트(`launch_chffrplus.sh`)가 `LANG=main_ko`일 때 `events.py`를 부팅마다 강제 교체
+
+**기존 결론 (350차 계속)**: `is_dirty()`가 `@{u}`(업스트림 추적
+브랜치) 미설정 시 실제 워킹트리 diff 검사 없이 무조건 `True`를
+반환하는 조기-return 분기 때문이라는 가설. NEEDS_VALIDATION 상태로
+사용자의 기기 명령 실행 결과 대기 중이었음.
+
+**새로운 증거 (351차, 기기 직접 실행)**:
+1. `git rev-parse --abbrev-ref --symbolic-full-name @{u}` ->
+   `origin/c3-ms-dev` (정상 출력, 에러 아님) -- 350차가 제시한 검증
+   방법의 "가설 기각" 조건과 정확히 일치.
+2. 가설이 기각됐으므로 `is_dirty()`의 실제 diff 검사 단계
+   (`git diff-index --quiet origin/c3-ms-dev --`)를 기기에서 그대로
+   재현: `exit=1`로 dirty=True 재현 확인.
+3. `git diff-index origin/c3-ms-dev --stat` -> `selfdrive/selfdrived/events.py`
+   416줄 + 번역 `.ts` 파일 12개 각 500~1050줄 규모의 **실제 콘텐츠
+   차이**(timestamp/touch 수준이 아님).
+4. `git diff-index -p ... events.py`로 실제 라인 확인: alert 문자열이
+   영문(`"openpilot Unavailable"`, `"TAKE CONTROL IMMEDIATELY"`,
+   `"openpilot will disengage"`)에서 한글(`"오픈파일럿 사용불가"`,
+   `"핸들을 즉시 잡아주세요"`, `"오픈파일럿이 해제됩니다"`)로 교체돼
+   있고 `# 메세지 한글화 : 로웰 (https://github.com/crwusiz/openpilot)`
+   주석 존재.
+5. `ryujmin97/ryu` fresh clone에서
+   `git log --oneline --all -- selfdrive/selfdrived/events.py` 확인 --
+   이 파일을 건드린 커밋은 343차(`da7ab36f`) 단 하나뿐이며 그 커밋도
+   영문 그대로임. **한글화 버전은 이 저장소 git 히스토리 어디에도
+   커밋된 적 없음** -- 순수 로컬(기기) 상태.
+6. `crontab -l`(비어있음), `.git/hooks/`(커스텀 훅 없음),
+   `/data/continue.sh`(단순 `launch_openpilot.sh` 호출)를 순차 배제 후
+   `launch_openpilot.sh` -> `launch_chffrplus.sh`까지 추적, 다음
+   블록 발견(103~112줄):
+   ```bash
+   # events.py 한글로 변경 및 파일이 교체된 상태인지 확인
+   if [ "${LANG}" = "main_ko" ] && [[ ! "${EVENTSTAT}" == *"modified:   selfdrive/controls/lib/events.py"* ]]; then
+     cp -f $DIR/selfdrive/selfdrived/events.py $DIR/scripts/add/events_en.py
+     cp -f $DIR/scripts/add/events_ko.py $DIR/selfdrive/selfdrived/events.py
+   ```
+
+**변경 이유**: 350차 가설의 검증 조건(§본문)이 실기기에서 "가설 기각"
+쪽으로 명확히 나왔고(1번), 이후 실제 diff 검사를 재현해 얻은 구체적
+파일 콘텐츠(3~4번)와 git 히스토리 대조(5번)로 진짜 원인을 코드
+레벨에서 특정할 수 있었음.
+
+**새로운 결론 (확정)**: dirty=True는 `is_dirty()`/`get_branch()`의
+버그가 아니라, **fork에 내장된 언어 전환 메커니즘의 정상 동작**이다.
+`LANG` 파라미터가 `main_ko`이면 `launch_chffrplus.sh`가 매 부팅 시
+`scripts/add/events_ko.py`를 `selfdrive/selfdrived/events.py` 자리에
+덮어쓰고, 이 교체본은 git에 커밋되지 않은 상태로 남아 `git
+diff-index`가 이를 정직하게 "dirty"로 잡아낸다. 번역 `.ts` 파일 12개의
+대규모 diff도 동일 언어 설정 로직과 연관된 것으로 추정(정확한 트리거
+단계는 미확인, 낮은 우선순위로 이월).
+
+**의의**: 178차/207차/221차/232차/243차/244차/336차/344차/350차 등
+반복 관측된 dirty=True 전부가, 기기에 `LANG=main_ko`가 설정돼 있는 한
+빌드마다 재현되는 동일 현상일 가능성이 높다(각 항목이 개별적으로
+"dirty=True, 원인 미상"으로 남겨왔던 것과 정합). `ryu` 코드
+수정 불필요 -- 정상 설계이므로 그대로 둔다.
+
+**조치 필요 여부**: 없음(정상 동작 확인). 원한다면
+`git update-index --assume-unchanged`로 이 두 종류 파일을 dirty 카운트
+에서 제외할 수 있으나, §27(요청 없는 임의 변경 금지) 원칙에 따라
+사용자 요청 시에만 진행.
+
+**상태**: CONFIRMED. `ryu`/`ryu-devnotes` 코드 변경 없음(순수 원인
+규명). 실차 검증 해당 없음(§29 -- 코드 변경이 아니므로 대상 외).
+
+---
+
+## 350차 계속 -- [기각됨, 351차 참고] dirty=True 반복 발생 근본원인 후보 -- `system/version.py::is_dirty()`가 `@{u}`(업스트림 추적 브랜치) 미해결 시 실제 워킹트리 상태와 무관하게 무조건 True 반환
 
 **배경**: 350차가 "343차 패치 device 반영 확인" 과정에서 dirty=True를 또
 재확인했으나 원인 미상으로 남김. 사용자에게 확인한 결과 "수동 파일

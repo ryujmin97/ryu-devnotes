@@ -1,3 +1,92 @@
+## 351차 (완료 -- ANALYSIS_ONLY, `ryu`/`ryu-devnotes` 코드 무변경, 신규 toolkit 스크립트 없음) -- dirty=True 근본원인 확정: 350차 가설(업스트림 미설정) 기각, 실제 원인은 언어 전환 스크립트(events_ko.py 교체)
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu`(base `da7ab36f`=343차, 코드 변경 없음) /
+`ryu-devnotes`(base `3091ad8`=350차 계속2, 이 항목 추가 전)
+
+**Branch**: `c3-ms-dev` / `main`
+
+**배경**: 350차 계속이 "다음 세션 최우선"으로 남긴 확인 명령
+(`git rev-parse --abbrev-ref --symbolic-full-name @{u}`)을 사용자가 기기에서
+직접 실행.
+
+**작업 및 결과 (기기 직접 실행, Termux/comma 터미널)**:
+1. `git rev-parse --abbrev-ref --symbolic-full-name @{u}` → `origin/c3-ms-dev`
+   (정상 출력). **350차 가설(업스트림 미설정 → `get_branch()`가 빈
+   문자열 반환 → `is_dirty()` 조기 return True) 기각 확정** -- `branch`
+   변수가 비어있지 않으므로 이 조기-return 분기는 애초에 발동하지 않음.
+2. `is_dirty()`의 실제 diff 검사 로직(`git diff-index --quiet <branch> --`,
+   `branch`=`origin/c3-ms-dev`)을 그대로 재현:
+   - `git update-index --refresh` → `selfdrive/selfdrived/events.py` +
+     번역 `.ts` 파일 12개가 "needs update"
+   - `git diff-index --quiet origin/c3-ms-dev --` → `exit=1` (dirty=True
+     재현 확인)
+   - `git diff-index origin/c3-ms-dev --stat` → `events.py` 416줄,
+     `.ts` 파일 12개 각 500~1050줄 규모의 실제 콘텐츠 차이 확인(단순
+     touch/timestamp 아님)
+3. `git diff-index -p origin/c3-ms-dev -- selfdrive/selfdrived/events.py`로
+   실제 라인 diff 확인: alert 문자열이 영문(`"openpilot Unavailable"`,
+   `"TAKE CONTROL IMMEDIATELY"` 등)에서 한글(`"오픈파일럿 사용불가"`,
+   `"핸들을 즉시 잡아주세요"` 등)로 교체돼 있고, import 순서 재배치와
+   `# 메세지 한글화 : 로웰 (https://github.com/crwusiz/openpilot)` 주석
+   추가까지 확인됨.
+4. **git 히스토리 직접 대조**: `ryu` fresh clone에서
+   `git log --oneline --all -- selfdrive/selfdrived/events.py` 결과
+   이 파일을 건드린 커밋은 343차(`da7ab36f`) 단 하나뿐이며, 그 343차
+   커밋 자체도 영문 그대로임을 확인. **한글화 버전은 이 저장소 git
+   히스토리 어디에도 커밋된 적이 없음** -- 순수 로컬(기기) 전용 상태.
+5. **근본원인 확정** (`launch_chffrplus.sh` 103~112줄, 기기에서
+   `grep`으로 직접 확인):
+   ```bash
+   # events.py 한글로 변경 및 파일이 교체된 상태인지 확인
+   if [ "${LANG}" = "main_ko" ] && [[ ! "${EVENTSTAT}" == *"modified:   selfdrive/controls/lib/events.py"* ]]; then
+     cp -f $DIR/selfdrive/selfdrived/events.py $DIR/scripts/add/events_en.py
+     cp -f $DIR/scripts/add/events_ko.py $DIR/selfdrive/selfdrived/events.py
+   ...
+   ```
+   `LANG` 파라미터가 `main_ko`일 때 **매 부팅 시** `scripts/add/events_ko.py`를
+   `selfdrive/selfdrived/events.py` 자리에 강제로 덮어쓰는 fork 내장
+   언어 전환 메커니즘이 원인. 번역 `.ts` 파일 12개의 대규모 diff도 동일
+   언어 설정 로직(빌드 시 `lupdate` 재생성 추정, 이번 세션에서 스크립트
+   레벨로 직접 확인하지는 않음 -- 아래 "미완료" 참고)과 연관된 것으로
+   추정.
+   `crontab`(비어있음), `.git/hooks/`(커스텀 훅 없음),
+   `/data/continue.sh`(단순 `launch_openpilot.sh` 실행)는 모두 원인이
+   아님을 배제 후 도달한 결론.
+
+**의의**: dirty=True는 178차/207차/221차/232차/243차/344차/350차 등에서
+반복 관측된 오래된 미해결 항목이었음. 이번에 **버그가 아니라 fork
+자체의 정상 설계(언어 전환 시 파일 교체)**임이 확정됨 -- `is_dirty()`나
+`get_branch()` 쪽 코드는 수정 대상이 아니며, git이 tracked 파일을
+정직하게 dirty로 잡아낸 것뿐임. 350차의 "사용자가 수동 수정한 적
+없음" 답변과도 모순되지 않음(수동 수정이 아니라 부팅 스크립트에 의한
+자동 교체이므로).
+
+**미완료 / 다음 작업 (우선순위 낮음, 필요시)**:
+- 번역 `.ts` 파일 12개 diff가 정확히 `launch_chffrplus.sh`의 어느
+  단계(`lupdate` 재생성 vs 별도 언어 파일 교체)에서 발생하는지는
+  스크립트 전체를 더 읽어야 확정 -- 이번 세션은 `events.py` 관련
+  블록(103~112줄)만 확인, 기능에 영향 없는 cosmetic 항목으로 판단돼
+  낮은 우선순위로 이월.
+- 필요하다면 `events.py`/`.ts` 파일들을 `git update-index --assume-unchanged`
+  또는 `.git/info/exclude`로 dirty 카운트에서 제외할지 여부는 사용자
+  판단 필요(§27 -- 요청 없는 임의 변경 금지, 제안만 하고 미실행).
+
+**검증**:
+- 정적 분석: 완료 (기기 직접 명령 실행 결과 + `ryu` git 히스토리 대조 +
+  `launch_chffrplus.sh` 소스 확인)
+- 로그 분석: 해당 없음
+- 시뮬레이션: 해당 없음
+- 실차 검증: 해당 없음(코드 변경이 아닌 원인 규명 작업이므로 대상 외)
+
+**Devnotes**: WIP(이 항목) / FINDINGS.md(신규 항목, 351차, 178차부터
+이어진 dirty=True 미스터리 항목 갱신) / CURRENT_STATUS.md(1번 항목
+최종 해결 처리)
+
+**다음 작업**: 343차 실차 검증 관련 이월 항목(시나리오① 완전 재확인 등,
+CURRENT_STATUS.md 4번)이 다음 우선순위. dirty=True는 이 세션으로 종결.
+
 ## 350차 계속2 (완료 -- ANALYSIS_ONLY, `ryu`/`ryu-devnotes` 코드 무변경) -- 344차 devnotes patch push 여부 GitHub 직접 확인으로 해결 (사용자 확인 불필요 항목)
 
 **Worker**: Claude

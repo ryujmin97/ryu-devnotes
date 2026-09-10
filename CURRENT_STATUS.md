@@ -121,15 +121,16 @@ route_active 재진입은 7/7건 전부 결국 발생하나(무제한 탐색 기
    단독 종료"를 검출했으나, qcamera 프레임 대조 결과 커브/선행차 접근
    구간과 일치해 프록시 스크립트의 기존 한계(arbitration 오분류)로
    재해석함(잠정 결론, WIP.md 350차 참고).
-   **[350차 계속에서 진전]** 사용자 확인 결과 "수동 파일 수정 없음,
-   최신 패치 브랜치 git pull 후 바로 주행"으로 답변 -- 로컬 워킹트리
-   변경이 원인이라는 기존 가정은 성립하지 않음. 코드 레벨 추적 결과
-   `system/version.py::is_dirty()`가 현재 브랜치의 업스트림 추적
-   설정(`@{u}`)이 안 돼 있으면 실제 diff 검사 없이 무조건 True를
-   반환하는 조기 종료 분기를 발견 -- 이게 원인이라면 178차 이후 반복
-   관측된 dirty=True 미스터리 전체의 공통 원인일 가능성. **다음 세션
-   최우선**: 기기에서 `git rev-parse --abbrev-ref --symbolic-full-name
-   @{u}` 실행 결과 확인(상세: FINDINGS.md/WIP.md "350차 계속" 참고).
+   ~~**[350차 계속에서 진전]** 업스트림 미설정 가설, 다음 세션 최우선
+   확인 필요~~ -- **351차에서 해결**: 기기 확인 결과 `@{u}`는
+   `origin/c3-ms-dev`로 정상 설정돼 있어 350차 가설은 기각됨. 실제
+   원인은 fork 내장 언어 전환 스크립트(`launch_chffrplus.sh`)가
+   `LANG=main_ko`일 때 `events.py`를 매 부팅 시 `events_ko.py`로 강제
+   교체하기 때문 -- git에 커밋 안 된 이 교체가 `git diff-index`에
+   정직하게 잡히는 **정상 동작**임이 확정됨(번역 `.ts` 12개 diff도
+   동일 계열). `ryu` 코드 수정 불필요. 178차 이후 반복된 dirty=True
+   미스터리 전체가 이걸로 설명 가능. 상세: FINDINGS.md/WIP.md "351차"
+   참고.
 2. ~~344차 devnotes patch(`0001-344cha-devnotes.patch`)가 push
    됐는지~~ -- **350차 계속2에서 확인**: fresh clone으로 `WIP.md`/
    `FINDINGS.md`의 344차 항목, `toolkit/verify_release_variant_344.py`
@@ -167,5 +168,5 @@ route_active 재진입은 7/7건 전부 결국 발생하나(무제한 탐색 기
 
 ---
 
-*최종 갱신: 350차 계속2 (Claude). 다음 세션은 이 파일을 먼저 읽고,
-WIP.md 최신 회차(350차 계속2)로 상세 맥락을 보충할 것.*
+*최종 갱신: 351차 (Claude). 다음 세션은 이 파일을 먼저 읽고,
+WIP.md 최신 회차(351차)로 상세 맥락을 보충할 것.*
