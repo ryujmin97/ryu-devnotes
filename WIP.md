@@ -1,3 +1,44 @@
+## 357차 계속 (완료 -- 실차 검증 완료) -- echo_cmd/tmux_send 핸들러 제거 패치 실차검증
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu`(base `c39d81f`=357차, `echo_cmd`/
+`tmux_send` 핸들러 제거 반영본) / `ryu-devnotes`(base `753a6a9`=357차)
+
+**Branch**: `c3-ms-dev` / `main`
+
+**세션 시작 확인(§3/§33)**: fresh clone으로 양쪽 GitHub HEAD 직접
+조회 -- `ryu` `c39d81f`(357차, "remove unauthenticated echo_cmd/
+tmux_send remote-exec handlers from ZMQ 7710"), `ryu-devnotes`
+`753a6a9`(357차). CURRENT_STATUS.md에 로컬 해시 `a73b82d`로 "push
+대기"라 적혀 있었으나, 실제로는 동일 내용이 `c39d81f`로 이미 push
+완료된 상태임을 확인(내용 동일, `git am` 적용 시 커밋 해시만
+재생성 -- 기존에도 반복된 패턴).
+
+**진행**: 357차가 남긴 "다음 세션 최우선 확인 사항 ①"(echo_cmd/
+tmux_send 제거 패치 실차 검증 -- 재부팅 후 `carrot_man` 정상 기동
+여부) 착수.
+
+**결과**: Master가 실차(재부팅 포함)에서 확인, **`carrot_man`
+정상 기동**(크래시/재시작 루프 없음) 확인. `echo_cmd`/`tmux_send`
+분기 제거가 다른 초기화 경로에 부수효과를 일으키지 않았음을 실측으로
+확정.
+
+**검증**:
+- 정적 분석: 357차에서 완료(diff 최소변경 확인)
+- 로그 분석: 해당 없음
+- 시뮬레이션: 해당 없음
+- **실차 검증: 완료** (재부팅 후 `carrot_man` 정상 기동 확인, Master 보고)
+
+**미확인 사항**: 없음 (이 항목은 완전히 종결)
+
+**다음 작업**: CURRENT_STATUS.md "356차 신규 발견 -- 다음 세션 최우선
+확인 사항" ①번 완료 처리. 남은 ②~⑤번(§ send_routes 도달불가 분기 /
+20Hz 메인루프 try-except 구조 / vturn_speed alive AND 조건 /
+server/core.py NameError) 중 우선순위 결정 필요.
+
+---
+
 ## 357차 (완료 -- 구현+검증(정적) 완료, 실차 검증 미실시, 패치전달 완료) -- ZMQ 7710 `echo_cmd`/`tmux_send` 무인증 원격실행 핸들러 제거 (356차 보안발견 후속)
 
 **Worker**: Claude

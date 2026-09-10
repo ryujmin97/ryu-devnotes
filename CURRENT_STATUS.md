@@ -10,27 +10,29 @@ append-only 원칙 적용 안 함 -- 항상 최신 1개 스냅샷만 유지).
 
 ---
 
-## 코드 상태 (2026-09-11, 357차 종료 시점)
+## 코드 상태 (2026-09-11, 357차 계속 종료 시점)
 
 **Repository**: `ryujmin97/ryu`
 **Branch**: `c3-ms-dev`
-**HEAD (GitHub 기준, push 대기 중)**: `a73b82d`(357차, base `e214839`
-=353/356차 -- `echo_cmd`/`tmux_send` 무인증 원격실행 핸들러 제거).
+**HEAD**: `c39d81f`(357차, base `e214839`=353/356차 -- `echo_cmd`/
+`tmux_send` 무인증 원격실행 핸들러 제거). GitHub push 완료 확인됨
+(이전 기록의 로컬 해시 `a73b82d`와 내용 동일, `git am` 적용 시
+해시만 재생성된 것).
 
 **Repository**: `ryujmin97/ryu-devnotes`
 **Branch**: `main`
-**HEAD**: 357차 devnotes(이 파일 포함 WIP/FINDINGS 갱신)는 이 세션
-종료 후 push 대기 중(base `c32b4c2`=356차).
+**HEAD**: `753a6a9`(357차)까지 push 완료 확인. 이번(357차 계속)
+devnotes 갱신(WIP/FINDINGS/이 파일)은 이 세션 종료 후 push 대기 중.
 
 ---
 
 ## ✅ 357차 완료 -- 356차 보안 발견 후속 처리
 
-1. **[해결 완료]** ZMQ 7710 `echo_cmd`/`tmux_send` 무인증 원격
+1. **[해결+실차검증 완료]** ZMQ 7710 `echo_cmd`/`tmux_send` 무인증 원격
    명령실행 -- CarrotMan/APM 앱 미사용 확인(Master), caller 부재
-   확정 -> `carrot_man.py`(`a73b82d`)에서 핸들러 제거, 패치전달 완료.
-   **실차 검증: 미실시**(다음 세션 최우선 확인 -- 재부팅 후 carrot_man
-   정상 기동 여부).
+   확정 -> `carrot_man.py`(`c39d81f`)에서 핸들러 제거, 패치전달 완료.
+   **실차 검증: 완료(357차 계속)** -- 재부팅 포함 실차에서 `carrot_man`
+   정상 기동 확인(Master 보고). 이 항목은 완전히 종결.
 2. **[Master 확인, 위험 수용]** `carrotweb`(port 7000, 실사용 중)의
    `/api/*`/`/ws/terminal` 전체가 무인증 상태(임의 쉘 실행/reboot/
    git·pip 실행/Params 변경 가능, `always_run`으로 상시 기동)임을
@@ -263,6 +265,9 @@ route_active 재진입은 7/7건 전부 결국 발생하나(무제한 탐색 기
 
 ---
 
-*최종 갱신: 357차 (Claude). 다음 세션은 이 파일 상단의 "357차 완료"
-섹션을 먼저 읽고(echo_cmd 제거 패치 실차검증 여부 최우선 확인),
-WIP.md 최신 회차(357차)로 상세 맥락을 보충할 것.*
+*최종 갱신: 357차 계속 (Claude). echo_cmd/tmux_send 제거 패치 실차
+검증 완료(carrot_man 정상 기동 확인) -- 이 항목 종결. 다음 세션은
+이 파일 상단을 읽고, 남은 후보(send_routes 도달불가 분기 / 20Hz
+메인루프 try-except 구조 / vturn_speed alive AND 조건 /
+server/core.py NameError) 중 우선순위를 사용자와 결정할 것. WIP.md
+최신 회차("357차 계속")로 상세 맥락 보충.*

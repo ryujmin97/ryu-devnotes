@@ -55,6 +55,11 @@ CarrotMan 연결과 무관하게 동작하던 기존 기능이라 그대로 유�
 검증은 미실시. 기존 결론(무인증 RCE 발견) 자체는 변경 없음 -- 대응
 완료 상태만 추가.
 
+**[357차 계속 추가 -- VALIDATED]**: Master가 실차(재부팅 포함)에서
+`carrot_man` 정상 기동을 확인 -- 핸들러 제거가 다른 초기화 경로에
+부수효과를 일으키지 않았음을 실측으로 확정. 기존 결론(대응 완료)
+변경 없음, 검증 단계만 완결(RESOLVED -> RESOLVED_VALIDATED).
+
 ## 357차 -- [RISK_IDENTIFIED, NEEDS_USER_DECISION -> USER_ACCEPTED_RISK] `carrotweb`(port 7000, 실사용 중) API/터미널 전체 무인증
 
 **배경**: 356차 echo_cmd(7710)의 caller를 찾는 과정에서 Master가
