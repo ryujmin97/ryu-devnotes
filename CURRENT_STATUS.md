@@ -10,22 +10,23 @@ append-only 원칙 적용 안 함 -- 항상 최신 1개 스냅샷만 유지).
 
 ---
 
-## 코드 상태 (2026-09-10, 353차 종료 시점)
+## 코드 상태 (2026-09-10, 355차 종료 시점)
 
 **Repository**: `ryujmin97/ryu`
 **Branch**: `c3-ms-dev`
-**HEAD (GitHub 기준)**: `da7ab36f` (343차 -- ACTIVE 릴리즈 OR-조건에서
-`speed_reached` 삭제, `v_ego_ms<=target_ms`는 유지). **353차 CPU 정리
-패치(`0001-353cha-...patch`)는 생성/§31 검증 완료했으나 사용자가 아직
-로컬 적용/push 전이므로, §11 원칙에 따라 GitHub HEAD는 여전히
-`da7ab36f`로 표기**(아래 "미확인/대기중" 1번 참고).
+**HEAD (GitHub 기준)**: `e214839` (353차 CPU 정리 패치 커밋 그 자체 --
+`update_params()`/`make_send_message()` Params I/O 5s 캐시화,
+`speed_reached` 삭제(343차, `da7ab36f`) 이후 적용). 354차가 사용자의
+로컬 적용/push 완료를 fresh clone으로 직접 확인했고, 이번 355차 세션
+시작 시 fresh clone으로 재확인 -- 이 섹션이 이전까지 "패치 미적용
+(`da7ab36f`)"로 표기돼 있던 것은 354차 확인 이후 갱신 누락된 stale
+기록이었음(§33, 이번에 정정).
 
 **Repository**: `ryujmin97/ryu-devnotes`
 **Branch**: `main`
-**HEAD**: `52842fc` (352차 devnotes 기록, 이 세션 시작 시 fresh clone/
-fetch로 재확인 -- 이전 판(348차 `bfb684c`)은 stale 기록이었음, 이번에
-정정). 353차 devnotes(이 파일 포함 WIP/FINDINGS 갱신)는 이 세션 종료
-후 push 대기 중.
+**HEAD**: `f0eba025` (354차 devnotes 기록, 이번 355차 세션 시작 시
+fresh clone으로 확인). 355차 devnotes(이 파일 포함 WIP 갱신)는 이 세션
+종료 후 push 대기 중.
 
 ---
 
@@ -187,10 +188,13 @@ route_active 재진입은 7/7건 전부 결국 발생하나(무제한 탐색 기
 5. ✅ route 곡률 계산부(`np.interp` macro/fine 배치처리) -- 이미 Phase 1
    최적화 적용 확인, backlog 제외.
 
+**355차: 5s 캐시 지연으로 인한 route 감속/커브 속도 반응성 체감 저하
+여부 -- 사용자 직접 재주행, 체감상 이상 없음으로 확인 완료**(정성적/
+주관적 확인, 정량 데이터 기반 검증은 아님, §29 원칙에 따라 구분 명시).
+
 **다음 작업**: (선택) 정량 CPU%/ms 실측(C3 `top`/`htop` 또는 모니터링
-스크립트). 5s 캐시 지연으로 route 감속/커브 속도 반응성 체감 저하가
-없는지 실차 재주행 확인(354차 시점 아직 미실시). `gethostbyname()` 캐싱
-여부는 별도 세션에서 사용자 결정 후 진행.
+스크립트) -- 여전히 미실시. `gethostbyname()` 캐싱 여부는 별도 세션에서
+사용자 결정 후 진행.
 
 ---
 
@@ -221,5 +225,5 @@ route_active 재진입은 7/7건 전부 결국 발생하나(무제한 탐색 기
 
 ---
 
-*최종 갱신: 354차 (Claude). 다음 세션은 이 파일을 먼저 읽고,
-WIP.md 최신 회차(353차)로 상세 맥락을 보충할 것.*
+*최종 갱신: 355차 (Claude). 다음 세션은 이 파일을 먼저 읽고,
+WIP.md 최신 회차(355차)로 상세 맥락을 보충할 것.*
