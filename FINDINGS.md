@@ -1,3 +1,133 @@
+## 358차 -- [CONFIRMED_STRUCTURAL, NEEDS_USER_DECISION] `carrotMan` 0Hz 서비스 등록으로 인한 alive/timeout 감지 결함 + 20Hz 메인루프 단일 try-except 결합 리스크 (356차 ③ 후속, `ryu` 코드 무변경)
+
+**배경**: CURRENT_STATUS.md 357차 계속2가 남긴 이월 후보 중 ③(20Hz
+메인루프 `broadcast_version_info()` 전체가 단일 try-except, 예외 1건
+시 최대 1초 발행 중단)을 Claude가 착수. 세션 중 Claude/ChatGPT(지선생)가
+각자 원격 `c3-ms-dev` 코드를 독립적으로 직접 열람해 교차검증(§5/§35)
+하며 진행. Claude가 처음 "이론적 1초 공백" 수준으로 A(현행유지) 쪽에
+기울었던 초기 판단을, ChatGPT의 재확인 요청(§28 -- downstream 소비
+경로/timeout 처리까지 추적 없이는 위험도를 확정할 수 없다는 지적)을
+받아들여 보류하고, 실제 downstream 추적으로 판단을 완전히 수정한
+사례.
+
+**§24 dedup 확인**: FINDINGS.md 전체 `commIssue`/`SOFT_DISABLE`/
+"carrotMan.*0Hz" 검색 결과 0건 -- 최초 문서화.
+
+### 1. `carrotMan` downstream 구독자 전수 확인
+`carrotMan`을 구독하는 SubMaster 생성부를 저장소 전체에서 grep으로
+확인: `selfdrived.py`, `car/cruise.py`, `carrot_functions.py`,
+`controls/controlsd.py`, `controls/lib/lateral_planner.py`,
+`car/card.py`, `navd/navd.py`, `modeld/modeld.py`,
+`controls/plannerd.py`, `ui/soundd.py`, `carrot/server/core.py`.
+
+이 중 `sm.alive['carrotMan']`로 방어하는 곳은 **3곳뿐**
+(`selfdrived.py:251`, `car/cruise.py:291`, `carrot_functions.py:442`).
+실제 종방향/횡방향 제어를 계산하는 **`controls/controlsd.py`는
+`vTurnSpeed`(L191, `curve_speed_abs`로 레인풀 모드 판단에 사용),
+`desiredSpeed`(L264, `desired_kph = min(CS.vCruiseCluster,
+sm['carrotMan'].desiredSpeed)`로 순항 목표속도에 직접 반영),
+`activeCarrot`/`xDistToTurn`(L274-275, hudControl) 전부를
+`alive` 체크 없이 그대로 사용**. `controls/lib/lateral_planner.py:101`
+(`self.curve_speed = sm['carrotMan'].vTurnSpeed`)도 동일하게 무방비.
+
+### 2. 핵심 발견 -- `alive['carrotMan']`는 구조적으로 상시 True
+`cereal/services.py:84`:
+```python
+"carrotMan": (True, 0.),   # (should_log, frequency=0.)
+```
+`cereal/messaging/__init__.py:152-157`:
+```python
+# zero-frequency / on-demand services are always alive and presumed valid
+on_demand = {s: SERVICE_LIST[s].frequency <= 1e-5 for s in services}
+self.static_freq_services = set(s for s in services if not on_demand[s])
+self.alive = {s: on_demand[s] for s in services}
+```
+staleness 재계산(`update_msgs()` L220-222)은 `static_freq_services`
+대상으로만 수행되므로, `frequency=0`으로 등록된 `carrotMan`은 이
+루프에서 아예 제외되어 **`alive['carrotMan']`가 프로세스 시작 후
+영원히 `True`로 고정**된다. 반면 `carrot_serv.py:1436
+pm.send('carrotMan', msg)`는 `update_navi()`(→
+`broadcast_version_info()`의 `Ratekeeper(20)` 루프에서 매 프레임
+무조건 호출) 끝에서 호출되어 **실제로는 20Hz 주기성 메시지**다 --
+등록값(0Hz)과 실제 동작(20Hz)이 불일치.
+
+결과적으로 `cruise.py`/`carrot_functions.py`/`selfdrived.py`가
+`if sm.alive['carrotMan']:`로 방어하려던 코드는 **의도는 있었으나
+현재 구조상 상시 통과하는 죽은 가드**이며 실질적 보호 기능이 없다.
+
+### 3. `carrotMan` 0Hz→20Hz 재등록 시 영향 전수조사 (요청받은 9개 항목 확인)
+1. `alive['carrotMan']` 사용처: 위 3곳(변동 없음)
+2. `freq_ok['carrotMan']` 명시적 사용: 없음
+3. `all_alive()` 호출부 전수 확인 결과 `card.py`/`plannerd.py`는
+   명시적 서비스 리스트 인자(`all_checks(['carControl'])` 등)를 넘겨
+   호출하므로 `carrotMan` 미포함, `modeld.py`/`navd.py`는 해당 호출
+   자체가 없음. **`selfdrived.py:332-335`만 인자 없이(전체 서비스
+   대상) `self.sm.all_alive()`/`self.sm.all_checks()`를 호출하며,
+   `carrotMan`이 이 SubMaster의 서비스 리스트(L90)에 있고
+   `ignore_alive`(L77)에도 없어 대상에 포함됨.**
+4. 이 블록의 결과(`selfdrived.py:332-339`):
+   ```python
+   if not self.sm.all_checks() and no_system_errors:
+     if not self.sm.all_alive():
+       self.events.add(EventName.commIssue)
+     elif not self.sm.all_freq_ok():
+       self.events.add(EventName.commIssueAvgFreq)
+   ```
+   `events.py:835-841`에서 `commIssue`/`commIssueAvgFreq` 둘 다
+   **`ET.SOFT_DISABLE`**("Communication Issue Between Processes")로
+   분류됨 -- 실제 운전자 화면에 뜨는 소프트 디스인게이지먼트.
+5. `FrequencyTracker`(20Hz 등록 시): `min_freq=0.8×freq`,
+   `max_freq=1.2×freq`(최근 20샘플/200샘플 이동평균 기준)를 벗어나면
+   `freq_ok=False`. `_check_avg_freq()`의 `frequency > 0.99` 조건도
+   새로 통과해 평균-주파수 체크 자체가 활성화됨(현재는 0Hz라 비활성).
+6. `poll='carrotMan'`으로 사용하는 프로세스: 없음(전수 확인).
+7. `frequency=0` 전제로 작성된 방어 코드: 없음 -- `ignore_alive`
+   리스트 어디에도 `carrotMan`이 없어, `selfdrived.py`의 위 블록이
+   "의도적으로 0Hz를 가정해 설계된 것"이 아니라 **우연히 지금까지
+   무해했던 것**으로 확인됨.
+8. **[가장 중요]** 20Hz 등록 시 `alive` 임계값은 `10/20=0.5초`가 되는데,
+   기존 [③, 357차 계속2 이월분] `broadcast_version_info()` 예외 발생
+   시 `time.sleep(1)`(1초)이 이 0.5초를 초과한다. 즉 **[문제 A: 예외
+   1건→1초 발행중단]와 [문제 B: alive 미감지]가 결합돼 있어, B만
+   단독으로 고치면(frequency 0→20) 지금까지 실제 발현된 적 없는(§29)
+   A의 예외 경로가 그 즉시 실차 SOFT_DISABLE 트리거로 전환**된다 --
+   "조용한 stale-data 문제"가 "예고 없는 소프트 디스인게이지 문제"로
+   바뀌는 리그레션 위험. A를 먼저(또는 함께) 손보지 않고 B만 고치는
+   것은 권장하지 않음.
+9. `controlsd`가 `alive=False`를 활용할 방법: 20Hz 등록만으로는
+   `controlsd.py`가 자동으로 보호되지 않음(위 1번 -- `controlsd`는
+   `alive` 체크 자체가 없음). 보호하려면 그쪽에 별도 가드를 추가하는
+   작업이 필요하며 이는 별개 변경 범위.
+
+### 판단 (사용자 결정 대기, 코드 미수정)
+③을 A(현행 유지)로 종결하지 않는다 -- 이론적 latent risk가 아니라
+"controlsd의 실제 종방향 입력(`desiredSpeed`)이 무방비"라는 점과
+"전역 `frequency` 변경 시 새로운 SOFT_DISABLE 트리거를 만들 수 있다"는
+점이 코드 레벨로 확정됨. 다만 실제 실차 장애 발생 사례는 아직 없음(§29).
+
+**검토 중인 대응 후보** (전부 코드 미수정 상태, 다음 세션 결정 필요):
+- A. 현행 유지 (근거 약화됨, 권장 안 함)
+- B. `broadcast_version_info()` 단계별 try 격리
+- C. 예외 시 `sleep(1)` → 프레임 주기로 단축(+ 연속실패 backoff)
+- D. `update_navi()` 발행부만 얇은 try로 보호, route 계산 실패 시
+  직전 값 재사용
+- **E. [이번 세션 신규 제안]** `cereal/services.py`의 전역
+  `frequency` 등록은 건드리지 않고, `carrotMan` 메시지 자체에
+  자체보고형 age/타임스탬프 필드를 추가(기존 `dtNaviPacketAge`/
+  `routeNaviUpdateAgeMs`와 동일 패턴, 169차/305차 선례)해 `controlsd`/
+  `cruise.py`/`lateral_planner.py`가 그 필드로 직접 staleness를
+  판단하게 하는 방안. 전역 `commIssue`/SOFT_DISABLE 경로를 건드리지
+  않아 8번 항목의 리그레션 위험이 없고 §27(최소변경)에 더 부합 --
+  단, 이번 세션에서 설계까지 진행하지는 않음.
+
+**검증**: 정적 분석(코드 직접 열람, `cereal/messaging/__init__.py`
+alive/FrequencyTracker 로직 포함) 완료. 로그/시뮬레이션/실차 검증
+해당 없음(코드 미수정, ANALYSIS_ONLY).
+
+**다음 작업**: B/C/D/E 중 방향 결정, 또는 E를 우선 설계 검토.
+
+---
+
 ## 356차 -- [RISK_IDENTIFIED, NEEDS_USER_DECISION] ZMQ 7710 `echo_cmd` 무인증 원격 명령실행 (신규 보안 발견, `ryu` 코드 무변경)
 
 **배경**: 사용자 요청 "전체 코드 미사용로직/충돌/CPU/메모리 전반
