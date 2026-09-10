@@ -1,3 +1,99 @@
+## 353차 (완료 -- 구현+검증(정적) 완료, 실차 검증 미실시, 패치전달 완료) -- CPU 정리 1차: `update_params()`/`make_send_message()` Params I/O를 기존 5s 캐시 패턴으로 통합 + `MapTurnSpeedFactor` "죽은 값" stale 주석 정정(삭제 취소)
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu`(base `da7ab36f`=343차) / `ryu-devnotes`(base
+`52842fc`=352차, 이 항목 추가 전)
+
+**Branch**: `c3-ms-dev` / `main`
+
+**배경**: 352차가 재검증한 CPU 후보 6개 중, 사용자가 "캐시를 늘리기보다
+먼저 불필요한 반복 I/O 제거"를 우선순위로 제시하며 1차 패치 범위(①
+`update_params()` 캐시화, ② `make_send_message()`의 `IsOnroad`/`Version`
+정리, `MapTurnSpeedFactor` 죽은 read 삭제)를 지정. `gethostbyname()`(IP
+변경감지 로직과 연결돼 있어 부수효과 우려)과 orphan raw-path/
+`merged_windows any()`(조건부·저빈도 확인됨, 352차 결론 유지)는 이번
+범위에서 명시적으로 제외.
+
+**⚠️ 중요 발견 -- `MapTurnSpeedFactor` 삭제 계획 기각**: 사용자가 근거로
+든 `carrot_serv.py` 367~370행의 `[210차]` 주석("현재는 어디에서도 쓰이지
+않는 죽은 값이다")을 그대로 삭제 실행 전에 `ryu` fresh clone(`da7ab36f`)
+grep으로 직접 재확인(§28/§33 원칙) -- 이 주석은 **stale/부정확**했음을
+확인. `self.carrot_serv.mapTurnSpeedFactor`는 실제로
+`carrot_man.py::route_curvature_macro_fine()`(1467행)과
+`route_local_curve_merge()`(1591행) 호출부에 인자로 계속 전달되어
+production route 곡률→속도 계산에 현재도 쓰이고 있음(279차 devnotes
+"V_CURVE_LOOKUP_VALS 결과에 곱함" 기록과 일치, CURRENT_STATUS.md 이월
+항목 "`mapTurnSpeedFactor=1.10` 보정을 `analysis_helpers.py`에 반영
+필요"도 이 값이 production에서 살아있기 때문에 존재하는 항목임). 이
+주석이 가리키는 "제거된 유일한 사용처"는 `carrot_serv.py` 자기 자신의
+`update_navi()` 내부 곱셈(210차)뿐이고, `carrot_man.py` 쪽 사용처 2곳은
+애초에 이 주석 작성 당시 고려되지 않았던 것으로 보임. 삭제를 실행했다면
+route 곡률 계산에 쓰이는 계수가 최초 1회 값으로 고정되는 회귀가
+발생했을 것 -- 사용자에게 즉시 보고 후 삭제 취소, 주석만 정정하고 이
+read도 다른 17개와 동일하게 5s 캐시 대상에 포함하는 것으로 범위 조정
+(사용자 승인 하에 진행).
+
+**구현 내용** (`carrot_serv.py`/`carrot_man.py`, §27 최소변경 -- 산식/
+제어로직 변경 없음, Params 읽기 빈도만 변경):
+
+1. `carrot_serv.py::update_params()` -- `carrot_man.py::_refresh_cached_params()`
+   (99/100차)와 동일한 카운트다운 캐시 패턴(`self._readParamsServ`)
+   적용. `__init__`에서 0으로 초기화(첫 호출은 즉시 실행), 이후
+   `update_navi()`가 매 20Hz 프레임 무조건 호출해도 실제 Params I/O는
+   100프레임(=5s)에 1회만 실행. 18개 파라미터(`MapTurnSpeedFactor`
+   포함) 전부 캐시 대상 -- PARAMS_REGISTRY.md 대조(352차) 결과 전부
+   "사용자 UI 설정값"으로 이미 확인됐고, 기존 3개 캐시 파라미터(99/100차,
+   그중 `AutoCurveSpeedFactor`/`Aggressiveness`는 동일하게 UI 슬라이더
+   값)와 동일한 안전성 근거 적용.
+2. `carrot_serv.py` 367~371행 `[210차]` 주석 정정 -- 위 발견 내용 반영,
+   "죽은 값" 서술 제거하고 실제 사용처(carrot_man.py 2곳) 명시.
+3. `carrot_man.py::_refresh_cached_params()` -- `Version` 캐싱 추가
+   (`self._version_cached`, 동일 5s 카운터 공유). `__init__`에도 최초
+   1회 세팅 추가(101차 크래시 교훈 -- 캐시 필드는 사용처보다 먼저
+   `__init__`에서 세팅해야 함, 기존 주석 재확인 후 동일 패턴 적용).
+4. `carrot_man.py::make_send_message()` -- `self.params.get("Version")`
+   -> `self._version_cached`, `self.params.get_bool("IsOnroad")` ->
+   기존 `self._is_onroad_cached`(99/100차, 이미 존재하던 캐시를 안 쓰고
+   중복 raw read 하고 있었음 -- 이번에 그 중복만 제거, 새 캐싱 설계
+   아님).
+
+**작업 순서(§28)**: 사용자 지정 범위 확인 -> `ryu` fresh clone(`da7ab36f`)
+grep으로 `MapTurnSpeedFactor` 실사용 여부 직접 검증(위 발견) -> 사용자
+보고 및 범위 조정 승인 -> 클린 작업본(work_ryu)에서 구현 -> 커밋 ->
+`git format-patch` -> **독립 fresh clone**(verify_clone, `da7ab36f`)에서
+`git apply --check` -> `git am` -> `py_compile` -> diff-0 비교 전부
+통과.
+
+**검증**:
+- 정적 분석: 완료 (§31 체인 전부 PASS -- apply-check/am/py_compile/diff-0)
+- 로그 분석: 해당 없음
+- 시뮬레이션: 해당 없음(캐시 지연 자체가 값 계산 로직을 바꾸지 않으므로
+  기존 what-if 시뮬레이션 재실행 불필요로 판단 -- 값 변경 아닌 읽기
+  빈도 변경)
+- **실차 검증: 미실시**. CPU%/실행시간 실측도 미실시 -- 이 패치의
+  절감 효과 자체는 C3에서 측정 필요(사용자 확인 사항).
+
+**Devnotes**: WIP(이 항목) / FINDINGS.md(신규 항목 -- `MapTurnSpeedFactor`
+stale 주석 발견 및 정정 경위) / CURRENT_STATUS.md(CPU 후보 섹션 갱신,
+①/② 항목을 "패치 완료(실측 대기)"로 변경)
+
+**패치**: `0001-353cha-CPU-cleanup-Phase-1-cache-update_params-make_.patch`
+
+**미실시(다음 범위, 이번엔 명시적으로 보류)**:
+- `gethostbyname()` 캐싱 -- `ip_address != self.ip_address` 변경감지
+  로직과의 상호작용 별도 검토 필요(사용자 지정 보류)
+- orphan raw-path join / `route_local_curve_merge() any()` -- 조건부·
+  저빈도 확인됨(345/352차), CPU backlog에서 낮은 우선순위 유지
+
+**다음 작업**:
+- 사용자가 로컬 적용 -> C3 실제 CPU%/실행시간 측정 -> 효과 확인
+- 실차 재주행으로 캐시 지연(5s)이 route 감속/커브 속도 계산에 체감
+  영향 없는지 확인(58차 교훈 -- 로그 분석만으로는 불충분, 실차 feel이
+  최종 판단 기준)
+- 위 "미실시" 2개 항목(`gethostbyname()` 등)은 사용자 결정 시 2차
+  패치로 진행
+
 ## 352차 (완료 -- ANALYSIS_ONLY, `ryu`/`ryu-devnotes` 코드 무변경, 신규 toolkit 스크립트 없음) -- (A) ChatGPT 작성 "미결사항 재분류안" 검토: orphan/local-merge 완전폐기 반려(340차 확정사항 존재, CURRENT_STATUS 이월항목과 불일치) (B) 345차 CPU 감사 후보 6개 343차 코드 기준 전수 재검증 + `remote_addr` 게이팅으로 후보②의 실질 빈도 재분류(20Hz 가능성)
 
 **Worker**: Claude

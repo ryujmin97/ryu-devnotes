@@ -1,3 +1,57 @@
+## 353차 -- [코드 확인, 패치 반영] `MapTurnSpeedFactor`를 "죽은 값"으로 서술한 `[210차]` 주석이 stale/부정확했음을 확인 -- 실제로는 `carrot_man.py` route 곡률 계산 2곳에서 계속 사용 중
+
+**배경**: 352차 CPU 감사 후보① `update_params()` 캐시화를 진행하던 중,
+사용자가 `carrot_serv.py` 367~370행의 `[210차]` 주석("이 값을 곱하던
+유일한 사용처... 를 제거함 -- 현재는 어디에서도 쓰이지 않는 죽은
+값이다")을 근거로 `MapTurnSpeedFactor` Params 읽기 자체를 삭제하는
+것을 1차 CPU 패치 항목으로 제안.
+
+**검증(§28/§33 -- 삭제 실행 전 코드 직접 확인)**: `ryu` fresh clone
+(`da7ab36f`=343차)에서 `self.carrot_serv.mapTurnSpeedFactor`(carrot_man.py
+쪽에서 참조하는 완전한 속성명)를 전체 grep한 결과, 이 값은 현재도
+활발히 사용 중임을 확인:
+
+```
+carrot_man.py:1467  route_curvature_macro_fine(
+                       resampled_points, distance_interval, sample,
+                       ROUTE_CURVATURE_FINE_SAMPLE, 0.0,
+                       self.carrot_serv.mapTurnSpeedFactor,
+                       self.carrot_serv.nRoadLimitSpeed)
+carrot_man.py:1591  route_local_curve_merge(
+                       orphans, distances, speeds, curvatures,
+                       fine_triggered, relative_coords,
+                       self.carrot_serv.mapTurnSpeedFactor, road_limit_speed)
+```
+
+두 호출 모두 route 곡률->속도 계산 파이프라인의 실제 인자다. 279차
+devnotes 기록("mapTurnSpeedFactor 적용 위치(V_CURVE_LOOKUP_VALS 결과에
+곱함)")과 정확히 일치하며, CURRENT_STATUS.md의 이월 항목("
+`mapTurnSpeedFactor=1.10` 보정을 `analysis_helpers.py::
+recompute_route_curvature_speed()`에 반영 후 297차 파이프라인 재실행")
+도 이 값이 production 코드에서 여전히 살아있기 때문에 존재하는 항목임
+-- 즉 이 값이 죽었다면애초에 297차가 남긴 이 이월 항목 자체가 무의미
+했을 것이다.
+
+**결론**: `[210차]` 주석이 가리키는 "제거된 유일한 사용처"는
+`carrot_serv.py` 자기 자신의 `update_navi()` 내부 곱셈(210차 세션에서
+제거)뿐이었고, 주석 작성 시점에 `carrot_man.py` 쪽의 다른 2개 호출부는
+고려되지 않았거나 그 이후(279차? 확인 필요)에 추가된 것으로 보인다.
+"현재는 어디에서도 쓰이지 않는 죽은 값이다"는 서술은 **부정확** --
+`carrot_serv.py` 파일 하나만 놓고 보면 맞는 말이었을 수 있으나, 실제
+소비처는 다른 파일(`carrot_man.py`)에 있어 파일 단위로만 확인하면
+오판하기 쉬운 사례. 353차에서 이 read를 삭제하지 않고 유지하되, 다른
+17개 파라미터와 동일하게 5s 캐시 대상에만 포함하는 것으로 범위를
+조정했다(WIP.md 353차 참고). 코드 주석도 이 경위를 반영해 정정함.
+
+**교훈**: 죽은 코드/파라미터 판단은 반드시 **같은 파일 안의 사용처
+뿐 아니라 그 속성을 참조하는 다른 파일(특히 `self.carrot_serv.xxx`
+형태로 외부에서 접근하는 속성)까지 전체 grep으로 확인**해야 한다.
+과거 세션이 남긴 "죽은 값이다"류 주석도 액면 그대로 신뢰하지 말고
+삭제 전 재검증 필요(§28/§33).
+
+**검증**: 정적 분석(grep 대조) 완료. 로그/시뮬레이션/실차 검증 해당
+없음(코드 삭제를 안 하기로 한 결정이므로 회귀 자체가 발생하지 않음).
+
 ## 352차 -- [코드 확인, NEEDS_VALIDATION] CPU 감사 후보 ②(`make_send_message`+`gethostbyname`)의 실질 실행빈도가 `remote_addr` 게이팅 때문에 1Hz가 아니라 사실상 20Hz일 가능성
 
 **배경**: 345차가 CPU 부하 후보로 지목한 `make_send_message()`의

@@ -10,19 +10,22 @@ append-only 원칙 적용 안 함 -- 항상 최신 1개 스냅샷만 유지).
 
 ---
 
-## 코드 상태 (2026-09-10, 352차 종료 시점)
+## 코드 상태 (2026-09-10, 353차 종료 시점)
 
 **Repository**: `ryujmin97/ryu`
 **Branch**: `c3-ms-dev`
-**HEAD**: `da7ab36f` (343차 -- ACTIVE 릴리즈 OR-조건에서 `speed_reached`
-삭제, `v_ego_ms<=target_ms`는 유지). 349차도 이 저장소에 코드 변경 없음.
+**HEAD (GitHub 기준)**: `da7ab36f` (343차 -- ACTIVE 릴리즈 OR-조건에서
+`speed_reached` 삭제, `v_ego_ms<=target_ms`는 유지). **353차 CPU 정리
+패치(`0001-353cha-...patch`)는 생성/§31 검증 완료했으나 사용자가 아직
+로컬 적용/push 전이므로, §11 원칙에 따라 GitHub HEAD는 여전히
+`da7ab36f`로 표기**(아래 "미확인/대기중" 1번 참고).
 
 **Repository**: `ryujmin97/ryu-devnotes`
 **Branch**: `main`
-**HEAD**: `bfb684c` (348차 devnotes 기록) -- 349차 세션 시작 시 fresh
-clone으로 확인한 값이며, 이 시점에 이미 push되어 있었음. **344차
-patch가 push됐는지는 여전히 미확인**, **349차 patch는 이 세션 종료 후
-push 대기 중**(아래 "미확인/대기중" 참고)
+**HEAD**: `52842fc` (352차 devnotes 기록, 이 세션 시작 시 fresh clone/
+fetch로 재확인 -- 이전 판(348차 `bfb684c`)은 stale 기록이었음, 이번에
+정정). 353차 devnotes(이 파일 포함 WIP/FINDINGS 갱신)는 이 세션 종료
+후 push 대기 중.
 
 ---
 
@@ -148,28 +151,42 @@ route_active 재진입은 7/7건 전부 결국 발생하나(무제한 탐색 기
 
 ---
 
-## CPU 부하 정리 (345차 발견, 352차 재검증)
+## CPU 부하 정리 (345차 발견, 352차 재검증, 353차 1차 패치)
 
 345차가 발견한 CPU 후보 6개를 352차가 현재 코드(343차 HEAD)와 전수 대조.
-전부 코드상 존재 확인됨. 실제 CPU%/ms 실측은 **미실시**(345차/352차 둘 다).
+353차가 ①/②의 일부를 패치(§31 검증 완료, 사용자 로컬 적용/push +
+C3 실측 대기). 실제 CPU%/ms 실측은 **여전히 미실시**(345/352/353차 모두).
 
-1. 🔴 **`carrot_serv.py::update_params()`** -- `update_navi()` 20Hz 루프에서
-   캐시 없이 18개 Params I/O. 1순위. `carrot_man.py::_refresh_cached_params()`가
-   동일 성격 파라미터 3개를 이미 5초 캐시(99/100차 패턴)로 처리 중이라
-   캐싱 안전성 근거는 있음(NEEDS_VALIDATION, 패치는 미착수).
-2. 🔴 **`make_send_message()`(Version/IsOnroad) + `gethostbyname()`** --
-   **[352차 재분류]** `if frame%20==0 or remote_addr is not None:` 게이팅이지만
-   `remote_addr`는 내비 앱 데이터 수신 중엔 계속 non-None(10초 무수신 시에만
-   해제)이라 정상 주행 중 실질 빈도가 1Hz가 아니라 **20Hz(①과 동급)일 가능성**.
-   실측 미실시, 우선순위를 ①과 같은 급으로 상향.
-3. 🟡 orphan raw-path 문자열화(`relative_coords` 전체 join) -- 존재 확인,
-   낮은 우선순위.
+1. ✅🔧 **`carrot_serv.py::update_params()`** -- **[353차 패치 완료]**
+   `carrot_man.py::_refresh_cached_params()`(99/100차)와 동일한 카운트다운
+   캐시 패턴 적용, 18개 Params 읽기(MapTurnSpeedFactor 포함)를 20Hz 매프레임
+   -> 5s(100프레임)에 1회로 전환. 패치 검증(§31) 완료, **실제 CPU 절감량/
+   실차검증은 미실시**.
+   - ⚠️ 패치 중 발견: `MapTurnSpeedFactor`를 "죽은 값"이라 서술한 `[210차]`
+     주석이 stale이었음 확인(`carrot_man.py` route 곡률 계산 2곳에서 실사용
+     중) -- 삭제 대신 주석만 정정, 캐시 대상에 포함(FINDINGS.md 353차 참고).
+2. **`make_send_message()`(Version/IsOnroad) + `gethostbyname()`** -- 3개
+   하위 항목으로 분리:
+   - ✅🔧 `IsOnroad`: **[353차 패치 완료]** 이미 존재하던 `self._is_onroad_cached`
+     (99/100차)를 안 쓰고 중복 raw read 하던 것을 캐시 재사용으로 교체.
+   - ✅🔧 `Version`: **[353차 패치 완료]** `_refresh_cached_params()`에 5s
+     캐시 신규 추가(`self._version_cached`).
+   - 🔴 `gethostbyname()`: **[353차 명시적 보류]** `ip_address != self.ip_address`
+     비교 기반 IP 변경감지/`remote_addr` 리셋 로직과 연결돼 있어, 캐싱 시
+     이 감지 로직이 무력화될 부수효과 우려 -- 별도 세션에서 검토 필요.
+   - 게이팅 자체(`frame%20==0 or remote_addr is not None`)는 352차 재분류대로
+     내비 앱 연결 중 사실상 20Hz 유지, 이번엔 변경 안 함.
+3. 🟡 orphan raw-path 문자열화(`relative_coords` 전체 join) -- 조건부(orphan
+   존재 시만) 확인, 낮은 우선순위 유지(345/352/353차 일관).
 4. 🟢 `route_local_curve_merge()`의 `any()` 선형탐색, `broadcast_version_info()`
-   초기화 순서 race -- 존재 확인, 우선순위 낮음/관찰 대상.
+   초기화 순서 문제(353차 확인: 이 함수 자체가 20Hz 메인루프이며 "race"는
+   스레드 시작 시점 1회성 문제로, 반복 CPU 부하 아님) -- 우선순위 낮음/관찰 대상.
 5. ✅ route 곡률 계산부(`np.interp` macro/fine 배치처리) -- 이미 Phase 1
    최적화 적용 확인, backlog 제외.
 
-**다음 작업**: ①/② 캐싱 패치 설계는 사용자 승인 필요(§31, 아직 미착수).
+**다음 작업**: 353차 패치 사용자 로컬 적용 -> C3 실측(CPU%/ms) -> 실차
+재주행으로 5s 캐시 지연 체감 영향 없는지 확인. `gethostbyname()` 캐싱
+여부는 별도 세션에서 사용자 결정 후 진행.
 
 ---
 
@@ -194,9 +211,11 @@ route_active 재진입은 7/7건 전부 결국 발생하나(무제한 탐색 기
   qcamera 대조 (미실시)
 - 132차 ramp limiter, 166차 heading freeze fix -- 둘 다 실차
   재주행 검증 대기(`NEEDS_VALIDATION`)
-- CPU 개선후보 6건 패치(345차 확정) -- 343차 실차검증 완료 후로 보류
+- CPU 개선후보 중 `gethostbyname()` 캐싱, orphan raw-path/`any()` 선형탐색
+  -- 353차에서 명시적으로 보류(위 "CPU 부하 정리" 섹션 참고), ①/②
+  일부(update_params/IsOnroad/Version)는 353차에서 패치 완료(실측 대기)
 
 ---
 
-*최종 갱신: 352차 (Claude). 다음 세션은 이 파일을 먼저 읽고,
-WIP.md 최신 회차(352차)로 상세 맥락을 보충할 것.*
+*최종 갱신: 353차 (Claude). 다음 세션은 이 파일을 먼저 읽고,
+WIP.md 최신 회차(353차)로 상세 맥락을 보충할 것.*
