@@ -1,3 +1,110 @@
+## 358차 계속 (진행 중 -- E' 설계 확정, timeout 실측 대기, 코드 미수정) -- `carrotMan` 0Hz staleness 보호 설계 (358차 원 항목 후속)
+
+**Worker**: Claude (+ ChatGPT(지선생) 별도 세션 교차검증, §5/§35)
+
+**Repository**: `ryujmin97/ryu`(base `40ed6d9`=357차, 무변경, ANALYSIS_ONLY) /
+`ryu-devnotes`(base `0e0a7e7`=358차)
+
+**Branch**: `c3-ms-dev` / `main`
+
+**세션 시작 확인(§3/§33)**: fresh clone으로 `ryu` HEAD `40ed6d9`(357차
+`send_routes()` dead-code 제거, 드리프트 없음), `ryu-devnotes` HEAD
+`0e0a7e7`(358차 FINDINGS) 직접 확인.
+
+**배경**: 358차 FINDINGS가 미결정으로 남긴 "B/C/D/E 중 방향 결정, 또는
+E를 우선 설계 검토"에 대해, 사용자가 별도 세션 ChatGPT(지선생)와
+독립적으로 40ed6d9 기준 호출 흐름을 재검증하도록 지시, Claude가 그
+결과를 다시 코드로 교차검증하며 진행.
+
+**진행 경과**:
+1. 원래 E안("carrotMan 메시지에 자체 age 필드 추가")을 폐기. 대신
+   `cereal/messaging/__init__.py::SubMaster.update_msgs()`를 직접 읽어
+   `self.recv_time[s]`가 on_demand(0Hz) 여부와 무관하게 메시지를 실제
+   수신할 때마다 항상 갱신됨을 확인(`alive`/`freq_ok`만
+   `static_freq_services`로 제한됨) -- **capnp 필드 추가/`carrot_man.py`
+   `carrot_serv.py`/`cereal/services.py` 어느 것도 건드리지 않고
+   소비처 5곳(`controlsd.py`/`lateral_planner.py`/`cruise.py`/
+   `selfdrived.py`/`carrot_functions.py`)에서만 로컬 staleness 체크가
+   가능함을 확정 -- 이하 **E'**로 표기. 이 패턴은 이미 저장소 내
+   `soundd.py:71`/`torqued.py:282`/`paramsd.py:320,357`에 선례 있음(신규
+   패턴 아님).
+2. `recv_time['carrotMan']` 초기값은 `SubMaster.__init__()`에서 0.0 --
+   freshness 판정에 `recv_time > 0` 가드 필수(첫 수신 전 stale 취급,
+   방법 A) 확정.
+3. `carrot_man.py::broadcast_version_info()` 루프 순서 재확인: `sm.update
+   -> _refresh_cached_params -> send_routes(조건부) -> carrot_curve_speed
+   -> carrot_navi_route -> update_navi(**이 안에서 `carrot_serv.py`
+   L1457 `pm.send('carrotMan', msg)` 실행**) -> broadcast 네트워크(중첩
+   try/except, 독립적으로 실패 흡수) -> `rk.keep_time()`. 즉 broadcast
+   네트워크 지연은 이번 프레임 carrotMan 송신 자체를 막지 못하고,
+   `carrot_navi_route()`/`update_navi()` 중 `pm.send` 이전 구간에서
+   발생한 예외만 outer `except: ... time.sleep(1)`(L1036-1039)로
+   이어짐 -- 358차가 지목한 Problem A 경로를 라인 단위로 재확정.
+4. 소비처별 stale fallback 설계 확정(지선생 초안을 코드로 교차검증):
+
+   | 소비처 | 필드 | stale 시 |
+   |---|---|---|
+   | `controlsd.py:191` | `vTurnSpeed` | 0 (→`lane_planner_2.py:166` `offset_curve` 계산에서 `sign(0)=0`이라 curve offset 자체가 사라짐, 검증 완료) |
+   | `controlsd.py:264` | `desiredSpeed` | `CS.vCruiseCluster` |
+   | `lateral_planner.py:101` | `vTurnSpeed` | 0 (위와 동일 근거) |
+   | `cruise.py:291` | `desiredSpeed` 등 | 기존 `if sm.alive['carrotMan']:`에 else 없음 -- 조건만 진짜 staleness로 교체하면 "직전 값 유지" semantics가 그대로 재현됨(신규 fallback 코드 불필요) |
+   | `selfdrived.py:251` | `atcType` | 이벤트 처리 skip(기존과 동일 구조) |
+   | `carrot_functions.py:442` | `atcType` 등 | 처리 skip(기존과 동일 구조) |
+
+5. **신규 발견(이번 세션)**: `cereal/custom.capnp`의 `desiredSpeed`(L29)/
+   `vTurnSpeed`(L26)/`activeCarrot`(L15)/`xDistToTurn`(L23) 전부
+   default-annotation 없는 `Int32`라 capnp 기본값이 0. `cruise.py:200`은
+   자체 캐시 `self.desiredSpeed`를 `250`(사실상 "제한 없음" sentinel)로
+   안전하게 초기화해두었지만, **`controlsd.py:264`는 `self.sm['carrotMan'
+   ].desiredSpeed`를 raw로 직접 읽어 이 sentinel 보호를 거치지 않는다** --
+   부팅 직후(또는 매 프로세스 재시작 시) 첫 carrotMan 수신 전에는
+   `desired_kph = min(CS.vCruiseCluster, 0) = 0`이 될 수 있는 기존
+   latent 위험. `vTurnSpeed`는 capnp 기본값(0)과 설계된 stale
+   fallback(0)이 같아서 문제 없음. 이번에 결정한 "recv_time==0(미수신)도
+   stale 취급" 규칙을 `desiredSpeed`에 적용하면 이 latent 위험도 같은
+   패치로 함께 해소됨(§24 dedup 확인 필요 -- 기존 기록 여부 미확인,
+   FINDINGS 정식 기록 시 별도 항목으로 분리 예정).
+6. plannerd.py(`lateral_planner` 소속 프로세스, `sm = SubMaster([...,
+   'carrotMan'])`, plannerd.py:26)는 controlsd.py와 별개 프로세스라
+   `recv_time` 상태가 완전히 독립적임을 확인. `time.monotonic()`은
+   프로세스별 로컬 호출(수신 시점의 자기 프로세스 clock)이라 cross-
+   process 비교가 아니므로 clock skew 문제 없음.
+7. 마지막 미결정 사항: `CARROT_MAN_STALE_S` 임계값. 정상 20Hz(50ms)
+   대비 예외 recovery 시 `sleep(1)`로 최대 ~1초 gap 가능 -- 0.5s는
+   공격적, 1.0s는 `sleep(1)` 경계에 걸림, 1.5~2.0s가 1차 후보(미확정,
+   실측 필요).
+
+**신규 toolkit 도구(§21/§22, 실측 대기 중이라 README/CHANGELOG는 이번
+체크포인트에서 함께 반영, 본 항목 자체는 다음 세션에 실측 결과와 함께
+FINDINGS.md에 한 번에 기록 예정)**:
+`toolkit/measure_carrotman_publish_gap.py` -- extract_log.py CSV의
+연속 `carrotMan` 행 간 `t`(=`logMonoTime/1e9`) 차이를 seg별로 그룹화해
+Δt 분포(mean/p50/p90/p95/p99/max) + 임계값별 초과빈도 + 구간분류(정상/
+애매/sleep1-suspect/unknown) + 최대 gap 상위 N건을 출력. 새 cereal
+필드나 신규 실차 수집 없이 **과거 아무 corpus CSV나 재사용 가능**
+(319차 `group_orphan_episodes_319.py`의 `groupby('seg')['t'].diff()`
+패턴 재사용, §21). 합성 데이터로 로직만 검증 완료, 실제 corpus 실행은
+미실시.
+
+**검증**:
+- 정적 분석: 완료(위 1~6번, 실제 코드 라인 대조)
+- 로그 분석: **미실시** -- `measure_carrotman_publish_gap.py`를 실제
+  corpus에 돌려 Δt 분포를 얻는 것이 다음 세션 최우선 작업
+- 시뮬레이션: 해당 없음
+- **실차 검증: 미실시**(코드 미수정, ANALYSIS_ONLY 유지)
+
+**미확인 사항**: `CARROT_MAN_STALE_S` 확정값, `desiredSpeed` capnp 기본값
+0 부팅 리스크의 FINDINGS §24 dedup 여부
+
+**다음 작업**: 기존 corpus CSV(또는 신규 route_dir)로
+`measure_carrotman_publish_gap.py` 실행 -> Δt 분포/임계값 후보 확정 ->
+FINDINGS.md에 E' 설계 전체(원 E안 폐기 근거 + 최종 소비처별 표 +
+desiredSpeed 부팅 리스크 신규발견 + 확정 timeout) 한 번에 기록 -> 이후
+코드 구현 범위/순서 논의(§27 최소변경 -- 5개 소비처 파일 개별 패치가
+될 가능성 높음, 아직 미확정)
+
+---
+
 ## 357차 계속2 (완료 -- 구현+정적검증 완료, 실차 검증 미실시, 패치전달 완료) -- `send_routes()` 도달불가 dead code 제거 (356차 발견 후속)
 
 **Worker**: Claude

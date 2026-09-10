@@ -1,3 +1,39 @@
+## measure_carrotman_publish_gap.py (358차 계속, 신규 -- carrotMan 발행 간격(Δt) 실측)
+
+**목적**: 358차가 발견한 "carrotMan이 0Hz로 등록돼 있어 alive가 상시
+True로 고정되는 구조적 결함"에 대한 후속 설계(E', `SubMaster.
+recv_time['carrotMan']` 기반 소비처별 로컬 staleness 체크)에서 마지막
+남은 `CARROT_MAN_STALE_S` 임계값을 정하기 위해, 실제 carrotMan 발행/
+수신 간격(Δt) 분포가 필요했다.
+
+`extract_log.py`는 `carrotMan` 이벤트가 올 때만 CSV 행을 append하고
+(`w == "carrotMan"` 분기), 그 행의 `t` 컬럼이 곧 `evt.logMonoTime/1e9`
+이므로, **연속된 행 간 `t` 차이 자체가 carrotMan 발행 간격**이다. 새
+cereal 필드나 신규 실차 수집 없이 과거 아무 corpus CSV나 재사용
+가능하다. 그룹화(세그먼트 경계에서 diff 끊기)는 319차
+`group_orphan_episodes_319.py`의 `groupby('seg')['t'].diff()` 패턴을
+그대로 재사용했다(§21).
+
+**출력**: 전체 Δt 분포(mean/p50/p90/p95/p99/max), 0.5/1.0/1.5/2.0초
+임계값별 초과 빈도, 구간별 분류(정상<0.5s / 애매 0.5~1.5s /
+sleep1-suspect 1.5~2.5s / unknown≥2.5s -- `broadcast_version_info()`의
+예외 시 `time.sleep(1)` 경로(40ed6d9 기준 L1036-1039) 서명 근사 분류),
+최대 gap 상위 N건의 seg/t(추후 qcamera 대조용).
+
+**358차 계속이 이 스크립트로 실제 확인한 것**: 없음 -- 합성 데이터로
+로직만 검증 완료(percentile/구간분류/seg 경계 diff 정상 동작), 실제
+corpus 실행은 다음 세션 예정.
+
+**사용**:
+```bash
+python3 extract_log.py <route_dir> <out.csv> --repo <ryu_path>
+python3 measure_carrotman_publish_gap.py <out.csv> \
+    [--thresholds 0.5,1.0,1.5,2.0] [--top 20]
+```
+CSV는 `--with-navi-paths` 여부 무관, `t`/`seg` 컬럼만 있으면 된다.
+
+---
+
 ## sim_route_348_active_reentry_trace.py (348차, 신규 -- 강제 RELEASE=lost 개별 route_active 재진입 트레이스)
 
 **목적**: 347차가 이월한 "강제 RELEASE=lost 7건(x19seg 6+x10seg 1)이 실제

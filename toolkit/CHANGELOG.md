@@ -3,6 +3,15 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+## 2026-09-11 (358차 계속)
+- `measure_carrotman_publish_gap.py`: **신규**. `extract_log.py` CSV의
+  연속 `carrotMan` 행 간 `t`(logMonoTime) 차이를 seg별로 그룹화해
+  Δt 분포(p50/p90/p95/p99/max) + 임계값별 초과빈도 + 구간분류(정상/
+  애매/sleep1-suspect/unknown) + 최대 gap 상위 N건 출력. 새 필드/실차
+  재수집 불필요, 과거 corpus CSV 재사용 가능(319차
+  `group_orphan_episodes_319.py`의 groupby diff 패턴 재사용, §21).
+  합성 데이터로 로직만 검증, 실제 corpus 실행은 다음 세션 예정.
+
 ## 2026-09-10 (348차)
 - `sim_route_348_active_reentry_trace.py`: **신규**. 301차 lost-boundary
   trace(A->LOST->B) + 300차 `ActualLayer`의 `route_active` bool을
