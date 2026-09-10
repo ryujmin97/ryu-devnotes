@@ -1,3 +1,114 @@
+## 347차 (완료 -- ANALYSIS_ONLY, `ryu` 코드 무변경) -- 346차 "다음 작업" 2번: route1~4/x20seg 외 4개 추가 corpus(x19/x6/x10/x16seg, 335~339차가 이미 채록한 로그의 재업로드)로 "강제 RELEASE=lost" 발생 빈도 재확인
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu`(base `da7ab36f`=343차, 코드 변경 없음) /
+`ryu-devnotes`(base `95b87349`=346차, 이 항목 추가 전)
+
+**Branch**: `c3-ms-dev` / `main`
+
+**세션 시작 확인(§3/§33)**: fresh clone으로 `ryu` HEAD `da7ab36f`(343차),
+`devnotes` HEAD `95b87349`(346차) 확인. `CURRENT_STATUS.md` 우선 확인 --
+343차 실차검증/344차 patch push 여부가 여전히 최우선 미확인 항목으로
+남아있음을 확인했으나, 사용자가 이번에 업로드한 4개 zip은 실차검증용
+신규 로그가 아니라 **335~339차가 이미 분석했던 x19/x6/x10/x16seg의
+재업로드**였음(아래 확인). 따라서 이번 회차는 실차검증 대신 346차가
+이월한 "다음 작업" 2번(다른 corpus로 강제 RELEASE=lost 빈도 재확인)을
+수행.
+
+**입력 데이터 재확인(중요)**: 업로드 4개 zip의 세그먼트 파일명·타임스탬프·
+route hash가 `LAST_ANALYZED.md`의 335차 기록과 **완전 일치**
+(`7940c9e2c6`=x19seg/`7d0263046d`=x6seg/`1cd2ef2125`=x10seg/
+`f49c84d79d`=x16seg, 전부 2026-09-09 채록) -- 신규 채록이 아니라 동일
+로그의 재업로드로 판정(다른 세션 산출물을 신규로 오판하지 않도록 확인,
+§8 원칙과 동일 취지). `check_device_build.py --compare-commit da7ab36f`
+결과 4개 전부 device gitCommit=`823943a6`(329차 계속2)+dirty=True로
+335~338차와 동일 -- 343차보다 훨씬 이전 채록이라 **이 corpus는 343차
+패치 실차검증 용도로는 쓸 수 없음**(CURRENT_STATUS.md 최우선 항목 1번은
+여전히 미해결로 남음, 혼동 방지를 위해 명시). 다만 346차가 이미 확인한
+대로 "강제 RELEASE=lost" 빈도 분석은 `_route_cluster_continuity_step()`
+(decel_rate/ctrl_end/margin 무의존) 자체를 보는 것이라 343차 패치
+유무와 무관하게 유효(346차 근거 재사용, §21).
+
+**작업**: `extract_log.py --with-navi-paths`로 4개 corpus 재추출 --
+22,798/6,309/10,992/18,815행, 전부 335/338차 기록과 **완전 일치**
+(재현성 검증). `sim_route_346_lost_freq_single_route.py`(346차 신규
+스크립트, §21 그대로 재사용, 코드 변경 없음)를 4개 corpus 각각에 실행.
+
+**핵심 결과**:
+
+| corpus | naviPaths 유효 프레임 | mode=="lost" 전체 | apex_dist>0 비율 | 강제 RELEASE=lost |
+|---|---|---|---|---|
+| x20seg(346차, 참고) | 18,333 | 88 | 100%(88/88) | 0건 |
+| x19seg(신규) | 22,798 | 151 | 100%(151/151) | **6건** |
+| x6seg(신규) | 6,309 | 44 | 100%(44/44) | 0건 |
+| x10seg(신규) | 9,815 | 61 | 100%(61/61) | **1건** |
+| x16seg(신규) | 17,938 | 57 | 100%(57/57) | 0건 |
+| route1~4(300차, 참고) | -- | -- | -- | 15건(15/15) |
+
+1. **continuity 설계 전제("lost는 apex_dist>0 상태에서만 발생")가 5개
+   corpus, 401건(88+151+44+61+57) 전부에서 예외 없이 성립** -- 346차가
+   x20seg 1개로 확인한 것을 4개 추가 corpus로 보강, 더 이상 단일 corpus
+   결과가 아님.
+2. **"강제 RELEASE=lost" 패턴은 corpus에 따라 실제로 크게 갈린다(346차
+   §28 가설 확인)** -- 신규 4개 중 2개(x19seg 6건, x10seg 1건)는
+   route1~4(15/15)처럼 발생하는 쪽, 나머지 2개(x6seg, x16seg)는 x20seg
+   처럼 0건. "0건 corpus"가 x20seg 하나의 우연이 아니었고, "발생하는
+   corpus"도 route1~4 하나의 우연이 아니었음 -- 발생 여부 자체가
+   corpus(주행 상황)마다 갈리는 것이 일반적인 패턴임이 표본 확대로
+   뒷받침됨.
+3. **강제 RELEASE=lost가 발생한 7건(x19seg 6+x10seg 1) 전부 같은
+   프레임에 즉시 B로 재획득, 전부 1프레임 이상 생존**(x19seg 5건은
+   0.3~0.51s/6~10f, x19seg 1건은 5.0s/100f, x10seg 1건은 0.95s/19f) --
+   x20seg의 "재활성 자체는 빠르다(99%<1초)"는 결론과 방향이 일치. 다만
+   346차와 동일한 한계로, 이 재활성이 실제 route_active 재진입/제어개입
+   까지 이어지는지는 이 스크립트 출력만으로는 여전히 미확인.
+
+**해석**: 346차가 "단일 corpus라 일반화 금지"로 유보했던 corpus 간 차이
+(x20seg 0건 vs route1~4 15/15)가, 4개 corpus를 추가한 지금은 표본이
+6개 corpus(강제 RELEASE 발생 3개: route1~4/x19seg/x10seg, 미발생 3개:
+x20seg/x6seg/x16seg)로 균형 있게 늘어 "corpus마다 갈린다"는 결론 자체가
+더 신뢰할 수 있는 수준으로 보강됐다고 판단(§28). FINDINGS.md에 이 결과를
+346차 항목을 보강하는 신규 항목으로 추가(§24 -- 기존 결론 삭제/수정 없이
+새 증거로 보강).
+
+**검증**:
+- 정적 분석: 기존 검증된 `sim_route_346_lost_freq_single_route.py`
+  재사용, 신규 코드 없음.
+- 재현성: 4개 corpus 재추출 행수 335/338차 기록과 전부 일치.
+- 로그 검증: 위 표는 4개 corpus 직접 재생 결과.
+- 실차 검증: 미실시(오프라인 로그 재생 한정, §29). 이 corpus들은 343차
+  패치 이전 채록이므로 **343차 실차검증 용도로는 사용 불가**(구분 명시,
+  혼동 방지).
+
+**한계(§28)**: (1) 여전히 표본 수(6개 corpus)가 크지 않아 통계적으로
+확정된 "corpus 유형별 발생률"까지는 아님. (2) x19/x6/x10/x16seg 전부
+823943a6(329차) 기준 동일 채록 세션(2026-09-09)의 결과라 "촬영 시점/도로
+유형"과 "코드 버전"이 완전히 분리되지 않은 confound 가능성 있음(다만
+continuity 로직 자체는 이 corpus들 사이에서 코드적으로 동일하므로 결과
+신뢰성 자체에는 영향 없음). (3) `AutoNaviSpeedDecelRate`/
+`AutoNaviSpeedCtrlEnd`/`MapTurnSpeedFactor`는 이번에도 297차 가정치
+(1.10/8.0/0.70) 사용 -- (1)/(3) 결과는 이 값 무의존, 강제 RELEASE
+건수만 가정치 의존(파라미터 스윕은 이번 회차 미실시, 필요 시 다음
+회차).
+
+**Devnotes**:
+- 신규 toolkit 없음(§21, 기존 `sim_route_346_lost_freq_single_route.py`
+  재사용만).
+- WIP/FINDINGS: 이 항목 (patch로 전달, §18 -- 두 파일 모두 1MB 초과
+  append-only 파일이라 전체 재전송 대신 diff 기반 patch 우선)
+- `CURRENT_STATUS.md`: 최신 스냅샷 갱신(347차 반영, "미확인/대기 중"
+  목록에 이번 corpus가 343차 검증에는 쓸 수 없다는 구분 명시 추가)
+
+**다음 작업**:
+1. 343차(`speed_reached` 제거) 실차 검증 -- 여전히 최우선(변경 없음,
+   이번 corpus는 여기 해당 없음)
+2. 344차 devnotes patch push 여부 확인 -- 여전히 미확인(변경 없음)
+3. 강제 RELEASE=lost 발생 7건(x19seg 6+x10seg 1)이 실제 route_active
+   재진입까지 이어지는지 개별 사례 트레이스(301차 방식, 346차가 이월한
+   것과 동일 과제, 표본 7건으로 확대)
+4. CPU 개선후보 6건 패치는 여전히 1번(실차검증) 완료 후로 보류
+
 ## 346차 (완료 -- ANALYSIS_ONLY, `ryu` 코드 무변경, 신규 toolkit 스크립트 1개 추가) -- 345차 "다음 작업" 2번: 기존 실측 corpus(x20seg)에서 `apex_mode==lost AND apex_dist>0` 발생 빈도 재분석
 
 **Worker**: Claude

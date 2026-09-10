@@ -10,7 +10,7 @@ append-only 원칙 적용 안 함 -- 항상 최신 1개 스냅샷만 유지).
 
 ---
 
-## 코드 상태 (2026-09-10, 344차 종료 시점)
+## 코드 상태 (2026-09-10, 347차 종료 시점)
 
 **Repository**: `ryujmin97/ryu`
 **Branch**: `c3-ms-dev`
@@ -19,8 +19,9 @@ append-only 원칙 적용 안 함 -- 항상 최신 1개 스냅샷만 유지).
 
 **Repository**: `ryujmin97/ryu-devnotes`
 **Branch**: `main`
-**HEAD**: `c2a17cd7` (343차 devnotes 기록) -- **344차 patch는 아직
-push 대기 중**(사용자 로컬 적용 확인 필요, 아래 "미확인/대기중" 참고)
+**HEAD**: `95b87349` (346차 devnotes 기록) -- **344차 patch가 push
+됐는지 여전히 미확인**, **347차 patch도 아직 push 대기 중**(둘 다
+아래 "미확인/대기중" 참고)
 
 ---
 
@@ -67,21 +68,43 @@ INERT 진입게이트는 건드려도 이 로그 기준 무변화(사실상 dead
   "322차 계속, 원인 B"의 부동소수점 zero-crossing flicker와 동일
   현상, 새로운 문제 아님.
 
+### 다른 corpus로 "강제 RELEASE=lost" 빈도 재확인 (346~347차, 완료)
+
+346차가 x20seg 1개 corpus로 확인한 "강제 RELEASE=lost는 corpus마다
+발생 여부가 갈린다"는 가설을, 347차가 사용자 재업로드분 x19/x6/x10/
+x16seg(335~339차가 이미 분석했던 2026-09-09 채록 로그, 343차 패치
+이전) 4개로 추가 검증. 결과: 6개 corpus 중 발생 3개(route1~4/x19seg
+6건/x10seg 1건) : 미발생 3개(x20seg/x6seg/x16seg)로 corpus-의존성
+가설이 보강됨. continuity 설계 전제("lost는 apex_dist>0 상태에서만
+발생")는 5개 corpus 합계 401건 전부(100%)에서 예외 없이 성립. 상세는
+WIP.md/FINDINGS.md 347차 참고. **이 corpus들은 343차 패치 이전
+채록이므로 아래 1번(343차 실차검증)에는 사용 불가** -- 별개 과제임에
+주의.
+
 ---
 
 ## 미확인/대기 중인 것 (다음 세션 최우선 확인 사항)
 
 1. **343차 패치가 실제로 사용자 로컬에 적용/push/디바이스 재빌드까지
    완료됐는지** -- 344차가 발견한 문제의 원인. 다음 세션 시작 시 가장
-   먼저 확인할 것.
+   먼저 확인할 것. 347차가 검증에 쓴 x19/x6/x10/x16seg는 343차보다
+   훨씬 이전(823943a6, 329차) 채록이라 **이 항목의 답이 될 수 없음**
+   (혼동 방지를 위해 명시).
 2. **344차 devnotes patch(`0001-344cha-devnotes.patch`)가 push
    됐는지** -- 이 patch는 `WIP.md`/`FINDINGS.md`/
    `toolkit/verify_release_variant_344.py`/`toolkit/README.md`/
    `toolkit/CHANGELOG.md`를 포함하며, 독립 클론에서
    `git apply --check` -> `git am` -> `py_compile` 검증까지 완료된
    상태로 전달됨(base `c2a17cd7`). push 여부 미확인.
-3. 343차 패치 반영 확인 후, 동일/유사 리드차량 서행 상황을 재주행하여
+3. **347차 devnotes patch(`0001-347cha-devnotes.patch`)가 push
+   됐는지** -- `WIP.md`/`FINDINGS.md`/`CURRENT_STATUS.md`를 포함(신규
+   toolkit 스크립트 없음, 기존 346차 스크립트 재사용만). push 여부
+   미확인.
+4. 343차 패치 반영 확인 후, 동일/유사 리드차량 서행 상황을 재주행하여
    시나리오① release 소멸 여부 직접 재확인 필요.
+5. (신규 이월, 347차) 강제 RELEASE=lost 발생 7건(x19seg 6+x10seg 1)이
+   실제 route_active 재진입까지 이어지는지 개별 사례 트레이스(301차
+   방식) 필요.
 
 ---
 
@@ -104,5 +127,5 @@ INERT 진입게이트는 건드려도 이 로그 기준 무변화(사실상 dead
 
 ---
 
-*최종 갱신: 344차 (Claude). 다음 세션은 이 파일을 먼저 읽고,
-WIP.md 최신 회차(344차)로 상세 맥락을 보충할 것.*
+*최종 갱신: 347차 (Claude). 다음 세션은 이 파일을 먼저 읽고,
+WIP.md 최신 회차(347차)로 상세 맥락을 보충할 것.*
