@@ -10,20 +10,39 @@ append-only 원칙 적용 안 함 -- 항상 최신 1개 스냅샷만 유지).
 
 ---
 
-## 코드 상태 (2026-09-11, 357차 계속2 종료 시점)
+## 코드 상태 (2026-09-11, 358차 계속2 종료 시점)
 
 **Repository**: `ryujmin97/ryu`
 **Branch**: `c3-ms-dev`
-**HEAD (GitHub 기준)**: `c39d81f`(357차, base `e214839`=353/356차 --
-`echo_cmd`/`tmux_send` 무인증 원격실행 핸들러 제거).
-**push 대기 중**: `82ff5d7`(검증 클론 기준 로컬 해시, 357차 계속2 --
-`send_routes()` 도달불가 dead code 제거) -- 사용자 `git am` 적용 시
-해시 재생성 가능성 있음(기존 패턴과 동일).
+**HEAD (GitHub 기준, fresh clone으로 이번 세션 직접 확인)**: `40ed6d9`
+(357차 계속2, `send_routes()` 도달불가 dead-code 제거). 358차/358차
+계속/358차 계속2는 전부 ANALYSIS_ONLY -- 코드 변경 없음, 드리프트 없음.
 
 **Repository**: `ryujmin97/ryu-devnotes`
 **Branch**: `main`
-**HEAD**: `11348b3`(357차 계속)까지 push 완료 확인. 이번(357차 계속2)
-devnotes 갱신(WIP/FINDINGS/이 파일)은 이 세션 종료 후 push 대기 중.
+**HEAD (fresh clone으로 이번 세션 직접 확인)**: `7f80ac7`(358차 계속,
+carrotMan E' 설계 확정 checkpoint)까지 push 완료 확인. 이번(358차
+계속2) devnotes 갱신(WIP/FINDINGS/이 파일)은 이 세션 종료 후 push
+대기 중.
+
+---
+
+## ✅ 358차/358차 계속/358차 계속2 진행 상황 -- `carrotMan` 0Hz staleness 보호
+
+356차가 발견한 "`alive['carrotMan']`가 구조적으로 상시 True"(0Hz 등록
++ 실제 20Hz 발행 불일치) 문제에 대해:
+- 대응 방향 **E'**(소비처 5곳에 `recv_time['carrotMan']` 기반 로컬
+  staleness 체크 추가, capnp 필드 추가 불필요) 확정.
+- `desiredSpeed` capnp 기본값 0으로 인한 부팅 직후 latent 위험 신규
+  발견(E' 구현 시 함께 해소 가능).
+- 실차 corpus 2건(x19seg/x20seg, 총 39세그)으로 `carrotMan` 발행
+  간격 실측 -- 정상 gap 극도로 안정적(max 0.086s), 이번 corpus
+  기간 중 예외 recovery(`sleep(1)`) 사례 0건.
+- **남은 것**: `CARROT_MAN_STALE_S` 확정값(이론적 worst-case 기반
+  안전마진 방식 vs. 예외 발생 corpus 추가 확보 대기, 둘 중 사용자
+  결정 필요) -> 이후 소비처 5곳 코드 구현.
+
+상세: WIP.md 358차/358차 계속/358차 계속2, FINDINGS.md 358차 참고.
 
 ---
 

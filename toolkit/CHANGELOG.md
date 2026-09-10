@@ -3,6 +3,11 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+## 2026-09-11 (358차 계속2)
+- `measure_carrotman_publish_gap.py`: 코드 변경 없음. 실차 corpus 2건
+  (x19seg/x20seg, 총 39seg)에 처음 실행 -- 결과는 README.md/
+  FINDINGS.md 358차 항목 참고. 합성검증만 하던 상태에서 실측으로 전환.
+
 ## 2026-09-11 (358차 계속)
 - `measure_carrotman_publish_gap.py`: **신규**. `extract_log.py` CSV의
   연속 `carrotMan` 행 간 `t`(logMonoTime) 차이를 seg별로 그룹화해

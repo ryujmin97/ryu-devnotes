@@ -24,6 +24,12 @@ sleep1-suspect 1.5~2.5s / unknown≥2.5s -- `broadcast_version_info()`의
 로직만 검증 완료(percentile/구간분류/seg 경계 diff 정상 동작), 실제
 corpus 실행은 다음 세션 예정.
 
+**358차 계속2가 실차 corpus 2건(x19seg 19seg/x20seg 20seg, 총 39seg,
+46,535 gap 샘플)에 실행한 결과**: 정상 gap 극도로 안정적(max 0.086s,
+p99 0.066s, 20Hz 이론치 0.05s에 근접), `dt>=0.5s` 초과 0건 -- 이번
+corpus 기간(약 63분) 중 `sleep1_suspect` 서명 관측 0건. 상세 및 해석
+한계는 FINDINGS.md 358차 항목 5번 참고.
+
 **사용**:
 ```bash
 python3 extract_log.py <route_dir> <out.csv> --repo <ryu_path>

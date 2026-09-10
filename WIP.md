@@ -1,3 +1,60 @@
+## 358차 계속2 (완료 -- corpus 실측 완료, 임계값 확정은 사용자 결정 대기, 코드 미수정) -- `carrotMan` 발행 간격(Δt) 실차 실측 (358차 계속 후속)
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu`(base `40ed6d9`=357차, 무변경,
+ANALYSIS_ONLY) / `ryu-devnotes`(base `7f80ac7`=358차 계속)
+
+**Branch**: `c3-ms-dev` / `main`
+
+**세션 시작 확인(§3/§33)**: fresh clone으로 `ryu` HEAD `40ed6d9`(357차,
+드리프트 없음), `ryu-devnotes` HEAD `7f80ac7`(358차 계속) 직접 확인.
+
+**배경**: 358차 계속이 남긴 "다음 세션 최우선 작업" -- 기존 corpus
+CSV(또는 신규 route_dir)로 `measure_carrotman_publish_gap.py` 실행 ->
+Δt 분포/임계값 후보 확정. Master가 실차 corpus 2건(x19seg 19세그,
+x20seg 20세그, 총 39세그)을 신규 제공.
+
+**진행 경과**:
+1. `extract_log.py`(신규 필드/`--with-navi-paths` 불필요, `t`/`seg`
+   컬럼만 필요)로 `ryu` HEAD `40ed6d9` 스키마 기준 두 corpus 각각
+   CSV 추출 -- x19seg 22,798행/19seg, x20seg 23,776행/20seg. 두
+   corpus 모두 `dirty=false`(디코딩에 사용한 로컬 clone 기준, 스키마
+   변경 없어 실제 기기 커밋 버전과 무관하게 파싱 가능).
+2. `measure_carrotman_publish_gap.py` 실행 -- 두 corpus 모두 `dt
+   >= 0.5s` 이상 0건, `sleep1_suspect`/`unknown` 구간 관측 0건. 정상
+   gap이 극도로 안정적(max 0.086s, p99 0.066s, 20Hz 이론치 0.05s에
+   근접). 즉 corpus 기간(약 63분) 동안 `broadcast_version_info()`
+   예외 recovery(`time.sleep(1)`) 경로가 한 번도 발현되지 않았음을
+   실측 확인.
+3. **한계 인지(§28 -- 정량적 결론 과대 해석 방지)**: 이 실측은
+   "정상 운용 시 gap이 매우 안정적"이라는 것과 "이번 corpus에는
+   예외 recovery 사례가 없었다"는 것만 확인해줄 뿐, `CARROT_MAN_
+   STALE_S` 확정값 자체를 실제 `sleep(1)` 사례로부터 도출해주지는
+   못함. 상세 및 판단 근거는 FINDINGS.md 358차 항목(4/5번 섹션,
+   이번에 함께 기록)에 통합.
+
+**결과 통합**: 358차 원 항목(E' 설계 폐기->대체, `desiredSpeed`
+capnp 기본값 0 부팅 리스크 신규발견, 이번 실측 결과)을 FINDINGS.md
+358차 항목에 4/5번 섹션으로 한 번에 기록 완료(원래 358차 계속이
+예고한 "다음 세션에 실측 결과와 함께 한 번에 기록" 그대로 이행).
+
+**검증**:
+- 정적 분석: 358차 계속에서 완료
+- 로그 분석: **완료**(위 1~2번, corpus 2건, 신규 toolkit 실행 결과 첨부)
+- 시뮬레이션: 해당 없음
+- **실차 검증: 미실시**(코드 미수정, ANALYSIS_ONLY 유지 -- 이 항목은
+  기존 실차 로그의 사후 분석이며 "실차 검증"이 의미하는 신규 코드의
+  실차 반영 검증과는 별개)
+
+**미확인 사항**: `CARROT_MAN_STALE_S` 확정값(FINDINGS.md 358차 판단
+섹션의 (a)/(b) 중 사용자 선택 대기)
+
+**다음 작업**: `CARROT_MAN_STALE_S` 값 결정 -> E' 코드 구현(소비처
+5곳, §27 최소변경) -> 패치 생성/전달
+
+---
+
 ## 358차 계속 (진행 중 -- E' 설계 확정, timeout 실측 대기, 코드 미수정) -- `carrotMan` 0Hz staleness 보호 설계 (358차 원 항목 후속)
 
 **Worker**: Claude (+ ChatGPT(지선생) 별도 세션 교차검증, §5/§35)
