@@ -1,3 +1,68 @@
+## 352차 -- [코드 확인, NEEDS_VALIDATION] CPU 감사 후보 ②(`make_send_message`+`gethostbyname`)의 실질 실행빈도가 `remote_addr` 게이팅 때문에 1Hz가 아니라 사실상 20Hz일 가능성
+
+**배경**: 345차가 CPU 부하 후보로 지목한 `make_send_message()`의
+`Version`/`IsOnroad` Params 조회와 `socket.gethostbyname()` 호출은
+코드상 `if frame % 20==0 or remote_addr is not None:` 블록 안에 있어
+(`carrot_man.py` 987행 부근), 언뜻 "20프레임(1초)에 1번"으로만 보인다.
+
+**새로운 증거**: `remote_addr`의 설정/해제 로직(`carrot_man_thread()`,
+UDP 수신 스레드, 1920~1972행)을 `ryu` fresh clone(`da7ab36f`=343차)에서
+직접 대조한 결과:
+- 클라이언트(내비 앱)로부터 UDP 데이터가 수신되는 즉시
+  `self.remote_addr = remote_addr`로 설정됨(1945행).
+- `sock.settimeout(10)`(10초) 동안 무수신일 때만 `TimeoutError`로
+  `self.remote_addr = None`(1972행).
+
+즉 `remote_addr is not None`이 `or` 조건으로 걸려있으므로, 내비 앱이
+정상적으로 붙어 데이터를 계속 보내는 동안은 `frame % 20 == 0` 여부와
+무관하게 이 블록이 **매 프레임(20Hz)** 실행된다. GPS 기반 route 데이터
+수신이 이 프로젝트의 핵심 기능이므로 정상 주행 중 대부분의 시간에
+`remote_addr`가 non-None일 것으로 추정됨.
+
+**결론(잠정, 실측 CPU% 미실시)**: CPU 후보 ②는 345차 문서가
+"🟠 2순위(1초당 1회)"로 분류했던 것과 달리, 실질 실행 빈도가
+①(`update_params`, 20Hz 확정)과 동급일 가능성이 있음. 코드 로직으로부터의
+추론이며, 실제 온로드 중 `remote_addr`가 None으로 유지되는 비율을
+로그(또는 실기기 print/계측)로 직접 확인하기 전까지는 NEEDS_VALIDATION.
+
+**검증**: 정적 분석(코드 라인 직접 대조, `ryu` fresh clone `da7ab36f`)
+완료. 실측(실제 `remote_addr` None 비율, CPU%): 미실시.
+
+**관련**: 345차(CPU 후보 6개 최초 발견), 352차 WIP(이번 재검증 전체 맥락 --
+`update_params()` 등 나머지 5개 후보 코드 대조 결과 포함)
+
+## 352차(부록) -- [사용자 결정 대기 확인] 334→340→338차로 이어진 `route_local_curve_merge()` orphan/parity 조사를 "완전 폐기"로 재분류하려던 제안(ChatGPT 초안)을 반려 -- CURRENT_STATUS.md 이월 항목과 불일치 확인
+
+**배경**: 사용자가 공유한 다른 AI(ChatGPT) 작성 문서가 과거 미결
+검증사항들을 유지/조건부유지/폐기 3단계로 재분류하면서,
+`routeProvisional*`/`routeOrphanSingleton*`/local-merge 관련 검증
+전체를 "핵심 문제와 연결성 낮음"이라는 이유로 폐기 대상에 포함시켰음.
+
+**검토 결과(§28 원칙에 따라 devnotes 직접 열람으로 검증)**:
+1. CURRENT_STATUS.md "그 외 이월 항목"에 이 항목이 지금도 공식적으로
+   남아있음(임의 삭제 시 §34 위반 소지).
+2. 334차가 [미해결]로 남겼던 offline replay vs production 텔레메트리
+   구조적 불일치 미스터리는, 실제로는 340차에서 `routeLocalResampleUsed`
+   계측 필드로 **직접 인과 확정**됨(`routeApexDist<0`인 1,213행 전부
+   `routeLocalResampleUsed=True`, 100% 일치) -- "미해결 떡밥"이 아니라
+   진전되어 결론에 도달한 조사.
+3. 338차는 이 버그의 production 실사례 6건(x19seg 1건 + x6seg 5건,
+   그중 4건은 지하주차장 내부에서 GPS 관련 플래그로는 구분 불가능한
+   상황)까지 qcamera로 직접 확인함.
+4. FINDINGS.md 340차 본문이 명시적으로 남긴 다음 단계는 "코드 수정(클램프
+   추가) 여부는 §27/§34에 따라 **Master 확인 후 별도 세션에서 결정**"이며,
+   이 결정은 아직 사용자가 내린 적이 없음.
+
+**결론**: "폐기"가 아니라 다음 3단계로 재분류할 것을 제안 -- (a) 완전종료
+(dirty=True, x19/x10 lost 7건, 344차 구-로그 재추적 방식), (b) 보류/이월
+유지(qcamera 5건, ep=99, `PROVISIONAL_PROMOTE_STREAK`), (c) 별도 트랙 유지
+(340차 클램프 수정 여부 -- 사용자 직접 확인 필요, 미착수).
+
+**검증**: devnotes(FINDINGS.md 334/338/340차, CURRENT_STATUS.md) 직접
+열람 대조. 코드 변경 없음.
+
+**관련**: 330/332/333/334/338/339/340차(local-merge parity 조사 전체 이력)
+
 ## 351차 -- [확정] dirty=True 반복 발생 진짜 근본원인 -- 350차 가설(업스트림 미설정) 기각, 실제 원인은 fork 내장 언어 전환 스크립트(`launch_chffrplus.sh`)가 `LANG=main_ko`일 때 `events.py`를 부팅마다 강제 교체
 
 **기존 결론 (350차 계속)**: `is_dirty()`가 `@{u}`(업스트림 추적

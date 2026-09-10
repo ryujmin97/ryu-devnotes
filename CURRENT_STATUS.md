@@ -10,7 +10,7 @@ append-only 원칙 적용 안 함 -- 항상 최신 1개 스냅샷만 유지).
 
 ---
 
-## 코드 상태 (2026-09-10, 349차 종료 시점)
+## 코드 상태 (2026-09-10, 352차 종료 시점)
 
 **Repository**: `ryujmin97/ryu`
 **Branch**: `c3-ms-dev`
@@ -148,12 +148,42 @@ route_active 재진입은 7/7건 전부 결국 발생하나(무제한 탐색 기
 
 ---
 
+## CPU 부하 정리 (345차 발견, 352차 재검증)
+
+345차가 발견한 CPU 후보 6개를 352차가 현재 코드(343차 HEAD)와 전수 대조.
+전부 코드상 존재 확인됨. 실제 CPU%/ms 실측은 **미실시**(345차/352차 둘 다).
+
+1. 🔴 **`carrot_serv.py::update_params()`** -- `update_navi()` 20Hz 루프에서
+   캐시 없이 18개 Params I/O. 1순위. `carrot_man.py::_refresh_cached_params()`가
+   동일 성격 파라미터 3개를 이미 5초 캐시(99/100차 패턴)로 처리 중이라
+   캐싱 안전성 근거는 있음(NEEDS_VALIDATION, 패치는 미착수).
+2. 🔴 **`make_send_message()`(Version/IsOnroad) + `gethostbyname()`** --
+   **[352차 재분류]** `if frame%20==0 or remote_addr is not None:` 게이팅이지만
+   `remote_addr`는 내비 앱 데이터 수신 중엔 계속 non-None(10초 무수신 시에만
+   해제)이라 정상 주행 중 실질 빈도가 1Hz가 아니라 **20Hz(①과 동급)일 가능성**.
+   실측 미실시, 우선순위를 ①과 같은 급으로 상향.
+3. 🟡 orphan raw-path 문자열화(`relative_coords` 전체 join) -- 존재 확인,
+   낮은 우선순위.
+4. 🟢 `route_local_curve_merge()`의 `any()` 선형탐색, `broadcast_version_info()`
+   초기화 순서 race -- 존재 확인, 우선순위 낮음/관찰 대상.
+5. ✅ route 곡률 계산부(`np.interp` macro/fine 배치처리) -- 이미 Phase 1
+   최적화 적용 확인, backlog 제외.
+
+**다음 작업**: ①/② 캐싱 패치 설계는 사용자 승인 필요(§31, 아직 미착수).
+
+---
+
 ## 그 외 이월 항목 (userMemories/WIP 기준, 우선순위 낮음)
 
 - `mapTurnSpeedFactor=1.10` 보정을 `analysis_helpers.py::recompute_route_curvature_speed()`에
   반영 후 297차 파이프라인 재실행
 - `routeProvisional*`/`routeOrphanSingleton*` 실차 로그로
-  `PROVISIONAL_PROMOTE_STREAK`(현재 3, observation-only) 값 확정
+  `PROVISIONAL_PROMOTE_STREAK`(현재 3, observation-only) 값 확정.
+  **[352차 확인] 이 항목은 폐기 대상이 아님** -- 334차 미스터리는 340차에서
+  `routeLocalResampleUsed` 계측으로 인과 확정됐고, 338차는 production
+  실사례 6건(qcamera 확인)까지 찾아냈던 조사임. FINDINGS.md 340차가 남긴
+  "클램프 코드수정 여부는 Master 확인 후 결정"이 아직 사용자 미결정
+  상태로 남아있음(다른 AI(ChatGPT)가 제안한 "완전 폐기"안을 352차에서 반려).
 - ep=99 에피소드 파편화(`--merge-tol=1.0s` 임계값이 ~1.10s
   `gas`-source 우선순위 핸드오프로 분리된 파편을 병합 못함) 해결
 - `ContinuityApprox`에 `miss_frames` 기반 hold state 추가 후 baseline
@@ -168,5 +198,5 @@ route_active 재진입은 7/7건 전부 결국 발생하나(무제한 탐색 기
 
 ---
 
-*최종 갱신: 351차 (Claude). 다음 세션은 이 파일을 먼저 읽고,
-WIP.md 최신 회차(351차)로 상세 맥락을 보충할 것.*
+*최종 갱신: 352차 (Claude). 다음 세션은 이 파일을 먼저 읽고,
+WIP.md 최신 회차(352차)로 상세 맥락을 보충할 것.*

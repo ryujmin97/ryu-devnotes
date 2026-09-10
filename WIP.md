@@ -1,3 +1,107 @@
+## 352차 (완료 -- ANALYSIS_ONLY, `ryu`/`ryu-devnotes` 코드 무변경, 신규 toolkit 스크립트 없음) -- (A) ChatGPT 작성 "미결사항 재분류안" 검토: orphan/local-merge 완전폐기 반려(340차 확정사항 존재, CURRENT_STATUS 이월항목과 불일치) (B) 345차 CPU 감사 후보 6개 343차 코드 기준 전수 재검증 + `remote_addr` 게이팅으로 후보②의 실질 빈도 재분류(20Hz 가능성)
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu`(base `da7ab36f`=343차, 코드 변경 없음) /
+`ryu-devnotes`(base `be32ca6`=351차, 이 항목 추가 전)
+
+**Branch**: `c3-ms-dev` / `main`
+
+**배경**: 사용자가 다른 AI(ChatGPT)가 작성한 분석 문서 2건을 공유하며
+검토를 요청 -- (A) 과거 미결 검증 항목들을 "유지/조건부유지/폐기"로
+재분류하는 제안, (B) 345차가 발견한 CPU 부하 후보 6개를 343차 현재
+코드와 대조한 감사 결과. §3/§28/§33 원칙(GitHub/코드 직접 확인 없이
+동의하지 않음)에 따라 `ryu-devnotes` fresh clone 열람 + `ryu` fresh
+clone(`da7ab36f`) grep 대조로 각각 검증.
+
+**(A) 미결사항 재분류안 검토**:
+- 343차 실차검증 최우선 유지, dirty=True 완전종료, x19/x10 lost 7건
+  종료, 344차 시나리오①의 구-로그(`verify_release_variant_344.py`)
+  재추적 방식 중단, PARAMS_REGISTRY의 route-무관 NEEDS_VALIDATION 제외
+  -- devnotes 실제 상태와 일치 확인, 동의.
+- **하나 반려**: "`routeProvisional*`/`routeOrphanSingleton*`/
+  local-merge 검증 완전 폐기" 제안은 사실과 다름을 확인 --
+  1. CURRENT_STATUS.md "그 외 이월 항목"에 지금도 공식적으로 남아있는
+     항목(임의 삭제 시 §34 위반 소지).
+  2. 334차가 [미해결]로 남긴 offline replay vs production parity
+     미스터리는 실제로 340차에서 `routeLocalResampleUsed` 계측으로
+     **인과 확정**됨(`routeApexDist<0`인 1,213행 전부
+     `routeLocalResampleUsed=True`, 100%).
+  3. 338차는 이 버그의 production 실사례 6건(x19seg 1 + x6seg 5,
+     그중 4건 지하주차장)까지 qcamera로 직접 확인 -- 진행 중인 미결
+     떡밥이 아니라 진전되어 결론에 도달한 조사임.
+  4. FINDINGS.md 340차 본문이 명시: "코드 수정(클램프 추가) 여부는
+     §27/§34에 따라 **Master 확인 후 별도 세션에서 결정**" -- 아직
+     사용자가 결정한 적 없는 대기 항목이라 AI가 임의로 폐기 불가.
+- 제안: "폐기" 대신 "완전종료/보류(이월 유지)/별도 트랙(사용자 결정
+  대기)" 3단계로 재분류. 340차 클램프 수정 여부를 사용자에게 직접
+  질의하는 것이 다음 단계로 남음(이 세션에서는 미진행, 사용자가 B
+  선택으로 이번 세션은 기록만 남기고 종료).
+
+**(B) CPU 감사 6개 항목 코드 대조 결과** (`ryu` fresh clone `da7ab36f`
+grep 검증):
+1. `carrot_serv.py::update_params()` -- `update_navi()`가 20Hz 루프
+   (`Ratekeeper(20,...)`)에서 캐시 없이 매번 호출, 그 안에서 18개
+   Params I/O(356~379행: `AutoNaviSpeedBumpSpeed`부터 `LanguageSetting`
+   까지). 호출처는 `__init__`(1회)/`update_navi()`(20Hz) 단 2곳뿐 --
+   캐싱 적용 시 놓치는 호출부 없음.
+2. `make_send_message()`의 `Version`/`IsOnroad` 조회(1863~1865행) +
+   `socket.gethostbyname()`(989행 부근) 존재 확인.
+3. orphan raw-path `relative_coords` 전체 `f"{x:.2f},{y:.2f}"`
+   join(1623행) 존재 확인. `route_lookahead_m=300.0`(1416행) 확인 --
+   과거 devnotes의 "600m" 서술은 336차 커밋(`7b3dfec`, 600.0->300.0)
+   으로 이미 바뀐 stale 서술임(코드값과 주석/기록을 구분해야 함).
+4. `route_local_curve_merge()`의
+   `any(ws<=d<=we for ws,we in merged_windows)`(631행) 존재 확인.
+5. route 곡률 계산부는 `np.interp(macro_abs_curv,...)`(528행)/
+   `np.interp(fine_abs_curv,...)`(548행) 배치처리 확인됨 -- 이미 Phase 1
+   최적화 적용 상태, CPU backlog에서 제외 타당(345차 결론과 일치).
+
+**⚠️ 신규 발견(재해석)**: ②(`make_send_message`+`gethostbyname`)
+호출부는 `if frame % 20==0 or remote_addr is not None:` 블록 안에
+있음(987행). `remote_addr`는 `carrot_man_thread()`(UDP 수신 스레드,
+1920~1972행)에서 클라이언트로부터 데이터 수신 시 즉시
+`self.remote_addr = remote_addr`(1945행)로 설정되고, **10초
+소켓타임아웃으로 무수신일 때만** `None`으로 풀림(1972행). 즉 내비 앱이
+붙어있는 정상 주행 중엔 이 modulo 게이트가 사실상 무의미해지고 ②도
+①과 동일하게 **매 프레임(20Hz)** 실행될 것으로 추정됨(실측 CPU%
+미실시, 코드 로직으로부터의 추론). 345차/이 문서가 "🟠 2순위(1초당
+1회 추정)"로 분류했던 것보다 실질 빈도가 높을 가능성 -- 우선순위를
+①과 동급으로 재평가 제안. 상세는 FINDINGS.md 352차 참고.
+
+**`update_params()` 캐싱 안전성 예비검토**: `PARAMS_REGISTRY.md`
+대조 결과 18개 파라미터 전부 "사용자 UI 설정값"(`AutoNaviSpeedDecelRate`/
+`AutoNaviSpeedCtrlEnd`/`TurnSpeedControlMode`/`MapTurnSpeedFactor` 등)
+-- 실시간 센서/텔레메트리 아님. `carrot_man.py::_refresh_cached_params()`
+가 동일 성격 파라미터 3개(`IsOnroad`/`AutoCurveSpeedFactor`/
+`AutoCurveSpeedAggressiveness`)를 이미 99/100차 패턴(5초 캐시)으로
+처리 중이며, 그 코드 주석의 정당화 근거("실시간으로 바뀔 필요 없는
+설정값, 5s 지연은 회귀 위험 없음")가 이 18개에도 동일 적용 가능할
+것으로 판단됨(참고 근거 수준, 코드 변경 아님).
+
+**사용자 결정 (이 세션)**: 캐싱 패치 설계(옵션 A) 대신 옵션 B(devnotes
+기록만 남기고 종료) 선택.
+
+**검증**:
+- 정적 분석: `ryu` fresh clone(`da7ab36f`) grep 대조 완료(모든 인용
+  라인 실제 확인), `ryu-devnotes` fresh clone/fetch로 원격 최신 확인
+- 로그 분석: 해당 없음
+- 시뮬레이션: 해당 없음
+- 실차 검증: 해당 없음(분석/재검토 세션, 코드 변경 없음)
+
+**Devnotes**: WIP(이 항목) / FINDINGS.md(신규 항목 2건 -- remote_addr
+20Hz 재분류 발견, local-merge 폐기안 반려 근거) / CURRENT_STATUS.md
+(CPU 후보 섹션 신설 + 이월 항목에 "orphan/local-merge 폐기 아님, 340차
+클램프는 사용자 결정 대기" 명시)
+
+**다음 작업**:
+- 340차가 남긴 local-merge 클램프 수정 여부를 사용자에게 직접 질의
+  (§27/§34에 따른 대기 항목, 다음 세션 우선순위 후보)
+- CPU 캐싱 패치(① `update_params()`, ② `make_send_message`+
+  `gethostbyname()`) 설계는 사용자 승인 시 진행 -- 이 세션에서는
+  미착수
+- 343차 실차 검증(CURRENT_STATUS.md 4번)은 여전히 최우선 이월 항목
+
 ## 351차 (완료 -- ANALYSIS_ONLY, `ryu`/`ryu-devnotes` 코드 무변경, 신규 toolkit 스크립트 없음) -- dirty=True 근본원인 확정: 350차 가설(업스트림 미설정) 기각, 실제 원인은 언어 전환 스크립트(events_ko.py 교체)
 
 **Worker**: Claude
