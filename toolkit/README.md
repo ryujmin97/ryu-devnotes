@@ -1,3 +1,39 @@
+## sim_route_348_active_reentry_trace.py (348차, 신규 -- 강제 RELEASE=lost 개별 route_active 재진입 트레이스)
+
+**목적**: 347차가 이월한 "강제 RELEASE=lost 7건(x19seg 6+x10seg 1)이 실제
+route_active 재진입까지 이어지는지 개별 사례 트레이스" 과제. 301차
+(`sim_route_301_lost_boundary_trace.py`)의 A(마지막 matched)->LOST->
+B(즉시 재획득)->생존시간 추적은 그대로 재사용하고(§21, 무변경 import),
+300차 `ActualLayer.step()`이 이미 반환하는 `route_active` bool을 프레임별로
+기록하는 관측만 추가(§27 -- ActualLayer 자체는 한 글자도 수정 안 함)해,
+각 lost 이벤트 프레임 이후 `route_active`가 다시 True로 바뀌는 첫 프레임을
+찾는다. 재진입이 301차가 이미 추적한 B의 생존 구간 안에서 일어났는지
+(같은 apex가 이어서 ACTIVE를 만든 것), 아니면 B도 다시 끊긴 뒤 발생했는지
+(별도의/신규 apex가 만든 것)를 구분해서 표시한다.
+
+**348차가 이 스크립트로 실제 확인한 것**: x19/x10seg 재업로드 corpus에
+`extract_log.py --with-navi-paths`로 재추출 후 실행 -- 22,798행/10,992행,
+347차 기록과 완전 일치(재현성 검증). 7건 전부 재진입 자체는 결국
+일어나지만(탐색 무제한 기준 7/7, 개별 gap 0.9s~95.5s), **7건 전부
+`reentry_within_B_survival=False`** -- 즉 이번에 lost 후 즉시 재획득된 B가
+살아있는 동안 route_active가 재진입한 사례는 0건이며, B도 (0.3~5.0s 후)
+다시 끊기고 나서야 그보다 한참 뒤에(대부분 더 먼 apex_dist를 가진) 별도의
+apex가 INERT->ACTIVE 게이트를 통과함. 즉 "lost된 그 목표가 곧바로
+회복되어 제어가 이어진다"는 낙관적 시나리오는 실측 7건 어디에서도
+확인되지 않음 -- 재진입은 있지만 그것이 항상 "다음(별개의) 커브"에 의한
+것이지 "방금 잃어버린 그 커브의 회복"은 아니다(WIP.md/FINDINGS.md 348차
+참고).
+
+**사용**:
+```bash
+python3 sim_route_348_active_reentry_trace.py <extract_log.py --with-navi-paths 출력 CSV> \
+    --reentry-search-horizon 99999
+```
+기본 `--reentry-search-horizon`은 60초 -- 그 이상 걸리는 재진입(348차
+x19seg 6번째 케이스는 +95.49s)을 보려면 더 크게 지정해야 한다.
+
+---
+
 ## verify_release_variant_344.py (344차, 신규 -- ACTIVE 릴리즈 조건 speed_reached 포함/제거 두 가설 텔레메트리 재생 + 343차 패치 반영 여부 교차검증)
 
 **목적**: `extract_log.py` 실측 CSV의 `routeApexMode`/`Dist`/`Speed`(코드가

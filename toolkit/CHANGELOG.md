@@ -3,6 +3,18 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+## 2026-09-10 (348차)
+- `sim_route_348_active_reentry_trace.py`: **신규**. 301차 lost-boundary
+  trace(A->LOST->B) + 300차 `ActualLayer`의 `route_active` bool을
+  결합해(§21, 로직 재구현 없음 -- ActualLayer.step() 반환값을 프레임별로
+  기록만 함), 강제 RELEASE=lost 이벤트 각각이 실제로 route_active
+  재진입까지 이어지는지 개별 트레이스. x19seg 6건+x10seg 1건(347차가
+  이월한 7건) 실행 -- 7건 전부 결국 route_active 재진입은 발생하나(탐색
+  무제한 기준 7/7), **0/7건에서 그 재진입이 같은 B(즉시 재획득된 apex)가
+  살아있는 동안 일어나지 않음** -- B는 항상 먼저 다시 끊기고(생존
+  0.3~5.0s) 그 후 0.9~96s 뒤에 별도의(더 먼) apex가 ACTIVE 게이트를
+  통과함. 상세는 FINDINGS.md/WIP.md 348차 참고.
+
 ## 2026-09-10 (346차)
 - `sim_route_346_lost_freq_single_route.py`: **신규**. 301차 lost-boundary
   trace를 route1~4 하드코딩/classification.md 필수 제약 없이 임의 단일

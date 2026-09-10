@@ -10,18 +10,21 @@ append-only 원칙 적용 안 함 -- 항상 최신 1개 스냅샷만 유지).
 
 ---
 
-## 코드 상태 (2026-09-10, 347차 종료 시점)
+## 코드 상태 (2026-09-10, 348차 종료 시점)
 
 **Repository**: `ryujmin97/ryu`
 **Branch**: `c3-ms-dev`
 **HEAD**: `da7ab36f` (343차 -- ACTIVE 릴리즈 OR-조건에서 `speed_reached`
-삭제, `v_ego_ms<=target_ms`는 유지)
+삭제, `v_ego_ms<=target_ms`는 유지). 348차는 이 저장소에 코드 변경 없음.
 
 **Repository**: `ryujmin97/ryu-devnotes`
 **Branch**: `main`
-**HEAD**: `95b87349` (346차 devnotes 기록) -- **344차 patch가 push
-됐는지 여전히 미확인**, **347차 patch도 아직 push 대기 중**(둘 다
-아래 "미확인/대기중" 참고)
+**HEAD**: `15f810f` (347차 devnotes 기록) -- 348차 세션 시작 시 fresh
+clone으로 확인한 값이며, 이 시점에 이미 push되어 있었음(직전 스냅샷의
+"347차 patch도 아직 push 대기 중" 문구는 그 patch 준비 당시 작성된
+stale 텍스트였음, 이번에 정정). **344차 patch가 push됐는지는 여전히
+미확인**, **348차 patch는 이 세션 종료 후 push 대기 중**(아래
+"미확인/대기중" 참고)
 
 ---
 
@@ -77,9 +80,20 @@ x16seg(335~339차가 이미 분석했던 2026-09-09 채록 로그, 343차 패치
 6건/x10seg 1건) : 미발생 3개(x20seg/x6seg/x16seg)로 corpus-의존성
 가설이 보강됨. continuity 설계 전제("lost는 apex_dist>0 상태에서만
 발생")는 5개 corpus 합계 401건 전부(100%)에서 예외 없이 성립. 상세는
-WIP.md/FINDINGS.md 347차 참고. **이 corpus들은 343차 패치 이전
-채록이므로 아래 1번(343차 실차검증)에는 사용 불가** -- 별개 과제임에
-주의.
+WIP.md/FINDINGS.md 347차 참고. 이 corpus들은 343차 패치 이전
+채록이므로 위 343차 실차검증에는 사용 불가 -- 별개 과제임에 주의.
+
+### 강제 RELEASE=lost 7건 개별 route_active 재진입 트레이스 (348차, 완료)
+
+347차가 이월한 과제 -- x19seg 6건+x10seg 1건 전부를
+`sim_route_348_active_reentry_trace.py`(신규)로 개별 트레이스. **결론:
+route_active 재진입은 7/7건 전부 결국 발생하나(무제한 탐색 기준),
+0/7건에서 그 재진입이 즉시 재획득된 B가 살아있는 동안 일어나지 않음**
+-- B는 매번 0.3~5.0s만 생존한 뒤 다시 끊기고, 그 후 0.9~95.5s 뒤에야
+(대부분 원래보다 큰 apex_dist를 가진) 별도의 apex가 게이트를 통과함.
+즉 "lost된 그 목표가 곧 회복된다"는 낙관적 해석은 확인되지 않았고,
+재진입은 항상 "다음(별개의) 커브"에 의한 것으로 보임(간접 추론, 아래
+이월 항목 3번 참고). 상세는 WIP.md/FINDINGS.md 348차 참고.
 
 ---
 
@@ -87,7 +101,7 @@ WIP.md/FINDINGS.md 347차 참고. **이 corpus들은 343차 패치 이전
 
 1. **343차 패치가 실제로 사용자 로컬에 적용/push/디바이스 재빌드까지
    완료됐는지** -- 344차가 발견한 문제의 원인. 다음 세션 시작 시 가장
-   먼저 확인할 것. 347차가 검증에 쓴 x19/x6/x10/x16seg는 343차보다
+   먼저 확인할 것. 347/348차가 검증에 쓴 x19/x6/x10/x16seg는 343차보다
    훨씬 이전(823943a6, 329차) 채록이라 **이 항목의 답이 될 수 없음**
    (혼동 방지를 위해 명시).
 2. **344차 devnotes patch(`0001-344cha-devnotes.patch`)가 push
@@ -96,15 +110,12 @@ WIP.md/FINDINGS.md 347차 참고. **이 corpus들은 343차 패치 이전
    `toolkit/CHANGELOG.md`를 포함하며, 독립 클론에서
    `git apply --check` -> `git am` -> `py_compile` 검증까지 완료된
    상태로 전달됨(base `c2a17cd7`). push 여부 미확인.
-3. **347차 devnotes patch(`0001-347cha-devnotes.patch`)가 push
-   됐는지** -- `WIP.md`/`FINDINGS.md`/`CURRENT_STATUS.md`를 포함(신규
-   toolkit 스크립트 없음, 기존 346차 스크립트 재사용만). push 여부
-   미확인.
+3. (신규 이월, 348차) 348차 결론("재진입은 그 apex의 회복이 아니라
+   다음 apex에 의한 것")의 간접 추론 부분을 qcamera 대조로 직접
+   검증 -- 특히 gap이 가장 긴 2건(x19seg 6번째=+95.49s, x10seg
+   1건=+72.95s)부터 우선.
 4. 343차 패치 반영 확인 후, 동일/유사 리드차량 서행 상황을 재주행하여
    시나리오① release 소멸 여부 직접 재확인 필요.
-5. (신규 이월, 347차) 강제 RELEASE=lost 발생 7건(x19seg 6+x10seg 1)이
-   실제 route_active 재진입까지 이어지는지 개별 사례 트레이스(301차
-   방식) 필요.
 
 ---
 
@@ -124,8 +135,9 @@ WIP.md/FINDINGS.md 347차 참고. **이 corpus들은 343차 패치 이전
   qcamera 대조 (미실시)
 - 132차 ramp limiter, 166차 heading freeze fix -- 둘 다 실차
   재주행 검증 대기(`NEEDS_VALIDATION`)
+- CPU 개선후보 6건 패치(345차 확정) -- 343차 실차검증 완료 후로 보류
 
 ---
 
-*최종 갱신: 347차 (Claude). 다음 세션은 이 파일을 먼저 읽고,
-WIP.md 최신 회차(347차)로 상세 맥락을 보충할 것.*
+*최종 갱신: 348차 (Claude). 다음 세션은 이 파일을 먼저 읽고,
+WIP.md 최신 회차(348차)로 상세 맥락을 보충할 것.*
