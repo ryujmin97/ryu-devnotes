@@ -1,3 +1,103 @@
+## 356차 -- [RISK_IDENTIFIED, NEEDS_USER_DECISION] ZMQ 7710 `echo_cmd` 무인증 원격 명령실행 (신규 보안 발견, `ryu` 코드 무변경)
+
+**배경**: 사용자 요청 "전체 코드 미사용로직/충돌/CPU/메모리 전반
+재점검" 수행 중 ChatGPT(지선생)가 별도 세션에서 먼저 제기, Claude가
+현재 GitHub HEAD(`e214839`)를 직접 열람해 실존을 확정하고 사용자와
+함께 재검증.
+
+**코드 확인**(`selfdrive/carrot/carrot_man.py`):
+```
+2153:  socket.bind("tcp://*:7710")           # 모든 네트워크 인터페이스
+...
+2194:  elif 'echo_cmd' in json_obj:
+2196:    result = subprocess.run(json_obj['echo_cmd'], shell=True,
+                                 capture_output=True, text=False)
+```
+ZMQ REP 소켓이 `*:7710`(모든 인터페이스)에 바인딩되며, 수신 JSON에
+`echo_cmd` 키가 있으면 그 문자열 값을 인증/화이트리스트 검사 없이
+그대로 `subprocess.run(..., shell=True)`로 CarrotMan 프로세스 권한
+실행한다.
+
+**검증 경위**: 최초 사용자 대조 검증에서 grep으로 실존 확인 후,
+별도 세션 ChatGPT가 "GitHub 코드검색에 안 잡혔다"며 현재 HEAD
+존재 자체를 재의심했으나, `git fetch`(원격 드리프트 없음, HEAD가
+origin과 정확히 일치 재확인) + `git blame -L 2194,2194`(이 clone의
+shallow 경계 커밋부터 존재하던 기존 코드로 확인)로 반박·확정.
+ChatGPT도 최종적으로 동의.
+
+**§24 dedup 확인**: FINDINGS.md/WIP.md 전체 `echo_cmd`/`7710`/
+"무인증"/`shell=True` 검색 결과 0건 -- 과거 세션 어디에도 기록된
+적 없는 **최초 문서화**.
+
+**판단**: 오래된 코드라는 사실과 현재 네트워크에 노출된 상태로
+존재한다는 사실은 별개 -- 단순 "디버그 코드 잔재" 수준이 아니라
+원격 명령 실행(RCE류) 취약점으로 분류하는 것이 타당하다. 다만
+이 기능이 Master의 실제 원격 디버깅/운영 용도로 의도적으로 쓰이고
+있을 가능성이 있어 **삭제 여부를 단독으로 결정하지 않음**(§33 --
+불확실한 상태에서 임의 진행 금지).
+
+**대응 방향안(사용자 결정 대기)**:
+- A. 실사용 안 함 -> `echo_cmd` 핸들러 제거.
+- B. 실사용함 -> 최소한 (1) 인증 토큰/시크릿 검사, (2) 명령
+  화이트리스트, (3) `0.0.0.0` 대신 로컬/특정 인터페이스로 바인딩
+  제한, (4) 가능하면 `shell=True` 제거(인자 배열 방식) 중 조합 적용
+  필요 -- `shell=True`만 `False`로 바꾸는 것은 근본 해결책이 아님
+  (인터페이스 자체가 임의 명령 문자열을 받는 설계이기 때문).
+
+**검증**: 정적 분석(코드 직접 열람 + git blame/fetch) 완료. 로그/
+시뮬레이션/실차 검증 해당 없음(코드 미수정).
+
+## 356차 -- [코드 확인, NEEDS_LOG_VALIDATION] `send_routes()` 도달불가 분기 -- route activation 실패 아님, `active_carrot` 초기 승격 지연 가능성만 남음 (`ryu` 코드 무변경)
+
+**배경**: 위와 동일 세션, ChatGPT가 함께 제기한 `send_routes()`
+내부 `if from_navd: ... if not from_navd:` 중첩 분기(100% 도달
+불가능)의 실제 영향을 end-to-end로 추적.
+
+**코드 구조**(`carrot_man.py` 2240행 부근):
+```python
+def send_routes(self, coords, from_navd=False):
+    if from_navd:
+      if len(coords) > 0:
+        self.navi_points = [...]
+        self.navi_points_start_index = 0
+        self.navi_points_active = True        # 정상 실행됨
+        self.navd_active = True                # 정상 실행됨
+        self._navi_route_source = "navd"       # 정상 실행됨
+        if not from_navd:                      # <- 항상 False, 도달 불가
+          self.carrot_serv.active_count = 80
+          self.carrot_serv.active_sdi_count = self.carrot_serv.active_sdi_count_max
+          self.carrot_serv.active_carrot = 2
+```
+
+**영향 추적(§28)**: `carrot_man.py:1342`의 route 1차 게이트
+```python
+if not is_onroad or not self.navi_points_active or (self.carrot_serv.active_carrot <= 1 and not self.navd_active):
+```
+는 `navd_active=True`(도달불가 분기 바깥에서 이미 정상 설정됨)면
+괄호 항 전체가 False가 되어 자동으로 우회 통과한다. 즉 **route
+activation 자체는 실패하지 않는다**(ChatGPT가 처음 제기했던 "route가
+아예 활성화되지 않을 가능성"은 추적 결과 기각/철회, 양측 합의).
+
+실행되지 않는 것은 `carrot_serv.active_count`/`active_sdi_count`/
+`active_carrot=2` 세 값뿐이다. `active_carrot`(0:비활성,
+1:CarrotMan Active, 2:sdi active, 3:decel, 4:section, 5:bump,
+6:limit, `carrot_serv.py:90` 주석)은 line 1083/1110/1117/1123/
+1139/1460 등 SDI 종속 하위로직의 게이트 조건으로 계속 쓰이고
+있어 완전한 죽은 값이 아니다 -- 단순 삭제 대상 아님.
+
+**결론**: navd route 수신 직후 `active_carrot`이 SDI 트리거
+(`carrot_serv.py:1102~1107`)로 자연 승격될 때까지 짧은 지연이
+있을 가능성. 코드 주석("경로수신 -> carrotman active되고 약간의
+시간지연이 발생함")이 원래 이 지연을 스킵하려던 의도였다면 현재는
+그 의도가 실행되지 않는 상태. 정량 지연시간은 기존 corpus의
+`activeCarrot` 필드(cereal 발행 확인됨, `carrot_serv.py:1358`)를
+navd route 수신 타임스탬프 기준으로 재분석하면 바로 확인 가능
+(신규 계측 불필요, 기존 로그 재활용).
+
+**검증**: 정적 분석(코드 직접 열람 + 호출부/소비부 전수 grep) 완료.
+로그 분석: 미실시(다음 세션 후보). 시뮬레이션/실차 검증: 해당
+없음(코드 미수정).
+
 ## 353차 -- [코드 확인, 패치 반영] `MapTurnSpeedFactor`를 "죽은 값"으로 서술한 `[210차]` 주석이 stale/부정확했음을 확인 -- 실제로는 `carrot_man.py` route 곡률 계산 2곳에서 계속 사용 중
 
 **배경**: 352차 CPU 감사 후보① `update_params()` 캐시화를 진행하던 중,

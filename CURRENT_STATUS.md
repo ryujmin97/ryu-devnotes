@@ -10,13 +10,43 @@ append-only 원칙 적용 안 함 -- 항상 최신 1개 스냅샷만 유지).
 
 ---
 
-## 코드 상태 (2026-09-10, 355차 종료 시점)
+## 코드 상태 (2026-09-11, 356차 종료 시점)
 
 **Repository**: `ryujmin97/ryu`
 **Branch**: `c3-ms-dev`
-**HEAD (GitHub 기준)**: `e214839` (353차 CPU 정리 패치 커밋 그 자체 --
-`update_params()`/`make_send_message()` Params I/O 5s 캐시화,
-`speed_reached` 삭제(343차, `da7ab36f`) 이후 적용). 354차가 사용자의
+**HEAD (GitHub 기준)**: `e214839`(353차와 동일, 356차는 ANALYSIS_ONLY --
+코드 변경 없음).
+
+**Repository**: `ryujmin97/ryu-devnotes`
+**Branch**: `main`
+**HEAD**: 356차 devnotes(이 파일 포함 WIP/FINDINGS 갱신)는 이 세션
+종료 후 push 대기 중(base `991fe20`=355차).
+
+---
+
+## ⚠️ 356차 신규 발견 -- 다음 세션 최우선 확인 사항
+
+1. **[Master 결정 필요, 보안]** ZMQ 7710 `echo_cmd` 무인증 원격 명령
+   실행 -- `carrot_man.py` `socket.bind("tcp://*:7710")` + 인증 없이
+   `subprocess.run(json_obj['echo_cmd'], shell=True)`. 실사용 여부부터
+   확인 필요(FINDINGS.md 356차 참고). 코드 미수정 상태.
+2. `send_routes()` 도달불가 분기 -- route activation 자체는 정상(추적
+   완료), `active_carrot` 초기 승격만 지연 가능성. 기존 corpus의
+   `activeCarrot` 필드 재분석으로 정량 확인 가능(신규 계측 불필요).
+3. 20Hz 메인루프(`broadcast_version_info`) 전체가 단일 try-except --
+   예외 1건 발생 시 최대 1초 갱신 중단. 구조 개선 논의 필요.
+4. `vturn_speed()` alive 조건이 AND -- `carState`/`modelV2` 둘 다
+   죽어야만 스킵. 조건식 의도 재검증 필요(크래시 위험은 없음).
+5. `server/core.py:1945` NameError 유발 가능 버그(aiohttp 미임포트) --
+   대시보드 웹소켓 전용, 제어로직 무관, 경미.
+
+상세: WIP.md/FINDINGS.md 356차 참고.
+
+---
+
+## 이전 코드 상태 요약 (2026-09-10, 355차 종료 시점 기준)
+
+354차가 사용자의
 로컬 적용/push 완료를 fresh clone으로 직접 확인했고, 이번 355차 세션
 시작 시 fresh clone으로 재확인 -- 이 섹션이 이전까지 "패치 미적용
 (`da7ab36f`)"로 표기돼 있던 것은 354차 확인 이후 갱신 누락된 stale
@@ -225,5 +255,6 @@ route_active 재진입은 7/7건 전부 결국 발생하나(무제한 탐색 기
 
 ---
 
-*최종 갱신: 355차 (Claude). 다음 세션은 이 파일을 먼저 읽고,
-WIP.md 최신 회차(355차)로 상세 맥락을 보충할 것.*
+*최종 갱신: 356차 (Claude, ChatGPT 교차검증 포함). 다음 세션은 이
+파일 상단의 "356차 신규 발견"을 먼저 읽고,
+WIP.md 최신 회차(356차)로 상세 맥락을 보충할 것.*

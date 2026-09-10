@@ -1,3 +1,155 @@
+## 356차 (완료 -- ChatGPT 교차검증 + 전체 실행경로 정적감사, `ryu` 코드 무변경/ANALYSIS_ONLY) -- 사용자 요청 "전체 코드 실행 시 미사용로직/충돌/CPU과부하/메모리과다점유" 전면 재점검 + ChatGPT(지선생) 분석 교차검증
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu`(base `e214839`=353차, 코드 변경 없음) /
+`ryu-devnotes`(base `991fe20`=355차, 이 항목 추가 전)
+
+**Branch**: `c3-ms-dev` / `main`
+
+**세션 시작 확인(§3/§33)**: fresh clone으로 양쪽 HEAD 직접 조회 --
+`ryu` `e214839`(353차, 드리프트 없음), `ryu-devnotes` `991fe20`(355차,
+드리프트 없음). CURRENT_STATUS.md 우선 확인 후 착수.
+
+**배경**: 사용자가 최신코드 전체에 대해 미사용로직/충돌/CPU과부하/메모리
+과다점유 등 전반적 문제점 분석을 요청. 세션 중 사용자가 별도 세션의
+ChatGPT("지선생") 분석 결과를 제공해 §5/§35 교차검증까지 진행.
+
+**진행 순서**:
+1. §24 dedup -- FINDINGS.md에서 "메모리/memory/leak", "미사용/dead
+   code" 키워드 전수 검색 -- 135차(전체 정적재점검), 345차(CPU 후보
+   6건), 352~355차(캐시패치+실차검증)와 중복 확인 완료.
+2. 기존 리뷰가 다루지 않은 영역 우선 점검 -- pyflakes 전체
+   (`carrot_man.py`/`carrot_serv.py`/`carrot_functions.py`/
+   `xiaoge_data.py`/`long_mpc.py`/`radard.py`) + 이번에 처음 포함한
+   `server/` 서브모듈(`core.py`/`gdrive.py`/`routes_logs.py`/
+   `app_factory.py`, 총 3,423줄) + `carrot.cc`(3,408줄, 컴파일
+   불가능이라 육안검토만, 기존 원칙과 동일).
+3. 메모리 무한성장 패턴 grep 스캔(`deque` maxlen 여부, `self.` 리스트/
+   딕셔너리 append 패턴) -- carrot 모듈 전체.
+4. ChatGPT 분석자료(사용자 제공) 항목별로 실제 코드 직접 대조 검증
+   (§28 -- 추측 대신 직접 확인, git blame/fetch로 드리프트 재확인).
+
+**핵심 발견(신규)**:
+
+**① [신규, 보안] ZMQ 7710 `echo_cmd` 무인증 원격 명령실행**
+`carrot_man.py:2153 socket.bind("tcp://*:7710")`(모든 인터페이스) +
+`2194~2196행 subprocess.run(json_obj['echo_cmd'], shell=True, ...)` --
+인증/명령 whitelist 전혀 없음. `git blame`으로 이 clone의 shallow
+경계 커밋부터 존재하던 기존 코드(신규 추가 아님)임을 확인했으나,
+FINDINGS.md 전체 grep 결과 지금까지 devnotes 어디에도 기록된 적
+없는 **미문서화 항목**. `git fetch` 재확인 결과 원격 드리프트 없음
+(HEAD=origin 일치). 대응 방향(기능 제거 vs 인증/whitelist/바인딩
+제한 추가)은 실제 사용 여부에 대한 **Master 결정 필요** -- 이번
+세션에서 코드 수정 안 함.
+
+**② [신규, 경미] `server/core.py:1945` NameError 유발 가능 버그**
+`isinstance(e, (aiohttp.client_exceptions.ClientConnectionResetError,))`
+-- 파일 상단은 `from aiohttp import web, ClientSession, WSMsgType`만
+import해 `aiohttp` 모듈 자체가 이름 바인딩되어 있지 않음. 해당 except
+분기 도달 시 `NameError` 발생. 대시보드 웹소켓(`ws_carstate`) 전용,
+제어로직과 무관 -- 실차 안전 영향 없음.
+
+**③ [재확인 -- 죽은 코드이나 영향 추적 완료] `send_routes()`
+unreachable branch**
+`if from_navd: ... if not from_navd:`(`carrot_man.py:2253` 부근)가
+100% 도달 불가능함을 확인. end-to-end 영향 추적(§28) 결과:
+`navi_points_active`/`navd_active`/`_navi_route_source`는 바깥
+블록에서 이미 정상 설정되어 `carrot_man.py:1342`의 1차 게이트는
+`navd_active=True`로 정상 우회 통과함(route activation 자체는 실패
+아님). 실행 안 되는 것은 `carrot_serv.active_count=80`/
+`active_sdi_count=max`/`active_carrot=2` 뿐이며, `active_carrot`은
+SDI 종속 하위로직(`carrot_serv.py` line 1083/1110/1117/1123/1139/
+1460)의 상태값으로 계속 쓰이는 중이라 완전 죽은 값은 아님. 결론:
+navd route 수신 직후 `active_carrot`이 다른 경로(SDI 트리거,
+`carrot_serv.py:1102~1107`)로 자연 승격될 때까지 짧은 지연이 있을
+가능성 -- 정량 영향은 기존 corpus의 `activeCarrot` 필드(cereal
+발행 확인됨, `carrot_serv.py:1358`) 재분석으로 확인 가능, 이번
+세션은 코드 미수정.
+
+**④ [확정, 안전성] 20Hz 메인루프 전체가 단일 try-except, 예외 1건 →
+1초 sleep**
+`carrot_man.py:969~1039`(`broadcast_version_info()` -- 실제로는
+route/vturn/carrot_serv 계산 전체를 수행하는 메인 20Hz 루프)가 하나의
+try 블록 안에 있어, 어디서든 예외 발생 시 `traceback.print_exc()` 후
+`time.sleep(1)`. CPU 문제가 아니라 20Hz 주기 자체가 최대 1초 끊기는
+구조적 문제로 분류. 개선 시 route/vturn/carrot_serv 단계별 예외 격리
+고려 필요(코드 미수정).
+
+**⑤ [의심, 검증 필요] `vturn_speed()` alive 조건이 AND**
+`carrot_man.py:2354 if not sm.alive['carState'] and not
+sm.alive['modelV2']:` -- 둘 다 죽어야만 스킵, 한쪽만 죽으면 stale
+`sm` 값으로 계산 진행. 크래시 위험은 없음(SubMaster는 stale 값
+반환)이나 조건식 의도 자체는 재확인 필요.
+
+**기존 항목 재확인(신규 아님, §24 dedup 처리)**:
+- `gethostbyname()` 20Hz 후보 -- 345차/353차 기존 이월(명시적 보류) 항목, 신규 아님.
+- TCP 7709의 `navi_points` 직접 append(비원자적 재대입) -- 305차가
+  이미 발견해 계측 필드 6개까지 추가한 기존 이월 항목, 306차(실측
+  로그 대기) 이후 진전 없이 남아있던 것 재확인. `navd`/HTTP(7712)
+  경로는 로컬 완성 후 원자적 교체(안전 패턴) 확인, 7709만 해당 --
+  "navi_points 전체가 race"라는 초기 표현은 과장으로 정정.
+- `ROUTE_RELEASE_HOLD_S=0.0`, `ROUTE_ACTIVE_RELEASE_MARGIN_RATIO=1.05`
+  -- 사용자가 이미 확정한 값, 코드상 비활성 상수로 남아있음(§27,
+  삭제 불필요).
+- `handle_traffic_light()` no-op(print만) -- 확인, 기능 미완성 상태 유지 중.
+- `carrot_serv.py`/`carrot_man.py` 양쪽에 `main()` 존재 -- 확인,
+  실제 진입점 재확인은 우선순위 낮음으로 보류.
+- `MAX_ROUTE_POINTS`/`MAX_ROUTE_BYTES` 방어코드 부재(TCP 7709) --
+  확인, 정상 운용 시 문제 없으나 손상/비정상 데이터 입력 시 route
+  관련 자료구조가 커질 수 있음.
+- 135차/345차가 이미 찾은 미사용 import/변수(`carrot_man.py` 7개+1,
+  `carrot_serv.py` 9개+1, `carrot_functions.py` 1, `long_mpc.py` 1,
+  `radard.py` 2) -- 전부 재확인, 변화 없음.
+- 메모리: `deque` 전체 `maxlen` 지정 확인, carrot 모듈 전역 리스트/
+  딕셔너리 무한성장 패턴 없음(345차/135차와 일치).
+
+**신규 점검 범위(이번 세션 최초 포함, `server/`)**:
+- `server/core.py` pyflakes: `argparse`/`datetime.datetime`/
+  `set_core_affinity`(임포트만, 실제 코어고정 미적용 흔적으로 추정)/
+  `ua`/`ip`/`t0`/`log_path`/`temp`/`CC` 등 미사용 변수 다수 -- 전부
+  기능 무관.
+- `server/gdrive.py`, `routes_logs.py`, `app_factory.py`,
+  `carrot_controls.py`, `carrot_server.py`: pyflakes 클린(경고 0건).
+- `carrot.cc`(3,408줄): `new`/`delete`/`QTimer`/static 컨테이너
+  패턴 없음, 육안검토 특이사항 없음. 컴파일 검증 불가(Qt/nanovg
+  빌드환경 부재).
+
+**ChatGPT 교차검증 경과**:
+- "navi_points 전체가 race 상태" -- 과장 판정, 7709 경로만 해당으로
+  정정, ChatGPT도 최종 동의.
+- "route activation 자체가 실패할 수 있다"(send_routes 관련) --
+  추적 결과 철회, ChatGPT도 동의.
+- echo_cmd 최초 의심("현재 HEAD에 없을 수 있다") -- `git blame`+
+  `git fetch` 재확인으로 반박, ChatGPT도 최종 동의(신규 확정 보안
+  이슈로 합의).
+
+**검증**:
+- 정적 분석: 완료(pyflakes 전체 재실행 + grep 기반 패턴스캔 +
+  `git blame`/`git fetch`로 드리프트 없음 확인)
+- 로그 분석: 미실시(`activeCarrot` 필드 재분석은 다음 세션 후보로 이월)
+- 시뮬레이션: 해당 없음
+- 실차 검증: 해당 없음(코드 변경 없음, ANALYSIS_ONLY)
+
+**Devnotes**: WIP(이 항목) / FINDINGS.md(echo_cmd 보안이슈 +
+send_routes 영향추적 항목 신규 등재) / CURRENT_STATUS.md(신규 이슈
+섹션 추가)
+
+**패치**: 없음(전부 ANALYSIS_ONLY, 코드 변경 없음)
+
+**다음 작업**:
+1. [Master 결정 필요] echo_cmd(7710) 실사용 여부 확인 -- 사용 안
+   하면 기능 제거, 사용하면 인증+whitelist+바인딩 제한(`shell=True`
+   제거 포함) 재설계.
+2. `send_routes()` `active_carrot` 지연 영향 -- 기존 corpus의
+   `activeCarrot` 필드로 navd route 수신 직후 구간 재분석(코드
+   미수정, 로그분석만).
+3. 20Hz 메인루프 예외격리 구조 개선 여부 -- 설계 논의 필요(route/
+   vturn/carrot_serv 단계 분리).
+4. `vturn_speed()` alive AND조건 -- SubMaster lifecycle과 함께 재검증.
+5. (낮은 우선순위) `CarrotServ.main()` 중복 진입점 실제 사용 여부
+   확인, dead code 일괄 정리(§27, 사용자 승인 후).
+
 ## 355차 (완료 -- 실차 재주행 체감 확인 완료, 이상 없음) -- 353차 캐시 패치(5s) route 감속/커브 반응성 체감 재주행 확인
 
 **Worker**: Claude
