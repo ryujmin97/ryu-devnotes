@@ -1,3 +1,91 @@
+## 357차 (완료 -- 구현+검증(정적) 완료, 실차 검증 미실시, 패치전달 완료) -- ZMQ 7710 `echo_cmd`/`tmux_send` 무인증 원격실행 핸들러 제거 (356차 보안발견 후속)
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu`(base `e214839`=353차/356차와 동일, 코드
+변경 없던 상태) -> 이번 세션 `a73b82d`로 전진 / `ryu-devnotes`(base
+`991fe20`=355차, 356차분은 이미 push된 `c32b4c2`)
+
+**Branch**: `c3-ms-dev` / `main`
+
+**세션 시작 확인(§3/§33)**: fresh clone으로 양쪽 HEAD 직접 조회 --
+`ryu` `e214839`(353차와 동일, 356차는 ANALYSIS_ONLY라 드리프트 없음
+확인), `ryu-devnotes` `c32b4c2`(356차, 드리프트 없음). CURRENT_STATUS.md
+"356차 신규 발견 -- 다음 세션 최우선 확인 사항" 항목①부터 착수.
+
+**배경**: 356차가 발견한 ZMQ 7710 `echo_cmd` 무인증 원격 명령실행에
+대해 Master가 지시한 순서(§28) -- "패치 전에 먼저 caller/실사용
+여부부터 전체 추적" -- 대로 진행.
+
+**진행 경과**:
+1. `carrot_cmd_zmq()`(2148~2219행) 전체 호출 흐름 추적: 생성(839행,
+   `__init__`에서 게이트 없이 데몬 스레드 무조건 시작) -> bind
+   (`tcp://*:7710`, 모든 인터페이스) -> 수신/파싱(JSON) -> `echo_cmd`
+   시 `subprocess.run(shell=True)` 무인증 실행 -> 응답. `ryu`/
+   `ryu-devnotes` 저장소 전체 grep 결과 이 저장소 안에는 이 포트에
+   접속하는 클라이언트(caller)가 존재하지 않음 확인.
+2. 이 코드는 fork 원본인 `ajouatom/carrotpilot`의 기존 코드(git blame
+   -- clone shallow 경계 커밋부터 존재, 이 fork 신규 추가 아님). 공개된
+   다른 carrotpilot 포크 문서 조사 결과 "APM(CarrotMan for Android)"
+   컴패니언 앱을 통한 원격제어 프로토콜의 일부로 추정(정황 증거,
+   코드로 직접 확정한 것은 아님).
+3. **Master 확인**: (1) CarrotMan/APM 앱은 더 이상 사용하지 않음.
+   (2) 대신 `carrotweb`(별개 모듈, `selfdrive/carrot/server/`, port
+   7000)을 사용 중. (3) 기기는 핸드폰 핫스팟 + 집 와이파이에 연결됨.
+4. **⚠️ 부수적 신규 발견(중요도 높음, 별도 FINDINGS 항목으로 기록)**:
+   echo_cmd caller를 찾는 과정에서 `carrotweb`(port 7000, `always_run`
+   등록, 실사용 중) 자체도 `/ws/terminal`(대화형 웹 쉘) +
+   `/api/reboot`/`/api/tools`(임의 git/pip/bash 실행)/`/api/param_set`
+   등 API 전체가 **인증 미들웨어 전무** 상태임을 확인. `app_factory.py`
+   미들웨어는 로깅용 `log_mw` 하나뿐. 코드 내 `token="12345678"`은 API
+   인증이 아니라 제3자 discovery 서버(`shind0.synology.me`) 등록용
+   고정값으로, 실제 인증 기능은 아님. Master에게 즉시 보고.
+5. **Master 최종 판단(잔여 리스크 설명 후 재확인)**: carrotweb은 핸드폰
+   핫스팟에서만 접속하고 집에서는 작업 안 함 -> 문제없음으로 최종 확인.
+   서버 자체는 `always_run`으로 상시 기동(브라우저 사용 여부와 무관하게
+   포트 7000이 계속 열려있음)이라는 점까지 설명했으나 최종적으로도
+   "문제없음"으로 결정 -> **코드 미수정, Master 결정 그대로 기록**(§33
+   -- 임의 재해석 없이 결정 사실을 그대로 남김).
+6. echo_cmd/tmux_send는 caller 부재 확정 -> FINDINGS.md 356차 방향안
+   **A(핸들러 제거)** 채택, Master 승인 하에 코드 수정 진행.
+
+**코드 변경**(`selfdrive/carrot/carrot_man.py`, `a73b82d`):
+`carrot_cmd_zmq()` 내 `elif 'echo_cmd' in json_obj:`,
+`elif 'tmux_send' in json_obj:` 두 분기(총 21줄) 제거, 주석 7줄로
+대체. 소켓 bind 자체와 `if json_obj is None:` 분기(자동 예외로그
+전송, CarrotMan 연결과 무관하게 동작하던 기존 기능)는 변경 없음(§27
+최소변경). 이제 이 포트로 메시지가 와도 `echo_cmd`/`tmux_send` 키가
+있으면 무응답으로 무시됨(명령 실행 경로 자체가 사라짐).
+
+**검증**:
+- 정적 분석: `ast.parse`/`py_compile` 통과, `pyflakes` 재실행 결과
+  135차/345차 기록된 기존 미사용 import 목록과 동일(신규 경고 0건)
+- §18 fresh-clone 검증: `git apply --check` -> `git am` -> byte-identical
+  diff 전부 통과
+- 로그 분석: 해당 없음(외부입력 제거, 로직 변경 없음)
+- 시뮬레이션: 해당 없음
+- 실차 검증: **미실시**
+
+**Devnotes**: WIP(이 항목) / FINDINGS.md(356차 항목에 해결 경위 추가 +
+carrotweb 무인증 신규 항목 등재) / CURRENT_STATUS.md(신규 이슈 섹션
+갱신)
+
+**패치**: `0001-357cha-remove-unauthenticated-echo_cmd-tmux_send-rem.patch`
+
+**다음 작업**:
+1. 실차 재부팅 후 carrot_man 정상 기동 확인(단순 코드 제거라 회귀
+   위험 낮음으로 판단되나 미검증 상태로 명시)
+2. 남은 356차 항목: `send_routes()` `active_carrot` 지연 영향(기존
+   corpus `activeCarrot` 필드 재분석), 20Hz 메인루프 예외격리,
+   `vturn_speed()` alive AND조건 -- 우선순위 재조정 필요(사용자 결정
+   대기)
+3. 이후 331차 `ws<0` STEP3(x18seg 실데이터 검증)으로 복귀 예정(Master
+   지시)
+4. (신규, 낮은 우선순위) carrotweb 무인증 이슈는 Master가 "문제없음"으로
+   최종 확인했으나, 향후 네트워크 사용 패턴이 바뀔 경우(예: 집 와이파이
+   에서도 쓰게 되는 경우) 재검토 필요 -- 코드 조치는 하지 않되 devnotes에
+   판단 근거를 남겨둠
+
 ## 356차 (완료 -- ChatGPT 교차검증 + 전체 실행경로 정적감사, `ryu` 코드 무변경/ANALYSIS_ONLY) -- 사용자 요청 "전체 코드 실행 시 미사용로직/충돌/CPU과부하/메모리과다점유" 전면 재점검 + ChatGPT(지선생) 분석 교차검증
 
 **Worker**: Claude

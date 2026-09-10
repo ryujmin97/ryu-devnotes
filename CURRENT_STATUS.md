@@ -10,34 +10,42 @@ append-only 원칙 적용 안 함 -- 항상 최신 1개 스냅샷만 유지).
 
 ---
 
-## 코드 상태 (2026-09-11, 356차 종료 시점)
+## 코드 상태 (2026-09-11, 357차 종료 시점)
 
 **Repository**: `ryujmin97/ryu`
 **Branch**: `c3-ms-dev`
-**HEAD (GitHub 기준)**: `e214839`(353차와 동일, 356차는 ANALYSIS_ONLY --
-코드 변경 없음).
+**HEAD (GitHub 기준, push 대기 중)**: `a73b82d`(357차, base `e214839`
+=353/356차 -- `echo_cmd`/`tmux_send` 무인증 원격실행 핸들러 제거).
 
 **Repository**: `ryujmin97/ryu-devnotes`
 **Branch**: `main`
-**HEAD**: 356차 devnotes(이 파일 포함 WIP/FINDINGS 갱신)는 이 세션
-종료 후 push 대기 중(base `991fe20`=355차).
+**HEAD**: 357차 devnotes(이 파일 포함 WIP/FINDINGS 갱신)는 이 세션
+종료 후 push 대기 중(base `c32b4c2`=356차).
 
 ---
 
-## ⚠️ 356차 신규 발견 -- 다음 세션 최우선 확인 사항
+## ✅ 357차 완료 -- 356차 보안 발견 후속 처리
 
-1. **[Master 결정 필요, 보안]** ZMQ 7710 `echo_cmd` 무인증 원격 명령
-   실행 -- `carrot_man.py` `socket.bind("tcp://*:7710")` + 인증 없이
-   `subprocess.run(json_obj['echo_cmd'], shell=True)`. 실사용 여부부터
-   확인 필요(FINDINGS.md 356차 참고). 코드 미수정 상태.
-2. `send_routes()` 도달불가 분기 -- route activation 자체는 정상(추적
+1. **[해결 완료]** ZMQ 7710 `echo_cmd`/`tmux_send` 무인증 원격
+   명령실행 -- CarrotMan/APM 앱 미사용 확인(Master), caller 부재
+   확정 -> `carrot_man.py`(`a73b82d`)에서 핸들러 제거, 패치전달 완료.
+   **실차 검증: 미실시**(다음 세션 최우선 확인 -- 재부팅 후 carrot_man
+   정상 기동 여부).
+2. **[Master 확인, 위험 수용]** `carrotweb`(port 7000, 실사용 중)의
+   `/api/*`/`/ws/terminal` 전체가 무인증 상태(임의 쉘 실행/reboot/
+   git·pip 실행/Params 변경 가능, `always_run`으로 상시 기동)임을
+   357차에서 신규 발견. Master가 잔여 리스크(집 와이파이 연결 중에도
+   포트 상시 개방)까지 설명 들은 뒤 "핫스팟에서만 접속, 집에서는 작업
+   안 함"을 근거로 **문제없음으로 최종 확인 -> 코드 미수정**(FINDINGS.md
+   357차 참고). 향후 네트워크 사용 패턴이 바뀌면 재검토 필요.
+4. `send_routes()` 도달불가 분기 -- route activation 자체는 정상(추적
    완료), `active_carrot` 초기 승격만 지연 가능성. 기존 corpus의
    `activeCarrot` 필드 재분석으로 정량 확인 가능(신규 계측 불필요).
-3. 20Hz 메인루프(`broadcast_version_info`) 전체가 단일 try-except --
+5. 20Hz 메인루프(`broadcast_version_info`) 전체가 단일 try-except --
    예외 1건 발생 시 최대 1초 갱신 중단. 구조 개선 논의 필요.
-4. `vturn_speed()` alive 조건이 AND -- `carState`/`modelV2` 둘 다
+6. `vturn_speed()` alive 조건이 AND -- `carState`/`modelV2` 둘 다
    죽어야만 스킵. 조건식 의도 재검증 필요(크래시 위험은 없음).
-5. `server/core.py:1945` NameError 유발 가능 버그(aiohttp 미임포트) --
+7. `server/core.py:1945` NameError 유발 가능 버그(aiohttp 미임포트) --
    대시보드 웹소켓 전용, 제어로직 무관, 경미.
 
 상세: WIP.md/FINDINGS.md 356차 참고.
@@ -255,6 +263,6 @@ route_active 재진입은 7/7건 전부 결국 발생하나(무제한 탐색 기
 
 ---
 
-*최종 갱신: 356차 (Claude, ChatGPT 교차검증 포함). 다음 세션은 이
-파일 상단의 "356차 신규 발견"을 먼저 읽고,
-WIP.md 최신 회차(356차)로 상세 맥락을 보충할 것.*
+*최종 갱신: 357차 (Claude). 다음 세션은 이 파일 상단의 "357차 완료"
+섹션을 먼저 읽고(echo_cmd 제거 패치 실차검증 여부 최우선 확인),
+WIP.md 최신 회차(357차)로 상세 맥락을 보충할 것.*

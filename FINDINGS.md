@@ -47,6 +47,71 @@ ChatGPT도 최종적으로 동의.
 **검증**: 정적 분석(코드 직접 열람 + git blame/fetch) 완료. 로그/
 시뮬레이션/실차 검증 해당 없음(코드 미수정).
 
+**[357차 추가 -- RESOLVED]**: Master 확인 결과 CarrotMan/APM 앱을
+더 이상 사용하지 않음(caller 부재 최종 확정) -> 위 방향안 A(핸들러
+제거) 채택, `carrot_man.py`(`a73b82d`)에서 `echo_cmd`/`tmux_send`
+분기 제거 완료. 자동 예외로그 전송(`if json_obj is None:` 분기)은
+CarrotMan 연결과 무관하게 동작하던 기존 기능이라 그대로 유지. 실차
+검증은 미실시. 기존 결론(무인증 RCE 발견) 자체는 변경 없음 -- 대응
+완료 상태만 추가.
+
+## 357차 -- [RISK_IDENTIFIED, NEEDS_USER_DECISION -> USER_ACCEPTED_RISK] `carrotweb`(port 7000, 실사용 중) API/터미널 전체 무인증
+
+**배경**: 356차 echo_cmd(7710)의 caller를 찾는 과정에서 Master가
+"CarrotMan은 안 쓰지만 carrotweb은 접속해서 쓰고 있다"고 답변 ->
+carrotweb 자체(`selfdrive/carrot/server/`)의 인증 여부를 직접 확인.
+
+**§24 dedup 확인**: FINDINGS.md/WIP.md 전체 "carrotweb"/"7000"/
+"무인증"/"미인증"/"api_tools"/"api_reboot"/"ws_terminal" 검색 결과,
+carrotweb 관련 기록은 다수 존재하나(35차 UI 버그 수정 등) **인증
+여부를 다룬 기록은 0건** -- 최초 문서화.
+
+**코드 확인**(`selfdrive/carrot/server/`):
+- `app_factory.py`: 등록된 미들웨어는 로깅용 `log_mw` 하나뿐, 인증
+  미들웨어 없음.
+- `core.py`: `GET/POST /api/*` 라우트 다수가 인증 없이 노출 --
+  `POST /api/reboot`(`subprocess.Popen(["sudo","reboot"])` 즉시 실행),
+  `POST /api/tools`/`/api/tools/start`(`git pull`/`git reset`/
+  `git fetch`/`pip install`/임의 `bash -lc` 스크립트 실행),
+  `POST /api/param_set`/`/api/params_restore`(openpilot Params 임의
+  변경).
+- `routes_ws.py`/`core.py:ws_terminal()`: `/ws/terminal` -- tmux
+  세션에 붙는 완전한 대화형 웹 쉘(`_tmux_bootstrap_shell()` ->
+  `exec bash -il`, 필요시 `exec su - comma -c ...`).
+- `core.py:_register_my_ip_sync()`의 `token="12345678"`은 API 인증용이
+  아니라 제3자 discovery 서버(`https://shind0.synology.me/carrot/
+  api_heartbeat.php`, 원 개발자 서버로 추정)에 기기 로컬IP/버전/
+  github_id를 등록하는 하트비트 payload용 고정값 -- 실제 API를
+  지키는 인증 장치는 확인되지 않음.
+- `system/manager/process_config.py`: `carrot_server`가 `always_run`
+  으로 등록 -- 브라우저 사용 여부와 무관하게 기기 전원이 켜져있는 동안
+  포트 7000이 상시 열려있음.
+
+**노출 범위**: `carrot_server.py` 기본값 `--host 0.0.0.0 --port 7000`
+(모든 인터페이스). Master 확인: 기기는 핸드폰 핫스팟 + 집 와이파이에
+연결됨.
+
+**Master 최종 판단**: (1차) "내가 사용시에만 연결하기 때문에 문제
+없음" -> (Claude가 "서버는 always_run이라 브라우저를 안 열어도 계속
+열려있고, 집 와이파이는 다른 기기와 같은 네트워크일 수 있다"는 잔여
+리스크를 설명) -> (2차, 최종) "핸드폰 핫스팟일 때만 carrotweb 접속하고
+집에서는 작업하지 않음" + 그 잔여 리스크(집 와이파이 연결 중에도 포트
+7000이 열려있는 상태 자체)까지 감안하고도 "**문제없음**"으로 최종 확인.
+
+**판단**: §33 원칙에 따라 Master의 결정을 그대로 기록한다 -- Claude가
+임의로 재해석하거나 강제로 코드를 수정하지 않음. **코드 미수정.**
+
+**대응 방향안(참고용, Master가 필요 시 향후 재검토)**:
+- 최소: `/api/*`, `/ws/terminal`에 간단한 토큰/비밀번호 인증 추가
+- 또는: 바인딩을 `0.0.0.0` 대신 특정 인터페이스(핫스팟 인터페이스만)로
+  제한
+- 네트워크 사용 패턴이 바뀌는 경우(예: 집 와이파이에서도 접속하게
+  되는 경우) 재검토 필요
+
+**검증**: 정적 분석(코드 직접 열람, `process_config.py` 확인) 완료.
+로그/시뮬레이션/실차 검증 해당 없음(코드 미수정, 사용자 위험 수용
+결정).
+
 ## 356차 -- [코드 확인, NEEDS_LOG_VALIDATION] `send_routes()` 도달불가 분기 -- route activation 실패 아님, `active_carrot` 초기 승격 지연 가능성만 남음 (`ryu` 코드 무변경)
 
 **배경**: 위와 동일 세션, ChatGPT가 함께 제기한 `send_routes()`
