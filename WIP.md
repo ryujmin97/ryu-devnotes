@@ -1,3 +1,61 @@
+## 350차 계속 (완료 -- ANALYSIS_ONLY, `ryu` 코드 무변경, 신규 toolkit 스크립트 없음) -- dirty=True 반복 발생의 근본원인 코드 레벨 규명 (실기기 검증 대기)
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu`(base `da7ab36f`=343차, 코드 변경 없음) /
+`ryu-devnotes`(base `6a25318`=350차, 이 항목 추가 전)
+
+**Branch**: `c3-ms-dev` / `main`
+
+**배경**: 350차가 "다음 작업"으로 남긴 "dirty=True 실제 원인(빌드
+시점 로컬 워킹트리 변경 내용)을 사용자에게 직접 확인"을 진행. 사용자
+답변: "그런 적 없고, 가장 최근 패치된 브랜치로 git pull해서 주행했음"
+-- 즉 수동 파일 수정 없음, 로컬 워킹트리 변경이 dirty=True 원인이라는
+기존 가정 자체가 성립하지 않음을 확인.
+
+**작업**: 사용자 워크플로우로 dirty=True가 설명되지 않으므로, §28
+원칙에 따라 `is_dirty()` 판정 로직 자체를 코드 레벨로 직접 추적.
+`ryu` 저장소 `system/version.py`/`common/git.py`/`common/run.py` 확인.
+
+**핵심 발견**: `is_dirty()`는 `get_branch()`(= `git rev-parse
+--abbrev-ref --symbolic-full-name @{u}`, 즉 현재 브랜치의 업스트림
+추적 브랜치)가 빈 문자열을 반환하면(업스트림 미설정 시 발생) **실제
+워킹트리 diff를 검사하지도 않고 즉시 `True`를 반환**하는 조기 종료
+분기가 있음(`if not origin or not branch: return True`). `get_branch()`
+호출부(`common/run.py::run_cmd_default`)는 명령 실패 시 예외를
+삼키고 기본값 `""`을 반환하므로, 업스트림이 안 잡혀 있으면 매 빌드마다
+무조건 dirty=True가 뜨는 구조.
+
+**의의**: dirty=True는 344차/350차뿐 아니라 178차/207차/221차/232차/
+243차 등에서 이미 반복 관측돼 온 오래된 미해결 항목(FINDINGS.md 각
+항목 참고). 이번 가설이 맞다면 그 항목들 전부를 관통하는 단일 원인일
+가능성이 있음.
+
+**미완료 / 다음 작업**: 기기에서 아래 명령 1줄 실행 결과를 사용자가
+확인해줘야 확정 가능(§29 -- 코드 분석만으로는 "실차 검증 완료"라고
+표현하지 않음):
+```bash
+cd <openpilot 경로>
+git rev-parse --abbrev-ref --symbolic-full-name @{u}
+```
+`fatal: no upstream configured...` 에러면 가설 확정, 조치는
+`git branch --set-upstream-to=origin/c3-ms-dev c3-ms-dev`.
+정상 출력(`origin/c3-ms-dev` 등)이면 가설 기각, 재조사 필요.
+
+**검증**:
+- 정적 분석: 완료(`system/version.py`/`common/git.py`/`common/run.py`
+  소스 직접 확인)
+- 로그 분석: 해당 없음
+- 시뮬레이션: 해당 없음
+- 실차 검증: 미실시(§29) -- 위 명령 결과 확인 대기
+
+**Devnotes**: WIP(이 항목) / FINDINGS.md(신규 항목, 350차 계속) /
+CURRENT_STATUS.md(미확인 1번 항목 갱신)
+
+**다음 작업**: 사용자가 기기에서 위 명령 실행 후 결과 공유 -> 가설
+확정/기각 -> (확정 시) `set-upstream-to` 안내로 종결, 필요하면 재빌드
+후 dirty=False 확인.
+
 ## 350차 (완료 -- 신규 실차로그(x15seg, 2026-09-10 12:20 채록) 검증, `ryu` 코드 무변경, 신규 toolkit 스크립트 없음) -- 343차 패치 디바이스 반영 여부 확인(349차 CURRENT_STATUS "미확인/대기 중" 1번) + 344차 시나리오① 재확인 시도
 
 **Worker**: Claude

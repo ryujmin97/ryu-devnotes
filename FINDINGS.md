@@ -1,3 +1,65 @@
+## 350차 계속 -- [코드 확정, 실기기 검증 대기] dirty=True 반복 발생 근본원인 후보 -- `system/version.py::is_dirty()`가 `@{u}`(업스트림 추적 브랜치) 미해결 시 실제 워킹트리 상태와 무관하게 무조건 True 반환
+
+**배경**: 350차가 "343차 패치 device 반영 확인" 과정에서 dirty=True를 또
+재확인했으나 원인 미상으로 남김. 사용자에게 확인한 결과 "수동 파일
+수정 없음, 가장 최근 패치된 브랜치로 git pull 후 바로 주행"이라는
+답변 -- 즉 사용자 워크플로우로는 dirty=True가 설명되지 않음. 코드
+레벨 추적 착수(§28).
+
+**중요**: dirty=True 자체는 이번이 처음이 아니라 178차/207차/221차/
+232차/243차 등에서 이미 반복 관측돼 온 오래된 미해결 항목(각 항목
+참고). 이번에 찾은 원인이 맞다면 그 항목들 전부의 공통 원인일 수
+있음.
+
+**코드 추적 (`ryujmin97/ryu`, `system/version.py`)**:
+```python
+@cache
+def is_dirty(cwd: str = BASEDIR) -> bool:
+  origin = get_origin()
+  branch = get_branch()
+  if not origin or not branch:
+    return True   # <- 워킹트리 실제 상태 검사 이전에 바로 True 반환
+  ...
+  dirty = (subprocess.call(["git", "diff-index", "--quiet", branch, "--"], cwd=cwd)) != 0
+  return dirty
+```
+`common/git.py::get_branch()`:
+```python
+@cache
+def get_branch(cwd=None) -> str:
+  return run_cmd_default(["git", "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"], cwd=cwd)
+```
+`common/run.py::run_cmd_default()`는 `subprocess.CalledProcessError`
+발생 시 예외를 삼키고 기본값(빈 문자열 `""`)을 반환한다.
+
+**가설**: 기기의 로컬 `c3-ms-dev` 브랜치에 업스트림 추적 설정
+(`@{u}` -> 보통 `origin/c3-ms-dev`)이 돼 있지 않으면, `git rev-parse
+--abbrev-ref --symbolic-full-name @{u}`가 `fatal: no upstream
+configured for branch...` 에러로 실패 -> `get_branch()`가 `""` 반환
+-> `is_dirty()`가 **실제 파일 diff를 검사하지도 않고 즉시 True를
+반환**. 이 경우 사용자가 아무리 깨끗하게 pull해도 매 빌드마다
+dirty=True가 뜨는 것이 구조적으로 당연해진다(사용자 워크플로우와
+무관, §29 관점에서 사용자 과실 아님).
+
+**검증 방법(기기에서 명령 1줄)**:
+```bash
+cd <openpilot 경로>
+git rev-parse --abbrev-ref --symbolic-full-name @{u}
+```
+- 정상 출력(`origin/c3-ms-dev`) -> 이 가설 기각, 재조사 필요
+- `fatal: no upstream configured...` 에러 -> 가설 확정
+
+**조치(가설이 맞다면)**:
+```bash
+git branch --set-upstream-to=origin/c3-ms-dev c3-ms-dev
+```
+
+**상태**: NEEDS_VALIDATION -- 코드 레벨 확정, 실기기(디바이스) 명령
+실행 결과는 아직 사용자 확인 대기. `ryu` 코드 변경 없음(순수 원인
+조사).
+
+---
+
 ## 348차 -- [실측 확인] 강제 RELEASE=lost 7건(x19seg 6+x10seg 1) 전부 -- route_active 재진입은 결국 발생하나(7/7), 0/7건에서 즉시 재획득된 B 생존 중에 발생하지 않음 -- 재진입은 "잃어버린 apex의 회복"이 아니라 항상 "그 뒤의 별개 apex"
 
 **기존 결론(346/347차 이월)**: 강제 RELEASE=lost 7건(x19seg 6+x10seg 1)
