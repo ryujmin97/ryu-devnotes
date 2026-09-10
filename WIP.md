@@ -1,3 +1,68 @@
+## 357차 계속2 (완료 -- 구현+정적검증 완료, 실차 검증 미실시, 패치전달 완료) -- `send_routes()` 도달불가 dead code 제거 (356차 발견 후속)
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu`(base `c39d81f`=357차) -> 이번 세션
+`82ff5d7`(로컬/검증클론 기준, 사용자 적용 후 실제 push 해시는
+`git am` 특성상 달라질 수 있음) / `ryu-devnotes`(base `11348b3`=
+357차 계속)
+
+**Branch**: `c3-ms-dev` / `main`
+
+**세션 시작 확인(§3/§33)**: fresh clone으로 `ryu` HEAD가 `c39d81f`
+그대로임을(드리프트 없음) 재확인 후 착수.
+
+**배경**: 356차가 발견한 `send_routes()` 내부 `if from_navd: ...
+if not from_navd:` 도달불가 분기(FINDINGS.md 356차)의 후속 -- 사용자가
+corpus 검증 없이 코드 결론만으로 제거를 진행할지 판단하기 위해
+호출부/본문을 원격 HEAD에서 직접 재검증할 것을 요청, Claude가
+`ryu`를 재-clone하여 다음을 확정:
+
+1. `send_routes()` 호출부 3곳 전수 확인 -- 974행(`broadcast_version_info()`,
+   20Hz `Ratekeeper` 루프, `navRouteNavd` 갱신 시) `from_navd=True`,
+   2303행(TCP 7709 raw)/2521행(TCP 7712 `handle_route`) 둘 다 인자
+   생략(`from_navd=False` 기본값). 함수 시그니처가 `bool` 파라미터
+   하나뿐이라 그 사이값이 들어올 여지 없음 -- `if from_navd:` 블록
+   내부에서 `not from_navd`가 참이 될 입력 조합은 현재 코드베이스의
+   어떤 호출 경로로도 불가능함을 확정(문법적 100% 도달불가).
+2. **신규 발견**: `active_carrot`/`active_count`/`active_sdi_count`를
+   실제로 세팅하는 곳은 `carrot_serv.py:1585`(`CarrotServ.update(json)`)
+   단 한 곳뿐이며, 이 `update()`의 유일한 호출부(`carrot_man.py:1961`)는
+   `carrot_man_thread()` -- **UDP 포트 7706**으로 수신되는 CarrotNavi
+   SDI/TBT JSON 패킷 핸들러. navd(경로 폴리라인) 수신과 완전히 별개
+   채널. 즉 도달불가 분기가 살아있었어도 `active_carrot` 승격은 이미
+   SDI 패킷 수신 주기(80프레임=4초 카운트다운)에 전적으로 의존하고
+   있어 기능적 의존성이 없었음 -- 356차가 "corpus로 지연시간 정량화"
+   과제로 남겼던 것을 corpus 없이 코드 트레이싱만으로 해소.
+
+**판단**: 문법적 도달불가 + 기능적 의존성 없음(대체 경로 이미 존재)
+2가지 근거로 corpus 재확인 없이 dead code 제거 진행 -- 사용자 승인.
+
+**코드 변경**(`selfdrive/carrot/carrot_man.py`, `send_routes()`):
+`if not from_navd:` 조건문과 그 안의 3줄(`active_count=80`/
+`active_sdi_count`/`active_carrot=2`) 제거, 위 근거를 요약한 주석
+7줄로 대체. 나머지 로직/시그니처/다른 호출부 전부 무변경(§27
+최소변경).
+
+**검증**:
+- 정적 분석: 완료(위 1~2번, 호출부 전수/대체경로 확인)
+- 로그 분석: 미실시(위 근거로 불필요 판단, 사용자 동의)
+- 시뮬레이션: 해당 없음
+- `py_compile` 통과(작성 클론 + 독립 클린 클론(`git am` 재적용 후)
+  양쪽 모두)
+- 독립 클린 클론에서 `git apply --check` + `git am` 통과
+- **실차 검증: 미실시**(다음 세션 후보 -- 단, 위 판단상 기능 영향
+  자체가 없는 순수 정리이므로 급하지 않음)
+
+**미확인 사항**: 없음 (제거 자체의 안전성은 코드 레벨에서 확정,
+실차 검증은 회귀 없음 재확인용 후속)
+
+**다음 작업**: CURRENT_STATUS.md 357차 잔여 항목 중 ③20Hz 메인루프
+단일 try-except 구조 / ④`vturn_speed()` alive AND 조건 /
+⑤`server/core.py:1945` NameError 순서/우선순위 결정
+
+---
+
 ## 357차 계속 (완료 -- 실차 검증 완료) -- echo_cmd/tmux_send 핸들러 제거 패치 실차검증
 
 **Worker**: Claude

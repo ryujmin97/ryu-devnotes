@@ -168,6 +168,20 @@ navd route 수신 타임스탬프 기준으로 재분석하면 바로 확인 가
 로그 분석: 미실시(다음 세션 후보). 시뮬레이션/실차 검증: 해당
 없음(코드 미수정).
 
+**[357차 계속2 추가 -- RESOLVED]**: 원격 HEAD(`c39d81f`) 재-clone
+직접 확인으로 `send_routes()` 호출부 3곳(974/2303/2521행) 전수
+재검증 -- 시그니처가 `bool` 파라미터 하나뿐이라 도달불가 결론에
+예외 없음 재확인. 추가로 `active_carrot` 승격 경로(`carrot_serv.py:
+1585` `CarrotServ.update()`, 호출부는 `carrot_man_thread()` UDP
+7706 SDI 패킷 핸들러 단 한 곳)가 navd 수신과 완전히 무관함을 신규
+확인 -- "정량 지연시간은 corpus로 확인 가능"이라 남겼던 위 결론을
+갱신: **corpus 없이도 dead code + 기능적 의존성 없음 둘 다 확정**,
+corpus 검증은 불필요 판단(사용자 동의). `if not from_navd:` 블록
+제거 패치 작성/독립클론 `git apply --check`+`git am`+`py_compile`
+검증 완료, 실차 검증은 미실시(단 기능 영향 없는 순수 정리라 우선
+순위 낮음). 기존 결론(도달불가, active_carrot 완전한 죽은 값은
+아님) 변경 없음 -- 해결 및 검증 완결 상태만 추가.
+
 ## 353차 -- [코드 확인, 패치 반영] `MapTurnSpeedFactor`를 "죽은 값"으로 서술한 `[210차]` 주석이 stale/부정확했음을 확인 -- 실제로는 `carrot_man.py` route 곡률 계산 2곳에서 계속 사용 중
 
 **배경**: 352차 CPU 감사 후보① `update_params()` 캐시화를 진행하던 중,

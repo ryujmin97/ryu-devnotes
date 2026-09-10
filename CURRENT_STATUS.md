@@ -10,18 +10,19 @@ append-only 원칙 적용 안 함 -- 항상 최신 1개 스냅샷만 유지).
 
 ---
 
-## 코드 상태 (2026-09-11, 357차 계속 종료 시점)
+## 코드 상태 (2026-09-11, 357차 계속2 종료 시점)
 
 **Repository**: `ryujmin97/ryu`
 **Branch**: `c3-ms-dev`
-**HEAD**: `c39d81f`(357차, base `e214839`=353/356차 -- `echo_cmd`/
-`tmux_send` 무인증 원격실행 핸들러 제거). GitHub push 완료 확인됨
-(이전 기록의 로컬 해시 `a73b82d`와 내용 동일, `git am` 적용 시
-해시만 재생성된 것).
+**HEAD (GitHub 기준)**: `c39d81f`(357차, base `e214839`=353/356차 --
+`echo_cmd`/`tmux_send` 무인증 원격실행 핸들러 제거).
+**push 대기 중**: `82ff5d7`(검증 클론 기준 로컬 해시, 357차 계속2 --
+`send_routes()` 도달불가 dead code 제거) -- 사용자 `git am` 적용 시
+해시 재생성 가능성 있음(기존 패턴과 동일).
 
 **Repository**: `ryujmin97/ryu-devnotes`
 **Branch**: `main`
-**HEAD**: `753a6a9`(357차)까지 push 완료 확인. 이번(357차 계속)
+**HEAD**: `11348b3`(357차 계속)까지 push 완료 확인. 이번(357차 계속2)
 devnotes 갱신(WIP/FINDINGS/이 파일)은 이 세션 종료 후 push 대기 중.
 
 ---
@@ -40,9 +41,13 @@ devnotes 갱신(WIP/FINDINGS/이 파일)은 이 세션 종료 후 push 대기 �
    포트 상시 개방)까지 설명 들은 뒤 "핫스팟에서만 접속, 집에서는 작업
    안 함"을 근거로 **문제없음으로 최종 확인 -> 코드 미수정**(FINDINGS.md
    357차 참고). 향후 네트워크 사용 패턴이 바뀌면 재검토 필요.
-4. `send_routes()` 도달불가 분기 -- route activation 자체는 정상(추적
-   완료), `active_carrot` 초기 승격만 지연 가능성. 기존 corpus의
-   `activeCarrot` 필드 재분석으로 정량 확인 가능(신규 계측 불필요).
+4. **[해결, 357차 계속2]** `send_routes()` 도달불가 분기 -- route
+   activation 자체는 정상(356차 확정 유지). 원격 HEAD 재확인 결과
+   `active_carrot` 승격은 이 분기와 무관한 별도 SDI 채널(UDP 7706,
+   `carrot_serv.update()`)이 전담함을 신규 확인 -> corpus 검증 없이
+   dead code 제거 진행(코드 결론만으로 충분 판단, 사용자 승인).
+   `carrot_man.py`에서 `if not from_navd:` 블록 제거, 패치전달 완료.
+   **실차 검증: 미실시**(기능 영향 없는 순수 정리라 우선순위 낮음).
 5. 20Hz 메인루프(`broadcast_version_info`) 전체가 단일 try-except --
    예외 1건 발생 시 최대 1초 갱신 중단. 구조 개선 논의 필요.
 6. `vturn_speed()` alive 조건이 AND -- `carState`/`modelV2` 둘 다
@@ -265,9 +270,10 @@ route_active 재진입은 7/7건 전부 결국 발생하나(무제한 탐색 기
 
 ---
 
-*최종 갱신: 357차 계속 (Claude). echo_cmd/tmux_send 제거 패치 실차
-검증 완료(carrot_man 정상 기동 확인) -- 이 항목 종결. 다음 세션은
-이 파일 상단을 읽고, 남은 후보(send_routes 도달불가 분기 / 20Hz
+*최종 갱신: 357차 계속2 (Claude). `send_routes()` 도달불가 dead code
+제거 패치전달 완료(실차검증은 미실시, 우선순위 낮음) -- 이 항목
+사실상 종결. 다음 세션은 이 파일 상단을 읽고, 남은 후보(20Hz
 메인루프 try-except 구조 / vturn_speed alive AND 조건 /
 server/core.py NameError) 중 우선순위를 사용자와 결정할 것. WIP.md
-최신 회차("357차 계속")로 상세 맥락 보충.*
+최신 회차("357차 계속2")로 상세 맥락 보충. `ryu`에 `82ff5d7`(로컬
+해시) push 대기 중임을 다음 세션 최우선 확인.*
