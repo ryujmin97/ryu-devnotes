@@ -1,3 +1,37 @@
+## 350차 계속2 (완료 -- ANALYSIS_ONLY, `ryu`/`ryu-devnotes` 코드 무변경) -- 344차 devnotes patch push 여부 GitHub 직접 확인으로 해결 (사용자 확인 불필요 항목)
+
+**Worker**: Claude
+
+**Repository**: `ryu-devnotes`(base `2c126aa`=350차 계속, 이 항목 추가 전)
+
+**배경**: 사용자가 기기(콤마 유닛) 접근이 어려운 상황이라 "지금 할 수
+있는 일"을 요청. CURRENT_STATUS.md "미확인/대기 중" 목록 중 2번
+(`0001-344cha-devnotes.patch` push 여부)은 실차 접근이 필요 없고
+GitHub 조회만으로 해결 가능한 항목임을 확인해 우선 처리.
+
+**작업**: fresh clone(`ryujmin97/ryu-devnotes` HEAD `2c126aa`)에서
+344차 patch가 포함해야 할 구성요소를 전수 확인:
+- `WIP.md`에 `## 344차` 헤더 존재
+- `FINDINGS.md`에 344차 항목 존재
+- `toolkit/verify_release_variant_344.py` 파일 실존
+- `toolkit/README.md`에 이 스크립트 등록
+- `toolkit/CHANGELOG.md`에 "2026-09-10 (344차)" 항목 등록
+
+**결론**: 5개 구성요소 전부 확인됨 -- **344차 devnotes patch는 push
+완료 상태임이 확정**. CURRENT_STATUS.md "미확인/대기 중" 목록에서 이
+항목 제거(취소선 처리 후 결론 기록).
+
+**검증**:
+- 정적 분석: fresh git clone 기반 파일 존재/내용 확인(완료)
+- 로그/시뮬레이션/실차 검증: 해당 없음(devnotes 상태 확인 작업)
+
+**Devnotes**: WIP(이 항목) / CURRENT_STATUS.md(2번 항목 확정 처리)
+
+**다음 작업**: 여전히 실차 접근이 필요한 항목(dirty=True 검증 명령,
+시나리오① 완전 재확인 등)은 사용자가 차량 접근 후 진행. 그 사이
+가능한 다른 오프라인 작업(예: route/vturn flicker 방향 논의, 5m/2.5m
+그리드 오프라인 실험 설계 등)이 있으면 이어서 진행 가능.
+
 ## 350차 계속 (완료 -- ANALYSIS_ONLY, `ryu` 코드 무변경, 신규 toolkit 스크립트 없음) -- dirty=True 반복 발생의 근본원인 코드 레벨 규명 (실기기 검증 대기)
 
 **Worker**: Claude

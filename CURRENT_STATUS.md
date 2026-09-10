@@ -130,12 +130,12 @@ route_active 재진입은 7/7건 전부 결국 발생하나(무제한 탐색 기
    관측된 dirty=True 미스터리 전체의 공통 원인일 가능성. **다음 세션
    최우선**: 기기에서 `git rev-parse --abbrev-ref --symbolic-full-name
    @{u}` 실행 결과 확인(상세: FINDINGS.md/WIP.md "350차 계속" 참고).
-2. **344차 devnotes patch(`0001-344cha-devnotes.patch`)가 push
-   됐는지** -- 이 patch는 `WIP.md`/`FINDINGS.md`/
-   `toolkit/verify_release_variant_344.py`/`toolkit/README.md`/
-   `toolkit/CHANGELOG.md`를 포함하며, 독립 클론에서
-   `git apply --check` -> `git am` -> `py_compile` 검증까지 완료된
-   상태로 전달됨(base `c2a17cd7`). push 여부 미확인.
+2. ~~344차 devnotes patch(`0001-344cha-devnotes.patch`)가 push
+   됐는지~~ -- **350차 계속2에서 확인**: fresh clone으로 `WIP.md`/
+   `FINDINGS.md`의 344차 항목, `toolkit/verify_release_variant_344.py`
+   파일 실존, `toolkit/README.md`/`toolkit/CHANGELOG.md`의 344차 등록
+   전부 직접 확인 -- push 완료 확정(사용자 확인 불필요, GitHub 직접
+   조회로 해결).
 3. ~~348차 결론 qcamera 직접 검증~~ -- **349차 완료** (gap이 긴 2건
    기준, 나머지 5건은 미실시로 남음, 우선순위 낮음).
 4. 343차 패치 반영 확인 후, 동일/유사 리드차량 서행 상황을 재주행하여
@@ -167,5 +167,5 @@ route_active 재진입은 7/7건 전부 결국 발생하나(무제한 탐색 기
 
 ---
 
-*최종 갱신: 350차 계속 (Claude). 다음 세션은 이 파일을 먼저 읽고,
-WIP.md 최신 회차(350차 계속)로 상세 맥락을 보충할 것.*
+*최종 갱신: 350차 계속2 (Claude). 다음 세션은 이 파일을 먼저 읽고,
+WIP.md 최신 회차(350차 계속2)로 상세 맥락을 보충할 것.*
