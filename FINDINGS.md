@@ -18528,3 +18528,87 @@ route1~4 실측 corpus(297~300차와 동일 corpus, meta.json commit
 2. A→LOST 경과시간 편차 원인 추적(프레임 간격 불균일 여부)
 3. (293차부터 이월) ep108 클러스터링 코드 레벨 추적
 4. (294차부터 이월) ep47/48/101/105 패턴 코드 레벨 추적
+
+
+## 345차 -- CPU 효율성 개선 후보 6건 (Claude 1차 분석 + ChatGPT 독립
+재검증 + Claude 재교차검증, `ryu` 코드 무변경/ANALYSIS_ONLY)
+
+**배경**: 사용자가 "실차 적용 가정 하 전체 코드 CPU/메모리/불필요코드
+검증"을 요청. `carrot_man.py`/`carrot_serv.py` 정적 분석 + 20Hz 핫루프
+(`broadcast_version_info` → `carrot_navi_route()` →
+`carrot_serv.update_navi()`) 코드 추적 수행, 이후 ChatGPT가 동일 코드를
+독립적으로 재검증(§5/§35 세션 간 교차검증), Claude가 그 결과를 다시
+코드 라인 단위로 재확인.
+
+**확정 사실 (코드 레벨, 실측 CPU% 계측은 미실시)**:
+
+1. `carrot_serv.py:358 update_params()`가 Params 약 18개 키를 매
+   `update_navi()` 호출(20Hz)마다 무조건 재조회. `carrot_man.py`의
+   `_refresh_cached_params()`(99/100차, 100프레임=5초 캐시)와 동일
+   패턴 미적용 상태.
+2. `carrot_man.py:1863~1864 make_send_message()`가 `Version`/
+   `IsOnroad` 2개를 추가로 매 프레임 조회, `remote_addr is not None`
+   (네비 앱 연결 중)이면 20Hz로 실행. #1과 합쳐 연결 중 초당 약 20개
+   키 조회(≈400회/sec 추정, 실측 아님).
+3. `broadcast_version_info()` 내 `socket.gethostbyname(
+   socket.gethostname())`이 연결 중 매 프레임 실행. 같은 블록의
+   `get_broadcast_address()`(ioctl 포함)는 `remote_addr is None`
+   분기 전용이라 연결 중에는 실행되지 않음 -- 최초 재검증 요청 시
+   "get_broadcast_address도 매 프레임"이라는 주장이 있었으나 코드
+   확인 결과 부정확, gethostbyname()만 해당함(본 항목에서 정정).
+4. `carrot_man.py:1622`(323차 계측) `_route_orphan_raw_path`가 orphan
+   존재 프레임마다 `relative_coords` 전체(현재 lookahead 300m, 336차
+   이후)를 문자열화해 cereal 발행. 순수 진단용 telemetry, 제어 미사용.
+   규모는 작음(수십 개 지점 수준)이나 orphan 발생 빈도가 높은 구간에서
+   누적 비용 존재. 해당 위치 주석은 "600m lookahead 전체"로 남아
+   336차의 600→300m 축소를 반영 못한 stale comment.
+5. `carrot_man.py:631 route_local_curve_merge()`의
+   `any(ws<=d<=we for ws,we in merged_windows)`가 O(거리개수×윈도우수)
+   선형탐색이나, 현재 스케일(거리 ~30개, 윈도우 1~3개)에서 무시 가능한
+   수준으로 판단(최하위 우선순위, Claude/ChatGPT 합의).
+6. `CarrotMan.__init__()`에서 `broadcast_version_info` 스레드가
+   `self.navi_points`/`navi_points_start_index`/`navi_points_active`
+   초기화(약 850~852행)보다 먼저 시작(약 848행). 이론적 startup race
+   가능성이나 `save_toggle_values()`+`Ratekeeper` 생성 지연으로 실제
+   발현 가능성은 낮고, 실차 startup crash 증거 없음 -- 관측 전용.
+
+**재확인/정정 (신규 버그로 오인되지 않도록 명시)**:
+
+- `apex_mode` "passed"/"lost"를 ACTIVE release 판정에서 동일하게 취급
+  (`apex_passed_or_lost = apex_mode in ("passed","lost","new")`)하는
+  것은 신규 발견이 아니라 **254/255차에서 이미 의도적으로 결정된
+  사항**(`carrot_man.py:1071~1078` 주석에 "release 판정 자체는 여전히
+  동일 취급, §27 최소변경"으로 명시됨). 다만 "당시 판단이 현재
+  실측 corpus 기준으로도 여전히 타당한지"는 코드 미수정 상태로도
+  기존 로그 재분석만으로 검증 가능한 유효한 후속 작업 -- 다음
+  세션 후보로 등록(§24 -- 기존 결론 위에 새 검증 추가, 기존 결론
+  자체를 근거 없이 뒤집지 않음).
+- `turnSpeedControlMode` 체크가 `carrot_man.py`(route 계산, `[2,3]`)와
+  `carrot_serv.py`(arbitration 참가, `[2,3,4]`)에서 다르게 보이나,
+  `carrot_serv.py:1235`의 route 후보 append가 `if route_speed is not
+  None:`(1190행) 안에 있고 mode==4에서는 `route_speed`가 항상 `None`
+  이므로 **1235행은 mode==4에서 도달 불가능** -- crash나 오후보혼입
+  위험 없음. 단순 죽은 코드(레거시/향후 확장 흔적)로 분류, 기능
+  버그 아님.
+
+**검증**:
+- 정적 분석: 완료(`py_compile` 전체 통과, `pyflakes`로 미사용
+  import/변수 확인 -- carrot_man.py 미사용 import 7개+변수 1개,
+  carrot_serv.py 미사용 import 9개+변수 1개, 전부 동작 무관)
+- 로그 검증: 해당 없음(코드 추적만 수행, corpus 대조 없음)
+- 시뮬레이션: 해당 없음
+- 실차 검증: 미실시(§29)
+
+**중요 한계**: 이 항목은 전부 "코드상 존재를 확인"한 것이지 "실제
+차량에서 CPU 몇 %/메모리 몇 MB를 차지하는지"는 계측하지 않았다.
+안전성 문제로 확정하지 않으며, 343차(`speed_reached` 제거) 실차 검증이
+끝나기 전에는 코드 수정하지 않기로 사용자/ChatGPT와 합의함(route 제어
+로직 변경과 성능 변경을 같은 실차 테스트에 섞지 않기 위함).
+
+**미확인/남은 것**:
+1. 위 6개 항목의 실제 프로파일링(cProfile 등) 계측
+2. `apex_mode==lost` release가 기존 corpus에서 실제로 얼마나
+   발생하는지 재분석
+3. `CURRENT_STATUS.md`의 devnotes HEAD 자기참조 지연(`c2a17cd7` 기재,
+   실제로는 `a21362c2`가 이미 `b5b9d0b` 이후) -- 코드 문제 아닌 devnotes
+   기록 hygiene, 다음 CURRENT_STATUS.md 갱신 시 함께 정리

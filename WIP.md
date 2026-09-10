@@ -1,3 +1,123 @@
+## 345차 (완료 -- ANALYSIS_ONLY, `ryu` 코드 무변경) -- 344차 정적 분석 결과에
+대한 ChatGPT 독립 재검증 + 상호 교차검증, CPU 효율성 개선 후보 6건 확정
+(코드 수정은 343차 실차 검증 완료까지 보류)
+
+**Worker**: Claude (ChatGPT와 세션 간 상호검증, §5/§35)
+
+**Repository**: `ryujmin97/ryu`(base `da7ab36f`=343차, 코드 변경 없음) /
+`ryu-devnotes`(base `a21362c2`=344차-status, 이 항목 추가 전)
+
+**Branch**: `c3-ms-dev` / `main`
+
+**세션 시작 확인**: `git ls-remote` 결과 `ryu` HEAD `da7ab36f`(343차),
+`devnotes` HEAD `a21362c2`(344차-status) 확인 후 재클론. `CURRENT_STATUS.md`
+존재 확인, 344차 종료 시점 스냅샷으로 최우선 확인.
+
+**계기**: 사용자가 "실차 적용 가정 하 전체 코드 CPU/메모리/불필요코드
+전반 검증"을 요청. 실제 실행(카메라/CAN/SubMaster 필요)은 이 환경에서
+불가능하므로(§29), `carrot_man.py`/`carrot_serv.py` 정적 분석 + 20Hz
+핫루프(`broadcast_version_info` → `carrot_navi_route()` →
+`carrot_serv.update_navi()`) 코드 추적으로 대체 수행. 1차 결과를
+사용자가 ChatGPT(지선생)에게 공유해 독립 재검증을 받았고, 그 결과를
+다시 Claude가 코드 라인 단위로 교차검증(§2/§33 -- 다른 세션/다른 AI의
+주장도 그대로 믿지 않고 코드로 확인).
+
+**확정된 CPU 효율성 개선 후보 (안전성 문제 아님, 개선 후보로만 분류)**:
+
+1. **`carrot_serv.update_params()` 20Hz 무조건 호출** (carrot_serv.py:358,
+   `update_navi()` 최상단). Params 약 18개 키(AutoNaviSpeedBumpSpeed 등)를
+   매 프레임 재조회. `carrot_man.py::_refresh_cached_params()`는 이미
+   100프레임(5초) 캐시 패턴을 쓰고 있어(99/100차) 동일 패턴을 여기도
+   적용 가능. 이 세션에서 실측 CPU% 계측은 미실시 -- "불필요한 20Hz
+   file read가 존재한다"까지만 확정, "CPU를 몇 % 먹는다"는 미확정
+   (Claude/ChatGPT 합의).
+2. **`make_send_message()` 추가 Params 2개** (carrot_man.py:1863~1864,
+   `Version`/`IsOnroad`). `broadcast_version_info()` 루프에서
+   `remote_addr is not None`(네비 앱 연결 중, 정상 주행 시 상시)이면
+   매 프레임 호출됨 -- #1과 합쳐 연결 중 초당 약 20개 키 조회
+   (≈400회/sec, Claude 최초 추정 400/ChatGPT 정밀치 360의 차이는 이
+   항목 누락분으로 설명됨).
+3. **`socket.gethostbyname(socket.gethostname())` 20Hz 호출**
+   (carrot_man.py, `broadcast_version_info` 내부 `frame % 20 == 0 or
+   remote_addr is not None` 블록). 네비 앱 연결 중엔 매 프레임 실행.
+   **정정**: 같은 블록의 `get_broadcast_address()`는 `remote_addr is
+   None`(비연결) 분기에서만 호출되므로 연결 중에는 실행되지
+   않음(ChatGPT 1차 주장과 달리 ioctl/소켓생성은 연결 중 부담 아님) --
+   gethostbyname()만 해당.
+4. **`_route_orphan_raw_path` 매 프레임 전체 경로 문자열화**
+   (carrot_man.py:1622, 323차 계측). orphan 존재 시 `relative_coords`
+   전체(현재 `route_lookahead_m=300.0`, 336차 이후)를 문자열화해 cereal
+   발행. 규모는 작음(수십 개 지점, 수백 byte)이나 제어에 불필요한
+   telemetry가 orphan 프레임마다 IPC+로그 비용을 유발. 해당 주석은
+   아직 "600m lookahead 전체"로 남아 336차 300m 축소를 반영 못한 stale
+   comment이기도 함(별도 devnotes 정확도 이슈로 병기).
+5. **`route_local_curve_merge()`의 `any(ws<=d<=we for ws,we in
+   merged_windows)` 선형탐색** (carrot_man.py:631). O(거리개수×윈도우수)
+   구조이나 현재 스케일(거리 ~30개, 윈도우 1~3개)에서는 무시 가능한
+   수준(마이크로초 단위) -- Claude/ChatGPT 둘 다 최하위 우선순위로 합의.
+6. **`CarrotMan.__init__()` 스레드 시작 순서** (carrot_man.py, 약 848행
+   `threading.Thread(target=self.broadcast_version_info).start()`가
+   850~852행 `self.navi_points`/`navi_points_start_index`/
+   `navi_points_active` 초기화보다 먼저 실행). 이론적으로
+   `broadcast_version_info` 스레드가 `carrot_navi_route()`에 아직
+   초기화 안 된 attribute로 먼저 도달하면 `AttributeError` 가능하나,
+   `save_toggle_values()`+`Ratekeeper` 생성 지연으로 실제 발현
+   가능성은 낮음. 실차에서 startup crash 증거 없음 -- 관측 전용 기록.
+
+**재확인/정정된 것 (신규 버그 아님)**:
+
+- **`apex_mode` "passed"/"lost" 동일 RELEASE 취급**: ChatGPT가 "클로드가
+  놓친 신규 발견"으로 제시했으나, 코드 확인 결과 **255차/254차에서 이미
+  의도적으로 결정된 사항**(`carrot_man.py:1071~1078` 주석 -- "release
+  판정 자체는 passed/lost/new를 여전히 동일하게 취급하므로 이 분리만으로는
+  동작이 바뀌지 않는다", §27 최소변경). 다만 "당시 판단이 현재 로그
+  기준으로도 여전히 유효한지"는 별개의 유효한 재검증 대상 -- 코드 수정
+  전 기존 실측 로그로 `apex_mode==lost and apex_dist>임계치` 프레임
+  빈도 확인이 다음 단계로 유효함(ChatGPT 2단계 제안 유지).
+- **`turnSpeedControlMode` `[2,3]`(carrot_man.py route 계산) vs
+  `[2,3,4]`(carrot_serv.py arbitration)**: 겉보기엔 불일치로 보이나,
+  `carrot_serv.py:1235`의 `speed_n_sources.append((route_speed,
+  "route"))`는 `if route_speed is not None:`(1190행) 블록 내부에 있고,
+  mode==4일 때 `carrot_navi_route()`는 `route_enabled` False 경로로
+  항상 `route_speed=None`을 반환하므로 **1235행은 mode==4에서 도달
+  불가능**. crash/오후보혼입 위험 없음 -- 단순 죽은 코드(레거시 흔적
+  또는 향후 확장 대비)로 재분류.
+- **`CURRENT_STATUS.md` devnotes HEAD 자기참조 지연**: `a21362c2`(이
+  파일을 추가한 커밋)의 부모가 이미 `b5b9d0b`(344차 본문)인데 파일
+  본문은 `c2a17cd7`(343차)을 HEAD로 기재 -- 파일이 자신의 커밋 해시를
+  알 수 없는 구조적 특성 + 그 직전 한 커밋(b5b9d0b)이 더 있었던 것이
+  겹친 것. 코드/devnotes 오류는 아니나 다음 정리 시 바로잡을 사소한
+  hygiene 이슈로 병기.
+
+**검증**:
+- 정적 분석: 완료(`py_compile`/`pyflakes` PASS, 미사용 import 16개 +
+  미사용 지역변수 2개 확인 -- carrot_man.py 7개/1개, carrot_serv.py
+  9개/1개, 동작 영향 없음)
+- 로그 검증: 해당 없음(이번 세션은 코드 추적만, 실측 로그 대조 없음)
+- 시뮬레이션: 해당 없음
+- 실차 검증: 미실시(§29, ANALYSIS_ONLY, `ryu` 코드 무변경)
+
+**미확인/남은 것**:
+- 위 6개 CPU 개선 후보의 실제 프로파일링(cProfile 등) 계측 -- 이번
+  세션은 "존재 확인"까지만, "실측 부하%" 없음
+- `apex_mode==lost` release가 기존 실측 corpus에서 실제로 얼마나
+  발생하는지 로그 재분석(ChatGPT 2단계 제안, 코드 수정 전 선행)
+- 343차 실차 검증 완료 후에만 위 개선 후보들 패치 착수 (route 제어
+  로직 변경과 성능 변경을 동시에 넣지 않기 위함, 사용자/ChatGPT 합의)
+
+**Devnotes**:
+- 신규 toolkit 스크립트 없음(이번 세션은 순수 코드 리뷰)
+- WIP/FINDINGS: 이 항목 (patch로 전달, §18 -- WIP.md/FINDINGS.md 모두
+  1MB 초과 append-only 파일이라 전체 재전송 대신 diff 기반 patch 우선)
+
+**다음 작업**:
+1. 343차(`speed_reached` 제거) 실차 검증 -- 최우선, CURRENT_STATUS.md와
+   동일 순위
+2. 기존 실측 corpus에서 `apex_mode==lost` release 빈도 재분석
+3. 위 1,2 완료 후 CPU 개선 후보 6건 중 우선순위 순으로 패치 착수
+   (update_params 캐싱 → broadcast IP 캐싱 → orphan telemetry 조건부화
+   → 나머지)
+
 ## 344차 (완료 -- ANALYSIS_ONLY, `ryu` 코드 무변경, 신규 toolkit 스크립트 1개 추가) -- 사용자 재업로드 실측 로그로 "리드차량 서행/정지 중 route 상태" + "좌회전 apex에서 신호대기 정지" 두 시나리오 실측 확인, 겸 343차 패치 미반영(구코드 기준 로그) 발견
 
 **Worker**: Claude
