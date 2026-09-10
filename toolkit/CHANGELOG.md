@@ -3,6 +3,13 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+## 2026-09-10 (346차)
+- `sim_route_346_lost_freq_single_route.py`: **신규**. 301차 lost-boundary
+  trace를 route1~4 하드코딩/classification.md 필수 제약 없이 임의 단일
+  route CSV에 적용하는 어댑터(§21, 로직 재구현 없음). x20seg corpus 실행
+  -- mode=="lost" 88건(100% apex_dist>0), 강제 RELEASE=lost 0건(route1~4
+  대비 대조), 87/88건 1초 이내 재활성.
+
 ## 2026-09-10 (344차)
 - `verify_release_variant_344.py`: **신규**. ACTIVE 릴리즈 OR-조건을
   speed_reached 포함/제거 두 가설로 텔레메트리 재생(§21 -- 283차

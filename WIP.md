@@ -1,3 +1,110 @@
+## 346차 (완료 -- ANALYSIS_ONLY, `ryu` 코드 무변경, 신규 toolkit 스크립트 1개 추가) -- 345차 "다음 작업" 2번: 기존 실측 corpus(x20seg)에서 `apex_mode==lost AND apex_dist>0` 발생 빈도 재분석
+
+**Worker**: Claude
+
+**Repository**: `ryujmin97/ryu`(base `da7ab36f`=343차, 코드 변경 없음) /
+`ryu-devnotes`(base `99dd1936`=345차, 이 항목 추가 전)
+
+**Branch**: `c3-ms-dev` / `main`
+
+**세션 시작 확인**: `ryu` HEAD `da7ab36f`(343차), `devnotes` HEAD
+`99dd1936`(345차) 확인 후 재클론 -- 직전 대화에서 확인한 상태와 일치.
+
+**계기**: 345차가 확정한 CPU 개선후보 6건보다 우선순위가 높은 "다음
+작업" 2번(`apex_mode==lost AND apex_dist>0` 패턴이 기존 실측 corpus에
+실제로 존재하는지 재분석, 코드 변경은 하지 않음) 착수. 사용자가 실차
+로그가 아직 없다고 해 corpus 재분석부터 진행하기로 함.
+
+**입력 데이터**: 사용자가 `000003d4--59a8ae5773`(x20seg, 20260910
+06:08 재촬영본) zip을 재업로드. `extract_log.py --with-navi-paths`로
+재추출 -- **23,776행, 20세그**로 344차의 동일 route 기록(23,776행)과
+정확히 일치 확인(재현성 검증, §워크플로 원칙). `check_device_build.py
+--compare-commit da7ab36f` 결과도 344차와 동일 -- device gitCommit=
+`7b3dfec4`(336차)+**dirty=True**, `da7ab36f`(343차)의 조상(343차 코드
+미반영 상태 재확인). 이 corpus는 343차 patch 유무와 무관한 continuity
+분류 로직(`_route_cluster_continuity_step`) 자체를 보는 데는 문제
+없음(§21 -- ContinuityState.step()은 decel_rate/ctrl_end/margin에
+의존하지 않음, 코드로 확인).
+
+**작업 -- 신규 toolkit 스크립트**: 301차(`sim_route_301_lost_boundary_
+trace.py`)가 이미 정확히 이 목적(lost 발생 시점 A/B 경계 추적)의
+도구였으나 `ROUTE_IDS`가 route1~4로 하드코딩돼 있고 298차 qcamera
+`classification.md`를 필수 인자로 요구해 다른 corpus에 바로 못 씀
+(§21 확인 후 새로 안 만들고 얇은 어댑터만 작성 -- 아래 toolkit 참고).
+`sim_route_346_lost_freq_single_route.py` 신규 -- 301/300/296차의
+`build_stream`/`trace_lost_events`/`run_route`/`ActualLayer`를 전부
+무변경 import, (a) route_active 여부와 무관하게 continuity 스트림
+전체에서 `mode=="lost"` 빈도 + 그 시점 `apex_dist>0` 비율, (b) 301차와
+동일한 "강제 RELEASE로 이어진 lost" 서브셋 집계 2가지를 출력.
+
+**핵심 결과(x20seg, 18,333개 naviPaths 유효 프레임)**:
+- **mode=="lost" 전체 88건, 그 중 100%(88/88)가 lost 선언 시점
+  `apex_dist>0`(=아직 물리적으로 apex를 통과하지 않은 상태)** --
+  continuity 설계(passed는 predicted<=0일 때만, lost는 miss_frames
+  초과일 때만 선언)가 보장하는 대로 실측에서도 정확히 재현됨. 즉
+  "lost는 정의상 apex 미통과 상태에서만 발생한다"는 전제가 이 corpus
+  전체에서 예외 없이 성립.
+- **강제 RELEASE(route_active 중 lost로 종료) 이벤트는 0건**(가정
+  파라미터 decel_rate=0.70/ctrl_end=8.0/factor=1.10 기준, 다른 조합
+  1.00/7.0 등으로 스윕해도 동일하게 0건 -- route_active 자체는
+  864/18333 프레임에서 True였음에도 그 종료 사유가 이 corpus에서는
+  전부 speed_reached 또는 dist_reached였고 lost가 겹친 경우가 없었음).
+  이는 300차가 route1~4에서 15/15 강제 RELEASE=lost를 찾은 것과
+  대조적 -- **corpus(주행 상황)에 따라 이 패턴의 발생 여부가 크게
+  달라짐을 시사**(단일 route 결과이므로 일반화 금지, §28).
+- **"lost -> 짧은 시간 후 재활성" 패턴 자체는(강제 RELEASE와 무관하게)
+  뚜렷하게 존재**: 88건 중 15건(17%)은 같은 프레임에 즉시 새 apex를
+  재획득(mode=="new"), 87/88건(99%)이 1초 이내에 `new`/`matched`로
+  복귀, 5초 이내 전혀 재획득 못한 경우는 1건뿐. 즉 이 corpus의 lost는
+  대부분 짧은 순간(<1초)의 candidate 추적 끊김이며, ChatGPT가 앞서
+  제기한 "lost -> release -> 짧은 시간 후 재활성" 우려의 전반부
+  (재활성 자체는 빠르게 일어남)는 실측으로 뒷받침됨. 다만 이번 corpus는
+  강제 RELEASE 표본이 0건이라 "그 재활성이 실제 route_active 재진입 및
+  제어 개입으로까지 이어지는지"는 이 로그만으로는 확인 불가(다음 단계
+  과제).
+
+**검증**:
+- 정적 분석: `py_compile` 통과(신규 스크립트).
+- 재현성: 23,776행 재추출 일치(344차 대비) 확인.
+- 로그 검증: 위 수치는 이 x20seg 1개 corpus 직접 재생 결과(대체/재구현
+  없이 296/300/301차 기존 함수 그대로 재사용).
+- 실차 검증: 미실시(오프라인 로그 재생 한정, §29).
+
+**한계(§28)**: (1) 단일 corpus(x20seg) 결과 -- route1~4(300/301차)와
+상반된 "강제 RELEASE 0건"이 x20seg 고유 특성(도심 저속 주행 위주)인지
+표본 우연인지 추가 corpus로 확인 필요. (2) `MapTurnSpeedFactor`/
+`AutoNaviSpeedCtrlEnd`/`AutoNaviSpeedDecelRate`는 이 x20seg 촬영
+시점의 실제 값을 확인하지 못해 297차가 route1~4에 썼던 값(1.10/8.0/
+0.70)을 가정치로 그대로 사용 -- (a) 결과(전체 lost 빈도/dist>0 비율)는
+이 값들에 의존하지 않아 영향 없음(ContinuityState 자체가 무의존),
+(b)(강제 RELEASE 서브셋)는 파라미터 스윕(0.70~1.00, 7.0~8.0)으로도
+결과가 바뀌지 않아(전부 0건) 이 한계가 (b) 결론을 뒤집을 가능성은
+낮다고 판단하나 완전히 배제하지는 않음.
+
+**미확인/남은 것**:
+- route1~4 외 다른 corpus(예: 최신 x18seg, 오늘자 다른 로그)로 "강제
+  RELEASE=lost" 발생 빈도가 corpus마다 얼마나 다른지 추가 확인.
+- 이번 corpus에서 발견한 87/88건의 "1초 이내 재활성"이 route_active
+  자체의 재진입(INERT->ACTIVE 게이트 재통과)으로 이어지는지 개별
+  사례 트레이스(301차 방식) 필요.
+- 이 x20seg 로그의 실제 촬영 시점 Params 값(MapTurnSpeedFactor 등)
+  확인 -- `params_backup.json`류가 있으면 대조.
+
+**Devnotes**:
+- 신규 toolkit: `sim_route_346_lost_freq_single_route.py` (README/
+  CHANGELOG 갱신, 아래 참고)
+- WIP/FINDINGS: 이 항목 (patch로 전달, §18 -- WIP.md/FINDINGS.md 모두
+  1MB 초과 append-only 파일이라 전체 재전송 대신 diff 기반 patch 우선)
+
+**다음 작업**:
+1. 343차(`speed_reached` 제거) 실차 검증 -- 여전히 최우선(345차와
+   동일 순위, 변경 없음)
+2. 다른 corpus로 "강제 RELEASE=lost" 빈도 재확인(route1~4처럼 이
+   패턴이 실제로 나타나는 corpus인지, x20seg처럼 0건인 corpus인지)
+3. 87/88건의 빠른 재활성이 route_active 재진입까지 이어지는지 개별
+   사례 트레이스
+4. CPU 개선후보 6건 패치는 여전히 1(실차검증) 완료 후로 보류
+
 ## 345차 (완료 -- ANALYSIS_ONLY, `ryu` 코드 무변경) -- 344차 정적 분석 결과에
 대한 ChatGPT 독립 재검증 + 상호 교차검증, CPU 효율성 개선 후보 6건 확정
 (코드 수정은 343차 실차 검증 완료까지 보류)

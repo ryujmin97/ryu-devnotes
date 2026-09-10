@@ -1,3 +1,43 @@
+## 346차 -- [실측 확인] x20seg corpus에서 `apex_mode==lost AND apex_dist>0` 빈도: 88건 전부 apex_dist>0, 강제 RELEASE=lost는 0건(route1~4의 15건과 대조), 99%가 1초 이내 재활성
+
+**배경**: 345차 "다음 작업" 2번 -- `apex_mode==lost AND apex_dist>0`
+패턴이 기존 실측 corpus에 실제로 존재하는지 재분석. 사용자가 실차
+로그가 아직 없다고 해 x20seg(`000003d4--59a8ae5773`, 344차와 동일
+route 재업로드, 23,776행 재현 확인) corpus로 진행.
+
+**결과**:
+1. **continuity 설계 전제 재확인**: `_route_cluster_continuity_step()`은
+   "passed"를 predicted<=0(물리적 통과)일 때만, "lost"를 miss_frames
+   초과일 때만 선언한다 -- 즉 "lost"는 정의상 apex 미통과 상태에서만
+   나올 수 있다. 이 x20seg corpus에서 mode=="lost" 88건 전부(100%)
+   `apex_dist>0` 시점에 발생해 이 설계 전제가 실측으로도 예외 없이
+   성립함을 확인.
+2. **강제 RELEASE(route_active 중 lost로 종료)는 이 corpus에서 0건** --
+   300차가 route1~4 corpus에서 찾은 "15/15 강제 RELEASE=lost"와 정반대
+   결과. route_active 자체는 864/18333 프레임에서 True였지만, 그
+   종료 사유가 전부 speed_reached/dist_reached였고 lost와 겹친 경우가
+   없었다. `AutoNaviSpeedDecelRate`/`AutoNaviSpeedCtrlEnd` 가정치를
+   0.70/8.0~1.00/7.0으로 스윕해도 0건 불변 -- 파라미터 가정 오차로
+   설명되지 않는 corpus 간 실제 차이로 판단(§28, 두 corpus 모두
+   1회씩만 관측된 것이므로 어느 쪽이 "전형적"인지는 추가 corpus 필요).
+3. **"lost -> 짧은 재활성" 패턴은 뚜렷이 존재**: 88건 중 15건(17%)이
+   같은 프레임에 즉시 재획득(mode=="new"), 87/88건(99%)이 1초 이내
+   `new`/`matched`로 복귀, 5초 이내 미재획득은 1건뿐. ChatGPT가 제기한
+   우려(짧은 시간 후 재활성)의 "재활성 자체는 빠르다"는 부분은 실측
+   지지되나, 이번 corpus는 강제 RELEASE 표본이 0건이라 "재활성이 실제
+   route_active 재진입/제어개입으로 이어지는가"는 미확인.
+
+**한계(§28)**: 단일 corpus(x20seg) 결과 -- route1~4와의 차이가 corpus
+고유 특성(도심 저속 위주 주행)인지 우연인지 추가 corpus 없이는 판단
+불가. 이 로그의 실제 촬영시점 Params 값(MapTurnSpeedFactor 등) 미확인,
+297차가 route1~4에 썼던 값(1.10/8.0/0.70)을 가정치로 사용(단, (1)/(3)
+결과는 이 값에 의존하지 않는 continuity 분류 자체이므로 영향 없음,
+(2)만 가정치 의존 -- 스윕으로도 결론 불변 확인).
+
+**실차 검증**: 미실시(오프라인 로그 재생 한정, §29).
+
+---
+
 ## 344차 -- [실측 확인] 사용자 질문 두 시나리오(리드차량 서행/정지 중 route 상태, 좌회전 apex+신호대기 정지) 실차 로그 확인 + 재업로드 로그가 343차 패치 미반영(구코드) 상태로 기록됐음을 git 메타데이터+텔레메트리 이중 확인
 
 **배경**: 직전 대화에서 "route ACTIVE 중 앞차 서행/신호로 현재속도<

@@ -5603,6 +5603,39 @@ routeSource 컬럼 필요, 182차 이후 로그면 전부 포함됨).
 **사용**: `python3 sim_route_304_navipaths_gap_audit.py <route.csv>
 [--min-gap 1.0]`
 
+## sim_route_346_lost_freq_single_route.py (346차, 신규 — 301차를 임의 단일 route에 적용하는 어댑터)
+**목적**: 345차 "다음 작업" 2번(`apex_mode==lost AND apex_dist>0` 빈도
+재분석)을 위해 301차(`sim_route_301_lost_boundary_trace.py`)의
+`build_stream`/`trace_lost_events`/`run_route`를 무변경 재사용(§21)하되,
+301차가 `ROUTE_IDS`(route1~4 하드코딩)+298차 `classification.md` 필수라
+다른 corpus에 못 쓰던 제약을 풀었다. `--csv` 인자로 임의 단일 route CSV를
+받고, qcamera 라벨링은 하지 않는다(다른 corpus엔 애초에 정답 라벨이 없음).
+
+**출력 2가지**: (a) continuity 스트림 전체(route_active 여부 무관)에서
+`mode=="lost"` 빈도 + 그 시점 `pre_locked_dist>0`(=apex 미통과) 비율 --
+`ContinuityState.step()`이 decel_rate/ctrl_end/margin에 의존하지 않으므로
+파라미터 가정과 무관하게 신뢰 가능. (b) 301차와 동일한 "route_active 중
+lost로 강제 RELEASE"된 서브셋 집계(이쪽은 `AutoNaviSpeedDecelRate`/
+`AutoNaviSpeedCtrlEnd` 가정치에 의존 -- corpus별 실제값 확인 권장).
+
+**346차 실측 결과(x20seg, `000003d4--59a8ae5773`, 18333 naviPaths 프레임)**:
+mode=="lost" 88건, 100%가 apex_dist>0 시점에 발생(continuity 설계 전제
+재확인). 강제 RELEASE=lost는 0건(route1~4의 15/15와 대조 -- corpus별
+차이, 일반화 금지). 87/88건(99%)이 1초 이내 `new`/`matched`로 재활성 --
+"짧은 재활성" 패턴 자체는 뚜렷이 존재하나, route_active 재진입까지
+이어지는지는 이 스크립트 범위 밖(다음 세션 과제).
+
+**사용**:
+```bash
+python3 sim_route_346_lost_freq_single_route.py --csv <extract_log.py \
+    --with-navi-paths CSV> [--map-turn-speed-factor 1.10] \
+    [--ctrl-end 8.0] [--decel-rate 0.70] [--persistence-horizon 5.0]
+```
+**의존성**: `sim_route_301_lost_boundary_trace.py`,
+`sim_route_300_release_boundary_counterfactual.py`(import만, 로직 무변경).
+
+---
+
 ## sim_route_334_local_merge_parity_trace.py (334차)
 **목적**: `route_local_curve_merge()` offline replay 예측이 x18seg
 실측 corpus 전체에서 실측 텔레메트리와 구조적으로 반대로 갈리는 불일치
