@@ -29,6 +29,12 @@ sm['carrotMan'].desiredSpeed)`로 순항 목표속도에 직접 반영),
 `activeCarrot`/`xDistToTurn`(L274-275, hudControl) 전부를
 `alive` 체크 없이 그대로 사용**. `controls/lib/lateral_planner.py:101`
 (`self.curve_speed = sm['carrotMan'].vTurnSpeed`)도 동일하게 무방비.
+**[358차 계속3 addendum]** 아래 6번 구현 범위에는 `activeCarrot`/
+`xDistToTurn`(hudControl, L274-275)이 포함되지 않음 -- 이 둘은 계기판
+표시(HUD)용 데이터로 종방향/횡방향 제어 입력이 아니라 stale해도
+운전에 즉각 영향 없는 낮은 우선순위 항목으로 판단해 이번 범위에서
+의도적으로 제외(누락 아님). 필요시 별도 세션에서 동일 패턴으로 추가
+가능.
 
 ### 2. 핵심 발견 -- `alive['carrotMan']`는 구조적으로 상시 True
 `cereal/services.py:84`:
@@ -297,13 +303,24 @@ helper 모듈 신설 없이 §27 최소변경, `soundd.py:71` 선례 재사용):
 **패치**: `0001-358cha-carrotman-E-prime-5-consumers.patch`
 (base `40ed6d9`, `ryu` 저장소 대상).
 
+**push 완료 확인**: 사용자가 `git am`(`apply --check`는 실패했으나
+`git am`은 성공 -- 로컬 `am.threeWay` 설정으로 인한 blob-hash 기반
+3-way 적용으로 추정, §8에 따라 push 보류하고 결과 검증) -> push까지
+완료(`origin/c3-ms-dev` `40ed6d9..bee58b4`). **[358차 계속3 addendum]**
+push 직후 원격 `bee58b4`를 별도 fresh clone해 5개 파일 전부를 원본
+작업사본과 바이트 단위 `diff`로 재대조 -- 5/5 파일 완전 일치(`git am`의
+3-way 적용 경로가 실제로 안전했음을 사후 확인).
+
 **남은 것**:
 - 실차 검증(패치 적용 후 정상 부팅 확인이 최우선, 그 다음 `desiredSpeed`/
   `vTurnSpeed` fallback이 실제로 발동하는 상황 재현 가능하면 확인).
 - `CARROT_MAN_STALE_S=1.5`는 provisional -- 실제 `sleep(1)` 발현 corpus
-  확보 후 재평가(위 5번 한계 인지 문단 참고, 폐기 대상 아님).
+  확보 후 재평가(위 5번 한계 인지 문단 참고, 폐기 대상 아님). 값은
+  PARAMS_REGISTRY.md에 신규 등록(§26).
 - B/C/D안(`broadcast_version_info()` try 격리, `sleep(1)` 단축 등)은
   E'와 병행 가능한 별개 개선으로 이번에 다루지 않음(보류 유지).
+- `hudControl.activeCarrot`/`xDistToTurn`(controlsd.py L274-275)은 위
+  addendum대로 이번 범위에서 의도적 제외(HUD 표시용, 낮은 우선순위).
 
 ---
 

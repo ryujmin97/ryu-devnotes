@@ -79,6 +79,12 @@
 | `model_turn_speed_min_recent` + `model_turn_recover_margin=3.0km/h` [NEW, 50차] | 3.0 km/h | 트레일링 판정 기준선. 최근 확인된 model_turn_speed 최저점(min_recent) 대비 이 폭 이상 지속 회복돼야 트레일링으로 확정(carrot_serv.py, 50차 커밋 `74e8e90`) | **NEEDS_VALIDATION (2026-08-23, 50차)**: route1(203f99d429 seg8) 재현 시뮬레이션으로 apex 사전감속 여유시간이 3초 미만→20초+로 확대됨을 확인(work/replay_vturn2.py 기반 스크래치). **단 같은 로그 전수 스캔 결과 전체 프레임의 98.8%에서 model이 min() 후보로 참여 — 진짜 평탄한 직선 고속도로에서도 이 비율이 유지되는지 검증 로그 부재로 미확인. 실차 테스트 시 직선 구간 불필요 감속 여부 최우선 확인 필요.** 실차 미검증. |
 | model 후보 게이트 `abs(vturn_speed) < 120` | [REMOVED, 50차] | model_turn_speed를 min() 후보에 넣을지 여부의 추가 조건이었음(carrot_serv.py L1051, 13차 `119b101`에서 model↔vturn 플리커 감소 목적으로 도입) | **REMOVED (2026-08-23, 50차, 커밋 `74e8e90`)** — 46차에서 NEEDS_VALIDATION으로 지목됐던 위험(vturn 원시값이 원거리에서 극도로 불안정(-249~249 관측)해 model의 안정적 조기신호를 반복 차단)이 route1(203f99d429 seg8) 로그로 재확인됨에 따라 제거. 트레일링 판정(위 항목)이 자체적으로 진입/이탈을 구분하므로 vturn 절대값 게이트는 더 이상 필요 없다고 판단. **실차 미검증, 직선구간 오탐 위험 최우선 확인 필요.** |
 
+## carrotMan 0Hz staleness 로컬 체크 (E', 358차) — 5개 파일 공통 상수
+
+| 상수 | 현재값 | 용도 | 검증상태 |
+|---|---|---|---|
+| CARROT_MAN_STALE_S | 1.5s (provisional) | `sm.recv_time['carrotMan']` 기반 freshness 판정 임계값. `carrotMan`이 `cereal/services.py`에 0Hz(on_demand) 등록돼 있어 `sm.alive['carrotMan']`이 구조적으로 상시 True인 문제(356차 발견) 대응 — capnp 필드/`services.py` 변경 없이 5개 소비처(`controls/controlsd.py` L191/L264, `controls/lib/lateral_planner.py` L101, `car/cruise.py` L291, `selfdrived.py` L251, `carrot_functions.py` L442)에 각각 로컬 상수로 중복 정의(공유 helper 모듈 신설 없음, §27 최소변경). 값을 바꾸려면 5개 파일 전부 함께 수정 필요 | **NEEDS_VALIDATION** (2026-09-11, 358차 계속3 구현/패치전달/push 완료, origin/c3-ms-dev `bee58b4`). 근거: 정상 발행 gap 실측(x19seg/x20seg corpus, 358차 계속2) max 0.086s/p99 0.066s로 1.5s와 충분히 분리, 1.0s는 `sleep(1)` 예외복구 지연과 경계가 겹쳐 회피. **실제 `sleep(1)` 발현 사례로 도출된 값이 아닌 이론적 안전마진 기반 잠정값** — 발현 corpus 확보 후 재평가 예정(폐기 대상 아님). 실차 검증: 미실시(다음 세션 최우선 확인 사항, CURRENT_STATUS.md 참고) |
+
 ## selfdrive/carrot/carrot_man.py
 
 | 상수 | 현재값 | 용도 | 검증상태 |
