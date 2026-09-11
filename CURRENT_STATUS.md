@@ -10,39 +10,53 @@ append-only 원칙 적용 안 함 -- 항상 최신 1개 스냅샷만 유지).
 
 ---
 
-## 코드 상태 (2026-09-11, 358차 계속2 종료 시점)
+## 코드 상태 (2026-09-11, 358차 계속3 종료 시점)
 
 **Repository**: `ryujmin97/ryu`
 **Branch**: `c3-ms-dev`
 **HEAD (GitHub 기준, fresh clone으로 이번 세션 직접 확인)**: `40ed6d9`
-(357차 계속2, `send_routes()` 도달불가 dead-code 제거). 358차/358차
-계속/358차 계속2는 전부 ANALYSIS_ONLY -- 코드 변경 없음, 드리프트 없음.
+(357차 계속2, `send_routes()` 도달불가 dead-code 제거). **358차 계속3에서
+`ryu`에 실제 코드 변경 패치 생성/검증 완료 -- 아직 사용자 로컬 적용/push
+전(패치 미반영 상태, 아래 참고).**
 
 **Repository**: `ryujmin97/ryu-devnotes`
 **Branch**: `main`
-**HEAD (fresh clone으로 이번 세션 직접 확인)**: `7f80ac7`(358차 계속,
-carrotMan E' 설계 확정 checkpoint)까지 push 완료 확인. 이번(358차
-계속2) devnotes 갱신(WIP/FINDINGS/이 파일)은 이 세션 종료 후 push
-대기 중.
+**HEAD (fresh clone으로 이번 세션 직접 확인)**: `74aeba3`(358차 계속2)
+까지 push 완료 확인. 이번(358차 계속3) devnotes 갱신(WIP/FINDINGS/이
+파일)은 이 세션 종료 후 push 대기 중.
 
 ---
 
-## ✅ 358차/358차 계속/358차 계속2 진행 상황 -- `carrotMan` 0Hz staleness 보호
+## ⏳ 358차~358차 계속3 진행 상황 -- `carrotMan` 0Hz staleness 보호(E') -- 코드 구현 완료, 실차 반영 대기
 
 356차가 발견한 "`alive['carrotMan']`가 구조적으로 상시 True"(0Hz 등록
-+ 실제 20Hz 발행 불일치) 문제에 대해:
-- 대응 방향 **E'**(소비처 5곳에 `recv_time['carrotMan']` 기반 로컬
-  staleness 체크 추가, capnp 필드 추가 불필요) 확정.
-- `desiredSpeed` capnp 기본값 0으로 인한 부팅 직후 latent 위험 신규
-  발견(E' 구현 시 함께 해소 가능).
-- 실차 corpus 2건(x19seg/x20seg, 총 39세그)으로 `carrotMan` 발행
-  간격 실측 -- 정상 gap 극도로 안정적(max 0.086s), 이번 corpus
-  기간 중 예외 recovery(`sleep(1)`) 사례 0건.
-- **남은 것**: `CARROT_MAN_STALE_S` 확정값(이론적 worst-case 기반
-  안전마진 방식 vs. 예외 발생 corpus 추가 확보 대기, 둘 중 사용자
-  결정 필요) -> 이후 소비처 5곳 코드 구현.
++ 실제 20Hz 발행 불일치) 문제에 대해 E'(소비처 5곳 `recv_time` 기반
+로컬 staleness 체크, capnp 필드 추가 불필요)로 설계 확정 후, 358차
+계속3에서 실제 코드 구현 및 패치 생성/검증까지 완료:
 
-상세: WIP.md 358차/358차 계속/358차 계속2, FINDINGS.md 358차 참고.
+- `controls/controlsd.py`(L191 `vTurnSpeed`/L264 `desiredSpeed`),
+  `controls/lib/lateral_planner.py`(L101 `vTurnSpeed`),
+  `car/cruise.py`(L291), `selfdrived.py`(L251),
+  `carrot_functions.py`(L442) 5개 파일 수정.
+- `CARROT_MAN_STALE_S = 1.5`(provisional, 사용자 결정) -- 파일별 로컬
+  상수, 공유 helper 모듈 신설 없음.
+- `desiredSpeed` capnp 기본값 0 부팅 직후 latent 위험도 이번 fallback
+  으로 함께 해소.
+- 패치 파일: `0001-358cha-carrotman-E-prime-5-consumers.patch`
+  (base `40ed6d9`). §6 절차(throwaway clone -> `git apply --check` ->
+  `git am` -> `py_compile`) 전부 통과 확인.
+- **실차 검증: 미실시** -- 사용자가 패치 적용/push 후 다음 세션
+  최우선으로 확인 필요(정상 부팅 여부가 최우선).
+
+**남은 것**:
+1. 사용자 패치 적용 -> push -> 실차 재부팅/주행으로 정상 동작 확인
+2. `CARROT_MAN_STALE_S=1.5`는 provisional -- 실제 `sleep(1)` 발현
+   corpus 확보 후 재평가(폐기 대상 아님)
+3. B/C/D안(`broadcast_version_info()` try 격리 등, E'와 병행 가능한
+   별개 개선)은 이번에 다루지 않음, 보류 유지
+
+상세: WIP.md 358차/358차 계속/358차 계속2/358차 계속3, FINDINGS.md
+358차(6번 항목) 참고.
 
 ---
 
@@ -289,10 +303,13 @@ route_active 재진입은 7/7건 전부 결국 발생하나(무제한 탐색 기
 
 ---
 
-*최종 갱신: 357차 계속2 (Claude). `send_routes()` 도달불가 dead code
-제거 패치전달 완료(실차검증은 미실시, 우선순위 낮음) -- 이 항목
-사실상 종결. 다음 세션은 이 파일 상단을 읽고, 남은 후보(20Hz
-메인루프 try-except 구조 / vturn_speed alive AND 조건 /
-server/core.py NameError) 중 우선순위를 사용자와 결정할 것. WIP.md
-최신 회차("357차 계속2")로 상세 맥락 보충. `ryu`에 `82ff5d7`(로컬
-해시) push 대기 중임을 다음 세션 최우선 확인.*
+*최종 갱신: 358차 계속3 (Claude). `carrotMan` 0Hz staleness 보호(E')
+코드 구현 완료, 패치 생성/검증(§6/§7) 완료, 사용자 로컬 적용/push/실차
+반영 대기. 다음 세션은 이 파일 상단을 읽고 **실차 검증 결과부터
+최우선 확인**할 것(패치 적용 여부 -- `git log`에 이번 커밋 메시지
+"358cha: carrotMan 0Hz staleness local check" 존재 여부로 판별 가능,
+정상 부팅 여부, fallback 발동 여부). 그 다음 357차 계속2가 남긴
+이월 후보(20Hz 메인루프 try-except 구조 / vturn_speed alive AND 조건 /
+server/core.py NameError, CPU 정량 실측)와 `CARROT_MAN_STALE_S`
+재평가 중 우선순위를 사용자와 결정. WIP.md 최신 회차("358차 계속3")로
+상세 맥락 보충.*

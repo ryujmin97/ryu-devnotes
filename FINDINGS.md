@@ -1,4 +1,4 @@
-## 358차 -- [CONFIRMED_STRUCTURAL, NEEDS_USER_DECISION] `carrotMan` 0Hz 서비스 등록으로 인한 alive/timeout 감지 결함 + 20Hz 메인루프 단일 try-except 결합 리스크 (356차 ③ 후속, `ryu` 코드 무변경)
+## 358차 -- [CONFIRMED_STRUCTURAL, E' 구현+패치전달 완료(358차 계속3), NEEDS_REAL_VEHICLE_VALIDATION] `carrotMan` 0Hz 서비스 등록으로 인한 alive/timeout 감지 결함 + 20Hz 메인루프 단일 try-except 결합 리스크 (356차 ③ 후속)
 
 **배경**: CURRENT_STATUS.md 357차 계속2가 남긴 이월 후보 중 ③(20Hz
 메인루프 `broadcast_version_info()` 전체가 단일 try-except, 예외 1건
@@ -239,9 +239,71 @@ alive/FrequencyTracker 로직 포함) 완료. 로그 분석 완료(위 5번, cor
 2건, `measure_carrotman_publish_gap.py` 신규 작성 + 실행). 시뮬레이션
 해당 없음. 실차 검증: 코드 미수정(ANALYSIS_ONLY 유지)이라 해당 없음.
 
-**다음 작업**: `CARROT_MAN_STALE_S` 임계값 결정(위 (a)/(b) 중 선택) ->
+**다음 작업**: ~~`CARROT_MAN_STALE_S` 임계값 결정(위 (a)/(b) 중 선택) ->
 결정 후 소비처 5곳 코드 구현(§27 최소변경 -- 5개 파일 개별 패치가 될
-가능성 높음).
+가능성 높음).~~ -- **358차 계속3에서 진행**, 아래 6번 참고.
+
+### 6. E' 구현 완료 (358차 계속3) -- 소비처 5곳 코드 반영, 패치전달 완료
+
+사용자가 (a)안 채택: `CARROT_MAN_STALE_S = 1.5`(provisional threshold,
+실차 `sleep(1)` 발현 corpus 확보 전 잠정값, 확보 후 재평가 예정)로 지금
+구현 진행, 정상 gap(max 0.086s)과 충분히 분리되고 1.0s는 `sleep(1)`
+경계와 겹쳐 회피한다는 근거로 결정.
+
+**세션 시작 확인(§3/§33)**: 구현 전 fresh clone(`ryu` `40ed6d9`, `ryu-
+devnotes` `74aeba3`)으로 드리프트 없음 재확인 + 위 4번 설계표 대로 5개
+소비처 코드가 그대로인지 재대조(변경 없음 확인) 완료.
+
+**변경 내용** (base `40ed6d9`, 전부 `sm.recv_time['carrotMan'] > 0 and
+(time.monotonic() - sm.recv_time['carrotMan']) < CARROT_MAN_STALE_S`
+패턴, `CARROT_MAN_STALE_S = 1.5`를 파일별 로컬 상수로 정의 -- 공유
+helper 모듈 신설 없이 §27 최소변경, `soundd.py:71` 선례 재사용):
+
+- `controls/controlsd.py` L191(`state_control`): `vTurnSpeed` stale 시
+  `curve_speed_abs = 0.0`.
+- `controls/controlsd.py` L264(`publish`): `desiredSpeed` stale 시
+  `desired_kph = CS.vCruiseCluster`(기존 4번 설계에서 확인한 대로
+  `longitudinalPlan.speeds`가 비어있을 때만 실제 영향, 비어있지 않으면
+  바로 다음 줄에서 `setSpeed`가 덮어써짐 -- 충돌 없음 재확인). 부수효과로
+  `desiredSpeed` capnp 기본값 0 부팅 직후 latent 위험(위 358차 원 항목
+  5번)도 이번 fallback으로 함께 해소됨(`recv_time==0`도 stale 취급).
+- `controls/lib/lateral_planner.py` L101: `vTurnSpeed` stale 시
+  `self.curve_speed = 0.0`.
+- `car/cruise.py` L291: `if sm.alive['carrotMan']:` ->
+  `if carrotman_fresh:`. else 분기 신규 작성 없음 -- 기존 구조 그대로
+  "직전 값 유지" semantics 재현(설계 5번 확인대로).
+- `selfdrived.py` L251: `if self.sm.alive['carrotMan']:` ->
+  `if carrotman_fresh:`. 이벤트 처리 skip 구조 동일 유지.
+- `carrot_functions.py` L442: `if sm.alive['carrotMan']:` ->
+  `if carrotman_fresh:`. `atcType`/`trafficState` 처리 skip 구조 동일
+  유지.
+
+`cereal/services.py`/`cereal/custom.capnp`/`carrot_man.py`/
+`carrot_serv.py` 전부 무변경(원래 E' 설계대로 capnp 필드 추가 없음).
+
+**검증**:
+- 정적 분석: 완료 -- 5개 파일 `py_compile` 통과, 잔여
+  `alive['carrotMan']` 0건 grep 확인.
+- 패치 검증(§6): throwaway clone(fresh, 원격 `40ed6d9` 직접 clone) 기준
+  `git apply --check` -> `git am` -> `py_compile` 전부 통과, 검증 후
+  throwaway clone 삭제. 패치 생성/검증 사이 원격 HEAD 변동 없음(§7,
+  `40ed6d9` 그대로) 재확인.
+- 로그 분석: 해당 없음(이번은 코드 구현, 로그 재분석 불필요).
+- 시뮬레이션: 해당 없음.
+- **실차 검증: 미실시** -- 사용자가 패치 적용/push 후 실차 부팅 시
+  crash 없음 확인 + (가능하면) 의도적 `carrotMan` 지연/중단 상황에서
+  fallback 동작 확인 필요.
+
+**패치**: `0001-358cha-carrotman-E-prime-5-consumers.patch`
+(base `40ed6d9`, `ryu` 저장소 대상).
+
+**남은 것**:
+- 실차 검증(패치 적용 후 정상 부팅 확인이 최우선, 그 다음 `desiredSpeed`/
+  `vTurnSpeed` fallback이 실제로 발동하는 상황 재현 가능하면 확인).
+- `CARROT_MAN_STALE_S=1.5`는 provisional -- 실제 `sleep(1)` 발현 corpus
+  확보 후 재평가(위 5번 한계 인지 문단 참고, 폐기 대상 아님).
+- B/C/D안(`broadcast_version_info()` try 격리, `sleep(1)` 단축 등)은
+  E'와 병행 가능한 별개 개선으로 이번에 다루지 않음(보류 유지).
 
 ---
 

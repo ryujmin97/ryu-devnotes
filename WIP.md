@@ -1,3 +1,59 @@
+## 358차 계속3 (완료 -- 코드 구현+패치전달 완료, 실차검증 대기) -- `carrotMan` 0Hz staleness 보호 E' 구현 (358차 계속2 후속)
+
+**Worker**: Claude
+
+**Repository**: `ryu`(base `40ed6d9`=357차) / `ryu-devnotes`(base
+`74aeba3`=358차 계속2)
+
+**Branch**: `c3-ms-dev` / `main`
+
+**세션 시작 확인(§3/§33)**: fresh clone으로 `ryu` HEAD `40ed6d9`(357차,
+드리프트 없음), `ryu-devnotes` HEAD `74aeba3`(358차 계속2) 직접 확인.
+사용자가 별도 세션(ChatGPT/지선생)에서 전달한 진행 보고 내용을 fresh
+clone으로 재검증 -- `CURRENT_STATUS.md`/`FINDINGS.md`/5개 소비처 코드
+전부 보고 내용과 일치, 드리프트 없음 확정 후 착수.
+
+**배경**: 358차 계속2가 남긴 "`CARROT_MAN_STALE_S` 값 결정 후 소비처
+5곳 코드 구현" 중 값 결정이 필요했음. 사용자가 (a)안(1.5s 후보값으로
+지금 구현, 실차 로그로 추후 튜닝) 채택 -- 정상 gap(max 0.086s)과 충분히
+분리되고 1.0s는 `sleep(1)` 복구 지연과 경계가 겹쳐 회피한다는 근거.
+
+**진행 경과**:
+1. 구현 전 최종 코드 재확인 -- 4번 설계표(FINDINGS.md 358차 계속)의
+   5개 소비처가 여전히 그대로임을 `40ed6d9` fresh clone에서 재대조.
+2. `controlsd.py` L191/L264, `lateral_planner.py` L101, `cruise.py`
+   L291, `selfdrived.py` L251, `carrot_functions.py` L442 수정 --
+   상세는 FINDINGS.md 358차 6번 항목 참고. 각 파일에 로컬 상수
+   `CARROT_MAN_STALE_S = 1.5` 정의(공유 helper 모듈 신설 없음, §27).
+3. `desiredSpeed`/`vTurnSpeed` fallback이 `longitudinalPlan`/기존
+   "직전값 유지" semantics와 충돌하지 않음을 코드로 재확인(설계 4/5번
+   질문 해소) -- 상세 FINDINGS.md 참고.
+4. §6 패치 검증 절차: 원격 fresh throwaway clone(`40ed6d9`) ->
+   `git apply --check` -> `git am` -> 5개 파일 `py_compile` 전부 통과.
+   검증 후 throwaway clone 삭제. 패치 생성/검증 사이 원격 HEAD 변동
+   없음(§7) 재확인.
+
+**검증**:
+- 정적 분석: 완료(위 1~3번)
+- 로그 분석: 해당 없음(코드 구현 세션)
+- 시뮬레이션: 해당 없음
+- **실차 검증: 미실시**(다음 세션/사용자 최우선 확인 사항 -- 패치 적용
+  후 정상 부팅 확인 최우선)
+
+**미확인 사항**:
+- 실차 부팅/주행 시 5개 소비처 fallback 정상 동작 여부
+- `CARROT_MAN_STALE_S=1.5`는 provisional -- 실제 `sleep(1)` 발현 corpus
+  확보 후 재평가 필요(폐기 대상 아님)
+
+**패치**: `0001-358cha-carrotman-E-prime-5-consumers.patch`
+(`ryu` 대상, base `40ed6d9`)
+
+**다음 작업**: 사용자가 패치 적용 -> `git am` -> push -> 실차 반영 후
+정상 부팅/주행 확인. 이후 `desiredSpeed`/`vTurnSpeed` fallback 발동
+상황(의도적 재현 가능하면) 및 `CARROT_MAN_STALE_S` 값 재평가.
+
+---
+
 ## 358차 계속2 (완료 -- corpus 실측 완료, 임계값 확정은 사용자 결정 대기, 코드 미수정) -- `carrotMan` 발행 간격(Δt) 실차 실측 (358차 계속 후속)
 
 **Worker**: Claude
