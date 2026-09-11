@@ -15,42 +15,49 @@ append-only 원칙 적용 안 함 -- 항상 최신 1개 스냅샷만 유지).
 
 ---
 
-## 코드 상태 (2026-09-12, 370차 종료 시점)
+## 코드 상태 (2026-09-12, 371차 종료 시점)
 
 **Repository**: `ryujmin97/ryu`
 **Branch**: `c3-ms-dev`
-**HEAD (GitHub 기준, fresh clone으로 370차 직접 확인)**: `d5b34bb6b358`
-(367차 계속4, `route_curvature_macro_fine()` 원거리(>=150m) fine 대체
-억제 게이트 `ROUTE_FINE_OVERRIDE_MIN_DIST_M=150.0` 추가).
-364~370차는 `ryu` 코드 변경 없음(analysis-only, offline replay/toolkit
-검증만). L1807 히스테리시스 설계(B3=hold=4프레임/0.20s)는 370차에서
-오프라인 검증 완료(FINDINGS.md/WIP.md 370차), 실제 코드 패치는 다음
-세션 이월.
+**HEAD (GitHub 기준, fresh clone으로 371차 직접 확인)**: `d5b34bb6b358`
+(367차 계속4, GitHub 저장소 자체는 아직 무변경 -- 371차 패치는 파일로만
+전달됨, 사용자 적용/커밋/push 대기). 패치 적용 시 반영될 변경: L1807
+(INERT, `v_ego_ms<=target_ms`)에 `ROUTE_L1807_HOLD_FRAMES=4`(0.20s)
+시간기반 디바운스 히스테리시스 추가(370차 Master 결정 B3 구현,
+`_route_apply_l1807_hold()` 신규 메서드, 게이트 산식 자체는 무변경).
+패치 파일: `0001-371-carrot_man.py-L1807-hold-4-0.20s.patch`(git-am
+호환, 별도 clone에 적용 재현 완료).
 
 **Repository**: `ryujmin97/ryu-devnotes`
 **Branch**: `main`
-**HEAD (fresh clone으로 370차 직접 확인)**: `da38309`(369차 완료
-시점)까지 push 완료 확인. 이번(370차) devnotes 갱신(WIP/FINDINGS/
-toolkit/이 파일)은 이 세션 종료 후 push 대기 중.
+**HEAD (fresh clone으로 371차 직접 확인)**: `e1a9f05`(370차 완료
+시점)까지 push 완료 확인. 이번(371차) devnotes 갱신(WIP/FINDINGS/
+이 파일)은 이 세션 종료 후 push 대기 중.
 
 ---
 
-## ⏳ 370차 완료 -- L1807 히스테리시스 설계 Master 결정(B3=hold=4프레임/0.20s) + 오프라인 정량검증(1프레임 토글 218건 전량 제거), `carrot_man.py` 실제 패치는 다음 세션
+## ⏳ 371차 완료 -- `carrot_man.py` L1807 hold=4(0.20s) 히스테리시스 실제 코드 패치 작성, 사용자 적용 대기
 
-369차가 남긴 "L1807 히스테리시스 설계 여부/방향" NEEDS_DECISION 항목에
-대해 사용자가 시간기반 hold=4프레임(0.20s)으로 확정(값 기반 margin은
-스파이크 크기가 케이스마다 다름 -- 341차 +1.6~5.6kph vs 369차 +8.1kph --
-확인돼 기각). `diag_required_decel_341.py`에 `--hold-frames` 옵션을
-추가(신규 스크립트 아님, §21/§27)해 `22ebbb245d` corpus(369차와 동일,
-3,296행)로 검증: raw(현재 코드) 1프레임 토글 218건 -> hold=4 적용 시
-**0건(100% 제거)**. run-length 분포(1~3프레임 요동이 전체의 85%)로
-hold=4가 hold=2/3보다 넓은 노이즈 대역을 걸러낸다는 근거도 확보.
-**주의**: L1807 조건만 격리 재현한 오프라인 근사, `carrot_serv.py`
-전체 arbitration 반영 아님(§29). 코드 수정 없음(§31, 다음 세션
-`carrot_man.py` L1807 패치 착수 예정). 상세: WIP.md/FINDINGS.md 370차 참고.
+370차가 남긴 "다음 작업 1"(L1807 hold=4 실제 코드 패치 작성)을 최소변경
+(§27)으로 구현: 신규 상수 `ROUTE_L1807_HOLD_FRAMES=4`, `__init__`
+상태 3개, 신규 메서드 `_route_apply_l1807_hold()` 추가, L1807 조건의
+raw bool을 이 메서드를 거친 확정값으로 교체하는 삽입 지점 한 곳만
+변경(나머지 게이트 산식 무변경). 이 알고리즘이 370차 오프라인 검증에
+쓰인 `toolkit/diag_required_decel_341.py`의 `apply_hold()`와 완전히
+동일한지 None 섞인 랜덤 시퀀스 200개로 대조 -> **200/200 일치**.
+`py_compile` 통과, 별도 fresh clone에 `git apply --check`+`git am`으로
+patch 적용 재현도 충돌 없이 완료.
 
-**다음 세션 최우선**: `carrot_man.py` L1807에 hold=4 실제 코드 패치
-작성, 341차 원 corpus(x20seg)로 반응지연 부작용 검증.
+**주의**: 이번 검증은 (a) 알고리즘 동등성(합성 시퀀스), (b) 문법/patch
+적용성까지이며, **이 패치가 적용된 실제 `carrot_man.py`로 370차
+corpus(`22ebbb245d`)를 재생(replay)해 218건->0건을 직접 재현하지는
+않았다** -- 알고리즘이 같다는 것과 실제 재생 결과가 같다는 것은 별개
+확인. 341차 원 corpus(x20seg) 기준 반응지연 부작용도 미검증(§29 실차
+검증 아님). 상세: WIP.md 371차/FINDINGS.md 370차 보강분 참고.
+
+**다음 세션 최우선**: (1) 패치 적용 후 `carrot_man.py`로 370차
+corpus 재생 -> 218건->0건 직접 재확인, (2) 341차 원 corpus(x20seg)로
+반응지연 부작용 검증.
 
 ---
 

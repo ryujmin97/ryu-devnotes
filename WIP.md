@@ -1,3 +1,57 @@
+## 371차 (완료 -- L1807 hold=4프레임(0.20s) 디바운스 히스테리시스 실제 코드 패치 작성 -- `ryu` 코드 패치 완료/사용자 적용 대기) -- 370차 Master 결정(B3)을 `carrot_man.py`에 최소변경으로 구현, 알고리즘 동등성 200/200 대조 확인
+
+**Worker**: Claude
+
+**Repository**: `ryu`(Base HEAD `d5b34bb6b358`=367차 계속4, dirty=False, 로컬 저장소 자체는 무변경 -- 패치는 별도 파일로 전달, 사용자 적용 대기) / `ryu-devnotes`(HEAD `e1a9f05`=370차 완료 시점, 이번 371차 devnotes 갱신은 이 세션 종료 후 push 대기)
+
+**Branch**: `c3-ms-dev` / `main`
+
+**세션 시작 확인(§3/§33)**: fresh clone으로 `ryu` HEAD `d5b34bb6b358` 확인(dirty=False, 367차 계속4 이후 무변경), `ryu-devnotes` HEAD `e1a9f05`(370차 완료, push 완료 상태) 확인. (참고: 사용자 측 이전 세션 기억은 훨씬 이전 checkpoint를 가리키고 있었으나, GitHub 실제 상태인 370차를 기준으로 진행함 -- §2.)
+
+**배경**: 370차가 남긴 "다음 작업 1"(`carrot_man.py` L1807에 hold=4 실제 코드 패치 작성) 착수.
+
+**진행 경과**:
+1. `carrot_man.py` L1807 주변(else 분기, INERT 3분기: `v_ego<=target`/`eff_dist<=0`/ACTIVE 진입 게이트) 직접 재확인 -- 370차 devnotes 설계와 정확히 대응하는 지점임을 확인.
+2. **최소변경 설계(§27)**: 신규 상수 `ROUTE_L1807_HOLD_FRAMES=4`(`ROUTE_RELEASE_HOLD_S` 옆에 추가), `__init__`에 상태 3개(`_route_l1807_hold_stable`/`_route_l1807_hold_pending_val`/`_route_l1807_hold_pending_len`) 추가, 신규 메서드 `_route_apply_l1807_hold()`(`_route_cluster_continuity_step()` 다음 위치) 추가. L1807의 raw 조건(`v_ego_ms<=target_ms`)을 이 메서드를 거친 `l1807_held`로 교체하는 삽입 지점 한 곳만 변경 -- `eff_dist<=0`/ACTIVE 게이트(`required_decel_mss>=autoNaviSpeedDecelRate`) 등 나머지 산식은 전혀 손대지 않음.
+3. 알고리즘은 `toolkit/diag_required_decel_341.py`의 `apply_hold()`(370차 오프라인 검증에 실제로 쓰인 그 함수)와 동일하게 구현 -- 단 실제 코드는 ACTIVE 중이거나 apex 자체가 없어 이 분기가 평가되지 않는 프레임에서는 메서드를 아예 호출하지 않아 상태(확정값/대기 카운터)가 그대로 보존되게 함(`apply_hold()`가 raw=None 프레임을 건너뛰는 것과 동일 의미).
+4. **알고리즘 동등성 검증**: `apply_hold()`(toolkit 원본)와 신규 클래스 메서드를 세션 내 독립적으로 재현, None이 섞인 무작위 bool 시퀀스 200개(길이 20~300)를 양쪽에 동일하게 흘려 비교 -- **200/200 완전 일치** 확인(§28 검증 단계, 실행 스크립트는 세션 임시 파일이라 devnotes엔 결과만 기록).
+5. `python3 -m py_compile selfdrive/carrot/carrot_man.py` 통과.
+6. `git format-patch`로 git-am 호환 patch(`0001-371-carrot_man.py-L1807-hold-4-0.20s.patch`) 생성 후, Base HEAD와 동일한 별도 fresh clone에 `git apply --check` + `git am`으로 실제 적용을 재현 -- 충돌 없이 적용, 적용된 코드로 `py_compile` 재확인 통과.
+
+**결론**: 370차 Master 결정(B3, hold=4프레임/0.20s)을 `carrot_man.py`에 최소변경으로 구현 완료. 게이트 산식 자체는 무변경이고 입력 bool 하나만 디바운스를 거치도록 삽입 지점을 한 곳으로 한정했으며, 370차 오프라인 검증에 쓰인 알고리즘과 완전히 동일함을 별도 대조로 확인. **단 이번 세션 검증은 (a) 알고리즘 동등성(합성 랜덤 시퀀스), (b) 문법/patch 적용성 확인까지이며, 370차 corpus(`22ebbb245d`)를 이 패치가 적용된 실제 `carrot_man.py`로 재생(replay)해 218건->0건을 직접 재현하지는 않았다** -- 알고리즘이 같다는 것과 실제 재생 결과가 같다는 것은 별개 확인이므로 다음 세션 최우선 과제로 남긴다. 341차 원 corpus(x20seg)의 반응지연 부작용도 여전히 미검증(§29).
+
+**코드 수정**: 완료(패치 파일로 전달, 사용자 적용/커밋/push 대기 -- §31). 변경 파일: `selfdrive/carrot/carrot_man.py` 1개(75줄 추가/1줄 삭제, 기존 코드 삭제는 라인 재배치로 인한 1줄뿐).
+
+**검증**:
+- 정적 분석: 완료(삽입 지점이 370차 설계와 정확히 대응하는지, 나머지 분기가 정말 무변경인지 diff로 직접 재확인)
+- 알고리즘 동등성: 완료(toolkit `apply_hold()` vs 신규 메서드, None 포함 랜덤 시퀀스 200/200 일치)
+- 문법: 완료(`py_compile`)
+- patch 적용성: 완료(별도 fresh clone에 `git apply --check` + `git am` 재현, 적용 후 재-`py_compile`)
+- 로그 재검증(이 패치 코드로 370차 corpus 218건->0건 재현): **미실시** -- 다음 세션 최우선
+- 시뮬레이션(341차 원 corpus 반응지연): 미실시
+- 실차 검증: 미실시(§29)
+
+**미확인 사항**:
+1. 이번 패치 코드로 370차 corpus(`22ebbb245d`) 재추출 후, `diag_required_decel_341.py`의 오프라인 시뮬레이션이 아니라 **실제 패치된 `carrot_man.py`를 통한 재생**으로 218건->0건 재현을 직접 확인하지 않음 -- 다음 세션 최우선
+2. 341차 원 corpus(x20seg)로 hold=4의 커브 진입 반응지연 부작용 검증(370차부터 이월)
+3. (이월) `autoNaviSpeedCtrlEnd`/`autoNaviSpeedDecelRate` 실제 device 설정값 확인(369차부터 이월, 계속 미확인)
+4. (이월) 플래핑/디바운스 지연이 실제 종방향 제어 출력에 미치는 영향 정량 측정(368차부터 이월)
+5. (이월) L1832(ACTIVE 진입게이트) 히스테리시스는 별도 판단(369/370차부터 이월)
+
+**Devnotes**:
+- `WIP.md`: 이 항목(371차) 신규
+- `FINDINGS.md`: 370차 항목에 371차 패치 완료 사실 보강(§24, 기존 결론 삭제 없이 상태 갱신)
+- 패치: `0001-371-carrot_man.py-L1807-hold-4-0.20s.patch`(git format-patch 형식, git-am 호환, 별도 clone에 적용 재현 완료)
+
+**다음 작업**:
+1. 이번 패치를 적용한 실제 `carrot_man.py`로 370차 corpus(`22ebbb245d`) 재추출 -> 재생(replay) 방식으로 218건->0건 직접 재확인(오프라인 시뮬레이션이 아닌 패치코드 자체 실행)
+2. 341차 원 corpus(x20seg)로 hold=4의 커브 진입 반응지연 부작용 검증
+3. (이월) `autoNaviSpeedCtrlEnd`/`autoNaviSpeedDecelRate` 실제 device 설정값 확인
+4. (이월) 플래핑/디바운스 지연이 실제 종방향 제어 출력에 미치는 영향 정량 측정
+5. (이월) L1832 히스테리시스는 별도 판단
+
+
+
 ## 370차 (완료 -- L1807 히스테리시스 설계 Master 결정(B3) + `diag_required_decel_341.py`에 `--hold-frames` 옵션 추가한 오프라인 정량검증, `ryu` 코드 무변경) -- hold=4프레임(0.20s) 디바운스로 L1807 1프레임 토글 218건 전량(100%) 제거 확인
 
 **Worker**: Claude
