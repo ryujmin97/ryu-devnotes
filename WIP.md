@@ -1,3 +1,41 @@
+## 361차 (완료 — 실차 로그 실차검증) — 358차(carrotMan 0Hz staleness E')/359차(route lookahead 300m 캡) 실차 검증
+
+**Worker**: Claude
+
+**Repository**: `ryu`(HEAD `bd21c7e`=359차, 드리프트 없음) / `ryu-devnotes`(HEAD `1f4d142`=360차)
+
+**Branch**: `c3-ms-dev` / `main`
+
+**세션 시작 확인(§3/§33)**: fresh clone으로 `ryu` HEAD `bd21c7e`(360차가 기록한 push 사고 복구 결과와 일치, 358차+359차 패치 모두 반영 확인), `ryu-devnotes` HEAD `1f4d142`(360차) 직접 확인. 드리프트 없음.
+
+**배경**: 사용자가 신규 실차 로그(route `000003ea--90dc575e96`, 20세그, 2026-09-11 14:04~14:23, 약 20분)를 업로드하며 "최신커밋 실차주행로그. 실차검증" 요청. CURRENT_STATUS.md가 남긴 "다음 세션 최우선"인 358차/359차 두 패치의 실차 검증에 해당.
+
+**진행 경과**:
+1. `check_device_build.py`로 이 로그의 device gitCommit을 직접 확인 -- `bd21c7e4a87f`(359차, ryu HEAD와 완전 일치, ancestor 확인 YES). `dirty=True`이나 351차 확정 원인(언어전환 스크립트의 `events.py`↔`events_ko.py` 정상 교체)과 일치하는 것으로 판단, 코드 불일치 근거 아님.
+2. `extract_log.py --with-navi-paths`로 전체 20세그 23,997행 CSV 추출.
+3. **358차(carrotMan 0Hz staleness E') 검증**: `measure_carrotman_publish_gap.py` 실행 -- 전체 23,977개 유효 gap 샘플 중 `dt>=0.5s` 이상 0건(mean=0.0500s, max=0.0887s, 20Hz 이론치에 근접). `sleep(1)` 예외 recovery 경로 발현 0건. E' fallback이 실제로 트리거된 증거는 없음(=정상 상황에서는 트리거될 필요가 없었다는 뜻 -- fallback 자체가 발동하는 상황을 이 로그로 직접 검증하지는 못함, 아래 "미확인 사항" 참고). `cruiseEnabled` 전이 1건(전체 20분 중 disengage/engage 없이 사실상 상시 유지)으로 세그먼트 경계 포함 전체 구간에서 시간 연속성 끊김/프리즈/재부팅 징후 없음(각 세그 `t` min/max가 다음 세그 시작과 정확히 이어짐) -- **정상 부팅+정상 주행 동작 확인**.
+4. **359차(route lookahead 300m 캡) 검증**: `routePathLen` 분포 확인 -- `routePathLen==3`인 617개 행 전부가 `routeApexDist=0`/`routeApexSpeed=0`(경로 없음/INERT 상태)이었고, 359차 버그의 시그니처였던 "`routePathLen=3` 고정 + 경로반전 + 프레임마다 10<->95<->31<->89km/h급 요동"은 이 로그 전체(23,997행)에서 재현되지 않음.
+   - `routeApexSpeed` 연속 프레임 부호반전(>20kph) 탐지 -- 9건 검출됐으나 전부 "apexDist/apexSpeed가 정확히 0으로 1프레임 떨어졌다가 거의 동일한 값으로 즉시 복귀"하는 패턴으로, 341차가 이미 근본원인을 확정한 "`routeApexIdx` 10m grid 경계 전환 -> 단일 프레임 ACTIVE 이탈 -> 즉시 재진입" 현상과 일치(§24: 기존 FINDINGS 341차 항목과 동일 현상, 신규 이슈 아님).
+   - 직선 고속도로 구간(`vEgo>60kph` & `|steeringAngleDeg|<5` & `|desiredCurvature|<0.001`)에서 `routeApexDist>0`으로 route가 개입한 5개 클러스터를 개별 확인 -- 전부 `apexDist`가 매끄럽게 단조감소(접근 중인 실제 커브에 대한 정상 조기감지로 해석 가능)하고 `pathLen`은 7~16 범위 내 안정, 경로반전/캡오버런 재현 없음. (단, `apexSpeed`가 클러스터 내에서 ±5~8kph 수준으로 미세 진동하는 기존 패턴은 관측되나, 이는 359차가 다루는 300m 캡 버그와는 규모/양상이 다른 별개의 기존 알려진 진동이며 이번 세션에서 근본원인 추가 분석은 하지 않음.)
+   - **결론**: 359차 수정 이후 이 로그(20분, 최고 112km/h, 고속도로 구간 다수 포함) 범위 내에서 300m 캡 오버런/경로반전 버그의 재발 없음 확인. **실차 검증: 완료(이 항목에 한함)**.
+
+**검증**:
+- 정적 분석: 완료(device build 해시 대조)
+- 로그 분석: 완료(신규 실차 corpus 20세그 23,997행, `check_device_build.py`/`extract_log.py`/`measure_carrotman_publish_gap.py` 재사용, §21)
+- 시뮬레이션: 해당 없음(기존 시뮬레이션은 359차에서 이미 완료)
+- **실차 검증: 완료** -- 359차(300m 캡 오버런/경로반전) 재발 없음 확인, 358차(carrotMan staleness fallback)는 정상 부팅/주행 확인(단 fallback이 실제로 트리거되는 상황 자체는 이 로그에 없었음 -- 아래 미확인 사항 참고)
+
+**미확인 사항**:
+- 358차 E' fallback이 실제로 활성화되는 상황(`carrotMan` 발행이 1.5s 이상 끊기는 상황) 자체가 이번 로그에 없었으므로, fallback 코드 경로(desiredSpeed/vTurnSpeed 직전값 유지)가 실제로 올바르게 동작하는지는 **여전히 미검증**(정상 동작 중 발동 안 한 것과, 발동 시 올바르게 동작하는 것은 별개 확인 사항).
+- 직선 고속도로 구간 apexSpeed ±5~8kph 미세 진동(위 4번 항목)의 근본원인은 이번에 조사하지 않음 -- 필요 시 별도 세션에서 341차/259차 관련 findings와 연계 검토.
+- `pathLen==3`(모두 apexDist=0/apexSpeed=0) 617건이 전부 순수 INERT 상태인지, 혹은 일부가 다른 경로로 발생하는지 표본 추가 확인은 하지 않음(이번엔 apexDist/Speed=0 일괄 확인만 수행).
+
+**다음 작업**:
+- 358차 fallback 실제 트리거 상황(예: 의도적 `carrotMan` 프로세스 일시 중단 재현, 혹은 자연 발생 corpus 확보) 확보 후 fallback 동작 자체 검증
+- (낮은 우선순위) 직선 고속도로 apexSpeed 미세 진동 원인 조사 여부는 사용자 결정 대기
+
+---
+
 ## 360차 (완료 — 359차 push 사고 복구) — pull 누락으로 인한 am 세션 중단 및 non-fast-forward push 실패 처리
 
 Worker: Claude

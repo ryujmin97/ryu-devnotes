@@ -10,25 +10,40 @@ append-only 원칙 적용 안 함 -- 항상 최신 1개 스냅샷만 유지).
 
 ---
 
-## 코드 상태 (2026-09-11, 359차 종료 시점)
+## 코드 상태 (2026-09-11, 361차 종료 시점)
 
 **Repository**: `ryujmin97/ryu`
 **Branch**: `c3-ms-dev`
-**HEAD (GitHub 기준, fresh clone으로 이번 세션 직접 확인)**: `bee58b4a`
-(358차, `carrotMan` 0Hz staleness local check E' 5 consumers). **358차와
-359차 두 건의 패치가 현재 모두 사용자 로컬 적용/push 전(미반영) 상태로
-쌓여 있음** -- 순서: 358차 패치(`0001-358cha-carrotman-E-prime-5-consumers.patch`,
-base `40ed6d9`) 먼저 적용 -> push -> 그 다음 359차 패치
-(`0001-359cha-get_path_after_distance-300m-cap-overrun-fix.patch`,
-base `bee58b4a`, 358차 위에 쌓임) 적용 -> push. **두 패치를 순서
-바꿔 적용하면 base commit 불일치로 `git am`이 실패할 수 있으니
-반드시 이 순서를 지킬 것.**
+**HEAD (GitHub 기준, fresh clone으로 이번 세션 직접 확인)**: `bd21c7e`
+(359차, `get_path_after_distance()` 300m 캡 오버런/경로반전 버그 수정).
+**358차/359차 패치 모두 push 완료 확인**(360차가 push 사고 복구 완료).
 
 **Repository**: `ryujmin97/ryu-devnotes`
 **Branch**: `main`
-**HEAD (fresh clone으로 이번 세션 직접 확인)**: `7d6fa34`(358차 계속3)
-까지 push 완료 확인. 이번(359차) devnotes 갱신(WIP/FINDINGS/toolkit
-README·CHANGELOG/이 파일)은 이 세션 종료 후 push 대기 중.
+**HEAD (fresh clone으로 이번 세션 직접 확인)**: `1f4d142`(360차, push
+사고 복구 기록)까지 push 완료 확인. 이번(361차) devnotes 갱신(WIP/이
+파일)은 이 세션 종료 후 push 대기 중.
+
+---
+
+## ✅ 361차 완료 -- 358차/359차 실차 검증 (신규 실차 로그, 20세그/20분)
+
+사용자가 업로드한 신규 실차 로그(route `000003ea--90dc575e96`,
+2026-09-11 14:04~14:23, 최고 112km/h)로 두 미검증 패치를 검증:
+
+- **device gitCommit=`bd21c7e4a87f`**(359차, `ryu` HEAD와 완전 일치)
+  확인 -- 이 로그는 358차+359차 패치가 모두 반영된 최신 빌드에서 채록됨.
+- **359차(300m 캡 오버런/경로반전) -- 실차 검증 완료, 재발 없음 확인**:
+  `routePathLen==3`(617건) 전부 `apexDist=0`/`apexSpeed=0`(정상 INERT),
+  버그 시그니처(경로반전+대폭 요동)는 전체 로그에서 미관측. 직선
+  고속도로 구간 route 개입 5개 클러스터 전부 정상적 단조 접근 패턴.
+- **358차(carrotMan 0Hz staleness E') -- 정상 부팅/주행 확인, fallback
+  자체 트리거는 미검증**: `carrotMan` 발행 gap이 20분 내내 안정
+  (max 0.0887s, `sleep(1)` 예외 경로 0건) -- fallback이 발동할
+  상황 자체가 이 로그에 없었으므로 "정상 동작에 지장 없음"은 확인됐으나
+  "fallback 코드가 실제로 올바르게 동작하는지"는 여전히 별도 검증 필요.
+
+상세: WIP.md 361차 참고.
 
 ---
 
@@ -328,17 +343,15 @@ route_active 재진입은 7/7건 전부 결국 발생하나(무제한 탐색 기
 
 ---
 
-*최종 갱신: 359차 (Claude). route lookahead 300m 캡 오버런/경로반전
-버그 근본원인 확정+수정+검증 완료, 패치 생성/검증(§6/§7) 완료, 사용자
-로컬 적용/push/실차 반영 대기. **현재 미반영 패치 2건이 순서대로
-쌓여 있음(358차 먼저 -> 359차 나중, 위 "코드 상태" 섹션 참고)**. 다음
-세션은 이 파일 상단을 읽고 **두 패치 모두 적용/push되었는지, 실차
-검증 결과부터 최우선 확인**할 것(`git log`에 "358cha: carrotMan 0Hz
-staleness local check"와 "359차: get_path_after_distance() 300m 캡"
-두 커밋 메시지 존재 여부로 판별 가능; 정상 부팅 여부, E' fallback
-발동 여부, 직선 고속도로 구간 route 오개입/요동 해소 여부). 그 다음
-357차 계속2가 남긴 이월 후보(20Hz 메인루프 try-except 구조 /
-vturn_speed alive AND 조건 / server/core.py NameError, CPU 정량 실측)와
-`CARROT_MAN_STALE_S` 재평가, 359차가 남긴 "과거 미해결 routeApexDist
-이상 사례 재스캔 여부" 중 우선순위를 사용자와 결정. WIP.md 최신
-회차("359차")로 상세 맥락 보충.*
+*최종 갱신: 361차 (Claude). 358차/359차 패치 모두 push 완료 확인(360차
+복구), 신규 실차 로그(20세그/20분)로 두 항목 실차 검증: 359차(300m 캡
+오버런/경로반전)는 **재발 없음 확인**, 358차(carrotMan staleness E')는
+**정상 부팅/주행 확인**하되 **fallback 자체가 실제로 트리거되는
+상황은 이 로그에 없어 그 코드 경로 자체의 정합성은 여전히 미검증**.
+다음 세션 최우선: (1) 358차 fallback이 실제로 발동하는 corpus 확보
+방안 검토, (2) 357차 계속2가 남긴 이월 후보(20Hz 메인루프 try-except
+구조 / vturn_speed alive AND 조건 / server/core.py NameError, CPU
+정량 실측)와 `CARROT_MAN_STALE_S` 재평가, (3) 직선 고속도로
+apexSpeed 미세 진동(341차 계열, 이번 361차에서 재확인만 하고 근본원인
+조사는 안 함) 우선순위를 사용자와 결정. WIP.md 최신 회차("361차")로
+상세 맥락 보충.*
