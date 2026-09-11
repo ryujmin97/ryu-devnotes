@@ -1,3 +1,44 @@
+## 360차 (완료 — 359차 push 사고 복구) — pull 누락으로 인한 am 세션 중단 및 non-fast-forward push 실패 처리
+
+Worker: Claude
+Base commit (ryu): bee58b4 (작업 후 bd21c7e로 push 완료)
+Base commit (ryu-devnotes): 7d6fa34 (작업 후 c368be7로 push 완료)
+
+증상:
+- ryu, ryu-devnotes 두 저장소 모두 `git push` 시 non-fast-forward로 거부됨
+- ryu-devnotes에서 `git am` 세션이 중단된 채 잔존 (이전 시도의 conflict 미정리)
+- 이전 세션 잔재 patch 파일(0001-351cha-devnotes.patch, 212cha_checkpoint.patch)이 작업 디렉토리에 미정리 상태로 남아있었음
+- ryu에서는 359차 patch가 이미 로컬에 커밋(315f82c)된 상태였으나 pull을 하지 않아 push가 계속 거부되고 있었음 (재적용 시도 시 이미 반영된 내용이라 apply 실패)
+
+원인:
+- §18/§31 "push 전 원격 최신 여부 확인" 절차를 거치지 않고 patch 적용 → push를 반복 시도
+- ryu-devnotes 로컬이 origin/main보다 13 commit, ryu 로컬이 origin/c3-ms-dev보다 15 commit 뒤처진 상태로 방치됨
+- 뒤처진 상태에서 patch 적용을 반복 시도하다 am 세션이 중간에 멈춘 채 다음 시도로 넘어감
+
+조치:
+1. ryu-devnotes: `git am --abort`로 중단된 am 세션 정리
+2. 잔재 patch 파일(0001-351cha-devnotes.patch, 212cha_checkpoint.patch) 삭제
+3. `git pull --ff-only origin main`으로 13 commit fast-forward 동기화
+4. 359차 devnotes patch 재적용(`git apply --check` → `git am`) → 성공 → `git push origin main` 성공 (7d6fa34..c368be7)
+5. ryu: 로컬에 이미 커밋된 359차(315f82c, parent=08d6380)가 원격(15 commit 진행)과 diverge된 상태 확인
+6. `git pull --rebase origin c3-ms-dev`로 359차 commit을 원격 최신 위로 재배치 (conflict 없이 성공)
+7. `git push origin c3-ms-dev` 성공 (bee58b4..bd21c7e)
+8. 양쪽 저장소 `git status` / `git log`로 origin과 HEAD 완전 일치 확인
+
+검증:
+- 정적 분석: 해당 없음 (git 운영 사고 처리)
+- 로그 분석: 해당 없음
+- 시뮬레이션: 해당 없음
+- 실차 검증: 해당 없음
+- git 상태 검증: ryu (bd21c7e = origin/c3-ms-dev, clean), ryu-devnotes (c368be7 = origin/main, clean) 확인 완료
+
+미확인 사항:
+- rebase 과정에서 359차 commit의 diff 내용이 원본 patch와 완전히 동일한지 라인 단위 재확인은 하지 않음 (rebase가 conflict 없이 자동 적용되었으므로 내용 변경 없음으로 판단하나, 다음 세션에서 필요 시 `git show bd21c7e`로 재확인 권장)
+
+다음 작업:
+- §18/§31 절차(push 전 fetch/status 확인)를 세션 시작 루틴에 더 명확히 강제하는 방안 검토
+- am 세션 중단 시 즉시 `git am --abort` 또는 `--skip`으로 정리하고 다음 시도로 넘어가는 습관 재확인 필요
+
 ## 359차 (완료 -- 로그분석+근본원인확정+수정+검증+패치전달 완료, 실차검증 대기) -- route lookahead 300m 캡 오버런/경로반전 버그 수정
 
 **Worker**: Claude
