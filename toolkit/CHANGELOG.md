@@ -1,3 +1,13 @@
+## 2026-09-11 (364차)
+- `sim_route_364_gate_persistence_design.py`: **신규**. 363차가 채택
+  불가 판정한 RATIO 게이트 대체안 "지속성 게이트(PERSIST)" 구현,
+  RATIO와 동일 하네스에서 비교 가능. 실제 corpus 검증은 미실시(§23,
+  corpus CSV 부재) -- 합성 데이터 자체 테스트만 수행, 합성 스파이크가
+  3점 곡률 윈도우 구조상 자연 폭 3으로 나타나 RATIO/PERSIST 모두
+  억제 실패(362차 실측과 불일치, 합성 모델 한계로 해석). 상세는
+  README.md/WIP.md 364차 참고.
+
+
 # toolkit/ CHANGELOG
 
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에

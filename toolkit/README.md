@@ -1,3 +1,22 @@
+## sim_route_364_gate_persistence_design.py (364차, 신규 -- RATIO 게이트 대체안 "지속성 게이트" 설계)
+
+**목적**: 363차가 채택 불가로 판정한 크기-비율(RATIO) 게이트를 대신할 설계안 "지속성 게이트(PERSIST)"를 구현하고, 같은 하네스에서 RATIO와 나란히 비교할 수 있게 한다. `sim_route_363_gate_sharp_curve_regression.py`의 `route_curvature_macro_fine_gated()`를 verbatim 기반으로 확장(§21).
+
+**설계**: 중심점 j에서 `|fine_abs_curv[k]| >= low_frac * |fine_abs_curv[j]|`를 만족하는 연속 구간(좌우 확장)의 길이가 `min_run`점 이상이면 fine 채택. RATIO(이웃 1점과의 엄격한 비율)와 달리 "몇 점에 걸쳐 유지되는가"만 본다. 상세 배경은 WIP.md 364차 참고.
+
+**364차 실측 결과**: **없음** -- 362차/363차 corpus CSV가 이 세션 환경에 없어(§23) 실제 corpus 검증 미실시. 합성 스파이크(직선+단일 좌표 이탈)/합성 원호(R=25m)로 자체 정적 테스트만 수행 -- 합성 스파이크가 3점 윈도우 구조상 자연히 폭 3으로 나타나 RATIO/PERSIST 둘 다 억제 못 함(362차 실제 오탐 100% 억제와 불일치, 합성 모델이 실제 오탐 신호 모양을 재현 못 함을 시사). 실측은 사용자가 corpus 제공 후 이어서 진행.
+
+**사용**:
+```bash
+python3 sim_route_364_gate_persistence_design.py <extract_log.py --with-navi-paths 출력 CSV> \
+    [--gate ratio|persist|both] \
+    [--ratios 0.3,0.5] [--low-fracs 0.15,0.25] [--min-runs 2,3,4] \
+    [--sharp-threshold-r 50]
+```
+
+**한계**: 게이트 자체가 `ryu` production 코드에 없으므로 offline replay 검증만 제공(실차 검증 대상 아님). PERSIST 파라미터(low_frac/min_run)는 실측 전까지 미확정.
+
+
 ## sim_route_363_gate_sharp_curve_regression.py (363차, 신규 -- 362차 계속2 "크기-비율 게이트" 실제 급커브 회귀검증)
 
 **목적**: 362차 계속2가 설계한 고립 fine curvature spike 억제 게이트(크기-비율 게이트, `RATIO` 파라미터)를 실제 R≈20~35m급 급커브 corpus(`0000039a--7b602ffb85` seg12, IC 램프)의 naviPaths 원본 좌표에 재적용해, 게이트가 진짜 급커브까지 억제하지 않는지 검증한다. 147/148차 원본 검증 corpus(`898edd0f96`)가 §23 정책으로 재확보 불가라 대체 corpus로 진행. 상세는 FINDINGS.md/WIP.md 363차 참고.

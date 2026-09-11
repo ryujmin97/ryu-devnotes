@@ -1,3 +1,46 @@
+## 364차 (진행 중 — 지속성 게이트 설계+정적 구현 완료, 실제 corpus 검증 미실시) — 크기-비율 게이트 대체안 "지속성 게이트(PERSIST)" 설계
+
+**Worker**: Claude
+
+**Repository**: `ryu`(HEAD `bd21c7e`=359차, 드리프트 없음) / `ryu-devnotes`(HEAD `b718ce8`=363차)
+
+**Branch**: `c3-ms-dev` / `main`
+
+**세션 시작 확인(§3/§33)**: `git ls-remote`로 `ryu` HEAD `bd21c7e4a87f6ce417a69f492da59ad519ed7b35`, `ryu-devnotes` HEAD `b718ce85a8c6903dbc6d8685034e5217819c3214` 직접 확인. WIP.md/FINDINGS.md 363차 원문을 `raw.githubusercontent.com`에서 직접 fetch해 대조(챗지피티가 요약한 수치와 byte 단위는 아니지만 핵심 수치 — R<30m 기준 RATIO=0.3 7%/RATIO=0.5 1% 생존 — 일치 확인). 드리프트 없음.
+
+**배경**: 363차 "다음 작업" 1번(게이트 재설계 방향 논의) 후속. FINDINGS.md 363차의 원인 분석("이웃 1점과의 상대 비율은 오탐/정탐 모두에서 흔들려 판별력 없음")을 근거로, RATIO를 "중심점 기준 완화된 임계값을 만족하는 연속 구간 길이(지속성)"로 대체하는 방향을 사용자와 논의 후 착수.
+
+**설계**: `route_curvature_macro_fine()`의 fine 배열은 프레임 내에서 `distance_interval`(기본 10m) 간격으로 공간적으로 연속 배열되어 있음(프레임 간 상태 불필요, §326/327 ACTIVE/continuity 로직과 무관 — 해당 로직 미접촉). 중심점 j에서 `|fine_abs_curv[k]| >= low_frac * |fine_abs_curv[j]|`를 만족하는 연속 구간(j 포함, 좌우 확장)의 길이가 `min_run`점 이상이면 fine 채택, 아니면 macro 유지. RATIO(이웃 1점, 엄격한 비율)와 달리 PERSIST는 "몇 점에 걸쳐 유지되는가"만 본다.
+
+**진행 경과**:
+1. `sim_route_363_gate_sharp_curve_regression.py`의 `route_curvature_macro_fine_gated()`를 verbatim 기반으로 확장(§21, 재작성 아님) — `gate="ratio"`(기존)와 `gate="persist"`(신규)를 나란히 호출 가능하게 함. `toolkit/sim_route_364_gate_persistence_design.py`로 신규 저장.
+2. **합성 데이터 자체 검증(정적 분석 수준)**: 직선 경로에 단일 지점만 y=3m로 이탈시킨 "고립 스파이크" 합성 케이스와, R=25m 원호 합성 케이스로 자체 실행.
+   - **예상 밖 결과**: 단일 지점 이탈이 `calculate_curvature()`의 3점 윈도우(`p1,p2,p3` = i, i+sample_fine, i+2*sample_fine) 구조상 인접 3개 fine 인덱스(i=18,19,20)에 동시에 곡률 스파이크를 만듦 — 즉 합성 스파이크가 "1점짜리"가 아니라 자연히 "3점짜리"로 나타남. 이 케이스에서는 RATIO=0.3도 PERSIST(low_frac=0.2, min_run=3)도 전부 억제하지 못함(NO-GATE와 동일하게 3/32 그대로 생존).
+   - R=25m 원호 케이스에서는 예상대로 RATIO/PERSIST 둘 다 32/32 전부 생존(정탐 유지).
+3. **해석**: 이 합성 스파이크 모델은 362차 실제 오탐(RATIO가 27/27 100% 억제한 실측)을 재현하지 못했다 — 즉 실제 362차 오탐의 신호 모양(스파이크 폭·좌우 곡률 분포)이 이번 합성 모델(단일 좌표 이탈)과 다르다는 뜻이며, PERSIST 설계가 오탐을 억제할 수 있는지는 이 합성 테스트만으로 결론 낼 수 없음.
+
+**검증**:
+- 정적 분석: 완료(`route_curvature_macro_fine_gated()` PERSIST 경로 `py_compile` 통과, 합성 스파이크/원호 케이스로 코드 동작 자체는 확인)
+- 로그 분석: **미실시** — 362차 오탐 corpus(`d1cd25bdf1` 등)와 363차 급커브 corpus(`0000039a--7b602ffb85` seg12-16)가 이 세션 환경에는 없음(§23, 대용량 CSV 미보관 정책). 사용자가 두 corpus의 `extract_log.py --with-navi-paths` CSV를 업로드하거나 로컬에서 직접 실행해야 실측 가능.
+- 실차 검증: 미실시
+- 코드 패치: 하지 않음(설계안 단계, `ryu`에는 게이트 자체가 아직 없음)
+
+**미확인 사항**:
+- PERSIST가 362차 오탐 corpus를 실제로 억제하는지 전혀 검증 안 됨(이번 합성 테스트는 오히려 억제 실패 사례를 보여줌 — 낙관 금지)
+- PERSIST가 363차 급커브 corpus에서 RATIO보다 생존율이 높은지도 미검증
+- low_frac/min_run 파라미터 스윕 범위(현재 0.15~0.25 / 2~4점)가 적절한지 미검증
+
+**devnotes 변경(이번 전달분)**:
+- `WIP.md`: 이 항목(364차) 신규
+- `toolkit/sim_route_364_gate_persistence_design.py`: 신규
+- `toolkit/README.md`, `toolkit/CHANGELOG.md`: 364차 항목 추가(아래 별도 전달)
+- `FINDINGS.md`: 이번 회차는 확정 결론이 없어 미작성(실측 후 추가 예정)
+
+**다음 작업**:
+1. 사용자가 362차 오탐 corpus + 363차 급커브 corpus CSV를 제공(업로드 또는 로컬 실행) → `sim_route_364_gate_persistence_design.py --gate both`로 두 corpus 모두에 RATIO/PERSIST 나란히 실측
+2. 합성 테스트가 드러낸 "3점 윈도우 구조상 최소 폭 3짜리 스파이크가 자연 발생"이 실제 362차 오탐과 어떻게 다른지 확인 필요 — 가능하면 362차 오탐 27개 지점 중 1~2개를 FINDINGS.md/원본 로그에서 수동으로 fine_abs_curv 배열 형태로 뽑아 실제 스파이크 폭을 눈으로 확인
+3. 실측 결과에 따라 low_frac/min_run 값 확정 또는 PERSIST 자체 기각(RATIO와 같은 운명일 가능성 배제 못함) 후 다음 설계안(절대 곡률 임계값 병행 등) 검토
+
 ## 363차 (완료 — 362차 계속2 RATIO 게이트 회귀검증, "설계 재검토 필요"로 판정, 코드 패치 없음) — 크기-비율 게이트 실제 급커브(R≈20~35m) 회귀검증
 
 **Worker**: Claude
