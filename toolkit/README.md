@@ -1,3 +1,37 @@
+## sim_route_359_lookahead_overrun.py (359차, 신규 -- get_path_after_distance() 300m 캡 오버런/경로반전 버그 재현+수정검증)
+
+**목적**: 직선 고속도로에서 `routeApexDist`/`routeApexSpeed`가 프레임마다
+급격히 요동하는 증상의 근본원인(`get_path_after_distance()`의 첫
+세그먼트 300m 캡 미적용 -> 경로 반전)을 재현하고, 수정안이 버그를
+고치면서 정상 케이스에 회귀가 없음을 검증한다. 상세는 FINDINGS.md/
+WIP.md 359차 참고.
+
+`carrot_man.py`의 `haversine`/`closest_point_on_segment`/
+`get_path_after_distance`를 verbatim 포팅(§27, 로직 재구현 없음)해
+OLD(358차 이전 버그 버전)와 NEW(359차 수정 버전) 두 함수로 나란히
+정의하고 동일 입력에 대해 비교한다.
+
+**시나리오**:
+1. 버그 재현 -- 첫 세그먼트가 300m 캡을 초과하는 sparse waypoint 경로
+   (첫 gap 690m, 다음 gap 360m: 실측 690m 반전 시작/1050m까지 이어짐과
+   부합). OLD는 `max_dist_from_start`가 300m를 초과하는 raw 점이
+   `path_after_distance` 중간에 남고, 경로 내 진행방향과 반대인
+   세그먼트(반전)가 존재함을 assert로 확인. NEW는 둘 다 없음을 확인.
+2. 회귀 방지 -- 촘촘한 점(간격 15m, 40개, 모든 세그먼트<300m) 정상
+   케이스. OLD/NEW의 `path_after_distance`/`start_index`/`closest_point`
+   출력이 좌표값까지 완전히 동일함을 assert(부동소수 오차 1e-12
+   이내) -- §27 최소변경 원칙(정상 경로 동작 불변)을 코드 수준에서
+   보장.
+
+**출력**: 두 시나리오 각각 OLD/NEW의 path 점 수/span/max_dist/반전
+여부를 출력하고 전부 PASS해야 종료.
+
+**사용**:
+```bash
+python3 sim_route_359_lookahead_overrun.py
+```
+합성 데이터만 사용, 별도 corpus/CSV 불필요.
+
 ## measure_carrotman_publish_gap.py (358차 계속, 신규 -- carrotMan 발행 간격(Δt) 실측)
 
 **목적**: 358차가 발견한 "carrotMan이 0Hz로 등록돼 있어 alive가 상시

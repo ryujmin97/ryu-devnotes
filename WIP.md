@@ -1,3 +1,78 @@
+## 359차 (완료 -- 로그분석+근본원인확정+수정+검증+패치전달 완료, 실차검증 대기) -- route lookahead 300m 캡 오버런/경로반전 버그 수정
+
+**Worker**: Claude
+
+**Repository**: `ryu`(base `bee58b4a`=358차 계속3) / `ryu-devnotes`(base
+`7d6fa34`=358차 계속3)
+
+**Branch**: `c3-ms-dev` / `main`
+
+**세션 시작 확인(§3/§33)**: fresh clone으로 `ryu` HEAD `bee58b4a`(358차,
+드리프트 없음), `ryu-devnotes` HEAD `7d6fa34`(358차 계속3) 직접 확인.
+
+**배경**: 사용자가 업로드한 신규 route(`7bf8a00d14`, seg7~10,
+12:49~12:52)에서 t=3012.73 부근 `routeApexDist=657.5m`/
+`routeApexSpeed=10km/h`가 프레임마다 10<->95<->31<->89km/h로 급격히
+요동. qcamera 확인 결과 완전 직선 고속도로(곡선 없음)로, route가
+개입할 물리적 근거가 없는 구간.
+
+**진행 경과**:
+1. 이상 구간 전체에서 `routePathLen=3`으로 고정 관측(정상은 ~30
+   전후)됨을 실마리로 `naviPaths` 원시좌표 직접 분석 -- dist=690m
+   지점에서 경로가 정확히 반대방향으로 반전되어 dist=1050m까지
+   이어짐을 확인.
+2. `carrot_man.py::get_path_after_distance()` 코드 추적(§28: 증상 ->
+   재현조건 -> 입력 -> 상태 -> 호출흐름 -> 계산 -> 조건/분기 -> 출력 ->
+   원인) -- 첫 세그먼트(`closest_point` -> `coordinates[closest_index+1]`)가
+   `distance_m`(호출부 300.0 고정 캡) 체크 없이 무조건 추가되고,
+   이 첫 세그먼트 거리가 이미 300m를 초과하면(직선 구간 raw waypoint
+   간격이 넓을 때) 다음 루프의 `remaining_distance`/`ratio`가 음수가
+   되어 경로 중간에 캡 초과 raw 점이 남은 채 그 뒤로 다시 300m 지점이
+   이어지는 반전이 발생함을 확정. 상세는 FINDINGS.md 359차 참고.
+3. `toolkit/sim_route_359_lookahead_overrun.py` 신규 작성(§21 기존
+   toolkit 확인 -- 동일 목적 도구 없음 확인 후 작성, §22).
+   `carrot_man.py`의 `haversine`/`closest_point_on_segment`/
+   `get_path_after_distance`를 verbatim 포팅(§27)해 OLD(버그 재현)/
+   NEW(수정) 두 버전 비교:
+   - 시나리오1(버그 재현: 첫 세그먼트 690m>300m 캡): OLD는 캡 초과
+     raw 점(689.2m) 잔존 + 경로 내 반전 세그먼트 재현. NEW는 캡
+     정상(300.0m), 반전 없음.
+   - 시나리오2(회귀 방지: 촘촘한 점, 모든 세그먼트<300m): OLD/NEW의
+     `path`/`start_index`/`closest_point`가 바이트 단위로 완전 동일
+     확인(정상 경로 회귀 없음).
+   - 두 시나리오 모두 PASS.
+4. `carrot_man.py` 최소변경(§27) -- 첫 세그먼트도 나머지 세그먼트와
+   동일한 캡 로직 적용. 새 함수 신설 없이 기존 함수 내부만 수정.
+5. 패치 검증 절차(§ 패치 검증): 원격 fresh throwaway clone(`bee58b4a`)
+   -> `git apply --check` -> `git am` -> `py_compile` 통과 ->
+   `git show HEAD:.../carrot_man.py` byte-identical diff 확인. 검증
+   전후 원격 HEAD 변동 없음(§7) 재확인 후 throwaway clone 삭제.
+
+**검증**:
+- 정적 분석: 완료(`py_compile`/`ast.parse` 통과)
+- 로그 분석: 완료(신규 route `7bf8a00d14` seg7~10 + qcamera 대조 +
+  `naviPaths` 원시좌표 직접 분석)
+- 시뮬레이션: 완료(`sim_route_359_lookahead_overrun.py`, 버그
+  재현/회귀방지 시나리오 모두 PASS)
+- **실차 검증: 미실시**(다음 세션/사용자 최우선 확인 사항)
+
+**미확인 사항**:
+- 실차 반영 후 직선 고속도로 구간 route 오개입/요동 해소 여부
+- 이 버그가 과거 미해결 `routeApexDist` 이상 사례(340차
+  `routeLocalResampleUsed`나 WIP 10m-grid 오실레이션 가설로 설명 안
+  되던 것들) 중 일부를 추가로 설명하는지 재스캔 필요
+- `distance_m` 파라미터가 호출부 전체에서 항상 300.0 고정인지 전수
+  확인 필요(이번 세션은 L1437 호출부만 확인)
+
+**패치**: `0001-359cha-get_path_after_distance-300m-cap-overrun-fix.patch`
+(`ryu` 대상, base `bee58b4a`)
+
+**다음 작업**: 사용자가 패치 적용 -> `git am` -> push -> 실차 반영 후
+직선 고속도로 구간 route 오개입/요동 해소 확인. 이후 과거 미해결
+`routeApexDist` 이상 사례 재스캔 여부 결정.
+
+---
+
 ## 358차 계속3 (완료 -- 코드 구현+패치전달 완료, 실차검증 대기) -- `carrotMan` 0Hz staleness 보호 E' 구현 (358차 계속2 후속)
 
 **Worker**: Claude

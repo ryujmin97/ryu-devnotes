@@ -3,6 +3,14 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+## 2026-09-11 (359차)
+- `sim_route_359_lookahead_overrun.py`: **신규**. `carrot_man.py`의
+  `get_path_after_distance()` 첫 세그먼트 300m 캡 미적용 버그(직선
+  구간에서 경로 반전 유발)를 재현 + 수정안 검증. `haversine`/
+  `closest_point_on_segment`/`get_path_after_distance`를 verbatim
+  포팅(§27)해 OLD/NEW 비교. 버그 재현 시나리오 + 회귀방지 시나리오
+  둘 다 PASS. 상세는 README.md/FINDINGS.md 359차 항목 참고.
+
 ## 2026-09-11 (358차 계속2)
 - `measure_carrotman_publish_gap.py`: 코드 변경 없음. 실차 corpus 2건
   (x19seg/x20seg, 총 39seg)에 처음 실행 -- 결과는 README.md/

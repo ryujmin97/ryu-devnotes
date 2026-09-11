@@ -10,20 +10,45 @@ append-only 원칙 적용 안 함 -- 항상 최신 1개 스냅샷만 유지).
 
 ---
 
-## 코드 상태 (2026-09-11, 358차 계속3 종료 시점)
+## 코드 상태 (2026-09-11, 359차 종료 시점)
 
 **Repository**: `ryujmin97/ryu`
 **Branch**: `c3-ms-dev`
-**HEAD (GitHub 기준, fresh clone으로 이번 세션 직접 확인)**: `40ed6d9`
-(357차 계속2, `send_routes()` 도달불가 dead-code 제거). **358차 계속3에서
-`ryu`에 실제 코드 변경 패치 생성/검증 완료 -- 아직 사용자 로컬 적용/push
-전(패치 미반영 상태, 아래 참고).**
+**HEAD (GitHub 기준, fresh clone으로 이번 세션 직접 확인)**: `bee58b4a`
+(358차, `carrotMan` 0Hz staleness local check E' 5 consumers). **358차와
+359차 두 건의 패치가 현재 모두 사용자 로컬 적용/push 전(미반영) 상태로
+쌓여 있음** -- 순서: 358차 패치(`0001-358cha-carrotman-E-prime-5-consumers.patch`,
+base `40ed6d9`) 먼저 적용 -> push -> 그 다음 359차 패치
+(`0001-359cha-get_path_after_distance-300m-cap-overrun-fix.patch`,
+base `bee58b4a`, 358차 위에 쌓임) 적용 -> push. **두 패치를 순서
+바꿔 적용하면 base commit 불일치로 `git am`이 실패할 수 있으니
+반드시 이 순서를 지킬 것.**
 
 **Repository**: `ryujmin97/ryu-devnotes`
 **Branch**: `main`
-**HEAD (fresh clone으로 이번 세션 직접 확인)**: `74aeba3`(358차 계속2)
-까지 push 완료 확인. 이번(358차 계속3) devnotes 갱신(WIP/FINDINGS/이
-파일)은 이 세션 종료 후 push 대기 중.
+**HEAD (fresh clone으로 이번 세션 직접 확인)**: `7d6fa34`(358차 계속3)
+까지 push 완료 확인. 이번(359차) devnotes 갱신(WIP/FINDINGS/toolkit
+README·CHANGELOG/이 파일)은 이 세션 종료 후 push 대기 중.
+
+---
+
+## ⏳ 359차 -- route lookahead 300m 캡 오버런/경로반전 버그 -- 코드 구현+검증 완료, 실차 반영 대기
+
+직선 고속도로에서 `routeApexDist`/`routeApexSpeed`가 프레임마다 급격히
+요동하는 증상의 근본원인을 확정: `carrot_man.py::get_path_after_distance()`가
+첫 세그먼트를 300m 캡 체크 없이 무조건 추가하는 버그로, 첫 세그먼트
+자체가 이미 300m를 넘으면(직선 구간 raw waypoint 간격이 넓을 때) 경로가
+국소적으로 반전됨. 첫 세그먼트도 나머지와 동일한 캡 로직을 적용하는
+최소변경(§27)으로 수정, `sim_route_359_lookahead_overrun.py`(신규)로
+버그재현/회귀방지 두 시나리오 모두 PASS 확인. 패치 검증(§6/§7:
+throwaway clone -> `git apply --check` -> `git am` -> `py_compile` ->
+byte-identical diff) 완료. **실차 검증: 미실시.**
+
+상세: WIP.md/FINDINGS.md 359차 참고.
+
+**다음 세션 최우선**: 358차 -> 359차 순서로 패치 적용/push 후, 실차에서
+(a) 358차 fallback 정상 동작(정상 부팅 최우선), (b) 직선 고속도로
+구간 route 오개입/요동 해소 두 가지를 함께 확인.
 
 ---
 
@@ -303,13 +328,17 @@ route_active 재진입은 7/7건 전부 결국 발생하나(무제한 탐색 기
 
 ---
 
-*최종 갱신: 358차 계속3 (Claude). `carrotMan` 0Hz staleness 보호(E')
-코드 구현 완료, 패치 생성/검증(§6/§7) 완료, 사용자 로컬 적용/push/실차
-반영 대기. 다음 세션은 이 파일 상단을 읽고 **실차 검증 결과부터
-최우선 확인**할 것(패치 적용 여부 -- `git log`에 이번 커밋 메시지
-"358cha: carrotMan 0Hz staleness local check" 존재 여부로 판별 가능,
-정상 부팅 여부, fallback 발동 여부). 그 다음 357차 계속2가 남긴
-이월 후보(20Hz 메인루프 try-except 구조 / vturn_speed alive AND 조건 /
-server/core.py NameError, CPU 정량 실측)와 `CARROT_MAN_STALE_S`
-재평가 중 우선순위를 사용자와 결정. WIP.md 최신 회차("358차 계속3")로
-상세 맥락 보충.*
+*최종 갱신: 359차 (Claude). route lookahead 300m 캡 오버런/경로반전
+버그 근본원인 확정+수정+검증 완료, 패치 생성/검증(§6/§7) 완료, 사용자
+로컬 적용/push/실차 반영 대기. **현재 미반영 패치 2건이 순서대로
+쌓여 있음(358차 먼저 -> 359차 나중, 위 "코드 상태" 섹션 참고)**. 다음
+세션은 이 파일 상단을 읽고 **두 패치 모두 적용/push되었는지, 실차
+검증 결과부터 최우선 확인**할 것(`git log`에 "358cha: carrotMan 0Hz
+staleness local check"와 "359차: get_path_after_distance() 300m 캡"
+두 커밋 메시지 존재 여부로 판별 가능; 정상 부팅 여부, E' fallback
+발동 여부, 직선 고속도로 구간 route 오개입/요동 해소 여부). 그 다음
+357차 계속2가 남긴 이월 후보(20Hz 메인루프 try-except 구조 /
+vturn_speed alive AND 조건 / server/core.py NameError, CPU 정량 실측)와
+`CARROT_MAN_STALE_S` 재평가, 359차가 남긴 "과거 미해결 routeApexDist
+이상 사례 재스캔 여부" 중 우선순위를 사용자와 결정. WIP.md 최신
+회차("359차")로 상세 맥락 보충.*

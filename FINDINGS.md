@@ -1,3 +1,108 @@
+## 359차 -- [ROOT_CAUSE_CONFIRMED, 패치전달 완료, NEEDS_REAL_VEHICLE_VALIDATION] `get_path_after_distance()` 첫 세그먼트 300m 캡 미적용으로 인한 경로 반전(overrun) 버그 -- 직선 고속도로에서 `routeApexDist`/`routeApexSpeed` 프레임간 급격 요동 + `routePathLen` 비정상 고정(=3) 근본원인 확정
+
+**배경**: 사용자가 업로드한 신규 route(`7bf8a00d14`, seg7~10, 12:49~12:52)에서
+route 감속 개입 중 `routeApexDist=657.5m`/`routeApexSpeed=10km/h`가
+프레임마다 10<->95<->31<->89km/h로 급격히 요동하는 증상 발견. 이전
+340차/`routeLocalResampleUsed` 확정 원인이나 WIP.md에 기록된 "10m-grid
+`routeApexSpeed` 오실레이션→`required_decel_mss` 임계값 straddle" 가설과는
+증상 패턴이 다름(완전 직선 구간, 곡선 후보 자체가 없음).
+
+**§24 dedup 확인**: FINDINGS.md 전체 `get_path_after_distance`/
+"경로 반전"/"path 반전"/"300m.*오버런" 검색 결과 0건 -- 최초 문서화.
+340차/335차 등 기존 `routeApexDist<0` 관련 항목은 `routeLocalResampleUsed`
+병합 로직 문제로 원인이 이미 다르게 확정되어 있어 본 항목과는 무관.
+
+### 1. qcamera 대조
+`verify_and_extract_frames.py`로 t=3012.73 부근 프레임 추출 -- **완전
+직선 고속도로**(곡선 없음) 확인. route가 개입할 물리적 근거(곡선)가
+전혀 없는 구간에서 route 감속이 발동/요동하는 것 자체가 이상 신호.
+
+### 2. 결정적 단서 -- `routePathLen`
+해당 구간 전체 프레임에서 `routePathLen=3`으로 고정 관측(정상 구간은
+~30 전후, 323차/305차 계측 기준). 비정상적으로 짧은 고정값을 실마리로
+`naviPaths` 원시좌표를 직접 대조.
+
+### 3. 근본원인 -- `get_path_after_distance()` 첫 세그먼트 캡 미적용
+`carrot_man.py::get_path_after_distance()`(`bee58b4a` 기준 L345-394)는
+`closest_point`에서 가장 가까운 좌표 인덱스(`closest_index`)를 찾은 뒤,
+`coordinates[closest_index+1]`을 **캡(distance_m, 호출부에서 300.0
+고정) 체크 없이 무조건 `path_after_distance`에 추가**하고
+`total_distance`를 그 지점까지의 실제 거리로 설정한다:
+
+```python
+path_after_distance.append(coordinates[closest_index + 1])
+total_distance = haversine(closest_point[0], closest_point[1],
+                           coordinates[closest_index + 1][0],
+                           coordinates[closest_index + 1][1])
+```
+
+이후 루프는 `total_distance + segment_distance >= distance_m`이 되는
+지점에서 보간(`ratio = remaining_distance / segment_distance`)으로
+캡을 자르는데, 만약 **첫 세그먼트 자체의 거리(`total_distance`)가
+이미 `distance_m`(300m)을 초과**하면(직선 구간에서 navd가 raw waypoint를
+듬성듬성 주는 경우 -- 정상 구간은 촘촘해서 이 조건이 거의 발생하지
+않음), 다음 루프 첫 반복에서 `remaining_distance = distance_m -
+total_distance`가 **음수**가 되고 `ratio`도 음수가 된다. 이 음수
+ratio로 보간된 점은 방향상으로는 300m 지점을 향해 정확히 "뒤로"
+계산되지만(직선 구간이면 수치상 300m 지점과 일치), **이미 캡을 초과한
+raw 원점(예: 690m 지점)이 `path_after_distance` 중간에 그대로
+남아있는 상태**에서 그 뒤에 300m 지점이 이어지므로, 최종 `path`는
+`[0m, 690m, 300m]`처럼 **거리가 증가했다가 다시 줄어드는(경로가
+국소적으로 뒤로 가는) 반전** 형태가 된다. 이 반전된 경로에서 곡률/apex
+계산이 왜곡되어 `routeApexDist`/`routeApexSpeed`가 프레임마다 크게
+요동하고, 반전으로 잘려나간 만큼 `routePathLen`도 비정상적으로 짧아진다
+(3으로 고정 관측과 일치).
+
+**실측치와의 대조**: `naviPaths` 원시좌표 분석 결과 dist=690m 지점에서
+경로가 반대방향으로 반전, dist=1050m까지 이어짐(690+360=1050,
+두 번째 세그먼트 360m와 정확히 부합).
+
+### 4. 재현/검증
+`toolkit/sim_route_359_lookahead_overrun.py` -- `carrot_man.py`의
+`haversine`/`closest_point_on_segment`/`get_path_after_distance`를
+verbatim 포팅(§27)해 OLD(버그)/NEW(수정) 두 버전으로 시뮬레이션:
+- **시나리오1(버그 재현)**: 첫 세그먼트 690m(>300m 캡) + 다음 세그먼트
+  360m sparse gap route. OLD는 `max_dist_from_start=689.2m`(300m 캡
+  초과 raw 점 잔존)와 경로 내 역방향 세그먼트(반전) 재현. NEW는
+  `max_dist_from_start=300.0m`, 반전 없음.
+- **시나리오2(회귀 방지)**: 촘촘한 점(간격 15m x 40개, 모든 세그먼트
+  <300m) 정상 케이스 -- OLD/NEW의 `path`/`start_index`/`closest_point`가
+  **바이트 단위로 완전 동일**함을 assert로 확인(§27 최소변경 원칙,
+  정상 경로 회귀 없음).
+- 두 시나리오 모두 PASS.
+
+### 5. 수정 내용
+첫 세그먼트도 나머지 세그먼트와 동일한 캡 로직을 적용하도록 최소변경
+(§27): 첫 세그먼트 거리(`first_segment_distance`)를 먼저 계산해
+`distance_m` 이상이면 그 자리에서 바로 보간해 캡을 적용하고 반환,
+미만이면 기존 로직(그대로 추가 후 루프 진입)을 그대로 수행. 새 함수
+신설 없이 기존 함수 내부만 수정.
+
+**패치**: `0001-359cha-get_path_after_distance-300m-cap-overrun-fix.patch`
+(`ryu` 대상, base `bee58b4a`=358차). 정적 분석(`py_compile`/`ast.parse`)
+통과, 원격 fresh throwaway clone에서 `git apply --check` -> `git am` ->
+byte-identical diff 검증 완료(패치 생성~검증 사이 원격 HEAD 변동 없음,
+§7).
+
+**미확인 사항**:
+- 실차 검증: 미실시(다음 세션 최우선 확인 -- 특히 직선 고속도로
+  구간에서 route 오개입/요동 해소 여부)
+- 이 버그가 340차 `routeLocalResampleUsed` 확정 원인이나 WIP.md의
+  "10m-grid 오실레이션" 가설이 설명하지 못했던 기존 미해결
+  `routeApexDist` 이상 사례 중 일부를 추가로 설명하는지는 재검토 필요
+  (증상 패턴이 유사한 과거 orphan corpus를 이 수정 관점에서 재스캔하면
+  추가 설명 가능성 있음 -- 다음 세션 후보)
+- `distance_m` 파라미터가 항상 300.0 고정인지, 다른 호출부에서 다른
+  값으로 호출되는 경우가 있는지 전수 확인 필요(이번 세션은
+  `carrot_man.py` L1437 호출부만 확인, `route_lookahead_m` 변수가
+  300.0 고정임은 217차부터 유지)
+
+**다음 작업**: 사용자가 패치 적용 -> `git am` -> push -> 실차 반영 후
+직선 고속도로 구간 route 오개입/요동 해소 확인. 이후 과거 미해결
+`routeApexDist` 이상 사례 재스캔 여부 결정.
+
+---
+
 ## 358차 -- [CONFIRMED_STRUCTURAL, E' 구현+패치전달 완료(358차 계속3), NEEDS_REAL_VEHICLE_VALIDATION] `carrotMan` 0Hz 서비스 등록으로 인한 alive/timeout 감지 결함 + 20Hz 메인루프 단일 try-except 결합 리스크 (356차 ③ 후속)
 
 **배경**: CURRENT_STATUS.md 357차 계속2가 남긴 이월 후보 중 ③(20Hz
