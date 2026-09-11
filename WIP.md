@@ -1,3 +1,51 @@
+## 367차 계속4 (완료 -- 거리 임계값 150m 결정 및 코드 패치 적용, 실차 검증 대기) -- `route_curvature_macro_fine()` 원거리 fine 대체 억제 게이트 코드 반영
+
+**Worker**: Claude
+
+**Repository**: `ryu`(HEAD `bd21c7e4a87f`=359차, 패치 base) / `ryu-devnotes`(HEAD `7616b4e`=367차 계속3)
+
+**Branch**: `c3-ms-dev` / `main`
+
+**배경**: 367차 계속3이 확보한 anchor 2건(`d1cd25bdf1` seg10/13, apexDist=210.0m, 검증된 오탐)과 367차 FP22건 중 오염 확인된 진짜 커브 2건(`2cbdaca9d2`, apexDist=50m/120m)을 근거로 거리 임계값 후보 구간(150~180m)을 도출해 사용자에게 제시. 사용자가 **150m로 확정 결정**하고 즉시 코드 패치 적용 후 실차 검증으로 진행하기로 결정(offline replay 교차검증 단계는 이번엔 건너뜀 -- 사용자 명시적 지시).
+
+**표본 한계(명시)**: 임계값 근거는 이번 세션의 4개 데이터 포인트뿐이다. 363차/366차 TP corpus(R<30m, 1137건)는 R값만 기록돼 있고 apexDist를 별도로 뽑아둔 적이 없어 이번 결정에 반영되지 못했다 -- `150m`는 표본 4건 기준 보수적 1차값이며, 추가 corpus로 재검증 필요(NEEDS_VALIDATION).
+
+**코드 수정** (`selfdrive/carrot/carrot_man.py`, §27 최소변경):
+1. 신규 상수 `ROUTE_FINE_OVERRIDE_MIN_DIST_M = 150.0`(`ROUTE_CURVATURE_FINE_SAMPLE` 정의부 바로 아래, 근거/이력 주석 포함).
+2. `route_curvature_macro_fine()`의 fine 대체 조건(`if f_speed < speeds[j]:`) 직전에 `if distances[j] >= ROUTE_FINE_OVERRIDE_MIN_DIST_M: continue` 게이트 추가 -- 원거리 apex 후보는 fine(10m 서브샘플) 대체를 건너뛰고 macro(40m chord) 값을 그대로 유지.
+3. `distances[j]`는 이 함수의 두 호출부(10m main pass / 2.5m local 재계산, `distance_offset` 인자로 각각 절대 route-거리를 유지)에서 동일하게 "차량 현재위치 기준 절대 거리" 의미를 가짐(362차 계속2가 확인한 공유 구조 그대로) -- 게이트 하나로 양쪽 경로 모두에 자동 적용됨.
+
+**패치 검증**(§6/§7):
+- base `bd21c7e4a87f`(=`ryu` HEAD, GitHub 기준 `git ls-remote`로 직접 확인, 드리프트 없음)
+- `git apply --check` PASS
+- 독립 throwaway clone(`ryu_verify`, fresh `--depth 1` 클론)에서 `git am` PASS
+- `py_compile selfdrive/carrot/carrot_man.py` PASS
+- throwaway clone 결과물과 원본 작업 클론 `diff` byte-identical 확인
+- 패치 파일: `0001-367-4-route_curvature_macro_fine-150m-fine.patch`(base `bd21c7e4a87f`)
+
+**검증**:
+- 정적 분석: 완료(위 §6/§7 전체 PASS)
+- 로그 분석: 완료(367차 계속3에서 확보한 anchor/오염 4건 기준, 이번 세션은 재분석 없음)
+- 시뮬레이션/offline replay: **미실시**(사용자 결정으로 건너뜀 -- 150/165/180m 스윕 비교는 하지 않음)
+- 실차 검증: **미실시** -- 다음 세션 최우선
+
+**미확인 사항**:
+1. 150m가 실제로 362차 원 문제(고속도로 완만한 커브 오탐, route=만 70~80 표시)를 해소하는지 실차 확인 필요.
+2. 150m 임계값이 다른 정상적인 원거리 급커브(고속도로 IC/램프 등)를 과도하게 억제(fine 대체 상실 -> 감속 타이밍 지연)하는 부작용 여부는 실차에서만 확인 가능 -- 특히 고속 주행 중 원거리(150m+)에 실제 급커브가 있는 경우 macro(40m chord)만으로 충분히 감속되는지 주의 관찰 필요.
+3. 363차/366차 TP corpus(R<30m, 1137건)의 apexDist 분포를 재추출해 150m 임계값을 사후 보강 검증하는 작업이 여전히 남음(다음 세션 이월 가능).
+4. offline replay 스윕(150/165/180m 비교)을 생략하고 진행했으므로, 실차에서 문제가 발견되면 되돌리기(§9 원칙과 별개로 이 신규 게이트 자체를 되돌리는 것은 간단 -- 상수 1줄+게이트 4줄 삭제) 쉬움을 참고.
+
+**Devnotes**:
+- `WIP.md`: 이 항목(367차 계속4) 신규
+- `FINDINGS.md`: 367차 계속4 신규(362차/367차 결론 계승, 코드 반영 단계로 전환 기록)
+- `PARAMS_REGISTRY.md`: `ROUTE_FINE_OVERRIDE_MIN_DIST_M` 신규 등록
+
+**다음 작업**:
+1. 사용자 패치 적용(`git am`) -> push -> 실차 재빌드/주행으로 (a) 362차 원 문제(완만한 원거리 커브 과감속) 해소 여부, (b) 실제 원거리 급커브 대응 지연 등 부작용 여부 동시 확인
+2. 실차 결과에 따라 150m 임계값 유지/조정 여부 결정(부작용 있으면 150->180m 등 상향 검토)
+3. (이월) 363차/366차 TP corpus apexDist 분포 재추출로 임계값 사후 보강
+4. (이월) `dedup_physical_events_367.py` 8초 임계값 민감도 스윕
+
 ## 367차 계속3 (진행 중 -- anchor 실측 완료, 임계값 후보 도출 전) -- `d1cd25bdf1`(seg10/11/13) 재업로드분으로 검증된 오탐 2건의 vEgo/apexDist 확정
 
 **Worker**: Claude

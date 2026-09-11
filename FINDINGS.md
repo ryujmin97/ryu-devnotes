@@ -1,3 +1,21 @@
+## 367차 계속4 -- [ROOT_CAUSE_CONFIRMED -> 코드 반영, NEEDS_VALIDATION] 원거리 fine 대체 억제 게이트(`ROUTE_FINE_OVERRIDE_MIN_DIST_M=150.0`) `ryu`에 패치 적용, 실차 검증 대기
+
+**§24 dedup 확인**: FINDINGS.md 전체 `ROUTE_FINE_OVERRIDE`/`거리 임계값`/`362차` 검색 -- 362차(근본원인 확정)/363차/364차(RATIO/PERSIST 게이트 채택불가)/367차 계속(ISOLATION 게이트 반례)의 직접 후속. 이번 항목은 "곡률 기반 게이트(RATIO/PERSIST/ISOLATION)"를 전부 보류하고 **거리(apexDist) 단일 축 게이트**로 방향을 바꾼 첫 코드 반영.
+
+**기존 결론(362차)**: `route_curvature_macro_fine()`의 fine(10m) 대체 조건(`if f_speed < speeds[j]:`)에 앞뒤 정합성 확인이 없어, 고속도로에서 raw naviPaths의 고립된 미세 굴곡이 macro(40m chord)보다 낮은 속도로 잘못 채택되는 것이 오탐 근본원인. 363/364/367차계속이 곡률 크기/비율 기반 게이트(RATIO/PERSIST/ISOLATION) 세 가지를 모두 정탐 파괴 또는 소표본 반례로 채택 불가 판정.
+
+**새 증거**: 367차 계속3이 확보한 실측 4건 -- 검증된 오탐 anchor(`d1cd25bdf1` seg10 t=4426.417/seg13 t=4572.215) 둘 다 `apexDist=210.0m`. 367차 FP22건 중 qcamera로 진짜 커브임이 확인된 오염 2건(`2cbdaca9d2` t=673/t=978)은 각각 `apexDist=50m`/`120m`. vEgo(74~94kph)는 4건 모두 겹쳐 판별력 없음 -- **거리축만 뚜렷이 분리**(120m 이하 vs 210m).
+
+**변경 이유**: 곡률 크기/비율/고립도 기반 게이트는 전부 정탐(실제 급커브, 특히 R<30m/R<13m급)과 오탐 집단의 값 분포가 겹쳐 단일 파라미터로 분리 불가능함이 363/364/367차계속에서 반복 확인됐다. 반면 거리축은(표본은 4건뿐이지만) 완전히 분리된다 -- 362차 원 오탐이 "고속도로에서 멀리 있는 완만한 굴곡"이라는 정성적 특징과도 부합한다.
+
+**새 결론**: 곡률 기반 게이트 대신 `distances[j] >= ROUTE_FINE_OVERRIDE_MIN_DIST_M`(원거리) 조건에서만 fine 대체를 억제(macro 유지)하는 방식으로 전환. 임계값은 표본 4건 기준 후보 구간(150~180m) 중 보수적 값 **150m**로 사용자가 결정, `ryu`에 패치 적용(§27 최소변경 -- 상수 1줄 + 게이트 4줄, 기존 macro/fine 계산 로직 자체는 무변경). **offline replay 교차검증(150/165/180m 스윕)은 사용자 결정으로 생략**하고 실차 검증으로 바로 진행 -- 표본이 작다는 한계는 여전히 남아 있으므로(NEEDS_VALIDATION), 실차에서 (a) 원 문제 해소, (b) 실제 원거리 급커브 대응 지연 부작용 여부를 함께 확인해야 한다.
+
+**패치**: `0001-367-4-route_curvature_macro_fine-150m-fine.patch`(base `bd21c7e4a87f`). §6/§7 검증(throwaway clone `git apply --check`->`git am`->`py_compile`->diff byte-identical) 전부 PASS.
+
+**실차 검증**: 미실시 -- 다음 세션 최우선.
+
+**다음 작업**: WIP.md 367차 계속4 "다음 작업" 참고(실차 검증 -> 임계값 유지/조정 결정 -> 363/366차 TP corpus apexDist 사후 보강).
+
 ## 367차 계속 -- [365차/366차 결론 반례 발견, 코드 미수정 -- NEEDS_MORE_VALIDATION] 신규 corpus(22건 FP/4건 TP)에 ISOLATION 게이트 적용 -- 극단적 급커브(R<13m) TP에서 생존율 급락
 
 **§24 dedup 확인**: FINDINGS.md 전체 `isolation_score`/`ISOLATION 게이트` 검색 -- 365차(최초 설계)/366차(정탐 대리필터 교차검증, 결론 보강) 항목 존재. 이번 항목은 366차의 직접 후속(366차 "다음 작업" 1순위: corpus 다변화 검증).
