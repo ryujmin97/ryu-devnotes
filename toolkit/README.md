@@ -1,3 +1,27 @@
+## sim_route_363_gate_sharp_curve_regression.py (363차, 신규 -- 362차 계속2 "크기-비율 게이트" 실제 급커브 회귀검증)
+
+**목적**: 362차 계속2가 설계한 고립 fine curvature spike 억제 게이트(크기-비율 게이트, `RATIO` 파라미터)를 실제 R≈20~35m급 급커브 corpus(`0000039a--7b602ffb85` seg12, IC 램프)의 naviPaths 원본 좌표에 재적용해, 게이트가 진짜 급커브까지 억제하지 않는지 검증한다. 147/148차 원본 검증 corpus(`898edd0f96`)가 §23 정책으로 재확보 불가라 대체 corpus로 진행. 상세는 FINDINGS.md/WIP.md 363차 참고.
+
+`route_curvature_macro_fine()`(bd21c7e 기준) + 362차 계속2가 확정한 게이트 설계(좌우 인접 fine window 중 1개 이상이 `|curv| >= ratio * 중심점|curv|`를 만족해야 채택, OR조건, 탈락 시 macro 유지)를 verbatim 포팅(§27, 게이트가 아직 `ryu`에 없어 production import 불가 -- 이 방식이 유일한 검증 경로).
+
+**출력**: 프레임별로 NO-GATE/각 RATIO 적용 시 R<sharp-threshold-r인 지점들의 생존 여부를 나란히 보여주고, 마지막에 "가장 급한 지점(global min R)이 게이트 후에도 살아남은 프레임 비율" 요약 통계를 낸다.
+
+**363차 실측 결과**:
+- 수동 선별 6프레임(t=2024.5~2032, R≈20~47m): RATIO=0.3 1/6(17%) 생존, RATIO=0.5 0/6(0%) 생존.
+- 전체 corpus 자동 스캔(R<50m, 1,584프레임): RATIO=0.3 518/1584(33%), RATIO=0.5 458/1584(29%).
+- 좁은 기준(R<30m, 1,140프레임): RATIO=0.3 75/1140(7%), RATIO=0.5 17/1140(1%) -- 급할수록 생존율 급락.
+- **결론**: RATIO 단독 게이트는 정탐(실제 급커브) 파괴가 과도해 현재 형태로는 채택 불가. 재설계 필요.
+
+**사용**:
+```bash
+python3 sim_route_363_gate_sharp_curve_regression.py <extract_log.py --with-navi-paths 출력 CSV> \
+    [--times 2024.5,2026.0,2028.0,2028.56,2030.0,2032.0] \
+    [--ratios 0.3,0.5] [--sharp-threshold-r 50]
+```
+`--times` 생략 시 naviPaths가 있는 모든 행을 훑어 NO-GATE 기준 R<sharp-threshold-r인 급커브가 존재하는 프레임을 자동 선별한다.
+
+**한계**: 게이트 자체가 `ryu` production 코드에 없으므로 이 스크립트는 offline replay 검증만 제공한다(실차 검증 대상 아님, 애초에 배포되지 않은 설계안 검증).
+
 ## sim_route_359_lookahead_overrun.py (359차, 신규 -- get_path_after_distance() 300m 캡 오버런/경로반전 버그 재현+수정검증)
 
 **목적**: 직선 고속도로에서 `routeApexDist`/`routeApexSpeed`가 프레임마다

@@ -3,6 +3,15 @@
 새 도구 추가/기존 도구 함수 추가·변경 시 날짜 + 한 줄 요약을 여기에
 남긴다. `README.md`도 같이 갱신할 것.
 
+## 2026-09-11 (363차)
+- `sim_route_363_gate_sharp_curve_regression.py`: **신규**. 362차 계속2
+  "크기-비율 게이트"(RATIO 파라미터)를 실제 R≈20~35m급 급커브 corpus
+  (`0000039a--7b602ffb85` seg12-16, IC 램프)에 재적용해 정탐 유지 여부
+  회귀검증. `route_curvature_macro_fine()`+게이트 설계 verbatim
+  포팅(§27). 결과: R<30m 급커브 1,140프레임 중 가장 급한 지점 생존율
+  RATIO=0.3 7%, RATIO=0.5 1% -- 정탐 파괴 과도, 게이트 재설계 필요로
+  판정. 상세는 README.md/FINDINGS.md/WIP.md 363차 참고.
+
 ## 2026-09-11 (359차)
 - `sim_route_359_lookahead_overrun.py`: **신규**. `carrot_man.py`의
   `get_path_after_distance()` 첫 세그먼트 300m 캡 미적용 버그(직선

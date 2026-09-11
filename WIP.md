@@ -1,3 +1,47 @@
+## 363차 (완료 — 362차 계속2 RATIO 게이트 회귀검증, "설계 재검토 필요"로 판정, 코드 패치 없음) — 크기-비율 게이트 실제 급커브(R≈20~35m) 회귀검증
+
+**Worker**: Claude
+
+**Repository**: `ryu`(HEAD `bd21c7e`=359차, 드리프트 없음) / `ryu-devnotes`(HEAD `b4f5b4b`=362차 계속2)
+
+**Branch**: `c3-ms-dev` / `main`
+
+**세션 시작 확인(§3/§33)**: fresh clone으로 `ryu` HEAD `bd21c7e`, `ryu-devnotes` HEAD `b4f5b4b` 직접 확인. `route_curvature_macro_fine()` 원문이 362차 계속2 기록과 byte-identical(게이트 미반영 상태) 확인. 드리프트 없음.
+
+**배경**: 362차 계속2가 "미확정 항목(단 1개)"으로 남긴 `RATIO` 값 확정 작업. 원래 검증 대상이던 147/148차 corpus(`898edd0f96`)는 §23 정책(대용량 CSV 미보관)에 따라 재확보 불가 상태였으나, 사용자가 대체 corpus(`0000039a--7b602ffb85` seg12-16, 2026-09-04 09:56~10:00 채록, 경주/울산 IC 램프)를 업로드 -- 화면상 가드레일이 매끄럽게 우측으로 휘어지는 단일 커브로 qcamera 시각 확인 완료, desiredCurvature가 노이즈 없이 단조증가(R 52m→34m)하는 전형적 실주행 프로파일. R≈20~35m급(147/148차 원본 R≈27m과 같은 급, 오히려 더 급한 지점 다수 포함)으로 대체재로 판단해 진행.
+
+**진행 경과**:
+
+1. **corpus 확정**: `extract_log.py --with-navi-paths`로 seg12~16(5,999행) 추출, device gitCommit=`bd21c7e4a87f`(=`ryu` HEAD, 최신 빌드 확인). `route_curvature_macro_fine()`을 naviPaths 원본 좌표에 그대로 재현(verbatim, §27) -- macro grid(10m)만으로는 이 커브들이 완전히 미검출(R>130m로 보임)되고 fine(2.5m 국소)이 R≈20~34m급 실제 커브를 정확히 포착하는 패턴이 147차가 확립한 패턴과 정확히 일치함을 재확인(6개 수동 선별 프레임, t=2025/2028.56/2030/2032 등).
+
+2. **게이트 회귀검증 스크립트 신규 작성**: `sim_route_363_gate_sharp_curve_regression.py`. `route_curvature_macro_fine()`(bd21c7e 기준) + 362차 계속2가 확정한 크기-비율 게이트(좌우 인접 fine window 중 1개 이상이 `|curv| >= ratio * 중심점|curv|`를 만족해야 채택, OR조건, 탈락 시 macro 유지)를 verbatim 포팅(§27, 게이트 자체가 아직 `ryu`에 없어 production import 불가 -- 이 방식이 유일한 검증 경로). NO-GATE 대비 RATIO=0.3/0.5 각각 적용 시 "가장 급한 지점(global min R)"의 생존 여부를 프레임별로 비교.
+
+3. **1차 검증(수동 선별 6프레임, t=2024.5~2032)**: 가장 급한 지점 생존율 RATIO=0.3 1/6(17%), RATIO=0.5 0/6(0%).
+
+4. **2차 검증(전체 corpus 자동 스캔, 사용자 확인 후 진행)**: naviPaths가 있는 5,999프레임 전체를 대상으로 NO-GATE 기준 급커브(R<50m) 후보를 자동 선별해 재실행:
+   - R<50m 기준 1,584프레임: RATIO=0.3 518/1584(33%) 생존, RATIO=0.5 458/1584(29%) 생존.
+   - R<30m(더 좁은 "진짜 급커브") 기준 1,140프레임: RATIO=0.3 75/1140(**7%**) 생존, RATIO=0.5 17/1140(**1%**) 생존 -- R이 작을수록(더 급할수록) 생존율이 급격히 낮아짐.
+
+**결론**: 크기-비율 게이트는 362차 오탐 corpus(완만한 커브 고립 spike)를 억제하는 데는 효과적이지만, 이번 대체 corpus(R≈20~35m급 실제 급커브)에서 정탐(진짜 급커브 검출)을 광범위하게 파괴함을 실측으로 확인 -- RATIO 값을 0.3/0.5 중 어느 쪽으로 확정해도 채택 불가 수준. 상세 원인 분석 및 다음 설계 방향은 FINDINGS.md 363차 참고.
+
+**검증**:
+- 정적 분석: 완료(`route_curvature_macro_fine_gated`, carrot_man.py 원문 verbatim 포팅, §27)
+- 로그 분석: 완료(실차 로그 `0000039a--7b602ffb85` seg12-16 전체, naviPaths 원본 좌표 기반)
+- 실차 검증: 미실시(게이트 코드 자체가 `ryu`에 반영된 적 없음, offline replay만)
+
+**devnotes 변경**:
+- `WIP.md`: 이 항목(363차) 신규
+- `FINDINGS.md`: 363차 신규(362차 결론 보강 -- 기존 결론/새 증거/변경 이유/새 결론 명시)
+- `toolkit/sim_route_363_gate_sharp_curve_regression.py`: 신규
+- `toolkit/README.md`, `toolkit/CHANGELOG.md`: 363차 항목 추가
+
+**다음 작업**:
+1. 게이트 재설계 방향 논의 -- 사용자 결정 필요(절대 곡률 임계값 병행 / 시간지속성 조건 도입[362차 계속2가 "구현비용 대비 효과 불명확"으로 1차 보류] / 다른 방식)
+2. 재설계안이 나오면 `sim_route_363_gate_sharp_curve_regression.py`(정탐 유지, 이번 corpus)와 362차 오탐 corpus 검증 스크립트 양쪽 모두 재실행해 교차검증
+3. 362차 원 문제(고속도로 완만한 커브 오탐) 자체는 여전히 미해결 -- 코드 패치 없음
+
+---
+
 ## 362차 계속2 (체크포인트 — Claude/ChatGPT 교차검증으로 필터 설계 확정, 코드 패치 전 — ratio 값 회귀검증 대기 중 중단) — 고립 fine curvature spike 억제 게이트 설계
 
 **Worker**: Claude
