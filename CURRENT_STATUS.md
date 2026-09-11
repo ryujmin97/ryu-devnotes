@@ -8,141 +8,118 @@ append-only 원칙 적용 안 함 -- 항상 최신 1개 스냅샷만 유지).
 새 세션(Claude/ChatGPT 무관)은 WIP.md 최신 회차를 읽기 전에 이 파일을
 먼저 확인해 전체 그림을 빠르게 파악할 것.
 
+**[369차 갱신 시 발견]** 이 파일이 363차 종료 시점에서 364~368차(5개
+세션) 동안 갱신되지 않았던 것을 369차에서 재정비했다. 그 사이 WIP.md는
+정상적으로 누적됐으므로 실제 작업 연속성에는 문제가 없었으나, 앞으로도
+매 세션 종료 시 이 파일을 갱신할 것.
+
 ---
 
-## 코드 상태 (2026-09-11, 363차 종료 시점)
+## 코드 상태 (2026-09-12, 369차 종료 시점)
 
 **Repository**: `ryujmin97/ryu`
 **Branch**: `c3-ms-dev`
-**HEAD (GitHub 기준, fresh clone으로 이번 세션 직접 확인)**: `bd21c7e`
-(359차, `get_path_after_distance()` 300m 캡 오버런/경로반전 버그 수정).
-**358차/359차 패치 모두 push 완료 확인**(360차가 push 사고 복구 완료).
-362차/363차는 `ryu` 코드 변경 없음(analysis-only, offline replay만).
+**HEAD (GitHub 기준, fresh clone으로 369차 직접 확인)**: `d5b34bb6b358`
+(367차 계속4, `route_curvature_macro_fine()` 원거리(>=150m) fine 대체
+억제 게이트 `ROUTE_FINE_OVERRIDE_MIN_DIST_M=150.0` 추가).
+364~369차는 `ryu` 코드 변경 없음(analysis-only, offline replay/실차
+로그 재분석만).
 
 **Repository**: `ryujmin97/ryu-devnotes`
 **Branch**: `main`
-**HEAD (fresh clone으로 이번 세션 직접 확인)**: `b4f5b4b`(362차 계속2,
-게이트 설계 확정 체크포인트)까지 push 완료 확인. 이번(363차) devnotes
-갱신(WIP/FINDINGS/이 파일/toolkit)은 이 세션 종료 후 push 대기 중.
+**HEAD (fresh clone으로 369차 직접 확인)**: `f0af4b5`(368차 완료
+시점)까지 push 완료 확인. 이번(369차) devnotes 갱신(WIP/FINDINGS/이
+파일)은 이 세션 종료 후 push 대기 중.
 
 ---
 
-## ⏳ 363차 완료 -- 362차 계속2 "크기-비율 게이트"(RATIO) 회귀검증, 재설계 필요로 판정
+## ⏳ 369차 완료 -- 368차 251건 플래핑의 실제 근본원인 코드 위치 정정 (L1832 ACTIVE 게이트 아님, L1807 INERT 비교가 원인)
 
-362차 계속2가 남긴 미확정 항목(`RATIO` 값)을 대체 corpus(`0000039a--
-7b602ffb85` seg12-16, R≈20~35m급 실제 급커브)로 회귀검증. 결과:
-RATIO=0.3/0.5 둘 다 실제 급커브 검출을 광범위하게 파괴함을 실측 확인
-(R<30m 급커브 1,140프레임 기준 생존율 각각 7%/1%) -- **RATIO 단독
-크기-비율 게이트는 채택 불가**. 362차 원 문제(고속도로 완만한 커브
-과감속)는 여전히 미해결, 게이트 설계 자체의 재검토가 다음 세션 과제.
-상세: WIP.md/FINDINGS.md 363차. 코드 패치 없음, 실차 검증 해당 없음
-(게이트가 `ryu`에 반영된 적 없음).
+368차 "다음 작업 1"(`diag_required_decel_341.py` 정식 적용)을 동일
+route(`22ebbb245d`)에 실행한 결과 **릴리즈 이벤트 0건** -- 341차 원
+corpus(x20seg)와 달리 이 corpus는 ACTIVE 상태(`route_active=True`)에
+**한 번도 진입하지 않음**을 확인(3,296프레임 중 ACTIVE 진입게이트
+`required_decel_mss`가 평가된 프레임 0건). 원인: corpus `apexDist`
+최대 140m인데 실측 vEgo(~90~100kph)에서 `target_ms *
+autoNaviSpeedCtrlEnd(7.0)`이 통상 150~200m라 `eff_dist`가 항상
+0으로 클램프되거나 그 전에 `v_ego<=target`(L1807, INERT 분기)이
+먼저 걸림 -- 즉 368차가 지목했던 "L1832 ACTIVE 진입 게이트"는 이
+corpus에는 전혀 관여하지 않는다. 실제 관여 코드는 **L1807**
+(`if v_ego_ms <= target_ms:`, 히스테리시스 없는 단순 비교)이며,
+grid 경계 apex_speed 스파이크가 이 조건을 1프레임만 참으로 만들어
+route를 arbitration에서 순간 제외시키는 것이 251건 플래핑의 실제
+메커니즘. `carrot_serv.py` L1260 교차확인으로 `src=='route'` 선택
+자체는 `route_active` 내부 플래그와 무관한 순수 arbitration 결과임도
+확인. 코드 수정 없음(설계 방향 Master 결정 대기). 상세: WIP.md/
+FINDINGS.md 369차 참고.
+
+**다음 세션 최우선**: L1807(INERT `v_ego<=target`)에 히스테리시스를
+추가할지/어떻게 설계할지 Master 결정. L1832(ACTIVE 게이트) 히스테리시스
+설계는 이번 근거리 corpus 근거로는 불필요할 수 있음 -- 별도로 341차
+원 corpus(x20seg, 원거리) 기준 재검토.
+
+---
+
+## ✅ 368차 완료 -- 341차 확정 메커니즘, 신규 실차 제보 route(`22ebbb245d`)에서 251건 규모 재확인 (근본원인 코드 위치는 369차에서 정정됨, 위 참고)
+
+341차가 x20seg(직선, 46건)에서 확정한 "grid 경계 apex_speed 스파이크
+-> route 1프레임 드롭아웃/블립" 패턴이 신규 route(곡선구간, 251건 =
+135 드롭아웃+116 블립, 98~99% grid 전환 동시발생)에서 훨씬 조밀하게
+재현됨을 실측 확인. `ryu` 코드 변경 없음. 상세: WIP.md/FINDINGS.md
+368차 참고. **369차에서 근본원인 코드 위치가 L1832(ACTIVE)가 아니라
+L1807(INERT)임이 밝혀졌으므로, 이 항목의 "근본원인" 부분은 369차
+기록을 우선 참고할 것.**
+
+---
+
+## ⏳ 367차 계속4 완료 -- `route_curvature_macro_fine()` 원거리 fine 대체 억제 게이트(150m) 코드 반영, 실차 검증 대기
+
+367차 계속3이 확보한 anchor 2건(apexDist=210m, 검증된 오탐)과 오염
+확인된 진짜 커브 2건(apexDist=50m/120m) 근거로 `ROUTE_FINE_OVERRIDE_
+MIN_DIST_M=150.0` 상수+게이트를 `carrot_man.py`에 반영, 패치 검증
+완료(§6/§7 전체 PASS). **표본 4건뿐이라 NEEDS_VALIDATION**, offline
+replay 스윕은 사용자 결정으로 생략. **실차 검증: 미실시 -- 다음
+세션 최우선**(362차 원 문제 해소 여부 + 원거리 실제 급커브 대응 지연
+부작용 여부 동시 확인 필요). 패치: `0001-367-4-route_curvature_macro_
+fine-150m-fine.patch`(base `bd21c7e4a87f`). 상세: WIP.md/FINDINGS.md
+367차 계속4 참고.
+
+---
+
+## 362~367차 요약 (곡률 게이트 계열 -- ISOLATION/150m 게이트로 수렴)
+
+362차가 발견한 "고속도로 완만한 커브 과감속"(fine 10m 서브샘플이
+macro 40m보다 낮으면 인접 정합성 확인 없이 무조건 채택하는 구조적
+결함) 문제에 대해 363차(크기-비율 게이트, 기각) -> 364차(지속성
+게이트 PERSIST, 기각) -> 365차(heading ISOLATION 게이트, 유망) ->
+366차(정탐 대리필터 교차검증, precision 92.2%->25kph로 100%) ->
+367차/367차계속(corpus 확대, R<13m 급커브에서 ISOLATION 생존율 급락
+반례 발견) -> 367차계속3/4(anchor 기반 거리 임계값 150m 도출, 코드
+반영)로 이어짐. **현재 `ryu`에 반영된 것은 150m 거리 게이트뿐**
+(ISOLATION 게이트는 설계 검증 단계, 코드 미반영). 상세는 각 회차
+WIP.md/FINDINGS.md 참고.
 
 ---
 
 ## ✅ 361차 완료 -- 358차/359차 실차 검증 (신규 실차 로그, 20세그/20분)
 
-사용자가 업로드한 신규 실차 로그(route `000003ea--90dc575e96`,
-2026-09-11 14:04~14:23, 최고 112km/h)로 두 미검증 패치를 검증:
-
-- **device gitCommit=`bd21c7e4a87f`**(359차, `ryu` HEAD와 완전 일치)
-  확인 -- 이 로그는 358차+359차 패치가 모두 반영된 최신 빌드에서 채록됨.
-- **359차(300m 캡 오버런/경로반전) -- 실차 검증 완료, 재발 없음 확인**:
-  `routePathLen==3`(617건) 전부 `apexDist=0`/`apexSpeed=0`(정상 INERT),
-  버그 시그니처(경로반전+대폭 요동)는 전체 로그에서 미관측. 직선
-  고속도로 구간 route 개입 5개 클러스터 전부 정상적 단조 접근 패턴.
+- **359차(300m 캡 오버런/경로반전) -- 실차 검증 완료, 재발 없음 확인**.
 - **358차(carrotMan 0Hz staleness E') -- 정상 부팅/주행 확인, fallback
-  자체 트리거는 미검증**: `carrotMan` 발행 gap이 20분 내내 안정
-  (max 0.0887s, `sleep(1)` 예외 경로 0건) -- fallback이 발동할
-  상황 자체가 이 로그에 없었으므로 "정상 동작에 지장 없음"은 확인됐으나
-  "fallback 코드가 실제로 올바르게 동작하는지"는 여전히 별도 검증 필요.
+  자체 트리거는 미검증**(로그에 fallback 발동 상황 자체가 없었음).
 
 상세: WIP.md 361차 참고.
 
 ---
 
-## ⏳ 359차 -- route lookahead 300m 캡 오버런/경로반전 버그 -- 코드 구현+검증 완료, 실차 반영 대기
-
-직선 고속도로에서 `routeApexDist`/`routeApexSpeed`가 프레임마다 급격히
-요동하는 증상의 근본원인을 확정: `carrot_man.py::get_path_after_distance()`가
-첫 세그먼트를 300m 캡 체크 없이 무조건 추가하는 버그로, 첫 세그먼트
-자체가 이미 300m를 넘으면(직선 구간 raw waypoint 간격이 넓을 때) 경로가
-국소적으로 반전됨. 첫 세그먼트도 나머지와 동일한 캡 로직을 적용하는
-최소변경(§27)으로 수정, `sim_route_359_lookahead_overrun.py`(신규)로
-버그재현/회귀방지 두 시나리오 모두 PASS 확인. 패치 검증(§6/§7:
-throwaway clone -> `git apply --check` -> `git am` -> `py_compile` ->
-byte-identical diff) 완료. **실차 검증: 미실시.**
-
-상세: WIP.md/FINDINGS.md 359차 참고.
-
-**다음 세션 최우선**: 358차 -> 359차 순서로 패치 적용/push 후, 실차에서
-(a) 358차 fallback 정상 동작(정상 부팅 최우선), (b) 직선 고속도로
-구간 route 오개입/요동 해소 두 가지를 함께 확인.
-
----
-
-## ⏳ 358차~358차 계속3 진행 상황 -- `carrotMan` 0Hz staleness 보호(E') -- 코드 구현 완료, 실차 반영 대기
-
-356차가 발견한 "`alive['carrotMan']`가 구조적으로 상시 True"(0Hz 등록
-+ 실제 20Hz 발행 불일치) 문제에 대해 E'(소비처 5곳 `recv_time` 기반
-로컬 staleness 체크, capnp 필드 추가 불필요)로 설계 확정 후, 358차
-계속3에서 실제 코드 구현 및 패치 생성/검증까지 완료:
-
-- `controls/controlsd.py`(L191 `vTurnSpeed`/L264 `desiredSpeed`),
-  `controls/lib/lateral_planner.py`(L101 `vTurnSpeed`),
-  `car/cruise.py`(L291), `selfdrived.py`(L251),
-  `carrot_functions.py`(L442) 5개 파일 수정.
-- `CARROT_MAN_STALE_S = 1.5`(provisional, 사용자 결정) -- 파일별 로컬
-  상수, 공유 helper 모듈 신설 없음.
-- `desiredSpeed` capnp 기본값 0 부팅 직후 latent 위험도 이번 fallback
-  으로 함께 해소.
-- 패치 파일: `0001-358cha-carrotman-E-prime-5-consumers.patch`
-  (base `40ed6d9`). §6 절차(throwaway clone -> `git apply --check` ->
-  `git am` -> `py_compile`) 전부 통과 확인.
-- **실차 검증: 미실시** -- 사용자가 패치 적용/push 후 다음 세션
-  최우선으로 확인 필요(정상 부팅 여부가 최우선).
-
-**남은 것**:
-1. 사용자 패치 적용 -> push -> 실차 재부팅/주행으로 정상 동작 확인
-2. `CARROT_MAN_STALE_S=1.5`는 provisional -- 실제 `sleep(1)` 발현
-   corpus 확보 후 재평가(폐기 대상 아님)
-3. B/C/D안(`broadcast_version_info()` try 격리 등, E'와 병행 가능한
-   별개 개선)은 이번에 다루지 않음, 보류 유지
-
-상세: WIP.md 358차/358차 계속/358차 계속2/358차 계속3, FINDINGS.md
-358차(6번 항목) 참고.
-
----
-
 ## ✅ 357차 완료 -- 356차 보안 발견 후속 처리
 
-1. **[해결+실차검증 완료]** ZMQ 7710 `echo_cmd`/`tmux_send` 무인증 원격
-   명령실행 -- CarrotMan/APM 앱 미사용 확인(Master), caller 부재
-   확정 -> `carrot_man.py`(`c39d81f`)에서 핸들러 제거, 패치전달 완료.
-   **실차 검증: 완료(357차 계속)** -- 재부팅 포함 실차에서 `carrot_man`
-   정상 기동 확인(Master 보고). 이 항목은 완전히 종결.
-2. **[Master 확인, 위험 수용]** `carrotweb`(port 7000, 실사용 중)의
-   `/api/*`/`/ws/terminal` 전체가 무인증 상태(임의 쉘 실행/reboot/
-   git·pip 실행/Params 변경 가능, `always_run`으로 상시 기동)임을
-   357차에서 신규 발견. Master가 잔여 리스크(집 와이파이 연결 중에도
-   포트 상시 개방)까지 설명 들은 뒤 "핫스팟에서만 접속, 집에서는 작업
-   안 함"을 근거로 **문제없음으로 최종 확인 -> 코드 미수정**(FINDINGS.md
-   357차 참고). 향후 네트워크 사용 패턴이 바뀌면 재검토 필요.
-4. **[해결, 357차 계속2]** `send_routes()` 도달불가 분기 -- route
-   activation 자체는 정상(356차 확정 유지). 원격 HEAD 재확인 결과
-   `active_carrot` 승격은 이 분기와 무관한 별도 SDI 채널(UDP 7706,
-   `carrot_serv.update()`)이 전담함을 신규 확인 -> corpus 검증 없이
-   dead code 제거 진행(코드 결론만으로 충분 판단, 사용자 승인).
-   `carrot_man.py`에서 `if not from_navd:` 블록 제거, 패치전달 완료.
-   **실차 검증: 미실시**(기능 영향 없는 순수 정리라 우선순위 낮음).
-5. 20Hz 메인루프(`broadcast_version_info`) 전체가 단일 try-except --
-   예외 1건 발생 시 최대 1초 갱신 중단. 구조 개선 논의 필요.
-6. `vturn_speed()` alive 조건이 AND -- `carState`/`modelV2` 둘 다
-   죽어야만 스킵. 조건식 의도 재검증 필요(크래시 위험은 없음).
-7. `server/core.py:1945` NameError 유발 가능 버그(aiohttp 미임포트) --
-   대시보드 웹소켓 전용, 제어로직 무관, 경미.
+- ZMQ 7710 무인증 원격명령실행 -- 핸들러 제거, 패치전달+실차검증 완료.
+- `carrotweb`(7000) 무인증 상태 -- Master가 위험 수용 확인(핫스팟
+  전용 사용), 코드 미수정.
+- `send_routes()` 도달불가 분기 -- dead code 제거, 패치전달 완료
+  (실차 검증 미실시, 기능 영향 없는 순수 정리).
 
-상세: WIP.md/FINDINGS.md 356차 참고.
+상세: WIP.md/FINDINGS.md 356차/357차 참고.
 
 ---
 

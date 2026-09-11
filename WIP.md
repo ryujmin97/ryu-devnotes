@@ -1,3 +1,52 @@
+## 369차 (완료 -- `diag_required_decel_341.py` 정식 적용, 368차 근본원인 코드 위치 정정, `ryu` 코드 무변경) -- 368차 251건 플래핑이 ACTIVE 진입게이트(L1832)가 아니라 INERT `v_ego<=target`(L1807)에서 발생함을 실증
+
+**Worker**: Claude
+
+**Repository**: `ryu`(HEAD `d5b34bb6b358`=367차 계속4, dirty=False, 코드 변경 없음) / `ryu-devnotes`(HEAD `f0af4b5`=368차 완료 시점)
+
+**Branch**: `c3-ms-dev` / `main`
+
+**세션 시작 확인(§3/§33)**: fresh clone으로 `ryu` HEAD `d5b34bb6b358` 확인, `ryu-devnotes` HEAD `f0af4b5`(368차) 확인. `CURRENT_STATUS.md`가 363차 스냅샷에서 갱신이 안 돼 있어(364~368차 5개 세션 누락) 사용자에게 보고, WIP.md 최신 회차 기준으로 진행.
+
+**배경**: 368차가 남긴 "다음 작업 1"(`diag_required_decel_341.py`를 신규 route `22ebbb245d`에 정식 적용해 341차와 동일 지표로 재확정) 착수. 사용자가 동일 route(3세그먼트, dashcam zip)를 재업로드.
+
+**진행 경과**:
+
+1. **환경 준비**: `pycapnp`/`zstandard` 설치(컨테이너 초기상태엔 없었음), `extract_log.py`가 참조하는 `/home/claude/ryu-devnotes` 경로에 대한 symlink 생성(`diag_required_decel_341.py`가 `sys.path.insert(0, "/home/claude/ryu-devnotes/toolkit")`로 절대경로 하드코딩돼 있어 로컬 클론 경로(`/home/claude/devnotes`)와 불일치 -- symlink로 해결, toolkit 코드 자체는 무변경).
+2. **재추출**: 3개 세그먼트를 합쳐 `extract_log.py --with-navi-paths --repo ryu`로 추출, 3,296행/`commit=d5b34bb6b358`/`dirty=False` 확인 -- 368차 기록과 정확히 일치(같은 corpus). 실제 `src` 필드 기준 드롭아웃 135건/블립 116건도 재계산해 368차 수치와 100% 일치 재확인.
+3. **`diag_required_decel_341.py --summary` 정식 실행**: 결과 **릴리즈 이벤트 0건**(341차 원 corpus에서는 54건 중 33건이 ACTIVE `speed_reached`로 분류됐던 것과 대조적).
+4. **원인 추적(§28)**: `simulate_with_reason()` 내부 계측으로 이 corpus 전체 3,296프레임 중 ACTIVE 진입게이트(`required_decel_mss`, L1832)가 평가된 프레임이 **0건**임을 확인. valid apex 후보가 있는 925프레임을 INERT 3분기(`v_ego<=target`/`eff_dist<=0`/게이트평가)로 재분류 -> 569/356/**0**건. `carrot_man.py` L1807-1832 실제 코드 직접 재확인으로 이 3분기 구조를 검증.
+5. **구조적 원인**: corpus `routeApexDist` 최대 140.0m인데 반해, 실측 vEgo(~90~100kph)에서 `target_ms * autoNaviSpeedCtrlEnd(7.0)`이 통상 150~200m -- `eff_dist`가 거의 항상 0으로 클램프되거나 그 전에 `v_ego<=target`이 먼저 걸려, **ACTIVE 상태(`route_active=True`) 진입 자체가 이 corpus 전체에서 구조적으로 불가능**함을 확인.
+6. **`carrot_serv.py` 교차확인**: L1260 `speed_n_sources.append((route_speed, "route"))`가 `self.route_active` 값과 무관하게 항상 실행됨을 확인 -- 텔레메트리 `src=='route'`(desiredSource)는 ACTIVE 내부 플래그와 독립적인 arbitration(다중 후보 중 최소값 선택) 결과.
+7. **프레임별 재확인**: 첫 드롭아웃 이벤트(t=3680.055~3680.157)를 `diag_required_decel_341.py` window 모드로 직접 출력 -- `apex_idx` 16->15->14 grid 전환과 동시에 드롭아웃 프레임에서만 `apexSpeed`가 90.9->**99.0**->90.0으로 튀며 `target_ms`가 `v_ego_ms`를 순간 초과(L1807 조건 충족) -> `out_speed=None` -> route가 그 1프레임만 arbitration에서 제외됨을 프레임 단위로 실증.
+
+**결론**: 368차가 "341차 메커니즘 그대로 재확인"이라 기록했던 251건 플래핑은, 겉으로 보이는 패턴(grid 경계 apex_speed 스파이크 -> 1프레임 토글)은 341차 원 corpus(x20seg, 직선/원거리)와 동일하지만, **실제로 관여하는 코드 지점은 다르다**: 341차 원 corpus는 ACTIVE release(`speed_reached`, L1745/1854 부근)가 관여했던 반면, 이번 근거리 곡선 corpus는 ACTIVE에 진입한 적이 아예 없고 전부 INERT 분기의 `v_ego<=target`(L1807, 히스테리시스 없는 단순 비교)에서 발생한다. 368차가 근본원인으로 지목한 "L1832 ACTIVE 진입 게이트"는 이번 corpus에는 관여하지 않으므로, 368차 "다음 작업 2"(L1832에 히스테리시스 추가)는 이번 251건 문제를 해결하지 못한다 -- 실제 개입 지점은 L1807이다.
+
+**코드 수정**: 하지 않음(§31, 이번 세션은 근본원인 코드 위치 정정 목적, 수정 여부/설계는 Master 결정 필요).
+
+**검증**:
+- 정적 분석: 완료(`carrot_man.py` L1778-1835 INERT/ACTIVE 분기, `carrot_serv.py` L1260 직접 재확인)
+- 로그 분석: 완료(3,296행 재추출, 드리프트 없음, 368차 수치 100% 재현)
+- 시뮬레이션: 완료(`diag_required_decel_341.py --summary` 정식 실행 + 서브분기 카운트 검증)
+- 실차 검증: 해당 없음(오프라인 로그 재분석)
+
+**미확인 사항**:
+1. Master 결정 필요: L1807(INERT)/L1832(ACTIVE) 각각에 별도 히스테리시스를 추가할지, `target_ms`(confidence blend) 상류 지점에서 grid-경계 스파이크 자체를 완화하는 통합 설계로 갈지.
+2. `autoNaviSpeedCtrlEnd=7.0`/`autoNaviSpeedDecelRate` 실제 device 설정값이 기본값과 같은지 미확인(CSV에 해당 Params 필드 없음) -- device 직접 확인 필요.
+3. L1807에 히스테리시스를 추가할 경우 실제 커브 진입 시점 응답 지연 등 부작용은 미검증.
+4. 368차 "다음 작업 3"(플래핑의 실제 종방향 제어 영향 정량 측정)은 이번에도 다루지 않음, 계속 이월.
+
+**Devnotes**:
+- `WIP.md`: 이 항목(369차) 신규
+- `FINDINGS.md`: 369차 신규(368차/341차 결론 보강 -- 근본원인 코드 위치 정정, §24 형식 준수)
+
+**다음 작업**:
+1. Master 결정: L1807 히스테리시스 설계 여부/방향(폭, 유지시간) -- 368차가 지목했던 L1832가 아니라 이 지점이 이번 근거리 corpus의 실제 개입 지점임을 전제로 논의
+2. `autoNaviSpeedCtrlEnd`/`autoNaviSpeedDecelRate` 실제 device 설정값 확인
+3. (368차에서 이월) 플래핑이 실제 종방향 제어 출력(가속도 명령)에 미치는 영향 정량 측정
+4. L1832(ACTIVE 진입게이트) 히스테리시스는 341차 원 corpus(x20seg류, 원거리 apex) 기준으로 별도 판단(이번 근거리 corpus 근거로는 불필요할 수 있음)
+5. (부수 발견) `CURRENT_STATUS.md`가 364~368차 5개 세션분 갱신 누락 -- 다음 세션에서 최신 스냅샷으로 갱신 권장
+
 ## 368차 (완료 -- 실차 제보 로그 분석, `ryu` 코드 무변경) -- 341차 확정 메커니즘(grid 경계 apex_speed 스파이크 -> 단일프레임 ACTIVE 드롭아웃)이 신규 route에서 훨씬 조밀하게 재현됨
 
 **Worker**: Claude

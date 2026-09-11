@@ -1,3 +1,70 @@
+## 369차 -- [368차/341차 결론 정정 -- NEEDS_DECISION] `diag_required_decel_341.py` 정식 적용 결과, 368차 251건 플래핑은 ACTIVE 진입게이트(L1832)가 아니라 INERT `v_ego<=target` 비교(L1807)에서 발생함을 확인
+
+**§24 dedup 확인**: FINDINGS.md `required_decel_mss`/`route flapping`/`341차`/`368차` 검색 -- 368차의 직접 후속(368차 "다음 작업 1"). 새 이슈가 아니라 368차/341차가 지목한 "근본 원인 코드 위치"를 실제로 재정정하는 항목.
+
+**기존 결론(368차)**: 신규 route(`22ebbb245d`)의 251건(135 드롭아웃+116 블립) 플래핑이 341차 메커니즘("grid 경계 apex_speed 스파이크 -> v_ego<=target 1프레임 통과 -> 즉시 재진입") 그대로 재확인되며, `carrot_man.py` L1832 ACTIVE 진입 게이트(`required_decel_mss >= autoNaviSpeedDecelRate`)에 히스테리시스/하한이 없는 것이 근본 원인이라고 기록.
+
+**새로운 증거**: 사용자가 동일 route(`22ebbb245d`, 3세그먼트)를 재업로드. `extract_log.py --with-navi-paths --repo ryu`로 재추출(3,296행, `commit=d5b34bb6b358` dirty=False -- 368차와 완전 동일 corpus, 135/116건 재현 일치 재확인).
+
+이 corpus에 368차 "다음 작업 1"(`diag_required_decel_341.py` 정식 적용)을 실행:
+
+```
+python3 diag_required_decel_341.py route_22ebbb245d.csv --summary
+[전체] route_active True->False 릴리즈 이벤트: 0건
+[2.0s 이내 재진입=flapping] 0건
+```
+
+341차 원 corpus(x20seg)에서는 이 스크립트가 flapping 54건 중 33건을 `ACTIVE` 릴리즈 조건 `speed_reached`로 분류했었는데, 이번 corpus에서는 **릴리즈 이벤트 자체가 0건**(ACTIVE 상태에 진입한 적이 한 번도 없음을 의미).
+
+원인을 추적(§28)한 결과:
+1. `simulate_with_reason()` 내부에서 `req_decel`(ACTIVE 진입게이트 평가 값)이 이 corpus 전체 3,296프레임 중 **0프레임**에서 계산됨(즉 L1832 게이트 자체가 단 한 번도 평가되지 않음).
+2. `carrot_man.py` 실제 코드(L1807-1832, INERT 분기) 직접 재확인:
+   ```python
+   if v_ego_ms <= target_ms:              # L1807
+       out_speed = None                   # route 후보 자체가 이 프레임엔 없음
+   elif eff_dist <= 0:                    # L1814
+       out_speed = v_ego_kph              # route_speed=vEgo 그대로 통과(passthrough)
+   else:
+       required_decel_mss = ...           # L1832, 여기서만 ACTIVE 진입 평가
+       if required_decel_mss >= autoNaviSpeedDecelRate:
+           self.route_active = True
+   ```
+3. valid apex 후보가 있는 925프레임을 위 3분기로 직접 재분류: `v_ego<=target` 569건(61.5%), `eff_dist<=0` 356건(38.5%), **L1832 게이트 평가(`else`) 0건(0%)**.
+4. 원인(구조적): 이 corpus의 `routeApexDist`는 최대 140.0m(최소 -40.0m)인데, 실측 vEgo(~90~100kph, target_ms도 비슷한 범위)에 `autoNaviSpeedCtrlEnd`(기본값 7.0)를 곱한 `target_ms*ctrl_end`가 통상 150~200m -- `apex_dist`가 구조적으로 이보다 항상 작아 `eff_dist=max(0, apex_dist-target_ms*ctrl_end)`가 거의 항상 0이 되거나, 그전에 `v_ego<=target` 조건이 먼저 걸림. **즉 이 근거리 곡선 corpus에서는 ACTIVE 상태(`route_active=True`) 자체가 한 번도 발생할 수 없는 구조**(341차 원 corpus인 x20seg는 직선/원거리 apex 위주라 ACTIVE 진입이 실제로 일어났던 것과 대조).
+5. `carrot_serv.py` L1260 교차확인: `speed_n_sources.append((route_speed, "route"))`는 `self.route_active` 값과 무관하게(True/False 두 분기 모두) 항상 실행됨 -- 즉 텔레메트리 `src=='route'`(desiredSource)는 ACTIVE 상태와 독립적인 **arbitration(다중 소스 중 최소값 선택) 결과**이며, `diag_required_decel_341.py`가 추적하는 `route_active` 내부 플래그와는 다른 개념.
+6. 첫 드롭아웃 이벤트(t=3680.055~3680.157) 프레임별 재확인: `apex_idx` 16->15->14로 grid 경계 전환되며 `apexSpeed`가 90.9->**99.0**->90.0으로 드롭아웃 프레임에서만 상승 -- 이때 `target_ms`(confidence blend 후 eff_apex_speed 기반)가 v_ego_ms(25.34m/s)를 넘어서(25.93m/s) L1807 `v_ego<=target` 조건이 그 프레임에서만 참이 되어 `out_speed=None` -> route가 그 1프레임만 arbitration 후보에서 빠짐 -> 즉시 다음 프레임에 복귀. 368차가 기술한 "grid 경계+apex_speed 상승 동시발생" 패턴과 프레임 단위로 정확히 일치, 다만 관여 코드는 L1832(ACTIVE)가 아니라 **L1807(INERT)**.
+
+**변경 이유**: `diag_required_decel_341.py` 정식 실행(0 release events, 0/925 게이트평가) + `carrot_man.py`/`carrot_serv.py` 코드 직접 재대조로 실증. 368차는 "L1832 ACTIVE 진입 게이트에 히스테리시스가 없다"고 근본원인 코드 위치를 지목했으나, 이 corpus에서는 L1832가 관여한 적이 아예 없음이 확인됨.
+
+**새로운 결론**:
+- 368차가 재확인한 251건 플래핑의 실제 근본 코드 위치는 `carrot_man.py` **L1807**(`if v_ego_ms <= target_ms:`, INERT 분기)이며, L1832(ACTIVE 진입게이트)가 아니다. 341차의 "ACTIVE 진입/릴리즈 게이트" 프레이밍은 근거리(apex_dist<=140m류) 곡선 corpus에는 적용되지 않는다 -- **corpus의 apex_dist 범위(원거리 vs 근거리)에 따라 동일한 "겉보기 패턴"(grid 경계 스파이크로 인한 1프레임 토글)이 서로 다른 코드 경로(ACTIVE release L1745/1854 vs INERT L1807)에서 발생**한다는 것이 이번 세션의 핵심 신규 발견.
+- 341차 원 결론(x20seg, 직선/원거리) 자체는 정정 대상이 아님 -- 그 corpus에서는 실제로 ACTIVE 상태에 진입했었고 release 원인 분류도 유효.
+- 368차의 "다음 작업 2"(ACTIVE 진입 게이트 히스테리시스 설계)는 **이번 근거리 곡선 corpus의 문제를 해결하지 못한다** -- L1832는 이 corpus에서 아예 평가되지 않으므로, 거기에 히스테리시스를 추가해도 이번 251건에는 영향이 없다. 이번 corpus의 문제를 고치려면 L1807(`v_ego<=target`, 히스테리시스 없는 단순 비교)에 개입해야 한다.
+
+**미확인 사항**:
+1. Master 결정 필요: L1807(INERT)과 L1832(ACTIVE)는 서로 다른 코드 지점이자 서로 다른 corpus(근거리/원거리)에서 각각 문제를 일으킨다 -- 두 지점에 각각 별도 히스테리시스를 설계할지, 공통 원인(confidence blend로 계산되는 `target_ms`의 grid-경계 스파이크 자체)을 상류에서 완화하는 통합 설계로 갈지.
+2. `autoNaviSpeedCtrlEnd=7.0`/`autoNaviSpeedDecelRate`가 실제 이 device의 설정값과 같은지 미확인(CSV에 해당 Params 필드가 없어 기본값으로 가정) -- 사용자 device 확인 필요.
+3. L1807에 히스테리시스(예: 해제 후 N프레임/M초 유지)를 추가할 경우 실제 커브 진입 시점의 응답 지연 등 부작용은 오프라인 시뮬레이션/실차 모두 미검증.
+4. 368차 "다음 작업 3"(플래핑의 실제 종방향 제어 영향 정량 측정)은 이번 세션에서 다루지 않음, 계속 이월.
+
+**검증**:
+- 정적 분석: 완료(`carrot_man.py` L1778-1835 INERT/ACTIVE 분기, `carrot_serv.py` L1260 route_speed append 직접 재확인)
+- 로그 분석: 완료(동일 route 재추출 3,296행, 드리프트 없음, 135/116건 재현 일치)
+- 시뮬레이션: 완료(`diag_required_decel_341.py --summary` 정식 실행 + 서브분기 카운트 검증 스크립트)
+- 실차 검증: 해당없음(오프라인 로그 재분석)
+
+**Devnotes**:
+- `WIP.md`: 이 항목(369차) 신규
+- `FINDINGS.md`: 이 항목(369차) 신규(368차/341차 결론 보강 -- 근본 원인 코드 위치 정정)
+
+**다음 작업**:
+1. Master 결정: L1807(INERT `v_ego<=target`)에 히스테리시스 추가 여부/설계(폭, 유지시간) -- 368차가 지목했던 L1832가 아니라 이 지점이 근거리 corpus의 실제 개입 지점
+2. `autoNaviSpeedCtrlEnd`/`autoNaviSpeedDecelRate` 실제 device 설정값 확인
+3. (368차에서 이월) 플래핑이 실제 종방향 제어 출력에 미치는 영향 정량 측정
+4. L1832(ACTIVE 진입게이트) 히스테리시스 설계는 별도로 341차 원 corpus(x20seg류, 원거리 apex) 재검증 후 판단(이번 근거리 corpus 근거로는 불필요할 수 있음)
+
+---
+
 ## 368차 -- [CONFIRMED, 341차 재확인 -- 대규모] 341차 확정 메커니즘이 신규 실차 제보 route(`22ebbb245d`)에서 251건 규모로 재확인, 여전히 미수정
 
 **§24 dedup 확인**: FINDINGS.md `required_decel_mss`/`route flapping`/`341차` 검색 -- 340차(가설)/341차(x20seg 직선구간 46건 code-level 확정)의 직접 후속 재확인. 새로운 이슈 아님, 341차 결론을 다른 route/다른 조건(곡선구간)에서 재검증.
