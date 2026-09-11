@@ -1,3 +1,62 @@
+## 362차 계속2 (체크포인트 — Claude/ChatGPT 교차검증으로 필터 설계 확정, 코드 패치 전 — ratio 값 회귀검증 대기 중 중단) — 고립 fine curvature spike 억제 게이트 설계
+
+**Worker**: Claude
+
+**Repository**: `ryu`(HEAD `bd21c7e`=359차, 드리프트 없음) / `ryu-devnotes`(HEAD `f114a1f`=362차)
+
+**Branch**: `c3-ms-dev` / `main`
+
+**배경**: 362차가 코드 미수정으로 남겨둔 "고립 fine spike 억제 설계"를 이번 세션(계속2)에서 진행. 사용자가 같은 문제에 대해 ChatGPT(지선생) 의견도 병행 수집 — Claude/ChatGPT 교대 세션 원칙(PROJECT_INSTRUCTIONS.md §5)에 따라 두 AI의 분석을 교차검증.
+
+**진행 경과**:
+
+1. **후보안 실측 스크리닝(devnotes 로컬, 코드 미수정)**: `route_curvature_macro_fine()` 로직을 재현해 세 가지 게이트 후보를 362차 오탐 corpus(`d1cd25bdf1` seg10/11/13, "new" apex 이벤트 36건, 원본 zip 재추출로 재확보)에 적용.
+   - 후보 1(단순 "이웃도 macro보다 낮으면 candidate"): 직선 고속도로에서 macro speed가 사실상 무한대라 거의 모든 미세 곡률이 조건을 통과 -- **거의 무효**(전체 fine_triggered 233→205, 12% 감소 그침).
+   - 후보 2(**크기-비율 게이트**: 이웃 fine window 중 1개 이상이 `|curvature| >= ratio * 중심점|curvature|`를 만족해야 채택): ratio=0.3에서 233→159(32%감소), ratio=0.5에서 233→142(39%감소). **두 값 모두 신고된 27개 오탐 apex 지점을 100% 억제(0/27 생존)**.
+
+2. **ChatGPT(지선생) 교차검증**: 독립적으로 GitHub에서 `route_curvature_macro_fine()` 원문(blob SHA `266a4b97`)을 직접 조회해 동일한 결론에 도달 -- 게이트 삽입 위치(`f_speed` 계산 직후, `if f_speed < speeds[j]:` 직전), OR 방식(좌우 중 한쪽만 지지해도 허용), 탈락 시 `continue`로 macro 유지(road_limit_speed 등으로 덮어쓰지 않음) 모두 Claude의 실측 구현과 정확히 일치. 추가로 이 함수가 `route_local_curve_merge()`의 국소 2.5m 재계산에서도 재사용된다는 점을 지적 -- 게이트를 `route_curvature_macro_fine()` 내부에 넣으면 10m/2.5m 양쪽 호출부에 자동 적용됨(§27 최소변경에 부합, 로직 중복 없음).
+
+3. **사실관계 정정 1건**: ChatGPT가 "시간 지속성 조건에 기존 `_route_cluster_continuity_step()`/`_route_provisional_singleton_step()` 재사용" 가능성을 언급했으나, 실제 코드(L1059/L1134) 확인 결과 두 함수 모두 **클러스터링(min_points 필터) 이후의 apex 후보 레벨**에서 동작 -- 우리 문제(raw curvature 계산 단계의 고립 spike)보다 한 단계 위. `_route_provisional_singleton_step()`은 주석상 "관측 전용, 실제 제어 경로와 완전히 분리됨"으로 현재 control에 영향 없음. 따라서 시간지속성 조건을 넣으려면 기존 tracker 재사용이 아니라 curvature 계산 단계의 **신규 점 단위 추적기**가 필요 -- 구현 비용 대비 효과 불명확, 1차 패치에서는 보류로 판단(크기-비율 게이트 단독으로 이번 corpus 오탐 100% 제거되었으므로).
+
+**확정된 설계(코드 미패치)**:
+```
+route_curvature_macro_fine() 내부, fine 적용 루프:
+
+for j in range(n_fine):
+    f_curv = fine_curvatures[j]
+    f_speed = fine_speeds_arr[j]
+    if fine_abs_curv[j] < ROUTE_CURVE_NEGLIGIBLE_THRESHOLD:
+        f_speed = max(f_speed, road_limit_speed)
+
+    # [신규] 고립 spike 게이트 -- 좌우 인접 fine window 중 1개 이상이
+    # 크기 면에서 이 지점을 지지해야만 채택 (OR 조건)
+    left_supported  = j > 0        and fine_abs_curv[j-1] >= RATIO * fine_abs_curv[j]
+    right_supported = j+1 < n_fine and fine_abs_curv[j+1] >= RATIO * fine_abs_curv[j]
+    if not (left_supported or right_supported):
+        continue   # macro 결과(speeds[j]) 그대로 유지
+
+    if f_speed < speeds[j]:
+        speeds[j] = f_speed
+        curvatures[j] = f_curv
+        fine_triggered[j] = True
+```
+
+**미확정 항목(단 1개)**: `RATIO` 상수값. 이번 오탐 corpus만으로는 0.3/0.5 둘 다 유효(신고 지점 100% 억제) -- 하지만 **147/148차가 원래 검증에 썼던 실제 급커브 corpus(`898edd0f96` seg10, R~27m급, 2026-08-30 07:25경 채록)**에서 이 게이트가 정상 검출을 그대로 유지하는지는 아직 미검증. `898edd0f96`은 §23 정책(대용량 CSV 미보관)에 따라 Drive/레포 어디에도 원본이 남아있지 않음 -- 과거 세션들(149차/160차/161차 등)도 매번 사용자가 원본 zip을 재업로드해서 검증한 이력만 있고, 이번 세션도 재확보 경로 없음(devnotes 검색으로 drive_csv 참조 부재 확인).
+
+**검증**:
+- 정적 분석: 완료(코드 미수정, `route_curvature_macro_fine()` 원문을 Claude/ChatGPT 양쪽이 독립적으로 확인, 일치)
+- 로그 분석: 완료(362차 오탐 corpus로 게이트 효과 실측, ratio=0.3/0.5 각각 신고 지점 27/27 억제 확인)
+- **147/148차 급커브 corpus 회귀 검증: 미실시(원본 데이터 없음, 사용자 재업로드 대기)**
+- 코드 패치: 하지 않음
+- 실차 검증: 미실시
+
+**다음 작업(사용자 결정 대기)**:
+1. `898edd0f96` seg10 원본 zip을 재업로드할 수 있는지 확인 -- 가능하면 게이트를 이 corpus에 적용해 실제 급커브 지점의 `fine_triggered` 생존 여부로 `RATIO` 값 확정(0.3/0.5 중 선택 또는 별도 값)
+2. 원본 확보 불가 시 대안: 이번 corpus에서 검증된 보수적 기본값(RATIO=0.3)으로 우선 패치하되 WIP/FINDINGS에 "NEEDS_VALIDATION -- 147/148차 급커브 회귀 미검증"으로 명시, 추후 급커브 로그 확보 시 검증
+3. 위 1 또는 2 중 하나로 `RATIO` 확정 후 `analysis_helpers.py::recompute_route_curvature_speed()`에 동일 게이트 반영(검증도구=실제 패치 로직 일치 원칙, §21) → 최종 `route_curvature_macro_fine()` 패치 → `git format-patch` 전달
+
+---
+
 ## 362차 (완료 — 실차 로그 분석, 코드 미수정) — 완만한 고속도로 커브 2건에서 route 과감속(vTurnSpeed 120~140 대비 routeApexSpeed 70~80) 근본원인 확정: `ROUTE_CURVATURE_FINE_SAMPLE=1` 단일 지점 spike가 100% 원인, 147/148차가 남긴 "고속도로 오탐률 미검증" 항목의 실차 답
 
 **Worker**: Claude
