@@ -1,3 +1,22 @@
+## sim_route_365_heading_isolation_gate.py (365차, 신규 -- naviPaths heading 기하 기반 "집중도(ISOLATION)" 게이트 후보)
+**목적**: 362차 오탐(고립 fine curvature spike)의 원인을 곡률값이 아니라 naviPaths 원시좌표의 heading(진행방향) 변화 패턴 레벨에서 직접 진단. 362차 오탐 두 지점(t=4426.417/t=4572.215, corpus `d1cd25bdf1`) 모두 "문제 지점 앞뒤 여러 세그먼트는 heading 변화 <0.3~1.3도로 평평, 문제 지점 정확히 그 자리(±1세그먼트)에서만 6.2~6.5도 급변"하는 동일 패턴을 보임(RATIO/PERSIST가 봤던 "곡률 크기"가 아니라 "꺾임의 국소 집중도" 문제). 이를 `isolation_score = 피크 꺾임각/(진입+진출 꺾임각)`으로 정량화(1.0=국소집중=오탐 의심, 0.5=분산=진짜 커브 의심).
+
+**365차 실측 결과**: 362차 corpus(오탐 29건)/363차 corpus(정탐 대리필터 1233건)에서 th=0.885~0.92 구간에 오탐 억제율(86.2% 고정)과 정탐 생존율(84~90%)이 동시에 높은 안정적 평탄부 확인 -- RATIO(363차)/PERSIST(364차)가 보였던 "억제 개선 없이 정탐만 붕괴하는 절벽" 없음. 단, 표본이 작고(오탐 29건) 정탐 필터가 363차 R 계산과 정확히 대응하지 않는 대리 지표라 **추가 검증 전 코드 패치 판단 금지**(상세 한계는 FINDINGS.md 365차/스크립트 docstring 한계 1~4번 참고).
+
+**입력**: `extract_log.py --with-navi-paths`로 뽑은 route CSV 2세트(오탐 corpus, 정탐 corpus). `naviPaths`/`routeApexDist`/`routeApexSpeed`/`routeApexMode`/`routeApexFineTriggered` 컬럼 필요.
+
+**사용**:
+```bash
+python3 sim_route_365_heading_isolation_gate.py \
+    --false-positive-csv <오탐 corpus CSV...> \
+    --true-positive-csv <정탐 corpus CSV...> \
+    [--tp-speed-max 45.0] [--thresholds 0.80,0.85,0.90,0.95]
+```
+
+**한계**: 정탐 필터(`routeApexSpeed<=45kph`)는 363차 "R<30m" 기준의 대리(proxy)이며 1:1 대응 아님 -- `sim_route_363_gate_sharp_curve_regression.py`의 R 계산과 교차검증 필요. 오탐 표본 29건은 다른 corpus 일반화 여부 미검증.
+
+---
+
 ## sim_route_364_gate_persistence_design.py (364차, 신규 -- RATIO 게이트 대체안 "지속성 게이트" 설계)
 
 **목적**: 363차가 채택 불가로 판정한 크기-비율(RATIO) 게이트를 대신할 설계안 "지속성 게이트(PERSIST)"를 구현하고, 같은 하네스에서 RATIO와 나란히 비교할 수 있게 한다. `sim_route_363_gate_sharp_curve_regression.py`의 `route_curvature_macro_fine_gated()`를 verbatim 기반으로 확장(§21).

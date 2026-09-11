@@ -1,3 +1,65 @@
+## 365차 (완료 -- naviPaths 원시좌표 heading 기하 분석, ISOLATION 게이트 후보 초기 검증 완료, 코드 패치 없음) -- 362차 오탐의 근본 메커니즘을 heading 레벨에서 규명, 크기/지속성 대신 "heading 집중도" 기반 게이트 후보 제시
+
+**Worker**: Claude
+
+**Repository**: `ryu`(HEAD `bd21c7e`=359차, 드리프트 없음) / `ryu-devnotes`(HEAD `edf2fe1`=364차 계속)
+
+**Branch**: `c3-ms-dev` / `main`
+
+**세션 시작 확인(§3/§33)**: 컨테이너 재시작 후 `ryu`/`ryu-devnotes` 재클론. `ryu` HEAD `bd21c7e4a87f`(=359차, 드리프트 없음), `ryu-devnotes` HEAD `edf2fe191afbd`(=364차 계속) 확인. 작업 종료 시점 재확인(`git fetch origin`)에서도 원격 변동 없음.
+
+**배경**: 364차 계속이 "다음 방향 제안"으로 남긴 3가지(① naviPaths 좌표 구조 재분석 ② 거리기준 PERSIST 재설계 ③ apex 시간축 flicker 확인) 중, 사용자가 지선생(ChatGPT) 검토 의견을 반영해 ①번을 확장된 범위(`get_path_after_distance()`→`resampled_points`→`calculate_curvature` 3점 기하→macro/fine 대체 구조 전체)로 진행할 것을 확정. 362차 오탐 corpus(`d1cd25bdf1` seg10/11/13)와 363차 급커브 corpus(`0000039a--7b602ffb85` seg12-16)를 재업로드받아 분석.
+
+**진행 경과**:
+
+1. **코드 직접 재확인(§28, 지선생 서술과 실제 코드 대조)**: `route_curvature_macro_fine()`(carrot_man.py L526-576) 원문을 직접 읽어 "fine 결과가 macro보다 낮으면 인접 정합성 확인 없이 무조건 채택"(L567-575)이 지선생 설명과 정확히 일치함을 확인.
+
+2. **정정 1건(§24 dedup)**: 지선생이 "359차 반전버그가 362차 오탐 원인일 가능성(가능성 A)"을 검증 필요 항목으로 제시했으나, FINDINGS.md 362차에 이미 `device gitCommit=bd21c7e4a87f`(=359차 패치 적용 완료 빌드)에서 362차 오탐이 채록됐다고 명시돼 있어 **가능성 A는 이미 실증적으로 기각된 상태**임을 확인 -- 재검증 불필요.
+
+3. **naviPaths 원시좌표 heading 프로파일 직접 계산**: 362차가 특정한 두 신고 지점(t=4426.417 dist=210m R=88.3m, t=4572.215 dist=210m R=92.0m)의 `naviPaths` 원시 x,y,d 텍스트를 파싱해 `calculate_curvature()`를 verbatim 재현하고, 추가로 각 10m 세그먼트의 heading(진행방향각)과 세그먼트간 heading 변화량을 계산. **두 지점 모두 동일한 패턴 확인**: 문제 지점 앞뒤로 6~9개 세그먼트가 heading 변화 0.3도 미만("완전히 평평")인데, 정확히 그 지점(±1세그먼트)에서만 heading이 6.2~6.5도 "한 번에" 꺾이고 이후 다시 평평해짐.
+
+4. **macro(40m)가 이 지점을 걸러내는 이유 직접 확인**: 같은 좌표로 macro 3점(sample=4, 40m 폭) 곡률을 재계산 -- R=309~8569m로 fine의 R=88m와 크게 다름. 40m 윈도우는 6.5도 꺾임을 넓은 baseline에 분산시켜 감지하지만, fine의 20m 윈도우(sample_fine=1)는 이 국소 집중을 그대로 "급커브"로 오인.
+
+5. **가설**: 실제 도로는 완만하게(누적 20도 안팎) 연속적으로 휘어지는데, navd raw waypoint 간격이 국소적으로 불균일해(그 한 구간만 유독 성기게 샘플링) `resample_10m_np()`의 선형보간 결과 커브 전체의 각도변화가 그 한 vertex에 통째로 몰린다("polyline vertex aliasing"). 이는 "GPS 잡음"이 아니라 raw waypoint 밀도 불균일이 원인일 가능성.
+
+6. **ISOLATION 게이트 후보 설계+검증**: 위 가설을 정량 지표로 변환 -- 문제 지점 j에서 `isolation_score = 피크 꺾임각 / (진입 꺾임각 + 진출 꺾임각)`. vertex 아티팩트는 한쪽에 꺾임이 몰려 1.0에 가깝고, 진짜 커브는 진입/진출에 고르게 나뉘어 0.5에 가까울 것이라는 가설. `toolkit/sim_route_365_heading_isolation_gate.py`(신규)로 구현, 362차 corpus 전체(new+fineTriggered, 29건 재현 가능)와 363차 corpus 전체(routeApexSpeed<=45kph 대리필터, 1233건)에서 스윕:
+
+| threshold | 362차 오탐 억제율 | 363차 정탐 생존율 |
+|---|---|---|
+| 0.80 | 96.6% | 8.4% |
+| 0.85 | 89.7% | 12.2% |
+| 0.885 | 86.2% | 83.9% |
+| 0.90 | 86.2% | 86.6% |
+| 0.92 | 86.2% | 89.8% |
+| 0.95 | 86.2% | 92.1% |
+
+**해석**: RATIO(363차)/PERSIST(364차)가 보였던 "오탐 억제 개선 없이 정탐만 붕괴하는 절벽" 구조가 이번엔 나타나지 않음 -- th=0.885~0.92 구간에서 오탐 억제율(86.2% 고정)과 정탐 생존율(84~90%)이 **동시에** 높은 안정적 평탄부 확인. 이는 곡률 크기 자체가 아니라 "heading 변화가 국소 1세그먼트에 집중돼 있는가"가 오탐/정탐을 구분하는 더 본질적인 특징일 수 있음을 시사.
+
+**미확인 사항(코드 패치 판단 전 필수, §28 성급한 결론 금지)**:
+- 오탐 표본 29건(그나마 유효 윈도우 확보되는 건 더 적음)으로 표본이 작음 -- 다른 corpus에서 일반화되는지 미검증, 과적합 가능성 배제 못함.
+- 정탐 필터(`routeApexSpeed<=45`)는 363차의 "R<30m" 기준과 정확히 대응하지 않는 대리 지표 -- 363차 원 스크립트의 R 계산과 교차검증 필요.
+- 오탐 29건 중 4건(apexDist가 10m 정수격자에 정확히 걸리지 않는 167.5/147.5/87.5/20.0 -- 최초 트리거 이후 접근 중 보간 위치로 추정)은 인덱싱이 원래 vertex와 어긋나 낮은 점수로 나왔을 가능성 -- 최초 "new" 트리거 프레임만 별도 재확인 필요.
+- "vertex aliasing" 가설 자체(raw waypoint 밀도 불균일)는 resample 이후 데이터(naviPaths 필드)만으로 방증한 것 -- navd가 실제로 보내는 raw(비-resample) waypoint 간격을 직접 계측한 것은 아님(현재 로그에 그 필드가 없음).
+- apex 시간축(apex_idx/apex_dist/apex_speed flicker, 지선생 2단계 제안)은 이번 세션에서 다루지 않음.
+- 실차 검증: 미실시. 코드 패치: 하지 않음(설계 검증 단계, ISOLATION 게이트 자체가 `ryu`에 없음).
+
+**검증**:
+- 정적 분석: 완료(`sim_route_365_heading_isolation_gate.py` `py_compile` 통과)
+- 로그 분석: 완료(362차/363차 corpus 재추출 후 이 스크립트로 재실행, 위 표 수치 재현 확인 -- byte-identical 재현)
+- 실차 검증: 미실시
+
+**Devnotes**:
+- `WIP.md`: 이 항목(365차) 신규
+- `FINDINGS.md`: 365차 신규(362차 결론 보강 -- 기존 결론/새 증거/변경 이유/새 결론 명시)
+- `toolkit/sim_route_365_heading_isolation_gate.py`: 신규
+- `toolkit/README.md`, `toolkit/CHANGELOG.md`: 365차 항목 추가
+
+**다음 작업**:
+1. 사용자 확인 후 위 "미확인 사항" 우선순위 결정 -- 특히 정탐 필터를 363차 원 스크립트의 R 계산과 교차검증(대리 지표 오차 제거)
+2. 오탐 표본 확대: 다른 오탐 corpus가 있다면 같은 방식으로 ISOLATION 검증해 일반화 여부 확인
+3. 통과 시 min(isolation_score 기반) 게이트를 `route_curvature_macro_fine()`에 verbatim 설계로 반영 검토(코드 패치는 사용자 승인 후)
+4. apex 시간축 flicker 분석은 보류 유지, 필요 시 다음 세션에서 별도 진행
+
 ## 364차 계속 (완료 -- corpus 실측 완료, PERSIST 단일 파라미터 기각, 코드 패치 없음) -- 지속성 게이트(PERSIST) 362차/363차 corpus 실측, "low_frac 단일 조정으로는 미해결" 확정
 
 **Worker**: Claude
