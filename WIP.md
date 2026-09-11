@@ -1,3 +1,50 @@
+## 367차 계속3 (진행 중 -- anchor 실측 완료, 임계값 후보 도출 전) -- `d1cd25bdf1`(seg10/11/13) 재업로드분으로 검증된 오탐 2건의 vEgo/apexDist 확정
+
+**Worker**: Claude
+
+**Repository**: `ryu`(HEAD `bd21c7e4a87f`=359차, 드리프트 없음) / `ryu-devnotes`(HEAD `06cea42`=367차 계속2 완료 시점)
+
+**Branch**: `c3-ms-dev` / `main`
+
+**세션 시작 확인(§3/§33)**: 컨테이너 재시작 후 `ryu`/`ryu-devnotes` 재클론. `ryu` HEAD `bd21c7e4a87f`(=359차, 드리프트 없음), `ryu-devnotes` HEAD `06cea42`(=367차 계속2, "d1cd25bdf1 재업로드 대기" 상태) 확인.
+
+**배경**: 367차 계속2가 남긴 "다음 작업 1"(`d1cd25bdf1` route 재업로드 대기 -- 검증된 오탐 2건의 vEgo/apexDist 확인) 착수. 사용자가 `d1cd25bdf1` seg10/11/13(2026-09-11 15:50~15:54 녹화, rlog/qlog/qcamera 원본)을 재업로드.
+
+**진행 경과**:
+
+1. **추출**: 3개 세그먼트(10/11/13)를 하나의 route_dir로 합쳐 `extract_log.py --with-navi-paths --repo ryu`로 추출. 3,599행, `commit=bd21c7e4a87f`/`dirty=False` 확인(드리프트 없음). t 범위 4367.7~4607.6초로 두 신고 시점(t=4426.417/t=4572.215) 모두 포함 확인.
+2. **anchor 2건 매칭**: FINDINGS.md 기록 시각과 `abs(t-target)` 최소 매칭으로 정확히 일치하는 행 확보(두 건 모두 오차 <0.001초).
+
+| 시각 | seg | vEgo(m/s) | vEgo(kph 환산) | routeApexDist | routeApexSpeed | vTurnSpeed | routeApexMode | routeApexFineTriggered |
+|---|---|---|---|---|---|---|---|---|
+| t=4426.417 | --10 | 20.586 | **74.1** | **210.0m** | 76.77 | 143 | new | True |
+| t=4572.215 | --13 | 25.971 | **93.5** | **210.0m** | 77.69 | 153 | new | True |
+
+두 anchor 모두 `routeApexDist=210.0m`으로 FINDINGS.md의 기존 기록(dist=210m, R=88.3m/92.0m)과 정확히 일치(재현성 확인). `routeApexFineTriggered=True`로 362차가 지목한 fine 대체 발동 지점 그대로 확인.
+
+**임계값 후보 도출을 위한 대조(§28, 결론 아님 -- 자료 정리만)**: 367차 22건 corpus 중 오염 확인된 2건(진짜 커브, 억제하면 안 됨)은 t=673 apexDist=**50m**/vEgo=79.0kph, t=978 apexDist=**120m**/vEgo=89.3kph. 이번 anchor 2건(억제 대상)은 apexDist=**210m**로 오염 2건보다 뚜렷이 원거리. vEgo는 네 지점 모두 74~94kph대로 비슷해 속도만으로는 구분이 약함 -- **거리(apexDist)가 주요 판별축이 될 가능성**이 이번 실측으로 보강됨(가설 단계, 표본 4건뿐).
+
+**코드 수정**: 하지 않음(§31, 여전히 설계/자료 수집 단계).
+
+**검증**:
+- 정적 분석: 해당 없음(추출/매칭 스크립트는 기존 `extract_log.py` verbatim 사용, 신규 코드 없음)
+- 로그 분석: 완료(3,599행 재추출, 드리프트 없음, anchor 2건 매칭 오차 <0.001초)
+- 시뮬레이션: 미실시
+- 실차 검증: 미실시(anchor 자체가 실차 신고 기반 확정 오탐)
+
+**미확인 사항**:
+1. anchor 2건 + 오염 2건 총 4건만으로는 거리 임계값(예: 150m/180m 등 구체값)을 확정하기엔 표본이 매우 작음 -- 추가 anchor(가능하면 363차/366차 TP corpus의 실제 급커브 apexDist 분포)와 교차 확인 필요.
+2. `routeApexSpeed`(76.77/77.69kph)가 실제 vTurnSpeed(143/153kph)보다 크게 낮아 신고 내용("route만 70~80")과 일치 -- 다만 이 값 자체를 임계값 설계에 쓸지는 미정.
+
+**Devnotes**:
+- `WIP.md`: 이 항목(367차 계속3) 신규
+
+**다음 작업**:
+1. 위 anchor 값(210m 원거리) + 367차 22건 오염 2건(50m/120m 근거리) + 363차/366차 TP corpus의 apexDist 분포를 종합해 거리 임계값 후보(구간) 도출
+2. `route_curvature_macro_fine()` 대체 조건 앞에 거리+속도 게이트를 추가하는 설계(가안) 작성 -- §27 최소변경, 기존 macro/fine 계산 로직 자체는 무변경
+3. 설계 확정 후 지선생(ChatGPT) 교차검토 여부는 사용자 확인 필요
+4. 실차 검증 전까지 offline replay로 기존 22/4건 + 363차 corpus에 새 게이트 적용해 이전 방식(ISOLATION) 대비 억제율/생존율 비교
+
 ## 367차 계속2 (진행 중 -- 설계 방향 전환 논의, 코드 패치 전) -- ISOLATION 게이트 대신 "원거리+고속 시에만 fine(10m) 비활성화" 설계로 전환 검토
 
 **Worker**: Claude
