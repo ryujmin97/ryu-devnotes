@@ -1,3 +1,23 @@
+## apply_isolation_gate_367.py (367차 계속, 신규 -- 365차 ISOLATION 게이트를 367차 신규 corpus(22건 FP/4건 TP)에 직접 적용)
+**목적**: 367차가 확보한 22개 FP/4개 TP "물리적 이벤트"(요약 CSV, naviPaths 없음)에 365차 `isolation_score()`(verbatim import)를 적용하기 위해, 필요한 route를 `--with-navi-paths`로 재추출한 뒤 (route,t) 매칭으로 naviPaths를 복원해 게이트를 재평가한다.
+
+**367차 계속 실측 결과**: th=0.885~0.92 구간에서 FP 억제율 36.4~40.9%(365/366차 76~86%보다 낮음), TP 생존율 50.0%(365/366차 84~91%보다 낮음). TP 4건 중 2건(R<13m급 극단적 급커브)이 완전 고립 판정(iso=0.996/1.000)으로 억제됨 -- 365차 핵심 가설의 첫 반례. 상세는 FINDINGS.md 367차 계속 항목 참고.
+
+**한계**: TP 표본 4건으로 매우 작음(§28 성급한 결론 금지, 게이트 폐기/th 재조정 판단 시기상조). FP 22건도 R 분포가 365/366차 오탐 corpus와 달라(87~10196m로 광범위) 억제율 하락 원인이 게이트 자체 문제인지 corpus 차이인지 미분리.
+
+**입력**: 367차 FP/TP dedup CSV(`fp_candidates_367_v2_clean_dedup.csv`/`tp_candidates_367_v2_dedup.csv`, route/t/R/apexSpeed/vTurnSpeed/apexDist/n_frames_in_cluster 컬럼) + 해당 route들을 `extract_log.py --with-navi-paths`로 재추출한 전체 CSV.
+
+**사용**:
+```bash
+python3 apply_isolation_gate_367.py \
+    --fp-csv fp_candidates_367_v2_clean_dedup.csv \
+    --tp-csv tp_candidates_367_v2_dedup.csv \
+    --route-csv-dir <naviPaths 포함 route CSV들이 있는 디렉터리> \
+    [--thresholds 0.80,0.85,0.885,0.90,0.905,0.92,0.95,0.98] [--t-tolerance 0.05]
+```
+
+---
+
 ## sim_route_367_batch_fp_tp_corpus_scan.py / _v2.py / dedup_physical_events_367.py (367차, 신규 -- 신규 11개 route 자동 TP/FP corpus 확대 스캔, 진행 중)
 **목적**: 366차 "다음 작업 1순위"(오탐/정탐 corpus를 다양한 route로 확대해
 ISOLATION 게이트 일반화 검증) 착수. 사용자가 09-01~09-03 녹화 신규

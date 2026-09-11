@@ -1,3 +1,18 @@
+## 2026-09-12 (367차 계속)
+- `apply_isolation_gate_367.py`: 신규. 367차 22건 FP/4건 TP 물리적
+  이벤트(요약 CSV, naviPaths 없음)에 365차 `isolation_score()`/
+  `parse_navipaths()`를 verbatim import해 게이트 재평가. 필요 route
+  6개(2cbdaca9d2/3e6ec098ab/7e9c713c9d/abe1d2bb34/e635e188cf/
+  4e18e62932)를 `--with-navi-paths`로 재추출, (route,t) 매칭 성공률
+  100%. 결과: th=0.885~0.92에서 FP 억제율 36.4~40.9%, TP 생존율
+  50.0% -- 365/366차 대비 크게 낮음. TP 4건 중 2건(R<13m급 극단
+  급커브)이 완전 고립 판정으로 억제됨(365차 가설 첫 반례). 표본 4건
+  으로 매우 작아 게이트 폐기/재조정 판단은 시기상조(§28). 상세는
+  FINDINGS.md/WIP.md 367차 계속 참고.
+- (대형 클러스터 원본 확인, 코드 없음): `2cbdaca9d2` t=673초(n=54)/
+  t=978초(n=40) 클러스터를 qcamera+naviPaths로 확인 -- 실제 IC/터널
+  진입부의 60~75초짜리 지속 커브 구간으로 확정, dedup 로직 정상.
+
 ## 2026-09-12 (367차, 진행 중)
 - `sim_route_367_batch_fp_tp_corpus_scan.py`: 신규(직전 세션 작성분).
   `routeApexMode`/`routeApexFineTriggered` 필드(310차, 2026-09-08 추가)가

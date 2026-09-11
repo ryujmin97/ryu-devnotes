@@ -1,3 +1,48 @@
+## 367차 계속 (완료 -- 대형 클러스터 원본 확인 + 22/4건 ISOLATION 게이트 적용, 365/366차 반례 발견) -- 366차 "다음 작업 1"(corpus 다변화) 마무리
+
+**Worker**: Claude
+
+**Repository**: `ryu`(HEAD `bd21c7e`=359차, 드리프트 없음) / `ryu-devnotes`(HEAD `47cab5a`=367차 완료 시점)
+
+**Branch**: `c3-ms-dev` / `main`
+
+**세션 시작 확인(§3/§33)**: 컨테이너 재시작 후 `ryu`/`ryu-devnotes` 재클론. `ryu` HEAD `bd21c7e4a87f`(=359차, 드리프트 없음), `ryu-devnotes` HEAD `47cab5a`(=367차 완료) 확인. 367차가 남긴 "다음 작업" 2개 항목(대형 클러스터 원본 확인 / ISOLATION 게이트 적용)을 이번 세션에서 이어서 진행.
+
+**진행 경과**:
+
+1. **대형 클러스터 원본 확인(367차 미확인 사항 #2)**: `2cbdaca9d2` route t=673초(n_frames_in_cluster=54)/t=978초(n=40) 두 클러스터를 `extract_log.py --with-navi-paths --repo ryu`로 재추출한 전체 route CSV(20,399행, 드리프트 없음)와 qcamera 프레임(ffmpeg 추출)으로 직접 확인. 결과: 둘 다 단발성 오탐이 아니라 IC(나들목)/터널 진입부의 60~75초짜리 실제 지속 커브 구간(텔레메트리 -- apexDist가 0~550m 사이를 계속 오가고 apexSpeed 65~100kph대 유지, vTurnSpeed 부호가 계속 전환되는 S자 패턴; naviPaths 원시좌표 -- 590m 구간에 걸쳐 y값이 매끄럽게 연속 증가, 362차 오탐 vertex 패턴과 다름; qcamera -- IC 표지판/완만한 커브/터널 진입부 도로가 실제로 촬영됨). 8초 클러스터링 로직은 정상 동작(연속 실제 커브를 올바르게 1개 물리적 이벤트로 병합) -- dedup 결함 아님, 22건 카운트 정의 수정 불필요로 판단.
+2. **ISOLATION 게이트 적용(367차 미확인 사항 #3)**: 신규 스크립트 `apply_isolation_gate_367.py` 작성(365차 `isolation_score()`/`parse_navipaths()` verbatim import 재사용, §27). FP 22건/TP 4건이 속한 5개 route(`2cbdaca9d2`/`3e6ec098ab`/`7e9c713c9d`/`abe1d2bb34`/`e635e188cf`/`4e18e62932`, 총 6개)를 전부 `--with-navi-paths`로 재추출(추출 전 전부 `commit=bd21c7e4a87f`/`dirty=False` 확인, 드리프트 없음), (route,t) 매칭으로 naviPaths 복원 후 게이트 적용. 매칭 성공률 100%(22/22, 4/4).
+
+   결과: th=0.885~0.92 구간에서 FP 억제율 36.4~40.9%(365/366차 76~86%보다 크게 낮음), TP 생존율 50.0%(365/366차 84~91%보다 크게 낮음). TP 4건 중 2건(R=12.1m/10.9m 극단적 급커브)이 iso=0.996/1.000으로 완전 고립 판정되어 게이트에 억제됨 -- 365차 핵심 가설의 첫 반례. 상세는 FINDINGS.md 이번 항목 참고(§24, 기존결론/새증거/변경이유/새결론 명시하여 정식 기록).
+
+**결론(잠정, §28 -- 추가 검증 전까지 미확정)**:
+- 대형 클러스터 2건은 실제 지속 커브 상태로 확정, dedup 로직/22건 카운트 정의 변경 불필요.
+- ISOLATION 게이트(th=0.885~0.92)는 R<13m급 극단적 급커브 소표본(4건)에서 정탐 생존율이 크게 무너지는 신호 확인 -- 다만 표본이 매우 작아(4건) 게이트 폐기/th 재조정 결론은 아직 시기상조. R 구간별 세분화 분석이 다음 우선순위.
+
+**검증**:
+- 정적 분석: 완료(`apply_isolation_gate_367.py` `py_compile` 통과)
+- 로그 분석: 완료(6개 route 재추출, 전부 드리프트 없음 확인, (route,t) 매칭 100%)
+- 시뮬레이션: 완료(isolation_score 22/4건 전수 계산)
+- 실차 검증: 미실시
+
+**미확인 사항**:
+1. FP 22건 억제율 하락(86.2%->36.4~40.9%)이 게이트 성능 저하 때문인지, corpus의 R 분포 차이(362차 corpus는 R~88~92m대 위주, 367차 corpus는 R=87~10196m로 광범위) 때문인지 미분리.
+2. TP 4건이 전부 R<13m급 극단적 급커브라 "일반적 정탐"과 "극단적 급커브 정탐"을 분리한 재분석 필요.
+3. naviPaths 10m 격자 간격 vs 실제 곡률 반경의 관계(격자 해상도 한계 가설)는 가설 단계, 코드 레벨 확인 안 함.
+4. `dedup_physical_events_367.py`의 8초 임계값 민감도 스윕은 여전히 안 함(367차부터 이월).
+
+**Devnotes**:
+- `FINDINGS.md`: 이번 항목(365/366차 반례 발견) 신규 기록
+- `WIP.md`: 이 항목(367차 계속) 신규
+- `toolkit/apply_isolation_gate_367.py`: 신규
+- `toolkit/README.md`, `toolkit/CHANGELOG.md`: 이번 항목 추가
+
+**다음 작업**:
+1. FP 22건 / TP 4건을 R 구간별(<15m / 15~30m / 30m+)로 나눠 isolation_score 거동 재분석
+2. R<15m급 급커브 corpus 추가 확보(TP 4건 소표본 보완)
+3. naviPaths 10m 격자 간격 vs 곡률 반경 관계 코드 레벨 재확인 검토
+4. `dedup_physical_events_367.py` 8초 임계값 민감도 스윕 (367차부터 이월)
+
 ## 367차 (진행 중 -- 신규 11개 route 자동 TP/FP 스캔 1차 실측 완료, dedup 정제 및 방향 확정 전) -- 366차 "다음 작업 1"(오탐/정탐 corpus 다변화) 착수
 
 **Worker**: Claude
