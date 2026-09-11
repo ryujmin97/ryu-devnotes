@@ -1,3 +1,41 @@
+## 362차 -- [ROOT_CAUSE_CONFIRMED, 코드 미수정 -- NEEDS_DESIGN_DECISION] 완만한 고속도로 커브에서 `ROUTE_CURVATURE_FINE_SAMPLE=1` 고립 spike로 인한 route 과감속(vTurnSpeed 120~140 대비 routeApexSpeed 70~80) -- 147/148차가 남긴 "고속도로 오탐률 미검증" NEEDS_VALIDATION 항목의 실차 답
+
+**배경**: 사용자가 업로드한 신규 route(`d1cd25bdf1`, seg10/11/13, 2026-09-11 15:50~15:54)에서 "약간 휘어진 커브인데 route가 발동, vTurn은 120~130인데 route만 70~80 -- 과도한 감속"이라고 신고. 15:50경/15:53경 2회 발생.
+
+**§24 dedup 확인**: FINDINGS.md 전체 `routeApexFineTriggered`/`ROUTE_CURVATURE_FINE_SAMPLE`/`fine.*오탐`/`fine.*spike` 검색 -- 147/148차(fine 샘플 최초 도입) 항목만 존재, 이번과 같은 "실측 오탐 확정" 기록은 없음(최초 문서화). 147/148차, 219/220차(apexIdx flicker, 미해결)와 연결되는 내용이므로 아래에서 명시적으로 교차 참조.
+
+### 1. 증상 재현 확인 (실차 로그)
+`extract_log.py --with-navi-paths`로 추출한 seg10/11(2,400행)/seg13(1,199행), device gitCommit=`bd21c7e4a87f`(=`ryu` HEAD, 359차, 최신 빌드 확인). `routeApexMode` 전이를 스캔한 결과, 신고 시각과 정확히 일치하는 두 구간(t=4426.4~4436.5 / t=4572.2~4590.7)에서 route apex가 10~40m 간격마다 `new→matched→held→lost`를 극단적으로 빠르게(0.3~2.5초 주기) 반복. seg10/11에서 22건, seg13에서 14건의 "new" apex 이벤트 확인, 전부 `cruiseEnabled=True`(ADAS 개입 상태 유효).
+
+### 2. 결정적 단서 -- `routeApexFineTriggered` 100%
+두 구간의 "new" apex 이벤트 전부(22/22, 14/14) `routeApexFineTriggered=True`. macro(40m 간격, `sample=4`)가 아니라 fine(10m 간격, `sample_fine=1`, `ROUTE_CURVATURE_FINE_SAMPLE=1`) 계산이 감속 명령을 전적으로 주도.
+
+### 3. `route_curvature_macro_fine()` 독립 재현
+CSV의 raw `naviPaths`(예: t=4426.417, x/y 30개 지점, x=0~281.6m에 걸쳐 y=0~60.9m로 매끄럽게 증가)를 devnotes 환경에서 동일 함수(`calculate_curvature`, `route_curvature_macro_fine` 산식 그대로, 코드 미수정)로 재계산:
+- **macro(40m 간격)**: 이 280m 구간 전체 radius 300~2000m+(예: dist=210m 지점 macro radius=1016m, factor 1.5 적용 speed=272.9) -- 완만한 커브로 일관 계산.
+- **fine(10m 간격)**: 같은 구간 대부분 radius 수천~수만m(사실상 직선)이나, **정확히 한 지점(dist=210m, 원시 10m 리샘플 지점 3개만 사용)에서만 radius=88.3m로 급락** -> speed=76.5. 로그의 실제 `routeApexSpeed=76.77`(`routeApexDist=210.0`)과 거의 정확히 일치. 양옆 10m 지점(dist=200/220m)은 모두 정상(직선 취급) -- **인접 지점의 뒷받침이 전혀 없는 고립 spike**.
+
+### 4. qcamera 시각 대조
+`verify_and_extract_frames.py`로 두 구간 총 8프레임 추출(t=4426.4/4430.5/4434.5/4438.5/4442.4, t=4572.2/4578.7/4584.6) -- **두 구간 모두 완만하게 휘어지는 왕복 분리 고속도로**(가드레일도 완만한 곡선, 급커브 형상 전혀 없음)로 시각 확인. vTurnSpeed(비전 모델, 120~140)와 macro 곡률(완만) 두 독립 소스가 fine 계산(70~80)과 명백히 불일치.
+
+### 5. 147/148차와의 연결 -- 기존 NEEDS_VALIDATION의 실측 답
+148차가 `ROUTE_CURVATURE_FINE_SAMPLE=1` 도입 당시 남긴 각주: *"다른 route(특히 고속도로/GPS 노이즈가 큰 구간)에서 sample=1 fine 샘플의 오탐률은 아직 확인 안 됨 -- NEEDS_VALIDATION"*. 이번 세션이 그 항목에 대한 최초 실차 답 -- **고속도로/완만한 커브 구간에서 fine 샘플 오탐이 실제로 발생함을 확정**.
+
+**원인 메커니즘**: `route_curvature_macro_fine()`은 fine 결과가 macro보다 낮으면(더 급하면) 인접 지점과의 정합성 확인 없이 무조건 채택한다(`if f_speed < speeds[j]: speeds[j] = f_speed`, carrot_man.py L572). 10m 간격 3점 곡률은 resample된 raw waypoint 1~2개의 미세한 위치 흔들림만으로도 물리적으로 불가능한 반경(R=88m는 시속 76km 기준 헤어핀급)을 만들 수 있음이 실측으로 확인됨. macro나 좌우 인접 fine 샘플과 대조하는 안전장치가 없어 고립 spike가 그대로 route 감속 명령으로 전파.
+
+**CURRENT_STATUS.md "apexIdx flicker 게이트 재설계"(219/220차 이월) 항목과의 관계**: 동일 계열 증상(짧은 구간에서 apex가 빠르게 생성/소실)이나, 이번엔 "고립된 단일 지점 fine spike가 원인"이라는 구체적 메커니즘까지 확정. 219/220차 게이트 재설계 논의와 병합해 다음 세션에서 다룰 것을 제안.
+
+**코드 수정: 하지 않음(§27/analysis-only 세션)**. 이유: (1) fine 샘플 자체는 147/148차가 실제 급커브(R~27m급) 오검출 방지를 위해 의도적으로 도입한 안전장치 -- 단순 제거는 회귀 위험, (2) 고립 spike 필터링 설계(인접 연속성 요구/macro 대비 괴리율 임계값/최소 지속 프레임 수 등 복수 대안)는 사용자 결정이 필요.
+
+**미확인 사항**:
+- 고립 fine spike를 만드는 raw waypoint 잡음 자체의 원인(지도매칭/네비게이션 보간 등)은 미추적 -- "spike가 감속으로 전파되는 경로"까지만 확정.
+- 이번 2개 구간 외 corpus 전반의 fine spike 오탐 발생 빈도(%)는 미측정.
+- 147/148차 원래 대상(R~27m급 실제 급커브)에서 게이트 재설계 후에도 정상 검출이 보존되는지는 다음 세션 회귀 확인 필요.
+
+**실차 검증**: 증상 자체는 이번 실차 로그로 재현/확정(§29 "증상의 실차 재현"). 수정안은 아직 없으므로 "수정의 실차 검증"은 해당 없음.
+
+**다음 작업**: WIP.md 362차 "다음 작업" 참고 (설계안 논의 -> what-if 시뮬레이션 -> 패치).
+
 ## 359차 -- [ROOT_CAUSE_CONFIRMED, 패치전달 완료, NEEDS_REAL_VEHICLE_VALIDATION] `get_path_after_distance()` 첫 세그먼트 300m 캡 미적용으로 인한 경로 반전(overrun) 버그 -- 직선 고속도로에서 `routeApexDist`/`routeApexSpeed` 프레임간 급격 요동 + `routePathLen` 비정상 고정(=3) 근본원인 확정
 
 **배경**: 사용자가 업로드한 신규 route(`7bf8a00d14`, seg7~10, 12:49~12:52)에서
