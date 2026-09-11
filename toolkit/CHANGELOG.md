@@ -1,3 +1,14 @@
+## 2026-09-12 (366차)
+- `sim_route_366_tp_proxy_r_crossvalidation.py`: 신규. 365차 "미확인
+  사항 #2" 해소 -- 정탐 대리필터(`routeApexSpeed<=45kph`)와 363차 원
+  R 계산(`R<30m`)을 혼동행렬로 교차검증. precision 92.2%(1137/1233,
+  365차 기록과 표본수 100% 일치), recall 100%(누락 없음). `<=25kph`로
+  좁히면 오염 0건(precision/recall 둘 다 100%). 정제 표본으로
+  `sim_route_365_heading_isolation_gate.py` 재실행 시 th=0.885~0.92
+  평탄부 구조 유지 확인(오탐 corpus 29->42건 확대 시 억제율은
+  86.2%->76~81%로 다소 하락, 일반화는 여전히 미해결). 코드 패치 없음.
+  상세: WIP.md/FINDINGS.md 366차.
+
 ## 2026-09-12 (365차)
 - `sim_route_365_heading_isolation_gate.py`: 신규. 362차 오탐 corpus
   (`d1cd25bdf1` seg10/11/13)의 naviPaths 원시좌표에서 heading(진행방향)

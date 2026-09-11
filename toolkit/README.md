@@ -1,3 +1,21 @@
+## sim_route_366_tp_proxy_r_crossvalidation.py (366차, 신규 -- 365차 정탐 대리필터 vs 363차 원 R 계산 교차검증)
+
+**목적**: 365차가 정탐(true-positive) 표본을 고를 때 쓴 대리필터 `routeApexSpeed<=45kph`가 363차 원 기준(`R<30m`, `route_curvature_macro_fine_gated` NO-GATE)과 얼마나 일치하는지 프레임 단위 혼동행렬로 실측한다. 363/365차의 `calculate_curvature()`/인덱싱을 verbatim 재사용(§27).
+
+**366차 실측 결과**: 363차 corpus(5,999행 중 사용가능 3649건)에서 `routeApexSpeed<=45kph` 필터 통과 1233건(365차 기록과 100% 일치) 중 precision(실제 R<30m 비율)=92.2%(1137/1233), recall=100%(1137/1137, 누락 없음). 오염(R>=30m인데 필터 통과) 96건(7.8%). 임계값을 `<=25kph`로 좁히면 오염 0건(precision/recall 둘 다 100%)으로 363차 기준과 완전 일치하는 순수 표본 확보 가능. 정제된 표본으로 `sim_route_365_heading_isolation_gate.py`를 재실행해도 th=0.885~0.92 평탄부 구조는 유지됨(오탐 corpus를 29->42건으로 확대하자 억제율은 86.2%->76~81%로 다소 하락 -- 표본 일반화는 여전히 미해결, FINDINGS.md 366차 참고).
+
+**입력**: `extract_log.py --with-navi-paths`로 뽑은 363차형 corpus CSV(naviPaths/routeApexDist/routeApexSpeed 컬럼 필요).
+
+**사용**:
+```bash
+python3 sim_route_366_tp_proxy_r_crossvalidation.py <corpus_363_seg12-16.csv> \
+    [--tp-speed-max 45.0] [--sharp-r 30.0]
+```
+
+**한계**: 363차 corpus 1개 route에서만 검증됨(다른 route의 실제 급커브 corpus로 일반화 여부 미검증).
+
+---
+
 ## sim_route_365_heading_isolation_gate.py (365차, 신규 -- naviPaths heading 기하 기반 "집중도(ISOLATION)" 게이트 후보)
 **목적**: 362차 오탐(고립 fine curvature spike)의 원인을 곡률값이 아니라 naviPaths 원시좌표의 heading(진행방향) 변화 패턴 레벨에서 직접 진단. 362차 오탐 두 지점(t=4426.417/t=4572.215, corpus `d1cd25bdf1`) 모두 "문제 지점 앞뒤 여러 세그먼트는 heading 변화 <0.3~1.3도로 평평, 문제 지점 정확히 그 자리(±1세그먼트)에서만 6.2~6.5도 급변"하는 동일 패턴을 보임(RATIO/PERSIST가 봤던 "곡률 크기"가 아니라 "꺾임의 국소 집중도" 문제). 이를 `isolation_score = 피크 꺾임각/(진입+진출 꺾임각)`으로 정량화(1.0=국소집중=오탐 의심, 0.5=분산=진짜 커브 의심).
 
