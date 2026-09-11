@@ -1,3 +1,55 @@
+## sim_route_367_batch_fp_tp_corpus_scan.py / _v2.py / dedup_physical_events_367.py (367차, 신규 -- 신규 11개 route 자동 TP/FP corpus 확대 스캔, 진행 중)
+**목적**: 366차 "다음 작업 1순위"(오탐/정탐 corpus를 다양한 route로 확대해
+ISOLATION 게이트 일반화 검증) 착수. 사용자가 09-01~09-03 녹화 신규
+route 11개(총 154,334행)를 업로드.
+
+**v1 vs v2**: v1은 `routeApexMode`/`routeApexFineTriggered` 필드(310차,
+2026-09-08 추가) 존재를 전제로 하는데, 이번 11개 route는 전부 그 이전
+빌드 녹화분이라 필드가 항상 공백 -- v1 실행 결과 전량 0건(코드 문제
+아니라 계측 시점 차이, §28 원인 확인 완료). v2는 이 필드 없이
+naviPaths만으로 `route_curvature_macro_fine_gated()`(363차 verbatim)를
+자체 재계산해 fine 트리거를 근사하고, apexDist가 이전 프레임보다
+`--new-event-jump-m`(기본 15m) 이상 커질 때만 "새 이벤트"로 보는
+dedup 휴리스틱을 사용한다.
+
+**367차 1차 실측(raw)**: TP(R<30m) 9건, FP(R>=50m 이고 vTurnSpeed-
+routeApexSpeed>=30kph) 369건 (11개 route, 154,334행).
+
+**후처리 필요성 확인**: FP 369건 중 186건이 `vTurnSpeed>=200`
+포화 아티팩트(PARAMS_REGISTRY 기존 경고, "커브 미인식" 신호이지 실제
+격차 아님) -- 제외 시 183건. 남은 183건도 `dedup_physical_events_367.py`
+(같은 물리적 커브가 8초 이내 재트리거되는 것을 클러스터로 묶어 R 최소
+프레임 1개만 채택)로 재정제하면 **22개 물리적 이벤트**로 수렴(93%가
+apexDist 진동에 의한 중복 프레임이었음). TP 9건도 4개 이벤트로 수렴.
+
+**한계(§29 필수 명시)**:
+- v2의 fine 재계산 + new-event dedup은 device의 실제 `routeApexMode`
+  상태기계를 재현한 것이 아니라 naviPaths만으로 재구성한 근사치다.
+- `dedup_physical_events_367.py`의 8초 클러스터링도 별도 근사 휴리스틱
+  (경험적 임계값, device 판정 아님) -- 362/363차 corpus(수동 확인/device
+  필드 확정)와 절대 같은 신뢰도로 취급하면 안 된다.
+- 22개 FP 이벤트 중 일부(예: n_frames_in_cluster=54)는 클러스터 내부에서
+  실제로 별개의 상태(예: 커브 진입 지속 vs 완전히 다른 재접근)가 섞여
+  있을 가능성 -- 클러스터 대표 프레임 선택(R 최소)이 항상 대표성을
+  보장하지 않음.
+- 실차 검증: 미실시(오프라인 재계산 한정).
+
+**입력**: `extract_log.py --with-navi-paths` 출력 CSV(v2 실행 시
+`routeApexMode` 컬럼 불필요, `naviPaths`/`routeApexDist`/`routeApexSpeed`/
+`vTurnSpeed`만 있으면 됨).
+
+**사용**:
+```bash
+python3 sim_route_367_batch_fp_tp_corpus_scan_v2.py <corpus_csv...> \
+    [--gap-kph 30.0] [--fp-r-min 50.0] [--tp-r-max 30.0] \
+    [--new-event-jump-m 15.0] --out-tp tp.csv --out-fp fp.csv
+
+python3 dedup_physical_events_367.py <fp.csv 또는 tp.csv> \
+    [--cluster-gap-s 8.0] --out dedup.csv
+```
+
+---
+
 ## sim_route_366_tp_proxy_r_crossvalidation.py (366차, 신규 -- 365차 정탐 대리필터 vs 363차 원 R 계산 교차검증)
 
 **목적**: 365차가 정탐(true-positive) 표본을 고를 때 쓴 대리필터 `routeApexSpeed<=45kph`가 363차 원 기준(`R<30m`, `route_curvature_macro_fine_gated` NO-GATE)과 얼마나 일치하는지 프레임 단위 혼동행렬로 실측한다. 363/365차의 `calculate_curvature()`/인덱싱을 verbatim 재사용(§27).

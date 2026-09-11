@@ -1,3 +1,26 @@
+## 2026-09-12 (367차, 진행 중)
+- `sim_route_367_batch_fp_tp_corpus_scan.py`: 신규(직전 세션 작성분).
+  `routeApexMode`/`routeApexFineTriggered` 필드(310차, 2026-09-08 추가)가
+  존재하는 신형 route 전용 자동 TP/FP 스캔. 이번 11개 신규 route(09-01~
+  09-03 녹화, 310차 이전 빌드)에는 해당 필드가 전부 공백이라 전량 0건
+  산출 -- 원인 규명 완료(§28), 코드 결함 아님.
+- `sim_route_367_batch_fp_tp_corpus_scan_v2.py`: 신규(직전 세션 작성분,
+  이번 세션에서 최초 실행). `routeApexMode` 없이 naviPaths만으로
+  `route_curvature_macro_fine_gated()`를 자체 재계산해 fine 트리거 근사 +
+  apexDist 15m 점프 기반 dedup 근사. 11개 route(154,334행)에서 raw
+  TP 9건/FP 369건 산출. **한계**: dedup이 apexDist 진동(격자/노이즈로
+  같은 물리 커브가 여러 프레임에 걸쳐 재트리거)을 물리적으로 다른
+  이벤트로 오인해 과다계상하는 것을 이번 세션에서 확인(§28, 아래
+  dedup_physical_events_367.py 참고). vTurnSpeed>=200 포화 아티팩트
+  (PARAMS_REGISTRY 기존 경고) 필터도 v2 자체에는 없음 -- 후처리 필요.
+- `dedup_physical_events_367.py`: 신규. v2 스캔 결과에서 같은 물리적
+  커브가 시간상 8초 이내 재트리거된 것을 클러스터로 묶어 대표 프레임
+  1개(R 최소)만 채택하는 후처리 스크립트. FP 369프레임(포화 제거 후
+  183)이 실제로는 22개 물리적 이벤트로 수렴함을 확인(93%가 중복
+  프레임이었음), TP 9프레임은 4개 이벤트로 수렴. 이 dedup 자체도
+  8초 임계값 기반 근사 휴리스틱이며 device 실제 상태기계 출력이 아님
+  (§29 명시 필요). 상세: WIP.md 367차.
+
 ## 2026-09-12 (366차)
 - `sim_route_366_tp_proxy_r_crossvalidation.py`: 신규. 365차 "미확인
   사항 #2" 해소 -- 정탐 대리필터(`routeApexSpeed<=45kph`)와 363차 원
