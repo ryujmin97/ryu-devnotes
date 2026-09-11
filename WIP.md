@@ -1,3 +1,29 @@
+## 367차 계속2 (진행 중 -- 설계 방향 전환 논의, 코드 패치 전) -- ISOLATION 게이트 대신 "원거리+고속 시에만 fine(10m) 비활성화" 설계로 전환 검토
+
+**Worker**: Claude
+
+**배경**: 사용자가 ISOLATION 게이트(사후 통계 필터) 대신, 362차가 확정한 오탐 메커니즘 자체(fine 10m 서브샘플이 macro 40m보다 낮은 속도면 앞뒤 정합성 확인 없이 무조건 채택)를 직접 제한하는 방향을 제안. 사용자 직접 경험: "고속주행시 멀리있는 곡선"에서의 오탐은 체감되지만(감속이 오래 지속됨), 가까운 커브의 오탐은 vTurnSpeed와 교대로 빠르게 정정되어 문제가 안 됨.
+
+**코드 확인** (`selfdrive/carrot/carrot_man.py` `route_curvature_macro_fine()`, L526-576):
+- macro: `sample=4`(distance_interval=10m) -> 반챠드 40m(전체 chord 80m)
+- fine: `sample_fine=ROUTE_CURVATURE_FINE_SAMPLE=1` -> 반챠드 10m(전체 chord 20m)
+- L572-575: `if f_speed < speeds[j]: speeds[j]=f_speed; curvatures[j]=f_curv; fine_triggered[j]=True` -- 이 대체 조건에 거리/속도 게이트가 전혀 없음(362차가 확정한 근본 원인 그대로).
+
+**설계 방향(가안, 미확정)**: 이 대체 조건에 `distances[j]`(그 지점까지 apex 거리)와 현재 `vEgo`(또는 호출 시점의 속도)를 추가로 게이트 -- "고속 + 원거리"일 때만 fine 대체를 억제(macro 값 유지), 그 외(저속 또는 근거리)는 기존 그대로 fine 허용. ISOLATION 게이트 대비 장점: 파라미터가 2개(거리/속도 임계값)뿐이라 corpus 의존성이 덜할 것으로 기대(367차 계속에서 isolation_score가 corpus 바뀌자 크게 흔들린 것과 대조).
+
+**임계값 캘리브레이션 착수 -- 데이터 오염 문제 발견**: 367차 22건 FP corpus로 vEgo/apexDist 분포를 뽑아 임계값을 잡으려 했으나, 이 corpus 자체가 (367차 계속에서 이미 확인했듯) 최소 2건(t=673 apexDist=50m/vEgo=79.0kph, t=978 apexDist=120m/vEgo=89.3kph)이 실제로는 진짜 커브(사람이 qcamera로 확인)라 자동 근사 corpus로 캘리브레이션하면 임계값이 왜곡될 위험 확인. 22건 전체 vEgo/apexDist 표는 이번 세션 결과 참고(work 스크래치, devnotes 미기록).
+
+**사용자 결정**: 362차 원본 corpus(`d1cd25bdf1`, 사람이 직접 확인한 검증된 오탐 2건 -- t=4426.417/t=4572.215)를 재업로드해서 이 2건의 vEgo/apexDist를 기준점(anchor)으로 임계값 캘리브레이션 진행하기로 결정. 사용자가 route 재업로드 대기 중(세션 일시중단, §16).
+
+**코드 수정**: 하지 않음(설계 논의 단계, §31 -- 패치 전 반드시 설계 검증).
+
+**다음 작업**:
+1. `d1cd25bdf1` route 재업로드 대기 -- 검증된 오탐 2건의 vEgo/apexDist 확인
+2. 위 anchor 값 + 367차 22건(오염 가능성 감안) + 363차/366차 TP corpus를 종합해 거리/속도 임계값 후보 도출
+3. `route_curvature_macro_fine()` 게이트 조건 코드 설계(가안) 작성 -- §27 최소변경, 기존 macro/fine 계산 로직 자체는 무변경, 대체 조건 앞에 게이트만 추가
+4. 설계 확정 후 지선생(ChatGPT) 교차검토 여부는 사용자 확인 필요
+5. 실차 검증 전까지 offline replay로 기존 22/4건 + 363차 corpus에 새 게이트 적용해 이전 방식(ISOLATION) 대비 억제율/생존율 비교
+
 ## 367차 계속 (완료 -- 대형 클러스터 원본 확인 + 22/4건 ISOLATION 게이트 적용, 365/366차 반례 발견) -- 366차 "다음 작업 1"(corpus 다변화) 마무리
 
 **Worker**: Claude
