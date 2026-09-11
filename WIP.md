@@ -1,4 +1,52 @@
-## 369차 (완료 -- `diag_required_decel_341.py` 정식 적용, 368차 근본원인 코드 위치 정정, `ryu` 코드 무변경) -- 368차 251건 플래핑이 ACTIVE 진입게이트(L1832)가 아니라 INERT `v_ego<=target`(L1807)에서 발생함을 실증
+## 370차 (완료 -- L1807 히스테리시스 설계 Master 결정(B3) + `diag_required_decel_341.py`에 `--hold-frames` 옵션 추가한 오프라인 정량검증, `ryu` 코드 무변경) -- hold=4프레임(0.20s) 디바운스로 L1807 1프레임 토글 218건 전량(100%) 제거 확인
+
+**Worker**: Claude
+
+**Repository**: `ryu`(HEAD `d5b34bb6b358`=367차 계속4, dirty=False, 코드 변경 없음) / `ryu-devnotes`(HEAD `da38309`=369차 완료 시점)
+
+**Branch**: `c3-ms-dev` / `main`
+
+**세션 시작 확인(§3/§33)**: fresh clone으로 `ryu` HEAD `d5b34bb6b358` 확인(dirty=False, 367차 계속4 이후 무변경), `ryu-devnotes` HEAD `da38309`(369차 devnotes 갱신분까지 이미 push 완료 상태) 확인.
+
+**배경**: 369차가 남긴 "Master 결정 필요"(L1807 히스테리시스 설계 여부/방향, 폭 vs 유지시간) 항목에 대해 사용자와 두 축(A=값 기반 margin, B=시간 기반 hold)의 후보를 논의. A안은 369차/341차 관측상 grid 경계 스파이크 크기가 케이스마다 다름(341차 x20seg에서 +1.6~+5.6kph, 369차 근거리 corpus에서 +8.1kph)이 확인돼 고정 margin의 신뢰도가 낮다고 판단, 크기 무관 필터인 B(시간 기반 hold)로 방향을 좁히고 그 중 **B3(hold=4프레임=0.20s)**로 사용자가 확정.
+
+**진행 경과**:
+
+1. **corpus 재확보**: 사용자가 369차와 동일 route(`22ebbb245d`, dashcam 3세그먼트 zip)를 재업로드(§23 -- 대용량 산출물 미보존이라 세션마다 재추출 필요). `extract_log.py --with-navi-paths --repo ryu`로 재추출, 3,296행/`commit=d5b34bb6b358`/`dirty=False` 확인 -- 369차 기록과 정확히 일치(같은 corpus).
+2. **toolkit 확장(§21 재사용/§27 최소변경)**: 신규 스크립트를 만들지 않고 `diag_required_decel_341.py`에 `--hold-frames=N` 옵션을 추가. `simulate_with_reason()` 내부에서 L1807 원 조건(`v_ego_ms<=target_ms`, INERT 비활성 분기 한정)을 raw bool 시퀀스로 그대로 기록하고, 별도 함수 `apply_hold()`(N프레임 연속 관측돼야 상태 전환 확정, 그 전엔 직전 안정 상태 유지)로 디바운스한 시퀀스를 나란히 산출하도록 관측 레이어만 추가(게이트 산식 자체는 변경 없음).
+3. **raw(hold=1, 현재 코드와 동일) vs hold=4 비교**: 평가 대상 925프레임(비활성+유효apex, 369차 569+356과 정확히 일치) 중 raw 1프레임성 토글 **218건** -> hold=4 적용 시 **0건(100% 제거)**. 참고로 실측 `src`(route/비route) 컬럼 기준 1프레임 토글은 228건으로, 368/369차가 보고한 135+116=251건과 크기가 비슷함(차이는 arbitration 등 L1807 외 요인 혼입, §29 -- 이 검증은 L1807 단독 격리 재현이며 `carrot_serv.py`의 다른 소스와의 arbitration까지 재현한 것은 아님).
+4. **hold 값 자체의 타당성 확인**: raw 조건의 run-length(연속 지속 프레임) 분포를 냄 -- 1프레임 276건/2프레임 38건/3프레임 8건/4프레임 17건/5+ 41건(총 381 run). 1~3프레임 짧은 요동이 전체의 85%(322건)를 차지 -- hold=2/3이었다면 2~3프레임 지속 요동(46건)은 이미 "확정 전환"으로 오인해 통과시켰을 것이므로, **hold=4가 hold=2/3보다 뚜렷이 넓은 노이즈 대역을 걸러낸다**는 정량적 근거 확보(B3 채택을 뒷받침).
+
+**결론**: B3(hold=4프레임/0.20s)는 이번 corpus의 L1807 1프레임 토글(218건, 실측 251건대와 동일 규모 현상)을 전량 제거하며, hold=2/3 대비로도 타당성이 있음을 확인. 단 이 검증은 L1807 조건만 격리 재현한 오프라인 근사(§29 실차 검증 아님)이고, 341차 원 corpus(x20seg, 실제 커브 진입 반응)에서 hold=4가 진입 반응을 0.20s까지 지연시켰을 때 체감 가능한 부작용이 있는지는 아직 미검증.
+
+**코드 수정**: 하지 않음(§31, 이번 세션은 설계 결정 기록 + toolkit 검증까지, `carrot_man.py` L1807 실제 패치는 사용자 요청으로 다음 세션 이월). toolkit(`diag_required_decel_341.py`)만 변경(관측 레이어 추가, 게이트 산식 무변경).
+
+**검증**:
+- 정적 분석: 완료(`apply_hold()`/`count_single_frame_flips()` 로직 직접 재확인, L1807 raw 기록 지점이 실제 코드 else/INERT 분기와 정확히 대응하는지 확인)
+- 로그 분석: 완료(3,296행 재추출, 369차와 100% 일치)
+- 시뮬레이션: 완료(hold=1/2/3/4/5 스윕 + run-length 분포 산출)
+- 실차 검증: 해당 없음(오프라인 로그 재분석, §29 명시)
+
+**미확인 사항**:
+1. 341차 원 corpus(x20seg, 원거리/직선 실제 커브 진입 반응)로 hold=4의 반응지연 부작용 미검증 -- 다음 세션 최우선 후보
+2. L1807 격리 재현이라 `carrot_serv.py` 전체 arbitration(다른 소스와의 min 선택)까지 반영한 것은 아님 -- 실제 `src` 컬럼 228건과 raw 218건의 차이(10건)가 이 갭에서 오는 것으로 추정되나 직접 규명은 안 함
+3. `carrot_man.py` L1807에 실제로 hold=4를 구현하는 코드 패치(상태 변수/프레임 카운터 추가 위치, `route_active` 상태기계와의 결합 방식)는 다음 세션 착수
+4. `autoNaviSpeedCtrlEnd`/`autoNaviSpeedDecelRate` 실제 device 설정값 확인(369차에서 이월, 계속 미확인)
+5. 368차 "다음 작업 3"(플래핑의 실제 종방향 제어 영향 정량 측정)도 계속 이월
+
+**Devnotes**:
+- `WIP.md`: 이 항목(370차) 신규
+- `FINDINGS.md`: 370차 신규(369차 NEEDS_DECISION 항목에 대한 Master 결정 + 정량검증 결과 기록, §24 형식 준수)
+- `toolkit/README.md`, `toolkit/CHANGELOG.md`: `diag_required_decel_341.py --hold-frames` 옵션 추가 반영(§22)
+
+**다음 작업**:
+1. `carrot_man.py` L1807에 hold=4(0.20s) 디바운스 실제 코드 패치 작성(상태 변수 추가 위치, 최소변경 설계)
+2. 341차 원 corpus(x20seg)로 hold=4의 커브 진입 반응지연 부작용 검증
+3. (이월) `autoNaviSpeedCtrlEnd`/`autoNaviSpeedDecelRate` 실제 device 설정값 확인
+4. (이월) 플래핑/디바운스 지연이 실제 종방향 제어 출력에 미치는 영향 정량 측정
+5. (이월) L1832(ACTIVE 진입게이트) 히스테리시스는 341차 원 corpus 기준 별도 판단
+
+
 
 **Worker**: Claude
 

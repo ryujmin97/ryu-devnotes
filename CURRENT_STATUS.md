@@ -15,21 +15,42 @@ append-only 원칙 적용 안 함 -- 항상 최신 1개 스냅샷만 유지).
 
 ---
 
-## 코드 상태 (2026-09-12, 369차 종료 시점)
+## 코드 상태 (2026-09-12, 370차 종료 시점)
 
 **Repository**: `ryujmin97/ryu`
 **Branch**: `c3-ms-dev`
-**HEAD (GitHub 기준, fresh clone으로 369차 직접 확인)**: `d5b34bb6b358`
+**HEAD (GitHub 기준, fresh clone으로 370차 직접 확인)**: `d5b34bb6b358`
 (367차 계속4, `route_curvature_macro_fine()` 원거리(>=150m) fine 대체
 억제 게이트 `ROUTE_FINE_OVERRIDE_MIN_DIST_M=150.0` 추가).
-364~369차는 `ryu` 코드 변경 없음(analysis-only, offline replay/실차
-로그 재분석만).
+364~370차는 `ryu` 코드 변경 없음(analysis-only, offline replay/toolkit
+검증만). L1807 히스테리시스 설계(B3=hold=4프레임/0.20s)는 370차에서
+오프라인 검증 완료(FINDINGS.md/WIP.md 370차), 실제 코드 패치는 다음
+세션 이월.
 
 **Repository**: `ryujmin97/ryu-devnotes`
 **Branch**: `main`
-**HEAD (fresh clone으로 369차 직접 확인)**: `f0af4b5`(368차 완료
-시점)까지 push 완료 확인. 이번(369차) devnotes 갱신(WIP/FINDINGS/이
-파일)은 이 세션 종료 후 push 대기 중.
+**HEAD (fresh clone으로 370차 직접 확인)**: `da38309`(369차 완료
+시점)까지 push 완료 확인. 이번(370차) devnotes 갱신(WIP/FINDINGS/
+toolkit/이 파일)은 이 세션 종료 후 push 대기 중.
+
+---
+
+## ⏳ 370차 완료 -- L1807 히스테리시스 설계 Master 결정(B3=hold=4프레임/0.20s) + 오프라인 정량검증(1프레임 토글 218건 전량 제거), `carrot_man.py` 실제 패치는 다음 세션
+
+369차가 남긴 "L1807 히스테리시스 설계 여부/방향" NEEDS_DECISION 항목에
+대해 사용자가 시간기반 hold=4프레임(0.20s)으로 확정(값 기반 margin은
+스파이크 크기가 케이스마다 다름 -- 341차 +1.6~5.6kph vs 369차 +8.1kph --
+확인돼 기각). `diag_required_decel_341.py`에 `--hold-frames` 옵션을
+추가(신규 스크립트 아님, §21/§27)해 `22ebbb245d` corpus(369차와 동일,
+3,296행)로 검증: raw(현재 코드) 1프레임 토글 218건 -> hold=4 적용 시
+**0건(100% 제거)**. run-length 분포(1~3프레임 요동이 전체의 85%)로
+hold=4가 hold=2/3보다 넓은 노이즈 대역을 걸러낸다는 근거도 확보.
+**주의**: L1807 조건만 격리 재현한 오프라인 근사, `carrot_serv.py`
+전체 arbitration 반영 아님(§29). 코드 수정 없음(§31, 다음 세션
+`carrot_man.py` L1807 패치 착수 예정). 상세: WIP.md/FINDINGS.md 370차 참고.
+
+**다음 세션 최우선**: `carrot_man.py` L1807에 hold=4 실제 코드 패치
+작성, 341차 원 corpus(x20seg)로 반응지연 부작용 검증.
 
 ---
 

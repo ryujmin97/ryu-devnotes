@@ -33,6 +33,13 @@ entry_gate_fail=신규진입 실패)이 발동했는지 분류해 출력한다(�
     # 전체 로그 release reason 통계(구간 지정 없이 --summary)
     python3 diag_required_decel_341.py <csv> --summary [--decel-rate=1.00]
         [--flap-window=2.0]   # 이 시간(초) 이내 재진입만 'flapping'으로 카운트
+
+    # [370차 신규] L1807 히스테리시스(B3=hold=4프레임) 오프라인 검증
+    python3 diag_required_decel_341.py <csv> --hold-frames=4 [--decel-rate=1.00]
+        # L1807(v_ego<=target, INERT 분기) raw 조건과 N프레임 디바운스 적용 후
+        # 1프레임성 토글 건수를 비교 출력(§21 -- 게이트 산식 자체는 무변경,
+        # 관측/디바운스 레이어만 추가). 369차 corpus(`22ebbb245d`)에서
+        # hold=4 -> raw 218건 전량(100%) 제거 확인(FINDINGS.md 370차 참고).
 """
 import csv
 import sys
@@ -51,7 +58,64 @@ def load_src(csv_path):
     return {float(r["t"]): r["src"] for r in rows}
 
 
-def simulate_with_reason(rows, decel_rate, tau, ctrl_end, continuity_tol):
+def apply_hold(raw_series, hold_frames):
+    """B3 설계안(370차 논의, L1807 유지시간 히스테리시스) 오프라인 검증용.
+    raw_series: 매 프레임 bool (None=True 취급/미평가=None).
+    hold_frames: 값이 바뀌려면 새 값이 이만큼 연속으로 관측돼야 실제 전환.
+    hold_frames<=1이면 raw_series 그대로(디바운스 없음=현재 코드 상태).
+    반환: (held_series, pending_run_len) -- None 값은 그대로 통과(평가 대상 아님).
+    """
+    if hold_frames <= 1:
+        return list(raw_series)
+    held = []
+    stable = None
+    pending_val = None
+    pending_len = 0
+    for raw in raw_series:
+        if raw is None:
+            held.append(stable)
+            continue
+        if stable is None:
+            stable = raw
+            held.append(stable)
+            continue
+        if raw == stable:
+            pending_val, pending_len = None, 0
+            held.append(stable)
+        else:
+            if raw == pending_val:
+                pending_len += 1
+            else:
+                pending_val, pending_len = raw, 1
+            if pending_len >= hold_frames:
+                stable = pending_val
+                pending_val, pending_len = None, 0
+            held.append(stable)
+    return held
+
+
+def count_single_frame_flips(series):
+    """앞뒤 프레임과 다르고 지속시간이 정확히 1프레임인 전환(그 유명한
+    "route->1프레임 이탈->route" 패턴)만 센다. None은 평가 제외."""
+    n = len(series)
+    count = 0
+    i = 0
+    while i < n:
+        if series[i] is None:
+            i += 1
+            continue
+        j = i
+        while j < n and series[j] == series[i]:
+            j += 1
+        run_len = j - i
+        if run_len == 1 and i > 0 and j < n and series[i - 1] is not None and series[j] is not None \
+                and series[i - 1] == series[j] and series[i - 1] != series[i]:
+            count += 1
+        i = j
+    return count
+
+
+def simulate_with_reason(rows, decel_rate, tau, ctrl_end, continuity_tol, hold_frames=1):
     """route_active 상태전이를 프레임별로 추적하며 release/entry reason을 함께 낸다.
     반환: list of dict(t, route_active, reason, apex_idx, apex_dist, apex_speed,
                         v_ego_kph, req_decel, eff_apex_speed, streak)
@@ -62,6 +126,7 @@ def simulate_with_reason(rows, decel_rate, tau, ctrl_end, continuity_tol):
     route_active = False
     prev_t = None
     out = []
+    raw_inert = []  # L1807 raw bool per frame (True=v_ego<=target/None분기, None=미평가)
     for row in rows:
         t = row["t"]
         dt = (t - prev_t) if prev_t is not None else 0.05
@@ -77,6 +142,7 @@ def simulate_with_reason(rows, decel_rate, tau, ctrl_end, continuity_tol):
         reason = None
         req_decel = None
         eff_apex_speed = None
+        raw_val = None  # [370차 B3 검증] L1807(비활성 분기 v_ego<=target) 원 조건, 이 분기 평가시에만 채움
 
         if apex_idx is None or apex_idx < 0 or apex_speed is None or apex_dist is None:
             route_active = False
@@ -100,7 +166,8 @@ def simulate_with_reason(rows, decel_rate, tau, ctrl_end, continuity_tol):
                     if eff_dist > 0 and v_ego_ms > target_ms:
                         req_decel = (v_ego_ms ** 2 - target_ms ** 2) / (2.0 * eff_dist)
             else:
-                if v_ego_ms <= target_ms:
+                raw_val = (v_ego_ms <= target_ms)  # L1807 그 자체
+                if raw_val:
                     pass
                 elif eff_dist <= 0:
                     pass
@@ -109,12 +176,18 @@ def simulate_with_reason(rows, decel_rate, tau, ctrl_end, continuity_tol):
                     if req_decel >= decel_rate:
                         route_active = True
 
+        raw_inert.append(raw_val)
         out.append({
             "t": t, "route_active": route_active, "was_active": was_active,
             "reason": reason, "apex_idx": apex_idx, "apex_dist": apex_dist,
             "apex_speed": apex_speed, "v_ego_kph": v_ego_kph,
             "req_decel": req_decel, "eff_apex_speed": eff_apex_speed, "streak": streak,
         })
+
+    held_inert = apply_hold(raw_inert, hold_frames)
+    for o, raw, held in zip(out, raw_inert, held_inert):
+        o["l1807_raw"] = raw          # True=out_speed None(route 배제), False=out_speed=v_ego_kph(route 포함), None=미평가
+        o["l1807_held"] = held        # hold_frames 적용 후 동일 의미
     return out
 
 
@@ -162,6 +235,43 @@ def run_summary(csv_path, decel_rate, tau, ctrl_end, continuity_tol, flap_window
     print("  reason 분포:", dict(Counter(s["reason"] for s in flap)))
 
 
+def run_hold_compare(csv_path, decel_rate, tau, ctrl_end, continuity_tol, hold_frames):
+    """[370차, B3 검증] L1807에 hold_frames 프레임 디바운스를 적용했을 때
+    'route 배제(None)/포함(v_ego_kph)' 상태의 1프레임성 토글(=368/369차가
+    실측 src 컬럼에서 135건 드롭아웃/116건 블립으로 센 것과 동일 패턴)이
+    몇 건에서 몇 건으로 주는지 raw(hold=1, 현재 코드와 동일) vs
+    hold=hold_frames로 비교한다. 실제 src 컬럼과의 교차 대조도 참고용으로 낸다.
+    주의: L1807 판정만 격리 재현한 것으로, carrot_serv.py의 다른 소스와의
+    arbitration(min 선택)까지 재현한 것은 아니다(오프라인 근사, §29 실차검증 아님).
+    """
+    rows = load_rows(csv_path)
+    src_map = load_src(csv_path)
+    sim = simulate_with_reason(rows, decel_rate, tau, ctrl_end, continuity_tol, hold_frames=1)
+    sim_held = simulate_with_reason(rows, decel_rate, tau, ctrl_end, continuity_tol, hold_frames=hold_frames)
+
+    raw_series = [s["l1807_raw"] for s in sim]
+    held_series = [s["l1807_held"] for s in sim_held]
+
+    n_evaluated = sum(1 for v in raw_series if v is not None)
+    raw_flips = count_single_frame_flips(raw_series)
+    held_flips = count_single_frame_flips(held_series)
+
+    print(f"[L1807 격리 재현, hold=1(현재코드) vs hold={hold_frames}]")
+    print(f"  평가 대상 프레임(비활성+유효apex): {n_evaluated} / 전체 {len(raw_series)}")
+    print(f"  1프레임 토글(raw, hold=1={'현재 코드와 동일'}): {raw_flips}건")
+    print(f"  1프레임 토글(held, hold={hold_frames}): {held_flips}건")
+    print(f"  감소: {raw_flips - held_flips}건 ({(raw_flips - held_flips) / raw_flips * 100:.1f}% 감소)" if raw_flips else "  raw_flips=0")
+
+    # 참고: 실측 src 컬럼 기준 route/비route 1프레임 토글과 교차비교
+    src_series = []
+    for r, s in zip(rows, sim):
+        is_route = (src_map.get(r["t"], "?") == "route")
+        src_series.append(is_route if s["l1807_raw"] is not None else None)
+    src_flips = count_single_frame_flips(src_series)
+    print(f"\n  참고: 실측 src(route/비route) 1프레임 토글 (368/369차 135+116=251건 기준): {src_flips}건 "
+          f"(단, arbitration 등 L1807 외 요인도 섞여 있어 완전 일치는 기대하지 않음)")
+
+
 def main():
     csv_path = sys.argv[1]
     decel_rate = DECEL_RATE_DEFAULT
@@ -169,7 +279,9 @@ def main():
     ctrl_end = CTRL_END_DEFAULT
     continuity_tol = CONTINUITY_TOL_DEFAULT
     flap_window = 2.0
+    hold_frames = 1
     summary_mode = "--summary" in sys.argv[2:]
+    hold_mode = any(a.startswith("--hold-frames=") for a in sys.argv[2:])
 
     rest = [a for a in sys.argv[2:] if a != "--summary"]
     for a in rest:
@@ -183,8 +295,12 @@ def main():
             continuity_tol = float(a.split("=", 1)[1])
         elif a.startswith("--flap-window="):
             flap_window = float(a.split("=", 1)[1])
+        elif a.startswith("--hold-frames="):
+            hold_frames = int(a.split("=", 1)[1])
 
-    if summary_mode:
+    if hold_mode:
+        run_hold_compare(csv_path, decel_rate, tau, ctrl_end, continuity_tol, hold_frames)
+    elif summary_mode:
         run_summary(csv_path, decel_rate, tau, ctrl_end, continuity_tol, flap_window)
     else:
         t0 = float(rest[0])

@@ -387,6 +387,35 @@ python3 diag_required_decel_341.py <csv> --summary [--flap-window=2.0]
 
 ---
 
+## diag_required_decel_341.py -- `--hold-frames` 옵션 추가 (370차)
+
+**목적**: 369차가 L1807(`if v_ego_ms <= target_ms:`, INERT 분기)로 확정한 251건류
+플래핑에 히스테리시스를 추가하기로 한 Master 결정(B3=hold=4프레임/0.20s
+시간기반 디바운스)을 코드 패치 전에 오프라인으로 정량검증하기 위해
+`simulate_with_reason()`에 관측 레이어를 추가(§21/§27 -- 게이트 산식
+자체는 무변경). L1807 raw 조건(`v_ego_ms<=target_ms`, 비활성 분기 한정)을
+프레임별 bool로 기록하고, 신규 함수 `apply_hold()`(N프레임 연속 관측돼야
+상태 전환 확정, 그 전엔 직전 안정 상태 유지)로 디바운스한 시퀀스를 나란히
+산출한다. `count_single_frame_flips()`로 raw/held 각각의 1프레임성
+토글 건수를 세어 비교한다.
+
+**핵심 결과(370차)**: `22ebbb245d` corpus(369차와 동일, 3,296행)에서
+raw(hold=1, 현재 코드) 1프레임 토글 218건 -> hold=4 적용 시 **0건(100%
+제거)**. run-length 분포(1~3프레임 요동이 전체 381 run 중 85%)로 hold=4가
+hold=2/3보다 뚜렷이 넓은 노이즈 대역을 걸러낸다는 근거도 확보. 상세는
+WIP.md/FINDINGS.md 370차 참고. **주의**: L1807 조건만 격리 재현한
+오프라인 근사이며 `carrot_serv.py`의 다른 소스와의 arbitration까지
+반영한 것은 아니다(§29 실차 검증 아님). `carrot_man.py` 실제 패치는
+아직 미착수(다음 세션 이월).
+
+**사용**:
+```bash
+python3 diag_required_decel_341.py <csv> --hold-frames=4 [--decel-rate=1.00]
+# hold_frames 값을 바꿔 스윕 비교도 가능(예: --hold-frames=2/3/5)
+```
+
+---
+
 ## diag_required_decel_341.py (341차, 신규 -- 340차 "직선구간 route flapping" 가설 code-level 확정) [주의: 이 항목의 "핵심 결과"는 오류 -- 바로 위 "341차 계속" 정정 항목 참고, 스크립트 파일도 정정판으로 교체됨]
 
 **목적**: WIP 340차가 남긴 가설("직선구간 route flapping이

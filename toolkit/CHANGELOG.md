@@ -1,4 +1,15 @@
-## 2026-09-12 (367차 계속)
+## 2026-09-12 (370차)
+- `diag_required_decel_341.py`: 수정(신규 스크립트 아님, §21/§27). L1807
+  히스테리시스 설계(Master 결정 B3=hold=4프레임/0.20s) 오프라인 검증을
+  위해 `--hold-frames=N` 옵션 추가. `simulate_with_reason()`에 L1807
+  raw 조건(`v_ego_ms<=target_ms`, 비활성 분기 한정) 기록 레이어 추가,
+  신규 함수 `apply_hold()`(N프레임 연속 디바운스)/`count_single_frame_
+  flips()`(1프레임성 토글 카운트)로 raw vs hold=N 비교 출력. 기존
+  `route_active` 상태기계/게이트 산식은 무변경. `22ebbb245d` corpus
+  (369차와 동일)에서 raw 1프레임 토글 218건 -> hold=4 적용 시 0건(100%
+  제거) 확인. 상세는 FINDINGS.md/WIP.md 370차 참고.
+
+
 - `apply_isolation_gate_367.py`: 신규. 367차 22건 FP/4건 TP 물리적
   이벤트(요약 CSV, naviPaths 없음)에 365차 `isolation_score()`/
   `parse_navipaths()`를 verbatim import해 게이트 재평가. 필요 route
