@@ -1,3 +1,22 @@
+## measure_cpu_periodic.sh (372차, 신규 -- Termux에서 콤마 디바이스 CPU/load/온도 주기 측정)
+**목적**: 353/354차 이후 이월되던 "CPU% 정량 실측"(당시 온도계 기준 관찰치만 확보) 공백을 메꾸기 위해, Termux에서 SSH로 콤마 디바이스의 `top -b -n1` load average/CPU 사용률/최상위 프로세스/열존 최고온도를 일정 간격으로 수집해 CSV로 누적하는 쉘 스크립트.
+
+**배경**: 372차 세션 중 사용자가 부팅 13분/19분 시점에 각 1회씩 수동 측정한 결과 load average 6.87~9.71, `ui` 프로세스 63~72% 관측. 그러나 (a) 두 샘플 모두 부팅 워밍업 구간이라 정상 baseline과 비교 불가, (b) 애초에 정상 load average의 baseline 자체가 devnotes에 없음(§28: 단발 측정으로 원인 단정 금지) -- 반복 측정 자동화가 선행되어야 한다는 판단으로 작성.
+
+**사용**:
+```bash
+./measure_cpu_periodic.sh <comma_ip> <interval_sec> <count> [output_csv]
+# 예: ./measure_cpu_periodic.sh 10.165.186.171 60 20   (60초 간격 20회)
+```
+
+**출력**: `timestamp,uptime_field,load1,load5,load15,cpu_us,cpu_sy,cpu_id,top_proc,top_proc_cpu,temp_max_c` CSV.
+
+**한계**: `top -b -n1` 출력이 정확히 7줄 헤더+swap 라인 포함 형태(8번째 줄=최상위 프로세스)임을 전제로 파싱하며, 실제 콤마 디바이스 샘플 출력으로 파싱 로직을 검증했다(도구 자체 실행은 미실시 -- 콤마 디바이스 SSH 접속이 이 세션 환경에서 불가능, §29와 유사하게 "실제 디바이스 실행: 미실시"로 표시). `uptime_field`는 "up 13 min" 같은 짧은 형식만 안전 파싱(장시간 연속측정 형식은 후속 개선 과제). GNU grep -P 의존 없이 grep -E/sed/awk만 사용해 Termux 기본 환경에서 동작하도록 작성.
+
+**다음 단계**: 부팅 후 15~20분 이상 안정화된 상태에서 이 스크립트로 반복 측정 -> baseline 확보 -> 이상 여부 판단 -> (이상 확인 시) 원인 추적은 §28 절차(증상->재현조건->호출흐름->원인->수정) 따름.
+
+---
+
 ## apply_isolation_gate_367.py (367차 계속, 신규 -- 365차 ISOLATION 게이트를 367차 신규 corpus(22건 FP/4건 TP)에 직접 적용)
 **목적**: 367차가 확보한 22개 FP/4개 TP "물리적 이벤트"(요약 CSV, naviPaths 없음)에 365차 `isolation_score()`(verbatim import)를 적용하기 위해, 필요한 route를 `--with-navi-paths`로 재추출한 뒤 (route,t) 매칭으로 naviPaths를 복원해 게이트를 재평가한다.
 

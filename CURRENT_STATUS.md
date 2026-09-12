@@ -15,28 +15,53 @@ append-only 원칙 적용 안 함 -- 항상 최신 1개 스냅샷만 유지).
 
 ---
 
-## 코드 상태 (2026-09-12, 371차 종료 시점)
+## 코드 상태 (2026-09-12, 372차 종료 시점)
 
 **Repository**: `ryujmin97/ryu`
 **Branch**: `c3-ms-dev`
-**HEAD (GitHub 기준, fresh clone으로 371차 직접 확인)**: `d5b34bb6b358`
-(367차 계속4, GitHub 저장소 자체는 아직 무변경 -- 371차 패치는 파일로만
-전달됨, 사용자 적용/커밋/push 대기). 패치 적용 시 반영될 변경: L1807
-(INERT, `v_ego_ms<=target_ms`)에 `ROUTE_L1807_HOLD_FRAMES=4`(0.20s)
-시간기반 디바운스 히스테리시스 추가(370차 Master 결정 B3 구현,
-`_route_apply_l1807_hold()` 신규 메서드, 게이트 산식 자체는 무변경).
-패치 파일: `0001-371-carrot_man.py-L1807-hold-4-0.20s.patch`(git-am
-호환, 별도 clone에 적용 재현 완료).
+**HEAD (GitHub 기준, fresh clone으로 372차 직접 확인)**: `ea4c5f4`
+(371차: `carrot_man.py` L1807 hold=4프레임 디바운스 -- **적용/push
+완료**, 사용자가 09-12 오전(KST) 적용 확인. 커밋 타임스탬프 2026-09-11
+23:37:42 UTC). L1807(INERT, `v_ego_ms<=target_ms`)에
+`ROUTE_L1807_HOLD_FRAMES=4`(0.20s) 시간기반 디바운스 히스테리시스
+반영됨(370차 Master 결정 B3, `_route_apply_l1807_hold()` 신규 메서드,
+게이트 산식 자체는 무변경). **[372차 정정]** 이전 버전(371차 갱신분)은
+이 패치가 "파일로만 전달, 적용 대기"라고 서술했으나 실제로는 devnotes
+커밋(23:40:32 UTC) 3분 전에 이미 push 완료된 상태였음 -- 세션 종료
+기록 시점과 사용자 push 시점이 겹쳐 devnotes가 따라가지 못한 단순
+기록 누락으로 확인(WIP.md 372차 참고). **371차 corpus 재생 재확인
+(218건->0건 직접 검증)은 여전히 미실시** -- 코드는 적용됐지만 다음
+세션 최우선 작업은 그대로 유효.
 
 **Repository**: `ryujmin97/ryu-devnotes`
 **Branch**: `main`
-**HEAD (fresh clone으로 371차 직접 확인)**: `e1a9f05`(370차 완료
-시점)까지 push 완료 확인. 이번(371차) devnotes 갱신(WIP/FINDINGS/
+**HEAD (fresh clone으로 372차 직접 확인)**: `3d31b6d`(371차 완료
+시점)까지 push 완료 확인. 이번(372차) devnotes 갱신(WIP/toolkit/
 이 파일)은 이 세션 종료 후 push 대기 중.
 
 ---
 
-## ⏳ 371차 완료 -- `carrot_man.py` L1807 hold=4(0.20s) 히스테리시스 실제 코드 패치 작성, 사용자 적용 대기
+## ⏳ 372차 완료 -- 371차 상태 정정(위 참고) + CPU 부하 실측 착수(`ryu` 코드 무변경)
+
+사용자가 Termux로 콤마 디바이스 부팅 후 13분/19분 시점 수동 측정(load
+average 6.87~9.71 상승 추세, `ui` 프로세스 63~72%, 열존 63~75°C).
+**원인 미확정** -- 두 샘플 모두 부팅 워밍업 구간이라 정상/이상 구분
+불가, 정상 상태 load average의 baseline 자체가 애초에 없음(353/354차
+"CPU% 정량 실측"이 온도계 관찰치만 남기고 이월돼 온 상태). `ryu` 코드
+변경 없음. 반복 측정 자동화용 신규 toolkit `measure_cpu_periodic.sh`
+작성(Termux SSH 기반 주기 측정 -> CSV), 사용자 제공 실제 샘플 출력으로
+파싱 로직 검증 완료. **디바이스 자체 실행은 미실시**(다음 세션/사용자가
+직접 실행).
+
+**다음 세션 최우선**: (1) 부팅 후 15~20분 안정화 후 `measure_cpu_periodic.sh`
+반복 측정으로 baseline 확보, (2) `nproc`으로 코어 수 확인 후 load
+average 해석, (3) 이상 추세 확인 시 §28 절차로 원인 추적.
+
+상세: WIP.md 372차 참고.
+
+---
+
+## ⏳ 371차 완료 -- `carrot_man.py` L1807 hold=4(0.20s) 히스테리시스 실제 코드 패치 작성/적용/push 완료(사용자 09-12 오전 확인, 372차 정정)
 
 370차가 남긴 "다음 작업 1"(L1807 hold=4 실제 코드 패치 작성)을 최소변경
 (§27)으로 구현: 신규 상수 `ROUTE_L1807_HOLD_FRAMES=4`, `__init__`
