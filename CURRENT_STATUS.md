@@ -15,11 +15,11 @@ append-only 원칙 적용 안 함 -- 항상 최신 1개 스냅샷만 유지).
 
 ---
 
-## 코드 상태 (2026-09-12, 372차 종료 시점)
+## 코드 상태 (2026-09-12, 373차 종료 시점)
 
 **Repository**: `ryujmin97/ryu`
 **Branch**: `c3-ms-dev`
-**HEAD (GitHub 기준, fresh clone으로 372차 직접 확인)**: `ea4c5f4`
+**HEAD (GitHub 기준, fresh clone으로 373차 직접 확인)**: `ea4c5f4`(372차와 동일, 373차는 `ryu` 코드 무변경 -- analysis-only)
 (371차: `carrot_man.py` L1807 hold=4프레임 디바운스 -- **적용/push
 완료**, 사용자가 09-12 오전(KST) 적용 확인. 커밋 타임스탬프 2026-09-11
 23:37:42 UTC). L1807(INERT, `v_ego_ms<=target_ms`)에
@@ -35,9 +35,19 @@ append-only 원칙 적용 안 함 -- 항상 최신 1개 스냅샷만 유지).
 
 **Repository**: `ryujmin97/ryu-devnotes`
 **Branch**: `main`
-**HEAD (fresh clone으로 372차 직접 확인)**: `3d31b6d`(371차 완료
-시점)까지 push 완료 확인. 이번(372차) devnotes 갱신(WIP/toolkit/
+**HEAD (fresh clone으로 373차 직접 확인)**: `1d2ff11`(372차 완료
+시점)까지 push 완료 확인. 이번(373차) devnotes 갱신(WIP/FINDINGS/
 이 파일)은 이 세션 종료 후 push 대기 중.
+
+---
+
+## ⏳ 373차 완료 -- 완만한 고속도로 커브 근거리(<150m) route 오실레이션 신규 신고, 부분 원인 확인(`ryu` 코드 무변경)
+
+사용자가 "vturn~150인데 route가 간간히 80~90"으로 신고한 실차 로그+dashcam(2026-09-12 14:31~14:36) 분석. 두 신고 구간 모두 완만한 실제 커브(급커브 아님) 확인, `routeApexMode`가 matched/held를 반복하며 연속된 두 matched 프레임이 같은 apexDist에서 서로 다른 apexSpeed를 내고 held 프레임이 낮은 쪽 값을 유지하는 패턴을 실측. naviPaths 원시좌표가 47ms 간격으로 서브미터(0.05~0.15m) 흔들리며, fine(20m chord) 곡률 계산이 이 흔들림에 macro(40m chord) 대비 훨씬 민감하게 반응함을 verbatim 재구현으로 확인. 이 구간(apexDist 80~90m)은 367차계속4의 `ROUTE_FINE_OVERRIDE_MIN_DIST_M=150.0` 게이트 사각지대(150m 미만). **단 apex 선택/클러스터링 로직 이후 단계는 재현하지 않아 PARTIAL_ROOT_CAUSE로 표시** -- 다음 세션 최우선은 전체 파이프라인 재현으로 로그 실측치 byte-identical 확인. 상세: WIP.md/FINDINGS.md 373차.
+
+**다음 세션 최우선**: (1) apex 선택 로직까지 포함한 전체 재현, (2) naviPaths 흔들림 빈도/폭 정량화, (3) desiredSpeed 실질 영향 측정, (4) 해법 방향 Master 결정. (이월, 372차) 콤마 디바이스 CPU baseline 측정. (이월, 371차) L1807 hold=4 corpus 재생 재확인.
+
+상세: WIP.md 373차 참고.
 
 ---
 

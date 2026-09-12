@@ -1,3 +1,49 @@
+## 373차 (완료 -- 근거리(<150m) fine 오실레이션 부분 원인 확인, `ryu` 코드 무변경) -- 완만한 고속도로 커브에서 route가 vTurn(~150) 대비 80~90대로 간간히 표시되는 신규 신고, 362차와 동일 계열이나 150m 게이트 사각지대(근거리) 확인
+
+**Worker**: Claude
+
+**Repository**: `ryu`(fresh clone HEAD `ea4c5f4`=372차 시점, dirty=False) / `ryu-devnotes`(fresh clone HEAD `1d2ff11`=372차 완료 시점)
+
+**Branch**: `c3-ms-dev` / `main`
+
+**세션 시작 확인(§3/§33)**: fresh clone으로 `ryu` HEAD `ea4c5f4`(371차 L1807 hold=4 패치가 이미 반영된 상태, dirty=False), `ryu-devnotes` HEAD `1d2ff11`(372차 완료) 확인 -- 사용자 측 이전 대화 기억은 359차까지만 있었으나 실제로는 372차까지 진행돼 있었음(§2 원칙대로 GitHub 기준으로 갱신, 367차계속4가 반영한 `ROUTE_FINE_OVERRIDE_MIN_DIST_M=150.0` 게이트도 이미 포함된 상태).
+
+**배경**: 사용자가 "고속도로 완만한 커브가 긴 구간에서 vturn은 150 정도인데 route가 간간히 80~90으로 나온다(깜빡이 없음)"고 신고, dashcam zip(2026-09-12 14:31:47~14:36:47, seg12-17, rlog/qlog/qcamera) + 클립 영상 2개(14:32:44/14:35:10 부근) 업로드.
+
+**진행 경과**:
+1. `extract_log.py --with-navi-paths --repo ryu`로 seg12-17 재추출(7,201행), `gitCommit=ea4c5f444997`(=`ryu` HEAD 372차, dirty=False) 확인.
+2. 클립 파일명의 wall-clock을 seg12 시작시각(14:31:47=t=3183.2) 기준으로 `t`축에 매핑해 두 구간(t≈3225~3229/t≈3378~3381) 특정, `verify_and_extract_frames.py`로 프레임 추출/시각 확인 -- 두 구간 모두 완만한 좌커브 왕복 고속도로(급커브 아님, 신고 내용과 일치).
+3. 두 구간 모두 `src=='route'`, vEgo 92~99kph, vTurnSpeed 145~190("150 정도"와 일치)인데 `routeApexMode`가 `matched`(재계산)/`held`(직전값 유지+거리감쇠) 2프레임 주기를 반복하며, **연속된 두 `matched` 프레임이 동일 apexDist에서 서로 다른 routeApexSpeed를 내고(예: apexSpeed 94.88->87.96, 47ms 간격), 뒤따르는 `held` 프레임들이 낮은 쪽 값을 그대로 유지**하는 패턴을 확인 -- 신고한 "80~90 간간히"와 일치하는 실측 패턴.
+4. 위 두 `matched` 프레임의 `naviPaths` 원시좌표를 직접 비교 -- x는 거의 동일하나 y가 프레임마다 0.05~0.15m 흔들림(예: 10m 지점 y=0.67->0.77) 확인.
+5. `calculate_curvature`/`route_curvature_macro_fine`(V_CURVE_LOOKUP_BP/VALS, ROUTE_CURVE_NEGLIGIBLE_THRESHOLD 포함)을 소스에서 그대로 추출해 devnotes 환경에서 verbatim 재구현, 두 naviPaths 스냅샷에 적용 -- **macro(40m chord)는 완만하게 변하는데 fine(20m chord)은 같은 dist=90m 지점에서 88.4->115.4로 훨씬 크게 흔들림**을 직접 확인. 이 dist(80~90m)는 367차계속4가 추가한 `ROUTE_FINE_OVERRIDE_MIN_DIST_M=150.0` 게이트가 적용되지 않는 근거리 구간.
+
+**결론(PARTIAL_ROOT_CAUSE)**: 362차(원거리, 완전 고립 spike)와 달리 이번은 **근거리(<150m)에서 naviPaths 서브미터 흔들림이 매 계산 주기 fine 계산 결과를 흔든다**는 메커니즘까지 확인. 단 `route_curvature_macro_fine()`의 출력 이후 실제 apexDist/apexSpeed로 확정되는 apex 선택/클러스터링 로직은 재구현하지 않아, 재현한 fine_speed 수치(58~115)가 로그 실측 routeApexSpeed(84~99)와 정확히 일치하지는 않는다 -- "근거리에서도 fine이 좌표 흔들림에 민감하다"는 메커니즘 확인까지이며 100% 설명으로 확정하지 않음(FINDINGS.md 373차 참고).
+
+**코드 수정**: 하지 않음(§27, analysis-only, 파이프라인 재현 미완결 + 해법 방향 Master 결정 필요 -- 150m 게이트를 근거리까지 낮추면 147/148차 fine 도입 목적인 근거리 실제 급커브 검출을 해칠 수 있음).
+
+**검증**:
+- 정적 분석: 완료(`route_curvature_macro_fine`/`calculate_curvature` 소스 직접 대조 재구현)
+- 로그 분석: 완료(7,201행 재추출, 신고 구간 2곳 특정 및 패턴 확인)
+- dashcam 대조: 완료(두 구간 모두 완만한 커브 시각 확인)
+- 재현 시뮬레이션: **부분 완료** -- macro/fine 함수까지만 재현, apex 선택 로직 이후 단계 미재현(§28, 다음 세션 최우선)
+- 실차 검증: 증상 자체는 실차 로그로 재현(§29), 수정안 없음
+
+**미확인 사항**:
+1. apex 선택/클러스터링 로직까지 포함한 전체 파이프라인 재현으로 로그 실측치(84~99)와 byte-identical 재현 확인 -- 다음 세션 최우선.
+2. naviPaths가 47ms마다 서브미터 단위로 흔들리는 근본 원인(navd 맵매칭/보간 갱신 주기 등) 자체는 미추적.
+3. 이 근거리 진동이 desiredSpeed(최종 제어 출력)에 실제로 얼마나 반영되는지 정량 미측정(이번 두 구간은 desiredSpeed 92~99로 비교적 완만했으나 일반화 여부 미확인).
+4. 해법 방향(fine 결과 hold/hysteresis, naviPaths 스무딩, 근거리 전용 다른 게이트 등) Master 결정 필요.
+
+**Devnotes**:
+- `WIP.md`: 이 항목(373차) 신규
+- `FINDINGS.md`: 373차 신규(362차/367차계속4 결론과 구분되는 근거리 사례로 최초 문서화)
+
+**다음 작업**:
+1. `route_curvature_macro_fine()` 이후의 apex 선택/클러스터링 로직까지 `carrot_man.py`에서 실제 함수를 import(또는 완전 verbatim 포팅)해 이번 corpus(t≈3225~3229/3378~3381)로 routeApexSpeed 84~99 실측치를 byte-identical 재현
+2. naviPaths 서브미터 흔들림이 이 corpus 전체에서 얼마나 자주/얼마나 큰 폭으로 나타나는지 정량화(단발 사례가 아니라 일반적 현상인지 확인)
+3. desiredSpeed(최종 출력)에 대한 실질 영향 정량 측정
+4. 1~3 결과를 바탕으로 해법 방향(hold/hysteresis vs naviPaths 스무딩 vs 근거리 게이트) Master 결정
+
 ## 372차 (완료 -- 371차 상태 정정 + CPU 부하 실측 착수, `ryu` 코드 무변경) -- CURRENT_STATUS.md의 "371차 패치 적용 대기" 서술이 실제로는 이미 틀렸음을 확인/정정, CPU 정량 실측용 신규 toolkit 작성
 
 **Worker**: Claude
