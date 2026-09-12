@@ -1,0 +1,106 @@
+From 46db767f03d22d68749d9c5e1c31eeb69b9f2660 Mon Sep 17 00:00:00 2001
+From: Claude <claude@anthropic.local>
+Date: Fri, 11 Sep 2026 22:45:23 +0000
+Subject: [PATCH] =?UTF-8?q?368=EC=B0=A8:=20341=EC=B0=A8=20=ED=99=95?=
+ =?UTF-8?q?=EC=A0=95=20=EB=A9=94=EC=BB=A4=EB=8B=88=EC=A6=98(grid=20?=
+ =?UTF-8?q?=EA=B2=BD=EA=B3=84=20apex=5Fspeed=20=EC=8A=A4=ED=8C=8C=EC=9D=B4?=
+ =?UTF-8?q?=ED=81=AC->1=ED=94=84=EB=A0=88=EC=9E=84=20ACTIVE=20=EB=93=9C?=
+ =?UTF-8?q?=EB=A1=AD=EC=95=84=EC=9B=83)=20=EC=8B=A0=EA=B7=9C=20route(22ebb?=
+ =?UTF-8?q?b245d)=EC=97=90=EC=84=9C=20251=EA=B1=B4=20=EA=B7=9C=EB=AA=A8=20?=
+ =?UTF-8?q?=EC=9E=AC=ED=99=95=EC=9D=B8,=20ryu=20=EC=BD=94=EB=93=9C=20?=
+ =?UTF-8?q?=EB=AC=B4=EB=B3=80=EA=B2=BD?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+---
+ FINDINGS.md | 21 +++++++++++++++++++++
+ WIP.md      | 46 ++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 67 insertions(+)
+
+diff --git a/FINDINGS.md b/FINDINGS.md
+index e46b029..90e09bf 100644
+--- a/FINDINGS.md
++++ b/FINDINGS.md
+@@ -1,3 +1,24 @@
++## 368차 -- [CONFIRMED, 341차 재확인 -- 대규모] 341차 확정 메커니즘이 신규 실차 제보 route(`22ebbb245d`)에서 251건 규모로 재확인, 여전히 미수정
++
++**§24 dedup 확인**: FINDINGS.md `required_decel_mss`/`route flapping`/`341차` 검색 -- 340차(가설)/341차(x20seg 직선구간 46건 code-level 확정)의 직접 후속 재확인. 새로운 이슈 아님, 341차 결론을 다른 route/다른 조건(곡선구간)에서 재검증.
++
++**기존 결론(341차)**: 직선구간에서 관측된 route on/off 플래핑은 `routeApexIdx`가 10m grid 경계를 넘을 때 `routeApexSpeed`가 순간 상승(도로제한속도 근처까지 스파이크)하며 `v_ego<=target` INERT 판정을 정확히 1프레임 통과시키고 즉시 재진입하는 단일 메커니즘으로 확정(46건 중 43건 grid 전환, 40건 apex_speed 상승, 93%대 일치).
++
++**새로운 증거**: 사용자 제보 신규 route(`22ebbb245d`, 2026-09-12 녹화, 곡선구간 위주)에서:
++- `route->비route(1프레임)->route` 드롭아웃 135건 중 133건(98.5%) grid 전환 동시발생, 134건(99%) apex_speed 상승 동시발생.
++- 대칭 방향(`비route->route(1프레임)->비route`) 블립 116건 중 113건(97%) apex_speed 하락 동시발생 -- 341차가 명시적으로 문서화하지 않았던 반대방향 대칭성도 이번에 확인.
++- `routeApexIdx==-1`(후보소실, 327차/338차 candidate churn 계열) 관여 0건 -- 이번 재현은 341차 메커니즘 단독.
++
++**변경 이유**: 341차는 직선구간 단일 route(x20seg)에서만 확정했었는데, 이번에 곡선구간 신규 route에서 동일 메커니즘이 훨씬 높은 밀도(251건, 최대 16.6초 동안 128회 전환)로 재현됨을 실측 확인 -- 메커니즘의 route-무관/도로형상-무관 일반성이 보강됨.
++
++**새로운 결론**: 341차 결론 유지, 일반성 보강. `carrot_man.py` L1832 ACTIVE 진입 게이트에 히스테리시스/하한이 없는 것이 근본 원인이며, 341차 이후 코드 수정이 없어 여전히 열려있는 이슈. 원거리 150m 게이트(367차계속4)와는 독립적 문제(이번 corpus apexDist 대부분 0~140m, 150m 미만).
++
++**검증**: 로그 분석 완료(3,296행, `d5b34bb6b358` 기준 드리프트 없음, 251건 수작업 프레임 대조). 시뮬레이션/실차: 해당 없음(정성/정량 실측 로그 분석).
++
++**다음 작업**: `diag_required_decel_341.py` 정식 적용, 히스테리시스 설계 Master 결정.
++
++---
++
+ ## 367차 계속4 -- [ROOT_CAUSE_CONFIRMED -> 코드 반영, NEEDS_VALIDATION] 원거리 fine 대체 억제 게이트(`ROUTE_FINE_OVERRIDE_MIN_DIST_M=150.0`) `ryu`에 패치 적용, 실차 검증 대기
+ 
+ **§24 dedup 확인**: FINDINGS.md 전체 `ROUTE_FINE_OVERRIDE`/`거리 임계값`/`362차` 검색 -- 362차(근본원인 확정)/363차/364차(RATIO/PERSIST 게이트 채택불가)/367차 계속(ISOLATION 게이트 반례)의 직접 후속. 이번 항목은 "곡률 기반 게이트(RATIO/PERSIST/ISOLATION)"를 전부 보류하고 **거리(apexDist) 단일 축 게이트**로 방향을 바꾼 첫 코드 반영.
+diff --git a/WIP.md b/WIP.md
+index 0252566..d565326 100644
+--- a/WIP.md
++++ b/WIP.md
+@@ -1,3 +1,49 @@
++## 368차 (완료 -- 실차 제보 로그 분석, `ryu` 코드 무변경) -- 341차 확정 메커니즘(grid 경계 apex_speed 스파이크 -> 단일프레임 ACTIVE 드롭아웃)이 신규 route에서 훨씬 조밀하게 재현됨
++
++**Worker**: Claude
++
++**Repository**: `ryu`(HEAD `d5b34bb6b358`=367차 계속4, 드리프트 없음, 코드 변경 없음) / `ryu-devnotes`(HEAD `ca56b2b`=367차 계속4 완료 시점)
++
++**Branch**: `c3-ms-dev` / `main`
++
++**세션 시작 확인(§3/§33)**: `ryu` HEAD `d5b34bb6b358`(367차 계속4, 150m 게이트 코드 반영 상태) 확인, dirty=False. `ryu-devnotes` HEAD `ca56b2b`(367차 계속4 완료) 확인.
++
++**배경**: 사용자가 신규 실차 주행 dashcam 3세그먼트(route `22ebbb245d`, 2026-09-12 07:30~07:31 녹화)를 업로드하며 "약간의 곡선구간에서 라우트가 켜졌다 꺼졌다 반복되는 구간이 있다"고 제보.
++
++**진행 경과**:
++1. 3세그먼트 병합 추출(`extract_log.py --with-navi-paths --repo ryu`, 3,296행, commit=`d5b34bb6b358` 드리프트 없음 확인).
++2. `src` 전환 총 381회, 5개 밀집구간(ep1~ep5, seg0/seg1) 식별 -- 최대 ep4(16.6초 동안 128회 전환).
++3. `route->비route(1프레임)->route` 드롭아웃 135건 프레임별 대조: 133/135건(98.5%)이 `routeApexIdx` grid 경계 전환과 동시 발생, 134/135건(99%)이 같은 프레임에서 `routeApexSpeed` 상승과 동시 발생.
++4. 반대 방향(`비route->route(1프레임)->비route`) 블립 116건도 113/116건(97%)이 `routeApexSpeed` 하락과 동시 발생 -- 동일 메커니즘의 대칭 형태.
++5. `routeApexIdx==-1`(후보 완전소실, 327차/338차류 candidate churn) 관여는 0건 -- 이번 재현은 341차 메커니즘 단독으로 설명됨.
++6. `carrot_man.py` L1832 ACTIVE 진입 게이트(`required_decel_mss >= autoNaviSpeedDecelRate`) 코드 재확인 -- 341차 이후 하한/히스테리시스 미추가 상태 그대로.
++
++**결론**: 341차가 x20seg(직선구간, 46건)에서 code-level로 확정한 메커니즘("grid 경계 전환 시 apex_speed 스파이크 -> v_ego<=target 1프레임 통과 -> 즉시 재진입")이 이번 신규 route(곡선구간, 135+116=251건)에서 사실상 100%에 가까운 일치율로 재확인됨. 341차는 ANALYSIS_ONLY로 종료됐고 이후에도 코드 수정이 없었으므로, 이 문제는 여전히 열려 있는 상태.
++
++**150m 게이트(367차계속4)와의 관계**: 무관 확인. 이번 플래핑 구간의 `routeApexDist`는 대부분 0~140m로 근거리이며, 150m 게이트는 원거리(>=150m) fine 대체 억제만 다루므로 개입 여지가 없음.
++
++**코드 수정**: 하지 않음(§31, 이번 세션은 재현/원인 재확인 목적, 수정 여부는 Master 결정 필요).
++
++**검증**:
++- 정적 분석: `carrot_man.py` L1832 인접 게이트 코드 직접 재확인(하한/히스테리시스 없음)
++- 로그 분석: 완료(3,296행, 드리프트 없음, 251건 드롭아웃/블립 프레임별 대조)
++- 시뮬레이션: 미실시(341차 스크립트 `diag_required_decel_341.py`를 이번 corpus에 정식 적용하는 것은 다음 작업으로 이월)
++- 실차 검증: 해당 없음(실차 제보 기반 실측 로그 자체가 근거)
++
++**미확인 사항**:
++1. `diag_required_decel_341.py`를 이번 corpus에 정식 적용해 341차와 동일 형식/지표로 재확정하지 않음(수작업 프레임 대조로 대체) -- 다음 세션에서 정식 스크립트 적용 권장.
++2. 이 플래핑이 실제 종방향 제어 출력(가속/감속 명령)에 체감 가능한 영향을 주는지는 미측정 -- desiredSpeed 자체는 프레임마다 크게 진동하나(예: ~89kph <-> 110kph), 하위 제어 필터/램프리미터가 이를 얼마나 흡수하는지는 별도 확인 필요.
++3. 히스테리시스/하한 설계 자체는 착수하지 않음 -- Master 결정 대기(§27/§34).
++
++**Devnotes**:
++- `WIP.md`: 이 항목(368차) 신규
++- `FINDINGS.md`: 368차 신규(341차 결론 계승 및 대규모 재확인 기록)
++
++**다음 작업**:
++1. `diag_required_decel_341.py`를 이번 route(`22ebbb245d`)에 정식 적용해 341차와 동일 지표로 재확정
++2. ACTIVE 진입 게이트(`required_decel_mss` 임계값)에 히스테리시스/하한 추가 여부 및 설계(폭, 유지시간) Master 결정
++3. 플래핑이 실제 종방향 제어(가속도 명령)에 미치는 영향 정량 측정(현재는 desiredSpeed 진동만 확인, 하위 필터 통과 후 영향 미확인)
++
+ ## 367차 계속4 (완료 -- 거리 임계값 150m 결정 및 코드 패치 적용, 실차 검증 대기) -- `route_curvature_macro_fine()` 원거리 fine 대체 억제 게이트 코드 반영
+ 
+ **Worker**: Claude
+-- 
+2.43.0
+

@@ -1,0 +1,423 @@
+From 7661fd0c9ebc1a5ba937b77dd2f7a3c4c5df6abc Mon Sep 17 00:00:00 2001
+From: Claude <claude@anthropic.local>
+Date: Fri, 11 Sep 2026 23:28:10 +0000
+Subject: [PATCH] =?UTF-8?q?370=EC=B0=A8:=20L1807=20=ED=9E=88=EC=8A=A4?=
+ =?UTF-8?q?=ED=85=8C=EB=A6=AC=EC=8B=9C=EC=8A=A4=20=EC=84=A4=EA=B3=84=20Mas?=
+ =?UTF-8?q?ter=20=EA=B2=B0=EC=A0=95(B3=3Dhold=3D4=ED=94=84=EB=A0=88?=
+ =?UTF-8?q?=EC=9E=84/0.20s)=20+=20diag=5Frequired=5Fdecel=5F341.py=20--hol?=
+ =?UTF-8?q?d-frames=20=EC=98=A4=ED=94=84=EB=9D=BC=EC=9D=B8=20=EC=A0=95?=
+ =?UTF-8?q?=EB=9F=89=EA=B2=80=EC=A6=9D(1=ED=94=84=EB=A0=88=EC=9E=84=20?=
+ =?UTF-8?q?=ED=86=A0=EA=B8=80=20218=EA=B1=B4=20=EC=A0=84=EB=9F=89=20?=
+ =?UTF-8?q?=EC=A0=9C=EA=B1=B0),=20ryu=20=EC=BD=94=EB=93=9C=20=EB=AC=B4?=
+ =?UTF-8?q?=EB=B3=80=EA=B2=BD?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+---
+ CURRENT_STATUS.md                  |  35 +++++++--
+ FINDINGS.md                        |  17 +++-
+ WIP.md                             |  50 +++++++++++-
+ toolkit/CHANGELOG.md               |  13 ++-
+ toolkit/README.md                  |  29 +++++++
+ toolkit/diag_required_decel_341.py | 122 ++++++++++++++++++++++++++++-
+ 6 files changed, 253 insertions(+), 13 deletions(-)
+
+diff --git a/CURRENT_STATUS.md b/CURRENT_STATUS.md
+index 326a0fb..42475f4 100644
+--- a/CURRENT_STATUS.md
++++ b/CURRENT_STATUS.md
+@@ -15,21 +15,42 @@ append-only 원칙 적용 안 함 -- 항상 최신 1개 스냅샷만 유지).
+ 
+ ---
+ 
+-## 코드 상태 (2026-09-12, 369차 종료 시점)
++## 코드 상태 (2026-09-12, 370차 종료 시점)
+ 
+ **Repository**: `ryujmin97/ryu`
+ **Branch**: `c3-ms-dev`
+-**HEAD (GitHub 기준, fresh clone으로 369차 직접 확인)**: `d5b34bb6b358`
++**HEAD (GitHub 기준, fresh clone으로 370차 직접 확인)**: `d5b34bb6b358`
+ (367차 계속4, `route_curvature_macro_fine()` 원거리(>=150m) fine 대체
+ 억제 게이트 `ROUTE_FINE_OVERRIDE_MIN_DIST_M=150.0` 추가).
+-364~369차는 `ryu` 코드 변경 없음(analysis-only, offline replay/실차
+-로그 재분석만).
++364~370차는 `ryu` 코드 변경 없음(analysis-only, offline replay/toolkit
++검증만). L1807 히스테리시스 설계(B3=hold=4프레임/0.20s)는 370차에서
++오프라인 검증 완료(FINDINGS.md/WIP.md 370차), 실제 코드 패치는 다음
++세션 이월.
+ 
+ **Repository**: `ryujmin97/ryu-devnotes`
+ **Branch**: `main`
+-**HEAD (fresh clone으로 369차 직접 확인)**: `f0af4b5`(368차 완료
+-시점)까지 push 완료 확인. 이번(369차) devnotes 갱신(WIP/FINDINGS/이
+-파일)은 이 세션 종료 후 push 대기 중.
++**HEAD (fresh clone으로 370차 직접 확인)**: `da38309`(369차 완료
++시점)까지 push 완료 확인. 이번(370차) devnotes 갱신(WIP/FINDINGS/
++toolkit/이 파일)은 이 세션 종료 후 push 대기 중.
++
++---
++
++## ⏳ 370차 완료 -- L1807 히스테리시스 설계 Master 결정(B3=hold=4프레임/0.20s) + 오프라인 정량검증(1프레임 토글 218건 전량 제거), `carrot_man.py` 실제 패치는 다음 세션
++
++369차가 남긴 "L1807 히스테리시스 설계 여부/방향" NEEDS_DECISION 항목에
++대해 사용자가 시간기반 hold=4프레임(0.20s)으로 확정(값 기반 margin은
++스파이크 크기가 케이스마다 다름 -- 341차 +1.6~5.6kph vs 369차 +8.1kph --
++확인돼 기각). `diag_required_decel_341.py`에 `--hold-frames` 옵션을
++추가(신규 스크립트 아님, §21/§27)해 `22ebbb245d` corpus(369차와 동일,
++3,296행)로 검증: raw(현재 코드) 1프레임 토글 218건 -> hold=4 적용 시
++**0건(100% 제거)**. run-length 분포(1~3프레임 요동이 전체의 85%)로
++hold=4가 hold=2/3보다 넓은 노이즈 대역을 걸러낸다는 근거도 확보.
++**주의**: L1807 조건만 격리 재현한 오프라인 근사, `carrot_serv.py`
++전체 arbitration 반영 아님(§29). 코드 수정 없음(§31, 다음 세션
++`carrot_man.py` L1807 패치 착수 예정). 상세: WIP.md/FINDINGS.md 370차 참고.
++
++**다음 세션 최우선**: `carrot_man.py` L1807에 hold=4 실제 코드 패치
++작성, 341차 원 corpus(x20seg)로 반응지연 부작용 검증.
+ 
+ ---
+ 
+diff --git a/FINDINGS.md b/FINDINGS.md
+index 2f59d2c..7219916 100644
+--- a/FINDINGS.md
++++ b/FINDINGS.md
+@@ -1,4 +1,19 @@
+-## 369차 -- [368차/341차 결론 정정 -- NEEDS_DECISION] `diag_required_decel_341.py` 정식 적용 결과, 368차 251건 플래핑은 ACTIVE 진입게이트(L1832)가 아니라 INERT `v_ego<=target` 비교(L1807)에서 발생함을 확인
++## 370차 -- [369차 NEEDS_DECISION 해결 -- Master 결정 B3 + 정량검증] L1807 히스테리시스를 hold=4프레임(0.20s) 시간기반 디바운스로 설계, 오프라인 재현에서 1프레임 토글 218건 전량(100%) 제거 확인
++
++**기존 결론(369차)**: `carrot_man.py` L1807(`if v_ego_ms <= target_ms:`, INERT 분기)이 251건 플래핑의 실제 코드 위치이며, 히스테리시스를 추가할지/어떻게 설계할지(폭 vs 유지시간)는 Master 결정 필요(NEEDS_DECISION)로 열어둠.
++
++**새로운 증거**:
++1. 히스테리시스 두 축(A=값 기반 margin, B=시간 기반 hold) 후보 검토 -- grid 경계 apex_speed 스파이크 크기가 케이스마다 다름(341차 x20seg +1.6~+5.6kph, 369차 근거리 corpus +8.1kph)이 이미 관측돼 있어 고정 margin(A)은 크기 의존적이라 신뢰도 낮음. 크기 무관 필터인 B(시간 기반)가 근본적 -- 사용자가 **B3(hold=4프레임=0.20s)**로 확정.
++2. `diag_required_decel_341.py`에 `--hold-frames=N` 옵션 추가(§21/§27, 신규 스크립트 아님, 관측 레이어만 추가) -- L1807 raw 조건을 프레임별 bool로 기록 후 N프레임 연속 디바운스(`apply_hold()`) 적용.
++3. 369차와 동일 corpus(`22ebbb245d`, 3,296행, `commit=d5b34bb6b358`)로 재현: 평가 대상 925프레임(369차 569+356과 일치) 중 raw(hold=1, 현재 코드) 1프레임 토글 **218건** -> **hold=4 적용 시 0건(100% 제거)**.
++4. raw 조건의 run-length 분포(1프레임 276/2프레임 38/3프레임 8/4프레임 17/5+ 41, 총 381 run) -- 1~3프레임 요동이 85%(322건)를 차지, hold=2/3이면 2~3프레임 요동(46건)이 여전히 "확정 전환"으로 오인됨 -- hold=4가 hold=2/3보다 뚜렷이 넓은 노이즈 대역을 걸러낸다는 정량적 근거.
++5. 실측 `src`(route/비route) 컬럼 기준 1프레임 토글 228건 -- 368/369차가 보고한 135+116=251건과 크기가 비슷해(완전 일치는 아님) L1807 격리 재현이 실측 패턴을 상당 부분 설명함을 뒷받침.
++
++**변경 이유**: 369차가 코드 위치는 확정했으나 설계 방향(폭/유지시간)은 미결이었음. 스파이크 크기의 케이스 의존성(341차/369차 비교)이 값 기반(A) 설계의 약점을 시사해, 크기 무관 시간 기반(B) 설계로 Master가 결정. hold 값 자체(4프레임)도 임의 선택이 아니라 run-length 분포 실측으로 뒷받침.
++
++**새로운 결론**: L1807에 hold=4프레임(0.20s) 시간기반 디바운스를 추가하는 것으로 설계 확정(NEEDS_DECISION -> DECIDED). 단 이 검증은 L1807 조건만 격리 재현한 오프라인 근사(§29 -- `carrot_serv.py` 전체 arbitration까지 반영한 것은 아님, 실차 검증 아님)이며, 실제 코드 패치와 341차 원 corpus(x20seg) 기준 반응지연 부작용 검증은 다음 세션으로 이월. **상태: NEEDS_VALIDATION(반응지연 부작용) + 코드 패치 대기**.
++
++
+ 
+ **§24 dedup 확인**: FINDINGS.md `required_decel_mss`/`route flapping`/`341차`/`368차` 검색 -- 368차의 직접 후속(368차 "다음 작업 1"). 새 이슈가 아니라 368차/341차가 지목한 "근본 원인 코드 위치"를 실제로 재정정하는 항목.
+ 
+diff --git a/WIP.md b/WIP.md
+index 4612f2e..c8c7999 100644
+--- a/WIP.md
++++ b/WIP.md
+@@ -1,4 +1,52 @@
+-## 369차 (완료 -- `diag_required_decel_341.py` 정식 적용, 368차 근본원인 코드 위치 정정, `ryu` 코드 무변경) -- 368차 251건 플래핑이 ACTIVE 진입게이트(L1832)가 아니라 INERT `v_ego<=target`(L1807)에서 발생함을 실증
++## 370차 (완료 -- L1807 히스테리시스 설계 Master 결정(B3) + `diag_required_decel_341.py`에 `--hold-frames` 옵션 추가한 오프라인 정량검증, `ryu` 코드 무변경) -- hold=4프레임(0.20s) 디바운스로 L1807 1프레임 토글 218건 전량(100%) 제거 확인
++
++**Worker**: Claude
++
++**Repository**: `ryu`(HEAD `d5b34bb6b358`=367차 계속4, dirty=False, 코드 변경 없음) / `ryu-devnotes`(HEAD `da38309`=369차 완료 시점)
++
++**Branch**: `c3-ms-dev` / `main`
++
++**세션 시작 확인(§3/§33)**: fresh clone으로 `ryu` HEAD `d5b34bb6b358` 확인(dirty=False, 367차 계속4 이후 무변경), `ryu-devnotes` HEAD `da38309`(369차 devnotes 갱신분까지 이미 push 완료 상태) 확인.
++
++**배경**: 369차가 남긴 "Master 결정 필요"(L1807 히스테리시스 설계 여부/방향, 폭 vs 유지시간) 항목에 대해 사용자와 두 축(A=값 기반 margin, B=시간 기반 hold)의 후보를 논의. A안은 369차/341차 관측상 grid 경계 스파이크 크기가 케이스마다 다름(341차 x20seg에서 +1.6~+5.6kph, 369차 근거리 corpus에서 +8.1kph)이 확인돼 고정 margin의 신뢰도가 낮다고 판단, 크기 무관 필터인 B(시간 기반 hold)로 방향을 좁히고 그 중 **B3(hold=4프레임=0.20s)**로 사용자가 확정.
++
++**진행 경과**:
++
++1. **corpus 재확보**: 사용자가 369차와 동일 route(`22ebbb245d`, dashcam 3세그먼트 zip)를 재업로드(§23 -- 대용량 산출물 미보존이라 세션마다 재추출 필요). `extract_log.py --with-navi-paths --repo ryu`로 재추출, 3,296행/`commit=d5b34bb6b358`/`dirty=False` 확인 -- 369차 기록과 정확히 일치(같은 corpus).
++2. **toolkit 확장(§21 재사용/§27 최소변경)**: 신규 스크립트를 만들지 않고 `diag_required_decel_341.py`에 `--hold-frames=N` 옵션을 추가. `simulate_with_reason()` 내부에서 L1807 원 조건(`v_ego_ms<=target_ms`, INERT 비활성 분기 한정)을 raw bool 시퀀스로 그대로 기록하고, 별도 함수 `apply_hold()`(N프레임 연속 관측돼야 상태 전환 확정, 그 전엔 직전 안정 상태 유지)로 디바운스한 시퀀스를 나란히 산출하도록 관측 레이어만 추가(게이트 산식 자체는 변경 없음).
++3. **raw(hold=1, 현재 코드와 동일) vs hold=4 비교**: 평가 대상 925프레임(비활성+유효apex, 369차 569+356과 정확히 일치) 중 raw 1프레임성 토글 **218건** -> hold=4 적용 시 **0건(100% 제거)**. 참고로 실측 `src`(route/비route) 컬럼 기준 1프레임 토글은 228건으로, 368/369차가 보고한 135+116=251건과 크기가 비슷함(차이는 arbitration 등 L1807 외 요인 혼입, §29 -- 이 검증은 L1807 단독 격리 재현이며 `carrot_serv.py`의 다른 소스와의 arbitration까지 재현한 것은 아님).
++4. **hold 값 자체의 타당성 확인**: raw 조건의 run-length(연속 지속 프레임) 분포를 냄 -- 1프레임 276건/2프레임 38건/3프레임 8건/4프레임 17건/5+ 41건(총 381 run). 1~3프레임 짧은 요동이 전체의 85%(322건)를 차지 -- hold=2/3이었다면 2~3프레임 지속 요동(46건)은 이미 "확정 전환"으로 오인해 통과시켰을 것이므로, **hold=4가 hold=2/3보다 뚜렷이 넓은 노이즈 대역을 걸러낸다**는 정량적 근거 확보(B3 채택을 뒷받침).
++
++**결론**: B3(hold=4프레임/0.20s)는 이번 corpus의 L1807 1프레임 토글(218건, 실측 251건대와 동일 규모 현상)을 전량 제거하며, hold=2/3 대비로도 타당성이 있음을 확인. 단 이 검증은 L1807 조건만 격리 재현한 오프라인 근사(§29 실차 검증 아님)이고, 341차 원 corpus(x20seg, 실제 커브 진입 반응)에서 hold=4가 진입 반응을 0.20s까지 지연시켰을 때 체감 가능한 부작용이 있는지는 아직 미검증.
++
++**코드 수정**: 하지 않음(§31, 이번 세션은 설계 결정 기록 + toolkit 검증까지, `carrot_man.py` L1807 실제 패치는 사용자 요청으로 다음 세션 이월). toolkit(`diag_required_decel_341.py`)만 변경(관측 레이어 추가, 게이트 산식 무변경).
++
++**검증**:
++- 정적 분석: 완료(`apply_hold()`/`count_single_frame_flips()` 로직 직접 재확인, L1807 raw 기록 지점이 실제 코드 else/INERT 분기와 정확히 대응하는지 확인)
++- 로그 분석: 완료(3,296행 재추출, 369차와 100% 일치)
++- 시뮬레이션: 완료(hold=1/2/3/4/5 스윕 + run-length 분포 산출)
++- 실차 검증: 해당 없음(오프라인 로그 재분석, §29 명시)
++
++**미확인 사항**:
++1. 341차 원 corpus(x20seg, 원거리/직선 실제 커브 진입 반응)로 hold=4의 반응지연 부작용 미검증 -- 다음 세션 최우선 후보
++2. L1807 격리 재현이라 `carrot_serv.py` 전체 arbitration(다른 소스와의 min 선택)까지 반영한 것은 아님 -- 실제 `src` 컬럼 228건과 raw 218건의 차이(10건)가 이 갭에서 오는 것으로 추정되나 직접 규명은 안 함
++3. `carrot_man.py` L1807에 실제로 hold=4를 구현하는 코드 패치(상태 변수/프레임 카운터 추가 위치, `route_active` 상태기계와의 결합 방식)는 다음 세션 착수
++4. `autoNaviSpeedCtrlEnd`/`autoNaviSpeedDecelRate` 실제 device 설정값 확인(369차에서 이월, 계속 미확인)
++5. 368차 "다음 작업 3"(플래핑의 실제 종방향 제어 영향 정량 측정)도 계속 이월
++
++**Devnotes**:
++- `WIP.md`: 이 항목(370차) 신규
++- `FINDINGS.md`: 370차 신규(369차 NEEDS_DECISION 항목에 대한 Master 결정 + 정량검증 결과 기록, §24 형식 준수)
++- `toolkit/README.md`, `toolkit/CHANGELOG.md`: `diag_required_decel_341.py --hold-frames` 옵션 추가 반영(§22)
++
++**다음 작업**:
++1. `carrot_man.py` L1807에 hold=4(0.20s) 디바운스 실제 코드 패치 작성(상태 변수 추가 위치, 최소변경 설계)
++2. 341차 원 corpus(x20seg)로 hold=4의 커브 진입 반응지연 부작용 검증
++3. (이월) `autoNaviSpeedCtrlEnd`/`autoNaviSpeedDecelRate` 실제 device 설정값 확인
++4. (이월) 플래핑/디바운스 지연이 실제 종방향 제어 출력에 미치는 영향 정량 측정
++5. (이월) L1832(ACTIVE 진입게이트) 히스테리시스는 341차 원 corpus 기준 별도 판단
++
++
+ 
+ **Worker**: Claude
+ 
+diff --git a/toolkit/CHANGELOG.md b/toolkit/CHANGELOG.md
+index 928b493..e9f004f 100644
+--- a/toolkit/CHANGELOG.md
++++ b/toolkit/CHANGELOG.md
+@@ -1,4 +1,15 @@
+-## 2026-09-12 (367차 계속)
++## 2026-09-12 (370차)
++- `diag_required_decel_341.py`: 수정(신규 스크립트 아님, §21/§27). L1807
++  히스테리시스 설계(Master 결정 B3=hold=4프레임/0.20s) 오프라인 검증을
++  위해 `--hold-frames=N` 옵션 추가. `simulate_with_reason()`에 L1807
++  raw 조건(`v_ego_ms<=target_ms`, 비활성 분기 한정) 기록 레이어 추가,
++  신규 함수 `apply_hold()`(N프레임 연속 디바운스)/`count_single_frame_
++  flips()`(1프레임성 토글 카운트)로 raw vs hold=N 비교 출력. 기존
++  `route_active` 상태기계/게이트 산식은 무변경. `22ebbb245d` corpus
++  (369차와 동일)에서 raw 1프레임 토글 218건 -> hold=4 적용 시 0건(100%
++  제거) 확인. 상세는 FINDINGS.md/WIP.md 370차 참고.
++
++
+ - `apply_isolation_gate_367.py`: 신규. 367차 22건 FP/4건 TP 물리적
+   이벤트(요약 CSV, naviPaths 없음)에 365차 `isolation_score()`/
+   `parse_navipaths()`를 verbatim import해 게이트 재평가. 필요 route
+diff --git a/toolkit/README.md b/toolkit/README.md
+index 194e716..eb696d7 100644
+--- a/toolkit/README.md
++++ b/toolkit/README.md
+@@ -387,6 +387,35 @@ python3 diag_required_decel_341.py <csv> --summary [--flap-window=2.0]
+ 
+ ---
+ 
++## diag_required_decel_341.py -- `--hold-frames` 옵션 추가 (370차)
++
++**목적**: 369차가 L1807(`if v_ego_ms <= target_ms:`, INERT 분기)로 확정한 251건류
++플래핑에 히스테리시스를 추가하기로 한 Master 결정(B3=hold=4프레임/0.20s
++시간기반 디바운스)을 코드 패치 전에 오프라인으로 정량검증하기 위해
++`simulate_with_reason()`에 관측 레이어를 추가(§21/§27 -- 게이트 산식
++자체는 무변경). L1807 raw 조건(`v_ego_ms<=target_ms`, 비활성 분기 한정)을
++프레임별 bool로 기록하고, 신규 함수 `apply_hold()`(N프레임 연속 관측돼야
++상태 전환 확정, 그 전엔 직전 안정 상태 유지)로 디바운스한 시퀀스를 나란히
++산출한다. `count_single_frame_flips()`로 raw/held 각각의 1프레임성
++토글 건수를 세어 비교한다.
++
++**핵심 결과(370차)**: `22ebbb245d` corpus(369차와 동일, 3,296행)에서
++raw(hold=1, 현재 코드) 1프레임 토글 218건 -> hold=4 적용 시 **0건(100%
++제거)**. run-length 분포(1~3프레임 요동이 전체 381 run 중 85%)로 hold=4가
++hold=2/3보다 뚜렷이 넓은 노이즈 대역을 걸러낸다는 근거도 확보. 상세는
++WIP.md/FINDINGS.md 370차 참고. **주의**: L1807 조건만 격리 재현한
++오프라인 근사이며 `carrot_serv.py`의 다른 소스와의 arbitration까지
++반영한 것은 아니다(§29 실차 검증 아님). `carrot_man.py` 실제 패치는
++아직 미착수(다음 세션 이월).
++
++**사용**:
++```bash
++python3 diag_required_decel_341.py <csv> --hold-frames=4 [--decel-rate=1.00]
++# hold_frames 값을 바꿔 스윕 비교도 가능(예: --hold-frames=2/3/5)
++```
++
++---
++
+ ## diag_required_decel_341.py (341차, 신규 -- 340차 "직선구간 route flapping" 가설 code-level 확정) [주의: 이 항목의 "핵심 결과"는 오류 -- 바로 위 "341차 계속" 정정 항목 참고, 스크립트 파일도 정정판으로 교체됨]
+ 
+ **목적**: WIP 340차가 남긴 가설("직선구간 route flapping이
+diff --git a/toolkit/diag_required_decel_341.py b/toolkit/diag_required_decel_341.py
+index 7285c7e..95beaa6 100644
+--- a/toolkit/diag_required_decel_341.py
++++ b/toolkit/diag_required_decel_341.py
+@@ -33,6 +33,13 @@ entry_gate_fail=신규진입 실패)이 발동했는지 분류해 출력한다(
+     # 전체 로그 release reason 통계(구간 지정 없이 --summary)
+     python3 diag_required_decel_341.py <csv> --summary [--decel-rate=1.00]
+         [--flap-window=2.0]   # 이 시간(초) 이내 재진입만 'flapping'으로 카운트
++
++    # [370차 신규] L1807 히스테리시스(B3=hold=4프레임) 오프라인 검증
++    python3 diag_required_decel_341.py <csv> --hold-frames=4 [--decel-rate=1.00]
++        # L1807(v_ego<=target, INERT 분기) raw 조건과 N프레임 디바운스 적용 후
++        # 1프레임성 토글 건수를 비교 출력(§21 -- 게이트 산식 자체는 무변경,
++        # 관측/디바운스 레이어만 추가). 369차 corpus(`22ebbb245d`)에서
++        # hold=4 -> raw 218건 전량(100%) 제거 확인(FINDINGS.md 370차 참고).
+ """
+ import csv
+ import sys
+@@ -51,7 +58,64 @@ def load_src(csv_path):
+     return {float(r["t"]): r["src"] for r in rows}
+ 
+ 
+-def simulate_with_reason(rows, decel_rate, tau, ctrl_end, continuity_tol):
++def apply_hold(raw_series, hold_frames):
++    """B3 설계안(370차 논의, L1807 유지시간 히스테리시스) 오프라인 검증용.
++    raw_series: 매 프레임 bool (None=True 취급/미평가=None).
++    hold_frames: 값이 바뀌려면 새 값이 이만큼 연속으로 관측돼야 실제 전환.
++    hold_frames<=1이면 raw_series 그대로(디바운스 없음=현재 코드 상태).
++    반환: (held_series, pending_run_len) -- None 값은 그대로 통과(평가 대상 아님).
++    """
++    if hold_frames <= 1:
++        return list(raw_series)
++    held = []
++    stable = None
++    pending_val = None
++    pending_len = 0
++    for raw in raw_series:
++        if raw is None:
++            held.append(stable)
++            continue
++        if stable is None:
++            stable = raw
++            held.append(stable)
++            continue
++        if raw == stable:
++            pending_val, pending_len = None, 0
++            held.append(stable)
++        else:
++            if raw == pending_val:
++                pending_len += 1
++            else:
++                pending_val, pending_len = raw, 1
++            if pending_len >= hold_frames:
++                stable = pending_val
++                pending_val, pending_len = None, 0
++            held.append(stable)
++    return held
++
++
++def count_single_frame_flips(series):
++    """앞뒤 프레임과 다르고 지속시간이 정확히 1프레임인 전환(그 유명한
++    "route->1프레임 이탈->route" 패턴)만 센다. None은 평가 제외."""
++    n = len(series)
++    count = 0
++    i = 0
++    while i < n:
++        if series[i] is None:
++            i += 1
++            continue
++        j = i
++        while j < n and series[j] == series[i]:
++            j += 1
++        run_len = j - i
++        if run_len == 1 and i > 0 and j < n and series[i - 1] is not None and series[j] is not None \
++                and series[i - 1] == series[j] and series[i - 1] != series[i]:
++            count += 1
++        i = j
++    return count
++
++
++def simulate_with_reason(rows, decel_rate, tau, ctrl_end, continuity_tol, hold_frames=1):
+     """route_active 상태전이를 프레임별로 추적하며 release/entry reason을 함께 낸다.
+     반환: list of dict(t, route_active, reason, apex_idx, apex_dist, apex_speed,
+                         v_ego_kph, req_decel, eff_apex_speed, streak)
+@@ -62,6 +126,7 @@ def simulate_with_reason(rows, decel_rate, tau, ctrl_end, continuity_tol):
+     route_active = False
+     prev_t = None
+     out = []
++    raw_inert = []  # L1807 raw bool per frame (True=v_ego<=target/None분기, None=미평가)
+     for row in rows:
+         t = row["t"]
+         dt = (t - prev_t) if prev_t is not None else 0.05
+@@ -77,6 +142,7 @@ def simulate_with_reason(rows, decel_rate, tau, ctrl_end, continuity_tol):
+         reason = None
+         req_decel = None
+         eff_apex_speed = None
++        raw_val = None  # [370차 B3 검증] L1807(비활성 분기 v_ego<=target) 원 조건, 이 분기 평가시에만 채움
+ 
+         if apex_idx is None or apex_idx < 0 or apex_speed is None or apex_dist is None:
+             route_active = False
+@@ -100,7 +166,8 @@ def simulate_with_reason(rows, decel_rate, tau, ctrl_end, continuity_tol):
+                     if eff_dist > 0 and v_ego_ms > target_ms:
+                         req_decel = (v_ego_ms ** 2 - target_ms ** 2) / (2.0 * eff_dist)
+             else:
+-                if v_ego_ms <= target_ms:
++                raw_val = (v_ego_ms <= target_ms)  # L1807 그 자체
++                if raw_val:
+                     pass
+                 elif eff_dist <= 0:
+                     pass
+@@ -109,12 +176,18 @@ def simulate_with_reason(rows, decel_rate, tau, ctrl_end, continuity_tol):
+                     if req_decel >= decel_rate:
+                         route_active = True
+ 
++        raw_inert.append(raw_val)
+         out.append({
+             "t": t, "route_active": route_active, "was_active": was_active,
+             "reason": reason, "apex_idx": apex_idx, "apex_dist": apex_dist,
+             "apex_speed": apex_speed, "v_ego_kph": v_ego_kph,
+             "req_decel": req_decel, "eff_apex_speed": eff_apex_speed, "streak": streak,
+         })
++
++    held_inert = apply_hold(raw_inert, hold_frames)
++    for o, raw, held in zip(out, raw_inert, held_inert):
++        o["l1807_raw"] = raw          # True=out_speed None(route 배제), False=out_speed=v_ego_kph(route 포함), None=미평가
++        o["l1807_held"] = held        # hold_frames 적용 후 동일 의미
+     return out
+ 
+ 
+@@ -162,6 +235,43 @@ def run_summary(csv_path, decel_rate, tau, ctrl_end, continuity_tol, flap_window
+     print("  reason 분포:", dict(Counter(s["reason"] for s in flap)))
+ 
+ 
++def run_hold_compare(csv_path, decel_rate, tau, ctrl_end, continuity_tol, hold_frames):
++    """[370차, B3 검증] L1807에 hold_frames 프레임 디바운스를 적용했을 때
++    'route 배제(None)/포함(v_ego_kph)' 상태의 1프레임성 토글(=368/369차가
++    실측 src 컬럼에서 135건 드롭아웃/116건 블립으로 센 것과 동일 패턴)이
++    몇 건에서 몇 건으로 주는지 raw(hold=1, 현재 코드와 동일) vs
++    hold=hold_frames로 비교한다. 실제 src 컬럼과의 교차 대조도 참고용으로 낸다.
++    주의: L1807 판정만 격리 재현한 것으로, carrot_serv.py의 다른 소스와의
++    arbitration(min 선택)까지 재현한 것은 아니다(오프라인 근사, §29 실차검증 아님).
++    """
++    rows = load_rows(csv_path)
++    src_map = load_src(csv_path)
++    sim = simulate_with_reason(rows, decel_rate, tau, ctrl_end, continuity_tol, hold_frames=1)
++    sim_held = simulate_with_reason(rows, decel_rate, tau, ctrl_end, continuity_tol, hold_frames=hold_frames)
++
++    raw_series = [s["l1807_raw"] for s in sim]
++    held_series = [s["l1807_held"] for s in sim_held]
++
++    n_evaluated = sum(1 for v in raw_series if v is not None)
++    raw_flips = count_single_frame_flips(raw_series)
++    held_flips = count_single_frame_flips(held_series)
++
++    print(f"[L1807 격리 재현, hold=1(현재코드) vs hold={hold_frames}]")
++    print(f"  평가 대상 프레임(비활성+유효apex): {n_evaluated} / 전체 {len(raw_series)}")
++    print(f"  1프레임 토글(raw, hold=1={'현재 코드와 동일'}): {raw_flips}건")
++    print(f"  1프레임 토글(held, hold={hold_frames}): {held_flips}건")
++    print(f"  감소: {raw_flips - held_flips}건 ({(raw_flips - held_flips) / raw_flips * 100:.1f}% 감소)" if raw_flips else "  raw_flips=0")
++
++    # 참고: 실측 src 컬럼 기준 route/비route 1프레임 토글과 교차비교
++    src_series = []
++    for r, s in zip(rows, sim):
++        is_route = (src_map.get(r["t"], "?") == "route")
++        src_series.append(is_route if s["l1807_raw"] is not None else None)
++    src_flips = count_single_frame_flips(src_series)
++    print(f"\n  참고: 실측 src(route/비route) 1프레임 토글 (368/369차 135+116=251건 기준): {src_flips}건 "
++          f"(단, arbitration 등 L1807 외 요인도 섞여 있어 완전 일치는 기대하지 않음)")
++
++
+ def main():
+     csv_path = sys.argv[1]
+     decel_rate = DECEL_RATE_DEFAULT
+@@ -169,7 +279,9 @@ def main():
+     ctrl_end = CTRL_END_DEFAULT
+     continuity_tol = CONTINUITY_TOL_DEFAULT
+     flap_window = 2.0
++    hold_frames = 1
+     summary_mode = "--summary" in sys.argv[2:]
++    hold_mode = any(a.startswith("--hold-frames=") for a in sys.argv[2:])
+ 
+     rest = [a for a in sys.argv[2:] if a != "--summary"]
+     for a in rest:
+@@ -183,8 +295,12 @@ def main():
+             continuity_tol = float(a.split("=", 1)[1])
+         elif a.startswith("--flap-window="):
+             flap_window = float(a.split("=", 1)[1])
++        elif a.startswith("--hold-frames="):
++            hold_frames = int(a.split("=", 1)[1])
+ 
+-    if summary_mode:
++    if hold_mode:
++        run_hold_compare(csv_path, decel_rate, tau, ctrl_end, continuity_tol, hold_frames)
++    elif summary_mode:
+         run_summary(csv_path, decel_rate, tau, ctrl_end, continuity_tol, flap_window)
+     else:
+         t0 = float(rest[0])
+-- 
+2.43.0
+
